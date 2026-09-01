@@ -6,33 +6,51 @@ import Person from "../types/person.type";
 import { calcItemTotalValue, calcPaymentTotalValue } from "./calculations";
 
 export const stringifyFullAddress = (
-    address: CustomerData['fullAddress'] | null | undefined
+    address: any
 ) => {
     if (!address) return '';
-    const { street, number, complement, neighborhood, city } = address;
+    if (typeof address === 'string') return address.trim();
+    const street = address.street || address.logradouro || address.rua || address.address || '';
+    const number = address.number || address.numero || '';
+    const complement = address.complement || address.complemento || '';
+    const neighborhood = address.neighborhood || address.bairro || '';
+    const city = address.city || address.cidade || '';
     return [street, number, complement, neighborhood, city]
         .filter(Boolean)
         .join(', ')
+        .trim();
 };
 
 export const stringifyMapAddress = (
-    address: CustomerData['fullAddress'] | null | undefined
+    address: any
 ) => {
     if (!address) return '';
-    const { street, number, neighborhood, city } = address;
+    if (typeof address === 'string') return address.trim();
+    const street = address.street || address.logradouro || address.rua || address.address || '';
+    const number = address.number || address.numero || '';
+    const neighborhood = address.neighborhood || address.bairro || '';
+    const city = address.city || address.cidade || '';
     return [street, number, neighborhood, city]
         .filter(Boolean)
         .join(', ')
+        .trim();
 };
 
 export const stringifyFullAddressWithObservation = (
-    address: CustomerData['fullAddress'] | null | undefined
+    address: any
 ) => {
     if (!address) return '';
-    const { street, number, complement, observation, neighborhood, city } = address;
+    if (typeof address === 'string') return address.trim();
+    const street = address.street || address.logradouro || address.rua || address.address || '';
+    const number = address.number || address.numero || '';
+    const complement = address.complement || address.complemento || '';
+    const observation = address.observation || address.observacao || '';
+    const neighborhood = address.neighborhood || address.bairro || '';
+    const city = address.city || address.cidade || '';
     return [street, number, complement, observation, neighborhood, city]
         .filter(Boolean)
         .join(', ')
+        .trim();
 };
 
 export const stringifyItems = (items: Item[]) => {
@@ -187,6 +205,22 @@ export const capitalizeCustomerData = (data: CustomerData): CustomerData => {
 export const capitalizeOrder = (order: Order): Order => {
     if (!order) return order;
 
+    const shipping = order.shipping || {
+        value: 0,
+        deliveryMethod: 'delivery',
+        orderType: 'Standard',
+        scheduling: { date: "", time: "", startTime: "", endTime: "", type: "range" },
+        autoCalculateValue: false,
+        useCustomerAddress: true,
+        deliveryAddress: { cep: '', street: '', number: '', complement: '', observation: '', neighborhood: '', city: '' }
+    };
+
+    // Se o pedido usa o endereço do cliente ou o deliveryAddress está vazio de rua, herda o fullAddress do customerData
+    const hasDeliveryStreet = Boolean(shipping.deliveryAddress?.street || (typeof shipping.deliveryAddress === 'string' && shipping.deliveryAddress.trim()));
+    const finalDeliveryAddress = (shipping.useCustomerAddress !== false || !hasDeliveryStreet)
+        ? (hasDeliveryStreet ? shipping.deliveryAddress : (order.customerData?.fullAddress || shipping.deliveryAddress))
+        : shipping.deliveryAddress;
+
     return {
         ...order,
         items: (order.items || []).map(item => {
@@ -199,14 +233,9 @@ export const capitalizeOrder = (order: Order): Order => {
         assistanceItems: order.assistanceItems || [],
         customerData: capitalizeCustomerData(order.customerData),
         payments: order.payments || [],
-        shipping: order.shipping || {
-            value: 0,
-            deliveryMethod: 'delivery',
-            orderType: 'Standard',
-            scheduling: { date: "", time: "", startTime: "", endTime: "", type: "range" },
-            autoCalculateValue: false,
-            useCustomerAddress: true,
-            deliveryAddress: { cep: '', street: '', number: '', complement: '', observation: '', neighborhood: '', city: '' }
+        shipping: {
+            ...shipping,
+            deliveryAddress: finalDeliveryAddress
         }
     };
 };

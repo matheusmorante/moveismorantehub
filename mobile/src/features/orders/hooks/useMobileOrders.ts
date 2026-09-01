@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { supabase } from '../../../services/supabaseClient';
 
+const ITEMS_PER_PAGE = 30;
+
 export function useMobileOrders() {
   const [orders, setOrders] = useState<any[]>([]);
   const [handlingOptions, setHandlingOptions] = useState<any[]>([]);
@@ -8,12 +10,13 @@ export function useMobileOrders() {
   const [refreshing, setRefreshing] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
+  const [currentPage, setCurrentPage] = useState(1);
 
   const refresh = async (pull = false) => {
     pull ? setRefreshing(true) : setLoading(true);
     try {
       const [ordersResult, settingsResult] = await Promise.all([
-        supabase.from('orders').select('*').order('created_at', { ascending: false }).limit(100),
+        supabase.from('orders').select('*').order('created_at', { ascending: false }).limit(2000),
         supabase.from('settings').select('*').limit(1),
       ]);
       if (ordersResult.data) setOrders(ordersResult.data);
@@ -27,15 +30,34 @@ export function useMobileOrders() {
     }
   };
 
-  useEffect(() => { refresh(); }, []);
+  useEffect(() => {
+    refresh();
+  }, []);
+
+  // Reset pagination when search or status filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, statusFilter]);
 
   const filteredOrders = useMemo(() => orders.filter(order => {
     const data = order.order_data || {};
     if (data.deleted || order.deleted) return false;
-    const term = searchTerm.toLowerCase();
+
+    // Regra do ERP: Listagem de Vendas exibe apenas vendas/mostruário (exclui orçamentos, assistências e devoluções)
+    const orderType = String(order.orderType || order.order_type || data.orderType || 'sale').toLowerCase();
+    if (orderType === 'budget' || orderType === 'assistance' || orderType === 'return') {
+      return false;
+    }
+
+    const term = searchTerm.toLowerCase().trim();
     const customer = String(data.customerData?.fullName || order.customer_name || '').toLowerCase();
     const city = String(data.shipping?.deliveryAddress?.city || order.city || '').toLowerCase();
-    if (term && !customer.includes(term) && !city.includes(term)) return false;
+    const orderCode = String(data.orderIndex || data.order_index || order.order_index || order.order_number || order.id || '');
+    
+    if (term && !customer.includes(term) && !city.includes(term) && !orderCode.includes(term)) {
+      return false;
+    }
+
     const status = String(order.status || data.status || '').toLowerCase();
     if (statusFilter === 'agendados') return status.includes('agendad') || status.includes('scheduled');
     if (statusFilter === 'concluidos') return /fulfill|atendid|concluid|entreg|finaliz/.test(status);
@@ -43,6 +65,29 @@ export function useMobileOrders() {
     return true;
   }), [orders, searchTerm, statusFilter]);
 
-  return { filteredOrders, handlingOptions, loading, refreshing, searchTerm, statusFilter, setSearchTerm, setStatusFilter, refresh };
-}
+  const totalPages = Math.max(1, Math.ceil(filteredOrders.length / ITEMS_PER_PAGE));
 
+  const paginatedOrders = useMemo(() => {
+    const start = (currentPage - 1) * ITEMS_PER_PAGE;
+    return filteredOrders.slice(start, start + ITEMS_PER_PAGE);
+  }, [filteredOrders, currentPage]);
+
+  return {
+    orders: paginatedOrders,
+    filteredOrders,
+    paginatedOrders,
+    totalItems: filteredOrders.length,
+    totalPages,
+    currentPage,
+    itemsPerPage: ITEMS_PER_PAGE,
+    handlingOptions,
+    loading,
+    refreshing,
+    searchTerm,
+    statusFilter,
+    setCurrentPage,
+    setSearchTerm,
+    setStatusFilter,
+    refresh,
+  };
+}

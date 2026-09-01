@@ -124,14 +124,20 @@ export const NativeAssembliesScreen: React.FC<Props> = ({ isDarkMode, initialSub
     const items = oData.items || o.items || [];
     const orderHandling = (oData.handlingType || oData.handling || oData.deliveryType || shipping.handlingType || shipping.handling || o.handling || o.handlingType || '').toString();
     const isOrderAssemblyOutside = isAssemblyOutsideType(orderHandling, handlingOptions);
+    const isOrderAssemblyInternal = isAssemblyInternalType(orderHandling, handlingOptions);
 
     const hasItemAssemblyOutside = items.some((item: any) => {
       const itemHandling = (item.handlingType || item.handling || '').toString();
       return itemHandling ? isAssemblyOutsideType(itemHandling, handlingOptions) : isOrderAssemblyOutside;
     });
 
+    const hasItemAssemblyInternal = items.some((item: any) => {
+      const itemHandling = (item.handlingType || item.handling || '').toString();
+      return itemHandling ? isAssemblyInternalType(itemHandling, handlingOptions) : isOrderAssemblyInternal;
+    });
+
     if (subTab === 'outside') return hasItemAssemblyOutside;
-    return !hasItemAssemblyOutside && items.length > 0;
+    return hasItemAssemblyInternal;
   });
 
   const rawGrouped = groupOrdersByDate(filteredAssemblies).filter(g => g.dateKey !== 'sem_data');

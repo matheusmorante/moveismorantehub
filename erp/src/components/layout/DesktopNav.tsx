@@ -112,7 +112,7 @@ const DesktopNav = ({ activeMenu, setActiveMenu }: DesktopNavProps) => {
                 )}
             </div>
 
-            {/* Pedidos */}
+            {/* Vendas */}
             <div
                 className="relative h-full flex items-center"
                 onMouseEnter={() => setActiveMenu('salesOrder')}
@@ -120,7 +120,7 @@ const DesktopNav = ({ activeMenu, setActiveMenu }: DesktopNavProps) => {
             >
                 <button onClick={() => toggle('salesOrder')} className={menuBtnClass(activeMenu === 'salesOrder', false)}>
                     <i className="bi bi-cart-fill"></i>
-                    Pedidos
+                    Vendas
                     <i className={chevronClass(activeMenu === 'salesOrder')}></i>
                 </button>
                 {activeMenu === 'salesOrder' && (

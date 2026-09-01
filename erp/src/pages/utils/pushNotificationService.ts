@@ -1,4 +1,5 @@
 import { supabase } from './supabaseConfig';
+import { getNotificationSoundRoute } from './notificationSoundRouting';
 
 export interface AppNotificationPayload {
     orderId?: string;
@@ -11,6 +12,7 @@ export interface AppNotificationPayload {
 
 export async function dispatchAppNotification(payload: AppNotificationPayload): Promise<void> {
     try {
+        const soundRoute = getNotificationSoundRoute(payload);
         // 1. Grava no banco de dados para histórico e realtime do app aberto
         const { error } = await supabase.from('app_notifications').insert({
             order_id: payload.orderId || null,
@@ -45,15 +47,15 @@ export async function dispatchAppNotification(payload: AppNotificationPayload): 
             to: token,
             title: payload.title,
             body: payload.message,
-            sound: 'default',
-            channelId: 'morante_alerts_v2',
+            sound: soundRoute.sound,
+            channelId: soundRoute.channelId,
             priority: 'high',
             _displayInForeground: true,
             _android: {
-                sound: true,
+                sound: soundRoute.sound,
                 priority: 'max',
                 visibility: 'public',
-                channelId: 'morante_alerts_v2',
+                channelId: soundRoute.channelId,
             },
             data: {
                 orderId: payload.orderId,

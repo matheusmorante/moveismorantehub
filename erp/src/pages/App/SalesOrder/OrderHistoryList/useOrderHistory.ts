@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import Order, { IsButtonsClicked } from "../../../types/order.type";
-import { subscribeToOrders, restoreOrder, permanentDeleteDraftOrder, permanentDeleteOrder, updateOrder } from "../../../utils/orderHistoryService";
+import { subscribeToOrders, restoreOrder, permanentDeleteDraftOrder, permanentDeleteOrder, updateOrder, undoReturn } from "../../../utils/orderHistoryService";
 import { actionsMap, buttons } from "../OrderActions/orderActionsConfig";
 import { autoFulfillExpiredOrders } from "@/pages/utils/orderFulfillmentCountdown";
 import { toast } from "react-toastify";
@@ -16,31 +16,17 @@ export const useOrderHistory = (filters?: any) => {
     const [selectedOrders, setSelectedOrders] = useState<string[]>([]);
     const [refreshSignal, setRefreshSignal] = useState(0);
     const [totalDatabaseItems, setTotalDatabaseItems] = useState(0);
-    const [loadingMore, setLoadingMore] = useState(false);
     const [pendingReturnFulfillment, setPendingReturnFulfillment] = useState<Order | null>(null);
     const { width } = useWindowSize();
     const isMobile = width < CARD_VIEW_BREAKPOINT;
-    // Cards view uses infinite scroll (mobile + desktop cards), table view uses classic pagination
     const isCardView = isMobile ||
         (typeof window !== 'undefined' && (
             window.location.search.includes('auth_email') ||
             window.location.pathname.includes('/mobile') ||
             Boolean((window as any).ReactNativeWebView)
         ));
-    const [useInfiniteScroll, setUseInfiniteScroll] = useState(isCardView);
-
-    // Sync useInfiniteScroll with isCardView changes
-    useEffect(() => {
-        setUseInfiniteScroll(isCardView);
-    }, [isCardView]);
 
     const refresh = () => setRefreshSignal(prev => prev + 1);
-
-    const loadMore = () => {
-        if (!useInfiniteScroll || loadingMore || (currentPage * PAGE_SIZE) >= totalDatabaseItems) return;
-        setLoadingMore(true);
-        setCurrentPage(prev => prev + 1);
-    };
 
     useEffect(() => {
         let active = true;
@@ -51,7 +37,6 @@ export const useOrderHistory = (filters?: any) => {
             setOrders(allOrders);
             setTotalDatabaseItems(allOrders.length);
             setLoading(false);
-            setLoadingMore(false);
 
             // Auto-atende pedidos cuja data de entrega já passou há 5 dias ou mais
             autoFulfillExpiredOrders(allOrders);
@@ -209,15 +194,11 @@ export const useOrderHistory = (filters?: any) => {
 
     const totalItems = filteredOrders.length;
     const totalPages = Math.max(1, Math.ceil(totalItems / PAGE_SIZE));
-    const hasMore = useInfiniteScroll && (currentPage * PAGE_SIZE) < totalItems;
 
     const displayedOrders = useMemo(() => {
-        if (useInfiniteScroll) {
-            return filteredOrders.slice(0, currentPage * PAGE_SIZE);
-        }
         const startIndex = (currentPage - 1) * PAGE_SIZE;
         return filteredOrders.slice(startIndex, startIndex + PAGE_SIZE);
-    }, [filteredOrders, currentPage, useInfiniteScroll]);
+    }, [filteredOrders, currentPage]);
 
     const handleDelete = async (id: string) => {
         const order = orders.find((item) => item.id === id);
@@ -364,6 +345,24 @@ export const useOrderHistory = (filters?: any) => {
     };
 
     const handleAction = async (actionKey: string, order: Order) => {
+        if (actionKey === "undoReturn") {
+            if (!window.confirm("Deseja realmente cancelar esta devolução? Ela continuará no histórico com o status Cancelado.")) return;
+            try {
+                await undoReturn(order);
+                const returnId = order.orderType === "return" ? order.id : order.returnOrderId;
+                setOrders(prev => prev.map(item => item.id === returnId
+                    ? { ...item, status: "cancelled", returnStockProcessed: false }
+                    : item.id === order.id && order.orderType !== "return"
+                        ? { ...item, returnOrderId: undefined, returnKind: undefined }
+                        : item));
+                toast.success("Devolução cancelada com sucesso!");
+                refresh();
+            } catch (error: any) {
+                toast.error(`Erro ao cancelar devolução: ${error?.message || "tente novamente"}`);
+            }
+            return;
+        }
+
         const actionDef = buttons.find(b => b.key === actionKey);
         if (actionDef && order.id) {
             // 1. Perform original action
@@ -459,16 +458,12 @@ export const useOrderHistory = (filters?: any) => {
     return {
         orders: displayedOrders,
         totalItems,
-        hasMore,
-        loadMore,
         currentPage,
         itemsPerPage: PAGE_SIZE,
         totalPages,
         setCurrentPage,
         isMobile,
         isCardView,
-        useInfiniteScroll,
-        loadingMore,
         loading,
         handleDelete,
         handleRestore,

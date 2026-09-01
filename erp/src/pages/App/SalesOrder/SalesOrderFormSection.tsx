@@ -79,7 +79,15 @@ const SalesOrderFormSection = ({ form, scrollRef, onLoadJSON, onOpenSellerSearch
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                     <SellerInput
                                         value={state.seller}
+                                        sellerId={state.sellerId}
                                         onChange={actions.setSeller}
+                                        onSelectSeller={(sellerData) => {
+                                            if (actions.setSellerData) {
+                                                actions.setSellerData(sellerData);
+                                            } else {
+                                                actions.setSeller(sellerData.name);
+                                            }
+                                        }}
                                         onAddNewSeller={onOpenSellerSearch}
                                     />
 
@@ -172,7 +180,7 @@ const SalesOrderFormSection = ({ form, scrollRef, onLoadJSON, onOpenSellerSearch
                     {currentStep === 4 && (
                         <div className="max-w-4xl mx-auto animate-fade-in space-y-8">
                             <SectionCard
-                                icon={isPickup ? "bi bi-hand-index-thumb" : "bi bi-truck"}
+                                icon={isPickup ? "bi bi-shop" : "bi bi-truck"}
                                 iconBg={isPickup ? "bg-emerald-500 shadow-emerald-100 dark:shadow-emerald-900/20" : "bg-orange-500 shadow-orange-100 dark:shadow-orange-900/20"}
                                 title={isBudget ? "Frete e Entrega" : "Logística"}
                                 className="bg-white dark:bg-slate-900 transition-colors duration-300"

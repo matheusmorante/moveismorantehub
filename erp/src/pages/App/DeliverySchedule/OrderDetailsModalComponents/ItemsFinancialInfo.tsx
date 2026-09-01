@@ -11,57 +11,107 @@ export const ItemsTable = ({ items }: { items: any[] }) => (
             <i className="bi bi-box-seam-fill" /> Lista de Itens
         </h3>
         <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-100 dark:border-slate-800 overflow-x-auto shadow-sm transition-colors duration-300">
-            <table className="w-full min-w-[440px] text-left border-collapse">
+            <table className="w-full min-w-[620px] text-left border-collapse">
                 <thead>
                     <tr className="bg-slate-50 dark:bg-slate-800/40 border-b border-slate-100 dark:border-slate-800">
-                        <th className="px-4 sm:px-6 py-4 text-[9px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">Qtd</th>
+                        <th className="px-4 sm:px-6 py-4 text-[9px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 w-16">Qtd</th>
                         <th className="px-4 sm:px-6 py-4 text-[9px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">Produto</th>
-                        <th className="px-4 sm:px-6 py-4 text-[9px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 text-right">Total</th>
+                        <th className="px-4 sm:px-6 py-4 text-[9px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 text-right">Valor Unitário</th>
+                        <th className="px-4 sm:px-6 py-4 text-[9px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 text-right">Total do Item</th>
                     </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-50 dark:divide-slate-800">
                     {items?.map((item: any, idx: number) => {
                         const opportunityLabel = getOpportunityLabel(item);
+                        const qty = Number(item.quantity) || 1;
+                        const unitPrice = Number(item.unitPrice) || 0;
+                        const rawDiscount = Number(item.unitDiscount) || 0;
+                        const isPercentage = item.discountType === 'percentage';
+                        const fixedUnitDiscount = isPercentage ? (unitPrice * rawDiscount) / 100 : rawDiscount;
+                        const hasDiscount = fixedUnitDiscount > 0;
+                        const unitPriceWithDiscount = Math.max(0, unitPrice - fixedUnitDiscount);
+                        const grossTotal = unitPrice * qty;
+                        const netTotal = unitPriceWithDiscount * qty;
+                        const totalDiscount = fixedUnitDiscount * qty;
+
                         return (
-                        <tr key={idx} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors">
-                            <td className="px-4 sm:px-6 py-4 text-xs font-black text-slate-800 dark:text-slate-200">{item.quantity}x</td>
-                            <td className="px-4 sm:px-6 py-4 flex flex-col gap-1 items-start">
-                                <span className="text-xs font-bold text-slate-800 dark:text-slate-200">{item.description}</span>
-                                {item.variationLabel && <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500">{item.variationLabel}</span>}
-                                <div className="flex flex-wrap gap-2 items-center">
-                                    {item.condition && item.condition !== 'novo' && (
-                                        <span className={`flex items-center gap-1 px-2 py-0.5 rounded-lg text-[8px] font-black uppercase tracking-widest border transition-all ${item.condition === 'novo' ? 'bg-emerald-50 text-emerald-600 border-emerald-100 dark:bg-emerald-900/20 dark:text-emerald-400 dark:border-emerald-900/30' :
-                                            item.condition === 'usado' ? 'bg-purple-50 text-purple-600 border-purple-100 dark:bg-purple-900/20 dark:text-purple-400 dark:border-purple-900/30' :
-                                                'bg-amber-50 text-amber-600 border-amber-100 dark:bg-amber-900/20 dark:text-amber-400 dark:border-amber-900/30'
-                                            }`}>
-                                            {item.condition}
-                                        </span>
-                                    )}
-                                    {opportunityLabel && (
-                                        <span className="rounded-lg border border-amber-200 bg-amber-50 px-2 py-0.5 text-[8px] font-black uppercase tracking-widest text-amber-700 dark:border-amber-900/40 dark:bg-amber-900/20 dark:text-amber-300">
-                                            {opportunityLabel}
-                                        </span>
-                                    )}
-                                    {item.isAssistanceItem && (
-                                        <span className="bg-indigo-50 text-indigo-600 border border-indigo-100 dark:bg-indigo-900/20 dark:text-indigo-400 dark:border-indigo-900/30 px-2 py-0.5 rounded-lg text-[8px] font-black uppercase tracking-widest">
-                                            Peça sob Assistência
-                                            {item.originalOrderId && ` (#${item.originalOrderId.slice(-5)})`}
-                                        </span>
-                                    )}
-                                    {item.handlingType && (
-                                        <div className="flex items-center gap-1.5 mt-2">
-                                            <span className="px-2.5 py-1 rounded-xl bg-blue-50 dark:bg-blue-900/30 text-[10px] font-black uppercase tracking-widest text-blue-600 dark:text-blue-400 border border-blue-100/50 dark:border-blue-900/30 flex items-center gap-2">
-                                                <i className={`bi ${item.handlingType.toLowerCase().includes('montagem') ? 'bi-hammer' : 'bi-box-seam'} text-blue-500`} />
-                                                {item.handlingType}
+                            <tr key={idx} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors">
+                                <td className="px-4 sm:px-6 py-4 text-xs font-black text-slate-800 dark:text-slate-200 align-top">
+                                    <span className="inline-block bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded-lg">
+                                        {qty}x
+                                    </span>
+                                </td>
+                                <td className="px-4 sm:px-6 py-4 flex flex-col gap-1 items-start align-top">
+                                    <span className="text-xs font-bold text-slate-800 dark:text-slate-200">{item.description}</span>
+                                    {item.variationLabel && <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500">{item.variationLabel}</span>}
+                                    <div className="flex flex-wrap gap-2 items-center mt-1">
+                                        {item.condition && item.condition !== 'novo' && (
+                                            <span className={`flex items-center gap-1 px-2 py-0.5 rounded-lg text-[8px] font-black uppercase tracking-widest border transition-all ${
+                                                item.condition === 'novo' ? 'bg-emerald-50 text-emerald-600 border-emerald-100 dark:bg-emerald-900/20 dark:text-emerald-400 dark:border-emerald-900/30' :
+                                                item.condition === 'usado' ? 'bg-purple-50 text-purple-600 border-purple-100 dark:bg-purple-900/20 dark:text-purple-400 dark:border-purple-900/30' :
+                                                    'bg-amber-50 text-amber-600 border-amber-100 dark:bg-amber-900/20 dark:text-amber-400 dark:border-amber-900/30'
+                                                }`}>
+                                                {item.condition}
+                                            </span>
+                                        )}
+                                        {opportunityLabel && (
+                                            <span className="rounded-lg border border-amber-200 bg-amber-50 px-2 py-0.5 text-[8px] font-black uppercase tracking-widest text-amber-700 dark:border-amber-900/40 dark:bg-amber-900/20 dark:text-amber-300">
+                                                {opportunityLabel}
+                                            </span>
+                                        )}
+                                        {item.isAssistanceItem && (
+                                            <span className="bg-indigo-50 text-indigo-600 border border-indigo-100 dark:bg-indigo-900/20 dark:text-indigo-400 dark:border-indigo-900/30 px-2 py-0.5 rounded-lg text-[8px] font-black uppercase tracking-widest">
+                                                Peça sob Assistência
+                                                {item.originalOrderId && ` (#${item.originalOrderId.slice(-5)})`}
+                                            </span>
+                                        )}
+                                        {item.handlingType && (
+                                            <div className="flex items-center gap-1.5">
+                                                <span className="px-2 py-0.5 rounded-lg bg-blue-50 dark:bg-blue-900/30 text-[9px] font-black uppercase tracking-widest text-blue-600 dark:text-blue-400 border border-blue-100/50 dark:border-blue-900/30 flex items-center gap-1.5">
+                                                    <i className={`bi ${item.handlingType.toLowerCase().includes('montagem') ? 'bi-hammer' : 'bi-box-seam'} text-blue-500 text-[10px]`} />
+                                                    {item.handlingType}
+                                                </span>
+                                            </div>
+                                        )}
+                                    </div>
+                                </td>
+
+                                {/* Valor Unitário (Preço anterior tachado e novo) */}
+                                <td className="px-4 sm:px-6 py-4 text-right align-top">
+                                    {hasDiscount ? (
+                                        <div className="flex flex-col items-end">
+                                            <span className="text-[11px] line-through text-slate-400 dark:text-slate-500">
+                                                {unitPrice.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                                            </span>
+                                            <span className="text-xs font-black text-slate-800 dark:text-slate-200">
+                                                {unitPriceWithDiscount.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
                                             </span>
                                         </div>
+                                    ) : (
+                                        <span className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                                            {unitPrice.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                                        </span>
                                     )}
-                                </div>
-                            </td>
-                            <td className="px-4 sm:px-6 py-4 text-xs font-black text-slate-800 dark:text-slate-200 text-right">
-                                {(item.unitPrice * item.quantity).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
-                            </td>
-                        </tr>
+                                </td>
+
+                                {/* Total do Item (Total anterior tachado e novo) */}
+                                <td className="px-4 sm:px-6 py-4 text-right align-top">
+                                    {hasDiscount ? (
+                                        <div className="flex flex-col items-end">
+                                            <span className="text-[11px] line-through text-slate-400 dark:text-slate-500">
+                                                {grossTotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                                            </span>
+                                            <span className="text-xs font-black text-slate-800 dark:text-slate-200">
+                                                {netTotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                                            </span>
+                                        </div>
+                                    ) : (
+                                        <span className="text-xs font-black text-slate-800 dark:text-slate-200">
+                                            {grossTotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                                        </span>
+                                    )}
+                                </td>
+                            </tr>
                         );
                     })}
                 </tbody>
@@ -70,34 +120,50 @@ export const ItemsTable = ({ items }: { items: any[] }) => (
     </section>
 );
 
-export const FinancialSummary = ({ itemsSummary, shippingValue, totalValue }: { itemsSummary: any, shippingValue: number, totalValue: number }) => (
-    <section>
-        <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-blue-600 dark:text-blue-400 mb-5 flex items-center gap-2">
-            <i className="bi bi-wallet2" /> Resumo Financeiro
-        </h3>
-        <div className="bg-slate-900 dark:bg-slate-950 p-8 rounded-[2rem] shadow-xl text-white space-y-4 transition-colors duration-300 border border-transparent dark:border-slate-800">
-            <div className="flex justify-between items-center opacity-60">
-                <span className="text-[10px] font-black uppercase tracking-widest">Subtotal</span>
-                <span className="text-sm font-bold">
-                    {itemsSummary?.itemsTotalValue.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
-                </span>
+export const FinancialSummary = ({ itemsSummary, shippingValue, totalValue }: { itemsSummary: any, shippingValue: number, totalValue: number }) => {
+    const totalDiscount = Number(itemsSummary?.totalFixedDiscount) || 0;
+    const subtotalBruto = Number(itemsSummary?.itemsSubtotal) || (Number(itemsSummary?.itemsTotalValue) + totalDiscount) || 0;
+
+    return (
+        <section className="-mt-2">
+            <div className="bg-slate-50/70 dark:bg-slate-800/30 rounded-2xl border border-slate-100 dark:border-slate-800 p-4 sm:p-5 transition-colors duration-300">
+                <div className="flex flex-wrap items-center justify-between gap-4">
+                    <div className="flex flex-wrap items-center gap-6 sm:gap-8 text-xs">
+                        <div>
+                            <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 block mb-0.5">Subtotal Itens</span>
+                            <span className="font-bold text-slate-700 dark:text-slate-200">
+                                {subtotalBruto.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                            </span>
+                        </div>
+
+                        {totalDiscount > 0 && (
+                            <div>
+                                <span className="text-[9px] font-black uppercase tracking-widest text-emerald-600 dark:text-emerald-400 block mb-0.5">Desconto</span>
+                                <span className="font-black text-emerald-600 dark:text-emerald-400">
+                                    - {totalDiscount.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                                </span>
+                            </div>
+                        )}
+
+                        <div>
+                            <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 block mb-0.5">Frete</span>
+                            <span className="font-bold text-slate-700 dark:text-slate-200">
+                                {shippingValue.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                            </span>
+                        </div>
+                    </div>
+
+                    <div className="flex items-center gap-3 border-t sm:border-t-0 sm:border-l border-slate-200 dark:border-slate-700 pt-3 sm:pt-0 sm:pl-6">
+                        <span className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500">Total Geral</span>
+                        <span className="text-xl sm:text-2xl font-black text-blue-600 dark:text-blue-400">
+                            {totalValue.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                        </span>
+                    </div>
+                </div>
             </div>
-            <div className="flex justify-between items-center opacity-60">
-                <span className="text-[10px] font-black uppercase tracking-widest">Frete</span>
-                <span className="text-sm font-bold">
-                    {shippingValue.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
-                </span>
-            </div>
-            <div className="h-px bg-white/10 my-4"></div>
-            <div className="flex justify-between items-center">
-                <span className="text-[10px] font-black uppercase tracking-[0.2em] text-blue-400">Total Geral</span>
-                <span className="text-2xl font-black text-blue-400">
-                    {totalValue.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
-                </span>
-            </div>
-        </div>
-    </section>
-);
+        </section>
+    );
+};
 
 export const PaymentDetails = ({ payments = [], totalPaid = 0, amountRemaining = 0 }: { payments?: any[], totalPaid?: number, amountRemaining?: number }) => (
     <section>

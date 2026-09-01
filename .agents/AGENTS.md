@@ -9,6 +9,7 @@ Este documento registra as regras e comportamentos **implementados** no sistema,
 - **Git Push**: Nao executar `git push` automaticamente. Aguardar solicitacao explicita do usuario.
 - **Modularizacao**: Arquivos acima de 500 linhas ou com mais de uma responsabilidade devem ser divididos. Aplicar apos cada tarefa.
 - **Idioma dos termos no ERP**: Produtos **Ativos** / **Desativados** (nunca publicados/despublicados). No catalogo digital: **Publicado no Catalogo** / **Ocultado do Catalogo**.
+- **Retrocompatibilidade e Análise de Impacto**: Antes e durante a criação/alteração de novas estruturas de dados ou snapshots, analisar o impacto em registros históricos legados. Sempre garantir fallbacks resilientes e consultar o usuário sobre decisões de adaptação/migração quando houver ambiguidade.
 
 ---
 
@@ -64,6 +65,19 @@ Este documento registra as regras e comportamentos **implementados** no sistema,
   - Nenhum pedido pode ter o mesmo código de outro.
   - Se houver falha na geração do código, o formulário bloqueia tanto o salvamento como rascunho (auto-save desativado) quanto a finalização do cadastro, exibindo erro imediato.
   - É expressamente proibido persistir pedidos sem código (`orderIndex: null` ou `orderIndex: undefined`).
+
+### Vendedor da Venda (Snapshot de Nome e ID)
+
+- Qualquer colaborador cadastrado pode ser selecionado como vendedor na venda.
+- O pedido persiste o snapshot do nome (`seller`) e do identificador do colaborador (`sellerId`), garantindo consistência histórica mesmo se o colaborador for editado posteriormente.
+
+### Paginação na Listagem de Pedidos (`OrderPagination`)
+
+- **Paginação Padrão Obrigatória**:
+  - A listagem de pedidos utiliza paginação fixa de **30 pedidos por página** (`itemsPerPage = 30`).
+  - Aplica-se uniformemente tanto à visualização em **Tabela** (`OrderHistoryTable` / `OrderHistoryRow`) quanto à visualização em **Cards** (`OrderHistoryCard`).
+  - Os botões de navegação de páginas (anterior, páginas numéricas com reticências inteligentes, próxima e indicador de contagem) ficam localizados **no rodapé da listagem**.
+  - Ao navegar entre as páginas, a página realiza um scroll suave automaticamente para o topo da lista de pedidos.
 
 ### Restricoes de Rascunho (`status: 'draft'`)
 
@@ -161,21 +175,22 @@ Toda movimentacao de estoque e registrada em `inventory_moves` com:
 
 ---
 
-## MODULO: CONTROLE DE ACESSO E COLABORADORES
+## MODULO: GESTÃO DE ACESSOS E USUÁRIOS (`/acessos-e-usuarios`)
 
-### Gestão de Acessos (Configurações > Controle de Acesso)
-- A seção de Controle de Acesso gerencia **exclusivamente as áreas permitidas por cargo**, espelhando o comportamento do aplicativo mobile.
-- Áreas gerenciadas: `manualStockMovement` (Estoque), `productConfig` (Produtos e Cadastros), `viewFinancials` (Financeiro), `deleteOrders` (Excluir Pedidos), `startDelivery` (Iniciar Entrega).
-- **Regra do Administrador**: possui acesso total irrestrito e fixo (não pode ser desmarcado).
-- Permissões são persistidas em `settings.data.rolePermissions`.
-
-### Atribuição de Cargos (Colaboradores / Employees)
-- A atribuição de cargos aos colaboradores é feita **exclusivamente na tela de Colaboradores** (`PersonFormModal`).
-- **Múltiplos Cargos**: Um colaborador pode ter múltiplos cargos simultâneos (`roles: UserRole[]`), permitindo selecionar mais de uma função (ex: Vendedor + Entregador/Montador).
-- **Unicidade de E-mail**: Colaboradores possuem restrição estrita de unicidade de e-mail. Não é permitido cadastrar ou atualizar dois colaboradores com o mesmo e-mail.
-- Opções de cargo no sistema (`role` / `roles`): `Administrador` (`administrator`), `Gestor` (`manager`), `Vendedor` (`seller`), `Entregador / Montador` (`deliverer`), `Sem Acesso` (`pending`).
-- Ao salvar um colaborador, os campos `role`, `roles` e `position` são sincronizados com a tabela `profiles` do Supabase para que as permissões de login entrem em vigor imediatamente.
-- A listagem de colaboradores exibe os badges de todos os cargos atribuídos ao colaborador.
+### Central Unificada de Acessos e Usuários
+- Acessível no menu de perfil do ERP e rotas `/acessos-e-usuarios` (com aliases legíveis `/access-and-users` e `/users`).
+- **Aba Colaboradores & Usuários**:
+  - Gerenciamento completo (CRUD: listagem, busca, criação, edição, inativação e exclusão) dos usuários e colaboradores.
+  - Atribuição de cargos aos colaboradores (`roles: UserRole[]`), permitindo múltiplos cargos simultâneos (ex: Vendedor + Entregador/Montador).
+  - Opções de cargo: `Administrador` (`administrator`), `Gestor` (`manager`), `Vendedor` (`seller`), `Entregador / Montador` (`deliverer`), `Sem Acesso` (`pending`).
+  - Ao salvar o colaborador, os campos de perfil e permissões são sincronizados em tempo real com `profiles` e `people`.
+- **Aba Permissões por Cargo**:
+  - Configuração das áreas permitidas por cargo: `manualStockMovement` (Movimentação de Estoque), `productConfig` (Produtos e Cadastros), `viewFinancials` (Financeiro e Relatórios), `deleteOrders` (Excluir Pedidos), `startDelivery` (Iniciar Entrega).
+  - Administrador possui acesso total fixo e irrestrito.
+  - Permissões são persistidas em `settings.data.rolePermissions`.
+- **Unicidade Estrita e Sincronização Google (1 Colaborador por E-mail)**:
+  - Cada e-mail possui apenas 1 colaborador único no sistema.
+  - Ao logar/cadastrar via Google Auth, se já existir um colaborador com o e-mail, ele recebe e atualiza as informações do Google (`full_name`, etc.), sem criar duplicados. Se não existir, cria exatamente 1 novo colaborador.
 
 ---
 

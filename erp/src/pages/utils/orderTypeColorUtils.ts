@@ -134,10 +134,21 @@ const COLOR_MAP: Record<OrderTypeColor, OrderTypeColorClasses> = {
         rowHover:    'bg-red-50/20 dark:bg-red-900/10 hover:bg-red-100/30 dark:hover:bg-red-900/20',
         rowActive:   'ring-2 ring-red-600',
     },
+    slate: {
+        badge:       'bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-300 dark:border-slate-700',
+        cardBg:      'bg-slate-100/60 dark:bg-slate-900/40',
+        cardBorder:  'border-slate-200 dark:border-slate-800 hover:border-slate-400 dark:hover:border-slate-600',
+        headerBg:    'bg-slate-200/70 dark:bg-slate-800/60 group-hover:bg-slate-200 dark:group-hover:bg-slate-800',
+        timeText:    'text-slate-600 dark:text-slate-400',
+        dotBg:       'bg-slate-500 dark:bg-slate-400 text-white',
+        handleHover: 'hover:text-slate-600 dark:hover:text-slate-400',
+        rowHover:    'bg-slate-100/60 dark:bg-slate-800/40 hover:bg-slate-200/50 dark:hover:bg-slate-800/70',
+        rowActive:   'ring-2 ring-slate-500',
+    },
 };
 
-export const getOrderTypeClasses = (color: OrderTypeColor): OrderTypeColorClasses => {
-    return COLOR_MAP[color] ?? COLOR_MAP['green'];
+export const getOrderTypeClasses = (color: OrderTypeColor | 'slate'): OrderTypeColorClasses => {
+    return COLOR_MAP[color as OrderTypeColor] ?? COLOR_MAP['green'];
 };
 
 /** Resolve the color key for an order based on its type/delivery method */

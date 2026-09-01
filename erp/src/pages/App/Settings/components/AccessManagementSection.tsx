@@ -90,9 +90,16 @@ export default function AccessManagementSection({ settings, onChange }: AccessMa
             </h4>
           </div>
           <p className="text-xs text-slate-400 dark:text-slate-500 mt-1.5 leading-relaxed">
-            Defina quais cargos têm permissão de acesso para cada área e função do ERP e aplicativo. Administradores possuem acesso total irrestrito.
+            Configure quais áreas e funcionalidades cada cargo pode acessar no ERP e aplicativo móvel. Administradores possuem acesso total irrestrito.
           </p>
         </div>
+      </div>
+
+      <div className="flex items-center gap-3 p-3.5 rounded-2xl bg-blue-50/60 dark:bg-blue-950/20 border border-blue-100/80 dark:border-blue-900/30 text-blue-700 dark:text-blue-300 text-xs">
+        <i className="bi bi-info-circle-fill text-base shrink-0 text-blue-500" />
+        <p className="leading-relaxed">
+          <strong>Atribuição de cargos:</strong> Para definir ou alterar o cargo dos usuários e membros da sua equipe, acesse a seção de <a href="/registrations/employees" className="underline font-bold hover:text-blue-800 dark:hover:text-blue-200">Colaboradores</a>.
+        </p>
       </div>
 
       <div className="grid grid-cols-1 gap-4">

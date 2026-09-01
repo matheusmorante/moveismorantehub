@@ -52,7 +52,7 @@ const menuItems = [
     },
     {
         key: 'salesOrder' as MenuKey,
-        label: 'Pedidos',
+        label: 'Vendas',
         icon: 'bi-cart-fill',
         color: 'text-blue-500',
         bg: 'bg-blue-50 dark:bg-blue-900/20',
@@ -263,11 +263,11 @@ const MobileNav = ({ isOpen, onClose, activeMenu, setActiveMenu }: MobileNavProp
                                     Configurações
                                 </button>
                                 <button
-                                    onClick={() => handleLink('/users')}
+                                    onClick={() => handleLink('/acessos-e-usuarios')}
                                     className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all font-bold text-sm text-left"
                                 >
                                     <i className="bi bi-shield-lock-fill text-lg"></i>
-                                    Controle de Acessos
+                                    Gestão de Acessos e Usuários
                                 </button>
                             </>
                         )}

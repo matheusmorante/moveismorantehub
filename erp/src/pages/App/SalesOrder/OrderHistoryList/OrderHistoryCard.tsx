@@ -242,7 +242,7 @@ const OrderHistoryCard = ({
                         const isAssis = order.orderType === 'assistance';
                         const isRet = order.orderType === 'return';
                         const isPick = order.shipping?.deliveryMethod === 'pickup';
-                        const typeIcon = isAssis ? 'bi-tools' : (isRet ? 'bi-arrow-return-left' : (isPick ? 'bi-hand-index-fill' : 'bi-truck'));
+                        const typeIcon = isAssis ? 'bi-tools' : (isRet ? 'bi-arrow-return-left' : (isPick ? 'bi-shop' : 'bi-truck'));
                         return (
                             <div 
                                 className={`flex items-center justify-center h-6 w-6 rounded-md border shadow-2xs ${
@@ -314,8 +314,8 @@ const OrderHistoryCard = ({
                     <div className="relative shrink-0" onClick={(e) => e.stopPropagation()}>
                         <button 
                             onClick={(e) => { e.stopPropagation(); if (!isStatusBadgeReadOnly) setShowPicker(!showPicker); }}
-                            className={`flex items-center justify-center h-6 w-6 rounded-md bg-${currentStatus.color}-500 text-white transition-all shadow-2xs border border-black/10 ${isStatusBadgeReadOnly ? 'cursor-default' : 'hover:brightness-110 active:scale-95'}`}
-                            title={isStatusBadgeReadOnly ? `Status: ${currentStatus.label} (somente leitura)` : `Status: ${currentStatus.label}`}
+                            className={`flex items-center justify-center h-6 w-6 rounded-md ${order.status === 'cancelled' ? 'bg-slate-700 dark:bg-slate-800' : `bg-${currentStatus.color}-500`} text-white transition-all shadow-2xs border border-black/10 ${isStatusBadgeReadOnly ? 'cursor-default' : 'hover:brightness-110 active:scale-95'}`}
+                            title={`Status: ${currentStatus.label}`}
                         >
                             <i className={`bi ${sIcon} text-white text-[11px]`} />
                         </button>
@@ -365,7 +365,7 @@ const OrderHistoryCard = ({
                         title="Abrir pedido de venda vinculado"
                     >
                         <i className="bi bi-link-45deg" />
-                        Pedido vinculado: #{order.linkedOrderCode || formatOrderCode(order)}
+                        Pedido #{order.linkedOrderCode || formatOrderCode(order)}
                     </button>
                 )}
 
@@ -497,9 +497,9 @@ const OrderHistoryCard = ({
                                 disabled={isEditLocked}
                                 onClick={() => { if (!isEditLocked) onEdit(order); }}
                                 className={`p-2 rounded-lg transition-colors ${isEditLocked ? 'cursor-not-allowed bg-slate-100 text-slate-400 dark:bg-slate-800 dark:text-slate-600' : 'bg-blue-50 text-blue-600 hover:bg-blue-100 dark:bg-blue-900/20 dark:text-blue-400'}`}
-                                title={isEditLocked ? 'Pedido atendido não pode ser editado' : 'Editar pedido'}
+                                title={isEditLocked ? 'Pedido atendido não pode ser editado' : (isDraft ? 'Retomar cadastramento' : 'Editar pedido')}
                             >
-                                <i className="bi bi-pencil-fill text-lg" />
+                                <i className={`bi ${isDraft ? 'bi-arrow-repeat' : 'bi-pencil-fill'} text-lg`} />
                             </button>
                             
                             <div className="relative">
@@ -559,7 +559,7 @@ const OrderHistoryCard = ({
                                                     );
 
                                                     if (btn.key === 'generateReturn' && hasReturn) return false;
-                                                    if (btn.key === 'undoReturn' && !hasReturn) return false;
+                                                    if (btn.key === 'undoReturn' && (!hasReturn || order.status === 'cancelled')) return false;
 
                                                     return true;
                                                 }).map((btn) => {

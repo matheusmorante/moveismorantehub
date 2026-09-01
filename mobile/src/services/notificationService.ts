@@ -2,6 +2,7 @@ import { Platform, Alert } from 'react-native';
 import * as Notifications from 'expo-notifications';
 import { Audio } from 'expo-av';
 import { supabase, NOTIFICATION_SOUND_URL } from './supabaseClient';
+import { GENERAL_NOTIFICATION_CHANNEL, isNewScheduledOrderNotification, SCHEDULED_ORDER_CHANNEL } from '../utils/notificationSoundRouting';
 
 // Configura o comportamento das notificações quando o app está aberto em primeiro plano
 Notifications.setNotificationHandler({
@@ -9,7 +10,7 @@ Notifications.setNotificationHandler({
     shouldShowAlert: true,
     shouldPlaySound: true,
     shouldSetBadge: true,
-    priority: Notifications.AndroidNotificationPriority.MAX,
+    priority: (Notifications as any).AndroidNotificationPriority?.MAX || 'max',
   }),
 });
 
@@ -65,43 +66,37 @@ export const playNotificationSound = async () => {
 export const setupNotificationChannel = async () => {
   try {
     if (Platform.OS === 'android') {
-      await Notifications.setNotificationChannelAsync('morante_alerts_v3', {
-        name: 'Alertas e Pedidos - Móveis Morante (Level Up)',
-        importance: Notifications.AndroidImportance.MAX,
-        vibrationPattern: [0, 250, 250, 250],
-        sound: 'levelup.mp3',
-        enableVibrate: true,
-        enableLights: true,
-        lightColor: '#2563EB',
-        lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
-        showBadge: true,
-        bypassDnd: true,
-      });
+      const channelConfigs = [
+        {
+          id: SCHEDULED_ORDER_CHANNEL,
+          name: 'Novos pedidos agendados',
+          sound: 'levelup.mp3',
+        },
+        {
+          id: GENERAL_NOTIFICATION_CHANNEL,
+          name: 'Avisos gerais',
+          sound: 'default',
+        }
+      ];
 
-      await Notifications.setNotificationChannelAsync('default', {
-        name: 'Geral - Móveis Morante',
-        importance: Notifications.AndroidImportance.MAX,
-        vibrationPattern: [0, 250, 250, 250],
-        sound: 'levelup.mp3',
-        enableVibrate: true,
-        enableLights: true,
-        lightColor: '#2563EB',
-        lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
-        showBadge: true,
-        bypassDnd: true,
-      });
-
-      await Notifications.setNotificationChannelAsync('levelup-v2', {
-        name: 'Alertas Móveis Morante',
-        importance: Notifications.AndroidImportance.MAX,
-        vibrationPattern: [0, 250, 250, 250],
-        sound: 'levelup.mp3',
-        enableVibrate: true,
-        enableLights: true,
-        lightColor: '#2563EB',
-        lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
-        showBadge: true,
-      });
+      for (const ch of channelConfigs) {
+        await Notifications.setNotificationChannelAsync(ch.id, {
+          name: ch.name,
+          importance: (Notifications as any).AndroidImportance?.MAX ?? 5,
+          vibrationPattern: [0, 250, 250, 250],
+          sound: ch.sound,
+          enableVibrate: true,
+          enableLights: true,
+          lightColor: '#2563EB',
+          lockscreenVisibility: (Notifications as any).AndroidNotificationVisibility?.PUBLIC ?? 1,
+          showBadge: true,
+          bypassDnd: true,
+          audioAttributes: {
+            usage: (Notifications as any).AndroidAudioUsage?.NOTIFICATION ?? 5,
+            contentType: (Notifications as any).AndroidAudioContentType?.SONIFICATION ?? 4,
+          },
+        });
+      }
     }
   } catch (err) {
     console.warn('[NotificationChannel] Erro ao configurar canal:', err);
@@ -236,15 +231,19 @@ export const initPushTokenListeners = () => {
     if (Platform.OS === 'web') return () => {};
     
     // Escuta novas emissões/renovações de token pelo Google FCM
-    const sub = Notifications.addPushTokenListener((tokenData) => {
-      if (tokenData?.data) {
-        savePushTokenToSupabase(tokenData.data);
-      }
-    });
+    const addListenerFn = (Notifications as any).addPushTokenListener;
+    if (typeof addListenerFn === 'function') {
+      const sub = addListenerFn((tokenData: any) => {
+        if (tokenData?.data) {
+          savePushTokenToSupabase(tokenData.data);
+        }
+      });
 
-    return () => {
-      sub.remove();
-    };
+      return () => {
+        sub?.remove?.();
+      };
+    }
+    return () => {};
   } catch {
     return () => {};
   }
@@ -256,6 +255,7 @@ export const initPushTokenListeners = () => {
 export const triggerLocalNotification = async (title: string, body: string, dataPayload: any = {}) => {
   try {
     if (Platform.OS !== 'web') {
+      const scheduledOrder = isNewScheduledOrderNotification(dataPayload);
       await setupNotificationChannel();
       await ensureNotificationPermissions();
 
@@ -264,10 +264,10 @@ export const triggerLocalNotification = async (title: string, body: string, data
           title,
           body,
           data: dataPayload,
-          sound: 'default',
-          priority: Notifications.AndroidNotificationPriority.MAX,
+          sound: scheduledOrder ? 'levelup.mp3' : 'default',
+          priority: (Notifications as any).AndroidNotificationPriority?.MAX || 'max',
           vibrate: [0, 250, 250, 250],
-          ...(Platform.OS === 'android' && { channelId: 'morante_alerts_v3' }),
+          ...(Platform.OS === 'android' && { channelId: scheduledOrder ? SCHEDULED_ORDER_CHANNEL : GENERAL_NOTIFICATION_CHANNEL }),
         },
         trigger: null,
       });
@@ -276,8 +276,7 @@ export const triggerLocalNotification = async (title: string, body: string, data
     console.warn('[Notification] Erro ao disparar notificação local:', err);
   }
 
-  // Toca o áudio levelup
-  await playNotificationSound();
+  if (isNewScheduledOrderNotification(dataPayload)) await playNotificationSound();
 };
 
 /**
@@ -307,7 +306,7 @@ export const testRemotePushNotification = async () => {
             title: '🔔 Teste de Notificação • Equipe Morante',
             body: 'Banner e alerta sonoro funcionando perfeitamente!',
             sound: 'default',
-            priority: Notifications.AndroidNotificationPriority.MAX,
+            priority: (Notifications as any).AndroidNotificationPriority?.MAX || 'max',
             vibrate: [0, 250, 250, 250],
             ...(Platform.OS === 'android' && { channelId: 'morante_alerts_v3' }),
             data: { test: true },

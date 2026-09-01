@@ -16,7 +16,7 @@ interface Props {
   speechCurrentTime: number;
   speechTotalDuration: number;
   handleToggleSpeech: (text: string) => void;
-  finishSeekToPosition: (secs: number) => void;
+  finishSeekToPosition: (secs: number, fullText?: string) => void;
   setSpeechCurrentTime: (secs: number) => void;
   formatAudioTime: (secs: number) => string;
 }
@@ -194,12 +194,12 @@ export const AISummaryCard: React.FC<Props> = ({
             const ratio = Math.max(0, Math.min(1, touchX / width));
             const targetSecs = ratio * (effectiveTotalDuration || 15);
             setSpeechCurrentTime(targetSecs);
-            finishSeekToPosition(targetSecs);
+            finishSeekToPosition(targetSecs, activeSummaryText);
           }}
           onResponderTerminate={() => {
             if (isSeekingRef.current) {
               isSeekingRef.current = false;
-              finishSeekToPosition(speechCurrentTime);
+              finishSeekToPosition(speechCurrentTime, activeSummaryText);
             }
           }}
           style={{ height: 26, justifyContent: 'center', position: 'relative' }}

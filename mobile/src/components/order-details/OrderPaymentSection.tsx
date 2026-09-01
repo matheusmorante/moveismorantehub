@@ -14,33 +14,16 @@ export const getPendingPaymentTotal = (payments: any[]) => (payments || [])
 
 export function OrderPaymentSection({ payments, fallbackMethod, dark }: { payments: any[]; fallbackMethod?: string; dark: boolean }) {
   const rows = payments?.length ? payments : [{ method: fallbackMethod || 'Não informada', amount: 0, status: 'Pendente' }];
-  
-  // Verifica se há pendência ou se todos estão pagos
-  const hasPending = rows.some(payment => {
-    const s = normalize(payment.status || payment.paymentStatus);
-    return /pendente|pending|verificar|checar|a receber/.test(s) || !/pago|paid|recebido|concluido|aprovado/.test(s);
-  });
-
-  const cardBorderColor = hasPending ? '#f59e0b' : '#10b981';
-  const cardBgColor = dark 
-    ? (hasPending ? '#291b00' : '#052e16') 
-    : (hasPending ? '#fffbeb' : '#f0fdf4');
-  const headerIconColor = hasPending ? '#d97706' : '#16a34a';
 
   return (
     <View style={[
       styles.card, 
-      { borderColor: cardBorderColor, backgroundColor: cardBgColor },
       dark && styles.cardDark
     ]}>
       <View style={styles.header}>
-        {hasPending ? (
-          <AlertCircle size={18} color={headerIconColor} />
-        ) : (
-          <CheckCircle2 size={18} color={headerIconColor} />
-        )}
-        <Text style={[styles.title, { color: hasPending ? (dark ? '#fde68a' : '#b45309') : (dark ? '#86efac' : '#15803d') }]}>
-          FORMA DE PAGAMENTO {hasPending ? '• PENDENTE / VERIFICAR' : '• PAGO'}
+        <CreditCard size={18} color="#2563eb" />
+        <Text style={[styles.title, dark && styles.light]}>
+          PAGAMENTO
         </Text>
       </View>
 
@@ -49,10 +32,12 @@ export function OrderPaymentSection({ payments, fallbackMethod, dark }: { paymen
         const s = normalize(rawStatus);
         const isPending = /pendente|pending|verificar|checar|a receber/.test(s) || !/pago|paid|recebido|concluido|aprovado/.test(s);
 
-        const rowBorder = isPending ? '#fcd34d' : '#86efac';
-        const rowBg = dark
-          ? (isPending ? '#1f1501' : '#062312')
-          : (isPending ? '#fef3c7' : '#dcfce7');
+        const rowBorder = isPending 
+          ? (dark ? '#f59e0b' : '#fcd34d') 
+          : (dark ? '#334155' : '#e2e8f0');
+        const rowBg = isPending
+          ? (dark ? '#291b00' : '#fffbeb')
+          : (dark ? '#0f172a' : '#f8fafc');
 
         return (
           <View key={index} style={[
@@ -78,10 +63,10 @@ export function OrderPaymentSection({ payments, fallbackMethod, dark }: { paymen
 }
 
 const styles = StyleSheet.create({
-  card: { padding: 16, borderRadius: 20, borderWidth: 1.5, gap: 10 },
-  cardDark: { borderWidth: 1.5 },
+  card: { backgroundColor: '#fff', padding: 16, borderRadius: 20, borderWidth: 1, borderColor: '#e2e8f0', gap: 10 },
+  cardDark: { backgroundColor: '#1e293b', borderColor: '#334155' },
   header: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  title: { fontSize: 12, fontWeight: '900', letterSpacing: 0.5 },
+  title: { fontSize: 12, fontWeight: '900', color: '#0f172a', letterSpacing: 0.5 },
   light: { color: '#f8fafc' },
   row: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10, padding: 12, borderRadius: 14, borderWidth: 1 },
   method: { flex: 1, gap: 4 },

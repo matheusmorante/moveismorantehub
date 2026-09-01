@@ -138,24 +138,37 @@ export default function HandlingSection({ settings, onChange }: Props): any {
                                                                     <span>Montagem Fora</span>
                                                                 </label>
                                                             </div>
-
-                                                            {/* Color Picker */}
+                                                            {/* Color Palette Picker */}
                                                             <div className="flex flex-col items-center gap-0.5 relative group/color">
-                                                                <div 
-                                                                    className="w-5 h-5 rounded-md border-2 border-slate-100 dark:border-slate-800 shadow-sm cursor-pointer hover:scale-110 active:scale-95 transition-all overflow-hidden relative"
-                                                                    style={{ backgroundColor: opt.color || 'transparent' }}
+                                                                <button
+                                                                    type="button"
+                                                                    className="w-5 h-5 rounded-md border-2 border-slate-200 dark:border-slate-700 shadow-sm cursor-pointer hover:scale-110 active:scale-95 transition-all flex items-center justify-center"
+                                                                    style={{ backgroundColor: opt.color || '#3b82f6' }}
+                                                                    title="Escolher cor da paleta"
                                                                 >
-                                                                    {!opt.color && <i className="bi bi-palette text-slate-300 absolute inset-0 flex items-center justify-center text-[8px]" />}
-                                                                    <input 
-                                                                        type="color"
-                                                                        value={opt.color || '#3b82f6'}
-                                                                        onChange={(e) => {
-                                                                            const next = [...options];
-                                                                            next[idx] = { ...next[idx], color: e.target.value };
-                                                                            onChange(path, next);
-                                                                        }}
-                                                                        className="absolute inset-0 opacity-0 cursor-pointer w-full h-full scale-150"
-                                                                    />
+                                                                    {!opt.color && <i className="bi bi-palette text-white text-[8px]" />}
+                                                                </button>
+
+                                                                {/* Dropdown de Paleta (Abre para cima para não cortar no rodapé) */}
+                                                                <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 p-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl z-[100] hidden group-hover/color:grid grid-cols-5 gap-2 w-44">
+                                                                    {[
+                                                                        '#0a95ff', '#0684f9', '#3b82f6', '#6366f1', '#8b5cf6',
+                                                                        '#10b981', '#11d452', '#0ebe2c', '#3bd411', '#84cc16',
+                                                                        '#f59e0b', '#f97316', '#ef4444', '#f00018', '#e10909',
+                                                                        '#ec4899', '#e2084a', '#06b6d4', '#14b8a6', '#64748b',
+                                                                    ].map((hex) => (
+                                                                        <button
+                                                                            key={hex}
+                                                                            type="button"
+                                                                            onClick={() => {
+                                                                                const next = [...options];
+                                                                                next[idx] = { ...next[idx], color: hex };
+                                                                                onChange(path, next);
+                                                                            }}
+                                                                            className={`w-6 h-6 rounded-lg transition-transform hover:scale-125 cursor-pointer ${opt.color === hex ? 'ring-2 ring-offset-2 ring-blue-500 dark:ring-offset-slate-900' : ''}`}
+                                                                            style={{ backgroundColor: hex }}
+                                                                        />
+                                                                    ))}
                                                                 </div>
                                                                 <span className="text-[6px] font-black uppercase tracking-tighter text-slate-400 leading-none">
                                                                     Cor

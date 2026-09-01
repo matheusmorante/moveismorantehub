@@ -476,7 +476,7 @@ export const buttons: OrderButton[] = [
         label: "Copiar Pedido",
         color: "text-emerald-600 hover:bg-emerald-50",
         tooltip: "Criar uma cópia deste pedido",
-        // applies to all types
+        orderTypes: ['sale', 'showroom', 'assistance', 'budget']
     },
     {
         key: "generateSaleFromBudget",

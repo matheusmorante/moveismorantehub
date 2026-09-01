@@ -4,7 +4,9 @@ import Person from '@/pages/types/person.type';
 
 interface SellerInputProps {
     value: string;
+    sellerId?: string;
     onChange: (sellerName: string) => void;
+    onSelectSeller?: (seller: { name: string; id?: string }) => void;
     onAddNewSeller?: () => void;
     placeholder?: string;
     className?: string;
@@ -13,7 +15,9 @@ interface SellerInputProps {
 
 export const SellerInput: React.FC<SellerInputProps> = ({
     value,
+    sellerId,
     onChange,
+    onSelectSeller,
     onAddNewSeller,
     placeholder = "Digite para buscar vendedor...",
     className = "",
@@ -116,13 +120,16 @@ export const SellerInput: React.FC<SellerInputProps> = ({
                         <div className="flex flex-col gap-0.5">
                             {filtered.map((e) => {
                                 const sellerName = e.nickname || e.fullName;
-                                const isSelected = (value || '').toLowerCase() === sellerName.toLowerCase() || (value || '').toLowerCase() === e.fullName.toLowerCase();
+                                const isSelected = (sellerId && String(e.id) === String(sellerId)) || (value || '').toLowerCase() === sellerName.toLowerCase() || (value || '').toLowerCase() === e.fullName.toLowerCase();
                                 return (
                                     <button
                                         key={e.id}
                                         type="button"
                                         onClick={() => {
                                             onChange(sellerName);
+                                            if (onSelectSeller) {
+                                                onSelectSeller({ name: sellerName, id: e.id ? String(e.id) : undefined });
+                                            }
                                             setFilterText(sellerName);
                                             setIsOpen(false);
                                         }}

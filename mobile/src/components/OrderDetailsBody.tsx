@@ -44,7 +44,7 @@ export function OrderDetailsBody({ order, isDarkMode, onStartDelivery, canStartD
     <OrderObservationLabels observations={buildOrderObservations(order)} dark={isDarkMode} />
     <CustomerSection customer={customer} dark={isDarkMode} />
     <AddressSection shipping={shipping} customer={customer} schedule={schedule} order={order} dark={isDarkMode} />
-    <ItemsSection items={items} handlingOptions={handlingOptions} total={getOrderTotalValue(order)} pendingTotal={getPendingPaymentTotal(payments)} dark={isDarkMode} />
+    <ItemsSection items={items} handlingOptions={handlingOptions} total={getOrderTotalValue(order)} dark={isDarkMode} />
     <OrderPaymentSection payments={payments} fallbackMethod={data.paymentMethod || data.payment_method} dark={isDarkMode} />
     <OrderDeliveryStartFooter order={order} onStart={onStartDelivery} onViewDelivery={onViewDelivery} allowed={canStartDelivery} />
   </ScrollView>;

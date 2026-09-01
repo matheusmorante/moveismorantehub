@@ -23,6 +23,7 @@ import {
     formatOrderChangeNotification
 } from '@/pages/utils/orderChangeDetector';
 import { withOrderAddressSnapshot } from './orderAddressSnapshot';
+import { buildCancelledReturn, clearReturnLink } from './returnCancellation';
 
 export const formatOrderSchedulingText = (shipping: any, order?: any): string => {
     const sched = shipping?.scheduling || {};
@@ -1028,9 +1029,10 @@ export const undoReturn = async (order: Order): Promise<void> => {
         }
 
         // Devoluções do fluxo atual não alteram os itens nem o status da venda original.
-        // Ao desfazê-las, basta remover a devolução (e estornar sua entrada, se já atendida).
+        // O cancelamento deve preservar o documento no histórico e apenas liberar o vínculo.
         if (returnOrder.returnStockProcessed !== undefined) {
-            await permanentDeleteOrder(returnOrder.id!);
+            await updateOrder(returnOrder.id!, buildCancelledReturn(returnOrder), returnOrder);
+            await updateOrder(originalOrder.id!, clearReturnLink(), originalOrder);
             return;
         }
 

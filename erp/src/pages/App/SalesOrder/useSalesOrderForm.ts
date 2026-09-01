@@ -69,6 +69,7 @@ export const useSalesOrderForm = (initialDeliveryMethod?: 'delivery' | 'pickup',
     const { customerData, setCustomerData } = useCustomerData();
     const [observation, setObservation] = useState("");
     const [seller, setSeller] = useState("");
+    const [sellerId, setSellerId] = useState<string | undefined>(undefined);
     const [marketingOrigin, setMarketingOrigin] = useState("organic");
     const [orderDate, setOrderDate] = useState(() => getCurrentDatetimeLocal());
     const [currentOrderId, setCurrentOrderId] = useState<string | undefined>(undefined);
@@ -123,16 +124,16 @@ export const useSalesOrderForm = (initialDeliveryMethod?: 'delivery' | 'pickup',
 
     // Stable state ref for callbacks
     const latestState = useRef({
-        currentOrderId, orderIndex, isGeneratingCode, status, items, itemsSummary, shipping, payments, paymentsSummary, customerData, observation, seller, marketingOrigin, orderDate, isSaving, isSavingDraft,
+        currentOrderId, orderIndex, isGeneratingCode, status, items, itemsSummary, shipping, payments, paymentsSummary, customerData, observation, seller, sellerId, marketingOrigin, orderDate, isSaving, isSavingDraft,
         orderType, assistanceItems, assistanceServiceValue, assistanceCost, linkedOrderId, currentStep
     });
 
     useEffect(() => {
         latestState.current = {
-            currentOrderId, orderIndex, isGeneratingCode, status, items, itemsSummary, shipping, payments, paymentsSummary, customerData, observation, seller, marketingOrigin, orderDate, isSaving, isSavingDraft,
+            currentOrderId, orderIndex, isGeneratingCode, status, items, itemsSummary, shipping, payments, paymentsSummary, customerData, observation, seller, sellerId, marketingOrigin, orderDate, isSaving, isSavingDraft,
             orderType, assistanceItems, assistanceServiceValue, assistanceCost, linkedOrderId, currentStep
         };
-    }, [currentOrderId, orderIndex, isGeneratingCode, status, items, itemsSummary, shipping, payments, paymentsSummary, customerData, observation, seller, marketingOrigin, orderDate, isSaving, isSavingDraft, orderType, assistanceItems, assistanceServiceValue, assistanceCost, linkedOrderId, currentStep]);
+    }, [currentOrderId, orderIndex, isGeneratingCode, status, items, itemsSummary, shipping, payments, paymentsSummary, customerData, observation, seller, sellerId, marketingOrigin, orderDate, isSaving, isSavingDraft, orderType, assistanceItems, assistanceServiceValue, assistanceCost, linkedOrderId, currentStep]);
 
     const getOrderData = useCallback((newStatus?: 'draft' | 'scheduled' | 'fulfilled' | 'cancelled'): Order => {
         const s = latestState.current;
@@ -152,6 +153,7 @@ export const useSalesOrderForm = (initialDeliveryMethod?: 'delivery' | 'pickup',
             customerData: s.customerData,
             observation: s.observation,
             seller: s.seller,
+            sellerId: s.sellerId,
             marketingOrigin: s.marketingOrigin,
             date: formatToStorageDate(s.orderDate),
             assistanceItems: s.assistanceItems,
@@ -320,6 +322,7 @@ export const useSalesOrderForm = (initialDeliveryMethod?: 'delivery' | 'pickup',
         }
         setObservation(order.observation || "");
         setSeller((order as any).seller || "");
+        setSellerId((order as any).sellerId || undefined);
         setMarketingOrigin(order.marketingOrigin || "organic");
         setStatus(order.status || 'draft');
         setOrderType(order.orderType || 'sale');
@@ -609,6 +612,7 @@ export const useSalesOrderForm = (initialDeliveryMethod?: 'delivery' | 'pickup',
         customerData,
         observation,
         seller,
+        sellerId,
         marketingOrigin,
         currentOrderId,
         orderIndex,
@@ -659,6 +663,16 @@ export const useSalesOrderForm = (initialDeliveryMethod?: 'delivery' | 'pickup',
                 return next;
             });
         },
+        setSellerId,
+        setSellerData: (data: { name: string; id?: string }) => {
+            setSeller(data.name);
+            setSellerId(data.id);
+            setErrors(prev => {
+                const next = { ...prev };
+                delete next['seller'];
+                return next;
+            });
+        },
         setMarketingOrigin,
         setOrderIndex,
         loadOrderForEditing,
@@ -687,7 +701,7 @@ export const useSalesOrderForm = (initialDeliveryMethod?: 'delivery' | 'pickup',
         jumpToStep: (step: number) => {
             setCurrentStep(step);
         },
-    }), [setItems, setShipping, setPayments, setCustomerData, setObservation, handleItemChange, setSeller, setMarketingOrigin, setOrderIndex, loadOrderForEditing, handleAutoCalculateDistance, handleSelectProduct, handleSaveOrder, handleCompleteOrder, clearForm, orderType]);
+    }), [setItems, setShipping, setPayments, setCustomerData, setObservation, handleItemChange, setSeller, setSellerId, setMarketingOrigin, setOrderIndex, loadOrderForEditing, handleAutoCalculateDistance, handleSelectProduct, handleSaveOrder, handleCompleteOrder, clearForm, orderType]);
 
     return { state, actions };
 };

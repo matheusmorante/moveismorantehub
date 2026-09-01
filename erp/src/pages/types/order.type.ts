@@ -21,6 +21,7 @@ export type Order = {
     itemsSummary: ItemsSummary,
     shipping: Shipping,
     seller: string,
+    sellerId?: string,
     payments: Payment[],
     paymentsSummary: PaymentsSummary
     customerData: CustomerData,

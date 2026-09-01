@@ -83,7 +83,7 @@ const FormHeader = ({
                                         : 'text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200'
                                 }`}
                             >
-                                <i className="bi bi-hand-index-thumb-fill text-xs" /> Retirada
+                                <i className="bi bi-shop text-xs" /> Retirada
                             </button>
                         </div>
                     </div>

@@ -6,6 +6,8 @@ import { toast } from "react-toastify";
 import { getLocalISODate } from "../../utils/formatters";
 import { getSettings, subscribeToSettings } from "@/pages/utils/settingsService";
 import { supabase } from "@/pages/utils/supabaseConfig";
+import { shouldShowOrderInSchedule } from "@/pages/utils/scheduleOrderVisibility";
+import { getOperationalScheduleDate, normalizeScheduleStatus } from "@/pages/utils/operationalSchedule";
 
 export type ScheduleFilter = 'custom' | 'default' | 'week' | 'month' | 'year' | 'all';
 export type OrderTypeFilter = 'delivery' | 'pickup' | 'assistance' | 'assembly';
@@ -48,18 +50,16 @@ const processOrders = (
 
     const tasks: any[] = [];
     orders.forEach((o) => {
-        if (o.deleted || (o as any).is_deleted || (o as any).status === 'deleted' || (o as any).order_data?.deleted) return;
+        if (!shouldShowOrderInSchedule(o) || (o as any).status === 'deleted') return;
         const isAssistance = o.orderType === 'assistance';
         const isShowroom = o.orderType === 'showroom';
         const isBudget = o.orderType === 'budget';
         if (isBudget) return;
 
         // Rascunhos só entram quando já possuem agendamento; ainda não movimentam estoque.
-        if (!['draft', 'scheduled'].includes(o.status || '')) return;
+        if (!['draft', 'scheduled'].includes(normalizeScheduleStatus(o))) return;
 
-        const rawDateStr = isAssistance
-            ? (o as any).scheduledDate || o.shipping?.scheduling?.date
-            : o.shipping?.scheduling?.date;
+        const rawDateStr = getOperationalScheduleDate(o);
 
         const isPending = !!o.shipping?.scheduling?.pendingScheduling;
 

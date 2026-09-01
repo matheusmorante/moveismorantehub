@@ -150,10 +150,117 @@ const mapProfileToPerson = (prof: any): Person => {
     } as any;
 };
 
+export const syncMissingEmployeesFromProfiles = async (): Promise<void> => {
+    try {
+        const { data: profilesData, error: profError } = await supabase
+            .from('profiles')
+            .select('*');
+
+        if (profError || !profilesData || profilesData.length === 0) return;
+
+        const { data: existingPeople, error: peopleError } = await supabase
+            .from(TABLE_NAME)
+            .select('id,email,full_name,person_type,position,phone,address')
+            .or('person_type.ilike.employees,and(position.not.is.null,position.neq."")');
+
+        if (peopleError) return;
+
+        const normalizeEmail = (e?: string) => (e || '').trim().toLowerCase();
+
+        // Mapear colaboradores existentes por email normalizado
+        const existingByEmail = new Map<string, any>();
+        for (const p of (existingPeople || [])) {
+            const emailKey = normalizeEmail(p.email);
+            if (emailKey && !existingByEmail.has(emailKey)) {
+                existingByEmail.set(emailKey, p);
+            }
+        }
+
+        const rolePositions: Record<string, string> = {
+            administrator: 'Administrador',
+            manager: 'Gestor',
+            seller: 'Vendedor',
+            deliverer: 'Entregador / Montador',
+            pending: 'Sem Acesso'
+        };
+
+        for (const profile of profilesData) {
+            const profileEmail = normalizeEmail(profile.email);
+            if (!profileEmail) continue;
+
+            const existingEmp = existingByEmail.get(profileEmail);
+
+            if (existingEmp) {
+                // Se já existe colaborador para esse email, atualiza as informações com os dados do Google
+                const googleName = profile.full_name?.trim();
+                const updates: Record<string, any> = {};
+
+                if (googleName && (!existingEmp.full_name || existingEmp.full_name === profileEmail.split('@')[0])) {
+                    updates.full_name = googleName;
+                }
+
+                if (Object.keys(updates).length > 0) {
+                    updates.updated_at = new Date().toISOString();
+                    await supabase
+                        .from(TABLE_NAME)
+                        .update(updates)
+                        .eq('id', existingEmp.id);
+                }
+            } else {
+                // Se nenhum colaborador usa esse email, cria exatamente 1 novo colaborador
+                console.log(`[Colaboradores] Criando novo colaborador para o email ${profileEmail} a partir da conta Google...`);
+                const effectiveRoles = (profile.roles && profile.roles.length > 0)
+                    ? profile.roles
+                    : (profile.role ? [profile.role] : ['pending']);
+                const primaryRole = profile.role || effectiveRoles[0] || 'pending';
+                const defaultPosition = profile.position || rolePositions[primaryRole] || 'Vendedor';
+
+                const newEmployeeData: any = {
+                    person_type: 'employees',
+                    person_type_pf_pj: 'PF',
+                    full_name: profile.full_name || profileEmail.split('@')[0] || 'Colaborador',
+                    email: profile.email,
+                    phone: profile.phone || '',
+                    position: defaultPosition,
+                    active: true,
+                    is_draft: false,
+                    deleted: false,
+                    address: {
+                        noAddress: true,
+                        street: '',
+                        city: '',
+                        state: '',
+                        cep: '',
+                        role: primaryRole,
+                        roles: effectiveRoles
+                    },
+                    created_at: new Date().toISOString(),
+                    updated_at: new Date().toISOString()
+                };
+
+                const { data: inserted, error: insertError } = await supabase
+                    .from(TABLE_NAME)
+                    .insert([newEmployeeData])
+                    .select();
+
+                if (!insertError && inserted && inserted.length > 0) {
+                    existingByEmail.set(profileEmail, inserted[0]);
+                }
+            }
+        }
+    } catch (err) {
+        console.warn('[Colaboradores] Erro ao sincronizar colaboradores a partir dos perfis:', err);
+    }
+};
+
 export const subscribeToPeople = (collectionName: string, callback: (people: Person[]) => void, includeDeleted = false) => {
     let currentPeople: Person[] = [];
 
     const fetchAll = async () => {
+        if (collectionName === 'employees') {
+            await syncMissingEmployeesFromProfiles();
+        }
+
         let peopleQuery = supabase.from(TABLE_NAME).select('*');
 
         if (!includeDeleted) {
@@ -173,24 +280,25 @@ export const subscribeToPeople = (collectionName: string, callback: (people: Per
         const { data: peopleData } = await peopleQuery.order('full_name', { ascending: true });
         let employees: Person[] = (peopleData || []).map(mapFromDB);
 
+        // Deduplicação estrita de 1 colaborador por e-mail
         if (collectionName === 'employees') {
-            const { data: profilesData } = await supabase
-                .from('profiles')
-                .select('*')
-                .or('position.not.is.null,role.in.(manager,seller,deliverer)');
-            if (profilesData) {
-                const profileEmployees = profilesData.map(mapProfileToPerson);
-                const employeeIdentifiers = new Set(employees.flatMap((employee) => [
-                    String(employee.id || ''),
-                    employee.email?.toLowerCase() || '',
-                ]).filter(Boolean));
-
-                profileEmployees.forEach((pe: Person) => {
-                    if (!employeeIdentifiers.has(String(pe.id)) && !employeeIdentifiers.has(pe.email?.toLowerCase() || '')) {
-                        employees.push(pe);
+            const uniqueMap = new Map<string, Person>();
+            for (const emp of employees) {
+                const emailKey = emp.email?.toLowerCase().trim();
+                const key = emailKey || String(emp.id);
+                if (!uniqueMap.has(key)) {
+                    uniqueMap.set(key, emp);
+                } else {
+                    // Se já tiver uma entrada, preserva a que tiver telefone ou endereço preenchido
+                    const existing = uniqueMap.get(key)!;
+                    const existingScore = (existing.phone ? 10 : 0) + (existing.fullAddress?.street ? 10 : 0);
+                    const currentScore = (emp.phone ? 10 : 0) + (emp.fullAddress?.street ? 10 : 0);
+                    if (currentScore > existingScore) {
+                        uniqueMap.set(key, emp);
                     }
-                });
+                }
             }
+            employees = Array.from(uniqueMap.values());
         }
 
         employees.sort((a, b) => (a.fullName || '').localeCompare(b.fullName || ''));

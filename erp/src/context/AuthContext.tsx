@@ -89,6 +89,58 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 await supabase.from('profiles').update({ full_name: googleName }).eq('id', user.id);
             }
 
+            // Garante que o usuário logado via Google sincronize seu colaborador na tabela people (1 por e-mail)
+            if (userEmail) {
+                try {
+                    const { data: existingEmps } = await supabase
+                        .from('people')
+                        .select('id,email,full_name')
+                        .ilike('email', userEmail);
+
+                    const empName = googleName || data?.full_name || userEmail.split('@')[0] || (isMasterEmail ? 'Matheus Morante' : 'Colaborador');
+
+                    if (existingEmps && existingEmps.length > 0) {
+                        // Colaborador já existe com esse e-mail: atualiza suas informações pessoais do Google sem duplicar
+                        const primaryEmp = existingEmps[0];
+                        if (googleName && (!primaryEmp.full_name || primaryEmp.full_name === userEmail.split('@')[0])) {
+                            await supabase.from('people').update({
+                                full_name: empName,
+                                updated_at: new Date().toISOString()
+                            }).eq('id', primaryEmp.id);
+                        }
+                    } else {
+                        // Nenhum colaborador usa esse e-mail: cria exatamente 1 novo colaborador com as informações do Google
+                        console.log('[Auth] Criando colaborador para novo usuário logado via Google:', userEmail);
+                        const defaultRole: UserRole = isMasterEmail ? 'administrator' : (data?.role || 'pending');
+                        const defaultRoles: UserRole[] = isMasterEmail ? ['administrator'] : (data?.roles?.length ? data.roles : [defaultRole]);
+
+                        await supabase.from('people').insert([{
+                            person_type: 'employees',
+                            person_type_pf_pj: 'PF',
+                            full_name: empName,
+                            email: user.email || '',
+                            position: isMasterEmail ? 'Administrador' : (data?.position || 'Sem Cargo Definido'),
+                            active: true,
+                            is_draft: false,
+                            deleted: false,
+                            address: {
+                                noAddress: true,
+                                street: '',
+                                city: '',
+                                state: '',
+                                cep: '',
+                                role: defaultRole,
+                                roles: defaultRoles
+                            },
+                            created_at: new Date().toISOString(),
+                            updated_at: new Date().toISOString()
+                        }]);
+                    }
+                } catch (empErr) {
+                    console.warn('[Auth] Aviso ao sincronizar colaborador para usuário:', empErr);
+                }
+            }
+
             setProfile(data as Profile);
         } catch (err) {
             console.error('[Auth] Error fetching profile:', err);

@@ -15,6 +15,7 @@ import { autoCalculateRouteDistance } from "../../utils/maps";
 import { updateOrder } from "../../utils/orderHistoryService";
 import { toast } from "react-toastify";
 import { formatOrderCode } from "../../utils/orderCode";
+import { splitNoticeTags } from "../../utils/noticeTags";
 import { useState, useEffect } from "react";
 
 const OrderDetailsModal = ({ order: initialOrder, onClose, onEdit, isReadOnly }: Props) => {
@@ -57,6 +58,14 @@ const OrderDetailsModal = ({ order: initialOrder, onClose, onEdit, isReadOnly }:
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
+    useEffect(() => {
+        const originalOverflow = document.body.style.overflow;
+        document.body.style.overflow = 'hidden';
+        return () => {
+            document.body.style.overflow = originalOverflow;
+        };
+    }, []);
+
     return (
         <div
             className="fixed inset-0 z-[1000] flex items-center justify-center bg-slate-900/70 p-0 backdrop-blur-md animate-fade-in transition-colors duration-300 xl:p-6"
@@ -68,15 +77,16 @@ const OrderDetailsModal = ({ order: initialOrder, onClose, onEdit, isReadOnly }:
             >
                 <ModalHeader
                     reference={formatOrderCode(order)}
+                    orderDate={order.date}
+                    seller={order.seller}
                     onClose={onClose}
                     onEdit={onEdit ? () => onEdit(order) : undefined}
                 />
 
                 <div className="flex-1 overflow-y-auto p-4 sm:p-6 xl:p-8 custom-scrollbar">
-                    <div className="space-y-8 xl:space-y-10">
-                    <div className="grid grid-cols-1 gap-8 xl:grid-cols-2 xl:gap-12">
-                        {/* Left Column: Customer & Shipping */}
-                        <div className="space-y-8 sm:space-y-10">
+                    <div className="space-y-6 sm:space-y-8">
+                        {/* 1. Cliente, Endereço e Agendamento */}
+                        <div className="grid grid-cols-1 gap-6 xl:grid-cols-2 xl:gap-8">
                             <CustomerSection
                                 fullName={order.customerData?.fullName}
                                 phone={order.customerData?.phone}
@@ -87,65 +97,75 @@ const OrderDetailsModal = ({ order: initialOrder, onClose, onEdit, isReadOnly }:
                                 additionalContacts={order.customerData?.additionalContacts}
                             />
 
+                            <div className="space-y-6">
+                                {!isPickup && (
+                                    <div className="relative group/shipping">
+                                        <ShippingSection
+                                            fullAddress={order.shipping?.deliveryAddress || order.customerData?.fullAddress}
+                                            destinationCoords={order.shipping?.destinationCoords}
+                                            distance={order.shipping?.distance}
+                                            durationMinutes={order.shipping?.durationMinutes}
+                                            isReadOnly={isReadOnly}
+                                        />
+                                        {isRecalculating && (
+                                            <div className="absolute top-0 right-0 p-2 text-[10px] font-black uppercase tracking-widest text-blue-500 transition-colors flex items-center gap-2">
+                                                <div className="w-3 h-3 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+                                                Calculando Dados Logísticos...
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+                                <SchedulingSection
+                                    scheduling={order.shipping?.scheduling}
+                                    isPickup={isPickup}
+                                />
+                            </div>
+                        </div>
 
-                            {!isPickup && (
-                                <div className="relative group/shipping">
-                                    <ShippingSection
-                                        fullAddress={order.shipping?.deliveryAddress || order.customerData?.fullAddress}
-                                        destinationCoords={order.shipping?.destinationCoords}
-                                        distance={order.shipping?.distance}
-                                        durationMinutes={order.shipping?.durationMinutes}
-                                        isReadOnly={isReadOnly}
-                                    />
-                                    {isRecalculating && (
-                                        <div className="absolute top-0 right-0 p-2 text-[10px] font-black uppercase tracking-widest text-blue-500 transition-colors flex items-center gap-2">
-                                            <div className="w-3 h-3 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
-                                            Calculando Dados Logísticos...
-                                        </div>
-                                    )}
+                        {/* 2. Lista de Itens (abaixo do agendamento da entrega) */}
+                        <ItemsTable items={[
+                            ...(order.items || []),
+                            ...(order.assistanceItems || []).map(ai => ({
+                                ...ai,
+                                unitPrice: 0,
+                                isAssistanceItem: true
+                            }))
+                        ]} />
+
+                        {/* 3. Resumo Financeiro Minimalista (abaixo dos itens) */}
+                        <FinancialSummary
+                            itemsSummary={order.itemsSummary}
+                            shippingValue={order.shipping?.value || 0}
+                            totalValue={order.paymentsSummary?.totalOrderValue || 0}
+                        />
+
+                        {/* 4. Pagamentos (acima de observações) */}
+                        <PaymentDetails
+                            payments={order.payments}
+                            totalPaid={order.paymentsSummary?.totalAmountPaid}
+                            amountRemaining={order.paymentsSummary?.amountRemaining}
+                        />
+
+                        {/* 5. Observações Importantes */}
+                        {order.observation && (
+                            <section>
+                                <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-red-600 dark:text-red-400 mb-3 flex items-center gap-2">
+                                    <i className="bi bi-megaphone-fill text-red-500" /> Observações Importantes
+                                </h3>
+                                <div className="flex flex-wrap gap-2.5 p-4 sm:p-5 bg-red-50/40 dark:bg-red-950/20 border border-red-100 dark:border-red-900/30 rounded-2xl transition-colors duration-300">
+                                    {splitNoticeTags(order.observation).map((tag: string, idx: number) => (
+                                        <span
+                                            key={idx}
+                                            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-black bg-white dark:bg-slate-900 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-900/40 shadow-sm shadow-red-100/50 dark:shadow-none"
+                                        >
+                                            <i className="bi bi-exclamation-circle-fill text-[11px] text-red-500" />
+                                            {tag}
+                                        </span>
+                                    ))}
                                 </div>
-                            )}
-                            <SchedulingSection
-                                scheduling={order.shipping?.scheduling}
-                                isPickup={isPickup}
-                            />
-                        </div>
-
-                        {/* Resumo financeiro e pagamentos */}
-                        <div className="space-y-10">
-                            <FinancialSummary
-                                itemsSummary={order.itemsSummary}
-                                shippingValue={order.shipping?.value || 0}
-                                totalValue={order.paymentsSummary?.totalOrderValue || 0}
-                            />
-                            <PaymentDetails
-                                payments={order.payments}
-                                totalPaid={order.paymentsSummary?.totalAmountPaid}
-                                amountRemaining={order.paymentsSummary?.amountRemaining}
-                            />
-                        </div>
+                            </section>
+                        )}
                     </div>
-
-                    <ItemsTable items={[
-                        ...(order.items || []),
-                        ...(order.assistanceItems || []).map(ai => ({
-                            ...ai,
-                            unitPrice: 0,
-                            isAssistanceItem: true
-                        }))
-                    ]} />
-                    </div>
-
-                    {order.observation && (
-                        <div className="mt-8 p-6 sm:p-8 bg-amber-50/50 dark:bg-amber-900/10 border border-amber-100 dark:border-amber-900/30 rounded-[2rem] transition-colors duration-300">
-                            <h4 className="text-[10px] font-black uppercase tracking-widest text-amber-600 dark:text-amber-500 mb-3 flex items-center gap-2">
-                                <i className="bi bi-chat-left-dots-fill" /> Observações Internas
-                            </h4>
-                            <p className="text-sm font-bold text-amber-900/70 dark:text-amber-200/50 italic leading-relaxed">
-                                "{order.observation}"
-                            </p>
-                        </div>
-                    )}
                 </div>
 
                 <div className="px-4 py-4 sm:px-10 sm:py-6 border-t border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/20 flex justify-center transition-colors duration-300">

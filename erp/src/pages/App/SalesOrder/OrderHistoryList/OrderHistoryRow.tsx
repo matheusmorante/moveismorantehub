@@ -1,4 +1,5 @@
 import React from "react";
+import { createPortal } from "react-dom";
 import Order, { VisibilitySettings } from "../../../types/order.type";
 import { getSettings } from '@/pages/utils/settingsService';
 import { formatCurrency, formatToBRDate } from "../../../utils/formatters";
@@ -8,7 +9,7 @@ import { isOrderIncomplete } from "../../../utils/validations";
 import { getOrderTypeClasses, resolveOrderColor } from "../../../utils/orderTypeColorUtils";
 import { useAuth } from "../../../../context/AuthContext";
 import { canPerform } from "../../../utils/permissionService";
-import { handleStockAndBusinessRules, manuallyReverseStock, updateOrder, undoReturn } from "@/pages/utils/orderHistoryService";
+import { handleStockAndBusinessRules, manuallyReverseStock, updateOrder } from "@/pages/utils/orderHistoryService";
 import { toast } from "react-toastify";
 import InventoryMovementBadge from "./InventoryMovementBadge";
 import CancelledOrderBadge from "./CancelledOrderBadge";
@@ -61,6 +62,8 @@ const OrderHistoryRow = ({
 }: OrderHistoryRowProps) => {
     const [showPicker, setShowPicker] = React.useState(false);
     const [showMenu, setShowMenu] = React.useState(false);
+    const [menuPosition, setMenuPosition] = React.useState<{ top: number | string; bottom: number | string; right: number }>({ top: 'auto', bottom: 'auto', right: 0 });
+    const menuButtonRef = React.useRef<HTMLButtonElement>(null);
     const [showFulfillmentConfirm, setShowFulfillmentConfirm] = React.useState(false);
     const [showStockConfirm, setShowStockConfirm] = React.useState(false);
     const [isStockLoading, setIsStockLoading] = React.useState(false);
@@ -163,6 +166,9 @@ const OrderHistoryRow = ({
     const hasAssemblyDepot = isOrderAssemblyDepot || allOrderItems.some(isHandlingDepot);
 
     const cellBgClass = 'bg-white dark:bg-slate-900';
+    const rowAccentWidthClass = order.orderType === 'return' || order.orderType === 'assistance'
+        ? ''
+        : (isDraft ? 'border-l-[12px]' : 'border-l-[6px]');
     const rowBorderClass = order.status === 'draft'
         ? 'border-l-slate-300 dark:border-l-slate-600'
         : rowColorKey === 'green'
@@ -189,7 +195,7 @@ const OrderHistoryRow = ({
                 const isAssistance = order.orderType === 'assistance';
                 const isReturn = order.orderType === 'return';
                 const isPickup = order.shipping?.deliveryMethod === 'pickup';
-                const typeIcon = isAssistance ? 'bi-tools' : (isReturn ? 'bi-arrow-return-left' : (isPickup ? 'bi-hand-index-thumb-fill' : 'bi-truck'));
+                const typeIcon = isAssistance ? 'bi-tools' : (isReturn ? 'bi-arrow-return-left' : (isPickup ? 'bi-shop' : 'bi-truck'));
                 const typeColor = isAssistance ? 'text-orange-500' : (isReturn ? 'text-amber-500' : (isPickup ? 'text-purple-500' : 'text-green-600'));
 
                 return (
@@ -207,7 +213,7 @@ const OrderHistoryRow = ({
                                     title="Filtrar por pedido vinculado"
                                 >
                                     <i className="bi bi-link-45deg"></i>
-                                    Vinc: #{order.linkedOrderCode || formatOrderCode(order)}
+                                    Pedido #{order.linkedOrderCode || formatOrderCode(order)}
                                 </button>
                             )}
                         </div>
@@ -313,7 +319,7 @@ const OrderHistoryRow = ({
                 const isAssis = order.orderType === 'assistance';
                 const isRet = order.orderType === 'return';
                 const isPick = order.shipping?.deliveryMethod === 'pickup';
-                const tIcon = isAssis ? 'bi-tools' : (isRet ? 'bi-arrow-return-left' : (isPick ? 'bi-hand-index-thumb-fill' : 'bi-truck'));
+                const tIcon = isAssis ? 'bi-tools' : (isRet ? 'bi-arrow-return-left' : (isPick ? 'bi-shop' : 'bi-truck'));
                 const tColor = isAssis ? 'text-orange-600' : (isRet ? 'text-amber-600' : (isPick ? 'text-purple-600' : 'text-green-600'));
 
                 const sIcons: Record<string, string> = {
@@ -397,8 +403,8 @@ const OrderHistoryRow = ({
                                 <div className="relative" onClick={(e) => e.stopPropagation()}>
                                     <button
                                         onClick={(e) => { e.stopPropagation(); if (!isStatusBadgeReadOnly) setShowPicker(!showPicker); }}
-                                        className={`flex items-center justify-center h-6 w-6 rounded-md ${currentStatus.bg.replace('/10', '').replace('/20', '').replace('-50', '-500')} text-white transition-all shadow-2xs border border-black/10 ${isStatusBadgeReadOnly ? 'cursor-default' : 'hover:brightness-110 active:scale-95'}`}
-                                        title={`${isStatusBadgeReadOnly ? 'Status somente leitura' : 'Status'}: ${currentStatus.label} | Tipo: ${isAssis ? 'Assistência' : (isRet ? 'Devolução' : (isPick ? 'Retirada' : 'Entrega'))}`}
+                                        className={`flex items-center justify-center h-6 w-6 rounded-md ${order.status === 'cancelled' ? 'bg-slate-700 dark:bg-slate-800' : currentStatus.bg.replace('/10', '').replace('/20', '').replace('-50', '-500')} text-white transition-all shadow-2xs border border-black/10 ${isStatusBadgeReadOnly ? 'cursor-default' : 'hover:brightness-110 active:scale-95'}`}
+                                        title={`Status: ${currentStatus.label} | Tipo: ${isAssis ? 'Assistência' : (isRet ? 'Devolução' : (isPick ? 'Retirada' : 'Entrega'))}`}
                                     >
                                         <i className={`bi ${sIcon} text-white text-[11px]`} />
                                     </button>
@@ -538,126 +544,124 @@ const OrderHistoryRow = ({
                                 </>
                             ) : (
                                 <>
-                                    <div className="flex items-center gap-2">
-                                            <div
-                                                className="relative group/menu"
-                                                onMouseEnter={() => setShowMenu(true)}
-                                                onMouseLeave={() => setShowMenu(false)}
-                                            >
-                                                <button
-                                                    className={`p-2 rounded-xl transition-all border flex items-center justify-center h-7 w-7 shadow-sm ${showMenu ? 'bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 border-slate-200 dark:border-slate-700' : 'text-slate-400 dark:text-slate-500 bg-white dark:bg-slate-950 border-slate-100 dark:border-slate-800 hover:text-slate-800 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800'} group-hover/menu:bg-slate-100 dark:group-hover/menu:bg-slate-800 group-hover/menu:border-slate-200 dark:group-hover/menu:border-slate-700 group-hover/menu:text-slate-800 dark:group-hover/menu:text-slate-200`}
-                                                    title="Mais ações e opções de envio"
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        setShowMenu(!showMenu);
-                                                        setShowPicker(false);
-                                                    }}
-                                                >
-                                                    <i className="bi bi-three-dots-vertical" />
-                                                </button>
+                                    <div className="relative">
+                                        <button
+                                            ref={menuButtonRef}
+                                            className={`p-2 rounded-xl transition-all border flex items-center justify-center h-7 w-7 shadow-sm ${showMenu ? 'bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 border-slate-200 dark:border-slate-700' : 'text-slate-400 dark:text-slate-500 bg-white dark:bg-slate-950 border-slate-100 dark:border-slate-800 hover:text-slate-800 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800'}`}
+                                            title="Mais ações e opções de envio"
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                if (!showMenu && menuButtonRef.current) {
+                                                    const rect = menuButtonRef.current.getBoundingClientRect();
+                                                    const spaceBelow = window.innerHeight - rect.bottom;
+                                                    if (spaceBelow < 340) {
+                                                        setMenuPosition({ top: 'auto', bottom: window.innerHeight - rect.top + 8, right: window.innerWidth - rect.right });
+                                                    } else {
+                                                        setMenuPosition({ top: rect.bottom + 8, bottom: 'auto', right: window.innerWidth - rect.right });
+                                                    }
+                                                }
+                                                setShowMenu(!showMenu);
+                                                setShowPicker(false);
+                                            }}
+                                        >
+                                            <i className="bi bi-three-dots-vertical" />
+                                        </button>
 
-                                                {/* Dropdown Menu - Continuous hover area bridged with pt-2 instead of mt-2 */}
-                                                <div className={`absolute top-full right-0 pt-2 w-64 flex-col z-[200] ${showMenu ? 'flex' : 'hidden md:group-hover/menu:flex'}`}>
-                                                    <div className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl p-2 flex flex-col gap-1 animate-slide-up max-h-[60vh] overflow-y-auto custom-scrollbar">
-                                                        {/* Edit Button */}
-                                                        {canReconcileTemporaryProducts && (
-                                                            <button
-                                                                onClick={(e) => { e.stopPropagation(); onEdit(order, 2, true, true); setShowMenu(false); }}
-                                                                className="flex w-full items-center gap-3 rounded-xl p-2.5 text-amber-600 transition-all hover:bg-amber-50 dark:text-amber-400 dark:hover:bg-amber-950/30"
-                                                            >
-                                                                <i className="bi bi-link-45deg text-lg" />
-                                                                <div className="flex flex-col text-left"><span className="text-xs font-black uppercase tracking-widest">Conciliação Comercial</span><span className="text-[9px] font-bold uppercase tracking-widest text-slate-400">Vincular produtos sem cadastro</span></div>
-                                                            </button>
-                                                        )}
+                                        {/* Dropdown Menu via Portal to avoid any overflow cut or z-index clipping */}
+                                        {showMenu && typeof document !== 'undefined' && createPortal(
+                                            <div className="portal-menu-container">
+                                                <div className="fixed inset-0 z-[9990]" onClick={(e) => { e.stopPropagation(); setShowMenu(false); }} />
+                                                <div
+                                                    className="fixed w-64 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-[0_10px_40px_-10px_rgba(0,0,0,0.3)] z-[9999] p-2 flex flex-col gap-1 animate-slide-up max-h-[60vh] overflow-y-auto custom-scrollbar"
+                                                    style={{ top: menuPosition.top, bottom: menuPosition.bottom, right: menuPosition.right }}
+                                                    onClick={(e) => e.stopPropagation()}
+                                                >
+                                                    {/* Edit Button */}
+                                                    {canReconcileTemporaryProducts && (
                                                         <button
-                                                            disabled={isEditLocked}
-                                                            onClick={(e) => { e.stopPropagation(); if (!isEditLocked) onEdit(order); setShowMenu(false); }}
-                                                            className={`flex items-center gap-3 w-full p-2.5 rounded-xl transition-all ${isEditLocked ? 'cursor-not-allowed text-slate-400 dark:text-slate-600' : `hover:bg-slate-50 dark:hover:bg-slate-800 group/item ${order.orderType === 'assistance' ? 'text-orange-600' : order.orderType === 'budget' ? 'text-blue-600' : order.orderType === 'return' ? 'text-amber-600' : 'text-emerald-600'}`}`}
-                                                            title={isEditLocked ? 'Pedido atendido não pode ser editado' : `Editar est${order.orderType === 'assistance' ? 'a assistência' : order.orderType === 'budget' ? 'e orçamento' : order.orderType === 'return' ? 'a devolução' : 'a venda'}`}
+                                                            onClick={(e) => { e.stopPropagation(); onEdit(order, 2, true, true); setShowMenu(false); }}
+                                                            className="flex w-full items-center gap-3 rounded-xl p-2.5 text-amber-600 transition-all hover:bg-amber-50 dark:text-amber-400 dark:hover:bg-amber-950/30"
                                                         >
-                                                            <i className="bi bi-pencil-fill text-lg" />
-                                                            <div className="flex flex-col text-left">
-                                                                <span className="text-xs font-black uppercase tracking-widest">
-                                                                    {order.orderType === 'assistance' ? 'Editar Assistência' : order.orderType === 'budget' ? 'Editar Orçamento' : order.orderType === 'return' ? 'Editar Devolução' : 'Editar Venda'}
-                                                                </span>
-                                                                <span className="text-[9px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">
-                                                                    Alterar dados d{order.orderType === 'assistance' ? 'a assistência' : order.orderType === 'budget' ? 'o orçamento' : order.orderType === 'return' ? 'a devolução' : 'a venda'}
+                                                            <i className="bi bi-link-45deg text-lg" />
+                                                            <div className="flex flex-col text-left"><span className="text-xs font-black uppercase tracking-widest">Conciliação Comercial</span><span className="text-[9px] font-bold uppercase tracking-widest text-slate-400">Vincular produtos sem cadastro</span></div>
+                                                        </button>
+                                                    )}
+                                                    <button
+                                                        disabled={isEditLocked}
+                                                        onClick={(e) => { e.stopPropagation(); if (!isEditLocked) onEdit(order); setShowMenu(false); }}
+                                                        className={`flex items-center gap-3 w-full p-2.5 rounded-xl transition-all ${isEditLocked ? 'cursor-not-allowed text-slate-400 dark:text-slate-600' : `hover:bg-slate-50 dark:hover:bg-slate-800 group/item ${order.orderType === 'assistance' ? 'text-orange-600' : order.orderType === 'budget' ? 'text-blue-600' : order.orderType === 'return' ? 'text-amber-600' : 'text-emerald-600'}`}`}
+                                                        title={isEditLocked ? 'Pedido atendido não pode ser editado' : (isDraft ? 'Retomar cadastramento do pedido' : `Editar est${order.orderType === 'assistance' ? 'a assistência' : order.orderType === 'budget' ? 'e orçamento' : order.orderType === 'return' ? 'a devolução' : 'a venda'}`)}
+                                                    >
+                                                        <i className={`bi ${isDraft ? 'bi-arrow-repeat' : 'bi-pencil-fill'} text-lg`} />
+                                                        <div className="flex flex-col text-left">
+                                                            <span className="text-xs font-black uppercase tracking-widest">
+                                                                {isDraft
+                                                                    ? 'Retomar Cadastramento'
+                                                                    : (order.orderType === 'assistance' ? 'Editar Assistência' : order.orderType === 'budget' ? 'Editar Orçamento' : order.orderType === 'return' ? 'Editar Devolução' : 'Editar Venda')}
+                                                            </span>
+                                                        </div>
+                                                    </button>
+
+                                                    <div className="h-[1px] bg-slate-100 dark:bg-slate-800 my-1" />
+
+                                                    <PostSaleActionMenuButton
+                                                        order={order}
+                                                        onOpen={onShowPostSaleActions}
+                                                        onCloseMenu={() => setShowMenu(false)}
+                                                    />
+
+                                                    {buttons.filter(btn => {
+                                                        if (isPostSaleAction(btn.key)) return false;
+                                                        if (btn.key === 'sendCustomerReviews' && order.orderType === 'assistance') return false;
+                                                        if (btn.orderTypes && !btn.orderTypes.includes(order.orderType || 'sale')) return false;
+
+                                                        const hasReturn = !!(
+                                                            order.returnOrderId ||
+                                                            order.orderType === 'return' ||
+                                                            order.status === 'returned' ||
+                                                            (order as any).hasReturn ||
+                                                            (order as any).returned ||
+                                                            (order as any).order_data?.returnOrderId ||
+                                                            (order as any).order_data?.returned ||
+                                                            (order as any).order_data?.status === 'returned'
+                                                        );
+
+                                                        if (btn.key === 'generateReturn' && hasReturn) return false;
+                                                        if (btn.key === 'undoReturn' && (!hasReturn || order.status === 'cancelled')) return false;
+
+                                                        return true;
+                                                    }).map((btn) => {
+                                                        const isPrintReceipt = btn.key === 'printReceipt';
+                                                        const disablePrintReceipt = isPrintReceipt && (!order.customerData?.fullName || order.customerData.fullName === "Nenhum" || order.customerData.fullName === "Ao Consumidor");
+                                                        return (
+                                                        <button
+                                                            key={btn.key}
+                                                                disabled={disablePrintReceipt}
+                                                                onClick={async (e) => {
+                                                                    e.stopPropagation();
+                                                                    if (disablePrintReceipt) return;
+
+                                                                    onAction(btn.key, order);
+                                                                    setShowMenu(false);
+                                                                }}
+                                                                className={`flex items-center justify-between w-full p-2.5 rounded-xl transition-all ${disablePrintReceipt ? 'opacity-50 cursor-not-allowed text-slate-400 dark:text-slate-600 bg-slate-50 dark:bg-slate-900/50' : `hover:bg-slate-50 dark:hover:bg-slate-800 group/item ${btn.color}`}`}
+                                                                title={disablePrintReceipt ? 'Não é possível imprimir recibo sem cliente associado' : btn.tooltip}
+                                                        >
+                                                            <div className="flex items-center gap-3 text-left">
+                                                                <i className={`bi ${btn.icon} text-lg`} />
+                                                                <span className="text-[10px] font-black uppercase tracking-widest">
+                                                                    {typeof btn.label === 'function' ? btn.label(order) : btn.label}
                                                                 </span>
                                                             </div>
                                                         </button>
+                                                        )
+                                                    })}
 
-                                                        <div className="h-[1px] bg-slate-100 dark:bg-slate-800 my-1" />
-
-                                                        <PostSaleActionMenuButton
-                                                            order={order}
-                                                            onOpen={onShowPostSaleActions}
-                                                            onCloseMenu={() => setShowMenu(false)}
-                                                        />
-
-                                                        {buttons.filter(btn => {
-                                                            if (isPostSaleAction(btn.key)) return false;
-                                                            if (btn.key === 'sendCustomerReviews' && order.orderType === 'assistance') return false;
-                                                            if (btn.orderTypes && !btn.orderTypes.includes(order.orderType || 'sale')) return false;
-                                                            
-                                                            const hasReturn = !!(
-                                                                order.returnOrderId ||
-                                                                order.orderType === 'return' ||
-                                                                order.status === 'returned' ||
-                                                                (order as any).hasReturn ||
-                                                                (order as any).returned ||
-                                                                (order as any).order_data?.returnOrderId ||
-                                                                (order as any).order_data?.returned ||
-                                                                (order as any).order_data?.status === 'returned'
-                                                            );
-
-                                                            if (btn.key === 'generateReturn' && hasReturn) return false;
-                                                            if (btn.key === 'undoReturn' && !hasReturn) return false;
-                                                            
-                                                            return true;
-                                                        }).map((btn) => {
-                                                            const isPrintReceipt = btn.key === 'printReceipt';
-                                                            const disablePrintReceipt = isPrintReceipt && (!order.customerData?.fullName || order.customerData.fullName === "Nenhum" || order.customerData.fullName === "Ao Consumidor");
-                                                            return (
-                                                            <button
-                                                                key={btn.key}
-                                                                    disabled={disablePrintReceipt}
-                                                                    onClick={async (e) => {
-                                                                        e.stopPropagation();
-                                                                        if (disablePrintReceipt) return;
-                                                                        
-                                                                        if (btn.action === 'UNDO_RETURN') {
-                                                                            if (window.confirm("Deseja realmente cancelar esta devolução? Ela ainda não foi atendida e não gerou entrada no estoque.")) {
-                                                                                try {
-                                                                                    await undoReturn(order);
-                                                                                    toast.success("Devolução cancelada com sucesso!");
-                                                                                    // Refresh happens via subscription or parent refresh
-                                                                                } catch (err: any) {
-                                                                                    toast.error("Erro ao desfazer devolução: " + err.message);
-                                                                                }
-                                                                            }
-                                                                        } else {
-                                                                            onAction(btn.key, order);
-                                                                        }
-                                                                        setShowMenu(false);
-                                                                    }}
-                                                                    className={`flex items-center justify-between w-full p-2.5 rounded-xl transition-all ${disablePrintReceipt ? 'opacity-50 cursor-not-allowed text-slate-400 dark:text-slate-600 bg-slate-50 dark:bg-slate-900/50' : `hover:bg-slate-50 dark:hover:bg-slate-800 group/item ${btn.color}`}`}
-                                                                    title={disablePrintReceipt ? 'Não é possível imprimir recibo sem cliente associado' : btn.tooltip}
-                                                            >
-                                                                <div className="flex items-center gap-3 text-left">
-                                                                    <i className={`bi ${btn.icon} text-lg`} />
-                                                                    <span className="text-[10px] font-black uppercase tracking-widest">
-                                                                        {typeof btn.label === 'function' ? btn.label(order) : btn.label}
-                                                                    </span>
-                                                                </div>
-                                                            </button>
-                                                            )
-                                                        })}
-
-                                                    </div>
                                                 </div>
-                                            </div>
-
-                                        </div>
+                                            </div>,
+                                            document.body
+                                        )}
+                                    </div>
                                 </>
                             )}
                         </div>
@@ -674,10 +678,10 @@ const OrderHistoryRow = ({
             <tr
             id={id}
                 onClick={canViewDetails ? () => onViewDetails?.(order) : undefined}
-                className={`relative transition-colors group ${canViewDetails ? 'cursor-pointer' : 'cursor-default'} border-b border-white dark:border-slate-800/50 ${isDraft ? 'border-l-[12px]' : 'border-l-[6px]'} ${rowBorderClass} ${showMenu || showPicker ? 'z-[150]' : ''} ${cellBgClass} ${isSelected ? cls.rowActive : ''} ${isHighlighted ? 'animate-highlight' : ''}`}
+                className={`relative transition-colors group ${canViewDetails ? 'cursor-pointer' : 'cursor-default'} border-b border-white dark:border-slate-800/50 ${rowAccentWidthClass} ${rowBorderClass} ${showMenu || showPicker ? 'z-[150]' : ''} ${cellBgClass} ${isSelected ? cls.rowActive : ''} ${isHighlighted ? 'animate-highlight' : ''}`}
         >
             {/* Row Checkbox */}
-                <td className={`p-0 w-12 text-center border-b border-white dark:border-slate-800/50 ${isDraft ? 'border-l-[12px]' : 'border-l-[6px]'} ${rowBorderClass} ${cellBgClass}`}>
+                <td className={`p-0 w-12 text-center border-b border-white dark:border-slate-800/50 ${rowAccentWidthClass} ${rowBorderClass} ${cellBgClass}`}>
                 <label
                     className="flex items-center justify-center w-full h-full cursor-pointer py-1.5 px-2"
                     onClick={(e) => e.stopPropagation()}

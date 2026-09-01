@@ -366,6 +366,11 @@ export const formatOrderSchedulingText = (shipping: any, item: any): string => {
   return '';
 };
 export const isCancelledOrder = (order: any): boolean => {
+  if (!order) return false;
   const data = order?.order_data || {};
-  return /cancel/.test(String(order?.status || data.status || '').toLowerCase());
+  const status = String(order?.status || data.status || order?.order_status || data.order_status || '').toLowerCase().trim();
+  if (status === 'cancelled' || status === 'cancelado' || status === 'canceled' || status.includes('cancel')) {
+    return true;
+  }
+  return order.cancelled === true || data.cancelled === true || order.deleted === true || data.deleted === true;
 };

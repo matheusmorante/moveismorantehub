@@ -21,8 +21,8 @@ import Variations from './pages/App/Variations/Index';
 import Stock from './pages/App/Stock';
 import Login from './pages/Login';
 import Signup from './pages/Signup';
-import UsersManagementPage from './pages/App/Users/Index';
 import ProfilePage from './pages/App/Profile/Index';
+import AccessAndUsersPage from './pages/App/AccessAndUsers/Index';
 import PurchasesPage from './pages/App/Stock/Purchases/Index';
 import ReceiptsPage from './pages/App/Stock/Receipts/Index';
 import OrderRouteMap from './pages/App/SalesOrder/OrderRouteMap';
@@ -170,7 +170,9 @@ function Router() {
             <Route path='/customers/desires' element={<CustomerDesiresPage />} />
             <Route path='/registrations/suppliers' element={<Suppliers />} />
             <Route path='/registrations/employees' element={<Employees />} />
-            <Route path='/users' element={<AdminRoute><UsersManagementPage /></AdminRoute>} />
+            <Route path='/acessos-e-usuarios' element={<AdminRoute><AccessAndUsersPage /></AdminRoute>} />
+            <Route path='/access-and-users' element={<AdminRoute><AccessAndUsersPage /></AdminRoute>} />
+            <Route path='/users' element={<AdminRoute><AccessAndUsersPage /></AdminRoute>} />
             <Route path='/profile' element={<ProfilePage />} />
 
             {/* Módulo Financeiro */}

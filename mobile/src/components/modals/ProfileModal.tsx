@@ -199,4 +199,3 @@ export const ProfileModal: React.FC<Props> = ({
     </Modal>
   );
 };
-};

@@ -239,17 +239,21 @@ const PersonRow = ({
                                                     <span className="text-[10px] font-black uppercase tracking-widest text-indigo-700 dark:text-indigo-300">Enviar Convite VIP</span>
                                                 </button>
 
-                                                <button
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        setIsMenuOpen(false);
-                                                        onDelete(person.id!);
-                                                    }}
-                                                    className="flex items-center gap-3 px-4 py-2.5 hover:bg-red-50 dark:hover:bg-red-955/20 transition-colors text-left group border-t border-slate-50 dark:border-slate-800/50"
-                                                >
-                                                    <i className={`bi ${person.type === 'suppliers' ? 'bi-person-dash-fill text-amber-500' : 'bi-trash-fill text-red-500'}`} />
-                                                    <span className="text-[10px] font-black uppercase tracking-widest text-red-600 dark:text-red-400">{person.type === 'suppliers' ? 'Desativar' : 'Mover para Lixeira'}</span>
-                                                </button>
+                                                {person.type !== 'employees' && (
+                                                    <button
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            setIsMenuOpen(false);
+                                                            onDelete(person.id!);
+                                                        }}
+                                                        className="flex items-center gap-3 px-4 py-2.5 hover:bg-red-50 dark:hover:bg-red-955/20 transition-colors text-left group border-t border-slate-50 dark:border-slate-800/50"
+                                                    >
+                                                        <i className={`bi ${person.type === 'suppliers' ? 'bi-person-dash-fill text-amber-500' : 'bi-trash-fill text-red-500'}`} />
+                                                        <span className="text-[10px] font-black uppercase tracking-widest text-red-600 dark:text-red-400">
+                                                            {person.type === 'suppliers' ? 'Desvincular' : 'Mover para Lixeira'}
+                                                        </span>
+                                                    </button>
+                                                )}
                                             </>
                                         )}
                                     </div>

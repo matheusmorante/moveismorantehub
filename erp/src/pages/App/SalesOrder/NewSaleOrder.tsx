@@ -4,7 +4,7 @@ import Order from "../../types/order.type";
 import SalesOrderFormSection from "./SalesOrderFormSection";
 import OrderStepper from "./OrderStepper";
 import { toast } from "react-toastify";
-import SellerSearchModal from "./components/SellerSearchModal";
+import SellerSearchModal from "./SellerSearchModal";
 import PersonFormModal from "../Registrations/shared/PersonFormModal";
 import { useSearchParams } from "react-router-dom";
 
@@ -211,7 +211,7 @@ const NewSaleOrder = ({
                 <div className="flex w-full lg:w-auto justify-between items-center shrink-0">
                     <div className="flex items-center gap-3">
                         <div className={`flex items-center justify-center w-9 h-9 sm:w-10 sm:h-10 rounded-xl shadow-md transition-all ${isBudget ? 'bg-indigo-600 shadow-indigo-500/20' : isReturn ? 'bg-amber-600 shadow-amber-500/20' : isPickup ? 'bg-purple-600 shadow-purple-500/20' : 'bg-emerald-600 shadow-emerald-500/20'}`}>
-                            <i className={`bi ${isBudget ? 'bi-calculator-fill' : isReturn ? 'bi-arrow-return-left' : isPickup ? 'bi-hand-index-thumb-fill' : 'bi-truck'} text-white text-sm sm:text-base`} />
+                            <i className={`bi ${isBudget ? 'bi-calculator-fill' : isReturn ? 'bi-arrow-return-left' : isPickup ? 'bi-shop' : 'bi-truck'} text-white text-sm sm:text-base`} />
                         </div>
                         <div>
                             <div className="flex items-center gap-2 flex-wrap">

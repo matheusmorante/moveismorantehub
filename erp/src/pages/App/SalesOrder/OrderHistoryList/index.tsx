@@ -5,6 +5,7 @@ import OrderHistoryTable from "./OrderHistoryTable";
 import StockActionModal from "../OrderActions/StockActionModal";
 import ConfirmModal from "@/components/shared/ConfirmModal";
 import ReturnFulfillmentConfirmModal from "./ReturnFulfillmentConfirmModal";
+import OrderPagination from "./OrderPagination";
 
 type OrderHistoryListProps = {
     onEdit: (order: Order, initialStep?: number, highlightTemporary?: boolean, reconciliationMode?: boolean) => void;
@@ -23,8 +24,18 @@ export interface OrderHistoryListRef {
     refresh: () => void;
 }
 
-
-const OrderHistoryList = forwardRef<OrderHistoryListRef, OrderHistoryListProps>(({ onEdit, onViewDetails, onShowPostSaleActions, filters, visibilitySettings, onToggleColumn, onSort, highlightOrderId, onFilterByOrderId, onAction: onActionProp }, ref) => {
+const OrderHistoryList = forwardRef<OrderHistoryListRef, OrderHistoryListProps>(({ 
+    onEdit, 
+    onViewDetails, 
+    onShowPostSaleActions, 
+    filters, 
+    visibilitySettings, 
+    onToggleColumn, 
+    onSort, 
+    highlightOrderId, 
+    onFilterByOrderId, 
+    onAction: onActionProp 
+}, ref) => {
     const [confirmModal, setConfirmModal] = React.useState<{
         isOpen: boolean;
         title: string;
@@ -51,8 +62,6 @@ const OrderHistoryList = forwardRef<OrderHistoryListRef, OrderHistoryListProps>(
         confirmReturnFulfillment,
         cancelReturnFulfillment,
         totalItems,
-        hasMore,
-        loadMore,
         selectedOrders,
         toggleSelection,
         selectAll,
@@ -65,12 +74,10 @@ const OrderHistoryList = forwardRef<OrderHistoryListRef, OrderHistoryListProps>(
         refresh,
         currentPage,
         totalPages,
-        setCurrentPage,
-        loadingMore,
-        useInfiniteScroll
+        setCurrentPage
     } = useOrderHistory(filters);
 
-    // Auto-scroll to top when page changes
+    // Auto-scroll para o início da lista ao mudar de página
     React.useEffect(() => {
         window.scrollTo({ top: 0, behavior: 'smooth' });
         const scrollContainers = document.querySelectorAll('.overflow-y-auto, .overflow-auto, main');
@@ -79,20 +86,7 @@ const OrderHistoryList = forwardRef<OrderHistoryListRef, OrderHistoryListProps>(
         });
     }, [currentPage]);
 
-    // IntersectionObserver for infinite scroll in Card View
-    const observerRef = React.useRef<IntersectionObserver | null>(null);
-    const sentinelRef = React.useCallback((node: HTMLDivElement | null) => {
-        if (loading) return;
-        if (observerRef.current) observerRef.current.disconnect();
-        observerRef.current = new IntersectionObserver(entries => {
-            if (entries[0].isIntersecting && hasMore) {
-                loadMore();
-            }
-        }, { threshold: 0.1 });
-        if (node) observerRef.current.observe(node);
-    }, [loading, hasMore, loadMore]);
-    
-    // Wrapped handlers for confirmation
+    // Handlers para confirmação modal
     const handleDelete = (id: string) => {
         setConfirmModal({
             isOpen: true,
@@ -137,11 +131,9 @@ const OrderHistoryList = forwardRef<OrderHistoryListRef, OrderHistoryListProps>(
         refresh
     }));
 
-    const [pageInput, setPageInput] = React.useState(String(currentPage));
     const [stockModal, setStockModal] = React.useState<{ order: Order, type: 'withdrawal' | 'entry' } | null>(null);
 
     const onAction = (actionKey: string, order: Order) => {
-        // External listener first
         if (onActionProp) {
             onActionProp(actionKey, order);
         }
@@ -157,45 +149,6 @@ const OrderHistoryList = forwardRef<OrderHistoryListRef, OrderHistoryListProps>(
         handleAction(actionKey, order);
     };
 
-    React.useEffect(() => {
-        setPageInput(String(currentPage));
-    }, [currentPage]);
-
-    const handlePageInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        setPageInput(e.target.value);
-    };
-
-    const handlePageInputBlur = () => {
-        const val = parseInt(pageInput, 10);
-        if (!isNaN(val) && val >= 1 && val <= totalPages) {
-            setCurrentPage(val);
-        } else {
-            setPageInput(String(currentPage));
-        }
-    };
-
-    const handlePageInputKeyDown = (e: React.KeyboardEvent) => {
-        if (e.key === 'Enter') {
-            handlePageInputBlur();
-        }
-    };
-
-    const getPageButtons = () => {
-        const maxVisible = 5;
-        if (totalPages <= maxVisible) {
-            return Array.from({ length: totalPages }, (_, index) => index + 1);
-        }
-
-        const start = currentPage <= 3
-            ? 1
-            : currentPage >= totalPages - 2
-                ? totalPages - maxVisible + 1
-                : currentPage - 2;
-
-        return Array.from({ length: maxVisible }, (_, index) => start + index);
-    };
-
-
     const [showTroubleshoot, setShowTroubleshoot] = React.useState(false);
 
     React.useEffect(() => {
@@ -208,7 +161,7 @@ const OrderHistoryList = forwardRef<OrderHistoryListRef, OrderHistoryListProps>(
     }, [loading]);
 
     const renderContent = () => {
-        if (loading) {
+        if (loading && orders.length === 0) {
             return (
                 <div className="flex flex-col items-center justify-center py-20 gap-6">
                     <div className="w-12 h-12 border-4 border-blue-100 dark:border-blue-900 border-t-blue-600 dark:border-t-blue-500 rounded-full animate-spin"></div>
@@ -217,18 +170,9 @@ const OrderHistoryList = forwardRef<OrderHistoryListRef, OrderHistoryListProps>(
                             Carregando pedidos da nuvem...
                         </p>
                         {showTroubleshoot && (
-                            <button
-                                onClick={() => {
-                                    (globalThis as any).console.warn('User forced loading end');
-                                    // We can't set loading directly here as it's from hook, 
-                                    // but we can at least show a message or wait for the hook's failsafe.
-                                    // Let's modify the hook to return a force function if needed, 
-                                    // but for now, let's just show a tip.
-                                }}
-                                className="text-[10px] text-blue-500 underline hover:text-blue-600 font-bold uppercase tracking-tight opacity-50 hover:opacity-100 transition-opacity"
-                            >
-                                Demorando muito? Verifique o Console (F12)
-                            </button>
+                            <p className="text-[10px] text-blue-500 font-bold uppercase tracking-tight opacity-75">
+                                Demorando muito? Verifique a conexão ou o Console (F12)
+                            </p>
                         )}
                     </div>
                 </div>
@@ -278,91 +222,15 @@ const OrderHistoryList = forwardRef<OrderHistoryListRef, OrderHistoryListProps>(
                     onFilterByOrderId={onFilterByOrderId}
                 />
 
-                {!useInfiniteScroll && (
-                <div className="flex items-center justify-between flex-wrap gap-4 py-6 px-4 border-t border-slate-100 dark:border-slate-800 mb-4">
-                    <span className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest flex items-center gap-2">
-                        {loading && <span className="w-3 h-3 border-2 border-blue-400 border-t-transparent rounded-full animate-spin" />}
-                        Página {currentPage} de {totalPages} · {totalItems} pedidos
-                    </span>
-
-                    <div className="flex items-center gap-2">
-                        <button
-                            type="button"
-                            onClick={() => setCurrentPage(currentPage - 1)}
-                            disabled={currentPage <= 1}
-                            className="px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-800 text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-900 disabled:opacity-20 disabled:hover:bg-transparent disabled:cursor-not-allowed transition-all"
-                        >
-                            Anterior
-                        </button>
-
-                        {/* Slot Esquerdo: Página Anterior */}
-                        <div className="w-9 h-9 flex items-center justify-center">
-                            {currentPage > 1 ? (
-                                <button
-                                    type="button"
-                                    onClick={() => setCurrentPage(currentPage - 1)}
-                                    className="w-9 h-9 rounded-xl text-xs font-black border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-900 transition-all cursor-pointer"
-                                >
-                                    {currentPage - 1}
-                                </button>
-                            ) : (
-                                <div className="w-9 h-9 rounded-xl border border-slate-100 dark:border-slate-800/40 bg-slate-50/30 dark:bg-slate-900/30 opacity-20 pointer-events-none" />
-                            )}
-                        </div>
-
-                        {/* Slot do Meio: Página Atual (Azul, Desativado) */}
-                        <div className="w-9 h-9 flex items-center justify-center">
-                            <button
-                                type="button"
-                                disabled
-                                className="w-9 h-9 rounded-xl text-xs font-black bg-blue-600 text-white shadow-md shadow-blue-500/20 cursor-default"
-                            >
-                                {currentPage}
-                            </button>
-                        </div>
-
-                        {/* Slot Direito: Página Seguinte */}
-                        <div className="w-9 h-9 flex items-center justify-center">
-                            {currentPage < totalPages ? (
-                                <button
-                                    type="button"
-                                    onClick={() => setCurrentPage(currentPage + 1)}
-                                    className="w-9 h-9 rounded-xl text-xs font-black border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-900 transition-all cursor-pointer"
-                                >
-                                    {currentPage + 1}
-                                </button>
-                            ) : (
-                                <div className="w-9 h-9 rounded-xl border border-slate-100 dark:border-slate-800/40 bg-slate-50/30 dark:bg-slate-900/30 opacity-20 pointer-events-none" />
-                            )}
-                        </div>
-
-                        <button
-                            type="button"
-                            onClick={() => setCurrentPage(currentPage + 1)}
-                            disabled={currentPage >= totalPages}
-                            className="px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-800 text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-900 disabled:opacity-20 disabled:hover:bg-transparent disabled:cursor-not-allowed transition-all"
-                        >
-                            Próxima
-                        </button>
-                    </div>
-                </div>
-                )}
-
-                {/* Infinite Scroll Sentinel */}
-                {useInfiniteScroll && (
-                <div ref={sentinelRef} className="py-6 flex flex-col items-center justify-center gap-2 border-t border-slate-100 dark:border-slate-800 mt-3">
-                    {hasMore ? (
-                        <div className="flex items-center gap-2 text-slate-500 dark:text-slate-400 text-xs font-bold animate-pulse">
-                            {loadingMore && <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />}
-                            <span>{loadingMore ? 'Carregando mais pedidos...' : `${orders.length} de ${totalItems} pedidos`}</span>
-                        </div>
-                    ) : (
-                        <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-600 bg-slate-100 dark:bg-slate-900 px-4 py-1.5 rounded-full border border-slate-200 dark:border-slate-800">
-                            Todos os {totalItems} pedidos carregados 👌
-                        </span>
-                    )}
-                </div>
-                )}
+                {/* Controles de Paginação (Lá em baixo, para tabela e cards) */}
+                <OrderPagination
+                    currentPage={currentPage}
+                    totalPages={totalPages}
+                    totalItems={totalItems}
+                    itemsPerPage={30}
+                    onPageChange={setCurrentPage}
+                    loading={loading}
+                />
             </div>
         );
     };
@@ -380,7 +248,13 @@ const OrderHistoryList = forwardRef<OrderHistoryListRef, OrderHistoryListProps>(
                 />
             )}
 
-            {pendingReturnFulfillment && <ReturnFulfillmentConfirmModal order={pendingReturnFulfillment} onCancel={cancelReturnFulfillment} onConfirm={confirmReturnFulfillment} />}
+            {pendingReturnFulfillment && (
+                <ReturnFulfillmentConfirmModal 
+                    order={pendingReturnFulfillment} 
+                    onCancel={cancelReturnFulfillment} 
+                    onConfirm={confirmReturnFulfillment} 
+                />
+            )}
 
             <ConfirmModal
                 isOpen={confirmModal.isOpen}

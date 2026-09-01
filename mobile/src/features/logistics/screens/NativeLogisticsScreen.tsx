@@ -7,6 +7,7 @@ import { subscribeToLogisticsChanges } from '../../../services/logisticsRealtime
 import { isAssemblyOutsideType, isAssemblyInternalType } from '../../../utils/aiSummaryHelper';
 import { formatFullAddress, groupOrdersByDate, formatItemNameExact, isCancelledOrder, isDateInPeriod, formatGroupDateLabel } from '../../../utils/orderUtils';
 import { OrderCardDeliveryFooter } from '../../../components/cards/OrderCardDeliveryFooter';
+import { getOperationalScheduleDate } from '../../../utils/operationalSchedule';
 
 interface Props {
   isDarkMode: boolean;
@@ -103,7 +104,7 @@ export const NativeLogisticsScreen: React.FC<Props> = ({ isDarkMode, isAdmin, on
 
     const shipping = oData.shipping || {};
     const sched = shipping.scheduling || oData.schedule || oData.scheduling || o.schedule || {};
-    const rawSchedDate = sched.date || sched.startDate || o.scheduled_date || o.date || '';
+    const rawSchedDate = getOperationalScheduleDate(o);
 
     // Considera PENDENTE apenas se o pedido foi marcado explicitamente como "Agendar Depois"
     const isExplicitlyPending = !!(
