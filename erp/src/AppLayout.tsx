@@ -174,7 +174,7 @@ export default function AppLayout() {
                         </Link>
                         <Link to="/acessos-e-usuarios" className="flex items-center gap-4 p-4 text-slate-600 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50/50 dark:hover:bg-blue-900/20 rounded-[1.5rem] transition-all font-bold text-[10px] uppercase tracking-widest">
                           <i className="bi bi-shield-lock-fill text-lg"></i>
-                          Gestão de Acessos e Usuários
+                          Controle de Acesso
                         </Link>
                         <Link to="/finance/settings" className="flex items-center gap-4 p-4 text-slate-600 dark:text-slate-400 hover:text-amber-600 dark:hover:text-amber-400 hover:bg-amber-50/50 dark:hover:bg-amber-900/20 rounded-[1.5rem] transition-all font-bold text-[10px] uppercase tracking-widest">
                           <i className="bi bi-bank2 text-lg"></i>

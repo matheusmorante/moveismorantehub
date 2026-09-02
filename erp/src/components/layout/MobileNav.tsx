@@ -267,7 +267,7 @@ const MobileNav = ({ isOpen, onClose, activeMenu, setActiveMenu }: MobileNavProp
                                     className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all font-bold text-sm text-left"
                                 >
                                     <i className="bi bi-shield-lock-fill text-lg"></i>
-                                    Gestão de Acessos e Usuários
+                                    Controle de Acesso
                                 </button>
                             </>
                         )}

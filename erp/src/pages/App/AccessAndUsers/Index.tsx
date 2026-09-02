@@ -49,7 +49,7 @@ export default function AccessAndUsersPage() {
             </div>
             <div>
               <h1 className="text-xl sm:text-2xl font-black text-slate-800 dark:text-slate-100 tracking-tight">
-                Gestão de Acessos e Usuários
+                Controle de Acesso
               </h1>
               <p className="text-xs sm:text-sm text-slate-400 dark:text-slate-500 font-medium mt-0.5">
                 Gerencie colaboradores, atribuição de cargos e permissões de acesso por área do sistema

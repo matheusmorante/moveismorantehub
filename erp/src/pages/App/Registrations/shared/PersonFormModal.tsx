@@ -360,7 +360,7 @@ const PersonFormModal = ({ isOpen, onClose, onSuccess, person, collectionName, t
             return;
         }
 
-        if (collectionName !== 'suppliers' && requiredFields.customer?.phone && !formData.noPhone && (!formData.phone || formData.phone.trim() === '')) {
+        if (collectionName === 'customers' && requiredFields.customer?.phone && !formData.noPhone && (!formData.phone || formData.phone.trim() === '')) {
             toast.error("O telefone é obrigatório.");
             return;
         }
