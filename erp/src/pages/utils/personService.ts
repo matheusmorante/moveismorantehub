@@ -152,6 +152,7 @@ export const syncMissingEmployeesFromProfiles = async (): Promise<void> => {
         const rolePositions: Record<string, string> = {
             administrator: 'Administrador',
             manager: 'Gestor',
+            stockist: 'Estoquista',
             seller: 'Vendedor',
             deliverer: 'Entregador / Montador',
             accountant: 'Contador',

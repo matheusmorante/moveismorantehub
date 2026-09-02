@@ -104,6 +104,18 @@ export const computeVariationName = (parentName: string, attributes: Array<{ nam
     return [cleanParent, attrValuesStr].filter(Boolean).join(' ');
 };
 
+/**
+ * Nome usado ao selecionar um item em qualquer formulário do ERP.
+ * A variação já contém o nome do produto pai e seus atributos, então não deve
+ * receber o nome do pai novamente.
+ */
+export const getSelectedProductDisplayName = (product?: Partial<Product> | any, variation?: Partial<Variation> | any): string => {
+    const variationName = String(variation?.name || '').trim();
+    if (variationName) return variationName;
+
+    return String(product?.name || product?.title || product?.description || '').trim();
+};
+
 export const hasMissingRequiredAttributes = (variations: Variation[] = []) => variations
     .some((variation) => !hasVariationAttribute(variation));
 

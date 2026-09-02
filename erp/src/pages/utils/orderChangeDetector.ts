@@ -147,6 +147,11 @@ export const detectOrderChangedAreas = (oldOrder?: Order, newOrder?: Order): str
     return changedAreas;
 };
 
+/** Alteration alerts are operational alerts: only a previously scheduled order can trigger one. */
+export const shouldNotifyOrderChange = (previousStatus?: string): boolean => (
+    previousStatus === 'scheduled' || previousStatus === 'agendado'
+);
+
 /**
  * Formata o texto da notificação mencionando a área única ou múltiplas áreas
  */

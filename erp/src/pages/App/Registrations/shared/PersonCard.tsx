@@ -189,6 +189,14 @@ const PersonCard = ({
                 <h3 className="text-sm font-bold text-slate-800 dark:text-slate-100 leading-tight">
                     {person.fullName}
                 </h3>
+                {person.type === 'employees' && person.position && (
+                    <div className="mt-1">
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200/60 dark:border-slate-700/60">
+                            <i className="bi bi-briefcase text-[9px] text-slate-400" />
+                            {person.position}
+                        </span>
+                    </div>
+                )}
                 {person.personType === 'PF' && person.socialName && (
                     <p className="text-[10px] text-slate-400 dark:text-slate-500 font-bold uppercase tracking-wider mt-0.5">
                         {person.socialName}

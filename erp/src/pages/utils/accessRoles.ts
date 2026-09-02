@@ -3,12 +3,13 @@ import { UserRole } from '@/context/AuthContext';
 export const SYSTEM_ROLES: Array<[Exclude<UserRole, 'pending'>, string]> = [
     ['administrator', 'Administrador'],
     ['manager', 'Gestor'],
+    ['stockist', 'Estoquista'],
     ['seller', 'Vendedor'],
     ['deliverer', 'Entregador / Montador'],
     ['accountant', 'Contador'],
 ];
 
-const priority: UserRole[] = ['administrator', 'manager', 'deliverer', 'seller', 'accountant'];
+const priority: UserRole[] = ['administrator', 'manager', 'stockist', 'deliverer', 'seller', 'accountant'];
 
 export const getProfileRoles = (profile: { role?: UserRole; roles?: UserRole[] | null }): UserRole[] => {
     const roles = profile.roles?.filter((role) => role !== 'pending') || [];

@@ -2,6 +2,7 @@ import React from "react";
 import SectionCard from "../../../components/SectionCard";
 import Item from "../../types/items.type";
 import { calcItemsSummary } from "../../utils/calculations";
+import { getSelectedProductDisplayName } from "../../utils/productVariationDefaults";
 import ItemsTable from "./ItemsTable";
 
 type Props = { items: Item[]; setItems: React.Dispatch<React.SetStateAction<Item[]>>; deliveryMethod: "delivery" | "pickup" };
@@ -10,10 +11,7 @@ const emptyItem = (): Item => ({ description: "", quantity: 1, unitPrice: 0, uni
 
 const ReturnItemsTable = ({ items, setItems, deliveryMethod }: Props) => {
     const selectProduct = (index: number, product: any, variation?: any) => {
-        const productName = (product.name || product.title || product.description || "").trim();
-        const normalizedProduct = productName.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
-        const normalizedVariation = variation?.name?.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
-        const description = variation && !normalizedVariation?.includes(normalizedProduct) ? `${productName} - ${variation.name}` : (variation?.name || productName);
+        const description = getSelectedProductDisplayName(product, variation);
         const unitPrice = variation?.promoPrice || variation?.unitPrice || product.promoPrice || product.unitPrice || 0;
         const costPrice = variation?.costPrice ?? product.costPrice ?? 0;
         setItems(current => current.map((item, itemIndex) => itemIndex === index ? { ...item, productId: product.id, variationId: variation?.id, isTemporaryProduct: false, code: variation?.sku || product.code || product.sku || "", description, unitPrice: Number(unitPrice) || 0, costPrice: Number(costPrice) || 0, handlingType: product.itemType === "service" ? "Execução no local" : item.handlingType, condition: variation?.condition || product.condition || "novo" } : item));

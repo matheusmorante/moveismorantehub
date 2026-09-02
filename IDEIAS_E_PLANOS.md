@@ -58,6 +58,8 @@ Este documento unifica todo o planejamento estratégico, ideias futuras, tarefas
 - [ ] **Variáveis de Ambiente**: Revisar rotas de API e Supabase para garantir funcionamento perfeito em ambos os ambientes conforme a nova regra.
 
 ### 💎 UX / Refinamentos
+- [x] **App Mobile - Código e SKU 100% Automáticos (Sem Input Manual)**: Código sequencial de 6 dígitos gerado na abertura via `getNextSequentialProductCode` (`000245`) e SKUs das variações gerados via `generateVariationSku` (`000245-01`), sem inputs de digitação manual para o usuário, idêntico ao ERP.
+- [x] **App Mobile - Cadastro Geral com Paridade ERP**: Campos de nomes/títulos diferenciados, slug amigável em tempo real, seleção de oportunidades e múltiplas categorias sincronizadas via tabela intermediária `product_categories`.
 - [x] **Correção da Tela Branca em Detalhes do Pedido (Mobile)**: Corrigido o `ReferenceError` em `OrderDetailsSections.tsx` restaurando a declaração de `displayOriginalPrice` e `displayFinalPrice` ao renderizar o manuseio e preço com desconto.
 - [x] **Card de Formas de Pagamento Dinâmico (Mobile)**:
   - Fundo e borda em **Amarelo/Âmbar** (`#f59e0b` / `#fffbeb`) com alerta quando o status estiver **Pendente**, **A Verificar** ou houver saldo a receber.
@@ -71,8 +73,37 @@ Este documento unifica todo o planejamento estratégico, ideias futuras, tarefas
   - Build oficial concluída e links atualizados no ERP: `https://expo.dev/accounts/morante/projects/mobile/builds/7fca3976-4db5-4b11-92c6-caeee69a39c1`
 - [x] **Google Maps Places Autocomplete (2 dígitos)**: Ativação instantânea a partir de 2 caracteres digitados no campo Rua/Logradouro em todos os formulários do ERP (Cadastro de Clientes, Pedido de Venda - Dados do Cliente, Dados de Entrega e Assistência Técnica), preenchendo automaticamente Rua, Bairro, Cidade, Estado, CEP e link do Maps.
 - [x] **Link de Localização do Google Maps (ERP & Mobile)**: Campo no cadastro de clientes para localização precisa (especialmente quando ruas/números não batem exatamente no GPS), integrado na mensagem do WhatsApp do grupo de entregas e nos detalhes/etapas de entrega do app mobile.
-- [x] **Link da Build APK Oficial**: Atualizado em todos os menus e botões de download do ERP para a build `cf9aa69d-99ba-4467-9941-cc62588c407e`.
+- [x] **Link da Build APK Oficial**: Atualizado em todos os menus e botões de download do ERP para o artifact direto `https://expo.dev/artifacts/eas/2z1WIeabVBd27Zg66LdlZJTyjyR2v895eRnUiXwwHg0.apk`.
 - [x] **Stepper Informativo e Sliders Bidirecionais de Entrega**: Indicador visual no topo das 3 etapas e controle seguro por deslizamento (`«` para avançar e `»` para retroceder).
+- [x] **Perfis de Acesso de Usuário com Permissões Acumulativas**: Transição da nomenclatura de *Cargo* para *Perfil de Acesso de Usuário* na Gestão de Acessos (`/acessos-e-usuarios` e `/settings`), permitindo múltiplos perfis por usuário com permissões acumulativas (`canPerform`). Usuários que recebem pelo menos um perfil de acesso ativo passam a constar automaticamente como colaboradores com sincronização em tempo real entre `profiles` e `people`. Incluído o novo perfil de `Estoquista` (`stockist`) com permissão padrão para movimentação e inventário de estoque.
+- [x] **Tabela de Produtos (Cabeçalho Limpo)**: Removido o botão do olhinho (`bi-eye-slash`) dos cabeçalhos das colunas da tabela de produtos, mantendo a tela mais limpa e a visibilidade de colunas centralizada nas opções de visualização.
+- [x] **Lista de Produtos (Fundo Cinza para o Pai e Dropdown de Variações Recolhidas)**:
+  - Nas visualizações em Tabela (`ProductRow`) e em Cards (`ProductCard`), os produtos pai agora possuem fundo cinza neutro destacado (`bg-slate-200/70 dark:bg-slate-800/80`).
+  - No início da linha da tabela (coluna SKU/código) e no topo do card, foi adicionado um botão de dropdown/chevron (`bi-chevron-right` / `bi-chevron-down`) para alternar a exibição das variações filhas.
+  - Por padrão, as variações filhas permanecem recolhidas/ocultas, mantendo a listagem visualmente limpa e objetiva.
+  - O selo de oportunidade agora é renderizado exclusivamente no produto pai / produto simples, não poluindo as variações filhas.
+  - Inversão da ordem das colunas: **Produto/Variação** agora vem antes de **SKU**, com migração automática da preferência do usuário e o botão dropdown de variações integrado.
+  - O modal de edição agora abre **exclusivamente** pelo clique no botão de editar (lápis), evitando aberturas acidentais ao clicar na linha ou card.
+  - Exibição de badge com a quantidade de variações ao lado direito do título do produto pai na tabela (ex: `3 variações`).
+  - Título do produto pai padronizado na cor preta/escura (`text-slate-900 dark:text-slate-100`), igual às variações e produtos simples, tanto na tabela quanto nos cards.
+  - Remoção do rótulo redundante "Produto" da tabela e dos cards, deixando a interface mais enxuta (mantendo apenas selos pertinentes como "Serviço" e "Combo").
+  - [Mobile] Aba principal do menu inferior renomeada de "Dashboard" para "Início" (`NativeBottomNav`).
+  - [Mobile] Regra da Barra/Bottom Bar de Navegação: máximo de 5 abas visíveis; se ultrapassar 5 abas, a 5ª vaga torna-se o botão de 3 pontinhos ("Mais"), que abre um Bottom Sheet com as abas e opções excedentes.
+  - [Acessos & Colaboradores] Inclusão do campo **Cargo Principal do Colaborador** no cadastro, diferenciando explicitamente o cargo/profissão na empresa (ex: Vendedor, Montador, etc.) dos perfis de acesso ao sistema (onde ele pode ser Administrador sem impedimento). Exibição do cargo principal na tabela de usuários e cards.
+  - [Produtos] Largura da coluna Produto/Variação na visualização em tabela dobrada para `min-w-[520px] w-[45%]`, proporcionando muito mais espaço e legibilidade aos dados e fotos dos itens.
+  - [Produtos] Contagens da sidebar de produtos (Total de Cadastrados, Publicados, Desativados e Rascunhos) atualizadas para contabilizar exclusivamente as variações filhas, tratando o produto pai apenas como referência estrutural/agrupador.
+  - [Produtos] Selo de Oportunidade e Contagem de Variações agora ficam alinhados harmoniosamente na mesma linha do título do produto pai na tabela.
+  - [Produtos] Remoção do selo redundante 'VARIANTE' nas linhas de variações filhas na tabela de produtos, mantendo a listagem visualmente mais limpa.
+  - [Produtos] Clicar na linha da tabela (`ProductRow`) ou no card (`ProductCard`) de um produto pai agora também expande/recolhe suas variações filhas automaticamente, além do botão de chevron, preservando os botões de ação isolados.
+  - [Mobile] Criação do menu e módulo nativo de **Produtos** (`NativeProductsScreen`) no painel inferior (`NativeBottomNav`):
+    - Visível exclusivamente para quem tem permissão/perfil de vendedor (`seller`), gestor (`manager`) ou administrador (`admin`).
+    - Cards nativos fiéis ao ERP: exibição clara do **Produto Pai** com botão de alternância `Variações (X)` (ex: `Variações (1)`), código do pai, selo de oportunidade (`Flame` âmbar), fornecedor (`Truck`), fundo cinza destacado e preços/estoque representados por `-`.
+    - Expansão de variações filhas diretamente no card (com fotos das variações, atributos, SKU, estoque e toggle de catálogo por variação).
+    - Status de catálogo com botão interativo direto no card (Publicado / Ocultado).
+    - Paginação padrão de 30 itens por página com scroll suave ao topo.
+    - Cabeçalho limpo com foco na **barra de pesquisa por texto** (sem botão de atualizar nem botões/pills de filtro) e botão de 3 pontinhos com:
+      - **Novo Produto**: formulário com abas (Básico, Preços & Estoque, Variações), permitindo salvar como Ativo ou Rascunho.
+      - **Configurações de Produto**: modal dedicado com gerenciamento completo (CRUD) de **Categorias** e **Atributos e Variações**.
 - [ ] **CategorySearchModal**: Avaliar o comportamento em dispositivos móveis.
 - [ ] **Feedback de Sincronização de Preços**: Testar se a sincronização de preços entre pai e filhos funciona corretamente em tempo real após a economia.
 - [ ] **Feedback visual de Herança**: Adicionar feedback visual mais claro quando a herança está ativa.

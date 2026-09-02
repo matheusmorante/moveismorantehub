@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import Product from '@/pages/types/product.type';
 import { supabase } from '@/pages/utils/supabaseConfig';
 import { processProductData } from '../LabelUtils';
+import { getSelectedProductDisplayName } from '@/pages/utils/productVariationDefaults';
 
 interface ProductSearchInputProps {
     products: Product[];
@@ -136,11 +137,8 @@ export const ProductSearchInput: React.FC<ProductSearchInputProps> = ({
                 const variationResults = (variationsResponse.data || []).flatMap((variation: any) => {
                     const parent = variation.products;
                     if (!parent) return [];
-                    const parentTitle = parent.title || parent.name || parent.description || '';
                     const variationTitle = variation.name || variation.description || variation.sku || '';
-                    const title = variationTitle && !parentTitle.includes(variationTitle)
-                        ? `${parentTitle} - ${variationTitle}`
-                        : (parentTitle || variationTitle);
+                    const title = getSelectedProductDisplayName(parent, variation) || variationTitle;
 
                     return [{
                         ...parent,

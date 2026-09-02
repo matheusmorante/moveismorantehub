@@ -78,21 +78,28 @@ export default function AccessManagementSection({ settings, onChange }: AccessMa
               <i className="bi bi-shield-lock-fill text-sm" />
             </div>
             <h4 className="font-bold text-slate-800 dark:text-slate-100 text-sm uppercase tracking-wider">
-              Permissões e Ações por Cargo
+              Permissões e Ações por Perfil de Acesso
             </h4>
           </div>
           <p className="text-xs text-slate-400 dark:text-slate-500 mt-1.5 leading-relaxed">
-            Configure as ações executáveis para cada cargo nas diferentes áreas do ERP e app móvel. Administradores possuem acesso irrestrito.
+            Configure as ações executáveis para cada perfil de acesso nas diferentes áreas do ERP e app móvel. Usuários com múltiplos perfis possuem permissões acumulativas. Administradores possuem acesso irrestrito.
           </p>
         </div>
       </div>
 
-      {/* Cargo Selector Tabs */}
+      <div className="flex items-center gap-3 p-3.5 rounded-2xl bg-blue-50/60 dark:bg-blue-950/20 border border-blue-100/80 dark:border-blue-900/30 text-blue-700 dark:text-blue-300 text-xs">
+        <i className="bi bi-info-circle-fill text-base shrink-0 text-blue-500" />
+        <p className="leading-relaxed">
+          <strong>Atribuição de perfis:</strong> Para definir ou alterar os perfis de acesso dos colaboradores da sua equipe, acesse a seção de <a href="/acessos-e-usuarios" className="underline font-bold hover:text-blue-800 dark:hover:text-blue-200">Gestão de Acessos e Usuários</a>.
+        </p>
+      </div>
+
+      {/* Profile Selector Tabs */}
       <div>
         <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 block mb-2.5">
-          Selecione o Cargo para Configurar Ações:
+          Selecione o Perfil de Acesso para Configurar Ações:
         </label>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
           {ROLES.map((role) => {
             const isSelected = selectedRole === role.value;
             const count = PERMISSION_AREAS.reduce((acc, area) => {

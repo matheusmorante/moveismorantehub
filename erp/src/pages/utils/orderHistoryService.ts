@@ -20,7 +20,8 @@ import {
 } from '@/pages/utils/orderEventNotificationService';
 import {
     detectOrderChangedAreas,
-    formatOrderChangeNotification
+    formatOrderChangeNotification,
+    shouldNotifyOrderChange
 } from '@/pages/utils/orderChangeDetector';
 import { withOrderAddressSnapshot } from './orderAddressSnapshot';
 import { buildCancelledReturn, clearReturnLink } from './returnCancellation';
@@ -368,6 +369,7 @@ export const saveOrder = async (order: Order): Promise<string> => {
             .from(TABLE_NAME)
             .insert([{
                 order_data: orderToSave,
+                order_number: String(orderToSave.orderIndex),
                 updated_at: new Date().toISOString()
             }])
             .select('id, order_data')
@@ -546,9 +548,17 @@ export const updateOrder = async (
 
         let previousOrderData: any = currentOrder || null;
 
+        // Limpar propriedades com valor undefined para nunca sobrescrever valores válidos já existentes
+        const cleanUpdates: any = {};
+        for (const [k, v] of Object.entries(orderToUpdate)) {
+            if (v !== undefined) {
+                cleanUpdates[k] = v;
+            }
+        }
+
         if (currentOrder) {
             // Temos o pedido completo em memória — skip do SELECT no banco
-            const { id: _id, ...rest } = { ...currentOrder, ...orderToUpdate } as any;
+            const { id: _id, ...rest } = { ...currentOrder, ...cleanUpdates } as any;
             merged = rest;
         } else {
             // Fallback: busca o pedido completo no banco antes de mesclar
@@ -564,8 +574,19 @@ export const updateOrder = async (
             }
 
             previousOrderData = current.order_data || {};
-            const { id: _id, ...rest } = { ...(current.order_data || {}), ...orderToUpdate } as any;
+            const { id: _id, ...rest } = { ...(current.order_data || {}), ...cleanUpdates } as any;
             merged = rest;
+        }
+
+        // Blindagem estrita: um pedido nunca pode perder seu orderIndex em updates
+        const existingCode = getOrderIndex(cleanUpdates) || getOrderIndex(previousOrderData) || getOrderIndex(currentOrder);
+        if (existingCode) {
+            merged.orderIndex = existingCode;
+            merged.orderNumber = existingCode;
+        } else {
+            const newIndex = await getNextOrderIndex();
+            merged.orderIndex = newIndex;
+            merged.orderNumber = newIndex;
         }
 
         merged = withOrderAddressSnapshot(merged as Order);
@@ -616,6 +637,7 @@ export const updateOrder = async (
             .from(TABLE_NAME)
             .update({
                 order_data: merged,
+                order_number: String(merged.orderIndex),
                 updated_at: new Date().toISOString()
             })
             .eq('id', id);
@@ -659,7 +681,7 @@ export const updateOrder = async (
         // Integridade: stockProcessed pode estar defasado (por exemplo, quando
         // um item temporário foi conciliado depois). A fonte de confirmação é a
         // existência de uma saída efetiva vinculada ao pedido.
-        const hasRegisteredSaleItem = (merged.items || []).some(item => item.productId?.trim() && !item.isTemporaryProduct);
+        const hasRegisteredSaleItem = (merged.items || []).some((item: any) => item.productId?.trim() && !item.isTemporaryProduct);
         const requiresMissingStockExit = merged.orderType === 'sale'
             && ['scheduled', 'fulfilled'].includes(merged.status || '')
             && hasRegisteredSaleItem
@@ -743,7 +765,7 @@ export const updateOrder = async (
         // 2. Detecção e Notificação inteligente das áreas alteradas do pedido
         const changedAreas = detectOrderChangedAreas(previousOrderData, merged);
 
-        if (changedAreas.length > 0 && oldStatus !== 'draft') {
+        if (changedAreas.length > 0 && shouldNotifyOrderChange(oldStatus)) {
             const notifData = formatOrderChangeNotification(customerName, changedAreas);
             try {
                 await dispatchAppNotification({

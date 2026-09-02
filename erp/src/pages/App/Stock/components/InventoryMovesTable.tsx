@@ -9,8 +9,8 @@ interface InventoryMovesTableProps {
     toggleExpand: (moveId: string) => void;
     getCleanObservation: (move: InventoryMove) => string;
     isOrderLinked: (move: InventoryMove) => boolean;
-    onEdit: (move: InventoryMove) => void;
-    onDelete: (move: InventoryMove) => void;
+    onEdit?: (move: InventoryMove) => void;
+    onDelete?: (move: InventoryMove) => void;
 }
 
 const InventoryMovesTable: React.FC<InventoryMovesTableProps> = ({
@@ -213,7 +213,7 @@ const InventoryMovesTable: React.FC<InventoryMovesTableProps> = ({
                                         <span className="inline-flex rounded-xl p-2 text-slate-300 dark:text-slate-600" title="Movimentação vinculada ao pedido: o estorno é realizado pela alteração de status do pedido">
                                             <i className="bi bi-lock-fill"></i>
                                         </span>
-                                    ) : (
+                                    ) : (onEdit || onDelete) ? (
                                         <button 
                                             type="button" 
                                             onClick={(e) => handleOpenMenu(e, move)}
@@ -222,7 +222,7 @@ const InventoryMovesTable: React.FC<InventoryMovesTableProps> = ({
                                         >
                                             <i className="bi bi-three-dots-vertical text-sm"></i>
                                         </button>
-                                    )}
+                                    ) : null}
                                 </td>
                             </tr>
                         );

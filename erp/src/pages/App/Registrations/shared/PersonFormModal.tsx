@@ -18,6 +18,7 @@ import { getPrimaryRole } from "@/pages/utils/accessRoles";
 const EMPLOYEE_ROLES: { value: UserRole; label: string; description: string; icon: string }[] = [
     { value: 'administrator', label: 'Administrador', description: 'Acesso total a todas as áreas do sistema', icon: 'bi-shield-shaded' },
     { value: 'manager', label: 'Gestor', description: 'Gestão operacional, estoque e relatórios', icon: 'bi-briefcase-fill' },
+    { value: 'stockist', label: 'Estoquista', description: 'Controle, contagens e movimentações de estoque', icon: 'bi-boxes' },
     { value: 'seller', label: 'Vendedor', description: 'Vendas, pedidos e clientes', icon: 'bi-tag-fill' },
     { value: 'deliverer', label: 'Entregador / Montador', description: 'Rotas de entrega e montagens', icon: 'bi-truck' },
     { value: 'pending', label: 'Sem Acesso', description: 'Acesso bloqueado temporariamente', icon: 'bi-slash-circle' },
@@ -100,6 +101,7 @@ const PersonFormModal = ({ isOpen, onClose, onSuccess, person, collectionName, t
         const defaultRoleNames: Record<UserRole, string> = {
             administrator: 'Administrador',
             manager: 'Gestor',
+            stockist: 'Estoquista',
             seller: 'Vendedor',
             deliverer: 'Entregador / Montador',
             accountant: 'Contador',
@@ -534,10 +536,10 @@ const PersonFormModal = ({ isOpen, onClose, onSuccess, person, collectionName, t
                                     <div className="flex items-center justify-between mb-2">
                                         <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 flex items-center gap-1.5">
                                             <i className="bi bi-shield-lock-fill text-blue-600" />
-                                            Cargos e Níveis de Acesso (Selecione um ou mais) <span className="text-red-500">*</span>
+                                            Perfis de Acesso de Usuário (Selecione um ou mais) <span className="text-red-500">*</span>
                                         </label>
                                         <span className="text-[9px] font-black text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 px-2 py-0.5 rounded-md border border-blue-200 dark:border-blue-800">
-                                            {(formData.roles || []).length} cargo(s) selecionado(s)
+                                            {(formData.roles || []).length} perfil(is) selecionado(s)
                                         </span>
                                     </div>
                                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
@@ -574,17 +576,21 @@ const PersonFormModal = ({ isOpen, onClose, onSuccess, person, collectionName, t
                                     </div>
                                 </div>
 
-                                <div>
+                                <div className="space-y-1">
                                     <SmartInput
-                                        label={`Função / Cargo Personalizado ${settings.requiredFields.customer?.position ? '*' : ''}`}
+                                        label={`Cargo Principal do Colaborador ${settings.requiredFields.customer?.position ? '*' : ''}`}
                                         value={formData.position || ""}
                                         onValueChange={(val) => setFormData({ ...formData, position: val })}
-                                        patterns={['Vendedor', 'Gerente', 'Entregador', 'Montador', 'Auxiliar', 'Administrador']}
+                                        patterns={['Vendedor', 'Gerente', 'Entregador', 'Montador', 'Auxiliar Administrativo', 'Administrador', 'Financeiro', 'Estoquista']}
                                         tableName="people"
                                         columnName="position"
-                                        placeholder="Ex: Vendedor Interno, Gerente de Vendas..."
+                                        placeholder="Ex: Vendedor, Gerente Comercial, Montador, Auxiliar..."
                                         icon="bi-person-badge"
                                     />
+                                    <p className="text-[11px] text-slate-400 dark:text-slate-500 font-medium">
+                                        <i className="bi bi-info-circle mr-1 text-blue-500"></i>
+                                        O Cargo Principal define a função profissional do colaborador na empresa (ex: Vendedor, Montador), independente dos Perfis de Acesso ao sistema (onde ele pode ter permissão de Administrador sem problemas).
+                                    </p>
                                 </div>
                             </div>
                         )}

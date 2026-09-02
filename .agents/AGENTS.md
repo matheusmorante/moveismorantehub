@@ -34,15 +34,26 @@ Este documento registra as regras e comportamentos **implementados** no sistema,
 - Botao de adicionar atributo a variacao: chama-se **Adicionar** (nao `+ Vinculo`).
 - Botao de gerenciar atributos globais: chama-se **Gerenciar Atributos** (nao `+ Criar Atributo`).
 
-### Catalogo Meta (Facebook / Instagram / WhatsApp)
+### Listagem de Produtos (Tabela e Cards)
 
-- Ao criar/editar produto, **nao** e feita chamada sincrona a API da Meta.
-- O Meta Commerce Manager consome o Feed CSV gerado dinamicamente em `/api/facebook-catalog.csv` a partir dos dados do Supabase.
-
-### Catalogo Digital (E-commerce / Vitrine)
-
-- Ao navegar entre as páginas da lista de produtos (paginação), o catálogo realiza um scroll suave automaticamente para o início da grade de produtos.
-- As consultas no Supabase devem carregar a totalidade dos produtos publicados (`limit(5000)`) para que a filtragem em tempo real e a paginação do front-end contemplem todos os itens da loja.
+- **Cards em Telas Menores que XL (< 1280px)**: A listagem de produtos transita automaticamente para a visualização em **Cards** (`ProductCard`) em qualquer resolução menor que `xl` (`width < 1280px`), tablets ou ambiente mobile/webview (utilizando controle duplo via Tailwind `hidden xl:block` / `xl:hidden` e hook de `window.innerWidth`). A **Tabela** (`ProductTable`) é reservada para telas largas a partir de 1280px (`xl` em diante).
+- **Remoção do Rótulo Redundante 'Produto'**: Tanto na visualização em Tabela (`ProductRow`) quanto em Cards (`ProductCard`), o selo/badge redundante com texto "Produto" foi removido, mantendo a listagem mais limpa. Selos especiais como "Serviço", "Combo" ou "Oportunidade" continuam ativos normalmente.
+- **Cor do Título do Produto Pai**: Tanto na visualização em Tabela (`ProductRow`) quanto em Cards (`ProductCard`), o título/nome do produto pai utiliza a cor padrão escura (`text-slate-900 dark:text-slate-100`), harmonizada com as variações e produtos simples.
+- **Contagem de Variações ao Lado do Título (Tabela)**: Na tabela de produtos (`ProductRow`), ao lado direito do título/nome do produto pai, é exibido um selo/badge indicando o quantitativo de variações filhas cadastradas (ex: `3 variações` ou `1 variação`).
+- **Abertura Exclusiva de Edição via Botão de Editar**: Clicar na linha da tabela (`ProductRow`) ou na área livre do card (`ProductCard`) **NÃO** abre o modal de edição de produto. A abertura do modal de edição (`onEdit`) é acionada **exclusivamente** pelo clique no botão de edição (ícone de lápis `bi-pencil` / `bi-pencil-fill`).
+- **Expansão de Variações ao Clicar na Linha / Card**: Ao clicar na linha da tabela (`ProductRow`) ou no card (`ProductCard`) de um produto pai que possui variações, as variações filhas são exibidas/recolhidas automaticamente (com cursor pointer). Os botões de ação (editar com lápis, 3 pontinhos e tags de catálogo) contam com stopPropagation e executam suas respectivas ações isoladamente.
+- **Cards em Telas Menores que XL (< 1280px)**: A listagem de produtos transita automaticamente para visualização em **Cards** (`ProductCard`) em resoluções menores que `xl` (`width < 1280px`) ou ambiente mobile/webview, reservando a visualização em **Tabela** (`ProductTable`) para telas largas a partir de 1280px (`xl` em diante).
+- **Fundo Cinza para o Produto Pai**: Tanto na visualização em Tabela (`ProductRow`) quanto em Cards (`ProductCard`), o produto pai (`isParent`) recebe background cinza destacado (`bg-slate-200/70 dark:bg-slate-800/80`), diferenciando-o visualmente dos produtos simples e das variações filhas.
+- **Ordem das Colunas na Tabela**: A coluna **Produto/Variação** vem posicionada antes da coluna **SKU** por padrão. O botão dropdown de expandir/recolher variações filhas (`isExpanded`) e o recuo `↳` ficam localizados no início da coluna de Produto/Variação.
+- **Dropdown de Variações (Ocultas por Padrão)**:
+  - No início da linha da tabela (coluna de Produto/Variação) e no topo do card do produto pai, há um botão dropdown/chevron (`bi-chevron-right` / `bi-chevron-down`).
+  - Por padrão, as variações filhas vêm **recolhidas/ocultas**, deixando a listagem de produtos mais limpa e organizada.
+  - Ao clicar no botão dropdown, as variações filhas daquele produto pai são exibidas (na tabela como linhas filhas indentadas com `↳`, e nos cards como lista interna de variações).
+- **Selo de Oportunidade e Contagem de Variações Alinhados na Mesma Linha**: Na tabela de produtos (`ProductRow`), o selo/badge de oportunidade (`oppName`) e a contagem de variações (`X variações`) ficam posicionados na mesma linha do título/nome do produto pai, organizados de forma fluida (`flex items-center gap-2 flex-wrap`).
+- **Remoção do Selo 'VARIANTE' nas Linhas Filhas**: O badge com texto 'VARIANTE' foi removido das linhas de variações filhas na tabela de produtos, mantendo a listagem mais limpa, visto que o recuo hierárquico `↳` e o dropdown do produto pai já identificam claramente a condição de variação.
+- **Cabeçalho da Tabela Limpo**: As colunas da tabela de produtos não exibem botão de olhinho de ocultação rápida no cabeçalho; o gerenciamento de visibilidade é feito no menu dedicado.
+- **Largura Expandida da Coluna Produto/Variação (Tabela)**: A coluna de **Produto/Variação** possui largura dobrada com `min-w-[520px] w-[45%]`, garantindo espaço visual amplo e confortável para fotos, chevrons expansíveis de variação, nomes longos, tags de oportunidade e contagem de variações.
+- **Contagens da Sidebar Exclusivas para Variações**: Nas contagens de resumo da sidebar de produtos (Total de Cadastrados, Publicados, Desativados e Rascunhos), são contabilizadas **exclusivamente as variações filhas** (`product_variations`), visto que os produtos pais são apenas agupadores/referências estruturais e não produtos reais de venda/estoque.
 
 ---
 
@@ -55,6 +66,9 @@ Este documento registra as regras e comportamentos **implementados** no sistema,
   - Ao clicar em **Cadastrar Pedido** (ou **Concluir Pedido**), o pedido deixa de ser rascunho.
   - Para entregas em domicílio ou retiradas com agendamento futuro/pendente: o status torna-se **Agendado** (`scheduled`).
   - Para retiradas imediatas na loja (sem agendamento futuro ou com data de hoje e sem agendamento pendente): o status torna-se diretamente **Atendido** (`fulfilled`).
+- **Ações Pós-Venda (`PostOrderActionsModal`) e Preservação de Status**:
+  - Ao concluir ou cadastrar um pedido, o status é resolvido imediatamente para `scheduled` ou `fulfilled`.
+  - O modal de ações pós-venda (`PostOrderActionsModal`) registra cliques nos botões de pós-venda (como imprimir comprovante, enviar WhatsApp) atualizando exclusivamente o mapa `isButtonsClicked` no banco, sem passar snapshot estático/desatualizado que possa reverter o status para rascunho ou sobrescrever o código sequencial (`orderIndex`).
 
 ### Código Sequencial Obrigatório do Pedido (`orderIndex`)
 
@@ -65,6 +79,8 @@ Este documento registra as regras e comportamentos **implementados** no sistema,
   - Nenhum pedido pode ter o mesmo código de outro.
   - Se houver falha na geração do código, o formulário bloqueia tanto o salvamento como rascunho (auto-save desativado) quanto a finalização do cadastro, exibindo erro imediato.
   - É expressamente proibido persistir pedidos sem código (`orderIndex: null` ou `orderIndex: undefined`).
+  - **Blindagem em Updates (`updateOrder`)**: Atualizações em pedidos (inclusive auto-saves parciais) nunca podem sobrescrever o `orderIndex` existente com `undefined`. Propriedades `undefined` são filtradas e o código sequencial prévio é estritamente preservado. Se algum pedido legado ou corrompido for atualizado sem código, um código sequencial único de 6 dígitos é gerado imediatamente. Sincroniza também a coluna `order_number` da tabela `orders`.
+
 
 ### Vendedor da Venda (Snapshot de Nome e ID)
 
@@ -181,11 +197,16 @@ Toda movimentacao de estoque e registrada em `inventory_moves` com:
 - Acessível no menu de perfil do ERP e rotas `/acessos-e-usuarios` (com aliases legíveis `/access-and-users` e `/users`).
 - **Aba Colaboradores & Usuários**:
   - Gerenciamento completo (CRUD: listagem, busca, criação, edição, inativação e exclusão) dos usuários e colaboradores.
-  - Atribuição de cargos aos colaboradores (`roles: UserRole[]`), permitindo múltiplos cargos simultâneos (ex: Vendedor + Entregador/Montador).
-  - Opções de cargo: `Administrador` (`administrator`), `Gestor` (`manager`), `Vendedor` (`seller`), `Entregador / Montador` (`deliverer`), `Sem Acesso` (`pending`).
-  - Ao salvar o colaborador, os campos de perfil e permissões são sincronizados em tempo real com `profiles` e `people`.
-- **Aba Permissões por Cargo**:
-  - Configuração granular de ações permitidas organizadas por **Tópico Principal (Cargo)**, **Subtópicos (Áreas do Sistema: Vendas & Pedidos, Estoque & Produtos, Financeiro & Relatórios, Cadastros, Configurações & Acessos)** e **Ações Executáveis com Checkbox** (Visualizar, Criar/Editar, Excluir/Cancelar, Iniciar Entrega, Movimentar Estoque, Exportar, etc.).
+  - Atribuição de **Perfis de Acesso de Usuário** (`roles: UserRole[]`), permitindo que um usuário possua múltiplos perfis simultâneos (ex: Vendedor + Entregador/Montador).
+  - Opções de perfil de acesso: `Administrador` (`administrator`), `Gestor` (`manager`), `Estoquista` (`stockist`), `Vendedor` (`seller`), `Entregador / Montador` (`deliverer`), `Sem Acesso` (`pending`).
+  - **Regra de Colaborador por Perfil de Acesso**: Todo usuário que recebe pelo menos um perfil de acesso ativo (diferente de pendente/sem acesso) torna-se automaticamente um colaborador e passa a constar na lista de colaboradores do sistema.
+  - **Cargo Principal vs Perfis de Acesso**:
+    - **Cargo Principal (`position`)**: Representa a profissão / função desempenhada pelo colaborador na empresa (ex: Vendedor, Gerente Comercial, Montador, Auxiliar Administrativo, Estoquista).
+    - **Perfis de Acesso (`roles`)**: Representam as permissões de acesso ao sistema (ex: Administrador, Gestor, Vendedor, Estoquista).
+    - Ambas as dimensões são independentes: um colaborador pode ter Cargo Principal de "Vendedor" e possuir Perfil de Acesso de "Administrador" ou vice-versa, sem qualquer conflito.
+- **Aba Permissões por Perfil de Acesso**:
+  - Configuração granular de ações permitidas organizadas por **Tópico Principal (Perfil de Acesso)**, **Subtópicos (Áreas do Sistema: Vendas & Pedidos, Estoque & Produtos, Financeiro & Relatórios, Cadastros, Configurações & Acessos)** e **Ações Executáveis com Checkbox** (Visualizar, Criar/Editar, Excluir/Cancelar, Iniciar Entrega, Movimentar Estoque, Exportar, etc.).
+  - **Permissões Acumulativas**: Usuários com múltiplos perfis de acesso acumulam todas as permissões concedidas a qualquer um dos seus perfis (`canPerform` avalia via união lógica/acumulativa).
   - Administrador possui acesso total fixo e irrestrito.
   - Permissões são persistidas em tempo real no `localStorage` e Supabase via `settings.data.rolePermissions` com fallbacks resilientes.
 - **Unicidade Estrita e Sincronização Google (1 Colaborador por E-mail)**:
@@ -195,6 +216,32 @@ Toda movimentacao de estoque e registrada em `inventory_moves` com:
 ---
 
 ## MODULO: APLICATIVO MOBILE (Expo / EAS)
+
+### Navegação e Rótulos do App Mobile
+
+- A aba principal no menu inferior (`NativeBottomNav`) é identificada pelo rótulo **Início** (anteriormente "Dashboard"), correspondendo à tela principal de visão geral e atalhos operacionais.
+- **Regra de Abas na Barra / Bottom Bar de Navegação (Máximo de 5)**:
+  - A barra inferior exibe no máximo **5 botões**.
+  - Se a quantidade de abas visíveis ultrapassar 5 (`> 5`), as primeiras **4 abas** permanecem fixas e a **5ª posição** é automaticamente preenchida por um botão de 3 pontinhos (**Mais** com ícone `MoreHorizontal`).
+  - Ao clicar no botão de 3 pontinhos, abre-se um **Bottom Sheet** animado contendo todas as opções de menu e abas excedentes da 5ª em diante.
+- **Menu e Módulo de Produtos no App Mobile (`NativeProductsScreen`)**:
+  - Visibilidade restrita aos usuários que possuem perfil de **Vendedor** (`seller`), Gestor (`manager`) ou Administrador (`admin` / `administrator`). A opção no painel inferior só aparece para quem possui essa permissão.
+  - Tela completa de produtos em formato de Cards responsivos com busca rápida (nome, código, SKU), paginação (30 itens por página) e filtros rápidos (Todos, Ativos, Desativados, Rascunhos e Categorias).
+    - **Cards Mobile Idênticos ao ERP**:
+      - **Foto Exclusiva nas Variações**: O card principal não exibe foto; as fotos são mostradas exclusivamente nas variações filhas expandidas.
+      - **Selo de Oportunidade**: Destaque com ícone de fogo (`Flame`) e cor âmbar quando vinculado a uma oportunidade.
+      - **Selo de Fornecedor**: Exibição do fornecedor com ícone de caminhão (`Truck`).
+      - **Fundo Cinza para o Produto Pai**: Produtos com variações (`isParent`) recebem fundo cinza suave destacado, diferenciando-os dos produtos simples.
+      - **Identificação do Produto Pai e Dropdown Variações (X)**: Produtos que possuem 1 ou mais variações filhas são exibidos com o card do **Produto Pai** (título, código do pai, tags de oportunidade e fornecedor) e botão de alternância `Variações (X)` (ex: `Variações (1)`). Ao tocar no card ou no botão, as variações filhas são reveladas internamente com suas respectivas fotos, SKUs formatados obrigatoriamente com o sufixo numérico `${parentCode}-${suffix}` (ex: `000244-01`), preços e estoques.
+      - **Preço e Estoque**: Produtos com variações indicam que preço e estoque pertencem às variações filhas (`-`); produtos simples exibem seus valores diretamente.
+      - **Status e Catálogo**: Selos de Ativo/Desativado/Rascunho e toggle de catálogo (no produto simples ou em cada variação filha).
+  - **Cabeçalho Limpo com Busca Direta**: O cabeçalho de produtos mobile mantém foco e limpeza visual: não exibe botão de atualizar nem botões/pills de filtro; possui apenas o título/contador, a **barra de pesquisa por texto** (nome, código, SKU) e o botão de 3 pontinhos no canto direito:
+    - **Novo Produto**: formulário modal com abas (Básico, Preços & Estoque, Variações), permitindo salvar como Ativo ou Rascunho.
+    - **Configurações de Produto**: modal com acesso direto ao gerenciamento de **Categorias** (CRUD completo) e **Atributos e Variações** (CRUD completo de atributos globais e opções/valores de variação).
+  - **Geração 100% Automática de Código / SKU (Sem Input Manual)**:
+    - No app mobile, o código principal do produto e os SKUs das variações filhas **não possuem input manual** de texto.
+    - Ao abrir o formulário para criar um novo produto, o código sequencial de 6 dígitos (ex: `000245`) é gerado imediatamente via `getNextSequentialProductCode` e exibido no cabeçalho do modal.
+    - As variações filhas têm seus SKUs gerados automaticamente via `generateVariationSku` no padrão oficial `${parentCode}-${suffix}` (ex: `000245-01`, `000245-02`), idêntico à regra do ERP.
 
 ### Versionamento Semantico (MAJOR.MINOR.PATCH)
 

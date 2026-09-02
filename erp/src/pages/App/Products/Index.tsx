@@ -7,7 +7,7 @@ import VariationFormModal from './VariationFormModal';
 import PriceHistoryModal from './PriceHistoryModal';
 import StockLaunchModal from '../Stock/components/StockLaunchModal';
 import { supabase } from '../../utils/supabaseConfig';
-import { getRegisteredVariationCount } from './ProductList/registeredVariationCount';
+import { calculateVariationCatalogStats } from './ProductList/registeredVariationCount';
 const categoryTree = undefined;
 
 const defaultVisibility: ProductVisibilitySettings = {
@@ -67,42 +67,13 @@ const Products: React.FC = () => {
 
     const fetchStats = React.useCallback(async () => {
         try {
-            const { data: registeredProducts } = await supabase
+            const { data: allProducts } = await supabase
                 .from('products')
-                .select('code, product_variations(sku)')
-                .eq('deleted', false)
-                .not('is_draft', 'is', true)
-                .neq('status', 'draft');
+                .select('id, status, active, is_draft, deleted, product_variations(id, sku, status, active)')
+                .eq('deleted', false);
 
-            const { count: publishedCount } = await supabase
-                .from('products')
-                .select('*', { count: 'exact', head: true })
-                .eq('deleted', false)
-                .eq('status', 'published')
-                .eq('active', true)
-                .not('is_draft', 'is', true)
-                .neq('status', 'draft');
-
-            const { count: disabledCount } = await supabase
-                .from('products')
-                .select('*', { count: 'exact', head: true })
-                .eq('deleted', false)
-                .eq('active', false)
-                .not('is_draft', 'is', true)
-                .neq('status', 'draft');
-
-            const { count: draftsCount } = await supabase
-                .from('products')
-                .select('*', { count: 'exact', head: true })
-                .eq('deleted', false)
-                .or('is_draft.eq.true,status.eq.draft');
-
-            setCatalogStats({
-                total: getRegisteredVariationCount(registeredProducts || []),
-                published: publishedCount || 0,
-                disabled: disabledCount || 0,
-                drafts: draftsCount || 0
-            });
+            const stats = calculateVariationCatalogStats(allProducts || []);
+            setCatalogStats(stats);
         } catch (err) {
             console.error('Erro ao carregar estatísticas dos produtos:', err);
         }

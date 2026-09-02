@@ -11,10 +11,15 @@ import PurchasesIndex from "./Purchases/Index";
 import Product, { Variation } from "../../types/product.type";
 import Purchase from '../../types/purchase.type';
 import PurchaseStockEntryModal from './components/PurchaseStockEntryModal';
+import { useAuth } from "@/context/AuthContext";
+import { canPerform } from "@/pages/utils/permissionService";
 
 const STORAGE_KEY = 'morante_stock_selected_product_filter';
 
 const StockPage = () => {
+    const { profile } = useAuth();
+    const canManageStock = canPerform('manualStockMovement', profile?.roles || profile?.role);
+
     const [searchParams] = useSearchParams();
     const location = useLocation();
     const navigate = useNavigate();
@@ -124,27 +129,29 @@ const StockPage = () => {
                             </h1>
                         </div>
 
-                        <div className="flex items-center gap-2 shrink-0">
-                            {activeTab === 'audit' ? (
-                                <button
-                                    onClick={handleOpenNewAudit}
-                                    className="flex items-center justify-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 sm:px-4 sm:py-1.5 rounded-lg font-black uppercase tracking-wider text-[11px] sm:text-xs shadow-sm transition-all active:scale-95 cursor-pointer"
-                                    title="Iniciar contagem"
-                                >
-                                    <i className="bi bi-plus-lg text-xs" />
-                                    <span>Iniciar contagem</span>
-                                </button>
-                            ) : (
-                                <button
-                                    onClick={() => setIsLaunchModalOpen(true)}
-                                    className="flex items-center justify-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 sm:px-4 sm:py-1.5 rounded-lg font-black uppercase tracking-wider text-[11px] sm:text-xs shadow-sm transition-all active:scale-95 cursor-pointer"
-                                    title="Lançar Movimentação"
-                                >
-                                    <i className="bi bi-plus-lg text-xs" />
-                                    <span>Lançar Movimentação</span>
-                                </button>
-                            )}
-                        </div>
+                        {canManageStock && (
+                            <div className="flex items-center gap-2 shrink-0">
+                                {activeTab === 'audit' ? (
+                                    <button
+                                        onClick={handleOpenNewAudit}
+                                        className="flex items-center justify-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 sm:px-4 sm:py-1.5 rounded-lg font-black uppercase tracking-wider text-[11px] sm:text-xs shadow-sm transition-all active:scale-95 cursor-pointer"
+                                        title="Iniciar contagem"
+                                    >
+                                        <i className="bi bi-plus-lg text-xs" />
+                                        <span>Iniciar contagem</span>
+                                    </button>
+                                ) : (
+                                    <button
+                                        onClick={() => setIsLaunchModalOpen(true)}
+                                        className="flex items-center justify-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 sm:px-4 sm:py-1.5 rounded-lg font-black uppercase tracking-wider text-[11px] sm:text-xs shadow-sm transition-all active:scale-95 cursor-pointer"
+                                        title="Lançar Movimentação"
+                                    >
+                                        <i className="bi bi-plus-lg text-xs" />
+                                        <span>Lançar Movimentação</span>
+                                    </button>
+                                )}
+                            </div>
+                        )}
                     </div>
                 )}
 

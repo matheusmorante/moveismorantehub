@@ -50,7 +50,7 @@ export default function MobileAppLanding() {
           <div className="flex flex-col sm:flex-row items-center gap-6 justify-center lg:justify-start animate-slide-up">
              <div className="flex flex-col gap-3">
                 <a 
-                   href="https://expo.dev/artifacts/eas/LfZx-w0CCBqdqFboSKGGslTUTSxAo84WXZPSrqA6rkI.apk"
+                   href="https://expo.dev/artifacts/eas/2z1WIeabVBd27Zg66LdlZJTyjyR2v895eRnUiXwwHg0.apk"
                    target="_blank"
                    rel="noopener noreferrer"
                    className="px-8 py-4 bg-white text-slate-950 rounded-[1.5rem] font-black uppercase tracking-widest text-xs flex items-center justify-center gap-3 hover:scale-105 transition-all shadow-xl active:scale-95 cursor-pointer"

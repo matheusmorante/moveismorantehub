@@ -27,6 +27,30 @@ const fetchOppMap = async () => {
     return oppPromise;
 };
 
+let supplierCache: Record<string, string> | null = null;
+let supplierPromise: Promise<Record<string, string>> | null = null;
+
+const fetchSupplierMap = async (): Promise<Record<string, string>> => {
+    if (supplierCache) return supplierCache;
+    if (!supplierPromise) {
+        supplierPromise = (async () => {
+            const { data } = await supabase
+                .from('people')
+                .select('id, full_name, nickname, social_name')
+                .or('person_type.ilike.suppliers,person_type.ilike.supplier');
+            const map: Record<string, string> = {};
+            if (data) {
+                data.forEach((item: any) => {
+                    map[item.id] = item.nickname || item.full_name || item.social_name || '';
+                });
+            }
+            supplierCache = map;
+            return map;
+        })();
+    }
+    return supplierPromise;
+};
+
 interface ProductRowProps {
     product: Product;
     onEdit: (product: Product) => void;
@@ -46,6 +70,10 @@ interface ProductRowProps {
     onRefresh?: () => void;
     onDuplicate?: (product: Product) => void;
     exitedVariationIds?: Set<string>;
+    hasVariations?: boolean;
+    isExpanded?: boolean;
+    onToggleExpand?: () => void;
+    variationsCount?: number;
 }
 
 import { SendWhatsAppModal } from '@/components/shared/SendWhatsAppModal';
@@ -66,7 +94,11 @@ const ProductRow = ({
     categoryTree,
     onRefresh,
     onDuplicate,
-    exitedVariationIds
+    exitedVariationIds,
+    hasVariations,
+    isExpanded,
+    onToggleExpand,
+    variationsCount
 }: ProductRowProps) => {
     const [isMenuOpen, setIsMenuOpen] = React.useState(false);
     const [labelModal, setLabelModal] = React.useState<{ open: boolean; type: LabelPrintType }>({ open: false, type: 'identification' });
@@ -77,6 +109,9 @@ const ProductRow = ({
 
     const [oppName, setOppName] = React.useState<string | null>(
         product.opportunityName || product.opportunity?.name || null
+    );
+    const [supplierName, setSupplierName] = React.useState<string | null>(
+        (product as any).supplierName || (product as any).supplier?.name || null
     );
 
     React.useEffect(() => {
@@ -92,6 +127,19 @@ const ProductRow = ({
         }
         return () => { isMounted = false; };
     }, [product.opportunityId, product.opportunityName]);
+
+    React.useEffect(() => {
+        let isMounted = true;
+        const sid = (product as any).mainSupplierId || (product as any).supplierId || (product as any).supplier_id;
+        if (sid) {
+            fetchSupplierMap().then(map => {
+                if (isMounted && map[sid]) setSupplierName(map[sid]);
+            });
+        } else {
+            setSupplierName((product as any).supplierName || (product as any).supplier?.name || null);
+        }
+        return () => { isMounted = false; };
+    }, [(product as any).mainSupplierId, (product as any).supplierId]);
 
     let firstCellRendered = false;
 
@@ -113,18 +161,62 @@ const ProductRow = ({
                 );
             case 'sku':
                 return (
-                    <td key="sku" className={`px-3 py-3 text-left w-[1%] whitespace-nowrap ${isChildVar ? 'pl-10' : ''} ${firstCellBorder}`}>
-                        <span className="font-bold text-xs text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 px-2 py-1 rounded-lg">
-                            {normalizeVariationSku(product.sku || product.code) || "-"}
-                        </span>
+                    <td key="sku" className={`px-3 py-3 text-left w-[1%] whitespace-nowrap ${isChildVar && !visibilitySettings.description ? 'pl-8' : ''} ${firstCellBorder}`}>
+                        <div className="flex items-center gap-1.5">
+                            {hasVariations && !visibilitySettings.description && (
+                                <button
+                                    type="button"
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        onToggleExpand?.();
+                                    }}
+                                    className={`w-6 h-6 rounded-lg flex items-center justify-center transition-all cursor-pointer ${
+                                        isExpanded
+                                            ? 'bg-slate-300 dark:bg-slate-700 text-slate-800 dark:text-slate-100 shadow-xs'
+                                            : 'bg-slate-200 dark:bg-slate-700/60 text-slate-600 dark:text-slate-300 hover:bg-slate-300 dark:hover:bg-slate-600'
+                                    }`}
+                                    title={isExpanded ? "Ocultar Variações" : "Mostrar Variações"}
+                                >
+                                    <i className={`bi bi-chevron-${isExpanded ? 'down' : 'right'} text-xs font-black`} />
+                                </button>
+                            )}
+                            {isChildVar && !visibilitySettings.description && (
+                                <span className="text-slate-400 dark:text-slate-500 font-mono text-[10px] select-none mr-0.5">↳</span>
+                            )}
+                            <span className="font-bold text-xs text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 px-2 py-1 rounded-lg">
+                                {normalizeVariationSku(product.sku || product.code) || "-"}
+                            </span>
+                        </div>
                     </td>
                 );
             case 'code':
                 return (
-                    <td key="code" className={`px-3 py-3 text-left w-[1%] whitespace-nowrap ${isChildVar ? 'pl-10' : ''} ${firstCellBorder}`}>
-                        <span className="font-mono text-xs text-blue-600 dark:text-blue-400 font-bold bg-blue-50 dark:bg-blue-900/30 px-2.5 py-1 rounded-lg inline-block font-mono">
-                            {normalizeVariationSku(product.sku || product.code) || "-"}
-                        </span>
+                    <td key="code" className={`px-3 py-3 text-left w-[1%] whitespace-nowrap ${isChildVar && !visibilitySettings.description ? 'pl-8' : ''} ${firstCellBorder}`}>
+                        <div className="flex items-center gap-1.5">
+                            {hasVariations && !visibilitySettings.description && (
+                                <button
+                                    type="button"
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        onToggleExpand?.();
+                                    }}
+                                    className={`w-6 h-6 rounded-lg flex items-center justify-center transition-all cursor-pointer ${
+                                        isExpanded
+                                            ? 'bg-slate-300 dark:bg-slate-700 text-slate-800 dark:text-slate-100 shadow-xs'
+                                            : 'bg-slate-200 dark:bg-slate-700/60 text-slate-600 dark:text-slate-300 hover:bg-slate-300 dark:hover:bg-slate-600'
+                                    }`}
+                                    title={isExpanded ? "Ocultar Variações" : "Mostrar Variações"}
+                                >
+                                    <i className={`bi bi-chevron-${isExpanded ? 'down' : 'right'} text-xs font-black`} />
+                                </button>
+                            )}
+                            {isChildVar && !visibilitySettings.description && (
+                                <span className="text-slate-400 dark:text-slate-500 font-mono text-[10px] select-none mr-0.5">↳</span>
+                            )}
+                            <span className="font-mono text-xs text-blue-600 dark:text-blue-400 font-bold bg-blue-50 dark:bg-blue-900/30 px-2.5 py-1 rounded-lg inline-block font-mono">
+                                {normalizeVariationSku(product.sku || product.code) || "-"}
+                            </span>
+                        </div>
                     </td>
                 );
             case 'description':
@@ -145,8 +237,28 @@ const ProductRow = ({
                     }
                 }
                 return (
-                    <td key="description" className={`px-3 py-3 text-left ${firstCellBorder}`}>
-                        <div className="flex items-center gap-4">
+                    <td key="description" className={`px-3 py-3 text-left min-w-[520px] ${firstCellBorder}`}>
+                        <div className="flex items-center gap-2 sm:gap-3">
+                            {hasVariations && (
+                                <button
+                                    type="button"
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        onToggleExpand?.();
+                                    }}
+                                    className={`w-6 h-6 rounded-lg shrink-0 flex items-center justify-center transition-all cursor-pointer ${
+                                        isExpanded
+                                            ? 'bg-slate-300 dark:bg-slate-700 text-slate-800 dark:text-slate-100 shadow-xs'
+                                            : 'bg-slate-200 dark:bg-slate-700/60 text-slate-600 dark:text-slate-300 hover:bg-slate-300 dark:hover:bg-slate-600'
+                                    }`}
+                                    title={isExpanded ? "Ocultar Variações" : "Mostrar Variações"}
+                                >
+                                    <i className={`bi bi-chevron-${isExpanded ? 'down' : 'right'} text-xs font-black`} />
+                                </button>
+                            )}
+                            {isChildVar && (
+                                <span className="text-slate-400 dark:text-slate-500 font-mono text-[10px] select-none ml-4 mr-0.5">↳</span>
+                            )}
                             <div className="flex items-center gap-3 transition-all duration-300">
                                 {!product.isParent && (
                                     <div className="w-10 h-10 rounded-lg bg-slate-100 dark:bg-slate-800 overflow-hidden flex-shrink-0 flex items-center justify-center border border-slate-200/60 dark:border-slate-800">
@@ -169,20 +281,40 @@ const ProductRow = ({
                                 )}
 
                                 <div className="flex flex-col">
-                                    <span className={`text-sm ${isChildVariation ? 'font-semibold text-blue-900 dark:text-blue-300' : product.isParent ? 'font-black text-blue-600 dark:text-blue-400 uppercase tracking-tighter' : 'font-bold text-slate-700 dark:text-slate-200'}`}>
+                                    {/* Linha 1: Título do produto */}
+                                    <span className={`text-sm ${isChildVariation ? 'font-semibold text-slate-800 dark:text-slate-200' : product.isParent ? 'font-bold text-slate-900 dark:text-slate-100' : 'font-bold text-slate-700 dark:text-slate-200'}`}>
                                         {displayName}
                                     </span>
+                                    {/* Linha 2 (abaixo do título): contagem de variações + oportunidade + fornecedor */}
+                                    {(product.isParent || oppName || supplierName) && (
+                                    <div className="flex items-center gap-1.5 flex-wrap mt-0.5">
+                                        {product.isParent && Boolean(variationsCount || ((product as any).allVariations?.length)) && (
+                                            <span className="inline-flex items-center gap-1 text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800/60 select-none">
+                                                <i className="bi bi-layers text-[9px]" />
+                                                {(() => {
+                                                    const count = variationsCount ?? ((product as any).allVariations?.length || 0);
+                                                    return `${count} ${count === 1 ? 'variação' : 'variações'}`;
+                                                })()}
+                                            </span>
+                                        )}
+                                        {!isChildVariation && oppName && (
+                                            <span className="inline-flex items-center gap-1 bg-amber-100 dark:bg-amber-955/70 text-amber-800 dark:text-amber-300 px-1.5 py-0.5 rounded text-[9px] font-black uppercase tracking-wider border border-amber-300 dark:border-amber-700/80">
+                                                <i className="bi bi-fire text-amber-600 dark:text-amber-400"></i> {oppName}
+                                            </span>
+                                        )}
+                                        {!isChildVariation && supplierName && (
+                                            <span className="inline-flex items-center gap-1 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 px-1.5 py-0.5 rounded text-[9px] font-black uppercase tracking-wider border border-slate-200 dark:border-slate-700">
+                                                <i className="bi bi-truck text-slate-400 dark:text-slate-500"></i> {supplierName}
+                                            </span>
+                                        )}
+                                    </div>
+                                    )}
                                     {(product.active === false || product.deleted) && !product.isDraft && (
                                         <span className="inline-flex items-center gap-1 text-[9px] font-black uppercase tracking-wider text-rose-600 dark:text-rose-400 mt-0.5">
                                             <i className="bi bi-slash-circle text-rose-500"></i> Desativado
                                         </span>
                                     )}
                                     <div className="flex items-center gap-2 mt-1">
-                                        {isChildVariation && (
-                                            <span className="flex items-center gap-1 bg-blue-100 dark:bg-blue-955/60 text-blue-800 dark:text-blue-300 px-2 py-0.5 rounded font-black text-[9px] uppercase tracking-wider border border-blue-200 dark:border-blue-800/80 shadow-xs">
-                                                <i className="bi bi-arrow-return-right"></i> VARIANTE
-                                            </span>
-                                        )}
                                         {/* Selo: Saída Lançada via Pedido */}
                                         {isChildVariation && exitedVariationIds?.has(String((product as any).variationId)) && (
                                             <span className="flex items-center gap-1 bg-orange-50 dark:bg-orange-950/20 text-orange-700 dark:text-orange-400 px-2 py-0.5 rounded-lg text-[8px] font-black uppercase tracking-widest border border-orange-200 dark:border-orange-900/30 select-none">
@@ -199,23 +331,11 @@ const ProductRow = ({
                                                 <i className="bi bi-tools"></i> Serviço
                                             </span>
                                         ) : (
-                                            <>
-                                                {product.isCombo && (
-                                                    <span className="flex items-center gap-1 bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400 px-2 py-0.5 rounded-lg text-[8px] font-black uppercase tracking-widest border border-purple-200 dark:border-purple-900/40 shadow-sm animate-pulse-slow">
-                                                        <i className="bi bi-layers-fill"></i> Combo/Jogo
-                                                    </span>
-                                                )}
-                                                {!isChildVariation && (
-                                                    <span className="flex items-center gap-1 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 px-2 py-0.5 rounded-lg text-[8px] font-black uppercase tracking-widest border border-blue-100 dark:border-blue-900/30">
-                                                        <i className="bi bi-box-seam"></i> Produto
-                                                    </span>
-                                                )}
-                                                {oppName && (
-                                                    <span className="flex items-center gap-1 bg-amber-100 dark:bg-amber-955/70 text-amber-800 dark:text-amber-300 px-2 py-0.5 rounded-lg text-[8px] font-black uppercase tracking-widest border border-amber-300 dark:border-amber-700/80 shadow-xs">
-                                                        <i className="bi bi-fire text-amber-600 dark:text-amber-400"></i> {oppName}
-                                                    </span>
-                                                )}
-                                            </>
+                                            product.isCombo && (
+                                                <span className="flex items-center gap-1 bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400 px-2 py-0.5 rounded-lg text-[8px] font-black uppercase tracking-widest border border-purple-200 dark:border-purple-900/40 shadow-sm animate-pulse-slow">
+                                                    <i className="bi bi-layers-fill"></i> Combo/Jogo
+                                                </span>
+                                            )
                                         )}
                                     </div>
                                 </div>
@@ -493,16 +613,22 @@ const ProductRow = ({
 
     return (
         <tr
-            className={`transition-colors group cursor-pointer ${
+            onClick={() => {
+                if (hasVariations && onToggleExpand) {
+                    onToggleExpand();
+                }
+            }}
+            className={`transition-colors group ${
+                hasVariations ? 'cursor-pointer' : ''
+            } ${
                 isDeactivated
                     ? 'bg-slate-100/90 dark:bg-slate-800/70'
                     : product.isParent 
-                    ? 'bg-blue-50/30 dark:bg-blue-900/10' 
+                    ? 'bg-slate-200/70 dark:bg-slate-800/80 font-bold' 
                     : isChildVar 
                     ? 'bg-slate-50/40 dark:bg-slate-900/40' 
-                    : 'bg-slate-50/50 dark:bg-slate-900/30'
-            } hover:bg-blue-50/40 dark:hover:bg-slate-800/50`}
-            onClick={() => onEdit(product)}
+                    : 'bg-white dark:bg-slate-900/30'
+            } hover:bg-slate-300/60 dark:hover:bg-slate-700/60`}
         >
             {orderedColumnKeys ? orderedColumnKeys.map(key => renderCell(key)) : (
                 <>

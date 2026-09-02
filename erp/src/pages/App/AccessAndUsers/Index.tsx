@@ -52,7 +52,7 @@ export default function AccessAndUsersPage() {
                 Controle de Acesso
               </h1>
               <p className="text-xs sm:text-sm text-slate-400 dark:text-slate-500 font-medium mt-0.5">
-                Gerencie colaboradores, atribuição de cargos e permissões de acesso por área do sistema
+                Gerencie colaboradores, atribuição de perfis de acesso e permissões por área do sistema
               </p>
             </div>
           </div>
@@ -82,7 +82,7 @@ export default function AccessAndUsersPage() {
             }`}
           >
             <i className="bi bi-shield-shaded" />
-            <span>Permissões por Cargo</span>
+            <span>Permissões por Perfil de Acesso</span>
           </button>
         </div>
       </div>

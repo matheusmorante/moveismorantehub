@@ -4,6 +4,7 @@ import Product, { ComboItem } from '../../../types/product.type';
 import { toast } from 'react-toastify';
 import DropdownPortal from '@/components/shared/DropdownPortal';
 import { useRef } from 'react';
+import { getSelectedProductDisplayName } from '../../../utils/productVariationDefaults';
 
 interface ComboItemSelectorProps {
     currentItems: ComboItem[];
@@ -50,7 +51,7 @@ const ComboItemSelector = ({ currentItems, onAdd, onRemove, onUpdateQuantity }: 
         const item: ComboItem = {
             productId: prod.id,
             variationId: variation?.id,
-            description: variation ? `${prod.description} - ${variation.name}` : (prod.description || ''),
+            description: getSelectedProductDisplayName(prod, variation),
             unitPrice: (variation ? variation.unitPrice : prod.unitPrice) || 0,
             stock: (variation ? variation.stock : prod.stock) || 0,
             quantity: 1

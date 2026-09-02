@@ -14,6 +14,7 @@ import { fetchProductsPage } from '../../../utils/productService';
 import PurchaseReceiptPickerModal from './PurchaseReceiptPickerModal';
 import Purchase from '../../../types/purchase.type';
 import ReceiptFiscalDocumentsSection from './ReceiptFiscalDocumentsSection';
+import { getSelectedProductDisplayName } from '../../../utils/productVariationDefaults';
 
 type Props = {
     isOpen: boolean;
@@ -149,7 +150,7 @@ export default function ReceiptFormModal({ isOpen, onClose, initialReceipt, pres
             }));
             if (!best || best.score < Math.max(1, Math.min(2, terms.length))) return null;
             const { product, variation } = best;
-            const variationLabel = (variation.attributes || []).map((attribute: any) => attribute.value).filter(Boolean).join(' / ') || variation.name || '';
+            const variationLabel = getSelectedProductDisplayName(product, variation);
             return { productId: product.id!, variationId: variation.id, description: variationLabel, quantity: item.quantity, baseCost: item.baseCost, unitCost: item.baseCost, totalCost: item.quantity * item.baseCost } as PurchaseItem;
         }))).filter(Boolean) as PurchaseItem[];
         if (!resolvedItems.length) throw new Error('Nenhum item foi encontrado para esse fornecedor. Confira tipo, modelo e variação.');

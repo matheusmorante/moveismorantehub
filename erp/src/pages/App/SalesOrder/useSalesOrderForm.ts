@@ -17,6 +17,7 @@ import { autoCalculateRouteDistance } from "../../utils/maps";
 import { migrateOrderHandlings } from '@/pages/utils/handlingMigration';
 import { calculateFreightByDistance } from "../../utils/shippingPricing";
 import { getNextOrderIndex, getOrderIndex } from "../../utils/orderCode";
+import { getSelectedProductDisplayName } from "../../utils/productVariationDefaults";
 
 const getCurrentDatetimeLocal = () => {
     const now = new Date();
@@ -75,6 +76,7 @@ export const useSalesOrderForm = (initialDeliveryMethod?: 'delivery' | 'pickup',
     const [currentOrderId, setCurrentOrderId] = useState<string | undefined>(undefined);
     const [orderIndex, setOrderIndex] = useState<number | null>(null);
     const [isGeneratingCode, setIsGeneratingCode] = useState(false);
+    const isGeneratingCodeRef = useRef(false);
     const [status, setStatus] = useState<string>('draft');
     const [isSaving, setIsSaving] = useState(false);
     const [isCalculatingDistance, setIsCalculatingDistance] = useState(false);
@@ -93,27 +95,25 @@ export const useSalesOrderForm = (initialDeliveryMethod?: 'delivery' | 'pickup',
 
     // Gerar código sequencial único imediatamente ao abrir novo formulário
     useEffect(() => {
-        if (!currentOrderId && orderIndex === null && !isGeneratingCode) {
-            let isMounted = true;
+        if (!currentOrderId && orderIndex === null && !isGeneratingCodeRef.current) {
+            isGeneratingCodeRef.current = true;
             setIsGeneratingCode(true);
             getNextOrderIndex()
                 .then(code => {
-                    if (isMounted) {
-                        setOrderIndex(code);
-                    }
+                    setOrderIndex(code);
+                    latestState.current.orderIndex = code;
+                    latestState.current.orderNumber = code as any;
                 })
                 .catch(err => {
-                    if (isMounted) {
-                        console.error("[useSalesOrderForm] Erro ao gerar código sequencial do pedido:", err);
-                        toast.error(`Erro ao gerar código do pedido: ${err.message || 'Falha de comunicação'}. Não é permitido cadastrar sem código.`);
-                    }
+                    console.error("[useSalesOrderForm] Erro ao gerar código sequencial do pedido:", err);
+                    toast.error(`Erro ao gerar código do pedido: ${err.message || 'Falha de comunicação'}. Não é permitido cadastrar sem código.`);
                 })
                 .finally(() => {
-                    if (isMounted) setIsGeneratingCode(false);
+                    isGeneratingCodeRef.current = false;
+                    setIsGeneratingCode(false);
                 });
-            return () => { isMounted = false; };
         }
-    }, [currentOrderId, orderIndex, isGeneratingCode]);
+    }, [currentOrderId, orderIndex]);
 
     // Auto-save control
     const autoSaveTimerRef = useRef<any>(null);
@@ -233,21 +233,32 @@ export const useSalesOrderForm = (initialDeliveryMethod?: 'delivery' | 'pickup',
         if (order.id && existingIndex) {
             setOrderIndex(existingIndex);
             setCurrentOrderId(order.id);
+            latestState.current.orderIndex = existingIndex;
+            latestState.current.orderNumber = existingIndex as any;
+            latestState.current.currentOrderId = order.id;
         } else {
             setCurrentOrderId(undefined);
             setOrderIndex(null);
-            setIsGeneratingCode(true);
-            getNextOrderIndex()
-                .then(newCode => {
-                    setOrderIndex(newCode);
-                })
-                .catch(err => {
-                    console.error("[useSalesOrderForm] Erro ao gerar novo código para cópia do pedido:", err);
-                    toast.error(`Erro ao gerar novo código para a cópia do pedido: ${err.message || 'Falha de comunicação'}.`);
-                })
-                .finally(() => {
-                    setIsGeneratingCode(false);
-                });
+            latestState.current.currentOrderId = undefined;
+            latestState.current.orderIndex = null;
+            if (!isGeneratingCodeRef.current) {
+                isGeneratingCodeRef.current = true;
+                setIsGeneratingCode(true);
+                getNextOrderIndex()
+                    .then(newCode => {
+                        setOrderIndex(newCode);
+                        latestState.current.orderIndex = newCode;
+                        latestState.current.orderNumber = newCode as any;
+                    })
+                    .catch(err => {
+                        console.error("[useSalesOrderForm] Erro ao gerar novo código para cópia do pedido:", err);
+                        toast.error(`Erro ao gerar novo código para a cópia do pedido: ${err.message || 'Falha de comunicação'}.`);
+                    })
+                    .finally(() => {
+                        isGeneratingCodeRef.current = false;
+                        setIsGeneratingCode(false);
+                    });
+            }
         }
 
         setItems(migratedOrder.items || []);
@@ -399,10 +410,7 @@ export const useSalesOrderForm = (initialDeliveryMethod?: 'delivery' | 'pickup',
                 : (product.sku || "");
         }
 
-        let fullDescription = product.name || "";
-        if (variation && variation.name && variation.name !== product.name) {
-            fullDescription = `${product.name} - ${variation.name}`;
-        }
+        const fullDescription = getSelectedProductDisplayName(product, variation);
 
         setItems(currentItems => currentItems.map((item, i) => {
             if (i === index) {
@@ -556,17 +564,29 @@ export const useSalesOrderForm = (initialDeliveryMethod?: 'delivery' | 'pickup',
         setErrors({});
 
         try {
+            if (autoSaveTimerRef.current) {
+                clearTimeout(autoSaveTimerRef.current);
+            }
             const savedId = await saveOrder(orderData);
             if (!latestState.current.currentOrderId && savedId) {
                 setCurrentOrderId(savedId);
+                latestState.current.currentOrderId = savedId;
             }
             setStatus(resolvedStatus);
+            latestState.current.status = resolvedStatus;
+
             if (resolvedStatus === 'fulfilled') {
                 toast.success("Pedido CADASTRADO e ATENDIDO com sucesso! ✨");
             } else {
                 toast.success("Pedido CADASTRADO com sucesso!");
             }
-            return savedId;
+            return {
+                ...orderData,
+                id: savedId,
+                status: resolvedStatus,
+                orderIndex: orderData.orderIndex || latestState.current.orderIndex || undefined,
+                orderNumber: orderData.orderIndex || latestState.current.orderIndex || undefined
+            } as any;
         } catch (error: any) {
             toast.error(error?.message || "Erro ao cadastrar pedido.");
             return false;

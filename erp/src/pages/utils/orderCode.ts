@@ -29,28 +29,15 @@ export const formatOrderCode = (order?: Partial<Order> | Record<string, any>): s
 /**
  * Retorna o próximo número sequencial de 6 dígitos para o pedido de venda.
  * Garante unicidade e nunca permite pedidos sem código.
+ * Gera de forma ultrarrápida e direta no banco.
  */
 export const getNextOrderIndex = async (): Promise<number> => {
-    // 1. Tenta obter via RPC da sequence do Postgres
-    try {
-        const { data: generatedIndex, error } = await supabase.rpc('next_order_index');
-        if (!error && generatedIndex != null) {
-            const sequenceValue = Number(generatedIndex);
-            if (Number.isInteger(sequenceValue) && sequenceValue > 0 && sequenceValue <= MAX_ORDER_CODE) {
-                return sequenceValue;
-            }
-        }
-    } catch (rpcErr) {
-        console.warn('[orderCode] RPC next_order_index indisponível, utilizando cálculo direto do banco:', rpcErr);
-    }
-
-    // 2. Fallback resiliente: busca o maior orderIndex existente diretamente no banco
     try {
         const { data: orders, error: fetchErr } = await supabase
             .from('orders')
-            .select('id, order_data, created_at')
+            .select('id, order_data, order_number, created_at')
             .order('created_at', { ascending: false })
-            .limit(200);
+            .limit(100);
 
         if (fetchErr) {
             throw new Error(`Erro ao consultar pedidos existentes: ${fetchErr.message}`);
@@ -58,7 +45,7 @@ export const getNextOrderIndex = async (): Promise<number> => {
 
         let maxCode = 0;
         for (const o of (orders || [])) {
-            const num = getOrderIndex(o.order_data || o);
+            const num = getOrderIndex(o.order_data || o) || getOrderIndex({ order_number: o.order_number });
             if (num && num > maxCode) {
                 maxCode = num;
             }
@@ -67,10 +54,11 @@ export const getNextOrderIndex = async (): Promise<number> => {
         if (maxCode === 0) {
             const { data: allOrders, error: allErr } = await supabase
                 .from('orders')
-                .select('order_data');
+                .select('order_data, order_number')
+                .limit(500);
             if (allErr) throw allErr;
             for (const o of (allOrders || [])) {
-                const num = getOrderIndex(o.order_data || o);
+                const num = getOrderIndex(o.order_data || o) || getOrderIndex({ order_number: o.order_number });
                 if (num && num > maxCode) maxCode = num;
             }
         }

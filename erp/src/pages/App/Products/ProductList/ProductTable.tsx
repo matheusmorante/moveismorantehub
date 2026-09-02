@@ -41,8 +41,8 @@ interface ColumnDef {
 }
 
 const COLUMNS_DEF: ColumnDef[] = [
-    { key: 'code', label: 'SKU' },
     { key: 'description', label: 'Produto/Variação' },
+    { key: 'code', label: 'SKU' },
     { key: 'category', label: 'Categoria' },
     { key: 'unitPrice', label: 'Preço Venda', align: 'text-right' },
     { key: 'stock', label: 'Estoque', align: 'text-center' },
@@ -57,10 +57,13 @@ const ProductTable = ({
     onBulkTrash, onBulkRestore, onBulkPermanentDelete, categoryTree, onRefresh, onDuplicate, exitedVariationIds
 }: ProductTableProps) => {
     const { width } = useWindowSize();
-    const isMobile = width < 1280 || 
-                     window.location.search.includes('auth_email') || 
-                     window.location.pathname.includes('/mobile') || 
-                     Boolean((window as any).ReactNativeWebView);
+    // Telas menores que XL (< 1280px) ou ambiente mobile/webview usam visualização em cards por padrão
+    const isMobile = (width ? width < 1280 : (typeof window !== 'undefined' ? window.innerWidth < 1280 : false)) || 
+                     (typeof window !== 'undefined' && (
+                         window.location.search.includes('auth_email') || 
+                         window.location.pathname.includes('/mobile') || 
+                         Boolean((window as any).ReactNativeWebView)
+                     ));
     const containerRef = React.useRef<HTMLDivElement>(null);
     const settings = getSettings();
 
@@ -79,7 +82,15 @@ const ProductTable = ({
         const savedOrder = localStorage.getItem('product_table_column_order');
         if (savedOrder) {
             try {
-                const keys = JSON.parse(savedOrder) as string[];
+                let keys = JSON.parse(savedOrder) as string[];
+                // Migração: se 'code' estiver antes de 'description', ajusta para 'description' vir primeiro
+                const codeIdx = keys.indexOf('code');
+                const descIdx = keys.indexOf('description');
+                if (codeIdx !== -1 && descIdx !== -1 && codeIdx < descIdx) {
+                    keys.splice(codeIdx, 1);
+                    const newDescIdx = keys.indexOf('description');
+                    keys.splice(newDescIdx + 1, 0, 'code');
+                }
                 const existingColumns = keys.map(key => COLUMNS_DEF.find(c => c.key === key)!).filter(Boolean);
                 const missingColumns = COLUMNS_DEF.filter(c => !keys.includes(c.key));
                 return [...existingColumns, ...missingColumns];
@@ -122,6 +133,37 @@ const ProductTable = ({
         setOrderedColumns(newOrder);
         setDraggedColumn(null);
     };
+
+    const [expandedParents, setExpandedParents] = React.useState<Record<string, boolean>>({});
+
+    const toggleExpandParent = React.useCallback((parentId: string) => {
+        setExpandedParents(prev => ({
+            ...prev,
+            [parentId]: !prev[parentId]
+        }));
+    }, []);
+
+    // Identifica quais produtos pais possuem variações filhas na lista
+    const parentIdsWithVariations = React.useMemo(() => {
+        const ids = new Set<string>();
+        products.forEach(p => {
+            if (p.isParent && Array.isArray((p as any).allVariations) && (p as any).allVariations.length > 0) {
+                ids.add(p.id!);
+            } else if (p.parentId) {
+                ids.add(p.parentId);
+            }
+        });
+        return ids;
+    }, [products]);
+
+    // Para a tabela: variações filhas só aparecem se o pai estiver expandido (fechado por padrão!)
+    const visibleTableProducts = React.useMemo(() => {
+        return products.filter(product => {
+            const isChild = product.isVariation || Boolean(product.parentId);
+            if (!isChild) return true;
+            return Boolean(product.parentId && expandedParents[product.parentId]);
+        });
+    }, [products, expandedParents]);
 
     const finalProducts = React.useMemo(() => {
         return products;
@@ -166,10 +208,9 @@ const ProductTable = ({
                 </div>
             )}
 
-            {/* View Switcher based on isMobile */}
-            {!isMobile ? (
-                <div ref={containerRef} className="overflow-x-auto rounded-xl border border-slate-100 dark:border-slate-800">
-                    <table className="w-full text-left border-collapse">
+            {/* Visualização em Tabela: exibida EXCLUSIVAMENTE a partir de XL (>= 1280px) */}
+            <div ref={containerRef} className={`${isMobile ? 'hidden' : 'hidden xl:block'} overflow-x-auto rounded-xl border border-slate-100 dark:border-slate-800`}>
+                <table className="w-full text-left border-collapse">
                         <thead className="sticky top-0 z-20 bg-slate-50 dark:bg-slate-900">
                             <tr className="border-b border-slate-100 dark:border-slate-800 transition-colors">
                                 {orderedColumns.map((col) => {
@@ -181,6 +222,9 @@ const ProductTable = ({
 
                                     if (!isVisible) return null;
 
+                                    const isDescCol = col.key === 'description';
+                                    const isCodeCol = col.key === 'code';
+
                                     return (
                                         <th
                                             key={col.key}
@@ -189,7 +233,7 @@ const ProductTable = ({
                                             onDragOver={handleDragOver}
                                             onDrop={(e) => handleDrop(e, col.key as string)}
                                             onDragEnd={() => setDraggedColumn(null)}
-                                            className={`px-3 py-3 text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 transition-all ${col.align || ''} ${draggedColumn === col.key ? 'opacity-20' : 'opacity-100'} ${col.key === 'code' ? 'w-[1%] whitespace-nowrap' : ''}`}
+                                            className={`px-3 py-3 text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 transition-all ${col.align || ''} ${draggedColumn === col.key ? 'opacity-20' : 'opacity-100'} ${isCodeCol ? 'w-[1%] whitespace-nowrap' : ''} ${isDescCol ? 'min-w-[520px] w-[45%]' : ''}`}
                                         >
                                             <div className={`flex items-center gap-2 ${col.align === 'text-right' ? 'justify-end' : col.align === 'text-center' ? 'justify-center' : ''}`}>
                                                 <div className="flex items-center group/header w-fit cursor-grab active:cursor-grabbing">
@@ -214,14 +258,6 @@ const ProductTable = ({
                                                         )}
                                                     </button>
                                                 )}
-
-                                                <button
-                                                    onClick={(e) => { e.stopPropagation(); onToggleColumn(col.key); }}
-                                                    className="p-1 text-slate-400 dark:text-slate-600 hover:text-red-500 dark:hover:text-red-400 transition-colors rounded ml-1"
-                                                    title={`Ocultar ${col.label}`}
-                                                >
-                                                    <i className="bi bi-eye-slash text-sm" />
-                                                </button>
                                             </div>
                                         </th>
                                     );
@@ -229,35 +265,46 @@ const ProductTable = ({
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-50 dark:divide-slate-800">
-                            {finalProducts.map((product) => (
-                                <ProductRow
-                                    key={product.id}
-                                    product={product}
-                                    onEdit={onEdit}
-                                    onShowHistory={onShowHistory}
-                                    onLaunchStock={onLaunchStock}
-                                    onDelete={() => onDelete(product.id || '')}
-                                    onRestore={() => onRestore(product.id || '')}
-                                    onPermanentDelete={() => onPermanentDelete(product.id || '')}
-                                    onToggleActive={(id, status) => onToggleActive(product.id || '', product.active)}
-                                    onDeactivateCatalog={onDeactivateCatalog}
-                                    visibilitySettings={visibilitySettings}
-                                    showTrash={showTrash}
-                                    orderedColumnKeys={orderedColumns.map(c => c.key as string)}
-                                    isSelected={selectedProducts.includes(product.id || '')}
-                                    onToggleSelection={() => onToggleSelection(product.id || '')}
-                                    categoryTree={categoryTree}
-                                    onRefresh={onRefresh}
-                                    onDuplicate={() => onDuplicate && onDuplicate(product)}
-                                    exitedVariationIds={exitedVariationIds}
-                                />
-                            ))}
+                            {visibleTableProducts.map((product) => {
+                                const hasVars = parentIdsWithVariations.has(product.id!);
+                                const isExp = Boolean(expandedParents[product.id!]);
+                                const vCount = (product as any).allVariations?.length || 
+                                    (product.isParent ? products.filter(p => p.parentId === product.id).length : 0);
+                                return (
+                                    <ProductRow
+                                        key={product.id}
+                                        product={product}
+                                        onEdit={onEdit}
+                                        onShowHistory={onShowHistory}
+                                        onLaunchStock={onLaunchStock}
+                                        onDelete={() => onDelete(product.id || '')}
+                                        onRestore={() => onRestore(product.id || '')}
+                                        onPermanentDelete={() => onPermanentDelete(product.id || '')}
+                                        onToggleActive={(id, status) => onToggleActive(product.id || '', product.active)}
+                                        onDeactivateCatalog={onDeactivateCatalog}
+                                        visibilitySettings={visibilitySettings}
+                                        showTrash={showTrash}
+                                        orderedColumnKeys={orderedColumns.map(c => c.key as string)}
+                                        isSelected={selectedProducts.includes(product.id || '')}
+                                        onToggleSelection={() => onToggleSelection(product.id || '')}
+                                        categoryTree={categoryTree}
+                                        onRefresh={onRefresh}
+                                        onDuplicate={() => onDuplicate && onDuplicate(product)}
+                                        exitedVariationIds={exitedVariationIds}
+                                        hasVariations={hasVars}
+                                        isExpanded={isExp}
+                                        onToggleExpand={() => toggleExpandParent(product.id!)}
+                                        variationsCount={vCount}
+                                    />
+                                );
+                            })}
                         </tbody>
                     </table>
                 </div>
-            ) : (
-                <div className="flex flex-col gap-2.5 sm:gap-4 overflow-y-auto pb-4 w-full px-0">
-                    {finalProducts.length === 0 ? (
+
+            {/* Visualização em Cards: exibida SEMPRE em telas menores que XL (< 1280px) ou ambiente mobile */}
+            <div className={`${!isMobile ? 'xl:hidden' : ''} flex flex-col gap-2.5 sm:gap-4 overflow-y-auto pb-4 w-full px-0`}>
+                {finalProducts.length === 0 ? (
                         <div className="flex flex-col items-center justify-center py-12 text-slate-400">
                             <i className="bi bi-search text-4xl mb-3 opacity-20" />
                             <p className="text-sm font-bold uppercase tracking-widest">Nenhum produto encontrado</p>
@@ -288,7 +335,6 @@ const ProductTable = ({
                             ))
                     )}
                 </div>
-            )}
         </div>
     );
 };

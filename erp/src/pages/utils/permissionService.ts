@@ -24,29 +24,30 @@ export type PermissionAction =
  * Checks if a user role has permission to perform a specific action.
  * Permissions are defined in AppSettings (rolePermissions).
  */
-export const canPerform = (action: PermissionAction, role?: UserRole): boolean => {
+export const canPerform = (action: PermissionAction, role?: UserRole | UserRole[]): boolean => {
     if (!role) return false;
     
-    // Safety check for pending users
-    if (role === 'pending') return false;
+    // Normaliza para array
+    const roles = Array.isArray(role) ? role : [role];
+    if (roles.length === 0 || (roles.length === 1 && roles[0] === 'pending')) return false;
 
     // Administrators always have full access
-    if (role === 'administrator') return true;
-    if (action === 'manageSettings' && role !== 'administrator') return false;
+    if (roles.includes('administrator')) return true;
+    if (action === 'manageSettings') return false;
 
     const settings = getSettings();
     const permissions = settings.rolePermissions;
 
     if (permissions && permissions[action] !== undefined) {
         const rolesWithPermission = permissions[action] || [];
-        return rolesWithPermission.includes(role);
+        return rolesWithPermission.some(r => roles.includes(r as UserRole));
     }
 
     // Default fallback from PERMISSION_AREAS definitions if action isn't saved yet
     for (const area of PERMISSION_AREAS) {
         const actDef = area.actions.find(a => a.id === action);
         if (actDef) {
-            return actDef.defaultRoles.includes(role);
+            return actDef.defaultRoles.some(r => roles.includes(r));
         }
     }
 

@@ -19,15 +19,15 @@ interface VisibilityConfig {
 const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'];
 
 const PERIODS: { label: string, value: Period }[] = [
-    { label: 'Semana', value: 'week' },
     { label: 'Este Mês', value: 'month' },
+    { label: 'Semana', value: 'week' },
     { label: 'Últimos 30 Dias', value: 'last_30_days' },
-    { label: 'Ano', value: 'year' },
+    { label: 'Este Ano', value: 'year' },
     { label: 'Personalizado', value: 'custom' },
 ];
 
 export default function Dashboard() {
-    const [period, setPeriod] = useState<Period>('last_30_days');
+    const [period, setPeriod] = useState<Period>('month');
     const [customStartDate, setCustomStartDate] = useState(() => {
         const d = new Date();
         d.setDate(d.getDate() - 7);
@@ -125,28 +125,40 @@ export default function Dashboard() {
                     </div>
                 </div>
 
-                <div className="flex flex-wrap items-center gap-4 w-full xl:w-auto">
+                <div className="flex flex-wrap items-center gap-3 w-full xl:w-auto">
                     {period === 'custom' && (
-                        <div className="flex items-center gap-3 bg-white/50 dark:bg-slate-900/50 backdrop-blur-xl p-2.5 rounded-[1.5rem] border border-slate-100 dark:border-slate-800 shadow-premium-sm animate-reveal">
-                            <input type="date" value={customStartDate} onChange={(e) => setCustomStartDate(e.target.value)} className="px-3 py-1 text-[11px] font-black uppercase text-slate-700 dark:text-slate-200 bg-transparent focus:outline-none" />
-                            <span className="text-slate-300">/</span>
-                            <input type="date" value={customEndDate} onChange={(e) => setCustomEndDate(e.target.value)} className="px-3 py-1 text-[11px] font-black uppercase text-slate-700 dark:text-slate-200 bg-transparent focus:outline-none" />
+                        <div className="flex items-center gap-2 bg-white dark:bg-slate-900 px-3 py-2 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm animate-reveal">
+                            <input type="date" value={customStartDate} onChange={(e) => setCustomStartDate(e.target.value)} className="text-[11px] font-bold text-slate-700 dark:text-slate-200 bg-transparent focus:outline-none cursor-pointer" />
+                            <span className="text-slate-300 dark:text-slate-600 font-bold">à</span>
+                            <input type="date" value={customEndDate} onChange={(e) => setCustomEndDate(e.target.value)} className="text-[11px] font-bold text-slate-700 dark:text-slate-200 bg-transparent focus:outline-none cursor-pointer" />
                         </div>
                     )}
-                    <div className="bg-slate-100/80 dark:bg-slate-800/80 backdrop-blur-md p-1.5 rounded-[1.75rem] flex items-center gap-1.5 w-full sm:w-auto overflow-x-auto no-scrollbar shadow-inner">
-                        {PERIODS.map((p) => (
-                            <button
-                                key={p.value}
-                                onClick={() => setPeriod(p.value)}
-                                className={`whitespace-nowrap px-6 py-2.5 rounded-[1.25rem] text-[10px] font-black uppercase tracking-[0.1em] transition-all duration-300 active:scale-95 ${period === p.value ? 'bg-white dark:bg-slate-700 text-blue-600 shadow-premium-sm ring-1 ring-slate-100 dark:ring-slate-700' : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'}`}
-                            >
-                                {p.label}
-                            </button>
-                        ))}
+
+                    {/* Botão Seletor de Período */}
+                    <div className="relative inline-flex items-center">
+                        <div className="absolute left-3.5 pointer-events-none text-blue-600 dark:text-blue-400">
+                            <i className="bi bi-calendar2-range-fill text-xs"></i>
+                        </div>
+                        <select
+                            value={period}
+                            onChange={(e) => setPeriod(e.target.value as Period)}
+                            aria-label="Selecionar período do dashboard"
+                            className="appearance-none pl-9 pr-9 py-2.5 bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800/70 text-slate-800 dark:text-slate-100 rounded-2xl border border-slate-200/80 dark:border-slate-800 text-xs font-black uppercase tracking-wider shadow-sm hover:border-slate-300 dark:hover:border-slate-700 transition-all cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                        >
+                            {PERIODS.map((p) => (
+                                <option key={p.value} value={p.value} className="bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 font-bold text-xs py-1.5">
+                                    {p.label}
+                                </option>
+                            ))}
+                        </select>
+                        <div className="absolute right-3.5 pointer-events-none text-slate-400 dark:text-slate-500">
+                            <i className="bi bi-chevron-down text-[10px]"></i>
+                        </div>
                     </div>
-                    <div className="px-6 py-3 bg-white dark:bg-slate-900 rounded-[1.5rem] border border-slate-100 dark:border-slate-800 shadow-premium-sm flex items-center gap-4 text-slate-500 font-black text-[10px] uppercase tracking-widest group">
-                        <i className="bi bi-calendar3 text-blue-500 group-hover:scale-110 transition-transform"></i>
-                        {todayStr}
+
+                    <div className="px-4 py-2.5 bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm flex items-center gap-2.5 text-slate-500 dark:text-slate-400 font-bold text-[11px] tracking-wide">
+                        <i className="bi bi-calendar3 text-blue-500"></i>
+                        <span className="capitalize">{todayStr}</span>
                     </div>
                 </div>
             </div>

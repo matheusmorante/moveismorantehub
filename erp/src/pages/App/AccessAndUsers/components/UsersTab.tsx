@@ -15,8 +15,10 @@ interface Props {
 const ROLE_BADGE_STYLES: Record<UserRole, { bg: string; text: string; icon: string }> = {
   administrator: { bg: 'bg-blue-50 dark:bg-blue-950/40 border-blue-200 dark:border-blue-800', text: 'text-blue-700 dark:text-blue-300', icon: 'bi-shield-shaded' },
   manager: { bg: 'bg-amber-50 dark:bg-amber-950/40 border-amber-200 dark:border-amber-800', text: 'text-amber-700 dark:text-amber-300', icon: 'bi-briefcase-fill' },
+  stockist: { bg: 'bg-teal-50 dark:bg-teal-950/40 border-teal-200 dark:border-teal-800', text: 'text-teal-700 dark:text-teal-300', icon: 'bi-boxes' },
   seller: { bg: 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-800', text: 'text-emerald-700 dark:text-emerald-300', icon: 'bi-tag-fill' },
   deliverer: { bg: 'bg-purple-50 dark:bg-purple-950/40 border-purple-200 dark:border-purple-800', text: 'text-purple-700 dark:text-purple-300', icon: 'bi-truck' },
+  accountant: { bg: 'bg-indigo-50 dark:bg-indigo-950/40 border-indigo-200 dark:border-indigo-800', text: 'text-indigo-700 dark:text-indigo-300', icon: 'bi-calculator' },
   pending: { bg: 'bg-rose-50 dark:bg-rose-950/40 border-rose-200 dark:border-rose-800', text: 'text-rose-700 dark:text-rose-300', icon: 'bi-slash-circle' },
 };
 
@@ -97,13 +99,23 @@ export const UsersTab: React.FC<Props> = ({ people, loading, onRefresh }) => {
             onChange={(e) => setSelectedRole(e.target.value)}
             className="px-3 py-2 rounded-xl text-xs font-bold border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 outline-none cursor-pointer"
           >
-            <option value="all">Todos os Cargos</option>
+            <option value="all">Todos os Perfis de Acesso</option>
             <option value="administrator">Administrador</option>
             <option value="manager">Gestor</option>
+            <option value="stockist">Estoquista</option>
             <option value="seller">Vendedor</option>
             <option value="deliverer">Entregador / Montador</option>
             <option value="pending">Sem Acesso</option>
           </select>
+
+          <button
+            type="button"
+            onClick={handleOpenAdd}
+            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-black uppercase tracking-wider bg-blue-600 hover:bg-blue-700 text-white shadow-sm shadow-blue-600/25 transition-all active:scale-95 cursor-pointer whitespace-nowrap"
+          >
+            <i className="bi bi-person-plus-fill" />
+            <span>Novo Colaborador</span>
+          </button>
         </div>
       </div>
 
@@ -126,7 +138,7 @@ export const UsersTab: React.FC<Props> = ({ people, loading, onRefresh }) => {
               <thead>
                 <tr className="border-b border-slate-100 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-950/40 text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">
                   <th className="py-3.5 px-4">Usuário / Colaborador</th>
-                  <th className="py-3.5 px-4">Cargos Atribuídos</th>
+                  <th className="py-3.5 px-4">Perfis de Acesso</th>
                   <th className="py-3.5 px-4 hidden md:table-cell">Telefone</th>
                   <th className="py-3.5 px-4 hidden lg:table-cell">Endereço</th>
                   <th className="py-3.5 px-4 text-center">Status</th>
@@ -147,7 +159,15 @@ export const UsersTab: React.FC<Props> = ({ people, loading, onRefresh }) => {
                             {initials}
                           </div>
                           <div className="min-w-0">
-                            <p className="font-bold text-slate-800 dark:text-slate-100 truncate">{person.fullName || 'Sem nome'}</p>
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <p className="font-bold text-slate-800 dark:text-slate-100 truncate">{person.fullName || 'Sem nome'}</p>
+                              {person.position && (
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200/60 dark:border-slate-700/60">
+                                  <i className="bi bi-briefcase text-[9px] text-slate-400" />
+                                  {person.position}
+                                </span>
+                              )}
+                            </div>
                             <p className="text-[11px] text-slate-400 dark:text-slate-500 truncate">{person.email}</p>
                           </div>
                         </div>
@@ -207,10 +227,10 @@ export const UsersTab: React.FC<Props> = ({ people, loading, onRefresh }) => {
                             type="button"
                             onClick={() => handleOpenEdit(person)}
                             className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold text-blue-600 bg-blue-50 dark:bg-blue-900/30 hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-all cursor-pointer"
-                            title="Editar dados e cargos do usuário"
+                            title="Editar dados e perfis de acesso do usuário"
                           >
                             <i className="bi bi-person-gear text-sm" />
-                            <span>Definir Cargos / Editar</span>
+                            <span>Definir Perfis / Editar</span>
                           </button>
                         </div>
                       </td>
@@ -223,7 +243,7 @@ export const UsersTab: React.FC<Props> = ({ people, loading, onRefresh }) => {
         )}
       </div>
 
-      {/* Modal de Edição com Atribuição de Cargos */}
+      {/* Modal de Edição com Atribuição de Perfis */}
       {isModalOpen && (
         <PersonFormModal
           isOpen={isModalOpen}
@@ -231,7 +251,7 @@ export const UsersTab: React.FC<Props> = ({ people, loading, onRefresh }) => {
           onSuccess={() => { setIsModalOpen(false); setEditingPerson(null); onRefresh(); }}
           person={editingPerson}
           collectionName="employees"
-          title="Usuário"
+          title={editingPerson ? "Editar Usuário e Perfis de Acesso" : "Colaborador"}
         />
       )}
     </div>

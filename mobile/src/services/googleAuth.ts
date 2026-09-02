@@ -1,9 +1,17 @@
 import * as Linking from 'expo-linking';
+import { Platform } from 'react-native';
 import { supabase } from './supabaseClient';
 
-// In Expo Go this is the active exp:// URL; in installed builds it is morantehub://auth/callback.
-// Both patterns must be registered in Supabase Authentication > URL Configuration.
-export const getGoogleAuthRedirectUrl = () => Linking.createURL('auth/callback');
+// The installed application must always return through its own URI scheme.
+// Generating this URL from the current Expo environment can yield an `exp://`
+// address, which Android does not associate with the installed app.
+export const MOBILE_GOOGLE_AUTH_CALLBACK = 'morantehub://auth/callback';
+
+export const getGoogleAuthRedirectUrl = () => (
+  Platform.OS === 'web'
+    ? Linking.createURL('auth/callback')
+    : MOBILE_GOOGLE_AUTH_CALLBACK
+);
 
 type AuthParams = Record<string, string | undefined>;
 

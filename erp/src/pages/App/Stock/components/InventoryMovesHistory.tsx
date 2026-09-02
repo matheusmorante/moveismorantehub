@@ -10,6 +10,8 @@ import InventoryMoveCard from "./InventoryMoveCard";
 import InventoryMovesTable from "./InventoryMovesTable";
 import { useInventoryOrdersLookup } from "./useInventoryOrdersLookup";
 import { calculateInventoryTimelineBalance } from "@/pages/utils/inventoryTimelineBalance";
+import { useAuth } from "@/context/AuthContext";
+import { canPerform } from "@/pages/utils/permissionService";
 
 interface InventoryMovesHistoryProps {
     selectedProduct?: Product | null;
@@ -22,6 +24,9 @@ const InventoryMovesHistory = ({
     selectedVariation: externalSelectedVariation,
     onSelectProduct: externalOnSelectProduct
 }: InventoryMovesHistoryProps) => {
+    const { profile } = useAuth();
+    const canManageStock = canPerform('manualStockMovement', profile?.roles || profile?.role);
+
     const [moves, setMoves] = useState<InventoryMove[]>([]);
     const [loading, setLoading] = useState(true);
     const [internalProduct, setInternalProduct] = useState<Product | null>(null);
@@ -260,8 +265,8 @@ const InventoryMovesHistory = ({
                                     isExpanded={isExpanded}
                                     isOrderLinked={isOrderLinked(move)}
                                     onToggleExpand={() => toggleExpand(move.id!)}
-                                    onEdit={() => setEditingMove(move)}
-                                    onDelete={() => handleDelete(move)}
+                                    onEdit={canManageStock ? () => setEditingMove(move) : undefined}
+                                    onDelete={canManageStock ? () => handleDelete(move) : undefined}
                                 />
                             );
                         })}
@@ -275,8 +280,8 @@ const InventoryMovesHistory = ({
                             toggleExpand={toggleExpand}
                             getCleanObservation={getCleanObservation}
                             isOrderLinked={isOrderLinked}
-                            onEdit={(m) => setEditingMove(m)}
-                            onDelete={(m) => handleDelete(m)}
+                            onEdit={canManageStock ? (m) => setEditingMove(m) : undefined}
+                            onDelete={canManageStock ? (m) => handleDelete(m) : undefined}
                         />
                     </div>
                 </div>

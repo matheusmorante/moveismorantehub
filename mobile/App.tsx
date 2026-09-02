@@ -26,6 +26,7 @@ import { NativeLogisticsScreen } from './src/features/logistics/screens/NativeLo
 import { NativeAssembliesScreen } from './src/features/assemblies/screens/NativeAssembliesScreen';
 import { NativeReportsScreen } from './src/features/reports/screens/NativeReportsScreen';
 import { NativeSettingsScreen } from './src/features/settings/screens/NativeSettingsScreen';
+import { NativeProductsScreen } from './src/features/products';
 
 import { NotificationsModal } from './src/components/modals/NotificationsModal';
 import { ProfileModal } from './src/components/modals/ProfileModal';
@@ -81,7 +82,14 @@ export default function App() {
 
   const isAdmin = userProfile?.role === 'admin' || userProfile?.role === 'master' || userProfile?.role === 'administrator';
   const isAssemblerDriver = userProfile?.role === 'assembler' || userProfile?.role === 'driver' || userProfile?.role === 'entregador' || userProfile?.role === 'deliverer';
-  const canSeeReports = isAdmin || userProfile?.role === 'manager' || userProfile?.role === 'seller';
+  const isSeller = Boolean(
+    userProfile?.roles?.includes('seller') || 
+    userProfile?.role === 'seller' || 
+    userProfile?.roles?.includes('vendedor') || 
+    userProfile?.role === 'vendedor'
+  );
+  const canSeeReports = isAdmin || userProfile?.role === 'manager' || isSeller;
+  const canSeeProducts = isAdmin || isSeller || userProfile?.role === 'manager';
 
   const formatAudioTime = (secs: number) => {
     const s = Math.max(0, Math.floor(secs || 0));
@@ -643,6 +651,8 @@ export default function App() {
             </ScrollView>
           ) : currentTab === 'pedidos' ? (
             <NativeOrdersScreen isDarkMode={isDarkMode} isAdmin={isAdmin} onSelectOrder={setAppSelectedOrder} />
+          ) : currentTab === 'produtos' && canSeeProducts ? (
+            <NativeProductsScreen isDarkMode={isDarkMode} userProfile={userProfile} />
           ) : (currentTab === 'entregas' || currentTab === 'logistica') ? (
             <NativeLogisticsScreen isDarkMode={isDarkMode} isAdmin={isAdmin} onSelectOrder={setAppSelectedOrder} />
           ) : currentTab === 'montagens' ? (
@@ -661,6 +671,7 @@ export default function App() {
           isDarkMode={isDarkMode}
           currentTab={currentTab}
           canSeeReports={canSeeReports}
+          canSeeProducts={canSeeProducts}
           handleTabChange={handleTabChange}
           WEB_URL={WEB_URL}
         />

@@ -118,20 +118,20 @@ export const RolePermissionsTab: React.FC = () => {
               <i className="bi bi-shield-lock-fill text-sm" />
             </div>
             <h3 className="text-base font-black text-slate-800 dark:text-slate-100 tracking-tight">
-              Permissões e Ações por Cargo
+              Permissões e Ações por Perfil de Acesso
             </h3>
           </div>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-1.5 leading-relaxed">
-            Selecione um <strong>Cargo (Tópico Principal)</strong> e configure detalhadamente cada <strong>Ação permitida em cada Área do sistema (Subtópico)</strong>.
+            Selecione um <strong>Perfil de Acesso (Tópico Principal)</strong> e configure detalhadamente cada <strong>Ação permitida em cada Área do sistema (Subtópico)</strong>. Usuários com múltiplos perfis possuem permissões acumulativas. Administradores possuem acesso total irrestrito.
           </p>
         </div>
 
         {/* Cargo Selector Tabs (Top Level Topics) */}
         <div>
           <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 block mb-2.5">
-            Selecione o Cargo para Configurar Ações:
+            Selecione o Perfil de Acesso para Configurar Ações:
           </label>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
             {ROLES.map((role) => {
               const isSelected = selectedRole === role.value;
               const count = PERMISSION_AREAS.reduce((acc, area) => {

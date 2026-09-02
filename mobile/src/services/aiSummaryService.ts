@@ -130,6 +130,11 @@ export const generateDeliveryAISummary = async (
           : isDateInPeriod(schedDate, mode);
       });
 
+      const currentFingerprint = deliveryOrders
+        .map((o: any) => `${o.id || o.order_id}_${o.updated_at || o.created_at || ''}_${o.status || ''}`)
+        .sort()
+        .join('|') || 'no_deliveries';
+
       // Helper para formatar o nome do produto com o artigo gramatical correto (um / uma / dois / duas)
       const formatProductNameWithArticle = (rawName: string, itemQty: number = 1): string => {
         const short = simplifyProductName(rawName).toLowerCase();

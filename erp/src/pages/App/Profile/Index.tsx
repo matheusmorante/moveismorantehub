@@ -182,7 +182,7 @@ const Profile = () => {
 
                         <div className="mt-8 pt-6 border-t border-slate-50 dark:border-slate-800 space-y-3">
                             <a 
-                                href="https://expo.dev/artifacts/eas/LfZx-w0CCBqdqFboSKGGslTUTSxAo84WXZPSrqA6rkI.apk"
+                                href="https://expo.dev/artifacts/eas/2z1WIeabVBd27Zg66LdlZJTyjyR2v895eRnUiXwwHg0.apk"
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 className="w-full flex items-center justify-between p-3.5 rounded-2xl bg-emerald-500/10 dark:bg-emerald-500/15 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400 font-bold hover:bg-emerald-500/20 transition-all text-xs"

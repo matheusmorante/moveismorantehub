@@ -10,6 +10,7 @@ export interface RoleOption {
 export const ROLES: RoleOption[] = [
     { value: 'administrator', label: 'Administrador', description: 'Acesso total irrestrito a todas as áreas e ações', icon: 'bi-shield-shaded' },
     { value: 'manager', label: 'Gestor', description: 'Gestão operacional, estoque, relatórios e vendas', icon: 'bi-briefcase-fill' },
+    { value: 'stockist', label: 'Estoquista', description: 'Controle, contagens e movimentações de estoque', icon: 'bi-boxes' },
     { value: 'seller', label: 'Vendedor', description: 'Atendimento, orçamentos, vendas e cadastros', icon: 'bi-tag-fill' },
     { value: 'deliverer', label: 'Entregador / Montador', description: 'Rotas de entrega, status e montagens', icon: 'bi-truck' },
 ];
@@ -92,7 +93,7 @@ export const PERMISSION_AREAS: PermissionAreaDef[] = [
                 label: 'Movimentação Manual de Estoque',
                 description: 'Permite realizar entradas, saídas manuais e auditoria de estoque.',
                 icon: 'bi-arrow-left-right',
-                defaultRoles: ['manager']
+                defaultRoles: ['manager', 'stockist']
             },
             {
                 id: 'deleteProducts',

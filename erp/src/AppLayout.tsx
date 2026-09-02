@@ -182,7 +182,7 @@ export default function AppLayout() {
                         </Link>
                         
                         <a
-                            href="https://expo.dev/artifacts/eas/LfZx-w0CCBqdqFboSKGGslTUTSxAo84WXZPSrqA6rkI.apk"
+                            href="https://expo.dev/artifacts/eas/2z1WIeabVBd27Zg66LdlZJTyjyR2v895eRnUiXwwHg0.apk"
                             target="_blank"
                             rel="noopener noreferrer"
                             className="flex items-center gap-3 px-4 py-3 rounded-2xl text-xs font-black uppercase tracking-wider text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500 hover:text-white transition-all shadow-sm group"

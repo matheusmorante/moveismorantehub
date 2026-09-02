@@ -183,7 +183,11 @@ const NewSaleOrder = ({
         if (e) e.preventDefault();
         const result = await form.actions.handleSaveOrder(e);
         if (result) {
-            onSaveSuccess(typeof result === 'string' ? result : undefined, { ...form.state.currentOrder, id: typeof result === 'string' ? result : undefined });
+            const savedId = typeof result === 'string' ? result : (result as any)?.id;
+            const completedOrder = typeof result === 'object' && result !== null
+                ? result
+                : { ...form.state.currentOrder, id: savedId };
+            onSaveSuccess(savedId, completedOrder);
             onClose();
         }
         return result;
@@ -193,7 +197,11 @@ const NewSaleOrder = ({
         if (e) e.preventDefault();
         const result = await form.actions.handleCompleteOrder(e);
         if (result) {
-            onSaveSuccess(typeof result === 'string' ? result : undefined, { ...form.state.currentOrder, id: typeof result === 'string' ? result : undefined });
+            const savedId = typeof result === 'string' ? result : (result as any)?.id;
+            const completedOrder = typeof result === 'object' && result !== null
+                ? result
+                : { ...form.state.currentOrder, id: savedId, status: 'scheduled' };
+            onSaveSuccess(savedId, completedOrder);
             onClose();
         }
         return result;

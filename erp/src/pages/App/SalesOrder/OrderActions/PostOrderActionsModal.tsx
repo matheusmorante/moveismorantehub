@@ -69,10 +69,11 @@ const PostOrderActionsModal: React.FC<PostOrderActionsModalProps> = ({ order, on
                                         module.actionsMap[btn.action](order);
                                         if (order.id) {
                                             const clicked = { ...(order.isButtonsClicked || {}), [btn.key]: true } as Order['isButtonsClicked'];
+                                            order.isButtonsClicked = clicked;
                                             await updateOrder(order.id, {
                                                 isButtonsClicked: clicked,
                                                 ...(btn.key === 'sendCustomerReviews' ? { reviewRequested: true } : {})
-                                            }, order);
+                                            });
                                         }
                                     }}
                                     className={`flex flex-col items-center justify-center p-4 rounded-2xl border border-slate-100 dark:border-slate-800 transition-all hover:-translate-y-1 hover:shadow-lg relative min-h-[100px] ${baseColor} ${isClicked ? 'ring-2 ring-emerald-500 ring-offset-2 dark:ring-offset-slate-900' : ''}`}

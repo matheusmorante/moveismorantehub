@@ -4,7 +4,7 @@ import { ChevronLeft, MoreVertical, Search, ShieldCheck, UserCog } from 'lucide-
 import { supabase } from '../../../services/supabaseClient';
 
 type Profile = { id: string; email: string; full_name?: string; role: string };
-const ROLES = [['administrator', 'Administrador'], ['manager', 'Gestor'], ['seller', 'Vendedor'], ['deliverer', 'Entregador / Montador'], ['pending', 'Sem acesso']];
+const ROLES = [['administrator', 'Administrador'], ['manager', 'Gestor'], ['stockist', 'Estoquista'], ['seller', 'Vendedor'], ['deliverer', 'Entregador / Montador'], ['pending', 'Sem acesso']];
 const AREAS = [['manualStockMovement', 'Estoque'], ['productConfig', 'Produtos'], ['viewFinancials', 'Financeiro'], ['deleteOrders', 'Excluir pedidos'], ['startDelivery', 'Iniciar entrega']];
 
 export function NativeSettingsScreen({ isDarkMode, setIsDarkMode, onBack }: { isDarkMode: boolean; setIsDarkMode: (value: boolean) => void; isAdmin?: boolean; onBack: () => void }) {

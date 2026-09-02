@@ -522,7 +522,7 @@ RESPOSTA NO FORMATO JSON:
     },
     stockNotificationConditions: ['novo'],
     rolePermissions: {
-        manualStockMovement: ['administrator', 'manager'],
+        manualStockMovement: ['administrator', 'manager', 'stockist'],
         productConfig: ['administrator', 'manager'],
         viewFinancials: ['administrator', 'manager', 'accountant'],
         deleteOrders: ['administrator', 'manager'],
