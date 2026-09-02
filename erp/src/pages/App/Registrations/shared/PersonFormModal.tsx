@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import Person from "../../../types/person.type";
 import { savePerson, getPersonByIdentifiers, isEmployeeEmailTaken } from '@/pages/utils/personService';
-import { getUserProfileByEmail, saveEmployeeInProfile } from '@/pages/utils/employeeProfileService';
+import { getUserProfileByEmail, getUserProfileByIdOrEmail, saveEmployeeInProfile } from '@/pages/utils/employeeProfileService';
 import { toast } from "react-toastify";
 import { capitalizePerson, toTitleCase } from "../../../utils/formatters";
 import SmartInput from "../../../../components/SmartInput";
@@ -70,6 +70,7 @@ const PersonFormModal = ({ isOpen, onClose, onSuccess, person, collectionName, t
     const [loadingSuggestions, setLoadingSuggestions] = useState(false);
     const [settings] = useState(getSettings());
     const isInitialMount = useRef(true);
+    const [isAddressOpen, setIsAddressOpen] = useState(!isEmployee);
 
     const [streetSuggestions, setStreetSuggestions] = useState<any[]>([]);
     const [isStreetSuggestionsOpen, setIsStreetSuggestionsOpen] = useState(false);
@@ -200,7 +201,14 @@ const PersonFormModal = ({ isOpen, onClose, onSuccess, person, collectionName, t
                     }
                 }).catch(() => {});
             }
+            if (isEmployee) {
+                const hasAddressData = !!(person.fullAddress?.street || person.fullAddress?.cep || person.fullAddress?.city);
+                setIsAddressOpen(hasAddressData);
+            } else {
+                setIsAddressOpen(true);
+            }
         } else {
+            setIsAddressOpen(!isEmployee);
             setFormData({
                 personType: "PF",
                 fullName: "",
@@ -377,7 +385,7 @@ const PersonFormModal = ({ isOpen, onClose, onSuccess, person, collectionName, t
             return;
         }
 
-        if (collectionName !== 'suppliers' && !formData.noAddress) {
+        if (collectionName === 'customers' && !formData.noAddress) {
             const addr = formData.fullAddress;
             if (!addr?.street || !addr?.number || !addr?.city) {
                 toast.error("Rua, Número e Cidade são obrigatórios no endereço.");
@@ -433,9 +441,9 @@ const PersonFormModal = ({ isOpen, onClose, onSuccess, person, collectionName, t
 
             const savedPerson = await savePerson(formData.type || collectionName, dataToSave);
 
-            if (isEmployee && dataToSave.email) {
+            if (isEmployee) {
                 try {
-                    const userProfile = await getUserProfileByEmail(dataToSave.email);
+                    const userProfile = await getUserProfileByIdOrEmail(person?.id, dataToSave.email);
                     if (userProfile) {
                         await saveEmployeeInProfile(userProfile, dataToSave);
                     }
@@ -464,11 +472,10 @@ const PersonFormModal = ({ isOpen, onClose, onSuccess, person, collectionName, t
                 <div className="p-8 border-b border-slate-50 dark:border-slate-800 flex items-center justify-between">
                     <div>
                         <h2 className="text-2xl font-black text-slate-800 dark:text-slate-100 tracking-tight">
-                            {person ? `Editar ${title}` : `Novo ${title}`}
+                            {person 
+                                ? (title.startsWith("Editar") ? title : `Editar ${title}`) 
+                                : (title.startsWith("Novo") ? title : `Novo ${title}`)}
                         </h2>
-                        <p className="text-[10px] uppercase font-black text-slate-400 dark:text-slate-500 tracking-widest mt-1">
-                            {person ? `Editando cadastro de ${title.toLowerCase()}` : `Preencha as informações do novo ${title.toLowerCase()}`}
-                        </p>
                     </div>
                     <button onClick={onClose} className="p-2 text-slate-400 hover:text-red-500 transition-colors ml-auto">
                         <i className="bi bi-x-lg"></i>
@@ -612,7 +619,7 @@ const PersonFormModal = ({ isOpen, onClose, onSuccess, person, collectionName, t
                             </div>
                         )}
 
-                        {formData.personType === 'PF' && collectionName !== 'suppliers' && (
+                        {formData.personType === 'PF' && collectionName === 'customers' && (
                             <div className="flex flex-col gap-2">
                                 <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">Nome Social</label>
                                 <input
@@ -642,9 +649,9 @@ const PersonFormModal = ({ isOpen, onClose, onSuccess, person, collectionName, t
                         <div className="flex flex-col gap-2">
                             <div className="flex items-center justify-between">
                                 <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">
-                                    Telefone {collectionName !== 'suppliers' && settings.requiredFields.customer?.phone && !formData.noPhone ? <span className="text-red-500">*</span> : null}
+                                    Telefone {collectionName === 'customers' && settings.requiredFields.customer?.phone && !formData.noPhone ? <span className="text-red-500">*</span> : null}
                                 </label>
-                                {collectionName !== 'suppliers' && (
+                                {collectionName !== 'suppliers' && collectionName !== 'employees' && (
                                     <button
                                         type="button"
                                         onClick={() => setFormData({ ...formData, noPhone: !formData.noPhone, phone: !formData.noPhone ? "" : formData.phone })}
@@ -664,19 +671,21 @@ const PersonFormModal = ({ isOpen, onClose, onSuccess, person, collectionName, t
                                     className={`w-full px-4 py-3 bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none transition-all text-sm font-bold dark:text-slate-100 ${formData.noPhone ? 'opacity-50 grayscale' : ''}`}
                                     placeholder={formData.noPhone ? "NÃO POSSUI TELEFONE" : "(00) 00000-0000"}
                                 />
-                                <button type="button"
-                                    onClick={() => {
-                                        if (!formData.phone || formData.noPhone) return;
-                                        const cleanPhone = formData.phone.replace(/\D/g, '');
-                                        const finalPhone = cleanPhone.length >= 10 && cleanPhone.length <= 11 ? `55${cleanPhone}` : cleanPhone;
-                                        window.open(`https://wa.me/${finalPhone}`, '_blank');
-                                    }}
-                                    disabled={formData.noPhone}
-                                    title="Verificar WhatsApp"
-                                    className={`shrink-0 w-12 flex items-center justify-center bg-[#25D366] hover:bg-[#128C7E] text-white rounded-2xl transition-all shadow-sm shadow-[#25D366]/30 active:scale-95 ${formData.noPhone ? 'opacity-50 grayscale pointer-events-none' : ''}`}
-                                >
-                                    <i className="bi bi-whatsapp text-lg"></i>
-                                </button>
+                                {collectionName !== 'employees' && (
+                                    <button type="button"
+                                        onClick={() => {
+                                            if (!formData.phone || formData.noPhone) return;
+                                            const cleanPhone = formData.phone.replace(/\D/g, '');
+                                            const finalPhone = cleanPhone.length >= 10 && cleanPhone.length <= 11 ? `55${cleanPhone}` : cleanPhone;
+                                            window.open(`https://wa.me/${finalPhone}`, '_blank');
+                                        }}
+                                        disabled={formData.noPhone}
+                                        title="Verificar WhatsApp"
+                                        className={`shrink-0 w-12 flex items-center justify-center bg-[#25D366] hover:bg-[#128C7E] text-white rounded-2xl transition-all shadow-sm shadow-[#25D366]/30 active:scale-95 ${formData.noPhone ? 'opacity-50 grayscale pointer-events-none' : ''}`}
+                                    >
+                                        <i className="bi bi-whatsapp text-lg"></i>
+                                    </button>
+                                )}
                             </div>
                         </div>
 
@@ -687,9 +696,18 @@ const PersonFormModal = ({ isOpen, onClose, onSuccess, person, collectionName, t
                                 value={formData.email || ""}
                                 onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                                 onBlur={() => void handleEmployeeEmailBlur()}
-                                className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none transition-all text-sm font-bold dark:text-slate-100"
+                                disabled={isEmployee && !!person}
+                                readOnly={isEmployee && !!person}
+                                className={`w-full px-4 py-3 bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none transition-all text-sm font-bold dark:text-slate-100 ${
+                                    isEmployee && person ? 'opacity-60 bg-slate-100 dark:bg-slate-800 cursor-not-allowed' : ''
+                                }`}
                                 placeholder="exemplo@email.com"
                             />
+                            {isEmployee && person && (
+                                <span className="text-[10px] text-slate-400 font-medium">
+                                    O e-mail do colaborador está vinculado à conta de acesso e não pode ser alterado.
+                                </span>
+                            )}
                         </div>
 
                         {collectionName === 'suppliers' && (
@@ -706,7 +724,7 @@ const PersonFormModal = ({ isOpen, onClose, onSuccess, person, collectionName, t
                         )}
 
                         {/* Additional Contacts Section */}
-                        {collectionName !== 'suppliers' && (
+                        {collectionName === 'customers' && (
                             <div className="md:col-span-2 mt-4 space-y-4">
                                 <div className="flex items-center justify-between border-b border-slate-50 dark:border-slate-800 pb-2">
                                     <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-800 dark:text-slate-300 flex items-center gap-2">
@@ -766,179 +784,197 @@ const PersonFormModal = ({ isOpen, onClose, onSuccess, person, collectionName, t
                         )}
                     </div>
 
-                    <div className="flex flex-col gap-6">
-                        <h4 className="flex-1 text-[10px] font-black uppercase tracking-widest text-slate-800 dark:text-slate-300 border-b border-slate-50 dark:border-slate-800 pb-2 flex items-center justify-between gap-2">
-                             <div className="flex items-center gap-2">
+                    <div className="flex flex-col gap-4">
+                        <div 
+                            onClick={() => { if (isEmployee) setIsAddressOpen(prev => !prev); }}
+                            className={`flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-2 ${isEmployee ? 'cursor-pointer select-none group/addr py-1 hover:border-slate-300 dark:hover:border-slate-700 transition-colors' : ''}`}
+                        >
+                            <div className="flex items-center gap-2">
                                 <i className="bi bi-geo-alt-fill text-blue-600"></i>
-                                Endereço {collectionName !== 'suppliers' && !formData.noAddress && <span className="text-red-500">*</span>}
-                             </div>
+                                <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-800 dark:text-slate-300">
+                                    Endereço {collectionName === 'customers' && !formData.noAddress && <span className="text-red-500">*</span>}
+                                </h4>
+                                {isEmployee && (
+                                    <span className="text-[10px] font-medium text-slate-400 dark:text-slate-500 ml-1">
+                                        (Opcional - clique para {isAddressOpen ? 'recolher' : 'expandir'})
+                                    </span>
+                                )}
+                            </div>
 
-                             {collectionName !== 'suppliers' && (
-                                 <button
-                                    type="button"
-                                    onClick={() => setFormData({ ...formData, noAddress: !formData.noAddress })}
-                                    className={`text-[9px] font-black uppercase tracking-widest px-3 py-1.5 rounded-xl border transition-all ${formData.noAddress ? 'bg-red-50 text-red-600 border-red-200' : 'bg-white text-slate-400 border-slate-100 dark:bg-slate-900 dark:border-slate-800'}`}
-                                 >
-                                    {formData.noAddress ? <><i className="bi bi-geo-alt mr-1"></i> Informar Endereço</> : 'Não Informar'}
-                                 </button>
-                             )}
-                        </h4>
-                        <div className={`grid grid-cols-1 md:grid-cols-3 gap-6 transition-all ${formData.noAddress ? 'opacity-30 grayscale pointer-events-none' : ''}`}>
-                            <div className="flex flex-col gap-2">
-                                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">CEP</label>
-                                <input
-                                    type="text"
-                                    value={formData.fullAddress?.cep || ""}
-                                    onChange={(e) => handleAddressChange("cep", e.target.value)}
-                                    onBlur={handleCepBlur}
-                                    className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none transition-all text-sm font-bold dark:text-slate-100"
-                                />
+                            <div className="flex items-center gap-2">
+                                {collectionName !== 'suppliers' && collectionName !== 'employees' && (
+                                    <button
+                                        type="button"
+                                        onClick={(e) => { e.stopPropagation(); setFormData({ ...formData, noAddress: !formData.noAddress }); }}
+                                        className={`text-[9px] font-black uppercase tracking-widest px-3 py-1.5 rounded-xl border transition-all ${formData.noAddress ? 'bg-red-50 text-red-600 border-red-200' : 'bg-white text-slate-400 border-slate-100 dark:bg-slate-900 dark:border-slate-800'}`}
+                                    >
+                                        {formData.noAddress ? <><i className="bi bi-geo-alt mr-1"></i> Informar Endereço</> : 'Não Informar'}
+                                    </button>
+                                )}
+                                {isEmployee && (
+                                    <i className={`bi ${isAddressOpen ? 'bi-chevron-up' : 'bi-chevron-down'} text-slate-400 group-hover/addr:text-blue-600 transition-colors text-xs font-bold`} />
+                                )}
                             </div>
-                            <div className="md:col-span-2 flex flex-col gap-2 relative group/field" ref={streetWrapperRef}>
-                                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">Rua / Logradouro {collectionName !== 'suppliers' && <span className="text-red-500">*</span>}</label>
-                                <input
-                                    type="text"
-                                    value={formData.fullAddress?.street || ""}
-                                    onChange={(e) => handleStreetChange(e.target.value)}
-                                    onFocus={() => { if (streetSuggestions.length > 0) setIsStreetSuggestionsOpen(true); }}
-                                    className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none transition-all text-sm font-bold dark:text-slate-100"
-                                />
-                                <DropdownPortal anchorRef={streetWrapperRef} isOpen={isStreetSuggestionsOpen}>
-                                    <div className="mt-1 bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-xl shadow-xl overflow-hidden max-h-48 overflow-y-auto custom-scrollbar">
-                                        {loadingSuggestions && (
-                                            <div className="p-4 text-center text-xs text-slate-400 flex items-center justify-center gap-2">
-                                                <div className="w-3 h-3 border-2 border-slate-300 border-t-blue-500 rounded-full animate-spin"></div>
-                                                Buscando endereços...
-                                            </div>
-                                        )}
-                                        {!loadingSuggestions && streetSuggestions.length === 0 && (
-                                            <div className="p-4 text-center text-xs text-slate-400">
-                                                Nenhum endereço encontrado.
-                                            </div>
-                                        )}
-                                        {streetSuggestions.map((s, i) => (
-                                            <button key={i} type="button"
-                                                onClick={() => handleSelectAddressSuggestion(s)}
-                                                className="w-full text-left p-3 border-b border-slate-50 dark:border-slate-700/50 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors last:border-0"
-                                            >
-                                                <p className="text-xs font-bold text-slate-800 dark:text-slate-200">
-                                                    {[
-                                                        s.address.road || s.address.pedestrian || s.address.suburb || s.display_name.split(',')[0],
-                                                        s.address.neighbourhood || s.address.suburb,
-                                                        s.address.city || s.address.town || s.address.village
-                                                    ].filter(Boolean).join(', ')}
-                                                </p>
-                                            </button>
-                                        ))}
-                                    </div>
-                                </DropdownPortal>
-                            </div>
-                            <div className="flex flex-col gap-2">
-                                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">Número {collectionName !== 'suppliers' && <span className="text-red-500">*</span>}</label>
-                                <input
-                                    type="text"
-                                    value={formData.fullAddress?.number || ""}
-                                    onChange={(e) => handleAddressChange("number", e.target.value)}
-                                    className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none transition-all text-sm font-bold dark:text-slate-100"
-                                />
-                            </div>
-                            <div className="flex flex-col gap-2">
-                                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">Bairro</label>
-                                <input
-                                    type="text"
-                                    value={formData.fullAddress?.neighborhood || ""}
-                                    onChange={(e) => handleAddressChange("neighborhood", e.target.value)}
-                                    className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none transition-all text-sm font-bold dark:text-slate-100"
-                                />
-                            </div>
-                            <div className="flex flex-col gap-2">
-                                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">Complemento</label>
-                                <input
-                                    type="text"
-                                    value={formData.fullAddress?.complement || ""}
-                                    onChange={(e) => handleAddressChange("complement", e.target.value)}
-                                    className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none transition-all text-sm font-bold dark:text-slate-100"
-                                    placeholder="Opcional"
-                                />
-                            </div>
-                            <div className="flex flex-col gap-2">
-                                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">Cidade {collectionName !== 'suppliers' && <span className="text-red-500">*</span>}</label>
-                                <input
-                                    type="text"
-                                    value={formData.fullAddress?.city || ""}
-                                    onChange={(e) => handleAddressChange("city", e.target.value)}
-                                    className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none transition-all text-sm font-bold dark:text-slate-100"
-                                />
-                            </div>
-                            <div className="flex flex-col gap-2">
-                                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">Estado</label>
-                                <input
-                                    type="text"
-                                    value={formData.fullAddress?.state || ""}
-                                    onChange={(e) => handleAddressChange("state", e.target.value)}
-                                    className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none transition-all text-sm font-bold dark:text-slate-100"
-                                    placeholder="Opcional"
-                                />
-                            </div>
-                            {collectionName !== 'suppliers' && (
-                                <>
-                                    <div className="flex flex-col gap-2">
-                                        <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">Tipo de Moradia</label>
-                                        <select
-                                            value={(formData.fullAddress as any)?.housingType || ""}
-                                            onChange={(e) => handleAddressChange("housingType", e.target.value)}
-                                            className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none transition-all text-sm font-bold dark:text-slate-100"
-                                        >
-                                            <option value="" disabled>Selecione...</option>
-                                            <option value="Casa">Casa</option>
-                                            <option value="Apartamento">Apartamento</option>
-                                            <option value="Condomínio Residencial">Condomínio Residencial</option>
-                                            <option value="Kitnet">Kitnet</option>
-                                            <option value="Estabelecimento Comercial">Estabelecimento Comercial</option>
-                                            <option value="Chácara">Chácara</option>
-                                        </select>
-                                    </div>
-                                    <div className="md:col-span-3 flex flex-col gap-2">
-                                        <div className="flex items-center justify-between">
-                                            <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 flex items-center gap-1.5">
-                                                <i className="bi bi-geo-alt-fill text-red-500"></i>
-                                                Link do Google Maps da Localização <span className="text-[9px] font-normal text-slate-400">(Opcional - caso não localize por rua/número)</span>
-                                            </label>
-                                            {formData.fullAddress?.mapsUrl && (
-                                                <a
-                                                    href={formData.fullAddress.mapsUrl}
-                                                    target="_blank"
-                                                    rel="noreferrer"
-                                                    className="text-[9px] font-black uppercase tracking-widest text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1"
-                                                >
-                                                    <i className="bi bi-box-arrow-up-right"></i>
-                                                    Testar Link
-                                                </a>
-                                            )}
-                                        </div>
-                                        <input
-                                            type="url"
-                                            value={formData.fullAddress?.mapsUrl || ""}
-                                            onChange={(e) => handleAddressChange("mapsUrl", e.target.value)}
-                                            className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none transition-all text-sm font-bold dark:text-slate-100 placeholder:font-normal"
-                                            placeholder="https://maps.app.goo.gl/... ou link copiado do Google Maps"
-                                        />
-                                    </div>
-                                    <div className="md:col-span-3 flex flex-col gap-2">
-                                        <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">Observações sobre o Endereço</label>
-                                        <input
-                                            type="text"
-                                            value={formData.fullAddress?.observation || ""}
-                                            onChange={(e) => handleAddressChange("observation", e.target.value)}
-                                            className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none transition-all text-sm font-bold dark:text-slate-100"
-                                            placeholder="Ponto de referência, etc."
-                                        />
-                                    </div>
-                                </>
-                            )}
                         </div>
 
-                        {collectionName !== 'suppliers' && (
+                        {(!isEmployee || isAddressOpen) && (
+                            <div className={`grid grid-cols-1 md:grid-cols-3 gap-6 transition-all ${formData.noAddress ? 'opacity-30 grayscale pointer-events-none' : ''}`}>
+                                <div className="flex flex-col gap-2">
+                                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">CEP</label>
+                                    <input
+                                        type="text"
+                                        value={formData.fullAddress?.cep || ""}
+                                        onChange={(e) => handleAddressChange("cep", e.target.value)}
+                                        onBlur={handleCepBlur}
+                                        className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none transition-all text-sm font-bold dark:text-slate-100"
+                                    />
+                                </div>
+                                <div className="md:col-span-2 flex flex-col gap-2 relative group/field" ref={streetWrapperRef}>
+                                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">Rua / Logradouro {collectionName === 'customers' && <span className="text-red-500">*</span>}</label>
+                                    <input
+                                        type="text"
+                                        value={formData.fullAddress?.street || ""}
+                                        onChange={(e) => handleStreetChange(e.target.value)}
+                                        onFocus={() => { if (streetSuggestions.length > 0) setIsStreetSuggestionsOpen(true); }}
+                                        className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none transition-all text-sm font-bold dark:text-slate-100"
+                                    />
+                                    <DropdownPortal anchorRef={streetWrapperRef} isOpen={isStreetSuggestionsOpen}>
+                                        <div className="mt-1 bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-xl shadow-xl overflow-hidden max-h-48 overflow-y-auto custom-scrollbar">
+                                            {loadingSuggestions && (
+                                                <div className="p-4 text-center text-xs text-slate-400 flex items-center justify-center gap-2">
+                                                    <div className="w-3 h-3 border-2 border-slate-300 border-t-blue-500 rounded-full animate-spin"></div>
+                                                    Buscando endereços...
+                                                </div>
+                                            )}
+                                            {!loadingSuggestions && streetSuggestions.length === 0 && (
+                                                <div className="p-4 text-center text-xs text-slate-400">
+                                                    Nenhum endereço encontrado.
+                                                </div>
+                                            )}
+                                            {streetSuggestions.map((s, i) => (
+                                                <button key={i} type="button"
+                                                    onClick={() => handleSelectAddressSuggestion(s)}
+                                                    className="w-full text-left p-3 border-b border-slate-50 dark:border-slate-700/50 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors last:border-0"
+                                                >
+                                                    <p className="text-xs font-bold text-slate-800 dark:text-slate-200">
+                                                        {[
+                                                            s.address.road || s.address.pedestrian || s.address.suburb || s.display_name.split(',')[0],
+                                                            s.address.neighbourhood || s.address.suburb,
+                                                            s.address.city || s.address.town || s.address.village
+                                                        ].filter(Boolean).join(', ')}
+                                                    </p>
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </DropdownPortal>
+                                </div>
+                                <div className="flex flex-col gap-2">
+                                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">Número {collectionName === 'customers' && <span className="text-red-500">*</span>}</label>
+                                    <input
+                                        type="text"
+                                        value={formData.fullAddress?.number || ""}
+                                        onChange={(e) => handleAddressChange("number", e.target.value)}
+                                        className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none transition-all text-sm font-bold dark:text-slate-100"
+                                    />
+                                </div>
+                                <div className="flex flex-col gap-2">
+                                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">Bairro</label>
+                                    <input
+                                        type="text"
+                                        value={formData.fullAddress?.neighborhood || ""}
+                                        onChange={(e) => handleAddressChange("neighborhood", e.target.value)}
+                                        className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none transition-all text-sm font-bold dark:text-slate-100"
+                                    />
+                                </div>
+                                <div className="flex flex-col gap-2">
+                                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">Complemento</label>
+                                    <input
+                                        type="text"
+                                        value={formData.fullAddress?.complement || ""}
+                                        onChange={(e) => handleAddressChange("complement", e.target.value)}
+                                        className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none transition-all text-sm font-bold dark:text-slate-100"
+                                        placeholder="Opcional"
+                                    />
+                                </div>
+                                <div className="flex flex-col gap-2">
+                                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">Cidade {collectionName === 'customers' && <span className="text-red-500">*</span>}</label>
+                                    <input
+                                        type="text"
+                                        value={formData.fullAddress?.city || ""}
+                                        onChange={(e) => handleAddressChange("city", e.target.value)}
+                                        className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none transition-all text-sm font-bold dark:text-slate-100"
+                                    />
+                                </div>
+                                <div className="flex flex-col gap-2">
+                                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">Estado</label>
+                                    <input
+                                        type="text"
+                                        value={formData.fullAddress?.state || ""}
+                                        onChange={(e) => handleAddressChange("state", e.target.value)}
+                                        className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none transition-all text-sm font-bold dark:text-slate-100"
+                                        placeholder="Opcional"
+                                    />
+                                </div>
+                                {collectionName === 'customers' && (
+                                    <>
+                                        <div className="flex flex-col gap-2">
+                                            <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">Tipo de Moradia</label>
+                                            <select
+                                                value={(formData.fullAddress as any)?.housingType || ""}
+                                                onChange={(e) => handleAddressChange("housingType", e.target.value)}
+                                                className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none transition-all text-sm font-bold dark:text-slate-100"
+                                            >
+                                                <option value="" disabled>Selecione...</option>
+                                                <option value="Casa">Casa</option>
+                                                <option value="Apartamento">Apartamento</option>
+                                                <option value="Condomínio Residencial">Condomínio Residencial</option>
+                                                <option value="Kitnet">Kitnet</option>
+                                                <option value="Estabelecimento Comercial">Estabelecimento Comercial</option>
+                                                <option value="Chácara">Chácara</option>
+                                            </select>
+                                        </div>
+                                        <div className="md:col-span-3 flex flex-col gap-2">
+                                            <div className="flex items-center justify-between">
+                                                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 flex items-center gap-1.5">
+                                                    <i className="bi bi-geo-alt-fill text-red-500"></i>
+                                                    Link do Google Maps da Localização <span className="text-[9px] font-normal text-slate-400">(Opcional - caso não localize por rua/número)</span>
+                                                </label>
+                                                {formData.fullAddress?.mapsUrl && (
+                                                    <a
+                                                        href={formData.fullAddress.mapsUrl}
+                                                        target="_blank"
+                                                        rel="noreferrer"
+                                                        className="text-[9px] font-black uppercase tracking-widest text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1"
+                                                    >
+                                                        <i className="bi bi-box-arrow-up-right"></i>
+                                                        Testar Link
+                                                    </a>
+                                                )}
+                                            </div>
+                                            <input
+                                                type="url"
+                                                value={formData.fullAddress?.mapsUrl || ""}
+                                                onChange={(e) => handleAddressChange("mapsUrl", e.target.value)}
+                                                className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none transition-all text-sm font-bold dark:text-slate-100 placeholder:font-normal"
+                                                placeholder="https://maps.app.goo.gl/... ou link copiado do Google Maps"
+                                            />
+                                        </div>
+                                        <div className="md:col-span-3 flex flex-col gap-2">
+                                            <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">Observações sobre o Endereço</label>
+                                            <input
+                                                type="text"
+                                                value={formData.fullAddress?.observation || ""}
+                                                onChange={(e) => handleAddressChange("observation", e.target.value)}
+                                                className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none transition-all text-sm font-bold dark:text-slate-100"
+                                                placeholder="Ponto de referência, etc."
+                                            />
+                                        </div>
+                                    </>
+                                )}
+                            </div>
+                        )}
+
+                        {collectionName === 'customers' && (
                             <div className="md:col-span-3 mt-4">
                                 <AddressVerificationMap 
                                     address={{
@@ -950,19 +986,21 @@ const PersonFormModal = ({ isOpen, onClose, onSuccess, person, collectionName, t
                                 />
                             </div>
                         )}
-                        <div className="md:col-span-3 mt-4 flex flex-col gap-2">
-                            <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-800 dark:text-slate-300 border-b border-slate-50 dark:border-slate-800 pb-2 flex items-center gap-2">
-                                <i className="bi bi-journal-text text-blue-600"></i>
-                                Observações Importantes
-                            </h4>
-                            <textarea
-                                value={formData.observations || ""}
-                                onChange={(e) => setFormData({ ...formData, observations: e.target.value })}
-                                rows={4}
-                                className="w-full px-4 py-4 bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none transition-all text-sm font-bold dark:text-slate-100 placeholder:font-normal"
-                                placeholder="Descreva aqui informações extras sobre este cliente, detalhes sobre os contatos de referência ou outras especificações relevantes..."
-                            />
-                        </div>
+                        {collectionName !== 'employees' && (
+                            <div className="md:col-span-3 mt-4 flex flex-col gap-2">
+                                <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-800 dark:text-slate-300 border-b border-slate-50 dark:border-slate-800 pb-2 flex items-center gap-2">
+                                    <i className="bi bi-journal-text text-blue-600"></i>
+                                    Observações Importantes
+                                </h4>
+                                <textarea
+                                    value={formData.observations || ""}
+                                    onChange={(e) => setFormData({ ...formData, observations: e.target.value })}
+                                    rows={4}
+                                    className="w-full px-4 py-4 bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none transition-all text-sm font-bold dark:text-slate-100 placeholder:font-normal"
+                                    placeholder="Descreva aqui informações extras sobre este cliente, detalhes sobre os contatos de referência ou outras especificações relevantes..."
+                                />
+                            </div>
+                        )}
                     </div>
                 </form>
 

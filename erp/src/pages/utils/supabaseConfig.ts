@@ -4,14 +4,23 @@ import { createClient } from "@supabase/supabase-js";
 const DEFAULT_SUPABASE_URL = 'https://hkoxhourxwlddgsfdgws.supabase.co';
 const DEFAULT_SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imhrb3hob3VyeHdsZGRnc2ZkZ3dzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgxNTg5MzgsImV4cCI6MjA5MzczNDkzOH0.vCNJeoR4wDl1BqESiyNhKpgviwxcx0cim8Dbl6MvdJI';
 
-const isTestEnvironment = import.meta.env.MODE === 'test';
+const isAutomatedTestEnvironment = import.meta.env.MODE === 'test';
+const isLocalTestEnvironment = import.meta.env.VITE_APP_ENV === 'local-test';
+const isTestEnvironment = isAutomatedTestEnvironment || isLocalTestEnvironment;
 const testSupabaseUrl = import.meta.env.VITE_SUPABASE_TEST_URL;
 const testSupabaseKey = import.meta.env.VITE_SUPABASE_TEST_ANON_KEY;
 
 if (isTestEnvironment && (!testSupabaseUrl || !testSupabaseKey)) {
   throw new Error(
-    'Testes que acessam Supabase exigem VITE_SUPABASE_TEST_URL e VITE_SUPABASE_TEST_ANON_KEY de um projeto exclusivo de testes.',
+    'Testes que acessam Supabase exigem VITE_SUPABASE_TEST_URL e VITE_SUPABASE_TEST_ANON_KEY.',
   );
+}
+
+if (
+  isLocalTestEnvironment
+  && !/^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?(?:\/|$)/.test(testSupabaseUrl)
+) {
+  throw new Error('O modo local-test só pode usar um Supabase local (localhost ou 127.0.0.1).');
 }
 
 const supabaseUrl = isTestEnvironment

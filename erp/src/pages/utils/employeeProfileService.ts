@@ -15,6 +15,22 @@ export type UserProfile = {
 const normalizeEmail = (email?: string) => email?.trim().toLowerCase() || "";
 
 export const getUserProfileByEmail = async (email?: string): Promise<UserProfile | null> => {
+    return getUserProfileByIdOrEmail(undefined, email);
+};
+
+export const getUserProfileByIdOrEmail = async (id?: string, email?: string): Promise<UserProfile | null> => {
+    if (id) {
+        const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+        if (isUUID) {
+            const { data } = await supabase
+                .from("profiles")
+                .select("id,email,full_name,position,role,roles")
+                .eq("id", id)
+                .maybeSingle();
+            if (data) return data as UserProfile;
+        }
+    }
+
     const normalizedEmail = normalizeEmail(email);
     if (!normalizedEmail) return null;
 
@@ -29,7 +45,7 @@ export const getUserProfileByEmail = async (email?: string): Promise<UserProfile
 };
 
 export const toEmployeeFromProfile = (profile: UserProfile): Person => {
-    const effectiveRoles = (profile.roles && profile.roles.length > 0)
+    const effectiveRoles: UserRole[] = (profile.roles && profile.roles.length > 0)
         ? profile.roles
         : (profile.role ? [profile.role] : ['pending']);
 
@@ -64,14 +80,15 @@ export const saveEmployeeInProfile = async (profile: UserProfile, employee: Part
     const updatePayload: Record<string, any> = {
         position: employee.position?.trim() || null,
     };
-    
-    if (employee.roles && employee.roles.length > 0) {
-        updatePayload.roles = employee.roles;
-        updatePayload.role = employee.role || getPrimaryRole(employee.roles);
-    } else if (employee.role) {
-        updatePayload.role = employee.role;
-        updatePayload.roles = [employee.role];
-    }
+
+    const rolesToSave: UserRole[] = (employee.roles && employee.roles.length > 0)
+        ? employee.roles
+        : (employee.role ? [employee.role] : (profile.roles || ['seller']));
+
+    const primaryRole = employee.role || getPrimaryRole(rolesToSave);
+
+    updatePayload.roles = rolesToSave;
+    updatePayload.role = primaryRole;
 
     if (employee.fullName?.trim()) {
         updatePayload.full_name = employee.fullName.trim();
@@ -84,14 +101,11 @@ export const saveEmployeeInProfile = async (profile: UserProfile, employee: Part
 
     if (error) throw error;
 
-    const finalRoles = employee.roles || (employee.role ? [employee.role] : profile.roles || []);
-    const finalPrimaryRole = employee.role || getPrimaryRole(finalRoles);
-
     return toEmployeeFromProfile({
         ...profile,
         position: employee.position?.trim() || null,
-        role: finalPrimaryRole,
-        roles: finalRoles,
+        role: primaryRole,
+        roles: rolesToSave,
         full_name: employee.fullName?.trim() || profile.full_name
     });
 };

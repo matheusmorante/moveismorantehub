@@ -163,14 +163,14 @@ export default function AppLayout() {
                     </Link>
                     <Link to="/system-docs" className="flex items-center gap-4 p-4 text-slate-600 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50/50 dark:hover:bg-blue-900/20 rounded-[1.5rem] transition-all font-bold text-[10px] uppercase tracking-widest">
                       <i className="bi bi-book-half text-lg"></i>
-                      Documentações
+                      Documentação do Sistema
                     </Link>
 
                     {isAdmin && (
                       <>
                         <Link to="/settings" className="flex items-center gap-4 p-4 text-slate-600 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50/50 dark:hover:bg-blue-900/20 rounded-[1.5rem] transition-all font-bold text-[10px] uppercase tracking-widest">
                           <i className="bi bi-gear-fill text-lg"></i>
-                          Ajustes Gerais
+                          Configurações
                         </Link>
                         <Link to="/acessos-e-usuarios" className="flex items-center gap-4 p-4 text-slate-600 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50/50 dark:hover:bg-blue-900/20 rounded-[1.5rem] transition-all font-bold text-[10px] uppercase tracking-widest">
                           <i className="bi bi-shield-lock-fill text-lg"></i>
@@ -182,7 +182,7 @@ export default function AppLayout() {
                         </Link>
                         
                         <a
-                            href="https://expo.dev/accounts/morante/projects/mobile/builds/89f81326-2042-48e8-ae13-627f7cc24547"
+                            href="https://expo.dev/artifacts/eas/LfZx-w0CCBqdqFboSKGGslTUTSxAo84WXZPSrqA6rkI.apk"
                             target="_blank"
                             rel="noopener noreferrer"
                             className="flex items-center gap-3 px-4 py-3 rounded-2xl text-xs font-black uppercase tracking-wider text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500 hover:text-white transition-all shadow-sm group"

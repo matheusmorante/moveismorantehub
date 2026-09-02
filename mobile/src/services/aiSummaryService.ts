@@ -1,48 +1,32 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from './supabaseClient';
-import { isCancelledOrder } from '../utils/orderUtils';
+import { getLocalDateString, isCancelledOrder, isDateInPeriod } from '../utils/orderUtils';
+import { getOperationalScheduleDate } from '../utils/operationalSchedule';
 
 export const generateDeliveryAISummary = async (
   mode: 'today' | 'tomorrow' | 'next5days',
   forceRefresh: boolean = false,
   setAiSummaryToday?: (val: string) => void,
   setAiSummaryTomorrow?: (val: string) => void,
-  setIsGeneratingAISummary?: (val: boolean) => void
+  setIsGeneratingAISummary?: (val: boolean) => void,
+  initialOrders?: any[]
 ) => {
     try {
-      // Busca dados dos pedidos e configurações do sistema de forma segura com fallback
-      const { data: rawOrders } = await supabase.from('orders').select('*').order('created_at', { ascending: false });
-
-      // Fingerprint dos pedidos (IDs, data de atualização/criação, status, exclusão e dados do pedido)
-      const activeOrders = (rawOrders || []).filter((order: any) => !isCancelledOrder(order));
-      const currentFingerprint = activeOrders.map((o: any) => 
-        `${o.id}_${o.updated_at || o.created_at || ''}_${o.status || ''}_${o.deleted || ''}_${JSON.stringify(o.order_data || {})}`
-      ).join('|');
-
-      const cacheKey = mode === 'today' ? '@morante_ai_summary_today' : '@morante_ai_summary_tomorrow';
-      const fpKey = `@morante_ai_summary_fingerprint_${mode}`;
-
-      if (!forceRefresh) {
-        const [cachedText, storedFp] = await Promise.all([
-          AsyncStorage.getItem(cacheKey),
-          AsyncStorage.getItem(fpKey)
-        ]);
-
-        if (cachedText && storedFp === currentFingerprint) {
-          if (mode === 'today' && setAiSummaryToday) setAiSummaryToday(cachedText);
-          else if (mode === 'tomorrow' && setAiSummaryTomorrow) setAiSummaryTomorrow(cachedText);
-          return; // Retorna imediatamente sem chamar a IA nem gastar cota!
-        }
+      let rawOrders = initialOrders;
+      if (!rawOrders || rawOrders.length === 0) {
+        const { data } = await supabase.from('orders').select('*').order('created_at', { ascending: false });
+        rawOrders = data || [];
       }
+      const activeOrders = (rawOrders || []).filter((order: any) => !isCancelledOrder(order));
 
       if (setIsGeneratingAISummary) setIsGeneratingAISummary(true);
 
       const now = new Date();
-      const todayStr = now.toISOString().split('T')[0];
+      const todayStr = getLocalDateString(now);
       
       const tomorrow = new Date(now);
       tomorrow.setDate(tomorrow.getDate() + 1);
-      const tomorrowStr = tomorrow.toISOString().split('T')[0];
+      const tomorrowStr = getLocalDateString(tomorrow);
 
       let targetDates: string[] = [todayStr];
       let periodLabel = 'para hoje';
@@ -128,14 +112,22 @@ export const generateDeliveryAISummary = async (
 
       const deliveryOrders = activeOrders.filter((o: any) => {
         const oData = o.order_data || {};
-        if (o.deleted || o.is_deleted || o.status === 'deleted' || oData.deleted) return false;
+        const orderStatus = (o.status || oData.status || '').toLowerCase();
+        if (o.deleted || o.is_deleted || o.status === 'deleted' || oData.deleted || orderStatus === 'draft' || orderStatus === 'rascunho') return false;
 
-        const shipping = oData.shipping || {};
+        const shipping = oData.shipping || o.shipping || {};
         const isDelivery = shipping.deliveryMethod === 'delivery' || !shipping.deliveryMethod;
-        const schedDate = (shipping.scheduling?.date || o.scheduled_date || o.created_at || '').split('T')[0];
+        const sched = shipping.scheduling || oData.schedule || oData.scheduling || o.schedule || {};
+        const isPendingScheduling = Boolean(
+          sched.pendingScheduling || oData.pendingScheduling || o.pending_scheduling ||
+          orderStatus === 'pending_scheduling' || orderStatus === 'agendar_depois'
+        );
+        const schedDate = getOperationalScheduleDate(o);
 
-        if (!isDelivery) return false;
-        return targetDates.includes(schedDate);
+        if (!isDelivery || isPendingScheduling || !schedDate || schedDate === 'sem_data') return false;
+        return mode === 'next5days'
+          ? targetDates.includes(schedDate.split('T')[0])
+          : isDateInPeriod(schedDate, mode);
       });
 
       // Helper para formatar o nome do produto com o artigo gramatical correto (um / uma / dois / duas)
@@ -193,7 +185,7 @@ export const generateDeliveryAISummary = async (
         if (distNum === null || isNaN(distNum)) return '';
         if (distNum <= 5) return 'pertinho';
 
-        const numStr = distNum.toFixed(1).replace('.', ',');
+        const numStr = String(Math.ceil(distNum));
         if (distNum <= 10) return `não tão perto, a ${numStr} quilômetros`;
         if (distNum <= 20) return `meio longe, a ${numStr} quilômetros`;
         return `bem longe, a ${numStr} quilômetros`;
@@ -210,7 +202,7 @@ export const generateDeliveryAISummary = async (
 
       deliveryOrders.forEach((o: any) => {
         const oData = o.order_data || {};
-        const shipping = oData.shipping || {};
+        const shipping = oData.shipping || o.shipping || {};
         const sched = shipping.scheduling || oData.schedule || oData.scheduling || o.schedule || {};
 
         const obsText = (
@@ -222,6 +214,11 @@ export const generateDeliveryAISummary = async (
         const deliveryAddr = shipping.deliveryAddress || shipping.address || {};
         const custData = oData.customerData || oData.customer || {};
         const custAddr = custData.address || custData.fullAddress || {};
+        const customerNameRaw = String(
+          custData.name || custData.fullName || custData.customerName ||
+          oData.customerName || o.customer_name || o.customerName || ''
+        ).trim();
+        const customerName = customerNameRaw.split(/\s+/).slice(0, 2).join(' ');
 
         const rawCity = (
           deliveryAddr.city ||
@@ -411,6 +408,7 @@ export const generateDeliveryAISummary = async (
 
         const deliveryInfo = {
           city,
+          customerName,
           isColombo: city.toLowerCase() === 'colombo',
           distText,
           assemblyItems,
@@ -466,7 +464,8 @@ export const generateDeliveryAISummary = async (
         // - NUNCA menciona "sem montagem".
         const formatDeliveryParts = (deliveries: any[]) =>
           deliveries.map(d => {
-            const citySuffix = d.isColombo ? '' : ` para ${d.city}`;
+            const citySuffix = d.isColombo ? '' : (d.customerName ? ` em ${d.city}` : ` para ${d.city}`);
+            const customerSuffix = d.customerName ? ` para ${d.customerName}` : '';
             const distSuffix = d.distText ? `, ${d.distText}` : '';
             const totalItemCount = d.assemblyItems.length + d.noAssemblyItems.length;
             const itemsWord = numWordMasculine(totalItemCount);
@@ -474,9 +473,9 @@ export const generateDeliveryAISummary = async (
 
             let basePart = '';
             if (d.assemblyItems.length > 0) {
-              basePart = `uma entrega${citySuffix} de ${itemsText}, sendo ${d.assemblyItems.join(' e ')}${distSuffix}, com montagem no endereço`;
+              basePart = `uma entrega${customerSuffix}${citySuffix}, de ${itemsText}, sendo ${d.assemblyItems.join(' e ')}${distSuffix}, com montagem no endereço`;
             } else {
-              basePart = `uma entrega${citySuffix} de ${itemsText}${distSuffix}`;
+              basePart = `uma entrega${customerSuffix}${citySuffix}, de ${itemsText}${distSuffix}`;
             }
 
             if (d.scheduledTimeStr) {
@@ -540,7 +539,7 @@ export const generateDeliveryAISummary = async (
         const geminiPrompt = `Você é o supervisor de logística da Móveis Morante conversando por áudio no WhatsApp com a equipe de entregas. Sua única função é transformar o texto base fornecido em um áudio 100% natural, fluido e conversacional, perfeito para sintetizador de voz (Audio TTS). O texto já está estruturado; só refine a fluência sem alterar os dados.
 
 REGRAS ABSOLUTAS E ESSENCIAIS DO RESUMO:
-1. OMISSÃO DE NOMES DE PRODUTOS NORMAIS: NUNCA mencione o nome dos produtos das entregas, A NÃO SER QUE SEJA UM PRODUTO QUE POSSUI MONTAGEM NO ENDEREÇO! Se a entrega não tiver montagem no endereço, mencione APENAS a quantidade de itens (exemplo: "uma entrega de três itens", "uma entrega para Curitiba de cinco itens").
+1. CLIENTE E OMISSÃO DE PRODUTOS NORMAIS: Preserve o primeiro nome e o sobrenome do cliente que vierem no texto base. NUNCA mencione o nome dos produtos das entregas, A NÃO SER QUE SEJA UM PRODUTO QUE POSSUI MONTAGEM NO ENDEREÇO! Se a entrega não tiver montagem no endereço, mencione APENAS o cliente e a quantidade de itens (exemplo: "uma entrega para João Silva, de três itens").
 2. QUANDO HOUVER MONTAGEM NO ENDEREÇO: Fale a quantidade total de itens E cite especificamente o produto com montagem no endereço (exemplo: "uma entrega de quatro itens, sendo um guarda-roupa sydney, com montagem no endereço").
 3. NUNCA DIGA 'SEM MONTAGEM': É ESTRITAMENTE PROIBIDO dizer as palavras "sem montagem", "não precisa de montagem" ou "sem montagem no endereço". Se a entrega não tiver montagem no local, apenas ignore essa informação. SOMENTE mencione a palavra montagem quando REALMENTE HOUVER montagem no endereço.
 4. CONCORDÂNCIA MASCULINA PARA ITENS: A contagem de itens DEVE ser sempre no MASCULINO: "um item", "dois itens", "três itens" (NUNCA "duas itens").
@@ -548,7 +547,7 @@ REGRAS ABSOLUTAS E ESSENCIAIS DO RESUMO:
 6. ARTIGOS GRAMATICAIS CORRETOS POR PALAVRA RAIZ DO PRODUTO:
    - "balcão", "guarda-roupa", "armário", "painel", "rack", "sofá", "buffet", "conjunto" → artigo MASCULINO: "um balcão", "um guarda-roupa".
    - "escrivaninha", "cômoda", "mesa", "cadeira", "pia", "cama", "sapateira", "cristaleira", "bancada", "prateleira", "estante" → artigo FEMININO: "uma escrivaninha", "uma mesa".
-5. NÚMEROS E DISTÂNCIAS: Escreva os números cardinais por extenso ("quatro", "três", "uma"). Para distâncias com decimal, USE a vírgula real no formato "5,2 quilômetros", "27,1 quilômetros", NUNCA escreva a palavra "vírgula" por extenso. NUNCA escreva dígitos isolados sem unidade.
+5. NÚMEROS E DISTÂNCIAS: Escreva os números cardinais por extenso ("quatro", "três", "uma"). A distância já vem arredondada para cima no texto base: preserve exatamente esse número inteiro em quilômetros; não use decimais, não arredonde para baixo e não escreva a palavra "vírgula". NUNCA escreva dígitos isolados sem unidade.
 6. SEM EXPRESSÕES REPETIDAS: NUNCA comece frases com "E também" ou "Temos uma entrega. Temos uma entrega de...". Funda a informação em uma frase só. JAMAIS escreva nomes em CAIXA ALTA.
 7. VISÃO GERAL SEM CIDADE: A primeira frase resume apenas o total e os turnos, SEM mencionar cidades. Exemplo correto: "Para amanhã, temos quatro entregas programadas, com uma pela manhã e três à tarde."
 8. REGRA ABSOLUTA DE COLOMBO: JAMAIS mencione a palavra "Colombo". Se a entrega for em Colombo, não fale o nome da cidade. Só mencione a cidade quando for fora de Colombo (ex: Curitiba, Pinhais).
@@ -600,9 +599,10 @@ Texto base para refinamento: "${smartText}"`;
       }
     } catch (err) {
       console.warn('Erro ao gerar resumo de entregas com IA:', err);
-      const fallbackText = mode === 'today'
-        ? 'Não há entregas agendadas para hoje. Operação e frota disponíveis.'
-        : 'Não há entregas agendadas para amanhã. Operação e frota disponíveis.';
+      const detail = err instanceof Error && err.message
+        ? ` Detalhe: ${err.message}`
+        : '';
+      const fallbackText = `Não foi possível gerar o resumo de entregas ${mode === 'today' ? 'de hoje' : 'de amanhã'} agora.${detail}`;
       if (mode === 'today' && setAiSummaryToday) setAiSummaryToday(fallbackText);
       else if (mode === 'tomorrow' && setAiSummaryTomorrow) setAiSummaryTomorrow(fallbackText);
     } finally {

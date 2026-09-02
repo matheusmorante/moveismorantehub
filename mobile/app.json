@@ -3,8 +3,8 @@
     "name": "Equipe Morante",
     "slug": "mobile",
     "scheme": "morantehub",
-    "version": "1.2.2",
-    "runtimeVersion": "1.2.2",
+    "version": "1.5.0",
+    "runtimeVersion": "1.5.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -22,7 +22,9 @@
           "color": "#2563EB",
           "defaultChannel": "morante_alerts_v3",
           "sounds": [
-            "./assets/levelup.mp3"
+            "./assets/levelup.mp3",
+            "./assets/order_updated.mp3",
+            "./assets/order_cancelled.mp3"
           ]
         }
       ]
@@ -36,7 +38,7 @@
     },
     "android": {
       "package": "com.morante.mobile",
-      "versionCode": 21,
+      "versionCode": 25,
       "experimentalLauncherActivity": true,
       "googleServicesFile": "./google-services.json",
       "permissions": [

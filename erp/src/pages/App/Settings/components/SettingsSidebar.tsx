@@ -10,10 +10,10 @@ export interface Category {
 
 interface SettingsSidebarProps {
     categories: Category[];
-    isAdmin: boolean;
+    isAdmin?: boolean;
 }
 
-const SettingsSidebar: React.FC<SettingsSidebarProps> = ({ categories, isAdmin }) => {
+const SettingsSidebar: React.FC<SettingsSidebarProps> = ({ categories, isAdmin = true }) => {
     const scrollToSection = (id: string) => {
         window.location.hash = id;
         const element = document.getElementById(id);
@@ -25,7 +25,7 @@ const SettingsSidebar: React.FC<SettingsSidebarProps> = ({ categories, isAdmin }
     const systemCats = categories.filter(c => c.group === 'system');
 
     return (
-        <aside className="w-full flex flex-col gap-5 sticky top-28 h-fit bg-white/70 dark:bg-slate-900/70 backdrop-blur-md p-4 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-lg shadow-slate-200/20 dark:shadow-none z-10">
+        <aside className="w-64 shrink-0 flex flex-col gap-5 sticky top-28 h-fit bg-white/70 dark:bg-slate-900/70 backdrop-blur-md p-4 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-lg shadow-slate-200/20 dark:shadow-none z-10">
             
             {/* User Preferences */}
             <div className="flex flex-col gap-1.5">

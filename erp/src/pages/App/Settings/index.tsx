@@ -2,11 +2,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { getSettings, saveSettings, AppSettings, subscribeToSettings } from '@/pages/utils/settingsService';
 import { useTheme } from '../../../context/ThemeContext';
-import { toast } from 'react-toastify';
-import { PatternFormat as PatternFormatBase } from "react-number-format";
-const PatternFormat = PatternFormatBase as any;
 
-// Modular Components
 import SettingsSidebar from './components/SettingsSidebar';
 import SettingsSection from './components/SettingsSection';
 import StatusLabelsSection from './components/StatusLabelsSection';
@@ -14,53 +10,16 @@ import LogisticsSection from './components/LogisticsSection';
 import HandlingSection from './components/HandlingSection';
 import AutoScrollSection from './components/AutoScrollSection';
 import AppearanceSection from './components/AppearanceSection';
-// import AIPromptsSection from './components/AIPromptsSection'; // Removido por solicitação de exclusão de IA
-import OrderAutomationSection from './components/OrderAutomationSection';
 import WhatsAppConfigSection from './components/WhatsAppConfigSection';
-import InventoryNotificationsSection from './components/InventoryNotificationsSection';
-import ChannelDescriptionsSection from './components/ChannelDescriptionsSection';
+import OrderNotificationTestSection from './components/OrderNotificationTestSection';
 import WhatsAppTemplatesSection from './components/WhatsAppTemplatesSection';
-import BusinessRulesSection from './components/BusinessRulesSection';
-import ReceiptConfigSection from './components/ReceiptConfigSection';
-import ValidationConfigSection from './components/ValidationConfigSection';
-// import ImportMappingSection from './components/ImportMappingSection'; // Removido por não existir e não ser utilizado
-import InventoryAutomationSection from './components/InventoryAutomationSection';
-import ScannerConfigSection from './components/ScannerConfigSection';
-import ProductMaterialsSection from './components/ProductMaterialsSection';
 import CardFlagSettings from './components/CardFlagSettings';
 import BlingConfigSection from './components/BlingConfigSection';
 import FiscalSettingsSection from './components/FiscalSettingsSection';
-import AccessManagementSection from './components/AccessManagementSection';
-// import SaveButton from './components/SaveButton'; // Removido para auto-save
+import ScannerConfigSection from './components/ScannerConfigSection';
+import CompanySettingsSection from './components/CompanySettingsSection';
+import { settingsCategories } from './components/settingsCategories';
 
-const categories: any[] = [
-    { id: 'empresa', label: 'Dados da Empresa', icon: 'bi-building-fill', group: 'system', keywords: ['empresa', 'nome', 'endereço', 'loja', 'origem', 'cnpj', 'contato', 'telefone'] },
-    { id: 'labels', label: 'Rótulos do Sistema', icon: 'bi-tags-fill', group: 'system', keywords: ['rascunho', 'agendado', 'atendido', 'cancelado', 'entrega', 'retirada'] },
-    { id: 'logistica', label: 'Logística e Frete', icon: 'bi-truck', group: 'system', keywords: ['frete', 'km', 'distância', 'valor', 'entrega'] },
-
-    { id: 'scroll', label: 'Scroll Automático', icon: 'bi-mouse3-fill', group: 'user', keywords: ['scroll', 'rolagem', 'automática', 'velocidade', 'sensibilidade'] },
-    { id: 'aparencia', label: 'Aparência', icon: 'bi-palette', group: 'user', keywords: ['tema', 'escuro', 'claro', 'modo'] },
-    // { id: 'ia', label: 'Inteligência Artificial', icon: 'bi-robot', group: 'system', keywords: ['ia', 'ai', 'robot', 'prompt', 'descrição', 'chat', 'assistente'] },
-    { id: 'automacao', label: 'Automação de Pedidos', icon: 'bi-magic', group: 'system', keywords: ['automação', 'imprimir', 'recibo', 'whatsapp', 'entrega', 'cliente'] },
-    { id: 'whatsapp', label: 'WhatsApp & Catálogo', icon: 'bi-whatsapp', group: 'system', keywords: ['whatsapp', 'api', 'token', 'catálogo', 'marketplace', 'vendas'] },
-    { id: 'notificacoes', label: 'Notificações', icon: 'bi-bell-fill', group: 'system', keywords: ['notificação', 'alerta', 'estoque', 'novo', 'usado', 'salvado'] },
-    { id: 'templates', label: 'Mensagens & Templates', icon: 'bi-chat-quote-fill', group: 'system', keywords: ['mensagem', 'template', 'whatsapp', 'texto', 'avaliação', 'confirmação', 'grupo', 'promoções', 'ofertas'] },
-    { id: 'regras', label: 'Regras de Negócio', icon: 'bi-gear-wide-connected', group: 'system', keywords: ['regra', 'estoque', 'negativo', 'reserva', 'venda'] },
-    { id: 'obrigatorios', label: 'Campos Obrigatórios', icon: 'bi-shield-check', group: 'system', keywords: ['obrigatório', 'bloqueio', 'venda', 'cadastro', 'cpf', 'cnpj', 'telefone', 'rg', 'endereço', 'estoque', 'email', 'cargo'] },
-    { id: 'recibo', label: 'Configuração de Recibo', icon: 'bi-printer-fill', group: 'system', keywords: ['recibo', 'impressão', 'rodapé', 'vendedor', 'garantia'] },
-    { id: 'estoqueAutomacao', label: 'Automação de Estoque', icon: 'bi-box-arrow-right', group: 'system', keywords: ['estoque', 'movimentação', 'venda', 'compra', 'automação'] },
-    { id: 'materiais', label: 'Materiais de Móveis', icon: 'bi-hammer', group: 'system', keywords: ['material', 'mdp', 'mdf', 'madeira', 'vidro', 'metal', 'móvel'] },
-    {id: 'manuseio', label: 'Manuseio de Pedidos', icon: 'bi-hand-index-thumb', group: 'system', keywords: ['manuseio', 'montagem', 'entrega', 'retirada', 'padrão'] },
-    {id: 'fiscal', label: 'Tributação Padrão (NF-e/NFC-e)', icon: 'bi-file-earmark-spreadsheet-fill', group: 'system', keywords: ['tributação', 'fiscal', 'nfe', 'nfce', 'ncm', 'cest', 'csosn', 'cfop', 'simples', 'nacional', 'origem', 'icms'] },
-    {id: 'bandeiras', label: 'Bandeiras e Juros de Cartão', icon: 'bi-credit-card-2-front', group: 'system', keywords: ['cartão', 'bandeira', 'juros', 'parcela', 'visa', 'mastercard', 'senff'] },
-    {id: 'scanner', label: 'Leitor de Barras / Scanner', icon: 'bi-qr-code-scan', group: 'system', keywords: ['scanner', 'bip', 'pibe', 'barras', 'código', 'delay', 'atraso', 'vibração'] },
-    {id: 'bling', label: 'Integração Bling (API v3)', icon: 'bi-clouds-fill', group: 'system', keywords: ['bling', 'api', 'v3', 'integração', 'estoque', 'sincronização', 'token', 'key'] },
-];
-
-/**
- * Settings Page
- * Returns 'any' to fix React 19 / TS 4.9 incompatibility during Vercel build.
- */
 export default function Settings(): any {
     const { theme, setTheme } = useTheme();
     const [settings, setSettings] = useState<AppSettings>(getSettings());
@@ -68,12 +27,10 @@ export default function Settings(): any {
     const [isSaving, setIsSaving] = useState(false);
     const saveTimeoutRef = React.useRef<any>(null);
 
-    // Real-time synchronization with Firebase
     useEffect(() => {
         const unsubscribe = subscribeToSettings((newSettings) => {
             setSettings(newSettings);
 
-            // Sync theme if it's different from current
             if (newSettings.defaultTheme && newSettings.defaultTheme !== (theme as any)) {
                 setTheme(newSettings.defaultTheme);
             }
@@ -108,7 +65,6 @@ export default function Settings(): any {
 
             current[parts[parts.length - 1]] = value;
 
-            // Auto-save logic
             if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
             setIsSaving(true);
             saveTimeoutRef.current = setTimeout(async () => {
@@ -120,67 +76,55 @@ export default function Settings(): any {
         });
     }, [setTheme]);
 
-    // const handleSave = () => {
-    //     saveSettings(settings);
-    //     toast.success("Configurações aplicadas com sucesso! ✨");
-    // };
+    const isVisible = (id: string) => {
+        if (!search.trim()) return true;
+        const category = settingsCategories.find(c => c.id === id);
+        if (!category) return false;
+        const term = search.toLowerCase();
+        return category.label.toLowerCase().includes(term) ||
+            category.keywords.some((k: string) => k.toLowerCase().includes(term));
+    };
 
     const isAdminGroup = (id: string) => {
-        const cat = categories.find(c => c.id === id);
+        const cat = settingsCategories.find(c => c.id === id);
         return cat?.group === 'system';
     };
 
-    const isVisible = (id: string) => {
-        if (!search) return true;
-        const normalizedSearch = search.toLowerCase();
-        const category = categories.find(c => c.id === id);
-        if (!category) return false;
-
-        return category.label.toLowerCase().includes(normalizedSearch) ||
-            category.keywords.some((k: string) => k.toLowerCase().includes(normalizedSearch));
-    };
-
     return (
-        <div className="flex flex-col gap-10 max-w-7xl mx-auto py-12 px-6 min-h-screen">
-            <header className="flex flex-col md:flex-row md:items-end justify-between gap-8 animate-slide-down">
-                <div>
-                    <div className="inline-flex items-center gap-2 px-3 py-1 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-lg text-[10px] font-black uppercase tracking-[0.2em] mb-3">
-                        Configurações do Sistema
-                    </div>
-                    <h1 className="text-4xl font-black text-slate-900 dark:text-slate-100 tracking-tight">Preferências</h1>
-                    <div className="flex items-center gap-4 mt-2">
-                        <p className="text-slate-500 dark:text-slate-500 text-base font-medium">Personalize cada detalhe da sua experiência no ERP Móveis Morante.</p>
-                        
-                        {isSaving && (
-                            <div className="flex items-center gap-2 px-3 py-1 bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400 rounded-full animate-in fade-in slide-in-from-left-2 duration-300">
-                                <div className="w-3 h-3 border-2 border-amber-600 dark:border-amber-500 border-t-transparent rounded-full animate-spin"></div>
-                                <span className="text-[10px] font-black uppercase tracking-widest">Salvando...</span>
-                            </div>
-                        )}
-                        
-                        {!isSaving && settings && (
-                            <div className="flex items-center gap-2 px-3 py-1 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400 rounded-full animate-in fade-in zoom-in-95 duration-500">
-                                <i className="bi bi-cloud-check-fill text-xs" />
-                                <span className="text-[10px] font-black uppercase tracking-widest">Salvamento Automático</span>
-                            </div>
-                        )}
-                    </div>
-                </div>
+        <div className="flex gap-8 relative min-h-screen">
+            <SettingsSidebar categories={settingsCategories} />
 
-                <div className="relative group w-full md:w-96">
-                    <i className="bi bi-search absolute left-5 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-600 transition-colors group-focus-within:text-blue-500" />
-                    <input
-                        type="text"
-                        placeholder="Pesquisar por nome ou funcionalidade..."
-                        value={search}
-                        onChange={(e) => setSearch(e.target.value)}
-                        className="w-full bg-white dark:bg-slate-900 border-2 border-slate-100 dark:border-slate-800 rounded-[1.5rem] pl-14 pr-6 py-4 text-sm outline-none focus:ring-4 focus:ring-blue-50 dark:focus:ring-blue-900/10 focus:border-blue-500 dark:focus:border-blue-500 transition-all shadow-xl shadow-slate-200/20 dark:shadow-none font-bold"
-                    />
-                </div>
-            </header>
+            <div className="flex-1 min-w-0 max-w-4xl mx-auto">
+                <header className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8">
+                    <div>
+                        <div className="flex items-center gap-3">
+                            <h1 className="text-2xl font-black text-slate-800 dark:text-slate-100 tracking-tight">
+                                Configurações
+                            </h1>
+                            {isSaving && (
+                                <span className="flex items-center gap-2 text-xs font-bold text-blue-500 bg-blue-50 dark:bg-blue-900/30 px-3 py-1 rounded-full animate-pulse">
+                                    <i className="bi bi-cloud-arrow-up-fill" /> Salvando...
+                                </span>
+                            )}
+                        </div>
+                        <p className="text-xs text-slate-400 dark:text-slate-500 font-medium mt-1">
+                            Gerencie as preferências e parâmetros globais do sistema.
+                        </p>
+                    </div>
 
-            <div className="max-w-4xl mx-auto w-full space-y-8 pb-48">
-                {/* Grupo 1: Minha Conta */}
+                    <div className="relative group w-full md:w-96">
+                        <i className="bi bi-search absolute left-5 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-600 transition-colors group-focus-within:text-blue-500" />
+                        <input
+                            type="text"
+                            placeholder="Pesquisar por nome ou funcionalidade..."
+                            value={search}
+                            onChange={(e) => setSearch(e.target.value)}
+                            className="w-full bg-white dark:bg-slate-900 border-2 border-slate-100 dark:border-slate-800 rounded-[1.5rem] pl-14 pr-6 py-4 text-sm outline-none focus:ring-4 focus:ring-blue-50 dark:focus:ring-blue-900/10 focus:border-blue-500 dark:focus:border-blue-500 transition-all shadow-xl shadow-slate-200/20 dark:shadow-none font-bold"
+                        />
+                    </div>
+                </header>
+
+                <div className="w-full space-y-8 pb-48">
                 <div className="bg-white dark:bg-slate-900/80 rounded-3xl border border-slate-200/80 dark:border-slate-800 p-6 shadow-xl shadow-slate-200/20 dark:shadow-none space-y-1">
                     <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500 px-3 mb-3">
                         Minha Conta
@@ -189,27 +133,8 @@ export default function Settings(): any {
                     <SettingsSection id="aparencia" title="Aparência" icon="bi-palette" isVisible={isVisible('aparencia')} isSearching={!!search.trim()} isAdminOnly={isAdminGroup('aparencia')}>
                         <AppearanceSection settings={settings} onChange={handleChange} />
                     </SettingsSection>
-
-                    <SettingsSection id="scroll" title="Rolagem Automática" icon="bi-mouse3-fill" isVisible={isVisible('scroll')} isSearching={!!search.trim()} isAdminOnly={isAdminGroup('scroll')}>
-                        <AutoScrollSection settings={settings} onChange={handleChange} />
-                    </SettingsSection>
                 </div>
 
-                {/* Grupo: Controle de Acesso (Admin) */}
-                <div className="bg-white dark:bg-slate-900/80 rounded-3xl border border-slate-200/80 dark:border-slate-800 p-6 shadow-xl shadow-slate-200/20 dark:shadow-none space-y-1">
-                    <div className="flex items-center justify-between px-3 mb-3">
-                        <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500">
-                            Controle de Acesso
-                        </h3>
-                        <span className="bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300 px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-wider">
-                            ADMIN
-                        </span>
-                    </div>
-
-                    <AccessManagementSection settings={settings} onChange={handleChange} />
-                </div>
-
-                {/* Grupo 2: Sistema (Admin) */}
                 <div className="bg-white dark:bg-slate-900/80 rounded-3xl border border-slate-200/80 dark:border-slate-800 p-6 shadow-xl shadow-slate-200/20 dark:shadow-none space-y-1">
                     <div className="flex items-center justify-between px-3 mb-3">
                         <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500">
@@ -221,80 +146,7 @@ export default function Settings(): any {
                     </div>
 
                     <SettingsSection id="empresa" title="Dados da Empresa" icon="bi-building-fill" isVisible={isVisible('empresa')} isSearching={!!search.trim()} isAdminOnly={isAdminGroup('empresa')}>
-                        <div className="p-8 hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors">
-                            <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-                                <div className="flex-1 max-w-lg">
-                                    <h4 className="font-bold text-slate-800 dark:text-slate-200 text-sm uppercase tracking-wider">Nome da Empresa <span className="text-red-500">*</span></h4>
-                                    <p className="text-xs text-slate-400 dark:text-slate-500 mt-1 leading-relaxed">Nome que será exibido em documentos e comunicações.</p>
-                                </div>
-                                <input
-                                    type="text"
-                                    value={settings.companyName || ''}
-                                    onChange={(e) => handleChange('companyName', e.target.value)}
-                                    className="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl px-5 py-3 text-sm outline-none focus:ring-2 focus:ring-blue-100 dark:focus:ring-blue-900/20 focus:border-blue-500 dark:text-slate-200 w-full md:w-80 transition-all font-medium"
-                                />
-                            </div>
-                        </div>
-                        <div className="p-8 hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors">
-                            <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-                                <div className="flex-1 max-w-lg">
-                                    <h4 className="font-bold text-slate-800 dark:text-slate-200 text-sm uppercase tracking-wider">CNPJ</h4>
-                                    <p className="text-xs text-slate-400 dark:text-slate-500 mt-1 leading-relaxed">Cadastro Nacional da Pessoa Jurídica da empresa.</p>
-                                </div>
-                                <div className="w-full md:w-80">
-                                    <PatternFormat
-                                        format="##.###.###/####-##"
-                                        mask="_"
-                                        value={settings.companyCnpj || ''}
-                                        onValueChange={(values: any) => handleChange('companyCnpj', values.value || "")}
-                                        className="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl px-5 py-3 text-sm outline-none focus:ring-2 focus:ring-blue-100 dark:focus:ring-blue-900/20 focus:border-blue-500 dark:text-slate-200 w-full transition-all font-medium"
-                                    />
-                                </div>
-                            </div>
-                        </div>
-                        <div className="p-8 hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors">
-                            <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-                                <div className="flex-1 max-w-lg">
-                                    <h4 className="font-bold text-slate-800 dark:text-slate-200 text-sm uppercase tracking-wider">Telefone</h4>
-                                    <p className="text-xs text-slate-400 dark:text-slate-500 mt-1 leading-relaxed">Telefone oficial de atendimento da empresa.</p>
-                                </div>
-                                <div className="w-full md:w-80 flex gap-2">
-                                    <PatternFormat
-                                        format="(##) #####-####"
-                                        mask="_"
-                                        value={settings.companyPhone || ''}
-                                        onValueChange={(values: any) => handleChange('companyPhone', values.value || "")}
-                                        className="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl px-5 py-3 text-sm outline-none focus:ring-2 focus:ring-blue-100 dark:focus:ring-blue-900/20 focus:border-blue-500 dark:text-slate-200 w-full transition-all font-medium"
-                                    />
-                                    <button type="button"
-                                        onClick={() => {
-                                            if (!settings.companyPhone) return;
-                                            const cleanPhone = settings.companyPhone.replace(/\D/g, '');
-                                            const finalPhone = cleanPhone.length >= 10 && cleanPhone.length <= 11 ? `55${cleanPhone}` : cleanPhone;
-                                            window.open(`https://wa.me/${finalPhone}`, '_blank');
-                                        }}
-                                        title="Verificar WhatsApp"
-                                        className="shrink-0 w-12 flex items-center justify-center bg-[#25D366] hover:bg-[#128C7E] text-white rounded-2xl transition-all shadow-sm shadow-[#25D366]/30 active:scale-95"
-                                    >
-                                        <i className="bi bi-whatsapp text-lg"></i>
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                        <div className="p-8 hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors">
-                            <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-                                <div className="flex-1 max-w-lg">
-                                    <h4 className="font-bold text-slate-800 dark:text-slate-200 text-sm uppercase tracking-wider">Endereço Completo</h4>
-                                    <p className="text-xs text-slate-400 dark:text-slate-500 mt-1 leading-relaxed">Endereço da sede ou loja física.</p>
-                                </div>
-                                <input
-                                    type="text"
-                                    value={settings.companyAddress || ''}
-                                    onChange={(e) => handleChange('companyAddress', e.target.value)}
-                                    className="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl px-5 py-3 text-sm outline-none focus:ring-2 focus:ring-blue-100 dark:focus:ring-blue-900/20 focus:border-blue-500 dark:text-slate-200 w-full md:w-80 transition-all font-medium"
-                                />
-                            </div>
-                        </div>
+                        <CompanySettingsSection settings={settings} onChange={handleChange} />
                     </SettingsSection>
 
                     <SettingsSection id="labels" title="Rótulos do Sistema" icon="bi-tags-fill" isVisible={isVisible('labels')} isSearching={!!search.trim()} isAdminOnly={isAdminGroup('labels')}>
@@ -309,41 +161,16 @@ export default function Settings(): any {
                         <HandlingSection settings={settings} onChange={handleChange} />
                     </SettingsSection>
 
-                    <SettingsSection id="automacao" title="Automação de Pedidos" icon="bi-magic" isVisible={isVisible('automacao')} isSearching={!!search.trim()} isAdminOnly={isAdminGroup('automacao')}>
-                        <OrderAutomationSection settings={settings} onChange={handleChange} />
-                    </SettingsSection>
-
                     <SettingsSection id="whatsapp" title="WhatsApp & Catálogo" icon="bi-whatsapp" isVisible={isVisible('whatsapp')} isSearching={!!search.trim()} isAdminOnly={isAdminGroup('whatsapp')}>
                         <WhatsAppConfigSection settings={settings} onChange={handleChange} />
                     </SettingsSection>
 
-                    <SettingsSection id="notificacoes" title="Notificações" icon="bi-bell-fill" isVisible={isVisible('notificacoes')} isSearching={!!search.trim()} isAdminOnly={isAdminGroup('notificacoes')}>
-                        <InventoryNotificationsSection settings={settings} onChange={handleChange} />
+                    <SettingsSection id="notificacoes" title="Notificações & Testes Push" icon="bi-bell-fill" isVisible={isVisible('notificacoes')} isSearching={!!search.trim()} isAdminOnly={isAdminGroup('notificacoes')}>
+                        <OrderNotificationTestSection />
                     </SettingsSection>
-
 
                     <SettingsSection id="templates" title="Mensagens & Templates" icon="bi-chat-quote-fill" isVisible={isVisible('templates')} isSearching={!!search.trim()} isAdminOnly={isAdminGroup('templates')}>
                         <WhatsAppTemplatesSection settings={settings} onChange={handleChange} />
-                    </SettingsSection>
-
-                    <SettingsSection id="regras" title="Regras de Negócio" icon="bi-gear-wide-connected" isVisible={isVisible('regras')} isSearching={!!search.trim()} isAdminOnly={isAdminGroup('regras')}>
-                        <BusinessRulesSection settings={settings} onChange={handleChange} />
-                    </SettingsSection>
-
-                    <SettingsSection id="obrigatorios" title="Campos Obrigatórios" icon="bi-shield-check" isVisible={isVisible('obrigatorios')} isSearching={!!search.trim()} isAdminOnly={isAdminGroup('obrigatorios')}>
-                        <ValidationConfigSection settings={settings} onChange={handleChange} />
-                    </SettingsSection>
-
-                    <SettingsSection id="recibo" title="Configuração de Recibo" icon="bi-printer-fill" isVisible={isVisible('recibo')} isSearching={!!search.trim()} isAdminOnly={isAdminGroup('recibo')}>
-                        <ReceiptConfigSection settings={settings} onChange={handleChange} />
-                    </SettingsSection>
-
-                    <SettingsSection id="estoqueAutomacao" title="Automação de Estoque" icon="bi-box-arrow-right" isVisible={isVisible('estoqueAutomacao')} isSearching={!!search.trim()} isAdminOnly={isAdminGroup('estoqueAutomacao')}>
-                        <InventoryAutomationSection settings={settings} onChange={handleChange} />
-                    </SettingsSection>
-
-                    <SettingsSection id="materiais" title="Materiais de Móveis" icon="bi-hammer" isVisible={isVisible('materiais')} isSearching={!!search.trim()} isAdminOnly={isAdminGroup('materiais')}>
-                        <ProductMaterialsSection />
                     </SettingsSection>
 
                     <SettingsSection id="fiscal" title="Tributação Padrão (NF-e/NFC-e)" icon="bi-file-earmark-spreadsheet-fill" isVisible={isVisible('fiscal')} isSearching={!!search.trim()} isAdminOnly={isAdminGroup('fiscal')}>
@@ -363,8 +190,7 @@ export default function Settings(): any {
                     </SettingsSection>
                 </div>
             </div>
-
-            {/* <SaveButton onClick={handleSave} /> Removido para auto-save */}
         </div>
+    </div>
     );
 }

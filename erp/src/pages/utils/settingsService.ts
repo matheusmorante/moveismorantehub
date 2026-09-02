@@ -136,23 +136,16 @@ export interface AppSettings {
         autoSendWhatsAppDelivery: boolean;
         autoSendCustomerOrder: boolean;
         deliveryPhone: string;
+        groupInviteMessage: string;
+        groupInviteLink: string;
     };
     stockNotificationConditions?: ('novo' | 'usado' | 'salvado')[];
-    rolePermissions?: {
-        manualStockMovement: string[];
-        productConfig: string[];
-        viewFinancials: string[];
-        deleteOrders: string[];
-        startDelivery: string[];
-        manageSettings: string[];
-    };
-    whatsappTemplates: {
+    rolePermissions?: Record<string, string[]>;
+    whatsappTemplates?: {
         reviewRequest: string;
         orderConfirmation: string;
         deliveryInfo: string;
-        assistanceConfirmation: string;  // Template para confirmar assistência ao cliente
-        groupInviteMessage: string;
-        groupInviteLink: string;
+        assistanceConfirmation: string;
     };
     receiptConfig: {
         footerText: string;

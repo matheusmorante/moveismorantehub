@@ -35,8 +35,10 @@
   },
   "scripts": {
     "dev": "vite",
+    "dev:test": "vite --mode local-test",
     "start": "vite",
     "build": "vite build",
+    "build:test": "vite build --mode local-test",
     "preview": "vite preview",
     "test": "vitest",
     "test:unit": "vitest run --config vitest.config.ts",

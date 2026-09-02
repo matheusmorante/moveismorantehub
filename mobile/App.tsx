@@ -10,8 +10,10 @@ import { completeGoogleSignIn } from './src/services/googleAuth';
 import { resolveMobileUserProfile } from './src/services/mobileAuthProfile';
 import { registerPushToken, triggerLocalNotification, initPushTokenListeners } from './src/services/notificationService';
 import { generateDeliveryAISummary } from './src/services/aiSummaryService';
+import { speakWithNavigationVoice } from './src/services/navigationVoiceService';
 import { isAssemblyOutsideType, isAssemblyInternalType } from './src/utils/aiSummaryHelper';
 import { isCancelledOrder, isDateInPeriod, parseOrderDateStr } from './src/utils/orderUtils';
+import { getOperationalScheduleDate } from './src/utils/operationalSchedule';
 import { DashboardHeader } from './src/features/dashboard/components/DashboardHeader';
 import { AISummaryCard } from './src/features/dashboard/components/AISummaryCard';
 import { OperationalStatsGrid } from './src/features/dashboard/components/OperationalStatsGrid';
@@ -137,7 +139,7 @@ export default function App() {
     setIsSpeakingSummary(true);
     setSpeechIsPaused(false);
 
-    Speech.speak(text, {
+    void speakWithNavigationVoice(text, {
       language: 'pt-BR',
       pitch: 1.0,
       rate: 0.95,
@@ -191,7 +193,7 @@ export default function App() {
     setIsSpeakingSummary(true);
     setSpeechIsPaused(false);
 
-    Speech.speak(remainingText, {
+    void speakWithNavigationVoice(remainingText, {
       language: 'pt-BR',
       pitch: 1.0,
       rate: 0.95,
@@ -352,24 +354,25 @@ export default function App() {
         );
         if (isExplicitlyPending) return false;
 
-        const rawSchedDate = sched.date || sched.startDate || o.scheduled_date || o.date || '';
+        const rawSchedDate = getOperationalScheduleDate(o);
         if (!rawSchedDate || rawSchedDate === 'sem_data') return false;
 
-        const cleanDate = parseOrderDateStr(rawSchedDate);
-        return cleanDate === todayStr;
+        return isDateInPeriod(rawSchedDate, 'today');
       });
 
       const hasToday = todayOrders.length > 0;
       setHasTodayDeliveries(hasToday);
-      if (!hasToday) {
-        setAiSummaryTab('tomorrow');
-      }
 
       setDeliveriesCount(dCount);
       setAssembliesInternalCount(aIntCount);
       setAssembliesOutsideCount(aOutCount);
       setAssistancesCount(astCount);
       setReturnsCount(retCount);
+
+      if (rawOrders && rawOrders.length > 0) {
+        generateDeliveryAISummary('today', true, setAiSummaryToday, setAiSummaryTomorrow, setIsGeneratingAISummary, rawOrders);
+        generateDeliveryAISummary('tomorrow', true, setAiSummaryToday, setAiSummaryTomorrow, setIsGeneratingAISummary, rawOrders);
+      }
     } catch (err) {
       console.warn('[DashboardStats] Erro:', err);
     } finally {
@@ -563,11 +566,11 @@ export default function App() {
       <View style={styles.center}>
         <ActivityIndicator size="large" color="#2563eb" />
       </View>
-      <MandatoryUpdateModal visible={mandatoryUpdate.required} url={mandatoryUpdate.url} />
+      <MandatoryUpdateModal visible={false} url="" />
     </>;
   }
 
-  if (!userProfile) return <><LoginScreen isDarkMode={isDarkMode} onLoginSuccess={() => {}} /><MandatoryUpdateModal visible={mandatoryUpdate.required} url={mandatoryUpdate.url} /></>;
+  if (!userProfile) return <><LoginScreen isDarkMode={isDarkMode} onLoginSuccess={() => {}} /><MandatoryUpdateModal visible={false} url="" /></>;
 
   // Se o usuário estiver sem cargo (pendente)
   const hasNoRole = !userProfile.role || userProfile.role === 'pending';
@@ -579,7 +582,7 @@ export default function App() {
         userEmail={userProfile.email}
         onLogout={handleLogout}
       />
-      <MandatoryUpdateModal visible={mandatoryUpdate.required} url={mandatoryUpdate.url} />
+      <MandatoryUpdateModal visible={false} url="" />
     </>;
   }
 
@@ -689,7 +692,7 @@ export default function App() {
           isDarkMode={isDarkMode}
           userRole={userProfile?.role}
         />
-        <MandatoryUpdateModal visible={mandatoryUpdate.required} url={mandatoryUpdate.url} />
+        <MandatoryUpdateModal visible={false} url="" />
       </SafeAreaView>
     </SafeAreaProvider>
   );

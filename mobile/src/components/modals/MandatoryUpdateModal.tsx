@@ -3,6 +3,7 @@ import { Linking, Modal, StyleSheet, Text, TouchableOpacity, View } from 'react-
 import { Download, Smartphone } from 'lucide-react-native';
 
 export function MandatoryUpdateModal({ visible, url }: { visible: boolean; url: string }) {
+  if (!visible || !url) return null;
   const openDownload = () => { void Linking.openURL(url); };
   return <Modal visible={visible} transparent animationType="fade" onRequestClose={() => {}}>
     <View style={styles.backdrop}><View style={styles.card}>

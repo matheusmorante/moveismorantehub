@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import Person from "../../../types/person.type";
 import { subscribeToPeople, moveToTrash, restorePerson, permanentDeletePerson, updatePerson } from '@/pages/utils/personService';
+import { getProfileRoles } from "@/pages/utils/accessRoles";
 import { toast } from "react-toastify";
 
 export const usePeople = (collectionName: string, filters?: any) => {
@@ -43,12 +44,9 @@ export const usePeople = (collectionName: string, filters?: any) => {
 
         return sourceList
             .filter(person => {
-                // Draft logic: if we are viewing trash, we don't care about draft status (or we might, but usually trash is trash)
-                // If we are NOT in trash, we show everything (including drafts)
-                if (showTrash) {
-                    // usually deleted items are not considered "drafts" in the main list sense
-                } else {
-                    // Show everything: active, inactive, drafts
+                if (collectionName === 'employees') {
+                    const userRoles = getProfileRoles(person);
+                    if (userRoles.length === 0) return false;
                 }
 
                 if (!filters) return true;

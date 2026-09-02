@@ -46,24 +46,6 @@ const LogisticsSection: React.FC<Props> = ({ settings, onChange }) => {
                     </div>
                 </div>
             </div>
-
-            <div className="p-8 hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors border-t border-slate-100 dark:border-slate-800">
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-                    <div className="flex-1 max-w-lg">
-                        <h4 className="font-bold text-slate-800 dark:text-slate-200 text-sm uppercase tracking-wider">Rótulos de Aviso no Cronograma</h4>
-                        <p className="text-xs text-slate-400 dark:text-slate-500 mt-1 leading-relaxed">Exibir as observações (tags) diretamente nos cards e tabela do cronograma.</p>
-                    </div>
-                    <div className="w-full md:w-80 flex justify-end">
-                        <button
-                            type="button"
-                            onClick={() => onChange('showScheduleNoticeLabels', !settings.showScheduleNoticeLabels)}
-                            className={`w-14 h-7 rounded-full transition-all relative ${settings.showScheduleNoticeLabels ? 'bg-blue-600 shadow-inner' : 'bg-slate-300 dark:bg-slate-700'}`}
-                        >
-                            <div className={`absolute top-1 w-5 h-5 bg-white rounded-full transition-all shadow-md ${settings.showScheduleNoticeLabels ? 'left-8' : 'left-1'}`} />
-                        </button>
-                    </div>
-                </div>
-            </div>
         </>
     );
 };

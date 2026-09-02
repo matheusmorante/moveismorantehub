@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "npm run dev --prefix erp",
     "dev:erp": "npm run dev --prefix erp",
+    "dev:erp:test": "npm run dev:test --prefix erp",
     "dev:catalog": "npm run dev --prefix digital-catalog -- -p 3001",
     "dev:all": "concurrently \"npm run dev:erp\" \"npm run dev:catalog\"",
     "install:erp": "npm install --prefix erp",

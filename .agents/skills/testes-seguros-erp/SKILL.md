@@ -61,6 +61,62 @@ Mantenha duas camadas: muitos cenários matemáticos em memória e poucos cenár
 
 Para pedidos de venda, cubra criação, itens cadastrados e temporários, agendamento, movimentação correspondente, cancelamento/estorno e vinculação posterior de item temporário, garantindo efeito uma única vez. Para relatórios, valide faturamento, CMV, lucro, margem e efeitos de devoluções/cancelamentos com dados conhecidos.
 
+## Auditoria de integridade de estoque e relatórios
+
+Use este protocolo complementar quando a solicitação envolver auditar, testar ponta a ponta ou corrigir a cadeia de estoque, CMPM/CMV ou relatórios de vendas. Ele não substitui as regras oficiais do ERP: antes de testar, leia `regras-de-negocio-erp` e o código efetivamente responsável pelos fluxos.
+
+### Modos de execução
+
+- **Auditoria de produção:** somente leitura. Pode comparar registros, movimentos, saldos materializados e relatórios existentes, mas nunca cria massa de teste, recalcula cache ou corrige dados reais.
+- **Teste de integração:** usa exclusivamente banco de testes/local isolado, com `testRunId`, dados conhecidos e limpeza comprovada.
+- **Correção:** acontece depois de localizar e explicar a causa. Corrija a regra ou a persistência necessária, adicione a regressão que reproduz o defeito e rode novamente toda a cadeia afetada. Não faça "correção" silenciosa de histórico de produção sem escopo e aprovação explícitos.
+
+### Preparação e oráculo independente
+
+1. Mapeie tabelas, serviços, status, constraints e origem de cada relatório; não invente campos ou transições.
+2. Para cada SKU/variação de teste, comece com saldo e custo conhecidos e monte uma linha do tempo com data efetiva e critério de desempate existente no sistema.
+3. Calcule fora da interface o esperado: quantidade, valor de estoque, CMPM, CMV por saída, faturamento, devolução e margem. Esse cálculo é o oráculo; não reutilize a mesma função sob teste para provar a própria regra.
+4. Depois de cada evento, compare o esperado com `inventory_moves` efetivos, `stock`/`costPrice` materializados, histórico da tela e relatório. `inventory_moves` efetivos são a fonte de verdade; caches precisam coincidir com o replay.
+
+### Matriz mínima de auditoria
+
+| Evento | Evidência obrigatória |
+| --- | --- |
+| Recebimento | Uma entrada por item cadastrado, quantidade/custo/data corretos, saldo e CMPM atualizados. Criar o pedido de compra, por si só, não pode gerar entrada física. |
+| Venda agendada ou atendida | Uma única saída por item cadastrado, com quantidade, vínculo e CMV materializado. Item temporário não ganha movimento artificial. |
+| Repetição/reload/concorrência | Nenhuma entrada, saída, devolução ou ajuste duplicado; validar idempotência no banco, não apenas no botão. |
+| Cancelamento | Estorna as saídas vinculadas e recompõe o saldo sem fingir uma devolução; histórico de auditoria permanece. |
+| Devolução atendida | Cria uma única entrada para item cadastrado; a saída original continua existindo. Devolução agendada não movimenta. O custo de retorno usa o CMV histórico confiável da venda, nunca o custo atual. |
+| Item temporário e reconciliação | O temporário não movimenta até haver referência operacional válida. Ao reconciliar venda/devolução já efetivada, valide a materialização histórica prevista pela regra oficial, sem duplicidade, com replay quando aplicável. |
+| Inventário/ajuste | Diferença entre contagem física e saldo calculado gera ajuste único; movimentos de inventário confirmado são imutáveis. |
+
+### Correções históricas de custo
+
+Quando alterar custo, quantidade ou data efetiva de um recebimento/entrada passada, teste obrigatoriamente:
+
+1. o replay cronológico determinístico somente do SKU/variação afetado;
+2. o novo CMPM após cada evento posterior;
+3. o CMV recalculado das saídas posteriores que dependem desse histórico;
+4. `costPrice` e `stock` finais iguais ao replay;
+5. pedidos, saídas e relatórios fora do SKU/período afetado inalterados.
+
+Custo desconhecido é desconhecido: nunca substitua por zero apenas para fechar conta. Use tolerância decimal definida pelo domínio e informe qualquer arredondamento.
+
+### Relatórios comerciais e operacionais
+
+Valide as duas histórias sem misturá-las:
+
+- estoque físico vem de movimentos válidos, estornos e ajustes;
+- faturamento, devoluções, venda líquida, CMV, lucro e margem vêm dos registros comerciais e seus snapshots históricos.
+
+Confirme que devolução reduz o resultado comercial mesmo quando um item não movimenta estoque, que cancelamento não é contado como devolução e que item temporário continua no faturamento. Compare totais, quantidades e agrupamentos com uma planilha/cálculo independente para a massa controlada.
+
+### Registro de achados e correções
+
+Para cada cenário, registre: `testRunId`, dados iniciais, eventos/data, movimentos esperados e encontrados, saldo/CMPM/CMV esperado e encontrado, totais de relatório, evidência técnica e resultado. Classifique como crítico quando houver duplicidade, divergência de saldo, CMV histórico alterado indevidamente ou divergência comercial.
+
+Antes de corrigir, descreva comportamento atual, regra violada, causa provável e alcance. Após a correção, registre os arquivos/migrations alterados e execute o cenário que falhava mais regressões de recebimento, venda, devolução, cancelamento e relatório relacionadas.
+
 ## Encerramento
 
 Informe cenários executados, resultados, bugs e correções. Em bateria persistente, informe explicitamente o `testRunId`, se o cleanup foi validado e qualquer resíduo que não pôde ser removido com segurança.

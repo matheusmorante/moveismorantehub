@@ -18,6 +18,7 @@ interface Props {
 const PERIOD_OPTIONS = [
   { id: 'today_and_following', label: 'A partir de hoje' },
   { id: 'today', label: 'Hoje' },
+  { id: 'tomorrow', label: 'Amanhã' },
   { id: 'this_week', label: 'Esta Semana' },
   { id: 'this_month', label: 'Este Mês' },
   { id: 'last_30_days', label: 'Últimos 30 Dias' },

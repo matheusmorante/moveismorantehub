@@ -127,7 +127,7 @@ export const getLocationMapsUrl = (orderOrData: any): string | null => {
   return url && typeof url === 'string' && url.trim().length > 5 ? url.trim() : null;
 };
 
-const getLocalDateString = (d: Date): string => {
+export const getLocalDateString = (d: Date): string => {
   const year = d.getFullYear();
   const month = String(d.getMonth() + 1).padStart(2, '0');
   const day = String(d.getDate()).padStart(2, '0');
@@ -235,7 +235,7 @@ export const groupOrdersByDate = (ordersList: any[]): DateGroupedOrders[] => {
   }));
 };
 
-// Verifica se a data do pedido pertence ao período selecionado (today, this_week, this_month, last_30_days, this_quarter)
+// Verifica se a data do pedido pertence ao período selecionado (today, tomorrow, this_week, this_month, last_30_days, this_quarter)
 export const isDateInPeriod = (rawDate: string | undefined, period: string): boolean => {
   if (!rawDate) return false;
   const cleanDateStr = parseOrderDateStr(rawDate);
@@ -253,6 +253,12 @@ export const isDateInPeriod = (rawDate: string | undefined, period: string): boo
 
   if (period === 'today') {
     return cleanDateStr === todayStr;
+  }
+
+  if (period === 'tomorrow') {
+    const tomorrow = new Date(now);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    return cleanDateStr === getLocalDateString(tomorrow);
   }
 
   if (period === 'this_week') {

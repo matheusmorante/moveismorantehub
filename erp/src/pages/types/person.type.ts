@@ -3,6 +3,7 @@ import { UserRole } from "@/context/AuthContext";
 
 export type Person = {
     id?: string;
+    employeeCode?: number;
     personType: 'PF' | 'PJ'; // Pessoa Física ou Jurídica
     fullName: string; // Nome ou Razão Social
     socialName?: string; // Nome Social (específico PF)

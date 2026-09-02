@@ -7,9 +7,14 @@ export const getOperationalScheduleDate = (order: any): string => {
 
   return scheduling.date
     || scheduling.startDate
+    || scheduling.scheduledDate
+    || scheduling.scheduled_date
     || data.scheduledDate
+    || data.scheduled_date
+    || data.date
     || order?.scheduledDate
     || order?.scheduled_date
+    || order?.date
     || '';
 };
 

@@ -1,14 +1,13 @@
 import { supabase } from '@/pages/utils/supabaseConfig';
 import Person from "../types/person.type";
+import { getPrimaryRole } from './accessRoles';
 
 const TABLE_NAME = "people";
 
 const mapToDB = (collectionName: string, person: Partial<Person>) => {
     const p = person as any;
-
     const dbObj: any = {};
 
-    // Only set fields that are defined in 'person' for partial updates
     if (p.type || collectionName) dbObj.person_type = p.type || collectionName;
     if (p.personType !== undefined) dbObj.person_type_pf_pj = p.personType;
     if (p.fullName !== undefined) dbObj.full_name = p.fullName;
@@ -26,7 +25,6 @@ const mapToDB = (collectionName: string, person: Partial<Person>) => {
     if (p.deleted !== undefined) dbObj.deleted = p.deleted;
     if (p.marketingOrigin !== undefined) dbObj.marketing_origin = p.marketingOrigin;
 
-    // Special handling for address and employee metadata (roles)
     if (p.fullAddress || p.address || p.additionalContacts !== undefined || p.noAddress !== undefined || p.role !== undefined || p.roles !== undefined) {
         let addressVal: any = p.fullAddress || p.address || {};
         if (typeof addressVal === 'string' && addressVal.trim().startsWith('{')) {
@@ -60,7 +58,6 @@ const mapToDB = (collectionName: string, person: Partial<Person>) => {
     }
 
     dbObj.updated_at = new Date().toISOString();
-
     return dbObj;
 };
 
@@ -94,6 +91,7 @@ const mapFromDB = (data: any): Person => {
 
     const p: any = {
         id: String(data.id),
+        employeeCode: data.employee_code ?? undefined,
         personType: data.person_type_pf_pj || 'PF',
         fullName: data.full_name || '',
         socialName: data.social_name || '',
@@ -126,30 +124,6 @@ const mapFromDB = (data: any): Person => {
     return p as Person;
 };
 
-const mapProfileToPerson = (prof: any): Person => {
-    const rolePositions: Record<string, string> = {
-        administrator: 'Administrador',
-        manager: 'Gerente',
-        seller: 'Vendedor',
-        deliverer: 'Entregador / Montador',
-        pending: 'Sem Acesso'
-    };
-    const effectiveRoles = prof.roles && prof.roles.length > 0 ? prof.roles : (prof.role ? [prof.role] : ['seller']);
-    return {
-        id: prof.id,
-        fullName: prof.full_name || prof.email || 'Conta sem nome',
-        email: prof.email || '',
-        position: prof.position || rolePositions[prof.role] || '',
-        role: prof.role || effectiveRoles[0] || 'administrator',
-        roles: effectiveRoles,
-        type: 'employees',
-        active: true,
-        isDraft: false,
-        fullAddress: { street: '' },
-        deleted: false
-    } as any;
-};
-
 export const syncMissingEmployeesFromProfiles = async (): Promise<void> => {
     try {
         const { data: profilesData, error: profError } = await supabase
@@ -167,7 +141,6 @@ export const syncMissingEmployeesFromProfiles = async (): Promise<void> => {
 
         const normalizeEmail = (e?: string) => (e || '').trim().toLowerCase();
 
-        // Mapear colaboradores existentes por email normalizado
         const existingByEmail = new Map<string, any>();
         for (const p of (existingPeople || [])) {
             const emailKey = normalizeEmail(p.email);
@@ -181,6 +154,7 @@ export const syncMissingEmployeesFromProfiles = async (): Promise<void> => {
             manager: 'Gestor',
             seller: 'Vendedor',
             deliverer: 'Entregador / Montador',
+            accountant: 'Contador',
             pending: 'Sem Acesso'
         };
 
@@ -191,28 +165,55 @@ export const syncMissingEmployeesFromProfiles = async (): Promise<void> => {
             const existingEmp = existingByEmail.get(profileEmail);
 
             if (existingEmp) {
-                // Se já existe colaborador para esse email, atualiza as informações com os dados do Google
                 const googleName = profile.full_name?.trim();
-                const updates: Record<string, any> = {};
+                let currentAddress = existingEmp.address || {};
 
-                if (googleName && (!existingEmp.full_name || existingEmp.full_name === profileEmail.split('@')[0])) {
-                    updates.full_name = googleName;
+                if (typeof currentAddress === 'string') {
+                    try {
+                        currentAddress = JSON.parse(currentAddress);
+                    } catch {
+                        currentAddress = {};
+                    }
                 }
 
-                if (Object.keys(updates).length > 0) {
-                    updates.updated_at = new Date().toISOString();
+                const empRoles: any[] = Array.isArray(currentAddress?.roles) && currentAddress.roles.length > 0
+                    ? currentAddress.roles
+                    : (currentAddress?.role ? [currentAddress.role] : []);
+
+                const profileRoles: any[] = Array.isArray(profile.roles) && profile.roles.length > 0
+                    ? profile.roles
+                    : (profile.role ? [profile.role] : []);
+
+                if (empRoles.length > 0 && JSON.stringify(empRoles) !== JSON.stringify(profileRoles)) {
+                    const primaryRole = currentAddress.role || getPrimaryRole(empRoles);
+                    await supabase
+                        .from('profiles')
+                        .update({
+                            role: primaryRole,
+                            roles: empRoles
+                        })
+                        .eq('id', profile.id);
+                } 
+                else if (profileRoles.length > 0 && empRoles.length === 0) {
+                    const primaryRole = profile.role || getPrimaryRole(profileRoles);
+                    const newAddr = { ...currentAddress, role: primaryRole, roles: profileRoles };
                     await supabase
                         .from(TABLE_NAME)
-                        .update(updates)
+                        .update({ address: newAddr, updated_at: new Date().toISOString() })
+                        .eq('id', existingEmp.id);
+                }
+
+                if (googleName && (!existingEmp.full_name || existingEmp.full_name === profileEmail.split('@')[0])) {
+                    await supabase
+                        .from(TABLE_NAME)
+                        .update({ full_name: googleName, updated_at: new Date().toISOString() })
                         .eq('id', existingEmp.id);
                 }
             } else {
-                // Se nenhum colaborador usa esse email, cria exatamente 1 novo colaborador
-                console.log(`[Colaboradores] Criando novo colaborador para o email ${profileEmail} a partir da conta Google...`);
                 const effectiveRoles = (profile.roles && profile.roles.length > 0)
                     ? profile.roles
                     : (profile.role ? [profile.role] : ['pending']);
-                const primaryRole = profile.role || effectiveRoles[0] || 'pending';
+                const primaryRole = profile.role || getPrimaryRole(effectiveRoles);
                 const defaultPosition = profile.position || rolePositions[primaryRole] || 'Vendedor';
 
                 const newEmployeeData: any = {
@@ -280,7 +281,6 @@ export const subscribeToPeople = (collectionName: string, callback: (people: Per
         const { data: peopleData } = await peopleQuery.order('full_name', { ascending: true });
         let employees: Person[] = (peopleData || []).map(mapFromDB);
 
-        // Deduplicação estrita de 1 colaborador por e-mail
         if (collectionName === 'employees') {
             const uniqueMap = new Map<string, Person>();
             for (const emp of employees) {
@@ -289,7 +289,6 @@ export const subscribeToPeople = (collectionName: string, callback: (people: Per
                 if (!uniqueMap.has(key)) {
                     uniqueMap.set(key, emp);
                 } else {
-                    // Se já tiver uma entrada, preserva a que tiver telefone ou endereço preenchido
                     const existing = uniqueMap.get(key)!;
                     const existingScore = (existing.phone ? 10 : 0) + (existing.fullAddress?.street ? 10 : 0);
                     const currentScore = (emp.phone ? 10 : 0) + (emp.fullAddress?.street ? 10 : 0);
@@ -308,9 +307,7 @@ export const subscribeToPeople = (collectionName: string, callback: (people: Per
 
     fetchAll();
 
-    return () => {
-        // Realtime desabilitado para economizar conexões e tráfego
-    };
+    return () => {};
 };
 
 export const savePerson = async (collectionName: string, person: Person): Promise<Person> => {
@@ -358,8 +355,6 @@ export const updatePerson = async (collectionName: string, id: string, personToU
 
         if (error) throw error;
         if (!data || data.length === 0) {
-            // If it's a profile update that failed in people table, it's expected if it wasn't there yet.
-            // But for a generic update, we should at least not crash.
             return {} as Person;
         }
         return mapFromDB(data[0]);
@@ -382,7 +377,6 @@ export const moveToTrash = async (collectionName: string, id: string): Promise<v
             });
         }
 
-        // Se não foi encontrado na tabela de 'people' e for funcionário, pode ser um perfil de login
         if ((!result || !result.id) && collectionName === 'employees') {
             const { error: profileError } = await supabase
                 .from('profiles')
@@ -426,7 +420,6 @@ export const permanentDeletePerson = async (collectionName: string, id: string):
             deletedInPeople = data && data.length > 0;
         }
 
-        // Se nada foi deletado e for funcionário, limpar posição no perfil
         if (!deletedInPeople && collectionName === 'employees') {
             const { error: profileError } = await supabase
                 .from('profiles')

@@ -99,7 +99,28 @@ export const ProfileModal: React.FC<Props> = ({
               <View style={styles.roleBadgeContainer}>
                 <ShieldCheck size={12} color="#10b981" style={{ marginRight: 4 }} />
                 <Text style={styles.roleBadgeText}>
-                  {isAdmin ? 'Administrador Master' : isAssemblerDriver ? 'Montador / Entregador' : (userProfile?.role === 'seller' ? 'Vendedor' : (userProfile?.role || 'Colaborador'))}
+                  {(() => {
+                    const roleLabels: Record<string, string> = {
+                      administrator: 'Administrador',
+                      admin: 'Administrador',
+                      master: 'Administrador',
+                      manager: 'Gestor',
+                      seller: 'Vendedor',
+                      deliverer: 'Entregador / Montador',
+                      driver: 'Entregador / Montador',
+                      assembler: 'Entregador / Montador',
+                    };
+                    const rawRoles: string[] = [];
+                    if (Array.isArray(userProfile?.roles) && userProfile.roles.length > 0) rawRoles.push(...userProfile.roles);
+                    if (userProfile?.role && userProfile.role !== 'pending') rawRoles.push(userProfile.role);
+                    const formattedSet = new Set<string>();
+                    rawRoles.forEach((r) => {
+                      const key = String(r).toLowerCase().trim();
+                      if (roleLabels[key]) formattedSet.add(roleLabels[key]);
+                    });
+                    if (formattedSet.size === 0) return userProfile?.role === 'pending' ? 'Pendente' : (isAdmin ? 'Administrador' : 'Colaborador');
+                    return Array.from(formattedSet).join(' & ');
+                  })()}
                 </Text>
               </View>
             </View>
@@ -107,29 +128,6 @@ export const ProfileModal: React.FC<Props> = ({
 
           {/* Menu de Ações */}
           <View style={styles.profileMenuItems}>
-            {/* Botão Testar Notificação na Barra */}
-            <TouchableOpacity
-              style={[styles.profileMenuItem, isDarkMode && styles.profileMenuItemDark]}
-              onPress={handleTestNotif}
-              disabled={testingNotif}
-            >
-              <View style={[styles.profileMenuIconWrapper, { backgroundColor: '#eff6ff' }]}>
-                {testingNotif ? (
-                  <ActivityIndicator size="small" color="#2563eb" />
-                ) : (
-                  <BellRing size={18} color="#2563eb" />
-                )}
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={[styles.profileMenuLabel, isDarkMode && styles.textPrimaryDark]}>
-                  Testar Notificação na Barra
-                </Text>
-                <Text style={styles.profileMenuSubtext}>
-                  Dispara um teste com banner e som no aparelho
-                </Text>
-              </View>
-            </TouchableOpacity>
-
             {/* Botão Verificar Atualizações */}
             <TouchableOpacity
               style={[styles.profileMenuItem, isDarkMode && styles.profileMenuItemDark]}

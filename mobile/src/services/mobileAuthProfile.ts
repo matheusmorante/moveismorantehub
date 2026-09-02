@@ -33,12 +33,30 @@ export const resolveMobileUserProfile = async (session: any) => {
     await supabase.from('profiles').update({ full_name: googleName }).eq('id', session.user.id);
   }
 
+  let personRoles: string[] = [];
+  try {
+    const { data: person } = await supabase.from('people').select('roles,role').eq('email', userEmail).maybeSingle();
+    if (person) {
+      if (Array.isArray(person.roles) && person.roles.length > 0) {
+        personRoles.push(...person.roles);
+      } else if (person.role) {
+        personRoles.push(person.role);
+      }
+    }
+  } catch (err) {}
+
+  const mergedRoles = Array.from(new Set([
+    ...(Array.isArray(profile?.roles) ? profile.roles : []),
+    ...personRoles,
+    profile?.role
+  ])).filter(r => r && r !== 'pending');
+
   return {
     id: profile?.id || session.user.id,
     fullName: googleName || profile?.full_name || session.user.email?.split('@')[0] || 'Usuário',
     email: profile?.email || session.user.email,
-    role: profile?.role || 'pending',
-    roles: profile?.roles || (profile?.role && profile.role !== 'pending' ? [profile.role] : []),
+    role: profile?.role || (mergedRoles[0] || 'pending'),
+    roles: mergedRoles.length > 0 ? mergedRoles : (profile?.role && profile.role !== 'pending' ? [profile.role] : []),
     active: true,
   };
 };

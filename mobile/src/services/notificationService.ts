@@ -2,7 +2,7 @@ import { Platform, Alert } from 'react-native';
 import * as Notifications from 'expo-notifications';
 import { Audio } from 'expo-av';
 import { supabase, NOTIFICATION_SOUND_URL } from './supabaseClient';
-import { GENERAL_NOTIFICATION_CHANNEL, isNewScheduledOrderNotification, SCHEDULED_ORDER_CHANNEL } from '../utils/notificationSoundRouting';
+import { GENERAL_NOTIFICATION_CHANNEL, isNewScheduledOrderNotification, isOrderCancelledNotification, isOrderUpdatedNotification, ORDER_CANCELLED_CHANNEL, ORDER_UPDATED_CHANNEL, SCHEDULED_ORDER_CHANNEL } from '../utils/notificationSoundRouting';
 
 // Configura o comportamento das notificações quando o app está aberto em primeiro plano
 Notifications.setNotificationHandler({
@@ -15,6 +15,8 @@ Notifications.setNotificationHandler({
 });
 
 const LOCAL_NOTIFICATION_SOUND = require('../../assets/levelup.mp3');
+const LOCAL_ORDER_UPDATED_SOUND = require('../../assets/order_updated.mp3');
+const LOCAL_ORDER_CANCELLED_SOUND = require('../../assets/order_cancelled.mp3');
 let lastPushTokenRegistrationError: string | null = null;
 
 export const getLastPushTokenRegistrationError = () => lastPushTokenRegistrationError;
@@ -22,7 +24,7 @@ export const getLastPushTokenRegistrationError = () => lastPushTokenRegistration
 /**
  * Toca o áudio customizado levelup com volume máximo e configuração correta de áudio
  */
-export const playNotificationSound = async () => {
+export const playNotificationSound = async (soundAsset = LOCAL_NOTIFICATION_SOUND) => {
   try {
     // Configura o modo de áudio do sistema para tocar sobre outras mídias
     await Audio.setAudioModeAsync({
@@ -35,7 +37,7 @@ export const playNotificationSound = async () => {
     let soundInstance: Audio.Sound | null = null;
     try {
       const { sound } = await Audio.Sound.createAsync(
-        LOCAL_NOTIFICATION_SOUND,
+        soundAsset,
         { shouldPlay: true, volume: 1.0 }
       );
       soundInstance = sound;
@@ -71,6 +73,16 @@ export const setupNotificationChannel = async () => {
           id: SCHEDULED_ORDER_CHANNEL,
           name: 'Novos pedidos agendados',
           sound: 'levelup.mp3',
+        },
+        {
+          id: ORDER_UPDATED_CHANNEL,
+          name: 'Pedidos alterados',
+          sound: 'order_updated.mp3',
+        },
+        {
+          id: ORDER_CANCELLED_CHANNEL,
+          name: 'Pedidos cancelados',
+          sound: 'order_cancelled.mp3',
         },
         {
           id: GENERAL_NOTIFICATION_CHANNEL,
@@ -256,6 +268,8 @@ export const triggerLocalNotification = async (title: string, body: string, data
   try {
     if (Platform.OS !== 'web') {
       const scheduledOrder = isNewScheduledOrderNotification(dataPayload);
+      const cancelledOrder = isOrderCancelledNotification(dataPayload);
+      const updatedOrder = isOrderUpdatedNotification(dataPayload);
       await setupNotificationChannel();
       await ensureNotificationPermissions();
 
@@ -264,10 +278,10 @@ export const triggerLocalNotification = async (title: string, body: string, data
           title,
           body,
           data: dataPayload,
-          sound: scheduledOrder ? 'levelup.mp3' : 'default',
+          sound: scheduledOrder ? 'levelup.mp3' : cancelledOrder ? 'order_cancelled.mp3' : updatedOrder ? 'order_updated.mp3' : 'default',
           priority: (Notifications as any).AndroidNotificationPriority?.MAX || 'max',
           vibrate: [0, 250, 250, 250],
-          ...(Platform.OS === 'android' && { channelId: scheduledOrder ? SCHEDULED_ORDER_CHANNEL : GENERAL_NOTIFICATION_CHANNEL }),
+          ...(Platform.OS === 'android' && { channelId: scheduledOrder ? SCHEDULED_ORDER_CHANNEL : cancelledOrder ? ORDER_CANCELLED_CHANNEL : updatedOrder ? ORDER_UPDATED_CHANNEL : GENERAL_NOTIFICATION_CHANNEL }),
         },
         trigger: null,
       });
@@ -277,6 +291,8 @@ export const triggerLocalNotification = async (title: string, body: string, data
   }
 
   if (isNewScheduledOrderNotification(dataPayload)) await playNotificationSound();
+  if (isOrderCancelledNotification(dataPayload)) await playNotificationSound(LOCAL_ORDER_CANCELLED_SOUND);
+  else if (isOrderUpdatedNotification(dataPayload)) await playNotificationSound(LOCAL_ORDER_UPDATED_SOUND);
 };
 
 /**

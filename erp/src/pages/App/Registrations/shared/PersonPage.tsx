@@ -60,7 +60,7 @@ const PersonPage = ({
     const isSupplier = collectionName === "suppliers";
 
     const COLUMN_OPTIONS: { key: keyof PersonVisibilitySettings; label: string }[] = isEmployee ? [
-        { key: "id", label: "ID" },
+        { key: "id", label: isEmployee ? "Código" : "ID" },
         { key: "fullName", label: isEmployee ? "Nome" : "Nome / Razão Social" },
         { key: "cpfCnpj", label: isEmployee ? "CPF" : "CPF/CNPJ" },
         { key: "email", label: "E-mail" },

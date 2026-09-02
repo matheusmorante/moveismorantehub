@@ -185,9 +185,9 @@ Toda movimentacao de estoque e registrada em `inventory_moves` com:
   - Opções de cargo: `Administrador` (`administrator`), `Gestor` (`manager`), `Vendedor` (`seller`), `Entregador / Montador` (`deliverer`), `Sem Acesso` (`pending`).
   - Ao salvar o colaborador, os campos de perfil e permissões são sincronizados em tempo real com `profiles` e `people`.
 - **Aba Permissões por Cargo**:
-  - Configuração das áreas permitidas por cargo: `manualStockMovement` (Movimentação de Estoque), `productConfig` (Produtos e Cadastros), `viewFinancials` (Financeiro e Relatórios), `deleteOrders` (Excluir Pedidos), `startDelivery` (Iniciar Entrega).
+  - Configuração granular de ações permitidas organizadas por **Tópico Principal (Cargo)**, **Subtópicos (Áreas do Sistema: Vendas & Pedidos, Estoque & Produtos, Financeiro & Relatórios, Cadastros, Configurações & Acessos)** e **Ações Executáveis com Checkbox** (Visualizar, Criar/Editar, Excluir/Cancelar, Iniciar Entrega, Movimentar Estoque, Exportar, etc.).
   - Administrador possui acesso total fixo e irrestrito.
-  - Permissões são persistidas em `settings.data.rolePermissions`.
+  - Permissões são persistidas em tempo real no `localStorage` e Supabase via `settings.data.rolePermissions` com fallbacks resilientes.
 - **Unicidade Estrita e Sincronização Google (1 Colaborador por E-mail)**:
   - Cada e-mail possui apenas 1 colaborador único no sistema.
   - Ao logar/cadastrar via Google Auth, se já existir um colaborador com o e-mail, ele recebe e atualiza as informações do Google (`full_name`, etc.), sem criar duplicados. Se não existir, cria exatamente 1 novo colaborador.

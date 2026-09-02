@@ -231,7 +231,7 @@ export const UsersTab: React.FC<Props> = ({ people, loading, onRefresh }) => {
           onSuccess={() => { setIsModalOpen(false); setEditingPerson(null); onRefresh(); }}
           person={editingPerson}
           collectionName="employees"
-          title="Editar Usuário e Atribuir Cargos"
+          title="Usuário"
         />
       )}
     </div>

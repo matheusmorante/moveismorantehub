@@ -60,6 +60,7 @@ export async function dispatchAppNotification(payload: AppNotificationPayload): 
             data: {
                 orderId: payload.orderId,
                 type: payload.type,
+                status: payload.orderData?.status,
                 scheduleText: payload.scheduleText,
             },
         }));
