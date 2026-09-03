@@ -39,7 +39,7 @@ export default function ReceiptCard({ receipt, onClick, onEdit, onDelete, onReve
                         <i className="bi bi-clock-history text-xs" /> Rascunho
                     </span>
                 ) : isEstornado ? (
-                    <span className="inline-flex items-center gap-1.5 rounded-xl border border-red-200 bg-red-50 px-3 py-1 text-[10px] font-black uppercase tracking-wider text-red-600 dark:border-red-900/40 dark:bg-red-950/30 dark:text-red-400">
+                    <span className="inline-flex items-center gap-1.5 rounded-xl border border-red-200 bg-red-50 px-3 py-1 text-[10px] font-black uppercase tracking-wider text-red-600 dark:border-red-900/50 dark:bg-red-950/40 dark:text-red-400">
                         <i className="bi bi-arrow-counterclockwise text-xs" /> Estornado
                     </span>
                 ) : (

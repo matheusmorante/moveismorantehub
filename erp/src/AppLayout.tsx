@@ -88,7 +88,7 @@ export default function AppLayout() {
         <header className={`w-full glass-header px-4 lg:px-8 xl:px-12 h-14 xl:h-16 flex items-center justify-between sticky top-0 ${activeMenu ? 'z-[99999]' : 'z-50 hover:z-[99999] focus-within:z-[99999]'} shadow-premium transition-all duration-500`}>
           <div className="flex items-center gap-6 xl:gap-12 h-full">
             <button
-              className="lg:hidden p-2.5 text-slate-500 hover:text-blue-600 dark:text-slate-400 dark:hover:text-blue-400 transition-all rounded-xl hover:bg-white dark:hover:bg-slate-900 shadow-premium-sm"
+              className="block xl:hidden p-2.5 text-slate-500 hover:text-blue-600 dark:text-slate-400 dark:hover:text-blue-400 transition-all rounded-xl hover:bg-white dark:hover:bg-slate-900 shadow-premium-sm"
               onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
             >
               <i className="bi bi-list text-2xl"></i>
@@ -98,22 +98,18 @@ export default function AppLayout() {
               <div className="w-9 h-9 lg:w-11 lg:h-11 bg-white rounded-full shadow-premium border border-white/20 dark:border-slate-800 overflow-hidden flex items-center justify-center group-hover:scale-105 transition-transform duration-500">
                 <img src={logoMorante} alt="ERP Móveis Morante" className="w-full h-full object-cover" />
               </div>
-              <div className="flex flex-col">
-                <h3 className="text-xs lg:text-sm font-black text-slate-800 dark:text-slate-100 tracking-tighter block uppercase italic whitespace-nowrap leading-none">ERP <span className="text-blue-600">Móveis Morante</span></h3>
-                <span className="text-[8px] font-black tracking-[0.2em] text-slate-400 dark:text-slate-500 uppercase mt-1 animate-reveal">Hub de Inteligência</span>
-              </div>
+              <h3 className="text-xs lg:text-sm font-black text-slate-800 dark:text-slate-100 tracking-tighter uppercase italic whitespace-nowrap">ERP <span className="text-blue-600">Móveis Morante</span></h3>
             </Link>
 
             <DesktopNav activeMenu={activeMenu} setActiveMenu={setActiveMenu} />
           </div>
 
           <div className="flex items-center gap-3 lg:gap-8">
-            <div className="flex items-center gap-2 p-1 bg-slate-100/50 dark:bg-slate-800/50 rounded-2xl border border-slate-200/50 dark:border-slate-700/50">
+            <div className="flex items-center gap-1.5">
               <NotificationBell />
-              <div className="w-px h-4 bg-slate-300 dark:bg-slate-600 mx-1"></div>
               <button
                 onClick={toggleTheme}
-                className="w-10 h-10 flex items-center justify-center text-slate-400 dark:text-slate-500 hover:text-blue-600 dark:hover:text-yellow-400 transition-all rounded-xl hover:bg-white dark:hover:bg-slate-900 hover:shadow-premium-sm"
+                className="w-10 h-10 flex items-center justify-center text-slate-500 dark:text-slate-400 hover:text-blue-600 dark:hover:text-yellow-400 transition-all rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800"
                 title={theme === 'light' ? 'Ativar Modo Escuro' : 'Ativar Modo Claro'}
               >
                 {theme === 'light' ? (
@@ -147,8 +143,8 @@ export default function AppLayout() {
 
               {/* Menu Dropdown */}
               <div className="absolute top-full pt-2 right-0 w-64 opacity-0 scale-95 origin-top-right translate-y-2 pointer-events-none group-hover:opacity-100 group-hover:scale-100 group-hover:translate-y-0 group-hover:pointer-events-auto transition-all duration-500 z-[99999]">
-                <div className="bg-white/80 dark:bg-slate-900/80 border border-slate-100 dark:border-slate-800 rounded-[2.5rem] shadow-premium-lg p-3 backdrop-blur-2xl">
-                  <div className="p-5 bg-slate-50/50 dark:bg-slate-800/30 rounded-[2rem] border border-slate-100 dark:border-slate-800/50 mb-3 text-center">
+                <div className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-[2.5rem] shadow-premium-lg p-3">
+                  <div className="p-5 bg-slate-50 dark:bg-slate-800/50 rounded-[2rem] border border-slate-100 dark:border-slate-800 mb-3 text-center">
                     <p className="text-xs font-black text-slate-800 dark:text-slate-100 mb-1">{profile?.full_name || 'Usuário'}</p>
                     <p className="text-[10px] font-bold text-slate-400 dark:text-slate-500 truncate">{user?.email}</p>
                     <div className="mt-3 inline-flex items-center px-3 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-full text-[9px] font-black uppercase tracking-widest">
@@ -211,7 +207,7 @@ export default function AppLayout() {
       )}
 
 
-      {/* Mobile Nav */}
+      {/* Mobile Nav — visível em telas < xl (< 1280px) */}
       {!isTemplateEditor && <MobileNav
           isOpen={isMobileMenuOpen}
           onClose={() => setIsMobileMenuOpen(false)}

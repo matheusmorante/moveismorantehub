@@ -2,7 +2,7 @@ import React from "react";
 import Order from "../../../types/order.type";
 import { stringifyFullAddressWithObservation, stringifyItems, formatDate } from "../../../utils/formatters";
 import { getSettings } from '@/pages/utils/settingsService';
-import { getOrderTypeClasses, resolveOrderColor, getPrimaryHandlingInfo } from "../../../utils/orderTypeColorUtils";
+import { Drill } from "@/components/shared/DrillIcon";
 
 import { OrderTypeFilter } from "../useDeliverySchedule";
 
@@ -75,13 +75,13 @@ const TableCell = ({ order, duration, onOrderClick }: Props) => {
                             className="bg-rose-600 text-white w-16 h-16 rounded-full border-4 border-white dark:border-slate-950 shadow-xl flex items-center justify-center transition-transform hover:scale-110 active:scale-95"
                             title="Ver itens de montagem"
                         >
-                            <i className="bi bi-hammer text-2xl" />
+                            <Drill className="w-6 h-6 text-white" />
                         </button>
 
                         {showAssemblyTooltip && (
                             <div className="absolute bottom-full right-0 mb-4 w-72 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl z-[100] p-4 animate-slide-up-custom overflow-hidden">
                                 <div className="flex items-center gap-2 mb-3 border-b pb-2 dark:border-slate-800">
-                                    <i className="bi bi-hammer text-rose-500" />
+                                    <Drill className="w-4 h-4 text-rose-500" />
                                     <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Produtos para Montagem</span>
                                 </div>
                                 <div className="flex flex-wrap gap-2">
@@ -217,7 +217,7 @@ const TableCell = ({ order, duration, onOrderClick }: Props) => {
 
                 {isOnlyInternalAssembly && (
                     <div className="flex items-start gap-3 bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400 p-4 rounded-[1.5rem] border-2 border-orange-100 dark:border-orange-900/30 animate-pulse shadow-lg">
-                        <i className="bi bi-hammer text-orange-500 text-xl shrink-0" />
+                        <Drill className="w-5 h-5 text-orange-500 shrink-0 mt-0.5" />
                         <div className="flex flex-col">
                             <span className="text-[11px] font-black uppercase tracking-[0.1em] leading-tight">
                                 Montagem no Depósito
@@ -229,7 +229,7 @@ const TableCell = ({ order, duration, onOrderClick }: Props) => {
 
                 {isAssemblyOutside && (
                     <div className="flex items-start gap-3 bg-red-600 text-white p-4 rounded-[1.5rem] border-2 border-red-700 animate-pulse shadow-lg">
-                        <i className="bi bi-hammer text-white text-xl shrink-0" />
+                        <Drill className="w-5 h-5 text-white shrink-0 mt-0.5" />
                         <div className="flex flex-col">
                             <span className="text-[11px] font-black uppercase tracking-[0.1em] leading-tight">
                                 Montagem FORA

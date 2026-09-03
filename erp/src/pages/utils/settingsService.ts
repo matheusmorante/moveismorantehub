@@ -72,6 +72,28 @@ export interface AppSettings {
     companyAddress: string;
     companyCnpj: string;
     companyPhone: string;
+    companyIE?: string;
+    companyIM?: string;
+    companyCRT?: string;
+    companyLogradouro?: string;
+    companyNumero?: string;
+    companyBairro?: string;
+    companyCEP?: string;
+    companyCMun?: string;
+    companyXMun?: string;
+    companyUF?: string;
+    nfeEnvironment?: 1 | 2;
+    nfeSerie?: string;
+    fiscalDefaults?: {
+        ncm?: string;
+        cest?: string;
+        cfop?: string;
+        cst?: string;
+        icmsPercent?: number;
+        origem?: string;
+        pisCst?: string;
+        cofinsCst?: string;
+    };
 
     // Formatação de Dados
     autoCapitalizeCustomerData: boolean;
@@ -335,6 +357,28 @@ export const getDefaultSettings = (): AppSettings => ({
     companyAddress: 'R. Cascavel, 306 - Guaraituba, Colombo - PR, 83410-270',
     companyCnpj: '44.512.248.0001/07',
     companyPhone: '(41) 99749-3547',
+    companyIE: '9091234567',
+    companyIM: '',
+    companyCRT: '1',
+    companyLogradouro: 'R. Cascavel',
+    companyNumero: '306',
+    companyBairro: 'Guaraituba',
+    companyCEP: '83410-270',
+    companyCMun: '4105805', // Colombo - PR
+    companyXMun: 'Colombo',
+    companyUF: 'PR',
+    nfeEnvironment: 2, // 2 = Homologação / Testes
+    nfeSerie: '1',
+    fiscalDefaults: {
+        ncm: '94036000',
+        cest: '',
+        cfop: '5102',
+        cst: '102',
+        icmsPercent: 0,
+        origem: '0',
+        pisCst: '49',
+        cofinsCst: '49'
+    },
     autoCapitalizeCustomerData: true,
     googleReviewUrl: 'https://g.page/r/CctxeFYzY2o8EBE/review',
     defaultTheme: 'light',

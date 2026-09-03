@@ -1,4 +1,5 @@
 import React from 'react';
+import { CompanyFiscalDataSection } from './CompanyFiscalDataSection';
 
 interface FiscalSettingsSectionProps {
     settings: any;
@@ -93,6 +94,7 @@ export default function FiscalSettingsSection({ settings, onChange }: FiscalSett
 
     return (
         <div className="space-y-6">
+            <CompanyFiscalDataSection settings={settings} onChange={onChange} />
             <div className="p-8 border-b border-slate-50 dark:border-slate-800 bg-blue-50/30 dark:bg-blue-950/10">
                 <h3 className="text-sm font-black uppercase tracking-widest text-blue-600 flex items-center gap-2 mb-2">
                     <i className="bi bi-shield-fill-check"></i> Regime Tributário: Simples Nacional

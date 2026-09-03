@@ -6,6 +6,7 @@ import StockActionModal from "../OrderActions/StockActionModal";
 import ConfirmModal from "@/components/shared/ConfirmModal";
 import ReturnFulfillmentConfirmModal from "./ReturnFulfillmentConfirmModal";
 import OrderPagination from "./OrderPagination";
+import OrderCustomerSearchBar from "./OrderCustomerSearchBar";
 
 type OrderHistoryListProps = {
     onEdit: (order: Order, initialStep?: number, highlightTemporary?: boolean, reconciliationMode?: boolean) => void;
@@ -17,6 +18,7 @@ type OrderHistoryListProps = {
     onSort?: (sortBy: string, sortOrder: 'asc' | 'desc') => void;
     highlightOrderId?: string | null;
     onFilterByOrderId?: (id: string) => void;
+    onCustomerSearchChange?: (name: string) => void;
     onAction?: (actionKey: string, order: Order) => void;
 };
 
@@ -34,6 +36,7 @@ const OrderHistoryList = forwardRef<OrderHistoryListRef, OrderHistoryListProps>(
     onSort, 
     highlightOrderId, 
     onFilterByOrderId, 
+    onCustomerSearchChange,
     onAction: onActionProp 
 }, ref) => {
     const [confirmModal, setConfirmModal] = React.useState<{
@@ -237,6 +240,16 @@ const OrderHistoryList = forwardRef<OrderHistoryListRef, OrderHistoryListProps>(
 
     return (
         <div className="w-full flex flex-col gap-4 flex-1 min-h-0">
+            {onCustomerSearchChange && (
+                <div className="w-full">
+                    <OrderCustomerSearchBar
+                        value={filters?.customerName || ""}
+                        onChange={onCustomerSearchChange}
+                        placeholder="Buscar pedido pelo nome do cliente..."
+                    />
+                </div>
+            )}
+
             {renderContent()}
 
             {stockModal && (

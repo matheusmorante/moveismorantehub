@@ -328,6 +328,10 @@ export const actionsMap: Record<OrderAction, (order: Order) => void> = {
     'GENERATE_SALE_FROM_BUDGET': (order) => {
         // Handled by onAction prop in SalesOrder/Index.tsx
         console.log("Gerando venda a partir de orçamento:", order.id);
+    },
+    'ISSUE_NFE': (order) => {
+        // Handled by onAction prop in SalesOrder/Index.tsx
+        console.log("Abrindo modal de emissão fiscal para o pedido:", order.id);
     }
 };
 
@@ -360,6 +364,15 @@ export const buttons: OrderButton[] = [
         color: "text-slate-600 hover:bg-slate-50",
         tooltip: "Gerar Recibo do Cliente",
         orderTypes: ['sale']  // Não aparece para assistência
+    },
+    {
+        key: "issueNfe",
+        icon: "bi-file-earmark-text-fill",
+        action: "ISSUE_NFE",
+        label: "Emitir NF-e / NFC-e (Homologação)",
+        color: "text-indigo-600 hover:bg-indigo-50",
+        tooltip: "Emitir nota fiscal eletrônica em ambiente de homologação SEFAZ",
+        orderTypes: ['sale', 'showroom']
     },
     {
         key: "sendShippingOrder",

@@ -8,7 +8,7 @@ import { subscribeToOrders } from '@/pages/utils/orderHistoryService';
 import ShowcaseAssemblyModal from './components/ShowcaseAssemblyModal';
 import { ShowcaseAssembly, getShowcaseAssemblies, deleteShowcaseAssembly } from '@/pages/utils/showcaseAssemblyService';
 import { getOrderTypeClasses } from '@/pages/utils/orderTypeColorUtils';
-import { formatOrderCode } from '@/pages/utils/orderCode';
+import { Drill } from '@/components/shared/DrillIcon';
 
 const AssemblyListPage = () => {
     const [assemblies, setAssemblies] = useState<any[]>([]);
@@ -429,7 +429,7 @@ const AssemblyListPage = () => {
                                             <div className="flex flex-col gap-2 mt-4 mb-4">
                                                 {!isShowcase ? (
                                                     <div className="flex items-start gap-3 bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400 p-4 rounded-[1.5rem] border-2 border-orange-100 dark:border-orange-900/30 animate-pulse shadow-lg w-fit">
-                                                        <i className="bi bi-hammer text-orange-500 text-xl shrink-0" />
+                                                        <Drill className="w-5 h-5 text-orange-500 shrink-0 mt-0.5" />
                                                         <div className="flex flex-col">
                                                             <span className="text-[11px] font-black uppercase tracking-[0.1em] leading-tight">
                                                                 Montagem no Depósito

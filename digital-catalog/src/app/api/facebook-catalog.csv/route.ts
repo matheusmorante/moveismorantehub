@@ -21,10 +21,11 @@ function normalizeMetaImageUrl(urlStr: any): string {
 function stripHtml(html: string): string {
   if (!html) return ""
   let text = html
-    .replace(/<br\s*\/?>/gi, " ")
-    .replace(/<\/p\s*>/gi, " ")
-    .replace(/<\/div\s*>/gi, " ")
-    .replace(/<\/li\s*>/gi, " ")
+    // Converte tags de bloco em quebra de parágrafo real (\n) para preservar formatação no WhatsApp
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(/<\/p\s*>/gi, "\n")
+    .replace(/<\/div\s*>/gi, "\n")
+    .replace(/<\/li\s*>/gi, "\n")
     .replace(/<[^>]+>/g, "")
     .replace(/&nbsp;/g, " ")
     .replace(/&amp;/g, "&")
@@ -32,18 +33,25 @@ function stripHtml(html: string): string {
     .replace(/&gt;/g, ">")
     .replace(/&quot;/g, '"')
     .replace(/&#39;/g, "'")
-    .replace(/[\r\n]+/g, " ")
-    .replace(/\s+/g, " ")
+    // Normaliza múltiplas quebras consecutivas (max 2) mas preserva parágrafos
+    .replace(/\r\n/g, "\n")
+    .replace(/\n{3,}/g, "\n\n")
     .trim()
   return text
 }
 
-// Helper para tratar valores do CSV sem quebrar linhas na estrutura do arquivo
+/**
+ * Formata campo CSV preservando quebras de parágrafo dentro de aspas duplas.
+ * Campos com \n, \r, vírgulas ou aspas são sempre envoltos em "..."
+ * garantindo que o WhatsApp e o Meta recebam os parágrafos corretos.
+ */
 function formatCsvValue(val: any): string {
   if (val === null || val === undefined) return ""
-  let str = String(val).replace(/[\r\n]+/g, " ").trim()
-  
-  if (/[",]/.test(str)) {
+  // Normaliza \r\n para \n simples
+  let str = String(val).replace(/\r\n/g, "\n").replace(/\r/g, "\n").trim()
+
+  // Se contiver quebra de linha, vírgula ou aspas duplas → obrigatório envolver em aspas
+  if (/["\n,]/.test(str)) {
     str = `"${str.replace(/"/g, '""')}"`
   }
   return str

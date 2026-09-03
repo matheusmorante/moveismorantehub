@@ -11,6 +11,7 @@ import OrderFilters, { Filters } from "./OrderFilters";
 import { OrderHistoryListRef } from "./OrderHistoryList";
 import PostOrderActionsModal from "./OrderActions/PostOrderActionsModal";
 import ReturnOrderModal from "./OrderActions/ReturnOrderModal";
+import NfeEmissionModal from "./OrderActions/NfeEmissionModal";
 import OrderDetailsModal from "../DeliverySchedule/OrderDetailsModal";
 import { useLocation, useNavigate } from "react-router-dom";
 import { canGenerateReturn } from '../../utils/returnPolicy';
@@ -24,6 +25,7 @@ const SalesOrder = () => {
     const [detailsOrder, setDetailsOrder] = useState<Order | null>(null);
     const [postOrderDetails, setPostOrderDetails] = useState<Order | null>(null);
     const [returningOrder, setReturningOrder] = useState<Order | null>(null);
+    const [nfeModalOrder, setNfeModalOrder] = useState<Order | null>(null);
     const [duplicatingOrder, setDuplicatingOrder] = useState<Order | null>(null);
     const location = useLocation();
     const navigate = useNavigate();
@@ -174,6 +176,8 @@ const SalesOrder = () => {
             };
             sessionStorage.setItem("pdv_duplicate_order", JSON.stringify(duplicated));
             navigate(`/sales-order/new?type=sale&duplicate=true`);
+        } else if (key === 'issueNfe' || key === 'ISSUE_NFE') {
+            setNfeModalOrder(order);
         }
     };
 
@@ -331,6 +335,7 @@ const SalesOrder = () => {
                                     highlightOrderId={highlightOrderId}
                                     ref={orderListRef}
                                     onFilterByOrderId={(id) => setFilters(prev => ({ ...prev, searchId: id }))}
+                                    onCustomerSearchChange={(name) => setFilters(prev => ({ ...prev, customerName: name }))}
                                     onAction={handleOrderAction}
                                     onShowPostSaleActions={setPostOrderDetails}
                                 />
@@ -611,6 +616,17 @@ const SalesOrder = () => {
                         orderListRef.current?.refresh();
                         // Redirect or show return OS? 
                         // For now just refresh
+                    }}
+                />
+            )}
+
+            {nfeModalOrder && (
+                <NfeEmissionModal
+                    isOpen={Boolean(nfeModalOrder)}
+                    order={nfeModalOrder}
+                    onClose={() => setNfeModalOrder(null)}
+                    onSuccess={() => {
+                        orderListRef.current?.refresh();
                     }}
                 />
             )}

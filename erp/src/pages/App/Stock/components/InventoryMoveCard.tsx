@@ -1,4 +1,4 @@
-﻿import React from "react";
+import React from "react";
 import InventoryMove from "../../../types/inventoryMove.type";
 import { formatDateTime } from "../../../utils/formatters";
 
@@ -27,7 +27,7 @@ const InventoryMoveCard: React.FC<InventoryMoveCardProps> = ({
     const isExit = move.type === 'withdrawal' || move.type === 'exit';
 
     const typeBadgeBg = isReversed
-        ? 'bg-slate-100 text-slate-400 dark:bg-slate-800/40 dark:text-slate-500'
+        ? 'bg-amber-100 text-amber-800 dark:bg-amber-950/50 dark:text-amber-300 border border-amber-300 dark:border-amber-800/60'
         : isEntry
         ? 'bg-emerald-100/50 text-emerald-600 dark:bg-emerald-950/20 dark:text-emerald-400'
         : isExit
@@ -74,7 +74,7 @@ const InventoryMoveCard: React.FC<InventoryMoveCardProps> = ({
                 <div className="flex items-center gap-2">
                     <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${
                         isReversed
-                            ? 'bg-rose-50 text-rose-600 border border-rose-200 dark:bg-rose-950/40 dark:text-rose-400 dark:border-rose-900/50'
+                            ? 'bg-amber-50 text-amber-700 border border-amber-300 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800/50'
                             : 'bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-900/50'
                     }`}>
                         <i className={`bi ${isReversed ? 'bi-arrow-counterclockwise' : 'bi-check-circle-fill'} text-[10px]`}></i>

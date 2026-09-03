@@ -299,17 +299,38 @@ export const useOrderHistory = (filters?: any) => {
 
     const commitStatusUpdate = async (currentOrder: Order, newStatus: Order['status']) => {
         const id = currentOrder.id!;
-        const expectedStockProcessed = currentOrder.stockProcessed;
+        const isCancelled = newStatus === 'cancelled';
+        const expectedStockProcessed = isCancelled ? false : currentOrder.stockProcessed;
+        const expectedStockReversed = isCancelled ? true : (currentOrder.stockReversed || false);
+        const expectedReturnStockProcessed = isCancelled ? false : currentOrder.returnStockProcessed;
+        const expectedReturnStockReversed = isCancelled ? true : (currentOrder.returnStockReversed || false);
 
         // Optimistic update
-        setOrders(prev => prev.map(o => o.id === id ? { ...o, status: newStatus, stockProcessed: expectedStockProcessed } : o));
+        setOrders(prev => prev.map(o => o.id === id ? { 
+            ...o, 
+            status: newStatus, 
+            stockProcessed: expectedStockProcessed,
+            stockReversed: expectedStockReversed,
+            returnStockProcessed: expectedReturnStockProcessed,
+            returnStockReversed: expectedReturnStockReversed
+        } : o));
         try {
             // Pass currentOrder so updateOrder skips the SELECT entirely
             await updateOrder(id, { status: newStatus }, currentOrder);
             toast.success("Status do pedido atualizado!");
+            if (isCancelled) {
+                await refresh();
+            }
         } catch (error) {
             // Rollback on failure
-            setOrders(prev => prev.map(o => o.id === id ? { ...o, status: currentOrder.status, stockProcessed: currentOrder.stockProcessed, returnStockProcessed: currentOrder.returnStockProcessed } : o));
+            setOrders(prev => prev.map(o => o.id === id ? { 
+                ...o, 
+                status: currentOrder.status, 
+                stockProcessed: currentOrder.stockProcessed, 
+                stockReversed: currentOrder.stockReversed,
+                returnStockProcessed: currentOrder.returnStockProcessed,
+                returnStockReversed: currentOrder.returnStockReversed
+            } : o));
             console.error("Erro ao atualizar status:", error);
             toast.error("Erro ao atualizar status do pedido.");
         }

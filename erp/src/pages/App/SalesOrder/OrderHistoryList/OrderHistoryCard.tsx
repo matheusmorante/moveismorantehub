@@ -5,10 +5,12 @@ import { getSettings } from '@/pages/utils/settingsService';
 import { formatCurrency, formatToBRDate } from "../../../utils/formatters";
 import { formatOrderCode } from "../../../utils/orderCode";
 import { getOrderTypeClasses, resolveOrderColor } from "../../../utils/orderTypeColorUtils";
-import { buttons } from "../OrderActions/orderActionsConfig";
+import { Drill } from "@/components/shared/DrillIcon";
 import InventoryMovementBadge from "./InventoryMovementBadge";
 import CancelledOrderBadge from "./CancelledOrderBadge";
 import PostSaleActionMenuButton, { isPostSaleAction } from "./PostSaleActionMenuButton";
+import CancelScheduledSaleButton from "./CancelScheduledSaleButton";
+import { canGenerateReturn } from "@/pages/utils/returnPolicy";
 import { binaryOrderBadgeClass, warningOrderBadgeClass } from "./orderBadgeStyles";
 import { getOrderFulfillmentCountdown } from '@/pages/utils/orderFulfillmentCountdown';
 
@@ -100,7 +102,8 @@ const OrderHistoryCard = ({
     const colors = settings.orderTypeColors ?? { delivery: 'green', pickup: 'purple', assistance: 'orange' };
     const colorKey = resolveOrderColor(order.orderType, order.shipping?.deliveryMethod, colors);
     const isDraft = order.status === 'draft';
-    const isEditLocked = order.status === 'fulfilled' && ['sale', 'showroom', 'return'].includes(order.orderType || 'sale');
+    const isCancelled = order.status === 'cancelled';
+    const isEditLocked = (order.status === 'fulfilled' || isCancelled) && ['sale', 'showroom', 'return'].includes(order.orderType || 'sale');
     const canReconcileTemporaryProducts = order.status === 'fulfilled' && order.orderType === 'sale' && (order.items || []).some(item => !item.productId?.trim() || item.isTemporaryProduct);
     const cls = getOrderTypeClasses(isDraft ? 'slate' : colorKey as any);
 
@@ -175,9 +178,11 @@ const OrderHistoryCard = ({
     return (
         <div 
             id={id}
-            onClick={canViewDetails ? () => onViewDetails?.(order) : undefined}
-            className={`bg-white dark:bg-slate-900 min-h-fit border ${isSelected ? 'border-blue-500 ring-1 ring-blue-500' : 'border-slate-200 dark:border-slate-800'} ${isHighlighted ? 'animate-highlight' : ''} rounded-xl shadow-none transition-all relative overflow-visible ${canViewDetails ? 'cursor-pointer' : 'cursor-default'}`}
+            onClick={isDraft ? () => onEdit(order) : (canViewDetails ? () => onViewDetails?.(order) : undefined)}
+            className={`bg-white dark:bg-slate-900 min-h-fit border ${isSelected ? 'border-blue-500 ring-1 ring-blue-500' : 'border-slate-200 dark:border-slate-800'} ${isHighlighted ? 'animate-highlight' : ''} rounded-xl shadow-none transition-all relative overflow-visible ${isDraft || canViewDetails ? 'cursor-pointer' : 'cursor-default'}`}
         >
+            {order.status === 'cancelled' && <CancelledOrderBadge tilted large />}
+
             {/* Card Header com faixa colorida + todos os badges alinhados no canto superior direito */}
             <div className={`${headerAccentClass} rounded-t-xl px-3 py-2 flex items-center justify-between gap-2 flex-wrap`}>
                 {/* Lado Esquerdo: Checkbox + ID do Pedido */}
@@ -189,7 +194,8 @@ const OrderHistoryCard = ({
                             e.stopPropagation();
                             onToggleSelection?.();
                         }}
-                        className="w-4 h-4 text-blue-600 bg-white border-slate-300 rounded focus:ring-blue-500 cursor-pointer"
+                        disabled={isCancelled}
+                        className={`w-4 h-4 text-blue-600 bg-white border-slate-300 rounded focus:ring-blue-500 ${isCancelled ? 'cursor-not-allowed opacity-40' : 'cursor-pointer'}`}
                     />
                     <span className="font-mono text-[10px] font-bold text-slate-500 dark:text-slate-400 bg-white/70 dark:bg-slate-800/80 px-2 py-0.5 rounded-md border border-slate-200/60 dark:border-slate-700/60">
                         #{formatOrderCode(order)}
@@ -197,8 +203,7 @@ const OrderHistoryCard = ({
                 </div>
 
                 {/* Canto Superior Direito: Todos os Selos + Status Picker */}
-                <div className="flex items-center gap-1.5 flex-wrap justify-end ml-auto">
-                    {order.status === 'cancelled' && <CancelledOrderBadge tilted large />}
+                <div className={`flex items-center gap-1.5 flex-wrap justify-end ml-auto ${isCancelled ? 'opacity-70 pointer-events-none' : ''}`} onClick={isCancelled ? undefined : (e) => e.stopPropagation()}>
                     {/* 1. Selo de Etiquetado (Clicável: Bg Verde + Ícone Branco + Check no canto quando true) */}
                     {!showTrash && order.orderType !== 'assistance' && order.orderType !== 'return' && (
                         <div className="flex items-center" onClick={(e) => e.stopPropagation()}>
@@ -273,7 +278,11 @@ const OrderHistoryCard = ({
 
                     {/* 5. Selo de Estoque */}
                     {(order.orderType === 'sale' || order.orderType === 'showroom' || order.orderType === 'return') && (
-                        <InventoryMovementBadge orderType={order.orderType} hasMovement={order.orderType === 'return' ? Boolean(order.returnStockProcessed) : Boolean(order.stockProcessed)} />
+                        <InventoryMovementBadge 
+                            orderType={order.orderType} 
+                            hasMovement={order.orderType === 'return' ? Boolean(order.returnStockProcessed) : Boolean(order.stockProcessed)} 
+                            isReversed={order.orderType === 'return' ? Boolean(order.returnStockReversed) : Boolean(order.stockReversed)}
+                        />
                     )}
 
                     {/* 6. Return Status Badge */}
@@ -300,13 +309,13 @@ const OrderHistoryCard = ({
 
                     {order.orderType !== 'return' && hasAssemblyOutside && (
                         <span className="flex h-6 w-6 items-center justify-center rounded-md border bg-red-600 text-white border-red-700 shadow-xs" title="Montagem Fora">
-                            <i className="bi bi-hammer text-[11px] text-white" />
+                            <Drill className="h-3.5 w-3.5 text-white" />
                         </span>
                     )}
 
                     {order.orderType !== 'return' && hasAssemblyDepot && (
                         <span className="flex h-6 w-6 items-center justify-center rounded-md border bg-amber-500 text-white border-amber-600 shadow-xs" title="Montagem no Depósito">
-                            <i className="bi bi-hammer text-[11px]" />
+                            <Drill className="h-3.5 w-3.5 text-white" />
                         </span>
                     )}
 
@@ -314,7 +323,7 @@ const OrderHistoryCard = ({
                     <div className="relative shrink-0" onClick={(e) => e.stopPropagation()}>
                         <button 
                             onClick={(e) => { e.stopPropagation(); if (!isStatusBadgeReadOnly) setShowPicker(!showPicker); }}
-                            className={`flex items-center justify-center h-6 w-6 rounded-md ${order.status === 'cancelled' ? 'bg-slate-700 dark:bg-slate-800' : `bg-${currentStatus.color}-500`} text-white transition-all shadow-2xs border border-black/10 ${isStatusBadgeReadOnly ? 'cursor-default' : 'hover:brightness-110 active:scale-95'}`}
+                            className={`flex items-center justify-center h-6 w-6 rounded-md ${order.status === 'cancelled' ? 'bg-red-600 border border-red-700' : order.status === 'draft' ? 'bg-slate-400 dark:bg-slate-600 border border-slate-500 dark:border-slate-600' : `bg-${currentStatus.color}-500`} text-white transition-all shadow-2xs border border-black/10 ${isStatusBadgeReadOnly ? 'cursor-default' : 'hover:brightness-110 active:scale-95'}`}
                             title={`Status: ${currentStatus.label}`}
                         >
                             <i className={`bi ${sIcon} text-white text-[11px]`} />
@@ -350,9 +359,9 @@ const OrderHistoryCard = ({
             {/* Corpo neutro do card */}
             <div className="px-3 pt-2.5 pb-3">
                 <h3 
-                    onClick={isEditLocked ? undefined : () => onEdit(order)}
-                    className={`text-sm font-bold text-slate-800 dark:text-slate-100 leading-tight transition-colors w-fit ${isEditLocked ? 'cursor-default' : 'cursor-pointer hover:text-blue-600 dark:hover:text-blue-400'}`}
-                    title={isEditLocked ? 'Pedido atendido não pode ser editado' : 'Clique para editar o pedido'}
+                    onClick={isCancelled || isEditLocked ? undefined : () => onEdit(order)}
+                    className={`text-sm font-bold text-slate-800 dark:text-slate-100 leading-tight transition-colors w-fit ${isCancelled ? 'cursor-pointer' : (isEditLocked ? 'cursor-default' : 'cursor-pointer hover:text-blue-600 dark:hover:text-blue-400')}`}
+                    title={isCancelled ? 'Pedido cancelado (clique para ver detalhes)' : (isEditLocked ? 'Pedido atendido não pode ser editado' : 'Clique para editar o pedido')}
                 >
                     {order.customerData?.fullName || "Cliente não informado"}
                 </h3>
@@ -360,9 +369,10 @@ const OrderHistoryCard = ({
                 {order.linkedOrderId && (
                     <button
                         type="button"
-                        onClick={(event) => { event.stopPropagation(); onFilterByOrderId?.(order.linkedOrderId!); }}
+                        disabled={isCancelled}
+                        onClick={isCancelled ? undefined : (event) => { event.stopPropagation(); onFilterByOrderId?.(order.linkedOrderId!); }}
                         className="mt-2 flex items-center gap-1.5 rounded-lg border border-blue-100 bg-blue-50 px-2 py-1 text-[9px] font-black uppercase tracking-widest text-blue-600 transition-colors hover:bg-blue-100 dark:border-blue-900/30 dark:bg-blue-900/20 dark:text-blue-400"
-                        title="Abrir pedido de venda vinculado"
+                        title={isCancelled ? "Pedido cancelado" : "Abrir pedido de venda vinculado"}
                     >
                         <i className="bi bi-link-45deg" />
                         Pedido #{order.linkedOrderCode || formatOrderCode(order)}
@@ -493,16 +503,18 @@ const OrderHistoryCard = ({
                         </>
                     ) : (
                         <>
-                            <button
-                                disabled={isEditLocked}
-                                onClick={() => { if (!isEditLocked) onEdit(order); }}
-                                className={`p-2 rounded-lg transition-colors ${isEditLocked ? 'cursor-not-allowed bg-slate-100 text-slate-400 dark:bg-slate-800 dark:text-slate-600' : 'bg-blue-50 text-blue-600 hover:bg-blue-100 dark:bg-blue-900/20 dark:text-blue-400'}`}
-                                title={isEditLocked ? 'Pedido atendido não pode ser editado' : (isDraft ? 'Retomar cadastramento' : 'Editar pedido')}
-                            >
-                                <i className={`bi ${isDraft ? 'bi-arrow-repeat' : 'bi-pencil-fill'} text-lg`} />
-                            </button>
+                            {/* Botão de Editar visível apenas para pedidos ativos/agendados (não cancelados, não atendidos e não rascunhos) */}
+                            {!isEditLocked && !isCancelled && !isDraft && (
+                                <button
+                                    onClick={() => onEdit(order)}
+                                    className="p-2 rounded-lg transition-colors bg-blue-50 text-blue-600 hover:bg-blue-100 dark:bg-blue-900/20 dark:text-blue-400"
+                                    title="Editar pedido"
+                                >
+                                    <i className="bi bi-pencil-fill text-lg" />
+                                </button>
+                            )}
                             
-                            <div className="relative">
+                            <div className="relative z-20">
                                 <button
                                     ref={menuButtonRef}
                                     onClick={(e) => {
@@ -518,7 +530,8 @@ const OrderHistoryCard = ({
                                         }
                                         setShowMenu(!showMenu);
                                     }}
-                                    className="p-2 bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-400 rounded-lg hover:bg-slate-100 transition-colors"
+                                    className={`p-2 rounded-lg transition-colors ${isCancelled ? 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700 shadow-sm cursor-pointer' : 'bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-100'}`}
+                                    title={isCancelled ? "Mais opções (Copiar pedido)" : "Mais opções"}
                                 >
                                     <i className="bi bi-three-dots-vertical text-lg" />
                                 </button>
@@ -530,64 +543,124 @@ const OrderHistoryCard = ({
                                              style={{ top: menuPosition.top, bottom: menuPosition.bottom, right: menuPosition.right }}
                                              onClick={(e) => e.stopPropagation()}
                                         >
-                                                {canReconcileTemporaryProducts && (
-                                                    <button type="button" onClick={(e) => { e.stopPropagation(); onEdit(order, 2, true, true); setShowMenu(false); }} className="flex w-full items-center gap-3 rounded-lg p-2.5 text-left text-amber-600 transition-all hover:bg-amber-50 dark:text-amber-400 dark:hover:bg-amber-950/30">
-                                                        <i className="bi bi-link-45deg text-base" />
-                                                        <span className="text-[9px] font-black uppercase tracking-widest">Conciliação Comercial</span>
-                                                    </button>
-                                                )}
-                                                <PostSaleActionMenuButton
-                                                    order={order}
-                                                    onOpen={onShowPostSaleActions}
-                                                    onCloseMenu={() => setShowMenu(false)}
-                                                />
-
-                                                {buttons.filter(btn => {
-                                                    if (isPostSaleAction(btn.key)) return false;
-                                                    if (btn.key === 'sendCustomerReviews' && order.orderType === 'assistance') return false;
-                                                    if (btn.orderTypes && !btn.orderTypes.includes(order.orderType || 'sale')) return false;
-
-                                                    const hasReturn = !!(
-                                                        order.returnOrderId ||
-                                                        order.orderType === 'return' ||
-                                                        order.status === 'returned' ||
-                                                        (order as any).hasReturn ||
-                                                        (order as any).returned ||
-                                                        (order as any).order_data?.returnOrderId ||
-                                                        (order as any).order_data?.returned ||
-                                                        (order as any).order_data?.status === 'returned'
-                                                    );
-
-                                                    if (btn.key === 'generateReturn' && hasReturn) return false;
-                                                    if (btn.key === 'undoReturn' && (!hasReturn || order.status === 'cancelled')) return false;
-
-                                                    return true;
-                                                }).map((btn) => {
-                                                    const isPrintReceipt = btn.key === 'printReceipt';
-                                                    const disablePrintReceipt = isPrintReceipt && (!order.customerData?.fullName || order.customerData.fullName === "Nenhum" || order.customerData.fullName === "Ao Consumidor");
-
-                                                    return (
-                                                <button
-                                                    key={btn.key}
-                                                        disabled={disablePrintReceipt}
+                                                {isCancelled ? (
+                                                    <button
+                                                        type="button"
                                                         onClick={(e) => {
                                                             e.stopPropagation();
-                                                            if (disablePrintReceipt) return;
-                                                        onAction(btn.key, order);
-                                                        setShowMenu(false);
-                                                    }}
-                                                        className={`flex items-center justify-between w-full p-2.5 rounded-lg transition-all ${disablePrintReceipt ? 'opacity-50 cursor-not-allowed text-slate-400 bg-slate-50 dark:bg-slate-900/50' : `hover:bg-slate-50 dark:hover:bg-slate-800 ${btn.color}`}`}
-                                                        title={disablePrintReceipt ? 'Não é possível imprimir recibo sem cliente associado' : btn.tooltip}
-                                                >
-                                                    <div className="flex items-center gap-3">
-                                                        <i className={`bi ${btn.icon} text-base`} />
-                                                        <span className="text-[9px] font-black uppercase tracking-widest">
-                                                            {typeof btn.label === 'function' ? btn.label(order) : btn.label}
+                                                            onAction('duplicateOrder', order);
+                                                            setShowMenu(false);
+                                                        }}
+                                                        className="flex items-center gap-3 w-full p-2.5 rounded-xl text-left text-emerald-600 hover:bg-emerald-50 dark:text-emerald-400 dark:hover:bg-emerald-950/30 transition-all cursor-pointer"
+                                                        title="Criar uma cópia deste pedido"
+                                                    >
+                                                        <i className="bi bi-files text-lg" />
+                                                        <span className="text-xs font-black uppercase tracking-widest">
+                                                            Copiar Pedido
                                                         </span>
-                                                    </div>
-                                                </button>
-                                                )
-                                            })}
+                                                    </button>
+                                                ) : isDraft ? (
+                                                    <>
+                                                        {/* Opção de Retomar Cadastramento */}
+                                                        <button
+                                                            type="button"
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                onEdit(order);
+                                                                setShowMenu(false);
+                                                            }}
+                                                            className="flex items-center gap-3 w-full p-2.5 rounded-xl text-left text-blue-600 hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-blue-950/30 transition-all cursor-pointer"
+                                                            title="Retomar cadastramento do pedido"
+                                                        >
+                                                            <i className="bi bi-arrow-repeat text-lg" />
+                                                            <span className="text-xs font-black uppercase tracking-widest">
+                                                                Retomar Cadastramento
+                                                            </span>
+                                                        </button>
+
+                                                        {/* Opção de Descartar Rascunho */}
+                                                        <button
+                                                            type="button"
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                onDelete(order.id!);
+                                                                setShowMenu(false);
+                                                            }}
+                                                            className="flex items-center gap-3 w-full p-2.5 rounded-xl text-left text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/30 transition-all cursor-pointer"
+                                                            title="Descartar este rascunho permanentemente"
+                                                        >
+                                                            <i className="bi bi-trash3-fill text-lg" />
+                                                            <span className="text-xs font-black uppercase tracking-widest">
+                                                                Descartar Rascunho
+                                                            </span>
+                                                        </button>
+                                                    </>
+                                                ) : (
+                                                    <>
+                                                        {canReconcileTemporaryProducts && (
+                                                            <button type="button" onClick={(e) => { e.stopPropagation(); onEdit(order, 2, true, true); setShowMenu(false); }} className="flex w-full items-center gap-3 rounded-xl p-2.5 text-left text-amber-600 transition-all hover:bg-amber-50 dark:text-amber-400 dark:hover:bg-amber-950/30">
+                                                                <i className="bi bi-link-45deg text-lg" />
+                                                                <span className="text-xs font-black uppercase tracking-widest">Conciliação Comercial</span>
+                                                            </button>
+                                                        )}
+                                                        <PostSaleActionMenuButton
+                                                            order={order}
+                                                            onOpen={onShowPostSaleActions}
+                                                            onCloseMenu={() => setShowMenu(false)}
+                                                        />
+
+                                                        {buttons.filter(btn => {
+                                                            if (isPostSaleAction(btn.key)) return false;
+                                                            if (btn.key === 'sendCustomerReviews' && order.orderType === 'assistance') return false;
+                                                            if (btn.orderTypes && !btn.orderTypes.includes(order.orderType || 'sale')) return false;
+
+                                                            const hasReturn = !!(
+                                                                order.returnOrderId ||
+                                                                order.orderType === 'return' ||
+                                                                order.status === 'returned' ||
+                                                                (order as any).hasReturn ||
+                                                                (order as any).returned ||
+                                                                (order as any).order_data?.returnOrderId ||
+                                                                (order as any).order_data?.returned ||
+                                                                (order as any).order_data?.status === 'returned'
+                                                            );
+
+                                                            if (btn.key === 'generateReturn' && (hasReturn || !canGenerateReturn(order))) return false;
+                                                            if (btn.key === 'undoReturn' && (!hasReturn || order.status === 'cancelled')) return false;
+
+                                                            return true;
+                                                        }).map((btn) => {
+                                                            const isPrintReceipt = btn.key === 'printReceipt';
+                                                            const disablePrintReceipt = isPrintReceipt && (!order.customerData?.fullName || order.customerData.fullName === "Nenhum" || order.customerData.fullName === "Ao Consumidor");
+
+                                                            return (
+                                                                <button
+                                                                    key={btn.key}
+                                                                    disabled={disablePrintReceipt}
+                                                                    onClick={(e) => {
+                                                                        e.stopPropagation();
+                                                                        if (disablePrintReceipt) return;
+                                                                        onAction(btn.key, order);
+                                                                        setShowMenu(false);
+                                                                    }}
+                                                                    className={`flex items-center gap-3 w-full p-2.5 rounded-xl transition-all ${disablePrintReceipt ? 'opacity-50 cursor-not-allowed text-slate-400 bg-slate-50 dark:bg-slate-900/50' : `hover:bg-slate-50 dark:hover:bg-slate-800 ${btn.color}`}`}
+                                                                    title={disablePrintReceipt ? 'Não é possível imprimir recibo sem cliente associado' : btn.tooltip}
+                                                                >
+                                                                    <i className={`bi ${btn.icon} text-lg`} />
+                                                                    <span className="text-xs font-black uppercase tracking-widest text-left">
+                                                                        {typeof btn.label === 'function' ? btn.label(order) : btn.label}
+                                                                    </span>
+                                                                </button>
+                                                            )
+                                                        })}
+
+                                                        <CancelScheduledSaleButton
+                                                            order={order}
+                                                            onStatusUpdate={onStatusUpdate}
+                                                            onCloseMenu={() => setShowMenu(false)}
+                                                        />
+                                                    </>
+                                                )}
                                         </div>
                                     </div>,
                                     document.body

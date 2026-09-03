@@ -1,4 +1,4 @@
-import React from "react";
+import { Drill } from "@/components/shared/DrillIcon";
 
 const getOpportunityLabel = (item: any) => {
     const opportunity = item.opportunityName || item.opportunity?.name || item.opportunity;
@@ -68,7 +68,11 @@ export const ItemsTable = ({ items }: { items: any[] }) => (
                                         {item.handlingType && (
                                             <div className="flex items-center gap-1.5">
                                                 <span className="px-2 py-0.5 rounded-lg bg-blue-50 dark:bg-blue-900/30 text-[9px] font-black uppercase tracking-widest text-blue-600 dark:text-blue-400 border border-blue-100/50 dark:border-blue-900/30 flex items-center gap-1.5">
-                                                    <i className={`bi ${item.handlingType.toLowerCase().includes('montagem') ? 'bi-hammer' : 'bi-box-seam'} text-blue-500 text-[10px]`} />
+                                                    {item.handlingType.toLowerCase().includes('montagem') ? (
+                                                        <Drill className="w-3 h-3 text-blue-500" />
+                                                    ) : (
+                                                        <i className="bi bi-box-seam text-blue-500 text-[10px]" />
+                                                    )}
                                                     {item.handlingType}
                                                 </span>
                                             </div>

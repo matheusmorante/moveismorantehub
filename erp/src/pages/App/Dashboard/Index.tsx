@@ -1,240 +1,146 @@
 import React, { useState, useEffect } from 'react';
-import { formatCurrency } from '../../utils/formatters';
-import { StatsCard } from './components/StatsCard';
-import { ChartContainer, SimpleAreaChart, SimplePieChart } from './components/DashboardCharts';
 import { useDashboardData, Period } from './useDashboardData';
+import { useDashboardOperational } from './hooks/useDashboardOperational';
+import { useDashboardStock } from './hooks/useDashboardStock';
+import { useDashboardProducts } from './hooks/useDashboardProducts';
+
+import { KpiSkeleton, ChartSkeleton, PanelSkeleton } from './components/DashboardSkeleton';
+import QuickActions from './components/QuickActions';
+import KpiRow from './components/KpiRow';
+import SalesChart from './components/SalesChart';
+import OperationPanel from './components/OperationPanel';
+import AttentionPanel from './components/AttentionPanel';
+import ProductsPanel from './components/ProductsPanel';
+import RecentOrders from './components/RecentOrders';
+import GeoMapPanel from './components/GeoMapPanel';
+import LogisticsPanel from './components/LogisticsPanel';
 import AlertsPanel from './components/AlertsPanel';
-import ProfitHeatMap from './components/ProfitHeatMap';
+import { ChartContainer } from './components/DashboardCharts';
 import { runDraftCleanup } from '../../utils/draftCleanupService';
 
-interface VisibilityConfig {
-    stats: boolean;
-    revenueChart: boolean;
-    statusChart: boolean;
-    reports: boolean;
-    quickAction: boolean;
-    heatmap: boolean;
-}
-
-const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'];
-
-const PERIODS: { label: string, value: Period }[] = [
-    { label: 'Este Mês', value: 'month' },
-    { label: 'Mês Passado', value: 'last_month' },
+const PERIODS: { label: string; value: Period }[] = [
+    { label: 'Hoje', value: 'today' },
+    { label: 'Ontem', value: 'yesterday' },
     { label: 'Esta Semana', value: 'week' },
+    { label: 'Este Mês', value: 'month' },
     { label: 'Últimos 30 Dias', value: 'last_30_days' },
+    { label: 'Mês Passado', value: 'last_month' },
     { label: 'Este Ano', value: 'year' },
+    { label: 'Período Personalizado', value: 'custom' },
 ];
 
 export default function Dashboard() {
     const [period, setPeriod] = useState<Period>('month');
     const [customStartDate, setCustomStartDate] = useState(() => {
-        const d = new Date();
-        d.setDate(d.getDate() - 7);
-        return d.toISOString().split('T')[0];
+        const d = new Date(); d.setDate(d.getDate() - 7); return d.toISOString().split('T')[0];
     });
-    const [customEndDate, setCustomEndDate] = useState(() => {
-        const d = new Date();
-        return d.toISOString().split('T')[0];
-    });
-    
-    const { loading, stats, prevStats, salesOverTime, statusData, filteredOrders } = useDashboardData(period, customStartDate, customEndDate);
-    const [showConfig, setShowConfig] = useState(false);
+    const [customEndDate, setCustomEndDate] = useState(() => new Date().toISOString().split('T')[0]);
 
-    const [visibility, setVisibility] = useState<VisibilityConfig>(() => {
-        const defaults = {
-            stats: true,
-            revenueChart: true,
-            statusChart: true,
-            reports: true,
-            quickAction: true,
-            heatmap: true
-        };
-        try {
-            const saved = localStorage.getItem('dashboard_visibility');
-            if (!saved) return defaults;
-            const parsed = JSON.parse(saved);
-            return { ...defaults, ...parsed };
-        } catch (e) {
-            return defaults;
-        }
-    });
+    const { loading, stats, prevStats, salesOverTime, filteredOrders, allActiveOrders } = useDashboardData(period, customStartDate, customEndDate);
+    const operational = useDashboardOperational(allActiveOrders);
+    const stockData = useDashboardStock();
+    const productsData = useDashboardProducts(filteredOrders, allActiveOrders);
 
-    useEffect(() => {
-        localStorage.setItem('dashboard_visibility', JSON.stringify(visibility));
-    }, [visibility]);
-
-    useEffect(() => {
-        runDraftCleanup();
-    }, []);
-
-    if (loading) {
-        return (
-            <div className="flex items-center justify-center min-h-screen">
-                <div className="relative w-20 h-20">
-                    <div className="absolute inset-0 border-[6px] border-slate-50 dark:border-slate-800 rounded-full"></div>
-                    <div className="absolute inset-0 border-[6px] border-blue-600 dark:border-blue-500 rounded-full border-t-transparent animate-spin"></div>
-                </div>
-            </div>
-        );
-    }
-
-    const calculateTrend = (curr: number, prev: number) => {
-        if (!prev || prev === 0) return { trend: undefined, value: undefined };
-        const diff = ((curr - prev) / prev) * 100;
-        return {
-            trend: diff >= 0 ? 'up' as const : 'down' as const,
-            value: `${Math.abs(diff).toFixed(1)}%`
-        };
-    };
-
-    const trends = {
-        sales: calculateTrend(stats.totalSales, prevStats.totalSales),
-        count: calculateTrend(stats.saleCount, prevStats.saleCount),
-        ticket: calculateTrend(stats.avgTicket, prevStats.avgTicket),
-    };
+    useEffect(() => { runDraftCleanup(); }, []);
 
     return (
-        <div className="max-w-[1700px] mx-auto space-y-6 animate-reveal px-4 lg:px-8 py-4 sm:py-6">
-            {/* Page Header Compacto */}
-            <div className="flex items-center justify-between gap-4 pb-3 border-b border-slate-100 dark:border-slate-800">
+        <div className="max-w-[1700px] mx-auto space-y-6 px-4 lg:px-8 py-4 sm:py-6 animate-reveal">
+
+            {/* ── Header ── */}
+            <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-slate-100 dark:border-slate-800">
                 <div className="flex items-center gap-3">
                     <div className="w-10 h-10 bg-blue-600 rounded-2xl shadow-md shadow-blue-500/20 flex items-center justify-center">
-                        <i className="bi bi-speedometer2 text-white text-xl"></i>
+                        <i className="bi bi-speedometer2 text-white text-xl" />
                     </div>
                     <h1 className="text-2xl xl:text-3xl font-black text-slate-900 dark:text-slate-100 tracking-tighter">
                         Dash<span className="text-blue-600">board</span>
                     </h1>
                 </div>
-
-                {/* Botão Seletor de Período na Mesma Linha */}
-                <div className="relative inline-flex items-center">
-                    <div className="absolute left-3 pointer-events-none text-blue-600 dark:text-blue-400">
-                        <i className="bi bi-calendar2-range-fill text-xs"></i>
-                    </div>
-                    <select
-                        value={period}
-                        onChange={(e) => setPeriod(e.target.value as Period)}
-                        aria-label="Selecionar período do dashboard"
-                        className="appearance-none pl-8 pr-8 py-2 bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800/70 text-slate-800 dark:text-slate-100 rounded-xl border border-slate-200/80 dark:border-slate-800 text-xs font-black uppercase tracking-wider shadow-sm hover:border-slate-300 dark:hover:border-slate-700 transition-all cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-                    >
-                        {PERIODS.map((p) => (
-                            <option key={p.value} value={p.value} className="bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 font-bold text-xs py-1.5">
-                                {p.label}
-                            </option>
-                        ))}
-                    </select>
-                    <div className="absolute right-3 pointer-events-none text-slate-400 dark:text-slate-500">
-                        <i className="bi bi-chevron-down text-[10px]"></i>
-                    </div>
-                </div>
-            </div>
-
-            {/* Metrics */}
-            {visibility.stats && (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 lg:gap-8">
-                    <StatsCard
-                        title="Faturamento" value={formatCurrency(stats.totalSales)} icon="currency-dollar"
-                        trend={trends.sales.trend} trendValue={trends.sales.value} color="bg-blue-600"
-                    />
-                    <StatsCard 
-                        title="Vendas" value={stats.saleCount} icon="cart-check-fill" 
-                        trend={trends.count.trend} trendValue={trends.count.value} color="bg-emerald-600" 
-                    />
-                    <StatsCard title="Ticket Médio" value={formatCurrency(stats.avgTicket)} icon="wallet2" trend={trends.ticket.trend} trendValue={trends.ticket.value} color="bg-violet-600" />
-                    <StatsCard title="Tráfego Pago" value={formatCurrency(stats.paidTrafficSalesValue || 0)} icon="megaphone-fill" color="bg-orange-500" />
-                    <StatsCard title="KM Rodados" value={`${(stats.totalKmDriven || 0).toFixed(1)} km`} icon="truck-front-fill" color="bg-teal-600" />
-                    <StatsCard title="Pendentes" value={stats.pendingOrders} icon="clock-history" color="bg-rose-600" />
-                </div>
-            )}
-
-            {/* Central Panel */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                {visibility.revenueChart && (
-                    <div className="lg:col-span-2">
-                        <ChartContainer title="Evolução de Faturamento" subtitle={`Desempenho no período atual (${period})`}>
-                            <SimpleAreaChart data={salesOverTime} />
-                        </ChartContainer>
-                    </div>
-                )}
-                <AlertsPanel maxItems={6} />
-            </div>
-
-            {/* Heatmap Section */}
-            {visibility.heatmap && (
-                <div className="space-y-6 animate-reveal">
-                    <div className="flex items-center justify-between px-2">
-                        <div>
-                            <h3 className="text-2xl font-black text-slate-900 dark:text-slate-100 tracking-tight leading-tight">Radar Geográfico de Vendas</h3>
-                            <p className="text-[11px] text-slate-400 font-bold uppercase tracking-[0.2em] mt-1.5">Concentração de vendas e performance por região</p>
+                <div className="flex items-center gap-2 flex-wrap">
+                    {/* Period selector */}
+                    <div className="relative inline-flex items-center">
+                        <div className="absolute left-3 pointer-events-none text-blue-600">
+                            <i className="bi bi-calendar2-range-fill text-xs" />
                         </div>
-                        <div className="w-12 h-12 bg-white dark:bg-slate-900 rounded-2xl shadow-premium-sm border border-slate-100 dark:border-slate-800 flex items-center justify-center text-blue-600">
-                           <i className="bi bi-geo-alt-fill text-xl"></i>
-                        </div>
-                    </div>
-                    <div className="rounded-[3rem] overflow-hidden shadow-premium border border-slate-100 dark:border-slate-800">
-                        <ProfitHeatMap orders={filteredOrders} />
-                    </div>
-                </div>
-            )}
-
-            {/* Bottom Section */}
-            <div className="grid grid-cols-1 lg:grid-cols-4 gap-10 pb-16">
-                {visibility.statusChart && (
-                    <ChartContainer title="Mix de Status" subtitle="Distribuição analítica dos pedidos">
-                        <div className="relative h-64 flex items-center justify-center">
-                            <SimplePieChart data={statusData} />
-                            <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none mb-4">
-                                <span className="text-4xl font-black text-slate-900 dark:text-slate-100 tracking-tighter">{stats.totalOrdersCount}</span>
-                                <span className="text-[10px] font-black uppercase text-slate-400 tracking-[0.3em]">Total</span>
-                            </div>
-                        </div>
-                    </ChartContainer>
-                )}
-
-                {visibility.reports && (
-                    <div className="lg:col-span-2 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-[3rem] p-10 flex flex-col justify-between shadow-premium hover:shadow-premium-lg transition-all duration-500 group">
-                        <div className="flex justify-between items-start mb-10">
-                            <div>
-                                <h4 className="text-2xl font-black text-slate-900 dark:text-slate-100 mb-2 leading-tight">Relatórios Detalhes</h4>
-                                <p className="text-sm text-slate-400 font-medium">Análise preditiva de fluxo e documentos inteligentes.</p>
-                            </div>
-                            <button className="w-14 h-14 bg-slate-50 dark:bg-slate-800 rounded-2xl text-slate-400 group-hover:text-blue-600 group-hover:bg-blue-50 dark:group-hover:bg-blue-900/20 transition-all duration-500 flex items-center justify-center shadow-sm">
-                                <i className="bi bi-file-earmark-bar-graph text-2xl"></i>
-                            </button>
-                        </div>
-                        <div className="h-32 flex items-end gap-3 px-2">
-                            {salesOverTime.slice(-15).map((d, i) => {
-                                const maxVal = Math.max(...salesOverTime.map(x => x.valor), 1);
-                                const h = (d.valor / maxVal) * 100;
-                                return (
-                                    <div key={i} className="flex-1 bg-slate-100 dark:bg-slate-800/50 rounded-t-2xl relative group/bar overflow-hidden">
-                                        <div className="absolute bottom-0 left-0 w-full bg-blue-600/60 rounded-t-2xl transition-all duration-1000 group-hover:bg-blue-600 delay-[i*50ms]" style={{ height: `${Math.max(h, 8)}%` }}></div>
-                                    </div>
-                                )
-                            })}
-                        </div>
-                    </div>
-                )}
-
-                {visibility.quickAction && (
-                    <div className="bg-gradient-to-br from-blue-700 via-blue-600 to-indigo-800 p-10 rounded-[3rem] text-white shadow-premium-lg flex flex-col justify-between relative overflow-hidden group hover:scale-[1.02] transition-all duration-500">
-                        <i className="bi bi-rocket-takeoff absolute -right-6 -bottom-6 text-[12rem] text-white/5 -rotate-12 group-hover:scale-125 group-hover:rotate-0 transition-transform duration-1000"></i>
-                        <div className="relative z-10">
-                            <h3 className="text-3xl font-black mb-3 tracking-tight">Nova Venda</h3>
-                            <p className="text-blue-100/70 text-sm font-bold uppercase tracking-widest leading-relaxed">Fast Track Checkout Pro</p>
-                        </div>
-                        <button
-                            onClick={() => window.location.href = '/sales-order'}
-                            className="relative z-10 w-full bg-white text-blue-700 py-5 rounded-[1.5rem] font-black uppercase tracking-[0.2em] text-[11px] shadow-xl hover:shadow-2xl hover:-translate-y-1 transition-all active:scale-95"
+                        <select
+                            id="dashboard-period"
+                            value={period}
+                            onChange={e => setPeriod(e.target.value as Period)}
+                            className="appearance-none pl-8 pr-7 py-2 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 rounded-xl border border-slate-200/80 dark:border-slate-800 text-xs font-black uppercase tracking-wider shadow-sm hover:border-slate-300 dark:hover:border-slate-700 transition-all cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500/20"
                         >
-                            Lançar Pedido
-                        </button>
+                            {PERIODS.map(p => (
+                                <option key={p.value} value={p.value}>{p.label}</option>
+                            ))}
+                        </select>
+                        <div className="absolute right-2 pointer-events-none text-slate-400">
+                            <i className="bi bi-chevron-down text-[10px]" />
+                        </div>
                     </div>
+                    <QuickActions />
+                </div>
+            </div>
+
+            {/* Custom date range */}
+            {period === 'custom' && (
+                <div className="flex items-center gap-3 flex-wrap">
+                    <input type="date" value={customStartDate} onChange={e => setCustomStartDate(e.target.value)}
+                        className="px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500/20" />
+                    <span className="text-slate-400 text-xs font-bold">até</span>
+                    <input type="date" value={customEndDate} onChange={e => setCustomEndDate(e.target.value)}
+                        className="px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500/20" />
+                </div>
+            )}
+
+            {/* ── KPIs ── */}
+            {loading ? <KpiSkeleton /> : (
+                <KpiRow stats={stats} prevStats={prevStats} />
+            )}
+
+            {/* ── Chart + Attention ── */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div className="lg:col-span-2">
+                    {loading ? <ChartSkeleton /> : (
+                        <ChartContainer title="Desempenho de Vendas" subtitle={`Evolução no período · ${PERIODS.find(p => p.value === period)?.label || ''}`}>
+                            <SalesChart data={salesOverTime} />
+                        </ChartContainer>
+                    )}
+                </div>
+                <div>
+                    <AttentionPanel stockData={stockData} />
+                </div>
+            </div>
+
+            {/* ── Central Operacional ── */}
+            {loading ? <PanelSkeleton rows={2} /> : (
+                <OperationPanel data={operational} />
+            )}
+
+            {/* ── Estoque + Produtos ── */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {/* Alertas do sistema (estoque baixo e outros) */}
+                <AlertsPanel maxItems={5} />
+                {/* Produtos do período */}
+                {loading ? <PanelSkeleton rows={5} /> : (
+                    <ProductsPanel data={productsData} />
                 )}
             </div>
 
-            {/* Config Overlay Modal could be added here if needed */}
+            {/* ── Pedidos Recentes ── */}
+            {loading ? <PanelSkeleton rows={5} /> : (
+                <RecentOrders orders={allActiveOrders} />
+            )}
+
+            {/* ── Mapa + Logística ── */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 pb-16">
+                <div className="lg:col-span-2">
+                    <GeoMapPanel orders={filteredOrders} />
+                </div>
+                <div>
+                    {loading ? <PanelSkeleton rows={4} /> : (
+                        <LogisticsPanel filteredOrders={filteredOrders} allActiveOrders={allActiveOrders} />
+                    )}
+                </div>
+            </div>
         </div>
     );
 }

@@ -75,14 +75,14 @@ const NotificationBell: React.FC = () => {
             <button
                 id="notification-bell-btn"
                 onClick={() => setIsOpen(prev => !prev)}
-                className="relative p-1.5 lg:p-2 text-slate-400 dark:text-slate-500 hover:text-blue-600 dark:hover:text-blue-400 transition-all rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800"
+                className="relative w-10 h-10 flex items-center justify-center text-slate-500 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 transition-all rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800"
                 title="Notificações"
             >
                 <i className={`bi bi-bell-fill text-base ${unreadCount > 0 ? 'text-amber-500 dark:text-amber-400' : ''}`} />
 
                 {/* Unread Badge */}
                 {unreadCount > 0 && (
-                    <span className="absolute top-0.5 right-0.5 min-w-[15px] h-[15px] bg-red-500 text-white text-[8px] font-black rounded-full flex items-center justify-center px-1 animate-bounce shadow-sm shadow-red-500/50">
+                    <span className="absolute top-1.5 right-1.5 min-w-[15px] h-[15px] bg-red-500 text-white text-[8px] font-black rounded-full flex items-center justify-center px-1 animate-bounce shadow-sm shadow-red-500/50">
                         {unreadCount > 99 ? '99+' : unreadCount}
                     </span>
                 )}

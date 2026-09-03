@@ -238,8 +238,9 @@ export const reverseInventoryMove = async (
             reversedAt: reversedAt
         });
 
-        // Atualizar no banco usando reason e observation (compatibilidade universal)
+        // Atualizar no banco usando reason, status e observation (compatibilidade universal)
         const updatePayload: any = {
+            status: 'reversed',
             reason: reason,
             observation: updatedObservation
         };

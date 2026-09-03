@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { supabase } from "@/pages/utils/supabaseConfig";
 import { formatToBRDate } from "../../utils/formatters";
-import { toast } from "react-toastify";
+import { Drill } from "@/components/shared/DrillIcon";
 
 export interface ShowroomAssembly {
     id?: string;
@@ -122,7 +122,7 @@ const ShowroomAssemblyModal = ({ onClose }: ShowroomAssemblyModalProps) => {
                 <div className="px-8 py-6 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-white dark:bg-slate-900 sticky top-0 z-10">
                     <div className="flex items-center gap-4">
                         <div className="p-3 bg-red-100 dark:bg-red-900/30 rounded-2xl">
-                            <i className="bi bi-hammer text-red-600 dark:text-red-400 text-xl" />
+                            <Drill className="text-red-600 dark:text-red-400 w-6 h-6" />
                         </div>
                         <div>
                             <h3 className="text-xl font-black text-slate-800 dark:text-slate-100 tracking-tight">

@@ -27,11 +27,11 @@ const PostSaleActionMenuButton = ({ order, onOpen, onCloseMenu }: PostSaleAction
                 else setIsModalOpen(true);
                 onCloseMenu();
             }}
-            className="flex items-center gap-3 w-full p-2.5 rounded-xl text-emerald-600 transition-all hover:bg-emerald-50 dark:hover:bg-emerald-950/30 group/item"
+            className="flex items-center gap-3 w-full p-2.5 rounded-xl text-emerald-600 transition-all hover:bg-emerald-50 dark:hover:bg-emerald-950/30 group/item cursor-pointer text-left"
             title="Abrir ações pós-venda"
         >
-            <ClipboardCheck className="h-[18px] w-[18px]" aria-hidden="true" />
-            <span className="text-[10px] font-black uppercase tracking-widest">Ações pós-venda</span>
+            <i className="bi bi-clipboard-check text-lg shrink-0" />
+            <span className="text-xs font-black uppercase tracking-widest">Ações pós-venda</span>
         </button>
         {isModalOpen && <PostOrderActionsModal order={order} onClose={() => setIsModalOpen(false)} />}
         </>

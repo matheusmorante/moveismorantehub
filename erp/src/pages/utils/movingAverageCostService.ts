@@ -25,17 +25,30 @@ export const getMovingAverageCost = async (productId: string, variationId?: stri
 };
 
 export const getCurrentMovingAverageUnitCost = async (productId: string, variationId?: string) => {
-    const { data, error } = await supabase
-        .from("products")
-        .select("cost_price, product_variations(id, cost_price)")
-        .eq("id", productId)
-        .single();
-    if (error) throw error;
-    const variation = variationId
-        ? (data?.product_variations || []).find((item: any) => String(item.id) === String(variationId))
-        : undefined;
-    const cachedCost = Number(variation?.cost_price ?? data?.cost_price);
-    return Number.isFinite(cachedCost) && cachedCost > 0 ? cachedCost : undefined;
+    // 1. Tentar primeiro obter o custo médio apurado a partir dos movimentos de estoque (CMPM)
+    try {
+        const costState = await getMovingAverageCost(productId, variationId);
+        if (costState && costState.unitCost !== undefined && costState.unitCost > 0) {
+            return costState.unitCost;
+        }
+    } catch (e) {
+        console.warn("[MovingAverageCost] Falha ao calcular CMPM dos movimentos:", e);
+    }
+
+    // 2. Fallback resiliente: buscar o cost_price da tabela products (as variações herdam o custo do pai)
+    try {
+        const { data, error } = await supabase
+            .from("products")
+            .select("cost_price")
+            .eq("id", productId)
+            .single();
+        if (error) throw error;
+        const cachedCost = Number(data?.cost_price);
+        return Number.isFinite(cachedCost) && cachedCost > 0 ? cachedCost : undefined;
+    } catch (e) {
+        console.warn("[MovingAverageCost] Falha ao buscar cost_price do produto:", e);
+        return undefined;
+    }
 };
 
 /** Recalcula somente o SKU afetado após a correção de um recebimento histórico. */
@@ -66,14 +79,11 @@ export const reprocessMovingAverageCosts = async (productId: string, variationId
     }
 
     const finalCost = replay.state.unitCost || 0;
-    if (variationId) {
-        const { error: variationError } = await supabase
-            .from("product_variations")
-            .update({ cost_price: finalCost })
-            .eq("id", variationId);
-        if (variationError) throw variationError;
-    } else {
+    try {
         const { updateProduct } = await import("./productService");
         await updateProduct(productId, { stock: replay.state.quantity, costPrice: finalCost });
+    } catch (e) {
+        console.warn("[MovingAverageCost] Falha ao atualizar produto:", e);
     }
 };
+

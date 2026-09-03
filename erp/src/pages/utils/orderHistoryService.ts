@@ -841,8 +841,10 @@ export const updateOrder = async (
                         : `Cancelamento da venda #${orderCode}`;
                     await cancelInventoryMovesByRelatedEntity(id, 'sales_order', cancelReason);
                     merged.stockProcessed = false;
+                    merged.stockReversed = true;
                     if (merged.orderType === 'return') {
                         merged.returnStockProcessed = false;
+                        merged.returnStockReversed = true;
                     }
                     
                     await supabase
@@ -852,7 +854,8 @@ export const updateOrder = async (
                                 ...merged,
                                 status: newStatus,
                                 stockProcessed: false,
-                                ...(merged.orderType === 'return' ? { returnStockProcessed: false } : {})
+                                stockReversed: true,
+                                ...(merged.orderType === 'return' ? { returnStockProcessed: false, returnStockReversed: true } : {})
                             },
                             updated_at: new Date().toISOString() 
                         })

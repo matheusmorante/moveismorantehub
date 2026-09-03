@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { supabase } from "@/pages/utils/supabaseConfig";
 import { toast } from "react-toastify";
-import { getLocalISODate } from "@/pages/utils/formatters";
+import { Drill } from "@/components/shared/DrillIcon";
 
 interface Assembly {
     id: string;
@@ -154,7 +154,7 @@ const AssemblyList = ({ onClose }: Props) => {
                 <div className="px-8 py-6 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-white dark:bg-slate-900 transition-colors">
                     <div className="flex items-center gap-4">
                         <div className="bg-indigo-600 p-3 rounded-2xl shadow-xl shadow-indigo-100 dark:shadow-indigo-900/20">
-                            <i className="bi bi-hammer text-white text-xl" />
+                            <Drill className="text-white w-6 h-6" />
                         </div>
                         <div>
                             <h2 className="text-2xl font-black text-slate-800 dark:text-slate-100 tracking-tight">Lista de Montagens</h2>

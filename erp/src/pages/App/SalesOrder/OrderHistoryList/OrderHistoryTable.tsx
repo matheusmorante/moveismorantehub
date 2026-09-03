@@ -66,9 +66,6 @@ const OrderHistoryTable = ({
                      Boolean((window as any).ReactNativeWebView);
     const containerRef = React.useRef<HTMLDivElement>(null);
     const settings = getSettings();
-    const allIdsOnPage = (orders || []).filter(o => o && o.id).map(o => o.id!) as string[];
-    const isAllSelected = allIdsOnPage.length > 0 && allIdsOnPage.every(id => selectedOrders.includes(id));
-    const isIndeterminate = selectedOrders.length > 0 && !isAllSelected;
 
     useAutoScroll(containerRef, {
         direction: 'horizontal',
@@ -139,54 +136,12 @@ const OrderHistoryTable = ({
 
     return (
         <div className="flex flex-col gap-4 flex-1 min-h-0">
-            {/* Bulk Actions Toolbar */}
-            {selectedOrders.length > 0 && (
-                <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-900/30 rounded-xl p-4 flex items-center justify-between shadow-sm animate-slide-up sticky top-2 z-10">
-                    <span className="text-[10px] md:text-xs font-black uppercase tracking-widest text-blue-600 dark:text-blue-400">
-                        {selectedOrders.length} <span className="hidden sm:inline">selecionado(s)</span>
-                    </span>
-                    <div className="flex items-center gap-2 md:gap-3">
-                        <button
-                            onClick={onClearSelection}
-                            className="bg-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 text-[10px] md:text-xs font-bold px-2 md:px-3 py-1.5 rounded-lg transition-colors"
-                        >
-                            Sair
-                        </button>
-
-                        {showTrash && (
-                                <div className="flex gap-2">
-                                <button
-                                    onClick={onBulkRestore}
-                                        className="bg-blue-600 hover:bg-blue-700 text-white text-[9px] md:text-[10px] font-black uppercase tracking-widest px-3 md:px-4 py-2 rounded-xl transition-all shadow-sm flex items-center gap-2"
-                                >
-                                    <i className="bi bi-arrow-counterclockwise" />
-                                        <span className="hidden sm:inline">Restaurar</span>
-                                </button>
-                                </div>
-                        )}
-                    </div>
-                </div>
-            )}
-
             {/* View Switcher based on isMobile */}
             {!isMobile ? (
                 <div ref={containerRef} className="overflow-x-auto rounded-xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900/50 transition-colors">
                     <table className="w-full text-left border-collapse">
                         <thead>
                             <tr className="bg-slate-50/50 dark:bg-slate-900/50 border-b border-slate-100 dark:border-slate-800 transition-colors">
-                                <th className="px-1 py-1 w-10 text-center">
-                                    <label className="flex items-center cursor-pointer">
-                                        <input
-                                            type="checkbox"
-                                            checked={isAllSelected}
-                                            ref={input => {
-                                                if (input) input.indeterminate = isIndeterminate;
-                                            }}
-                                            onChange={onSelectAll}
-                                            className="w-4 h-4 text-blue-600 bg-white border-slate-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-slate-900 focus:ring-2 dark:bg-slate-800 dark:border-slate-700 cursor-pointer"
-                                        />
-                                    </label>
-                                </th>
                                 {columnsToRender.map((col) => {
                                     const labelText = col.key === 'deliveryDate' && orders.length > 0 && orders.every(order => order.orderType === 'return')
                                         ? 'Data de coleta'
@@ -232,7 +187,7 @@ const OrderHistoryTable = ({
                                                     
                                                     {isSorted && (
                                                         <span className="ml-1.5 flex items-center gap-1">
-                                                            <i className={`bi ${sortOrder === 'desc' ? 'bi-sort-down' : 'bi-sort-up'} text-xs font-black`}></i>
+                                                             <i className={`bi ${sortOrder === 'desc' ? 'bi-sort-down' : 'bi-sort-up'} text-xs font-black`}></i>
                                                             {multiSort.length > 1 && (
                                                                 <span className="text-[8px] font-black bg-blue-100 dark:bg-blue-900/40 px-1 rounded-md min-w-[12px] text-center">
                                                                     {sortIndex + 1}
@@ -241,8 +196,6 @@ const OrderHistoryTable = ({
                                                         </span>
                                                     )}
                                                 </div>
-
-                                                {/* Hidden Column Option accessible via Right Click or context menu - just showing text for now as per user request to clean UI */}
                                             </div>
                                         </th>
                                     );
@@ -278,7 +231,7 @@ const OrderHistoryTable = ({
                     </table>
                 </div>
             ) : (
-                    <div className="grid grid-cols-1 auto-rows-max gap-4 pb-4">
+                <div className="grid grid-cols-1 auto-rows-max gap-4 pb-4">
                     {orders.length === 0 ? (
                         <div className="flex flex-col items-center justify-center py-12 text-slate-400">
                             <i className="bi bi-search text-4xl mb-3 opacity-20" />

@@ -49,7 +49,21 @@ export type Order = {
     isButtonsClicked?: IsButtonsClicked,
     returnOrderId?: string,
     returnKind?: 'partial' | 'complete',
-    returnStockProcessed?: boolean
+    returnStockProcessed?: boolean,
+    stockReversed?: boolean,
+    returnStockReversed?: boolean,
+    nfeData?: {
+        accessKey?: string;
+        nfeNumber?: number;
+        series?: string;
+        model?: '55' | '65';
+        environment?: 1 | 2;
+        protocolNumber?: string;
+        protocolDate?: string;
+        xml?: string;
+        emittedAt?: string;
+        status?: 'autorizada' | 'homologada' | 'cancelada' | 'pendente';
+    }
 }
 
 export type OrderAction =
@@ -73,7 +87,8 @@ export type OrderAction =
     'UNDO_RETURN' |
     'PRINT_RETURN_OS' |
     'DUPLICATE_ORDER' |
-    'GENERATE_SALE_FROM_BUDGET'
+    'GENERATE_SALE_FROM_BUDGET' |
+    'ISSUE_NFE'
 
 /** @deprecated Use OrderAction instead */
 export type PdvAction = OrderAction;
@@ -98,7 +113,8 @@ export type IsButtonsClicked = {
     undoReturn: boolean,
     printReturnOS: boolean,
     duplicateOrder: boolean,
-    generateSaleFromBudget: boolean
+    generateSaleFromBudget: boolean,
+    issueNfe?: boolean
 }
 
 export type VisibilitySettings = {
@@ -110,7 +126,6 @@ export type VisibilitySettings = {
     status: boolean;
     orderType: boolean;
     labels: boolean;
-
     actions: boolean;
 };
 

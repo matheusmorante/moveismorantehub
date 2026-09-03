@@ -1,5 +1,4 @@
 import { Link, useNavigate } from "react-router-dom";
-import { useAuth } from "../../context/AuthContext";
 import logoMorante from "../../assets/logo.jpeg";
 import { MenuKey } from "../../AppLayout";
 
@@ -105,7 +104,6 @@ const menuItems = [
 ];
 
 const MobileNav = ({ isOpen, onClose, activeMenu, setActiveMenu }: MobileNavProps) => {
-    const { isAdmin, profile, user, logout } = useAuth();
     const navigate = useNavigate();
 
     if (!isOpen) return null;
@@ -119,7 +117,7 @@ const MobileNav = ({ isOpen, onClose, activeMenu, setActiveMenu }: MobileNavProp
 
     return (
         <div
-            className="fixed inset-0 z-[99999] flex flex-col lg:hidden"
+            className="fixed inset-0 z-[99999] flex flex-col xl:hidden"
             style={{ backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)', backgroundColor: 'rgba(15,23,42,0.75)' }}
         >
             {/* Modal Fullscreen */}
@@ -131,14 +129,9 @@ const MobileNav = ({ isOpen, onClose, activeMenu, setActiveMenu }: MobileNavProp
                         <div className="w-10 h-10 bg-white rounded-2xl shadow-lg flex items-center justify-center overflow-hidden border border-slate-100 dark:border-slate-800 group-hover:scale-105 transition-transform duration-300">
                             <img src={logoMorante} alt="Logo" className="w-full h-full object-cover" />
                         </div>
-                        <div className="flex flex-col">
-                            <h3 className="text-sm font-black text-slate-800 dark:text-slate-100 tracking-tight whitespace-nowrap uppercase italic leading-none">
-                                ERP <span className="text-blue-600">Móveis Morante</span>
-                            </h3>
-                            <span className="text-[8px] font-black tracking-[0.2em] text-slate-400 dark:text-slate-500 uppercase mt-0.5">
-                                Hub de Inteligência
-                            </span>
-                        </div>
+                        <h3 className="text-sm font-black text-slate-800 dark:text-slate-100 tracking-tight whitespace-nowrap uppercase italic leading-none">
+                            ERP <span className="text-blue-600">Móveis Morante</span>
+                        </h3>
                     </Link>
 
                     <button
@@ -162,7 +155,7 @@ const MobileNav = ({ isOpen, onClose, activeMenu, setActiveMenu }: MobileNavProp
                 </div>
 
                 {/* Seções de Menu */}
-                <nav className="flex flex-col gap-1 px-4 pt-4 pb-4">
+                <nav className="flex flex-col gap-1 px-4 pt-4 pb-6">
                     {menuItems.map((item) => {
                         const isActive = activeMenu === item.key;
                         return (
@@ -210,77 +203,6 @@ const MobileNav = ({ isOpen, onClose, activeMenu, setActiveMenu }: MobileNavProp
                         );
                     })}
                 </nav>
-
-                {/* Footer: Perfil + Admin + Logout */}
-                <div className="mt-auto border-t border-slate-100 dark:border-slate-800">
-                    {/* Card do Usuário */}
-                    <div className="flex items-center gap-3 px-5 py-4 bg-slate-50/50 dark:bg-slate-900/50">
-                        <div className="w-10 h-10 bg-gradient-to-tr from-blue-600 to-blue-400 rounded-2xl overflow-hidden border-2 border-white dark:border-slate-800 shadow-md flex items-center justify-center flex-shrink-0">
-                            {profile?.avatar_url ? (
-                                <img src={profile.avatar_url} alt="Avatar" className="w-full h-full object-cover" />
-                            ) : (
-                                <span className="text-white font-black text-sm uppercase">
-                                    {((profile?.full_name || user?.email || 'U') as any)[0]}
-                                </span>
-                            )}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                            <p className="text-sm font-black text-slate-800 dark:text-slate-100 truncate">
-                                {profile?.full_name || 'Usuário'}
-                            </p>
-                            <p className="text-[10px] font-bold text-slate-400 dark:text-slate-500 truncate">
-                                {user?.email}
-                            </p>
-                        </div>
-                        <div className="flex-shrink-0 inline-flex items-center px-2.5 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-full text-[9px] font-black uppercase tracking-widest">
-                            {isAdmin ? 'Admin' : 'Vendedor'}
-                        </div>
-                    </div>
-
-                    <div className="flex flex-col gap-1 px-4 py-3">
-                        <button
-                            onClick={() => handleLink('/profile')}
-                            className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all font-bold text-sm text-left"
-                        >
-                            <i className="bi bi-person-circle text-lg"></i>
-                            Meu Perfil
-                        </button>
-                        <button
-                            onClick={() => handleLink('/system-docs')}
-                            className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all font-bold text-sm text-left"
-                        >
-                            <i className="bi bi-book-half text-lg"></i>
-                            Documentações
-                        </button>
-
-                        {isAdmin && (
-                            <>
-                                <button
-                                    onClick={() => handleLink('/settings')}
-                                    className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all font-bold text-sm text-left"
-                                >
-                                    <i className="bi bi-gear-fill text-lg"></i>
-                                    Configurações
-                                </button>
-                                <button
-                                    onClick={() => handleLink('/acessos-e-usuarios')}
-                                    className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all font-bold text-sm text-left"
-                                >
-                                    <i className="bi bi-shield-lock-fill text-lg"></i>
-                                    Controle de Acesso
-                                </button>
-                            </>
-                        )}
-
-                        <button
-                            onClick={() => { logout(); onClose(); }}
-                            className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/20 transition-all font-bold text-sm text-left mt-1"
-                        >
-                            <i className="bi bi-box-arrow-right text-lg"></i>
-                            Encerrar Sessão
-                        </button>
-                    </div>
-                </div>
             </div>
         </div>
     );

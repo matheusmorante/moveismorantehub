@@ -7,8 +7,9 @@ Este documento registra as regras e comportamentos **implementados** no sistema,
 ## REGRAS GERAIS DO AGENTE
 
 - **Git Push**: Nao executar `git push` automaticamente. Aguardar solicitacao explicita do usuario.
-- **Modularizacao**: Arquivos acima de 500 linhas ou com mais de uma responsabilidade devem ser divididos. Aplicar apos cada tarefa.
+- **Modularização Segura e Código Limpo (`modularizacao_codigo`)**: Cada arquivo deve possuir uma única responsabilidade clara. Alvo recomendado de 30–100 linhas (aceitável até aproximadamente 150 linhas; acima disso analisar divisão obrigatória). Estratégia conservadora sem perda de código: **COPIAR → VALIDAR → CONECTAR → TESTAR → SÓ DEPOIS REMOVER**. Nunca alterar regras de negócio silenciosamente durante refatorações. Aplicar progressivamente em cada arquivo tocado.
 - **Idioma dos termos no ERP**: Produtos **Ativos** / **Desativados** (nunca publicados/despublicados). No catalogo digital: **Publicado no Catalogo** / **Ocultado do Catalogo**.
+- **Ícone de Montagem (`Drill` - Parafusadeira / Furadeira Preenchida)**: Em todos os módulos (cards e linhas de pedidos, cronograma logístico, lista de montagens, modais e itens), os rótulos e elementos referentes a **Montagem** (Montagem no Depósito, Montagem Fora/Cliente, Mostruário) utilizam exclusivamente o componente preenchido **`Drill`** (`@/components/shared/DrillIcon`), com design sólido/preenchido (Filled), em substituição ao martelo e ao ícone linear.
 - **Retrocompatibilidade e Análise de Impacto**: Antes e durante a criação/alteração de novas estruturas de dados ou snapshots, analisar o impacto em registros históricos legados. Sempre garantir fallbacks resilientes e consultar o usuário sobre decisões de adaptação/migração quando houver ambiguidade.
 
 ---
@@ -87,8 +88,10 @@ Este documento registra as regras e comportamentos **implementados** no sistema,
 - Qualquer colaborador cadastrado pode ser selecionado como vendedor na venda.
 - O pedido persiste o snapshot do nome (`seller`) e do identificador do colaborador (`sellerId`), garantindo consistência histórica mesmo se o colaborador for editado posteriormente.
 
-### Paginação na Listagem de Pedidos (`OrderPagination`)
+### Paginação e Busca na Listagem de Pedidos (`OrderPagination` / `OrderCustomerSearchBar`)
 
+- **Barra de Pesquisa por Nome do Cliente**:
+  - No início da listagem de pedidos (tanto para visualização em tabela quanto em cards), há uma barra de pesquisa rápida (`OrderCustomerSearchBar`) permitindo filtrar instantaneamente pedidos pelo nome do cliente com botão de limpeza rápida (`X`).
 - **Paginação Padrão Obrigatória**:
   - A listagem de pedidos utiliza paginação fixa de **30 pedidos por página** (`itemsPerPage = 30`).
   - Aplica-se uniformemente tanto à visualização em **Tabela** (`OrderHistoryTable` / `OrderHistoryRow`) quanto à visualização em **Cards** (`OrderHistoryCard`).
@@ -100,8 +103,23 @@ Este documento registra as regras e comportamentos **implementados** no sistema,
 - Pedidos em rascunho **nao** podem ter o status alterado diretamente via menu ou seletor de status nos cards e linhas.
 - O seletor de status fica desabilitado para rascunhos, exibindo o aviso de que o cadastro precisa ser finalizado.
 - Para um pedido em rascunho tornar-se agendado (`scheduled`) ou atendido (`fulfilled`), e obrigatorio abrir o formulario de cadastro/edicao e clicar em **Cadastrar Pedido / Concluir Pedido**.
+- **Abertura do Formulário ao Clicar no Card ou Linha de Rascunho**: Clicar na área livre do card (`OrderHistoryCard`) ou na linha da tabela (`OrderHistoryRow`) de um pedido com status `draft` abre diretamente o formulário para retomar e finalizar o cadastramento.
 - Acoes de **Gerar Devolucao** e **Desfazer Devolucao** sao ocultadas para rascunhos.
-- As acoes de mudanca de status ficam no menu de 3 pontos de cada pedido (`OrderHistoryCard` / `OrderHistoryRow`).
+- **Menu de Ações do Rascunho (3 pontinhos)**: Exibe as opções **Retomar Cadastramento** (azul com `bi-arrow-repeat`) e **Descartar Rascunho** (vermelho com `bi-trash3-fill`), com tipografia (`text-xs font-black uppercase tracking-widest`) e espaçamento vertical uniformizados.
+- **Cancelamento de Venda Agendada (`CancelScheduledSaleButton`)**:
+  - Para pedidos de venda (`sale` ou `showroom`) com status **Agendado** (`scheduled`), o menu de 3 pontos exibe o botão **"Cancelar venda"** em vermelho com ícone `bi-x-circle-fill`.
+  - Ao clicar, abre o modal de confirmação `CancelSaleModal`, esclarecendo que a ação é definitiva e que as saídas de estoque vinculadas serão estornadas.
+  - Ao confirmar, o status é alterado para `cancelled` e o estoque estornado automaticamente via regras centrais de estoque.
+  - **Ocultação do Botão de Editar em Cancelados e Atendidos**: O botão de editar (ícone de lápis) é ocultado tanto nos cards quanto no menu de 3 pontinhos para pedidos com status **Cancelado** (`cancelled`) ou **Atendido** (`fulfilled`).
+  - O carimbo **"CANCELADO"** (`CancelledOrderBadge`) mantém **100% de opacidade e brilho normal/vívido** (`bg-red-600` com texto e borda brancos nítidos), posicionado no centro sem inclinação na Tabela e com inclinação nos Cards.
+  - **Botão de 3 Pontinhos com Cor Normal e Camada Superior**: Tanto nos cards quanto na tabela, o botão de 3 pontinhos fica em `z-20` sobre o overlay escurecido com 100% de nitidez e brilho vívido para permitir a cópia do pedido.
+  - **Fundo Escurecido em Toda a Largura da Linha na Tabela (`OrderHistoryRow`)**: Em pedidos cancelados, o efeito visual acinzentado/escurecido de baixa luminosidade e opacidade atenuada estende-se por todas as células da linha. O carimbo **"CANCELADO"** e o botão de 3 pontinhos permanecem com 100% de nitidez e brilho vívido.
+  - **Remoção de Checkbox de Seleção na Tabela**: A coluna de checkbox foi removida da visualização em tabela de pedidos, deixando o layout mais limpo e focado.
+  - **Cor do Selo/Botão de Rascunho (`status: 'draft'`)**: O botão/selo de status dos pedidos em rascunho utiliza exatamente o mesmo tom de cinza do selo de etiquetado (`bg-slate-400 dark:bg-slate-600 border-slate-500 dark:border-slate-600`), mantendo perfeita consistência visual com ícone branco `bi-clock` tanto na tabela quanto nos cards.
+  - **Cor do Selo/Botão de Cancelado (`status: 'cancelled'`)**: O botão/selo de status dos pedidos cancelados utiliza background vermelho (`bg-red-600 border-red-700`) com ícone branco tanto na tabela quanto nos cards.
+
+
+
 
 ### Selos de Triagem nos Cards e Linhas
 
@@ -171,12 +189,19 @@ Toda movimentacao de estoque e registrada em `inventory_moves` com:
 
 - `stockProcessed: boolean` (dentro de `order_data`): rastreia se a saida ja foi lancada. `true` = lancada; `false` = pendente.
 - Saidas sao geradas por FIFO (ordem dos lotes de entrada), item a item.
-- Ao cancelar pedido: estorno automatico de todas as saidas; `stockProcessed` volta a `false`.
+- Ao cancelar pedido: estorno automatico de todas as saidas; `stockProcessed` volta a `false` e `stockReversed` torna-se `true`.
 - Ao editar item de pedido ja processado: estorno do item anterior + nova saida do item corrigido.
+- **Selo de Movimentação de Estoque no Pedido (`InventoryMovementBadge` - Ícone da Caixa)**:
+  - **Verde (`bg-emerald-600`)**: Saída/Entrada efetivada no estoque (ícone `PackageCheck`).
+  - **Cinza (`bg-slate-400 dark:bg-slate-600`)**: Sem movimentação lançada (ícone `Package`).
+  - **Vermelho (`bg-red-600 border-red-700`)**: Movimentação de estoque estornada / cancelada (ícone `PackageX` do lucide-react).
+- **Rótulo Visual no Histórico de Movimentações (Stock > Movimentações)**: Movimentações estornadas (`status === 'reversed'` ou `cancelled`) exibem rótulos de tipo e status com **fundo amarelo / âmbar** (`bg-amber-100 / bg-amber-50 dark:bg-amber-950`).
 
 ### Arquivo Central de Estoque
 
 `inventoryService.ts` e o ponto de entrada para toda movimentacao. Todos os modulos importam `saveInventoryMove()` deste arquivo.
+- **Custo Médio Ponderado Móvel (CMPM / CMV)**: Apurado a partir do histórico de movimentações em `inventory_moves` (`unit_cost`). A tabela `product_variations` **não possui** a coluna `cost_price`; o custo cadastral base reside exclusivamente em `products.cost_price` (do qual as variações filhas herdam). Nunca tentar selecionar ou atualizar `product_variations.cost_price`.
+
 
 ---
 
@@ -184,11 +209,11 @@ Toda movimentacao de estoque e registrada em `inventory_moves` com:
 
 - **Rascunho** (`status: 'draft'`): auto-salvo silenciosamente ao adicionar fornecedor + 1 item.
 - **Confirmado** (`status: 'received'`): botao **Confirmar Recebimento** — lanca entradas (`type: 'entry'`) em `inventory_moves`.
-- **Estornado** (`status: 'estornado'`): reverte todas as entradas lancadas no estoque.
+- **Estornado** (`status: 'estornado'`): reverte todas as entradas lancadas no estoque, exibindo o selo de status com **fundo vermelho** (`bg-red-50 text-red-600 border-red-200 dark:bg-red-950/40 dark:text-red-400`).
 - Botao de exclusao (lixeira): aparece **exclusivamente para rascunhos**.
 - Chave de acesso NF-e: max 44 digitos numericos, formatada em blocos de 4 (`XXXX XXXX ...`). Determina badge **Com NF** vs **Sem NF**.
-- Fornecedor selecionado no filtro e persistido em `localStorage` por dispositivo.
-
+- **Seleção Obrigatória de Fornecedor para Registrar Recebimento**: Na tela de recebimentos de mercadorias (`/stock/receipts`), o botão **"Registrar recebimento"** é exibido exclusivamente quando um fornecedor está selecionado no campo de busca/filtro.
+- **Estilo Verde de Confirmação em Campos de Fornecedor (`SupplierAutocomplete`)**: Todos os campos de seleção de fornecedor no sistema exibem estilo visual verde esmeralda suave com borda destacada, ícone de check preenchido (`bi-check-circle-fill`), badge "Selecionado" e botão de limpar seleção (`X`) quando um fornecedor válido está selecionado.
 ---
 
 ## MODULO: GESTÃO DE ACESSOS E USUÁRIOS (`/acessos-e-usuarios`)
@@ -274,4 +299,49 @@ Ao incrementar versao em `mobile/app.json`, sincronizar:
 | `erp/src/pages/App/Settings/components/AccessManagementSection.tsx` | Acessos | Gerenciamento de áreas permitidas por cargo (rolePermissions) |
 | `erp/src/pages/App/Registrations/shared/PersonFormModal.tsx` | Colaboradores | Formulário de colaborador com seleção de cargo e sync de perfil |
 | `erp/src/pages/App/Stock/components/InventoryMovesHistory.tsx` | Estoque | Listagem e filtros de movimentacoes |
-| `erp/src/pages/App/Stock/components/InventoryAuditModal.tsx` | Estoque | Auditoria e correcao manual de estoque |
+| `erp/src/pages/Stock/components/InventoryAuditModal.tsx` | Estoque | Auditoria e correcao manual de estoque |
+| `erp/src/pages/App/Dashboard/Index.tsx` | Dashboard | Orquestrador principal do Dashboard |
+| `erp/src/pages/App/Dashboard/useDashboardData.ts` | Dashboard | Métricas de vendas, cálculo real de CMV/CMPM e séries |
+| `erp/src/pages/App/Dashboard/hooks/useDashboardOperational.ts` | Dashboard | Indicadores operacionais (abertos, entregas, montagens, recebimentos) |
+| `erp/src/pages/App/Dashboard/hooks/useDashboardStock.ts` | Dashboard | Alertas de estoque zerado, mínimo e inventários em andamento |
+| `erp/src/pages/App/Dashboard/hooks/useDashboardProducts.ts` | Dashboard | Performance de produtos e identificador de produtos parados |
+| `erp/src/pages/utils/nfe/nfeService.ts` | Fiscal | Orquestrador central de validação, numeração e emissão NF-e/NFC-e |
+| `erp/src/pages/utils/nfe/nfeXmlBuilder.ts` | Fiscal | Montador de XML Layout 4.00 com suporte a homologação SEFAZ |
+| `erp/src/pages/utils/nfe/nfeAccessKey.ts` | Fiscal | Cálculo de chave de acesso (44 dígitos) e DV módulo 11 |
+| `erp/src/pages/utils/nfe/danfeGenerator.ts` | Fiscal | Gerador e impressor de DANFE oficial |
+| `erp/src/pages/App/SalesOrder/OrderActions/NfeEmissionModal.tsx` | Fiscal | Modal de emissão, teste de homologação, XML e DANFE |
+
+---
+
+## MODULO: EMISSÃO FISCAL SEFAZ (NF-e / NFC-e)
+
+### Regras de Emissão e Homologação (`tpAmb = 2`)
+- **Regra de Modelo do Documento (`fiscalDocumentRule.ts`)**:
+  - Pedidos com entrega (`shipping.deliveryMethod === 'delivery'`): Sugerida **NF-e (Modelo 55)**.
+  - Pedidos com retirada no balcão/loja (`shipping.deliveryMethod === 'pickup'`): Sugerida **NFC-e (Modelo 65)**.
+- **Ambiente de Homologação (Testes SEFAZ)**:
+  - Destinatário recebe nome oficial obrigatório: `"NF-E EMITIDA EM AMBIENTE DE HOMOLOGACAO - SEM VALOR FISCAL"`.
+  - Tarja de aviso visual no DANFE: `"NOTA FISCAL EMITIDA EM AMBIENTE DE HOMOLOGAÇÃO - SEM VALOR FISCAL"`.
+  - Chave de acesso de 44 dígitos calculada rigorosamente pelo algoritmo Módulo 11 (ponderação 2 a 9).
+  - XML estruturado no padrão Layout 4.00 com detalhamento de produtos (NCM, CST/CSOSN 102, CFOP, PIS/COFINS CST 49) e totais.
+- **Configurações Fiscais da Empresa (`CompanyFiscalDataSection.tsx` / `FiscalSettingsSection.tsx`)**:
+  - Cadastro de Inscrição Estadual (IE), Inscrição Municipal, CRT (Simples Nacional), Endereço completo com Código IBGE do Município (PR), Ambiente padrão e Série.
+- **Persistência do Histórico Fiscal**:
+  - Dados da nota fiscal autorizada/homologada (`accessKey`, `nfeNumber`, `series`, `model`, `environment`, `protocolNumber`, `xml`, `emittedAt`) são vinculados diretamente ao pedido (`order.nfeData`) e salvos no histórico.
+  - O DANFE gerado pode ser impresso ou visualizado a qualquer momento via botão no modal e ações do pedido.
+
+---
+
+## MODULO: DASHBOARD PRINCIPAL DO ERP (`/`)
+
+### Hierarquia e Componentes
+- **KPIs Principais (`KpiRow.tsx`)**: Faturamento, Vendas, Ticket Médio, Lucro Bruto, Margem Bruta (%) e CMV apurado por CMPM histórico (`item.unitCost ?? item.costPrice`).
+- **Gráfico de Vendas (`SalesChart.tsx`)**: Alternância entre Faturamento, Lucro e Pedidos, com granularidade temporal dinâmica (por hora em Hoje/Ontem; por dia em semanas/mês; por mês em ano/semestre).
+- **Central de Atenção (`AttentionPanel.tsx`)**: Restrita **exclusivamente** a Estoque Baixo (zerado e mínimo) e Inventário em Andamento. Nunca incluir outros tipos de alerta.
+- **Central Operacional (`OperationPanel.tsx`)**: 6 cards clicáveis com contagem em tempo real (Em Aberto, Agendados, Entregas Hoje, Atrasadas, Montagens e Recebimentos pendentes).
+- **Performance de Produtos (`ProductsPanel.tsx`)**: Top 5 por Faturamento, Pedidos, Lucro e aba **Parados** com seletor de 30, 60 e 90 dias sem vendas.
+- **Pedidos Recentes (`RecentOrders.tsx`)**: Últimos 5 pedidos com status, valores e link para o pedido de venda.
+- **Radar Geográfico (`GeoMapPanel.tsx`) & Logística (`LogisticsPanel.tsx`)**: Mapa térmico de vendas com expansão/retração e métricas de entregas e KM rodados.
+- **Atalhos Rápidos (`QuickActions.tsx`)**: Localizados no cabeçalho do Dashboard para acesso imediato a Novo Pedido, Recebimento, Novo Produto, Cronograma e Inventário.
+
+

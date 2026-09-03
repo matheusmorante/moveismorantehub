@@ -1,11 +1,11 @@
 import React, { useState, useRef, useEffect, useCallback } from "react";
 import { createPortal } from "react-dom";
-import { Package, PackageCheck, X } from "lucide-react";
+import { Package, PackageCheck, PackageX, X } from "lucide-react";
 import { binaryOrderBadgeClass } from "./orderBadgeStyles";
 
-type Props = { orderType?: string; hasMovement: boolean };
+type Props = { orderType?: string; hasMovement: boolean; isReversed?: boolean };
 
-const InventoryMovementBadge = ({ orderType, hasMovement }: Props) => {
+const InventoryMovementBadge = ({ orderType, hasMovement, isReversed }: Props) => {
     const [isOpen, setIsOpen] = useState(false);
     const [coords, setCoords] = useState<{ top: number; left: number; placement: 'top' | 'bottom' } | null>(null);
     const buttonRef = useRef<HTMLButtonElement>(null);
@@ -13,16 +13,27 @@ const InventoryMovementBadge = ({ orderType, hasMovement }: Props) => {
     const closeTimerRef = useRef<NodeJS.Timeout | null>(null);
 
     const isReturn = orderType === 'return';
-    const title = isReturn
+    const title = isReversed
+        ? (isReturn ? 'Entrada de estoque estornada' : 'Saída de estoque estornada')
+        : isReturn
         ? (hasMovement ? 'Entrada de estoque registrada pela devolução' : 'Entrada de estoque ainda não registrada')
         : (hasMovement ? 'Saída de estoque registrada pela venda' : 'Saída de estoque ainda não registrada');
-    const explanation = isReturn
+
+    const explanation = isReversed
+        ? (isReturn
+            ? 'A entrada de estoque vinculada a esta devolução foi estornada / cancelada.'
+            : 'A saída de estoque vinculada a esta venda foi estornada (ex: cancelamento do pedido).')
+        : isReturn
         ? (hasMovement
             ? 'Esta devolução possui uma entrada de estoque vinculada e efetiva. A entrada foi criada quando a devolução foi atendida.'
             : 'Ainda não há entrada de estoque vinculada a esta devolução. O selo só ficará verde depois que uma entrada real for registrada para os itens devolvidos.')
         : (hasMovement
             ? 'Este pedido possui uma saída de estoque vinculada e efetiva para os itens vendidos.'
             : 'Ainda não há saída de estoque vinculada a este pedido. Alterar o status do pedido, por si só, não deixa este selo verde.');
+
+    const badgeColorClass = isReversed
+        ? 'border-red-700 bg-red-600 text-white hover:bg-red-700'
+        : binaryOrderBadgeClass(hasMovement);
 
     const updatePosition = useCallback(() => {
         if (!buttonRef.current) return;
@@ -109,11 +120,11 @@ const InventoryMovementBadge = ({ orderType, hasMovement }: Props) => {
                 onMouseEnter={handleMouseEnter}
                 onMouseLeave={handleMouseLeave}
                 onClick={handleClick}
-                className={`flex h-6 w-6 items-center justify-center rounded-md border shadow-sm transition-all active:scale-95 ${binaryOrderBadgeClass(hasMovement)}`}
+                className={`flex h-6 w-6 items-center justify-center rounded-md border shadow-sm transition-all active:scale-95 ${badgeColorClass}`}
                 title={title}
                 aria-label={title}
             >
-                {hasMovement ? <PackageCheck className="h-3.5 w-3.5" /> : <Package className="h-3.5 w-3.5" />}
+                {isReversed ? <PackageX className="h-3.5 w-3.5" /> : hasMovement ? <PackageCheck className="h-3.5 w-3.5" /> : <Package className="h-3.5 w-3.5" />}
             </button>
 
             {isOpen && coords && typeof document !== 'undefined' && createPortal(
@@ -131,15 +142,25 @@ const InventoryMovementBadge = ({ orderType, hasMovement }: Props) => {
                 >
                     <div className="flex items-start justify-between gap-2.5">
                         <div className="flex items-center gap-2.5">
-                            <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-xl ${binaryOrderBadgeClass(hasMovement)}`}>
-                                {hasMovement ? <PackageCheck className="h-4 w-4" /> : <Package className="h-4 w-4" />}
+                            <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-xl ${badgeColorClass}`}>
+                                {isReversed ? <PackageX className="h-4 w-4" /> : hasMovement ? <PackageCheck className="h-4 w-4" /> : <Package className="h-4 w-4" />}
                             </div>
                             <div>
                                 <h4 className="text-xs font-black tracking-tight text-slate-800 dark:text-slate-100">
                                     {isReturn ? 'Estoque (Devolução)' : 'Estoque (Venda)'}
                                 </h4>
-                                <span className={`text-[9px] font-black uppercase tracking-wider ${hasMovement ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-400 dark:text-slate-500'}`}>
-                                    {hasMovement ? (isReturn ? 'Entrada Efetivada' : 'Saída Efetivada') : 'Sem Movimentação'}
+                                <span className={`text-[9px] font-black uppercase tracking-wider ${
+                                    isReversed
+                                        ? 'text-red-600 dark:text-red-400'
+                                        : hasMovement
+                                        ? 'text-emerald-600 dark:text-emerald-400'
+                                        : 'text-slate-400 dark:text-slate-500'
+                                }`}>
+                                    {isReversed
+                                        ? (isReturn ? 'Entrada Estornada' : 'Saída Estornada')
+                                        : hasMovement
+                                        ? (isReturn ? 'Entrada Efetivada' : 'Saída Efetivada')
+                                        : 'Sem Movimentação'}
                                 </span>
                             </div>
                         </div>

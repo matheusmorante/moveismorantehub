@@ -68,7 +68,7 @@ const OrderDetailsModal = ({ order: initialOrder, onClose, onEdit, isReadOnly }:
 
     return (
         <div
-            className="fixed inset-0 z-[1000] flex items-center justify-center bg-slate-900/70 p-0 backdrop-blur-md animate-fade-in transition-colors duration-300 xl:p-6"
+            className="fixed inset-0 z-[999999] flex items-center justify-center bg-slate-900/70 p-0 backdrop-blur-md animate-fade-in transition-colors duration-300 xl:p-6"
             onClick={onClose}
         >
             <div
