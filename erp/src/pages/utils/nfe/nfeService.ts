@@ -222,3 +222,38 @@ export async function printOrderDanfe(order: Order): Promise<void> {
         status: nfeData.status || 'autorizada'
     });
 }
+
+/**
+ * Avalia se o documento fiscal é elegível para cancelamento fiscal direto
+ * Regra: Cancelamento fiscal só é válido se a mercadoria NÃO circulou/saiu e dentro das regras da UF/Modelo
+ */
+export function canCancelFiscalDocument(doc: {
+    status?: string;
+    modelo?: '55' | '65';
+    created_at?: string;
+    isMerchandiseDelivered?: boolean;
+}): { canCancel: boolean; reason?: string } {
+    if (!doc) return { canCancel: false, reason: 'Documento não informado' };
+    if (doc.status !== 'autorizada') {
+        return { canCancel: false, reason: 'Apenas notas autorizadas podem ser canceladas' };
+    }
+    if (doc.isMerchandiseDelivered) {
+        return { canCancel: false, reason: 'Mercadoria já entregue/circulou. Necessário emitir NF-e de Devolução de Entrada.' };
+    }
+    return { canCancel: true };
+}
+
+/**
+ * Avalia se o documento fiscal permite emissão de Carta de Correção (CC-e)
+ * Regra estrita: CC-e é permitida EXCLUSIVAMENTE para NF-e (Mod. 55). NFC-e (Mod. 65) NÃO aceita CC-e (Rejeição SEFAZ).
+ */
+export function canIssueCce(doc: { modelo?: '55' | '65'; status?: string }): { canIssue: boolean; reason?: string } {
+    if (!doc) return { canIssue: false, reason: 'Documento não informado' };
+    if (doc.modelo === '65') {
+        return { canIssue: false, reason: 'A SEFAZ não permite Carta de Correção (CC-e) para NFC-e (Modelo 65).' };
+    }
+    if (doc.status !== 'autorizada') {
+        return { canIssue: false, reason: 'Apenas NF-e autorizadas podem receber CC-e.' };
+    }
+    return { canIssue: true };
+}

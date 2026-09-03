@@ -161,9 +161,9 @@ export function FilterContent({ filters, categories, environments, relationships
   }
 
   return (
-    <div className="bg-white rounded-3xl p-6 border border-gray-100 shadow-sm space-y-6">
-      {/* Título e Botão Reset */}
-      <div className="flex items-center justify-between border-b border-gray-100 pb-4">
+    <div className="bg-white rounded-3xl sm:rounded-3xl border border-gray-100 shadow-sm flex flex-col h-full max-h-[100dvh] overflow-hidden">
+      {/* Título e Botão Reset Fixo no Topo */}
+      <div className="flex items-center justify-between border-b border-gray-100 p-6 pb-4 shrink-0 bg-white z-10">
         <div className="flex items-center gap-2">
           <SlidersHorizontal className="h-5 w-5 text-primary" />
           <h3 className="font-black text-lg text-primary">Filtros</h3>
@@ -187,7 +187,8 @@ export function FilterContent({ filters, categories, environments, relationships
         </div>
       </div>
 
-      <div className="space-y-6">
+      {/* Conteúdo Rolável */}
+      <div className="flex-1 overflow-y-auto p-6 pt-2 space-y-6 overscroll-contain">
           {/* Faixa de Preço */}
           <div className="space-y-4">
             <Label className="text-sm font-black uppercase tracking-widest text-muted-foreground">Faixa de Preço</Label>
@@ -262,85 +263,8 @@ export function FilterContent({ filters, categories, environments, relationships
             />
           </div>
 
-          {/* Ambientes e Categorias */}
-          <div className="space-y-4">
-            <Label className="text-sm font-black uppercase tracking-widest text-muted-foreground">Ambientes e Categorias</Label>
-            <div className="space-y-2">
-              <div 
-                className={`flex items-center gap-3 p-2 rounded-xl transition-all cursor-pointer ${localEnvs.length === 0 && localCats.length === 0 ? 'bg-primary/5 text-primary' : 'hover:bg-gray-50'}`}
-                onClick={() => toggleEnv('all')}
-              >
-                <RadioIndicator checked={localEnvs.length === 0 && localCats.length === 0} />
-                <span className={`text-sm font-bold ${localEnvs.length === 0 && localCats.length === 0 ? 'text-primary' : ''}`}>Todos os móveis</span>
-              </div>
-
-              {environments.map((env) => {
-                const envCats = categories.filter(cat => 
-                  relationships.some(r => r.parent_id === env.id && r.child_id === cat.id)
-                )
-                const isEnvSelected = localEnvs.includes(env.id) && localCats.length === 0
-
-                return (
-                  <div key={env.id} className="space-y-1">
-                    <div 
-                      className={`flex items-center justify-between p-2 rounded-xl transition-all cursor-pointer ${isEnvSelected ? 'bg-primary/5 text-primary font-bold' : 'hover:bg-gray-50'}`}
-                      onClick={() => toggleEnv(env.id)}
-                    >
-                      <div className="flex items-center gap-3">
-                        <RadioIndicator checked={isEnvSelected} />
-                        <span className={`text-sm font-semibold capitalize ${isEnvSelected ? 'text-primary font-bold' : ''}`}>{env.name}</span>
-                      </div>
-                      {envCats.length > 0 && (
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            setExpandedEnvs(prev => ({ ...prev, [env.id]: !prev[env.id] }))
-                          }}
-                          className="p-1 text-gray-400 hover:text-gray-600 transition"
-                        >
-                          {expandedEnvs[env.id] ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-                        </button>
-                      )}
-                    </div>
-
-                    {envCats.length > 0 && expandedEnvs[env.id] && (
-                      <div className="ml-6 border-l border-gray-100 pl-4 space-y-1 mt-1 mb-2">
-                        {envCats.map((cat) => (
-                          <div 
-                            key={cat.id} 
-                            className={`flex items-center gap-3 p-1.5 rounded-lg transition-all cursor-pointer ${localCats.includes(cat.id) ? 'bg-blue-50/50 text-blue-700 font-bold' : 'hover:bg-gray-50'}`}
-                            onClick={(e) => {
-                                e.stopPropagation()
-                                toggleCat(cat.id)
-                            }}
-                          >
-                            <RadioIndicator checked={localCats.includes(cat.id)} variant="blue" />
-                            <span className="text-xs font-bold text-blue-600 capitalize">{cat.name}</span>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                )
-              })}
-
-              {/* Categorias sem ambiente */}
-              {categories.filter(cat => !relationships.some(r => r.child_id === cat.id)).map((cat) => (
-                <div 
-                  key={cat.id} 
-                  className={`flex items-center gap-3 p-1.5 rounded-lg transition-all cursor-pointer ${localCats.includes(cat.id) ? 'bg-blue-50/50 text-blue-700 font-bold' : 'hover:bg-gray-50'}`}
-                  onClick={() => toggleCat(cat.id)}
-                >
-                  <RadioIndicator checked={localCats.includes(cat.id)} variant="blue" />
-                  <span className="text-xs font-bold text-blue-600 capitalize">{cat.name}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Tipo de Oferta */}
-          <div className="space-y-4 pt-4 border-t">
+          {/* Tipo de Oferta / Oportunidades */}
+          <div className="space-y-4 pt-4 border-t border-gray-100">
             <Label className="text-sm font-black uppercase tracking-widest text-muted-foreground">Oportunidades</Label>
             <div className="grid grid-cols-1 gap-2">
               <div 
@@ -425,7 +349,7 @@ export function FilterSidebar({ filters, categories, environments, relationships
               <span>Filtros</span>
             </Button>
           </SheetTrigger>
-          <SheetContent side="left" className="w-full sm:max-w-md p-0 border-none bg-transparent">
+          <SheetContent side="left" className="w-full sm:max-w-md p-0 border-none bg-transparent h-full max-h-[100dvh] flex flex-col">
             <FilterContent 
               filters={filters} 
               categories={categories} 

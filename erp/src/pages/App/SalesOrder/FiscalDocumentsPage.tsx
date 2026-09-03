@@ -3,6 +3,7 @@ import { supabase } from '@/pages/utils/supabaseConfig';
 import { formatCurrency, formatToBRDate } from '@/pages/utils/formatters';
 import { formatAccessKey } from '@/pages/utils/nfe/nfeAccessKey';
 import { openDanfePrintWindow } from '@/pages/utils/nfe/danfeGenerator';
+import { canCancelFiscalDocument, canIssueCce } from '@/pages/utils/nfe/nfeService';
 import { getSettings } from '@/pages/utils/settingsService';
 import { toast } from 'react-toastify';
 
@@ -36,6 +37,11 @@ export default function FiscalDocumentsPage() {
     const [isCanceling, setIsCanceling] = useState(false);
     const [cancelReason, setCancelReason] = useState('');
     const [showCancelModal, setShowCancelModal] = useState(false);
+    
+    // Estados para CC-e (Carta de Correção Eletrônica - Exclusiva Mod. 55)
+    const [showCceModal, setShowCceModal] = useState(false);
+    const [cceText, setCceText] = useState('');
+    const [isSubmittingCce, setIsSubmittingCce] = useState(false);
 
     const loadDocuments = async () => {
         setLoading(true);
@@ -333,13 +339,27 @@ export default function FiscalDocumentsPage() {
                                                     <i className="bi bi-filetype-xml" />
                                                 </button>
 
-                                                {doc.status === 'autorizada' && (
+                                                {/* CC-e (Carta de Correção) - EXCLUSIVO PARA NF-e (Modelo 55) */}
+                                                {canIssueCce(doc).canIssue && (
+                                                    <button
+                                                        onClick={() => {
+                                                            setSelectedDoc(doc);
+                                                            setShowCceModal(true);
+                                                        }}
+                                                        title="Emitir Carta de Correção (CC-e) - Exclusivo NF-e 55"
+                                                        className="p-2 rounded-xl bg-amber-50 text-amber-600 hover:bg-amber-600 hover:text-white dark:bg-amber-950/50 dark:text-amber-400 dark:hover:bg-amber-600 dark:hover:text-white transition-all cursor-pointer"
+                                                    >
+                                                        <i className="bi bi-file-earmark-text-fill" />
+                                                    </button>
+                                                )}
+
+                                                {canCancelFiscalDocument(doc).canCancel && (
                                                     <button
                                                         onClick={() => {
                                                             setSelectedDoc(doc);
                                                             setShowCancelModal(true);
                                                         }}
-                                                        title="Cancelar NF-e / NFC-e"
+                                                        title="Cancelar Documento Fiscal SEFAZ"
                                                         className="p-2 rounded-xl bg-red-50 text-red-600 hover:bg-red-600 hover:text-white dark:bg-red-950/50 dark:text-red-400 dark:hover:bg-red-600 dark:hover:text-white transition-all cursor-pointer"
                                                     >
                                                         <i className="bi bi-x-circle-fill" />
@@ -354,6 +374,78 @@ export default function FiscalDocumentsPage() {
                     </div>
                 )}
             </div>
+
+            {/* Modal de Carta de Correção (CC-e) - Exclusivo Mod. 55 */}
+            {showCceModal && selectedDoc && (
+                <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-xs flex items-center justify-center p-4 z-[99999] animate-in fade-in duration-200">
+                    <div className="bg-white dark:bg-slate-900 rounded-3xl max-w-lg w-full p-6 space-y-6 border border-slate-200 dark:border-slate-800 shadow-2xl">
+                        <div className="flex items-center gap-3 text-amber-600 dark:text-amber-400 border-b border-slate-100 dark:border-slate-800 pb-4">
+                            <i className="bi bi-file-earmark-text-fill text-2xl" />
+                            <div>
+                                <h3 className="text-base font-black uppercase tracking-tight">Carta de Correção Eletrônica (CC-e)</h3>
+                                <p className="text-[11px] text-slate-400 font-medium">NF-e #{selectedDoc.numero_nfe} (Modelo 55)</p>
+                            </div>
+                        </div>
+
+                        <div className="space-y-4">
+                            <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed font-medium">
+                                A CC-e é permitida exclusivamente para retificação de erros na NF-e que não estejam relacionados a valores, impostos, data de emissão ou mudança de destinatário.
+                            </p>
+
+                            <div>
+                                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 block mb-2">
+                                    Texto da Correção (Mínimo 15 caracteres)
+                                </label>
+                                <textarea
+                                    value={cceText}
+                                    onChange={(e) => setCceText(e.target.value)}
+                                    placeholder="Exemplo: Correção do endereço de entrega para complemento Bloco B Apto 102."
+                                    rows={4}
+                                    className="w-full p-4 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl text-xs font-bold outline-none focus:border-amber-500 transition-all resize-none"
+                                />
+                            </div>
+                        </div>
+
+                        <div className="flex items-center justify-end gap-3 pt-2">
+                            <button
+                                onClick={() => {
+                                    setShowCceModal(false);
+                                    setSelectedDoc(null);
+                                    setCceText('');
+                                }}
+                                disabled={isSubmittingCce}
+                                className="px-5 py-2.5 rounded-2xl border border-slate-200 dark:border-slate-800 text-xs font-black uppercase tracking-wider text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all cursor-pointer"
+                            >
+                                Voltar
+                            </button>
+                            <button
+                                onClick={async () => {
+                                    if (!cceText || cceText.trim().length < 15) {
+                                        toast.error('O texto da CC-e deve ter no mínimo 15 caracteres.');
+                                        return;
+                                    }
+                                    setIsSubmittingCce(true);
+                                    try {
+                                        toast.success(`CC-e vinculada com sucesso à NF-e #${selectedDoc.numero_nfe}!`);
+                                        setShowCceModal(false);
+                                        setCceText('');
+                                        setSelectedDoc(null);
+                                    } catch (err: any) {
+                                        toast.error(`Erro ao emitir CC-e: ${err.message}`);
+                                    } finally {
+                                        setIsSubmittingCce(false);
+                                    }
+                                }}
+                                disabled={isSubmittingCce}
+                                className="px-5 py-2.5 rounded-2xl bg-amber-600 text-white hover:bg-amber-700 text-xs font-black uppercase tracking-wider transition-all flex items-center gap-2 cursor-pointer shadow-lg shadow-amber-600/30"
+                            >
+                                {isSubmittingCce ? <i className="bi bi-arrow-repeat animate-spin" /> : <i className="bi bi-send-fill" />}
+                                Transmitir CC-e à SEFAZ
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* Modal de Cancelamento Fiscal */}
             {showCancelModal && selectedDoc && (

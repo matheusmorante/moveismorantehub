@@ -11,98 +11,61 @@ description: >
 
 ## 🏛️ Contexto e Arquitetura
 
-O Morante Hub implementa a emissao de NF-e (Modelo 55 - Entrega) e NFC-e (Modelo 65 - Retirada) **diretamente com o SEFAZ-PR** (sem API intermediaria como Bling, Focus NFe ou Nuvem Fiscal).
+O Morante Hub implementa a emissão de NF-e (Modelo 55 - Entrega) e NFC-e (Modelo 65 - Retirada) **diretamente com o SEFAZ-PR** (sem API intermediária como Bling, Focus NFe ou Nuvem Fiscal).
 
 ---
 
-## ⚖️ SEPARAÇÃO ESTRITA ENTRE PEDIDO/VENDA E DOCUMENTO FISCAL
+## ⚖️ MATRIZ OFICIAL DE OPERAÇÕES E SEPARAÇÃO DE TELAS
 
-### 1. Fronteira de Responsabilidades
-- **O Módulo Fiscal NUNCA altera estoque diretamente:** O estoque responde ao domínio comercial/operacional (`orders`, `inventory_moves`), e o módulo fiscal reflete ou documenta a operação.
-- **Uma NF-e / NFC-e Autorizada NUNCA é editada ou apagada:** O que muda é o seu estado fiscal ou a emissão de outro documento fiscal complementar/reverso (ex: NF-e de Devolução/Entrada referenciando a chave original).
-
-### 2. Onde Cada Ação Acontece no Sistema
-
-#### 🏢 A. Tela Fiscal (`/fiscal-documents` — Vendas > Notas Fiscais)
-Dedicada **estritamente à administração fiscal e eventos da SEFAZ**:
-- **Consultar Situação na SEFAZ:** Verificar protocolo, status e autorização em tempo real.
-- **Cancelar Documento Fiscal:** Transmissão de evento de cancelamento oficial com justificativa (mínimo de 15 caracteres) dentro do prazo regulamentar.
-- **Emitir Carta de Correção Eletrônica (CC-e):** Vinculada à NF-e para correções permitidas pela legislação.
-- **Reenviar / Consultar Transmissão:** Tratar erros de comunicação ou contingência.
-- **Visualizar / Imprimir DANFE Oficial:** Conforme modelo A4 Retrato MOC 7.0 com logotipo da Móveis Morante.
-- **Baixar XML Assinado:** Para envio ao cliente, contador ou armazenamento legal.
-- **Inutilizar Numeração:** Para faixas ou números que foram pulados.
-
-#### 🛒 B. Tela de Pedidos (`/sales-order` — Pedidos de Venda / Pós-Venda)
-Dedicada às **operações comerciais e de cliente** (que geram movimentação de estoque e disparam os processos fiscais correspondentes):
-- **Cancelar Venda:** Desfaz a operação comercial, estorna saídas de estoque e solicita o cancelamento da NF-e vinculada se já houver sido autorizada.
-- **Registrar Devolução Total:** Entrada das mercadorias de volta ao estoque via `inventory_moves` e geração de **NF-e de Devolução / Entrada** referenciando a NF original.
-- **Devolução Parcial:** Entrada exclusiva dos itens devolvidos no estoque e emissão de NF-e de Devolução apenas com os itens e quantidades retornados.
-- **Troca de Mercadoria:** Tratada operacionalmente como Devolução do item antigo (entrada de estoque + NF de devolução) + Novo Pedido de Venda do novo item (saída de estoque + nova NF-e).
+| Ação | NF-e (Mod. 55) | NFC-e (Mod. 65) | Tela de Pedidos (`/sales-order`) | Tela Fiscal (`/fiscal-documents`) |
+|---|:---:|:---:|:---:|:---:|
+| **Consultar Situação SEFAZ** | ✅ | ✅ | — | ✅ Ação direta SEFAZ |
+| **Cancelar Documento Fiscal** | ✅ | ✅ | Indireto *(se cancelável)* | ✅ Ação direta SEFAZ |
+| **Carta de Correção (CC-e)** | ✅ | ❌ *(Rejeição MOC)* | — | ✅ Exclusivo Mod. 55 |
+| **Baixar XML Assinado** | ✅ | ✅ | Link no pedido | ✅ Download centralizado |
+| **Visualizar / Imprimir DANFE** | ✅ *(A4 MOC 7.0)* | ✅ *(DANFE NFC-e)* | Link no pedido | ✅ Impressão centralizada |
+| **Inutilizar Numeração** | ✅ | ✅ *(conforme SEFAZ)* | — | ✅ Administração de numeração |
+| **Cancelar Venda (Não Atendido)** | — | — | ✅ Desfaz venda + estorno | — |
+| **Registrar Devolução Total** | — | — | ✅ Devolução Comercial + Entrada Estoque | — *(Fiscal resolve doc)* |
+| **Registrar Devolução Parcial** | — | — | ✅ Devolução Comercial + Entrada Estoque | — *(Fiscal resolve doc)* |
+| **Troca de Mercadoria** | — | — | ✅ Devolução Comercial + Nova Venda | — *(Fiscal resolve doc)* |
 
 ---
 
-## 📋 STATUS DAS IMPLEMENTAÇÕES
+## 🔒 REGRAS CRÍTICAS DE ARQUITETURA E ISOLAMENTO DE DOMÍNIOS
 
-### 1. Dados e Configurações da Empresa Emitente
+### 1. Desacoplamento Estrito entre Domínio Comercial e Domínio Fiscal
+- **REGRA DE OURO:** Nenhum fluxo comercial/pedidos deve montar diretamente XML, CFOP, finalidade, referências (NT 2026.002) ou eventos SEFAZ. Essas decisões pertencem **exclusivamente ao módulo fiscal**.
+- O fluxo comercial executa:
+  1. Criação da devolução comercial / pós-venda.
+  2. Lançamento da movimentação de entrada no estoque (`inventory_moves`).
+  3. Tratamento financeiro (estorno, crédito ou reembolso).
+  4. Chamada de alto nível para o módulo fiscal (ex: `fiscalService.createReturnDocument({ returnId, originalFiscalDocumentId })`).
+- O **Módulo Fiscal** é a autoridade exclusiva que determina o documento fiscal de devolução adequado (sempre emitindo documento fiscal de entrada válido conforme a UF, tipo de documento original NF-e 55 ou NFC-e 65, e normas tributárias vigentes).
+
+### 2. Carta de Correção (CC-e) vs NFC-e (Modelo 65)
+- O Manual de Orientação do Contribuinte (MOC) proíbe expressamente Carta de Correção para NFC-e (Modelo 65), gerando rejeição na SEFAZ.
+- Na tela `/fiscal-documents`, o botão e o modal de **Carta de Correção Eletrônica (CC-e)** aparecem **EXCLUSIVAMENTE para NF-e (Modelo 55)**.
+
+### 3. Cancelamento de Venda vs Mercadoria Entregue vs Devolução
+- **Cancelamento de Venda antes da entrega / saída da mercadoria:**
+  - Desfaz o pedido operacionalmente (`status = 'cancelled'`).
+  - Estorna as saídas de estoque vinculadas via `inventory_moves`.
+  - Se houver NF-e/NFC-e autorizada e elegível para cancelamento fiscal (`canCancelFiscalDocument`), dispara o evento de cancelamento para a SEFAZ.
+- **Mercadoria já entregue (Pedido com status `fulfilled` / Atendido):**
+  - **PROIBIDO CANCELAR A VENDA DIRETO:** A mercadoria já circulou e foi entregue ao cliente.
+  - A operação deve obrigatoriamente seguir o fluxo de **Registrar Devolução** (Total ou Parcial), mantendo o histórico da venda original e solicitando ao módulo fiscal a emissão do documento fiscal de entrada apropriado.
+
+### 4. Validação Resiliente de Cancelamento Fiscal (`canCancelFiscalDocument`)
+- A elegibilidade de cancelamento é avaliada pela camada fiscal (`canCancelFiscalDocument(document)`), considerando se a mercadoria já circulou e os parâmetros por UF/modelo/ambiente, evitando regras fixas espalhadas no frontend.
+
+---
+
+## 📋 CONFIGURAÇÕES DA EMPRESA EMITENTE
+
 - **Razão Social / Fantasia:** Móveis Morante
 - **CNPJ:** `44.512.248/0001-07`
 - **Inscrição Estadual (IE):** `9091234567` | **CRT:** `1 - Simples Nacional`
 - **Endereço Completo:** R. Cascavel, 306, Guaraituba, Colombo - PR, CEP: 83410-270 (Código IBGE Município: `4105805`)
 - **CSC NFC-e Homologação SEFAZ-PR:** `cscId: "000001"`, `cscToken: "XBMSLQTB4VWHAPSUJLG14Q4YDYZRQLSUQRMF"`
-- **Numeração Sequencial Inicial:** Configurada a partir de `700` (`nfeNextNumber: 700`, `nfceNextNumber: 700`) para evitar conflito com sistemas legados.
-
-### 2. Certificado Digital A1 (.pfx) & Backend de Assinatura
-- **Armazenamento:** Upload direto no ERP em formato Base64 persistido em `settings.certificateBase64` com proteção estrita por perfil de Administrador (`isAdmin`).
-- **Motor Criptográfico (`api/nfe/nfeSigner.ts`):** Leitura PKCS#12 via `node-forge`, extração de chave privada e certificado PEM, assinatura digital padrão **XMLDSig RSA-SHA1** com canonização **C14N**.
-- **Cliente SOAP mTLS (`api/nfe/sefazClient.ts`):** Socket HTTPS com chave privada do cliente e certificado para comunicação mútua com os WebServices da SEFAZ-PR.
-- **Serverless Function Vercel (`api/nfe/emit.ts`):** Endpoint atômico que orquestra a assinatura, montagem do lote `<enviNFe>`, transmissão à SEFAZ-PR e gravação em `nfe_documents`.
-
-### 3. DANFE A4 Retrato Oficial (MOC 7.0 — Anexo II)
-- **100% Conforme o Manual Nacional:**
-  - Canhoto de recebimento no topo com data e assinatura do recebedor.
-  - Cabeçalho de 3 blocos com Logo da Móveis Morante em alta resolução e slogan *"QUALIDADE QUE CABE NO SEU BOLSO"*.
-  - Código de barras CODE-128C e chave de acesso de 44 dígitos formatada em 11 blocos de 4.
-  - Natureza da Operação e Protocolo de Autorização de Uso.
-  - Inscrição Estadual, IE Subst. Trib. e CNPJ do Emitente.
-  - Destinatário completo com data/hora de saída.
-  - Fatura / Duplicatas.
-  - Cálculo do Imposto Completo (Base ICMS, Valor ICMS, ST, Frete, Seguro, Desconto, Outras Despesas, IPI e Total).
-  - Transportador / Volumes (Modalidade do Frete 0 a 9, Placa, UF, Qtd, Espécie, Pesos).
-  - Tabela de Produtos com 14 colunas fiscais.
-  - Informações Complementares do Simples Nacional e Reservado ao Fisco.
-
----
-
-## 🗂️ TABELA CENTRAL: `nfe_documents` (Supabase)
-
-```sql
-CREATE TABLE IF NOT EXISTS nfe_documents (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  order_id UUID REFERENCES orders(id),
-  numero_nfe INTEGER NOT NULL,
-  serie VARCHAR(3) NOT NULL DEFAULT '1',
-  chave_acesso VARCHAR(44) UNIQUE,
-  modelo VARCHAR(2) NOT NULL, -- '55'=NF-e, '65'=NFC-e
-  ambiente INTEGER DEFAULT 2,  -- 2=homologacao, 1=producao
-  status VARCHAR(30) DEFAULT 'pendente', -- autorizada | cancelada | rejeitada | pendente | erro
-  motivo_status TEXT,
-  xml_nfe TEXT,               -- XML assinado enviado
-  xml_protocolo TEXT,         -- Retorno oficial SEFAZ (nProt, dhRecbto)
-  numero_protocolo VARCHAR(20),
-  valor_total NUMERIC(12,2),
-  destinatario_nome TEXT,
-  destinatario_documento TEXT,
-  created_at TIMESTAMPTZ DEFAULT now(),
-  updated_at TIMESTAMPTZ DEFAULT now()
-);
-```
-
----
-
-## 🚨 REGRAS CRÍTICAS (NUNCA VIOLAR)
-
-1. **Separação Rígida:** Nunca faça o módulo fiscal manipular estoque diretamente; as baixas e entradas de estoque pertencem às regras de negócio de `orders` e `inventory_moves`.
-2. **Imutabilidade Fiscal:** Nunca exclua nem sobrescreva uma NF autorizada no banco de dados. Cancelamentos e devoluções são registrados como novos estados ou novos documentos fiscais vinculados.
-3. **Ambiente Padrão:** O ambiente de desenvolvimento usa `tpAmb=2` (Homologação). Apenas mude para Produção (`tpAmb=1`) sob solicitação explícita do usuário.
-4. **Segurança do Certificado:** A leitura e manipulação de certificados e credenciais fiscais é restrita a usuários Administradores (`isAdmin`).
+- **Numeração Sequencial Inicial:** Padrão configurado a partir de `#000700` (`nfeNextNumber: 700`, `nfceNextNumber: 700`).

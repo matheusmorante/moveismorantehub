@@ -42,7 +42,7 @@ export function buildNfeXml(params: NfeXmlBuilderParams): string {
     const emitXml = buildEmitXml(settings);
 
     // 3. Bloco do Destinatário (<dest>)
-    const destXml = buildDestXml(order, isHomologacao);
+    const destXml = buildDestXml(order, isHomologacao, model);
 
     // 4. Bloco de Produtos e Impostos (<det>)
     const { itemsXml, vProdTotal, vDescTotal } = buildItemsXml(order, settings, isHomologacao);

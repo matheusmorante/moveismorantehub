@@ -61,7 +61,12 @@ function DrawerFooter() {
 
 export function MobileMenu() {
   const [open, setOpen] = useState(false)
-  const { environments } = useSubHeaderData()
+  const { environments, getCategoriesForEnv } = useSubHeaderData()
+  const [expandedEnvs, setExpandedEnvs] = useState<Record<string, boolean>>({})
+
+  const toggleExpand = (envId: string) => {
+    setExpandedEnvs(prev => ({ ...prev, [envId]: !prev[envId] }))
+  }
 
   return (
     <Sheet open={open} onOpenChange={setOpen}>
@@ -72,10 +77,10 @@ export function MobileMenu() {
         </Button>
       </SheetTrigger>
 
-      <SheetContent side="left" className="w-[300px] border-r-0 shadow-2xl p-0">
+      <SheetContent side="left" className="w-[310px] border-r-0 shadow-2xl p-0 h-full max-h-[100dvh] flex flex-col">
         <div className="flex flex-col h-full bg-white">
           <DrawerHeader />
-          <div className="flex-1 overflow-y-auto p-6 space-y-6">
+          <div className="flex-1 overflow-y-auto p-6 space-y-6 overscroll-contain">
             {/* Links Institucionais */}
             <nav className="space-y-2">
               {NAV_LINKS.map((link) => (
@@ -89,32 +94,79 @@ export function MobileMenu() {
                 <p className="px-3 text-xs font-black text-muted-foreground uppercase tracking-widest mb-3">
                   Navegar por Ambientes
                 </p>
-                <div className="space-y-1.5">
+                <div className="space-y-2">
                   {/* Atalho especial de Salvados */}
                   <Link
                     href="/?type=salvados#produtos"
                     onClick={() => setOpen(false)}
-                    className="flex items-center justify-between p-2 px-3 rounded-xl bg-orange-50 hover:bg-orange-100 text-orange-600 transition-all text-sm font-black group"
+                    className="flex items-center justify-between p-3 rounded-2xl bg-orange-50 hover:bg-orange-100 text-orange-600 transition-all text-sm font-black group shadow-2xs"
                   >
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2.5">
                       <Flame className="h-4 w-4 fill-current text-orange-500 animate-pulse" />
                       <span>QUEIMA DOS SALVADOS</span>
                     </div>
                     <ChevronRight className="h-4 w-4 text-orange-400 group-hover:translate-x-0.5 transition-transform" />
                   </Link>
 
-                  {/* Ambientes Dinâmicos */}
-                  {environments.map((env) => (
-                    <Link
-                      key={env.id}
-                      href={`/?envs=${env.id}#produtos`}
-                      onClick={() => setOpen(false)}
-                      className="flex items-center justify-between p-2 px-3 rounded-xl hover:bg-primary/5 text-gray-700 hover:text-primary transition-all text-sm font-bold group"
-                    >
-                      <span>{env.name}</span>
-                      <ChevronRight className="h-4 w-4 text-gray-300 group-hover:translate-x-0.5 transition-transform" />
-                    </Link>
-                  ))}
+                  {/* Ambientes Dinâmicos com Expansão de Dropdown */}
+                  {environments.map((env) => {
+                    const envCats = getCategoriesForEnv(env.id)
+                    const envSlug = env.slug || env.id
+                    const isExpanded = !!expandedEnvs[env.id]
+
+                    return (
+                      <div key={env.id} className="rounded-2xl border border-gray-100 bg-gray-50/40 overflow-hidden transition-all">
+                        <div className="flex items-center justify-between p-1">
+                          <Link
+                            href={`/?envs=${envSlug}#produtos`}
+                            onClick={() => setOpen(false)}
+                            className="flex-1 p-2.5 text-sm font-black text-gray-800 hover:text-primary transition-colors capitalize"
+                          >
+                            {env.name}
+                          </Link>
+
+                          {envCats.length > 0 && (
+                            <button
+                              type="button"
+                              onClick={() => toggleExpand(env.id)}
+                              className="p-2.5 text-gray-400 hover:text-primary hover:bg-white rounded-xl transition-all cursor-pointer"
+                              title={isExpanded ? "Recolher categorias" : "Ver categorias"}
+                            >
+                              <ChevronRight className={`h-4 w-4 transition-transform duration-200 ${isExpanded ? 'rotate-90 text-primary' : ''}`} />
+                            </button>
+                          )}
+                        </div>
+                        
+                        {envCats.length > 0 && isExpanded && (
+                          <div className="p-2 pt-0 space-y-1 bg-white border-t border-gray-100/80 animate-in fade-in-0 duration-150">
+                            {/* Opção Todos do Ambiente */}
+                            <Link
+                              href={`/?envs=${envSlug}#produtos`}
+                              onClick={() => setOpen(false)}
+                              className="block p-2 px-3 rounded-xl text-xs font-black text-primary bg-primary/5 hover:bg-primary/10 transition-colors capitalize"
+                            >
+                              Todos os móveis de {env.name.toLowerCase()}
+                            </Link>
+                            
+                            {/* Categorias específicas */}
+                            {envCats.map((cat) => {
+                              const catSlug = cat.slug || cat.id
+                              return (
+                                <Link
+                                  key={cat.id}
+                                  href={`/?cats=${catSlug}#produtos`}
+                                  onClick={() => setOpen(false)}
+                                  className="block p-2 px-3 rounded-xl text-xs font-semibold text-gray-600 hover:text-primary hover:bg-gray-50 transition-colors capitalize"
+                                >
+                                  {cat.name}
+                                </Link>
+                              )
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    )
+                  })}
                 </div>
               </div>
             )}

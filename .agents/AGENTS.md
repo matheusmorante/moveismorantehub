@@ -318,12 +318,15 @@ Ao incrementar versao em `mobile/app.json`, sincronizar:
 
 ### Separação entre Domínio Comercial e Documento Fiscal
 - **Fronteira Comercial vs Fiscal**:
-  - A NF-e/NFC-e autorizada **NUNCA** é editada ou excluída. Cancelamentos e devoluções são registrados via novos estados fiscais ou emissão de documentos reversos vinculados (NF-e de entrada/devolução referenciando a chave original).
-  - O módulo fiscal **NUNCA altera estoque diretamente**. O estoque é governado exclusivamente pelas operações de pedidos (`orders` / `inventory_moves`), e o módulo fiscal apenas reflete/documenta a operação.
+  - **Regra de Ouro:** Nenhum fluxo comercial deve montar diretamente XML, CFOP, finalidade, referências (NT 2026.002) ou eventos SEFAZ. Essas decisões pertencem exclusivamente ao módulo fiscal.
+  - A NF-e/NFC-e autorizada **NUNCA** é editada ou excluída. Cancelamentos e devoluções são registrados via novos estados fiscais ou emissão de documentos reversos vinculados.
+  - O módulo fiscal **NUNCA altera estoque diretamente**. O estoque é governado exclusivamente pelas operações comerciais/pedidos (`orders` / `inventory_moves`), e o módulo fiscal apenas reflete/documenta a operação.
 - **Ações na Tela Fiscal (`/fiscal-documents` — Vendas > Notas Fiscais)**:
-  - Exclusivamente voltada para administração de eventos SEFAZ: **Consultar Situação SEFAZ**, **Cancelar NF**, **Carta de Correção (CC-e)**, **Reenviar/Consultar Transmissão**, **Baixar XML**, **Visualizar/Imprimir DANFE** e **Inutilizar Numeração**.
+  - Exclusivamente voltada para administração de eventos SEFAZ: **Consultar Situação SEFAZ**, **Cancelar NF (se cancelável/não entregue)**, **Carta de Correção (CC-e - EXCLUSIVA PARA NF-e 55, proibida para NFC-e 65)**, **Reenviar/Consultar Transmissão**, **Baixar XML**, **Visualizar/Imprimir DANFE** e **Inutilizar Numeração**.
 - **Ações na Tela de Pedidos (`/sales-order` — Pedidos de Venda / Pós-Venda)**:
-  - Operações comerciais de cliente: **Cancelar Venda** (estorna estoque e solicita cancelamento de NF autorizada), **Registrar Devolução Total/Parcial** (lança entrada de estoque e emite NF-e de Devolução referenciada) e **Troca** (devolução do item antigo + venda do novo).
+  - **Cancelar Venda (Apenas pedidos NÃO ATENDIDOS / antes da entrega)**: Desfaz a operação comercial, estorna saídas de estoque e, se houver NF-e/NFC-e autorizada e cancelável (`canCancelFiscalDocument`), solicita o cancelamento SEFAZ. Pedidos com status **Atendido (`fulfilled`) NÃO podem ser cancelados**; devem seguir obrigatoriamente para Devolução.
+  - **Registrar Devolução Total / Parcial (Para mercadorias já entregues)**: Cria a devolução comercial, lança a entrada dos itens no estoque, calcula o financeiro e solicita ao módulo fiscal a determinação e emissão do documento fiscal de entrada apropriado (considerando UF, documento original e NT 2026.002).
+  - **Troca de Mercadoria**: Devolução do item antigo (entrada de estoque + solicitação fiscal de devolução) + Novo Pedido de Venda do novo produto (saída de estoque + solicitação de nova NF-e).
 
 ### Regras de Emissão e Homologação (`tpAmb = 2`)
 - **Regra de Modelo do Documento (`fiscalDocumentRule.ts`)**:
