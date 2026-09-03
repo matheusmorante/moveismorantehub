@@ -2,7 +2,7 @@ import React from "react";
 import { createPortal } from "react-dom";
 import Order, { VisibilitySettings } from "../../../types/order.type";
 import { getSettings } from '@/pages/utils/settingsService';
-import { formatCurrency, formatToBRDate } from "../../../utils/formatters";
+import { formatCurrency, formatToBRDate, toTitleCase } from "../../../utils/formatters";
 import { formatOrderCode } from "../../../utils/orderCode";
 import { buttons } from "../OrderActions/orderActionsConfig";
 import { isOrderIncomplete } from "../../../utils/validations";
