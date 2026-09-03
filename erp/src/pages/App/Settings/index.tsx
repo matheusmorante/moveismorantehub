@@ -2,6 +2,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { getSettings, saveSettings, AppSettings, subscribeToSettings } from '@/pages/utils/settingsService';
 import { useTheme } from '../../../context/ThemeContext';
+import { useAuth } from '../../../context/AuthContext';
 
 import SettingsSidebar from './components/SettingsSidebar';
 import SettingsSection from './components/SettingsSection';
@@ -22,6 +23,7 @@ import { settingsCategories } from './components/settingsCategories';
 
 export default function Settings(): any {
     const { theme, setTheme } = useTheme();
+    const { isAdmin } = useAuth();
     const [settings, setSettings] = useState<AppSettings>(getSettings());
     const [search, setSearch] = useState("");
     const [isSaving, setIsSaving] = useState(false);
@@ -77,9 +79,15 @@ export default function Settings(): any {
     }, [setTheme]);
 
     const isVisible = (id: string) => {
-        if (!search.trim()) return true;
         const category = settingsCategories.find(c => c.id === id);
         if (!category) return false;
+        
+        // Se a categoria for exclusiva do sistema/admin e o usuário não for admin, oculta
+        if (category.group === 'system' && !isAdmin) {
+            return false;
+        }
+
+        if (!search.trim()) return true;
         const term = search.toLowerCase();
         return category.label.toLowerCase().includes(term) ||
             category.keywords.some((k: string) => k.toLowerCase().includes(term));
@@ -92,7 +100,7 @@ export default function Settings(): any {
 
     return (
         <div className="flex gap-8 relative min-h-screen">
-            <SettingsSidebar categories={settingsCategories} />
+            <SettingsSidebar categories={settingsCategories} isAdmin={isAdmin} />
 
             <div className="flex-1 min-w-0 max-w-4xl mx-auto">
                 <header className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8">

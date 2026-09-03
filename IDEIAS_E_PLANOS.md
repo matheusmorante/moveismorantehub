@@ -46,6 +46,14 @@ Este documento unifica todo o planejamento estratégico, ideias futuras, tarefas
 - [ ] **Validação de Estoque**: Implementar lógica que impede venda de itens sem estoque (atualmente scripts de importação permitem stock 0).
 - [ ] **Sincronização ERP-Automation**: Garantir que as baixas no Showroom reflitam instantaneamente na API de estoque.
 
+### 📱 Mobile Offline-First Baseado em Eventos & Risco Operacional
+- [x] **Criação da Skill `mobile-offline-first` (Completa & Fechada)**: Diretrizes baseadas em risco operacional de campo/depósito (entregas, montagens, inventário, conferência), ciclo de 4 estados (`PENDING` → `SYNCING` → `CONFIRMED` / `REJECTED`), idempotência via UUID e backend como autoridade estrita de estoque.
+- [ ] **Fila de Eventos de Campo & Depósito (`event_queue`)**: Gravar eventos atômicos (baixas de entrega, inventário físico, conferência de recebimento, checklists) com `event_id` UUID, timestamp `occurred_at` e máquina de estados (`PENDING` / `SYNCING` / `CONFIRMED` / `REJECTED`).
+- [ ] **Fila Separada de Mídia (`media_upload_queue`)**: Upload resiliente de fotos de avarias, comprovantes e assinaturas sem poluir o payload JSON dos eventos.
+- [ ] **Processador de Eventos no Backend / Supabase RPC**: Endpoint atômico que valida idempotência, processa eventos na ordem de dependência, resolve estoque em `inventory_moves` e retorna confirmação ou rejeição fundamentada.
+- [ ] **Working-Set Cache (Read-Only)**: Cache local apenas dos roteiros, pedidos, NFs/recebimentos e clientes atribuídos ao operador do dia.
+- [ ] **Status Visual na UI**: Badges dos 4 estados com tratamento visual destacado para `REJECTED` (alerta e motivo claro ao operador).
+
 ### 📦 Logística e Estoque
 - [ ] **Status de Pedido**: Sincronizar status 'Atendido' com o fluxo de estoque (baixa automática).
 - [ ] **Sincronização de Endereço**: Avaliar se mudanças de endereço no pedido também devem atualizar o cadastro principal do cliente (atualmente é manual via botão "Editar").

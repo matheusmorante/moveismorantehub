@@ -84,6 +84,8 @@ export interface AppSettings {
     companyUF?: string;
     nfeEnvironment?: 1 | 2;
     nfeSerie?: string;
+    cscId?: string;
+    cscToken?: string;
     fiscalDefaults?: {
         ncm?: string;
         cest?: string;
@@ -369,6 +371,8 @@ export const getDefaultSettings = (): AppSettings => ({
     companyUF: 'PR',
     nfeEnvironment: 2, // 2 = Homologação / Testes
     nfeSerie: '1',
+    cscId: '000001',
+    cscToken: 'XBMSLQTB4VWHAPSUJLG14Q4YDYZRQLSUQRMF',
     fiscalDefaults: {
         ncm: '94036000',
         cest: '',

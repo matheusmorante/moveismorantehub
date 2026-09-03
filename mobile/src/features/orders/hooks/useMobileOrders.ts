@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { supabase } from '../../../services/supabaseClient';
+import { offlineStorageService } from '../../../services/offline/offlineStorageService';
 
 const ITEMS_PER_PAGE = 30;
 
@@ -15,15 +16,25 @@ export function useMobileOrders() {
   const refresh = async (pull = false) => {
     pull ? setRefreshing(true) : setLoading(true);
     try {
+      // 1. Tenta carregar dados do cache de trabalho local primeiro
+      const cached = await offlineStorageService.getWorkingSet<any[]>('mobile_orders_list');
+      if (cached?.data && orders.length === 0) {
+        setOrders(cached.data);
+        setLoading(false);
+      }
+
       const [ordersResult, settingsResult] = await Promise.all([
         supabase.from('orders').select('*').order('created_at', { ascending: false }).limit(2000),
         supabase.from('settings').select('*').limit(1),
       ]);
-      if (ordersResult.data) setOrders(ordersResult.data);
+      if (ordersResult.data) {
+        setOrders(ordersResult.data);
+        await offlineStorageService.cacheWorkingSet('mobile_orders_list', ordersResult.data);
+      }
       const settings = settingsResult.data?.[0]?.data || settingsResult.data?.[0] || {};
       setHandlingOptions([...(settings.deliveryHandlingOptions || []), ...(settings.pickupHandlingOptions || [])]);
     } catch (error) {
-      console.warn('[NativeOrders] Erro ao buscar pedidos:', error);
+      console.warn('[NativeOrders] Erro ao buscar pedidos (usando cache local se disponível):', error);
     } finally {
       setLoading(false);
       setRefreshing(false);

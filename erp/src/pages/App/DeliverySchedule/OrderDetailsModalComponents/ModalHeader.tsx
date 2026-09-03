@@ -32,10 +32,10 @@ const ModalHeader = ({ reference, orderDate, seller, onClose, onEdit }: Props) =
         </div>
         <div className="flex items-center gap-2.5 sm:gap-3 shrink-0">
             {seller && (
-                <div className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 dark:bg-slate-800/80 border border-slate-200/80 dark:border-slate-700/80 rounded-xl text-slate-600 dark:text-slate-300 text-xs font-bold">
-                    <i className="bi bi-person-badge text-blue-500 text-sm" />
+                <div className="flex items-center gap-1.5 text-slate-500 dark:text-slate-400">
+                    <i className="bi bi-person-badge text-blue-400 text-sm" />
                     <span className="hidden sm:inline text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500">Vendedor:</span>
-                    <span className="font-extrabold text-slate-700 dark:text-slate-200">{seller}</span>
+                    <span className="font-extrabold text-xs text-slate-600 dark:text-slate-300">{seller}</span>
                 </div>
             )}
             {onEdit && (

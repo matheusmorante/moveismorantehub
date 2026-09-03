@@ -34,6 +34,7 @@ import { OrderDetailsModal } from './src/components/modals/OrderDetailsModal';
 import { LoginScreen } from './src/components/LoginScreen';
 import { PendingApprovalScreen } from './src/components/PendingApprovalScreen';
 import { MandatoryUpdateModal } from './src/components/modals/MandatoryUpdateModal';
+import { OfflineSyncBar } from './src/components/shared/OfflineSyncBar';
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -610,6 +611,7 @@ export default function App() {
               handleOpenNotificationsModal={handleOpenNotificationsModal}
               unreadCount={unreadCount}
             />
+            <OfflineSyncBar isDarkMode={isDarkMode} />
             {currentTab === 'home' ? (
               <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: 128 }}>
 

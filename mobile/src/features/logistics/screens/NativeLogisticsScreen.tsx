@@ -8,6 +8,7 @@ import { isAssemblyOutsideType, isAssemblyInternalType } from '../../../utils/ai
 import { formatFullAddress, groupOrdersByDate, formatItemNameExact, isCancelledOrder, isDateInPeriod, formatGroupDateLabel } from '../../../utils/orderUtils';
 import { OrderCardDeliveryFooter } from '../../../components/cards/OrderCardDeliveryFooter';
 import { getOperationalScheduleDate } from '../../../utils/operationalSchedule';
+import { offlineStorageService } from '../../../services/offline/offlineStorageService';
 
 interface Props {
   isDarkMode: boolean;
@@ -55,7 +56,13 @@ export const NativeLogisticsScreen: React.FC<Props> = ({ isDarkMode, isAdmin, on
 
   const fetchSchedule = async () => {
     try {
-      setLoading(true);
+      // 1. Tenta carregar dados do cache de trabalho local primeiro (resposta instantânea)
+      const cached = await offlineStorageService.getWorkingSet<any[]>('logistics_orders');
+      if (cached?.data && orders.length === 0) {
+        setOrders(cached.data);
+        setLoading(false);
+      }
+
       const { data, error } = await supabase
         .from('orders')
         .select('*')
@@ -63,9 +70,11 @@ export const NativeLogisticsScreen: React.FC<Props> = ({ isDarkMode, isAdmin, on
 
       if (!error && data) {
         setOrders(data);
+        // Atualiza o cache local para a próxima consulta offline
+        await offlineStorageService.cacheWorkingSet('logistics_orders', data);
       }
     } catch (err) {
-      console.warn('[NativeLogistics] Erro ao buscar cronograma logístico:', err);
+      console.warn('[NativeLogistics] Erro ao buscar cronograma logístico (usando cache local se disponível):', err);
     } finally {
       setLoading(false);
       setRefreshing(false);

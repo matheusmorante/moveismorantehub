@@ -12,6 +12,7 @@ import { DeliveryQuickContactBar } from '../components/delivery/DeliveryQuickCon
 import { CancelDeliveryConfirmModal } from '../components/delivery/CancelDeliveryConfirmModal';
 import { DeliveryStepProgressIndicator } from '../components/delivery/DeliveryStepProgressIndicator';
 import { areDeliveryPaymentsPaid } from '../components/delivery/DeliveryPaymentSection';
+import { offlineSyncManager } from '../../../services/offline/offlineSyncManager';
 
 type Props = { order: any; isDarkMode: boolean; onBack: (started?: boolean) => void };
 
@@ -53,21 +54,30 @@ export function DeliveryPreparationScreen({ order, isDarkMode, onBack }: Props) 
     if (saving) return;
     setSaving(true);
     const now = new Date().toISOString();
-    const updatedData = {
-      ...data,
+    const payload = {
       deliveryStatus: 'in_progress',
       deliveryStartedAt: now,
       deliveryChecklist: checklist.map(item => ({ ...item, checked: Boolean(checked[item.id]) })),
     };
-    const { error } = await supabase.from('orders').update({
-      order_data: updatedData,
-      updated_at: now,
-    }).eq('id', order.id);
-    setSaving(false);
-    if (error) return Alert.alert('Erro', error.message);
-    Alert.alert('Em Rota', 'A saída para entrega foi registrada.');
+    const updatedData = {
+      ...data,
+      ...payload,
+    };
+
+    // Atualiza estado local imediatamente (Zero latência para o operador)
     order.order_data = updatedData;
     setDeliveryData(updatedData);
+
+    // Registra evento atômico na fila offline (tenta enviar em background)
+    await offlineSyncManager.recordEvent(
+      'DELIVERY_START_ROUTE',
+      'order',
+      order.id,
+      payload
+    );
+
+    setSaving(false);
+    Alert.alert('Em Rota', 'A saída para entrega foi registrada.');
   };
 
   // 2. Cheguei no Destino
@@ -75,19 +85,28 @@ export function DeliveryPreparationScreen({ order, isDarkMode, onBack }: Props) 
     if (saving) return;
     setSaving(true);
     const now = new Date().toISOString();
-    const updatedData = {
-      ...data,
+    const payload = {
       deliveryStatus: 'in_service',
       deliveryArrivedAt: now,
     };
-    const { error } = await supabase.from('orders').update({
-      order_data: updatedData,
-      updated_at: now,
-    }).eq('id', order.id);
-    setSaving(false);
-    if (error) return Alert.alert('Erro', error.message);
+    const updatedData = {
+      ...data,
+      ...payload,
+    };
+
+    // Atualiza estado local imediatamente
     order.order_data = updatedData;
     setDeliveryData(updatedData);
+
+    // Registra evento atômico na fila offline
+    await offlineSyncManager.recordEvent(
+      'DELIVERY_ARRIVE_DESTINATION',
+      'order',
+      order.id,
+      payload
+    );
+
+    setSaving(false);
     Alert.alert('Chegada Confirmada', 'Você está no local do cliente.');
   };
 
@@ -102,23 +121,32 @@ export function DeliveryPreparationScreen({ order, isDarkMode, onBack }: Props) 
     const now = new Date().toISOString();
     const paidAmount = payments.reduce((total, payment) => total + Number(payment.amount || 0), 0);
     const totalValue = Number(data.paymentsSummary?.totalOrderValue || paidAmount);
-    const updatedData = {
-      ...data,
+    const payload = {
       payments,
       paymentsSummary: { ...data.paymentsSummary, totalOrderValue: totalValue, totalPaid: paidAmount, totalAmountPaid: paidAmount, amountRemaining: Math.max(0, totalValue - paidAmount) },
       status: 'fulfilled',
       deliveryStatus: 'completed',
       deliveryFinishedAt: now,
     };
-    const { error } = await supabase.from('orders').update({
-      status: 'fulfilled',
-      order_data: updatedData,
-      updated_at: now,
-    }).eq('id', order.id);
-    setSaving(false);
-    if (error) return Alert.alert('Erro', error.message);
+    const updatedData = {
+      ...data,
+      ...payload,
+    };
+
+    // Atualiza estado local imediatamente
     order.status = 'fulfilled';
     order.order_data = updatedData;
+    setDeliveryData(updatedData);
+
+    // Registra evento atômico de finalização na fila offline
+    await offlineSyncManager.recordEvent(
+      'DELIVERY_FINISH',
+      'order',
+      order.id,
+      payload
+    );
+
+    setSaving(false);
     Alert.alert(
       '🎉 Entrega Finalizada!',
       'O pedido foi marcado como ATENDIDO com sucesso.',
@@ -129,8 +157,7 @@ export function DeliveryPreparationScreen({ order, isDarkMode, onBack }: Props) 
   // 4. Registrar Não Atendido
   const handleConfirmUnattended = async (reason: string, notes: string, proofUrls: string[]) => {
     const now = new Date().toISOString();
-    const updatedData = {
-      ...data,
+    const payload = {
       deliveryStatus: 'unattended',
       unattendedReason: reason,
       unattendedNotes: notes,
@@ -138,12 +165,24 @@ export function DeliveryPreparationScreen({ order, isDarkMode, onBack }: Props) 
       unattendedProofUrls: proofUrls,
       unattendedAt: now,
     };
-    const { error } = await supabase.from('orders').update({
-      order_data: updatedData,
-      updated_at: now,
-    }).eq('id', order.id);
+    const updatedData = {
+      ...data,
+      ...payload,
+    };
+
+    // Atualiza estado local imediatamente
+    order.order_data = updatedData;
+    setDeliveryData(updatedData);
     setShowUnattendedModal(false);
-    if (error) return Alert.alert('Erro', error.message);
+
+    // Registra evento de insucesso na fila offline
+    await offlineSyncManager.recordEvent(
+      'DELIVERY_UNATTENDED',
+      'order',
+      order.id,
+      payload
+    );
+
     Alert.alert(
       'Insucesso Registrado',
       `O não atendimento foi registrado (${reason}).`,
@@ -155,21 +194,21 @@ export function DeliveryPreparationScreen({ order, isDarkMode, onBack }: Props) 
   const handleStepBackToPreparation = async () => {
     if (saving) return;
     setSaving(true);
-    const now = new Date().toISOString();
     const updatedData = { ...data };
     delete updatedData.deliveryStatus;
     delete updatedData.deliveryStartedAt;
 
-    const { error } = await supabase.from('orders').update({
-      order_data: updatedData,
-      updated_at: now,
-    }).eq('id', order.id);
-
-    setSaving(false);
-    if (error) return Alert.alert('Erro', error.message);
-
     order.order_data = updatedData;
     setDeliveryData(updatedData);
+
+    await offlineSyncManager.recordEvent(
+      'DELIVERY_STEP_BACK',
+      'order',
+      order.id,
+      updatedData
+    );
+
+    setSaving(false);
     Alert.alert('Etapa Retrocedida', 'O pedido voltou para a etapa de Preparação e Conferência.');
   };
 
@@ -177,23 +216,23 @@ export function DeliveryPreparationScreen({ order, isDarkMode, onBack }: Props) 
   const handleStepBackToRoute = async () => {
     if (saving) return;
     setSaving(true);
-    const now = new Date().toISOString();
     const updatedData = {
       ...data,
       deliveryStatus: 'in_progress',
     };
     delete updatedData.deliveryArrivedAt;
 
-    const { error } = await supabase.from('orders').update({
-      order_data: updatedData,
-      updated_at: now,
-    }).eq('id', order.id);
-
-    setSaving(false);
-    if (error) return Alert.alert('Erro', error.message);
-
     order.order_data = updatedData;
     setDeliveryData(updatedData);
+
+    await offlineSyncManager.recordEvent(
+      'DELIVERY_STEP_BACK',
+      'order',
+      order.id,
+      updatedData
+    );
+
+    setSaving(false);
     Alert.alert('Etapa Retrocedida', 'O status voltou para Em Rota.');
   };
 

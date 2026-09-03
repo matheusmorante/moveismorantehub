@@ -11,6 +11,7 @@ import CancelledOrderBadge from "./CancelledOrderBadge";
 import PostSaleActionMenuButton, { isPostSaleAction } from "./PostSaleActionMenuButton";
 import CancelScheduledSaleButton from "./CancelScheduledSaleButton";
 import { canGenerateReturn } from "@/pages/utils/returnPolicy";
+import { buttons } from "../OrderActions/orderActionsConfig";
 import { binaryOrderBadgeClass, warningOrderBadgeClass } from "./orderBadgeStyles";
 import { getOrderFulfillmentCountdown } from '@/pages/utils/orderFulfillmentCountdown';
 
@@ -179,24 +180,14 @@ const OrderHistoryCard = ({
         <div 
             id={id}
             onClick={isDraft ? () => onEdit(order) : (canViewDetails ? () => onViewDetails?.(order) : undefined)}
-            className={`bg-white dark:bg-slate-900 min-h-fit border ${isSelected ? 'border-blue-500 ring-1 ring-blue-500' : 'border-slate-200 dark:border-slate-800'} ${isHighlighted ? 'animate-highlight' : ''} rounded-xl shadow-none transition-all relative overflow-visible ${isDraft || canViewDetails ? 'cursor-pointer' : 'cursor-default'}`}
+            className={`bg-white dark:bg-slate-900 min-h-fit border border-slate-200 dark:border-slate-800 ${isHighlighted ? 'animate-highlight' : ''} rounded-xl shadow-none transition-all relative overflow-visible ${isDraft || canViewDetails ? 'cursor-pointer' : 'cursor-default'}`}
         >
             {order.status === 'cancelled' && <CancelledOrderBadge tilted large />}
 
             {/* Card Header com faixa colorida + todos os badges alinhados no canto superior direito */}
             <div className={`${headerAccentClass} rounded-t-xl px-3 py-2 flex items-center justify-between gap-2 flex-wrap`}>
-                {/* Lado Esquerdo: Checkbox + ID do Pedido */}
+                {/* Lado Esquerdo: ID do Pedido */}
                 <div className="flex items-center gap-2 shrink-0">
-                    <input
-                        type="checkbox"
-                        checked={isSelected}
-                        onChange={(e) => {
-                            e.stopPropagation();
-                            onToggleSelection?.();
-                        }}
-                        disabled={isCancelled}
-                        className={`w-4 h-4 text-blue-600 bg-white border-slate-300 rounded focus:ring-blue-500 ${isCancelled ? 'cursor-not-allowed opacity-40' : 'cursor-pointer'}`}
-                    />
                     <span className="font-mono text-[10px] font-bold text-slate-500 dark:text-slate-400 bg-white/70 dark:bg-slate-800/80 px-2 py-0.5 rounded-md border border-slate-200/60 dark:border-slate-700/60">
                         #{formatOrderCode(order)}
                     </span>
