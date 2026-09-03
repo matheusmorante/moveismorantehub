@@ -20,10 +20,10 @@ const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'];
 
 const PERIODS: { label: string, value: Period }[] = [
     { label: 'Este Mês', value: 'month' },
-    { label: 'Semana', value: 'week' },
+    { label: 'Mês Passado', value: 'last_month' },
+    { label: 'Esta Semana', value: 'week' },
     { label: 'Últimos 30 Dias', value: 'last_30_days' },
     { label: 'Este Ano', value: 'year' },
-    { label: 'Personalizado', value: 'custom' },
 ];
 
 export default function Dashboard() {
@@ -94,71 +94,38 @@ export default function Dashboard() {
         ticket: calculateTrend(stats.avgTicket, prevStats.avgTicket),
     };
 
-    const todayStr = new Date().toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long' });
-
     return (
-        <div className="max-w-[1700px] mx-auto space-y-10 animate-reveal px-4 lg:px-10 py-10">
-            {/* Page Header */}
-            <div className="flex flex-col xl:flex-row justify-between items-start xl:items-end gap-8 pb-4 border-b border-slate-100 dark:border-slate-800">
-                <div className="space-y-4">
-                    <div className="flex items-center gap-6">
-                        <div className="w-16 h-16 bg-blue-600 rounded-[2rem] shadow-premium-lg shadow-blue-500/20 flex items-center justify-center group-hover:rotate-12 transition-transform duration-500">
-                            <i className="bi bi-speedometer2 text-white text-3xl"></i>
-                        </div>
-                        <div>
-                            <div className="flex items-center gap-3 mb-1">
-                                <h1 className="text-4xl xl:text-5xl font-black text-slate-900 dark:text-slate-100 tracking-tighter">
-                                    Dash<span className="text-blue-600">board</span>
-                                </h1>
-                                <span className="px-3 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-full text-[10px] font-black uppercase tracking-widest animate-pulse">
-                                    Master Live
-                                </span>
-                            </div>
-                            <p className="text-sm text-slate-400 font-bold uppercase tracking-[0.2em]">Painel de Controle e Inteligência de Vendas</p>
-                        </div>
-                        <button
-                            onClick={() => setShowConfig(!showConfig)}
-                            className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 text-slate-400 hover:text-blue-600 transition-all hover:rotate-90 shadow-premium-sm"
-                        >
-                            <i className="bi bi-gear-fill text-xl"></i>
-                        </button>
+        <div className="max-w-[1700px] mx-auto space-y-6 animate-reveal px-4 lg:px-8 py-4 sm:py-6">
+            {/* Page Header Compacto */}
+            <div className="flex items-center justify-between gap-4 pb-3 border-b border-slate-100 dark:border-slate-800">
+                <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 bg-blue-600 rounded-2xl shadow-md shadow-blue-500/20 flex items-center justify-center">
+                        <i className="bi bi-speedometer2 text-white text-xl"></i>
                     </div>
+                    <h1 className="text-2xl xl:text-3xl font-black text-slate-900 dark:text-slate-100 tracking-tighter">
+                        Dash<span className="text-blue-600">board</span>
+                    </h1>
                 </div>
 
-                <div className="flex flex-wrap items-center gap-3 w-full xl:w-auto">
-                    {period === 'custom' && (
-                        <div className="flex items-center gap-2 bg-white dark:bg-slate-900 px-3 py-2 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm animate-reveal">
-                            <input type="date" value={customStartDate} onChange={(e) => setCustomStartDate(e.target.value)} className="text-[11px] font-bold text-slate-700 dark:text-slate-200 bg-transparent focus:outline-none cursor-pointer" />
-                            <span className="text-slate-300 dark:text-slate-600 font-bold">à</span>
-                            <input type="date" value={customEndDate} onChange={(e) => setCustomEndDate(e.target.value)} className="text-[11px] font-bold text-slate-700 dark:text-slate-200 bg-transparent focus:outline-none cursor-pointer" />
-                        </div>
-                    )}
-
-                    {/* Botão Seletor de Período */}
-                    <div className="relative inline-flex items-center">
-                        <div className="absolute left-3.5 pointer-events-none text-blue-600 dark:text-blue-400">
-                            <i className="bi bi-calendar2-range-fill text-xs"></i>
-                        </div>
-                        <select
-                            value={period}
-                            onChange={(e) => setPeriod(e.target.value as Period)}
-                            aria-label="Selecionar período do dashboard"
-                            className="appearance-none pl-9 pr-9 py-2.5 bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800/70 text-slate-800 dark:text-slate-100 rounded-2xl border border-slate-200/80 dark:border-slate-800 text-xs font-black uppercase tracking-wider shadow-sm hover:border-slate-300 dark:hover:border-slate-700 transition-all cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-                        >
-                            {PERIODS.map((p) => (
-                                <option key={p.value} value={p.value} className="bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 font-bold text-xs py-1.5">
-                                    {p.label}
-                                </option>
-                            ))}
-                        </select>
-                        <div className="absolute right-3.5 pointer-events-none text-slate-400 dark:text-slate-500">
-                            <i className="bi bi-chevron-down text-[10px]"></i>
-                        </div>
+                {/* Botão Seletor de Período na Mesma Linha */}
+                <div className="relative inline-flex items-center">
+                    <div className="absolute left-3 pointer-events-none text-blue-600 dark:text-blue-400">
+                        <i className="bi bi-calendar2-range-fill text-xs"></i>
                     </div>
-
-                    <div className="px-4 py-2.5 bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm flex items-center gap-2.5 text-slate-500 dark:text-slate-400 font-bold text-[11px] tracking-wide">
-                        <i className="bi bi-calendar3 text-blue-500"></i>
-                        <span className="capitalize">{todayStr}</span>
+                    <select
+                        value={period}
+                        onChange={(e) => setPeriod(e.target.value as Period)}
+                        aria-label="Selecionar período do dashboard"
+                        className="appearance-none pl-8 pr-8 py-2 bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800/70 text-slate-800 dark:text-slate-100 rounded-xl border border-slate-200/80 dark:border-slate-800 text-xs font-black uppercase tracking-wider shadow-sm hover:border-slate-300 dark:hover:border-slate-700 transition-all cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                    >
+                        {PERIODS.map((p) => (
+                            <option key={p.value} value={p.value} className="bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 font-bold text-xs py-1.5">
+                                {p.label}
+                            </option>
+                        ))}
+                    </select>
+                    <div className="absolute right-3 pointer-events-none text-slate-400 dark:text-slate-500">
+                        <i className="bi bi-chevron-down text-[10px]"></i>
                     </div>
                 </div>
             </div>
@@ -175,7 +142,6 @@ export default function Dashboard() {
                         trend={trends.count.trend} trendValue={trends.count.value} color="bg-emerald-600" 
                     />
                     <StatsCard title="Ticket Médio" value={formatCurrency(stats.avgTicket)} icon="wallet2" trend={trends.ticket.trend} trendValue={trends.ticket.value} color="bg-violet-600" />
-                    <StatsCard title="Pedidos" value={stats.totalOrdersCount} icon="bag-plus-fill" color="bg-amber-600" />
                     <StatsCard title="Tráfego Pago" value={formatCurrency(stats.paidTrafficSalesValue || 0)} icon="megaphone-fill" color="bg-orange-500" />
                     <StatsCard title="KM Rodados" value={`${(stats.totalKmDriven || 0).toFixed(1)} km`} icon="truck-front-fill" color="bg-teal-600" />
                     <StatsCard title="Pendentes" value={stats.pendingOrders} icon="clock-history" color="bg-rose-600" />
@@ -183,7 +149,7 @@ export default function Dashboard() {
             )}
 
             {/* Central Panel */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 {visibility.revenueChart && (
                     <div className="lg:col-span-2">
                         <ChartContainer title="Evolução de Faturamento" subtitle={`Desempenho no período atual (${period})`}>

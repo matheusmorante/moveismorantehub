@@ -166,7 +166,7 @@ const ProductCard = ({
                 ${hasParentVariations ? 'cursor-pointer' : ''}
                 ${isSelected ? 'border-blue-500 ring-1 ring-blue-500' : 
                   isParent ? 'border-slate-300 dark:border-slate-700 bg-slate-200/70 dark:bg-slate-800/80 shadow-xs' :
-                  isVariation ? 'border-slate-200 dark:border-slate-800 ml-2.5 sm:ml-5 bg-slate-50/60 dark:bg-slate-900/40' :
+                  isVariation ? 'border-slate-200 dark:border-slate-800 ml-2.5 sm:ml-5 bg-white dark:bg-slate-900 shadow-2xs' :
                   'border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900'}`}
         >
             <div className="flex justify-between items-center mb-2 gap-2 flex-wrap">
@@ -243,7 +243,7 @@ const ProductCard = ({
                     )}
 
                     {/* Botões de Ação */}
-                    {!showTrash && (
+                    {!showTrash && !isVariation && (
                         <div className="relative flex items-center gap-1 ml-1">
                             <button
                                 onClick={(e) => { e.stopPropagation(); onEdit(product); }}
@@ -485,7 +485,7 @@ const ProductCard = ({
 
             {/* Se for pai, renderiza a lista de filhos apenas quando o dropdown estiver expandido (padrão: recolhido) */}
             {isParent && showVariations && (product as any).allVariations && (product as any).allVariations.length > 0 && (
-                <div className="mt-3 pt-3 border-t border-slate-100 dark:border-slate-800/80 flex flex-col gap-2">
+                <div className="mt-3 -mx-2.5 -mb-2.5 sm:-mx-3.5 sm:-mb-3.5 px-3 py-2.5 bg-white dark:bg-slate-900 border-t border-slate-200/80 dark:border-slate-800 rounded-b-2xl flex flex-col gap-1">
                     {(product as any).allVariations.map((v: any, index: number) => {
                         const varName = v.attributes && Array.isArray(v.attributes)
                             ? v.attributes.map((attr: any) => attr.value).filter(Boolean).join(' ')
@@ -499,7 +499,7 @@ const ProductCard = ({
                         return (
                             <div 
                                 key={v.id || index} 
-                                className="flex items-center justify-between py-1.5 px-2 hover:bg-slate-50 dark:hover:bg-slate-800/40 rounded-xl transition-colors group/var"
+                                className="flex items-center justify-between py-2 px-1 border-b border-slate-100 dark:border-slate-800/60 last:border-b-0 hover:bg-slate-50/50 dark:hover:bg-slate-800/30 rounded-lg transition-colors group/var"
                             >
                                 <div className="flex items-center gap-2.5 min-w-0">
                                     <div className="w-8 h-8 rounded-lg bg-slate-100 dark:bg-slate-800 overflow-hidden flex-shrink-0 flex items-center justify-center border border-slate-200/40">

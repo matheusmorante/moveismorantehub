@@ -22,11 +22,12 @@ const EMPTY_ADDRESS = {
     neighborhood: "", city: "", observation: "",
 };
 
-const CustomerDataInputs = ({ customerData, setCustomerData, errors, setMarketingOrigin }: Props) => {
+const CustomerDataInputs = ({ customerData, setCustomerData, errors, marketingOrigin, setMarketingOrigin }: Props) => {
     const [customers, setCustomers] = useState<Person[]>([]);
     const [searchTerm, setSearchTerm] = useState(customerData.fullName || "");
     const [isOpen, setIsOpen] = useState(false);
     const [isNewCustomerOpen, setIsNewCustomerOpen] = useState(false);
+    const [editingPerson, setEditingPerson] = useState<Person | null>(null);
     const wrapperRef = useRef<HTMLDivElement>(null);
     const hasError = Boolean(errors.customer_fullName || errors.customer_phone);
 
@@ -45,6 +46,11 @@ const CustomerDataInputs = ({ customerData, setCustomerData, errors, setMarketin
         document.addEventListener("mousedown", closeOnOutsideClick);
         return () => document.removeEventListener("mousedown", closeOnOutsideClick);
     }, []);
+
+    const selectedPerson = useMemo(() => {
+        if (!customerData.id) return null;
+        return customers.find((c) => c.id === customerData.id) || null;
+    }, [customers, customerData.id]);
 
     const filteredCustomers = useMemo(() => {
         const term = searchTerm.trim().toLowerCase();
@@ -80,6 +86,26 @@ const CustomerDataInputs = ({ customerData, setCustomerData, errors, setMarketin
         setIsOpen(false);
     };
 
+    const handleEditCustomer = () => {
+        setIsOpen(false);
+        if (selectedPerson) {
+            setEditingPerson(selectedPerson);
+        } else if (customerData.id || customerData.fullName) {
+            const fallbackPerson: Partial<Person> = {
+                id: customerData.id,
+                fullName: customerData.fullName,
+                phone: customerData.phone,
+                noPhone: customerData.noPhone,
+                noAddress: customerData.noAddress,
+                fullAddress: customerData.fullAddress || EMPTY_ADDRESS,
+                additionalContacts: customerData.additionalContacts || [],
+                marketingOrigin: customerData.marketingOrigin || marketingOrigin || "",
+                type: "customers"
+            };
+            setEditingPerson(fallbackPerson as Person);
+        }
+    };
+
     return (
         <div ref={wrapperRef} className="relative w-full">
             <div className="mb-2 ml-1 flex items-center justify-between gap-3">
@@ -99,19 +125,39 @@ const CustomerDataInputs = ({ customerData, setCustomerData, errors, setMarketin
                 <input
                     type="text"
                     value={searchTerm}
+                    onKeyDown={(e) => {
+                        if ((e.key === "Backspace" || e.key === "Delete") && Boolean(customerData.id)) {
+                            e.preventDefault();
+                            clearCustomer();
+                        }
+                    }}
                     onChange={(event) => {
                         const value = event.target.value;
+                        if (customerData.id && value !== searchTerm) {
+                            clearCustomer();
+                            return;
+                        }
                         setSearchTerm(value);
                         setIsOpen(value.trim().length >= 2);
                         if (!value) clearCustomer();
                     }}
                     onFocus={() => setIsOpen(searchTerm.trim().length >= 2)}
                     placeholder="Busque pelo nome ou telefone..."
-                    className={`w-full border-b-2 bg-transparent px-3 py-3 pr-16 text-sm outline-none transition-colors placeholder:text-slate-300 dark:text-slate-300 dark:placeholder:text-slate-700 ${hasError ? "border-red-500 focus:border-red-600" : "border-slate-200 focus:border-blue-600 dark:border-slate-700 dark:focus:border-blue-500"}`}
+                    className={`w-full border-b-2 bg-transparent px-3 py-3 pr-20 text-sm outline-none transition-colors placeholder:text-slate-300 dark:text-slate-300 dark:placeholder:text-slate-700 ${hasError ? "border-red-500 focus:border-red-600" : "border-slate-200 focus:border-blue-600 dark:border-slate-700 dark:focus:border-blue-500"}`}
                 />
-                <div className="absolute right-3 top-1/2 flex -translate-y-1/2 items-center gap-3">
+                <div className="absolute right-3 top-1/2 flex -translate-y-1/2 items-center gap-2.5">
+                    {Boolean(customerData.id || customerData.fullName) && (
+                        <button
+                            type="button"
+                            onClick={handleEditCustomer}
+                            className="text-slate-400 transition-colors hover:text-blue-600 dark:hover:text-blue-400"
+                            title="Editar cliente selecionado"
+                        >
+                            <i className="bi bi-pencil-fill text-xs" />
+                        </button>
+                    )}
                     {searchTerm && (
-                        <button type="button" onClick={clearCustomer} className="text-slate-400 transition-colors hover:text-slate-700" title="Limpar cliente">
+                        <button type="button" onClick={clearCustomer} className="text-slate-400 transition-colors hover:text-slate-700 dark:hover:text-slate-200" title="Limpar cliente">
                             <i className="bi bi-x-circle-fill" />
                         </button>
                     )}
@@ -150,6 +196,19 @@ const CustomerDataInputs = ({ customerData, setCustomerData, errors, setMarketin
                 }}
                 collectionName="customers"
                 title="Cliente"
+            />
+
+            <PersonFormModal
+                isOpen={Boolean(editingPerson)}
+                onClose={() => setEditingPerson(null)}
+                person={editingPerson}
+                onSuccess={(customer) => {
+                    setCustomers((current) => [...current.filter((item) => item.id !== customer.id), customer]);
+                    selectCustomer(customer);
+                    setEditingPerson(null);
+                }}
+                collectionName="customers"
+                title="Editar Cliente"
             />
         </div>
     );

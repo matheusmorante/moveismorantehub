@@ -1293,29 +1293,12 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
             }
         }
 
-        const hasVars = Boolean(formData.hasVariations);
-        if (hasVars && Array.isArray(formData.variations) && formData.variations.length > 0) {
-            const varWithoutImage = formData.variations.find(v => !v.images || v.images.length === 0);
-            if (varWithoutImage) {
-                setActiveTab('variacoes');
-                toast.error(`A variação "${varWithoutImage.name || 'Sem título'}" deve ter pelo menos 1 foto vinculada.`);
-                return false;
-            }
-            if (!actualSaveAsDraft && hasMissingRequiredAttributes(formData.variations)) {
-                setActiveTab('variacoes');
-                toast.error('Todas as variações devem conter pelo menos um atributo.');
-                return false;
-            }
-        }
-
         const ecomVal = checkEcomLegibility(formData);
-
         if (formData.status === 'published' && !ecomVal.isLegible) {
             toast.error("Despublique o Catálogo antes de remover ou alterar um campo obrigatório.");
             return false;
         }
 
-        // Cancela qualquer auto-save pendente antes de salvar manualmente
         isSavingDraftRef.current = true;
         setLoading(true);
         try {
@@ -1324,8 +1307,6 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
                 ...formData, 
                 name: enteredName || formData.name || 'Produto',
                 isDraft: actualSaveAsDraft,
-                // Ao concluir um produto que estava em rascunho, ele passa a ser
-                // ativo no ERP. Produtos já cadastrados preservam sua ativação.
                 active: actualSaveAsDraft ? false : (formData.isDraft ? true : (formData.active !== undefined ? formData.active : true)),
                 status: actualSaveAsDraft ? 'draft' : (formData.status && formData.status !== 'draft' ? formData.status : 'published')
             } as Product;
@@ -1390,20 +1371,6 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
         }
     }, [isProductCreation]);
 
-    // Durante a criação de um produto novo, cada alteração é salva automaticamente após 800ms.
-    useEffect(() => {
-        if (!isProductCreation || editingVariationId) return;
-
-        const enteredName = getEnteredProductName(formData);
-        if (!isOpen || !enteredName || !hasChanged.current) return;
-
-        const timer = window.setTimeout(() => {
-            autoSaveDraft(formData);
-        }, 800);
-
-        return () => window.clearTimeout(timer);
-    }, [formData, isOpen, isProductCreation, editingVariationId, autoSaveDraft]);
-
     const handleSaveAndClose = async () => {
         const isDraftProduct = !isExistingRegisteredProduct;
         const saved = await handleSubmit(false, isDraftProduct);
@@ -1420,14 +1387,27 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
         onClose();
     };
 
+    // Durante a criação de um produto novo, cada alteração é salva automaticamente após 800ms.
+    useEffect(() => {
+        if (!isProductCreation || editingVariationId) return;
+
+        const enteredName = getEnteredProductName(formData);
+        if (!isOpen || !enteredName || !hasChanged.current) return;
+
+        const timer = window.setTimeout(() => {
+            autoSaveDraft(formData);
+        }, 800);
+
+        return () => window.clearTimeout(timer);
+    }, [formData, isOpen, isProductCreation, editingVariationId, autoSaveDraft]);
 
     if (!isOpen) return null;
 
     return (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-0 xl:p-4">
+        <div className="fixed inset-0 z-[99999] flex items-center justify-center p-0 bg-white dark:bg-slate-900">
             <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={handleCloseWithAutoSave} />
             
-            <div onPaste={handlePaste} className="relative bg-white dark:bg-slate-900 w-full h-full xl:max-w-[96vw] xl:h-[96vh] rounded-none xl:rounded-2xl shadow-2xl flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-300 border-0 xl:border border-slate-100 dark:border-slate-800">
+            <div onPaste={handlePaste} className="relative bg-white dark:bg-slate-900 w-full h-full rounded-none shadow-none flex flex-col overflow-hidden animate-in fade-in duration-200 border-0">
                 {/* Header */}
                 <div className="px-6 py-4 border-b border-slate-50 dark:border-slate-800/50 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shrink-0 bg-white dark:bg-slate-900">
                     <div className="flex items-center gap-4 flex-wrap">
@@ -1668,22 +1648,21 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
                                             <i className="bi bi-arrow-right text-sm"></i>
                                         </button>
                                     ) : (
-                                            <button
-                                                onClick={() => handleSubmit()}
-                                                disabled={loading}
-                                                className="px-6 py-2.5 text-white rounded-xl font-black text-xs uppercase tracking-widest transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 shadow-xl w-full md:w-auto justify-center bg-emerald-600 hover:bg-emerald-700 shadow-emerald-200 dark:shadow-none"
-                                            >
-                                                {loading && <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>}
-                                                <i className="bi bi-check-circle-fill"></i>
-                                                {(!product || formData.isDraft) ? "Cadastrar produto" : "Salvar alterações"}
-                                            </button>
+                                        <button
+                                            onClick={() => handleSubmit()}
+                                            disabled={loading}
+                                            className="px-6 py-2.5 text-white rounded-xl font-black text-xs uppercase tracking-widest transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 shadow-xl w-full md:w-auto justify-center bg-emerald-600 hover:bg-emerald-700 shadow-emerald-200 dark:shadow-none"
+                                        >
+                                            {loading && <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>}
+                                            <i className="bi bi-check-circle-fill"></i>
+                                            {(!product || formData.isDraft) ? "Cadastrar produto" : "Salvar alterações"}
+                                        </button>
                                     )}
                                 </div>
                             </div>
                         </>
                     );
                 })()}
-
 
                 {editingVariationId && formData.variations?.some(v => v.id === editingVariationId) && (
                     <VariationFormModal
@@ -1708,145 +1687,44 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
                                 ...prev,
                                 variations: prev.variations?.map(v => v.id === updatedVar.id ? updatedVar : v)
                             }));
-                            if (updatedVar.images?.length) {
-                                setValidationErrors(prev => {
-                                    const hasMissingPhoto = formData.variations?.some(v => v.id !== updatedVar.id && (!v.images || v.images.length === 0));
-                                    if (hasMissingPhoto) return prev;
-                                    const next = { ...prev };
-                                    delete next.variationsImages;
-                                    return next;
-                                });
-                            }
                         }}
                     />
                 )}
 
-                <CategorySearchModal
-                    isOpen={isCategorySearchOpen}
-                    onClose={() => setIsCategorySearchOpen(false)}
-                    categories={availableCategories.filter(c => {
-                        const FIXED_ENVIRONMENTS = ["SALA DE JANTAR", "SALA DE ESTAR", "COZINHA", "QUARTO", "LAVANDERIA", "BANHEIRO", "LAVANDEIRA", "ESCRITORIO", "ESCRITÓRIO", "VARANDA", "ÁREA GOURMET", "GARAGEM"];
-                        const isFixed = FIXED_ENVIRONMENTS.includes(c.name?.trim().toUpperCase());
-                        const hasChildren = availableCategories.some(other => other.parents?.includes(c.id));
-                        const isEnvironment = isFixed || (hasChildren && (!c.parents || c.parents.length === 0)) || (!c.parents || c.parents.length === 0);
-                        
-                        if (activeTab === 'ambientes') return isEnvironment;
-                        if (activeTab === 'geral') return !isEnvironment;
-                        return true;
-                    })}
-                    selectedIds={formData.categoryIds || []}
-                    onSelect={(cid) => {
-                        const cat = availableCategories.find(c => c.id === cid);
-                        const isSelected = formData.categoryIds?.includes(cid);
-                        
-                        const newIds = isSelected 
-                            ? formData.categoryIds?.filter(id => id !== cid) 
-                            : [...(formData.categoryIds || []), cid];
-                        
-                        // Auto-detect environment from selected categories
-                        let detectedEnv = formData.environment;
-                        
-                        // Find root parents (environments) of the selected categories
-                        if (newIds && newIds.length > 0) {
-                            const selectedCats = availableCategories.filter(c => newIds.includes(c.id));
+                {isCategorySearchOpen && (
+                    <CategorySearchModal
+                        isOpen={isCategorySearchOpen}
+                        onClose={() => setIsCategorySearchOpen(false)}
+                        categories={availableCategories}
+                        selectedIds={formData.categoryIds || []}
+                        onSelect={(cid) => {
+                            const isSelected = formData.categoryIds?.includes(cid);
+                            const newIds = isSelected 
+                                ? formData.categoryIds?.filter(id => id !== cid) 
+                                : [...(formData.categoryIds || []), cid];
                             
-                            // Priority 1: If the selected category is itself a root (Environment)
-                            const rootSelected = selectedCats.find(c => !c.parents || c.parents.length === 0);
-                            if (rootSelected) {
-                                detectedEnv = rootSelected.name;
-                            } else {
-                                // Priority 2: Find the name of the first parent of the first selected category
-                                const firstCat = selectedCats[0];
-                                if (firstCat && firstCat.parents && firstCat.parents.length > 0) {
-                                    const parentCat = availableCategories.find(c => c.id === firstCat.parents[0]);
-                                    if (parentCat) detectedEnv = parentCat.name;
+                            let detectedEnv = formData.environment;
+                            if (newIds && newIds.length > 0) {
+                                const selectedCats = availableCategories.filter(c => newIds.includes(c.id));
+                                const rootSelected = selectedCats.find(c => !c.parents || c.parents.length === 0);
+                                if (rootSelected) {
+                                    detectedEnv = rootSelected.name;
+                                } else {
+                                    const firstCat = selectedCats[0];
+                                    if (firstCat && firstCat.parents && firstCat.parents.length > 0) {
+                                        const parentCat = availableCategories.find(c => c.id === firstCat.parents[0]);
+                                        if (parentCat) detectedEnv = parentCat.name;
+                                    }
                                 }
                             }
-                        }
 
-                        setFormData(prev => ({ 
-                            ...prev, 
-                            categoryIds: newIds,
-                            environment: detectedEnv 
-                        }));
-                    }}
-                />
-
-                {/* Legacy Variation Combo Modal - kept for safety but should be replaced by VariationEditModal logic if needed */}
-                {editingVariationComboId && (
-                    <div className="fixed inset-0 z-[300] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md animate-in fade-in duration-300">
-                        <div className="bg-white dark:bg-slate-900 w-full max-w-2xl rounded-[3rem] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-300 border border-slate-100 dark:border-slate-800">
-                            <div className="p-8 border-b border-slate-50 dark:border-slate-800/50 flex items-center justify-between">
-                                <div>
-                                    <h3 className="text-xl font-black text-slate-800 dark:text-slate-100 uppercase tracking-tight">Composição da Variação</h3>
-                                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Defina os itens que compõem esta variação específica</p>
-                                </div>
-                                <button onClick={() => setEditingVariationComboId(null)} className="p-2 text-slate-400 hover:text-red-500 transition-colors">
-                                    <i className="bi bi-x-lg text-xl"></i>
-                                </button>
-                            </div>
-                            <div className="p-8 max-h-[60vh] overflow-y-auto custom-scrollbar">
-                                <ComboItemSelector
-                                    currentItems={formData.variations?.find(v => v.id === editingVariationComboId)?.comboItems || []}
-                                    onAdd={(item) => {
-                                        setFormData(prev => ({
-                                            ...prev,
-                                            variations: prev.variations?.map(v => v.id === editingVariationComboId ? {
-                                                ...v,
-                                                comboItems: [...(v.comboItems || []), item]
-                                            } : v)
-                                        }));
-                                    }}
-                                    onRemove={(idx) => {
-                                        setFormData(prev => ({
-                                            ...prev,
-                                            variations: prev.variations?.map(v => v.id === editingVariationComboId ? {
-                                                ...v,
-                                                comboItems: v.comboItems?.filter((_, i) => i !== idx)
-                                            } : v)
-                                        }));
-                                    }}
-                                    onUpdateQuantity={(idx, q) => {
-                                        setFormData(prev => ({
-                                            ...prev,
-                                            variations: prev.variations?.map(v => v.id === editingVariationComboId ? {
-                                                ...v,
-                                                comboItems: v.comboItems?.map((item, i) => i === idx ? { ...item, quantity: q } : item)
-                                            } : v)
-                                        }));
-                                    }}
-                                />
-                            </div>
-                            <div className="p-8 border-t border-slate-50 dark:border-slate-800 flex justify-between gap-4">
-                                <button
-                                    type="button"
-                                    onClick={() => {
-                                        const v = formData.variations?.find(varItem => varItem.id === editingVariationComboId);
-                                        const total = v?.comboItems?.reduce((acc, item) => acc + (item.unitPrice * item.quantity), 0) || 0;
-                                        setFormData(prev => ({
-                                            ...prev,
-                                            variations: prev.variations?.map(varItem => varItem.id === editingVariationComboId ? {
-                                                ...varItem,
-                                                unitPrice: Number(total.toFixed(2)),
-                                                syncUnitPrice: false
-                                            } : varItem)
-                                        }));
-                                        toast.info(`Preço da variação atualizado: R$ ${total.toFixed(2)}`);
-                                    }}
-                                    className="flex items-center gap-2 px-6 py-3 bg-purple-100 text-purple-700 hover:bg-purple-200 dark:bg-purple-900/30 dark:text-purple-400 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all"
-                                >
-                                    <i className="bi bi-calculator"></i> Somar Itens e Atualizar Preço
-                                </button>
-                                <button
-                                    type="button"
-                                    onClick={() => setEditingVariationComboId(null)}
-                                    className="px-10 py-3 bg-blue-600 text-white rounded-xl text-xs font-black uppercase tracking-widest shadow-lg shadow-blue-500/30 hover:bg-blue-700 transition-all active:scale-95"
-                                >
-                                    Concluído
-                                </button>
-                            </div>
-                        </div>
-                    </div>
+                            setFormData(prev => ({ 
+                                ...prev, 
+                                categoryIds: newIds,
+                                environment: detectedEnv 
+                            }));
+                        }}
+                    />
                 )}
                 
                 {isConversionModalOpen && (

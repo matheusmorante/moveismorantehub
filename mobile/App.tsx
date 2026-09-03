@@ -487,9 +487,21 @@ export default function App() {
       setTimeout(() => { void syncAuthProfile(session); }, 0);
     });
 
+    // Fallback de segurança para evitar loader infinito ou tela branca em ambiente dev
+    const authTimeout = setTimeout(() => {
+      setLoadingProfile(false);
+    }, 3500);
+
     supabase.auth.getSession()
-      .then(({ data: { session } }) => syncAuthProfile(session))
-      .catch((err) => console.warn('[Auth] Não foi possível carregar a sessão inicial:', err));
+      .then(({ data: { session } }) => {
+        clearTimeout(authTimeout);
+        return syncAuthProfile(session);
+      })
+      .catch((err) => {
+        clearTimeout(authTimeout);
+        setLoadingProfile(false);
+        console.warn('[Auth] Não foi possível carregar a sessão inicial:', err);
+      });
     fetchDashboardStats();
     fetchNotifications();
 
@@ -568,115 +580,105 @@ export default function App() {
     return () => { void supabase.removeChannel(channel); };
   }, [userProfile?.id]);
 
-  // Telas de carregamento e autenticação
-  if (loadingProfile) {
-    return <>
-      <View style={styles.center}>
-        <ActivityIndicator size="large" color="#2563eb" />
-      </View>
-      <MandatoryUpdateModal visible={false} url="" />
-    </>;
-  }
-
-  if (!userProfile) return <><LoginScreen isDarkMode={isDarkMode} onLoginSuccess={() => {}} /><MandatoryUpdateModal visible={false} url="" /></>;
-
-  // Se o usuário estiver sem cargo (pendente)
-  const hasNoRole = !userProfile.role || userProfile.role === 'pending';
-  if (hasNoRole) {
-    return <>
-      <PendingApprovalScreen
-        isDarkMode={isDarkMode}
-        fullName={userProfile.fullName}
-        userEmail={userProfile.email}
-        onLogout={handleLogout}
-      />
-      <MandatoryUpdateModal visible={false} url="" />
-    </>;
-  }
-
+  // Renderização principal com SafeAreaProvider Global
   return (
     <SafeAreaProvider>
       <SafeAreaView style={{ flex: 1, backgroundColor: isDarkMode ? '#0f172a' : '#f8fafc' }}>
         <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} backgroundColor={isDarkMode ? '#0f172a' : '#f8fafc'} />
 
-        {/* Conteúdo Principal com Cabeçalho Global */}
-        <View style={{ flex: 1 }}>
-          <DashboardHeader
+        {loadingProfile ? (
+          <View style={[styles.center, { backgroundColor: isDarkMode ? '#0f172a' : '#f8fafc' }]}>
+            <ActivityIndicator size="large" color="#2563eb" />
+          </View>
+        ) : !userProfile ? (
+          <LoginScreen isDarkMode={isDarkMode} onLoginSuccess={() => {}} />
+        ) : (!userProfile.role || userProfile.role === 'pending') ? (
+          <PendingApprovalScreen
             isDarkMode={isDarkMode}
-            setIsDarkMode={setIsDarkMode}
-            userProfile={userProfile}
-            setShowProfileModal={setShowProfileModal}
-            handleOpenNotificationsModal={handleOpenNotificationsModal}
-            unreadCount={unreadCount}
+            fullName={userProfile.fullName}
+            userEmail={userProfile.email}
+            onLogout={handleLogout}
           />
-          {currentTab === 'home' ? (
-            <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: 128 }}>
+        ) : (
+          /* Conteúdo Principal com Cabeçalho Global */
+          <View style={{ flex: 1 }}>
+            <DashboardHeader
+              isDarkMode={isDarkMode}
+              setIsDarkMode={setIsDarkMode}
+              userProfile={userProfile}
+              setShowProfileModal={setShowProfileModal}
+              handleOpenNotificationsModal={handleOpenNotificationsModal}
+              unreadCount={unreadCount}
+            />
+            {currentTab === 'home' ? (
+              <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: 128 }}>
 
-              <AISummaryCard
-                isDarkMode={isDarkMode}
-                aiSummaryTab={aiSummaryTab}
-                setAiSummaryTab={setAiSummaryTab}
-                hasTodayDeliveries={hasTodayDeliveries}
-                aiSummaryToday={aiSummaryToday}
-                aiSummaryTomorrow={aiSummaryTomorrow}
-                isGeneratingAISummary={isGeneratingAISummary}
-                onRefreshSummary={() => generateDeliveryAISummary(aiSummaryTab, true, setAiSummaryToday, setAiSummaryTomorrow, setIsGeneratingAISummary)}
-                isSpeakingSummary={isSpeakingSummary}
-                speechIsPaused={speechIsPaused}
-                speechCurrentTime={speechCurrentTime}
-                speechTotalDuration={speechTotalDuration}
-                handleToggleSpeech={handleToggleSpeech}
-                finishSeekToPosition={finishSeekToPosition}
-                setSpeechCurrentTime={setSpeechCurrentTime}
-                formatAudioTime={formatAudioTime}
-              />
+                <AISummaryCard
+                  isDarkMode={isDarkMode}
+                  aiSummaryTab={aiSummaryTab}
+                  setAiSummaryTab={setAiSummaryTab}
+                  hasTodayDeliveries={hasTodayDeliveries}
+                  aiSummaryToday={aiSummaryToday}
+                  aiSummaryTomorrow={aiSummaryTomorrow}
+                  isGeneratingAISummary={isGeneratingAISummary}
+                  onRefreshSummary={() => generateDeliveryAISummary(aiSummaryTab, true, setAiSummaryToday, setAiSummaryTomorrow, setIsGeneratingAISummary)}
+                  isSpeakingSummary={isSpeakingSummary}
+                  speechIsPaused={speechIsPaused}
+                  speechCurrentTime={speechCurrentTime}
+                  speechTotalDuration={speechTotalDuration}
+                  handleToggleSpeech={handleToggleSpeech}
+                  finishSeekToPosition={finishSeekToPosition}
+                  setSpeechCurrentTime={setSpeechCurrentTime}
+                  formatAudioTime={formatAudioTime}
+                />
 
-              <OperationalStatsGrid
-                isDarkMode={isDarkMode}
-                selectedPeriod={selectedPeriod}
-                setShowPeriodModal={setShowPeriodModal}
-                showPeriodModal={showPeriodModal}
-                PERIOD_OPTIONS={PERIOD_OPTIONS}
-                handlePeriodChange={handlePeriodChange}
-                deliveriesCount={deliveriesCount}
-                assembliesInternalCount={assembliesInternalCount}
-                assembliesOutsideCount={assembliesOutsideCount}
-                assistancesCount={assistancesCount}
-                returnsCount={returnsCount}
-                loadingStats={loadingStats}
-                handleTabChange={handleTabChange}
-                setAssemblySubTab={setAssemblySubTab}
-                WEB_URL={WEB_URL}
-              />
-            </ScrollView>
-          ) : currentTab === 'pedidos' ? (
-            <NativeOrdersScreen isDarkMode={isDarkMode} isAdmin={isAdmin} onSelectOrder={setAppSelectedOrder} />
-          ) : currentTab === 'produtos' && canSeeProducts ? (
-            <NativeProductsScreen isDarkMode={isDarkMode} userProfile={userProfile} />
-          ) : (currentTab === 'entregas' || currentTab === 'logistica') ? (
-            <NativeLogisticsScreen isDarkMode={isDarkMode} isAdmin={isAdmin} onSelectOrder={setAppSelectedOrder} />
-          ) : currentTab === 'montagens' ? (
-            <NativeAssembliesScreen isDarkMode={isDarkMode} initialSubTab={assemblySubTab} onSelectOrder={setAppSelectedOrder} />
-          ) : currentTab === 'configuracoes' ? (
-            <NativeSettingsScreen isDarkMode={isDarkMode} setIsDarkMode={setIsDarkMode} isAdmin={isAdmin} onBack={() => setCurrentTab('home')} />
-          ) : canSeeReports ? (
-            <NativeReportsScreen isDarkMode={isDarkMode} />
-          ) : (
-            <NativeOrdersScreen isDarkMode={isDarkMode} isAdmin={isAdmin} onSelectOrder={setAppSelectedOrder} />
-          )}
-        </View>
+                <OperationalStatsGrid
+                  isDarkMode={isDarkMode}
+                  selectedPeriod={selectedPeriod}
+                  setShowPeriodModal={setShowPeriodModal}
+                  showPeriodModal={showPeriodModal}
+                  PERIOD_OPTIONS={PERIOD_OPTIONS}
+                  handlePeriodChange={handlePeriodChange}
+                  deliveriesCount={deliveriesCount}
+                  assembliesInternalCount={assembliesInternalCount}
+                  assembliesOutsideCount={assembliesOutsideCount}
+                  assistancesCount={assistancesCount}
+                  returnsCount={returnsCount}
+                  loadingStats={loadingStats}
+                  handleTabChange={handleTabChange}
+                  setAssemblySubTab={setAssemblySubTab}
+                  WEB_URL={WEB_URL}
+                />
+              </ScrollView>
+            ) : currentTab === 'pedidos' ? (
+              <NativeOrdersScreen isDarkMode={isDarkMode} isAdmin={isAdmin} onSelectOrder={setAppSelectedOrder} />
+            ) : currentTab === 'produtos' && canSeeProducts ? (
+              <NativeProductsScreen isDarkMode={isDarkMode} userProfile={userProfile} />
+            ) : (currentTab === 'entregas' || currentTab === 'logistica') ? (
+              <NativeLogisticsScreen isDarkMode={isDarkMode} isAdmin={isAdmin} onSelectOrder={setAppSelectedOrder} />
+            ) : currentTab === 'montagens' ? (
+              <NativeAssembliesScreen isDarkMode={isDarkMode} initialSubTab={assemblySubTab} onSelectOrder={setAppSelectedOrder} />
+            ) : currentTab === 'configuracoes' ? (
+              <NativeSettingsScreen isDarkMode={isDarkMode} setIsDarkMode={setIsDarkMode} isAdmin={isAdmin} onBack={() => setCurrentTab('home')} />
+            ) : canSeeReports ? (
+              <NativeReportsScreen isDarkMode={isDarkMode} />
+            ) : (
+              <NativeOrdersScreen isDarkMode={isDarkMode} isAdmin={isAdmin} onSelectOrder={setAppSelectedOrder} />
+            )}
 
-        {/* Navegação Inferior Nativa */}
-        <NativeBottomNav
-          isDarkMode={isDarkMode}
-          currentTab={currentTab}
-          canSeeReports={canSeeReports}
-          canSeeProducts={canSeeProducts}
-          handleTabChange={handleTabChange}
-          WEB_URL={WEB_URL}
-        />
+            {/* Navegação Inferior Nativa */}
+            <NativeBottomNav
+              isDarkMode={isDarkMode}
+              currentTab={currentTab}
+              canSeeReports={canSeeReports}
+              canSeeProducts={canSeeProducts}
+              handleTabChange={handleTabChange}
+              WEB_URL={WEB_URL}
+            />
+          </View>
+        )}
 
-        {/* Modais */}
+        {/* Modais Globais */}
         <NotificationsModal
           visible={showNotificationsModal}
           onClose={() => setShowNotificationsModal(false)}
@@ -703,7 +705,11 @@ export default function App() {
           isDarkMode={isDarkMode}
           userRole={userProfile?.role}
         />
-        <MandatoryUpdateModal visible={false} url="" />
+
+        <MandatoryUpdateModal
+          visible={mandatoryUpdate.isMandatory}
+          url={mandatoryUpdate.storeUrl}
+        />
       </SafeAreaView>
     </SafeAreaProvider>
   );

@@ -204,6 +204,37 @@ export const ProductFormScreen: React.FC<Props> = ({
     }
   }, [formData, validate, onSave, onClose]);
 
+  const touchStartX = useRef<number>(0);
+  const touchStartY = useRef<number>(0);
+
+  const handleTouchStart = (e: any) => {
+    touchStartX.current = e.nativeEvent.pageX;
+    touchStartY.current = e.nativeEvent.pageY;
+  };
+
+  const handleTouchEnd = (e: any) => {
+    const endX = e.nativeEvent.pageX;
+    const endY = e.nativeEvent.pageY;
+    const deltaX = endX - touchStartX.current;
+    const deltaY = endY - touchStartY.current;
+
+    // Se gesto for horizontal (deltaX > 60px) e pouco vertical (deltaY < 60px)
+    if (Math.abs(deltaX) > 60 && Math.abs(deltaY) < 60) {
+      const currentIdx = TABS.findIndex(t => t.id === activeTab);
+      if (deltaX < 0) {
+        // Deslizar para a esquerda -> Próxima aba
+        if (currentIdx < TABS.length - 1) {
+          handleTabChange(TABS[currentIdx + 1].id);
+        }
+      } else {
+        // Deslizar para a direita -> Aba anterior
+        if (currentIdx > 0) {
+          handleTabChange(TABS[currentIdx - 1].id);
+        }
+      }
+    }
+  };
+
   const handleTabChange = (tabId: TabId) => {
     setActiveTab(tabId);
     const idx = TABS.findIndex(t => t.id === tabId);
@@ -303,6 +334,8 @@ export const ProductFormScreen: React.FC<Props> = ({
             style={styles.body}
             contentContainerStyle={styles.bodyContent}
             keyboardShouldPersistTaps="handled"
+            onTouchStart={handleTouchStart}
+            onTouchEnd={handleTouchEnd}
           >
             {renderTab()}
           </ScrollView>

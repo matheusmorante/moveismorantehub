@@ -448,6 +448,9 @@ const ProductRow = ({
                     </td>
                 );
             case 'actions':
+                if (isChildVar) {
+                    return <td key="actions" className={`px-3 py-3 text-center ${firstCellBorder}`} onClick={(e) => e.stopPropagation()} />;
+                }
                 return (
                     <td key="actions" className={`px-3 py-3 text-center ${firstCellBorder}`} onClick={(e) => e.stopPropagation()}>
                         <div className="flex items-center justify-center gap-2">
@@ -626,8 +629,8 @@ const ProductRow = ({
                     : product.isParent 
                     ? 'bg-slate-200/70 dark:bg-slate-800/80 font-bold' 
                     : isChildVar 
-                    ? 'bg-slate-50/40 dark:bg-slate-900/40' 
-                    : 'bg-white dark:bg-slate-900/30'
+                    ? 'bg-white dark:bg-slate-900' 
+                    : 'bg-white dark:bg-slate-900'
             } hover:bg-slate-300/60 dark:hover:bg-slate-700/60`}
         >
             {orderedColumnKeys ? orderedColumnKeys.map(key => renderCell(key)) : (

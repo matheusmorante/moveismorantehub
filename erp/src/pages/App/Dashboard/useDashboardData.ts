@@ -153,14 +153,22 @@ export const useDashboardData = (period: Period, customStartDate?: string, custo
         ).length;
 
         const totalKmDriven = saleOrders.reduce((acc, curr) => {
-            const dist = Number(curr?.shipping?.distance) || 0;
+            const rawDist = curr?.shipping?.distance;
+            const dist = typeof rawDist === 'number' ? rawDist : (parseFloat(String(rawDist || 0).replace(',', '.')) || 0);
             return acc + dist;
         }, 0);
         
         const isPaidTraffic = (o: Order) => {
-            if (!o.marketingOrigin || typeof o.marketingOrigin !== 'string') return false;
-            const mo = o.marketingOrigin.toLowerCase();
-            return mo === 'paid' || mo.includes('trafego') || mo.includes('ads') || mo.includes('facebook') || mo.includes('instagram') || mo.includes('google');
+            const origins = [o?.marketingOrigin, o?.customerData?.marketingOrigin];
+            for (const origin of origins) {
+                if (origin && typeof origin === 'string') {
+                    const mo = origin.toLowerCase().trim();
+                    if (mo === 'paid' || mo.includes('trafego') || mo.includes('tráfego') || mo.includes('ads') || mo.includes('facebook') || mo.includes('instagram') || mo.includes('google')) {
+                        return true;
+                    }
+                }
+            }
+            return false;
         };
         const paidTrafficSalesValue = saleOrders.filter(isPaidTraffic).reduce((acc, curr) => acc + (curr?.paymentsSummary?.totalOrderValue || 0), 0);
 

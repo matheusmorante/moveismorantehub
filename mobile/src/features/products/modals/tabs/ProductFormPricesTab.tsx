@@ -1,11 +1,14 @@
-import React, { useCallback } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   StyleSheet,
+  Switch,
   Text,
   TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
+import { Truck, Package, DollarSign, Calculator } from 'lucide-react-native';
+import { supabase } from '../../../../services/supabaseClient';
 
 interface Props {
   formData: any;
@@ -22,6 +25,23 @@ const parsePrice = (val: any): number => {
 };
 
 export const ProductFormPricesTab: React.FC<Props> = ({ formData, setFormData, dark }) => {
+  const [suppliers, setSuppliers] = useState<any[]>([]);
+  const [hasInitialStock, setHasInitialStock] = useState<boolean>(Boolean(formData.stock && Number(formData.stock) > 0));
+
+  // Carrega fornecedores ativos do banco
+  useEffect(() => {
+    supabase
+      .from('people')
+      .select('id, full_name, nickname')
+      .eq('person_type', 'supplier')
+      .eq('active', true)
+      .eq('deleted', false)
+      .order('full_name')
+      .then(({ data }) => {
+        if (data) setSuppliers(data);
+      });
+  }, []);
+
   const set = useCallback((field: string, val: any) => {
     setFormData(prev => ({ ...prev, [field]: val }));
   }, [setFormData]);
@@ -93,13 +113,67 @@ export const ProductFormPricesTab: React.FC<Props> = ({ formData, setFormData, d
     });
   }, [setFormData]);
 
+  const handleToggleInitialStock = (val: boolean) => {
+    setHasInitialStock(val);
+    if (!val) {
+      set('stock', '0');
+    }
+  };
+
   const f = (v: any) => (v !== null && v !== undefined && v !== '' ? String(v) : '');
 
   return (
     <View style={styles.container}>
-      {/* ─── Preços de Venda ─── */}
+      {/* ─── Seção 1: Fornecedor Principal (Idêntico ao ERP) ─── */}
       <View style={[styles.card, dark && styles.darkCard]}>
-        <Text style={[styles.cardTitle, dark && styles.lightText]}>💰 Preços de Venda</Text>
+        <View style={styles.cardHeader}>
+          <Truck size={16} color="#2563eb" />
+          <Text style={[styles.cardTitle, dark && styles.lightText]}>Fornecedor Principal</Text>
+        </View>
+
+        <Text style={[styles.label, dark && styles.dimText]}>Selecione o Fornecedor</Text>
+        <View style={styles.supplierGrid}>
+          {suppliers.length === 0 ? (
+            <Text style={[styles.emptySupplierText, dark && styles.dimText]}>
+              Nenhum fornecedor cadastrado
+            </Text>
+          ) : (
+            suppliers.map(sup => {
+              const isSelected = formData.mainSupplierId === sup.id;
+              return (
+                <TouchableOpacity
+                  key={sup.id}
+                  activeOpacity={0.8}
+                  onPress={() => set('mainSupplierId', isSelected ? '' : sup.id)}
+                  style={[
+                    styles.supplierChip,
+                    isSelected && styles.supplierChipSelected,
+                    dark && !isSelected && styles.darkSupplierChip,
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.supplierChipText,
+                      isSelected && styles.supplierChipTextSelected,
+                      dark && !isSelected && styles.lightText,
+                    ]}
+                    numberOfLines={1}
+                  >
+                    {sup.nickname || sup.full_name}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })
+          )}
+        </View>
+      </View>
+
+      {/* ─── Seção 2: Preços de Venda & Descontos ─── */}
+      <View style={[styles.card, dark && styles.darkCard]}>
+        <View style={styles.cardHeader}>
+          <DollarSign size={16} color="#16a34a" />
+          <Text style={[styles.cardTitle, dark && styles.lightText]}>Preços de Venda & Desconto</Text>
+        </View>
 
         <View style={styles.row}>
           <View style={styles.flex1}>
@@ -116,7 +190,7 @@ export const ProductFormPricesTab: React.FC<Props> = ({ formData, setFormData, d
         </View>
 
         <View style={styles.separator} />
-        <Text style={[styles.subLabel, dark && styles.dimText]}>Desconto</Text>
+        <Text style={[styles.subLabel, dark && styles.dimText]}>Desconto Promocional</Text>
         <View style={styles.row}>
           <View style={styles.flex1}>
             <Text style={[styles.label, dark && styles.dimText]}>% Desconto</Text>
@@ -154,13 +228,16 @@ export const ProductFormPricesTab: React.FC<Props> = ({ formData, setFormData, d
         </View>
       </View>
 
-      {/* ─── Preço de Custo / Composição ─── */}
+      {/* ─── Seção 3: Composição de Custo ─── */}
       <View style={[styles.card, dark && styles.darkCard]}>
-        <Text style={[styles.cardTitle, dark && styles.lightText]}>🏭 Composição de Custo</Text>
+        <View style={styles.cardHeader}>
+          <Calculator size={16} color="#d97706" />
+          <Text style={[styles.cardTitle, dark && styles.lightText]}>Composição de Custo</Text>
+        </View>
 
         <View style={styles.row}>
           <View style={styles.flex1}>
-            <Text style={[styles.label, dark && styles.dimText]}>Custo (R$)</Text>
+            <Text style={[styles.label, dark && styles.dimText]}>Preço de Custo (R$)</Text>
             <TextInput
               value={f(formData.costPrice)}
               onChangeText={v => updateFinalCost({ costPrice: v })}
@@ -225,21 +302,41 @@ export const ProductFormPricesTab: React.FC<Props> = ({ formData, setFormData, d
         </View>
       </View>
 
-      {/* ─── Estoque ─── */}
+      {/* ─── Seção 4: Estoque (Idêntico ao ERP - Estoque Inicial apenas se ativado) ─── */}
       <View style={[styles.card, dark && styles.darkCard]}>
-        <Text style={[styles.cardTitle, dark && styles.lightText]}>📦 Estoque</Text>
-        <View style={styles.row}>
+        <View style={styles.cardHeader}>
+          <Package size={16} color="#9333ea" />
+          <Text style={[styles.cardTitle, dark && styles.lightText]}>Controle de Estoque</Text>
+        </View>
+
+        {/* Toggle para Lançar Estoque Inicial (Igual ao ERP) */}
+        <View style={styles.toggleRow}>
           <View style={styles.flex1}>
-            <Text style={[styles.label, dark && styles.dimText]}>Estoque Inicial</Text>
-            <TextInput
-              value={f(formData.stock)}
-              onChangeText={v => set('stock', v)}
-              keyboardType="numeric"
-              placeholder="0"
-              placeholderTextColor="#94a3b8"
-              style={[styles.input, dark && styles.darkInput, dark && styles.lightText]}
-            />
+            <Text style={[styles.toggleTitle, dark && styles.lightText]}>Possui Estoque Inicial?</Text>
+            <Text style={styles.toggleSubtitle}>Ative para lançar o saldo inicial na criação do produto</Text>
           </View>
+          <Switch
+            value={hasInitialStock}
+            onValueChange={handleToggleInitialStock}
+            trackColor={{ false: '#cbd5e1', true: '#93c5fd' }}
+            thumbColor={hasInitialStock ? '#2563eb' : '#f8fafc'}
+          />
+        </View>
+
+        <View style={styles.row}>
+          {hasInitialStock && (
+            <View style={styles.flex1}>
+              <Text style={[styles.label, dark && styles.dimText]}>Estoque Inicial</Text>
+              <TextInput
+                value={f(formData.stock)}
+                onChangeText={v => set('stock', v)}
+                keyboardType="numeric"
+                placeholder="0"
+                placeholderTextColor="#94a3b8"
+                style={[styles.input, dark && styles.darkInput, dark && styles.lightText]}
+              />
+            </View>
+          )}
           <View style={styles.flex1}>
             <Text style={[styles.label, dark && styles.dimText]}>Estoque Mínimo</Text>
             <TextInput
@@ -261,6 +358,7 @@ const styles = StyleSheet.create({
   container: { gap: 14 },
   card: { backgroundColor: '#f8fafc', borderRadius: 16, padding: 14, gap: 12, borderWidth: 1, borderColor: '#e2e8f0' },
   darkCard: { backgroundColor: '#1e293b', borderColor: '#334155' },
+  cardHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 2 },
   cardTitle: { fontSize: 13, fontWeight: '900', color: '#0f172a' },
   lightText: { color: '#f1f5f9' },
   dimText: { color: '#94a3b8' },
@@ -281,4 +379,14 @@ const styles = StyleSheet.create({
   darkFinalPrice: { backgroundColor: '#1e3a8a20' },
   finalPriceLabel: { fontSize: 11, fontWeight: '800', color: '#475569', textTransform: 'uppercase' },
   finalPriceValue: { fontSize: 16, fontWeight: '900', color: '#2563eb' },
+  supplierGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 4 },
+  supplierChip: { paddingHorizontal: 12, paddingVertical: 8, borderRadius: 10, backgroundColor: '#ffffff', borderWidth: 1, borderColor: '#e2e8f0' },
+  darkSupplierChip: { backgroundColor: '#0f172a', borderColor: '#334155' },
+  supplierChipSelected: { backgroundColor: '#2563eb', borderColor: '#2563eb' },
+  supplierChipText: { fontSize: 11, fontWeight: '700', color: '#475569' },
+  supplierChipTextSelected: { color: '#ffffff', fontWeight: '900' },
+  emptySupplierText: { fontSize: 11, fontWeight: '600', color: '#94a3b8' },
+  toggleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#ffffff', padding: 12, borderRadius: 12, borderWidth: 1, borderColor: '#e2e8f0' },
+  toggleTitle: { fontSize: 12, fontWeight: '800', color: '#0f172a' },
+  toggleSubtitle: { fontSize: 10, fontWeight: '600', color: '#94a3b8', marginTop: 1 },
 });
