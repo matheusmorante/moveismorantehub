@@ -94,12 +94,9 @@ export default function AppLayout() {
               <i className="bi bi-list text-2xl"></i>
             </button>
 
-            <Link to="/" className="flex items-center gap-2.5 lg:gap-3 flex-shrink-0 group">
-              <img src={logoMorante} alt="ERP Móveis Morante" className="h-8 lg:h-9 w-auto object-contain group-hover:scale-105 transition-transform duration-300" />
-              <div className="flex flex-col">
-                <h3 className="text-xs lg:text-sm font-black text-slate-800 dark:text-slate-100 tracking-tight uppercase leading-none">ERP <span className="text-blue-600">Móveis Morante</span></h3>
-                <span className="text-[8px] font-bold text-slate-400 dark:text-slate-500 tracking-widest uppercase mt-0.5">Qualidade que cabe no seu bolso</span>
-              </div>
+            <Link to="/" className="flex items-center gap-2 lg:gap-3 flex-shrink-0 group h-full overflow-visible">
+              <img src={logoMorante} alt="ERP Móveis Morante" className="h-[150%] max-h-none w-auto object-contain drop-shadow-sm group-hover:scale-110 transition-transform duration-300 pointer-events-auto" />
+              <h3 className="text-xs lg:text-sm font-black text-slate-800 dark:text-slate-100 tracking-tight uppercase leading-none">ERP</h3>
             </Link>
 
             <DesktopNav activeMenu={activeMenu} setActiveMenu={setActiveMenu} />

@@ -126,12 +126,10 @@ const MobileNav = ({ isOpen, onClose, activeMenu, setActiveMenu }: MobileNavProp
 
                 {/* Header do Modal */}
                 <div className="sticky top-0 z-10 flex items-center justify-between px-5 py-4 border-b border-slate-100 dark:border-slate-800 bg-white/95 dark:bg-slate-950/95 backdrop-blur-xl shadow-sm">
-                    <Link to="/" onClick={onClose} className="flex items-center gap-3 group">
-                        <div className="w-10 h-10 bg-white rounded-2xl shadow-lg flex items-center justify-center overflow-hidden border border-slate-100 dark:border-slate-800 group-hover:scale-105 transition-transform duration-300">
-                            <img src={logoMorante} alt="Logo" className="w-full h-full object-cover" />
-                        </div>
-                        <h3 className="text-sm font-black text-slate-800 dark:text-slate-100 tracking-tight whitespace-nowrap uppercase italic leading-none">
-                            ERP <span className="text-blue-600">Móveis Morante</span>
+                    <Link to="/" onClick={onClose} className="flex items-center gap-2.5 group">
+                        <img src={logoMorante} alt="ERP Móveis Morante" className="h-10 lg:h-12 w-auto object-contain drop-shadow-sm group-hover:scale-105 transition-transform duration-300" />
+                        <h3 className="text-sm font-black text-slate-800 dark:text-slate-100 tracking-tight uppercase leading-none">
+                            ERP
                         </h3>
                     </Link>
 

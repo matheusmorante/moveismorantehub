@@ -24,7 +24,7 @@ const STATUS_LABELS: Record<string, string> = {
 const RecentOrders: React.FC<RecentOrdersProps> = ({ orders }) => {
     const navigate = useNavigate();
     const recent = [...orders]
-        .filter(o => !o.deleted && o.orderType !== 'return')
+        .filter(o => !o.deleted && o.orderType !== 'return' && o.status !== 'cancelled')
         .sort((a, b) => {
             const da = new Date(a.date || 0).getTime();
             const db = new Date(b.date || 0).getTime();
