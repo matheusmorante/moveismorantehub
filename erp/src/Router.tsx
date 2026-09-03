@@ -49,6 +49,7 @@ const SalesOrderReportViewBling = lazy(() => import('./pages/App/SalesOrder/Repo
 import BlingStock from './pages/App/Stock/BlingStock';
 import NewSaleOrder from './pages/App/SalesOrder/NewSaleOrder';
 import OrderEditModal from './pages/App/SalesOrder/OrderEditModal';
+import FiscalDocumentsPage from './pages/App/SalesOrder/FiscalDocumentsPage';
 
 const LoadingFallback = () => (
   <div className="min-h-[60vh] flex flex-col items-center justify-center gap-4">
@@ -134,6 +135,7 @@ function Router() {
             <Route path='/sales-order' element={<SalesOrder />} />
             <Route path='/sales-order/new' element={<NewSaleOrder />} />
             <Route path='/sales-order/edit/:id' element={<OrderEditModal />} />
+            <Route path='/fiscal-documents' element={<FiscalDocumentsPage />} />
             <Route path='/budgets' element={<SalesOrder />} />
             <Route path='/assistance-orders' element={<SalesOrder />} />
             <Route path='/returns' element={<SalesOrder />} />

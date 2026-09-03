@@ -2,7 +2,7 @@ import Order from "../types/order.type";
 import { getSettings } from '@/pages/utils/settingsService';
 import {
     stringifyFullAddress, stringifyFullAddressWithObservation,
-    stringifyPayments, stringifyItemsWithValues, formatDate, formatCurrency
+    stringifyPayments, stringifyItemsWithValues, formatDate, formatCurrency, toTitleCase
 } from "./formatters";
 import { getShippingRouteUrl } from "./maps";
 import { whatsappGraphService } from "./whatsappGraphService";
@@ -28,13 +28,14 @@ const buildDeliveryMessage = (order: Order) => {
         else if (sched.time) time = sched.time;
     }
     const customer = order.customerData;
+    const customerNameFormatted = toTitleCase(customer?.fullName || "Cliente");
     
     let message = settings.whatsappTemplates?.deliveryInfo || "";
     
     if (!message) {
         message = order.shipping?.deliveryMethod === 'pickup' 
-            ? `*REIRA: Novo Pedido para Retirada de ${customer.fullName || "Cliente"}*` 
-            : `Novo Pedido para ${customer.fullName || "Cliente"}...`; 
+            ? `*REIRA: Novo Pedido para Retirada de ${customerNameFormatted}*` 
+            : `Novo Pedido para ${customerNameFormatted}...`; 
     }
 
     let itemsBlock = stringifyItemsWithValues(order.items || []);
@@ -45,7 +46,7 @@ const buildDeliveryMessage = (order: Order) => {
     const mapsLink = customer.fullAddress?.mapsUrl || (customer.fullAddress as any)?.googleMapsUrl || (customer.fullAddress as any)?.mapsLink;
 
     let finalMessage = message
-        .replace(/{{customerName}}/g, () => customer.fullName || "Cliente")
+        .replace(/{{customerName}}/g, () => customerNameFormatted)
         .replace(/{{deliveryDate}}/g, () => date)
         .replace(/{{deliveryTime}}/g, () => time)
         .replace(/{{phone}}/g, () => customer.phone || "Não informado")

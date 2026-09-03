@@ -84,6 +84,8 @@ export interface AppSettings {
     companyUF?: string;
     nfeEnvironment?: 1 | 2;
     nfeSerie?: string;
+    nfeNextNumber?: number;
+    nfceNextNumber?: number;
     cscId?: string;
     cscToken?: string;
     fiscalDefaults?: {
@@ -371,6 +373,8 @@ export const getDefaultSettings = (): AppSettings => ({
     companyUF: 'PR',
     nfeEnvironment: 2, // 2 = Homologação / Testes
     nfeSerie: '1',
+    nfeNextNumber: 700,
+    nfceNextNumber: 700,
     cscId: '000001',
     cscToken: 'XBMSLQTB4VWHAPSUJLG14Q4YDYZRQLSUQRMF',
     fiscalDefaults: {

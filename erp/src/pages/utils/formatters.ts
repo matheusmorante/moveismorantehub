@@ -9,12 +9,12 @@ export const stringifyFullAddress = (
     address: any
 ) => {
     if (!address) return '';
-    if (typeof address === 'string') return address.trim();
-    const street = address.street || address.logradouro || address.rua || address.address || '';
+    if (typeof address === 'string') return toTitleCase(address.trim());
+    const street = toTitleCase(address.street || address.logradouro || address.rua || address.address || '');
     const number = address.number || address.numero || '';
-    const complement = address.complement || address.complemento || '';
-    const neighborhood = address.neighborhood || address.bairro || '';
-    const city = address.city || address.cidade || '';
+    const complement = toTitleCase(address.complement || address.complemento || '');
+    const neighborhood = toTitleCase(address.neighborhood || address.bairro || '');
+    const city = toTitleCase(address.city || address.cidade || '');
     return [street, number, complement, neighborhood, city]
         .filter(Boolean)
         .join(', ')
@@ -25,11 +25,11 @@ export const stringifyMapAddress = (
     address: any
 ) => {
     if (!address) return '';
-    if (typeof address === 'string') return address.trim();
-    const street = address.street || address.logradouro || address.rua || address.address || '';
+    if (typeof address === 'string') return toTitleCase(address.trim());
+    const street = toTitleCase(address.street || address.logradouro || address.rua || address.address || '');
     const number = address.number || address.numero || '';
-    const neighborhood = address.neighborhood || address.bairro || '';
-    const city = address.city || address.cidade || '';
+    const neighborhood = toTitleCase(address.neighborhood || address.bairro || '');
+    const city = toTitleCase(address.city || address.cidade || '');
     return [street, number, neighborhood, city]
         .filter(Boolean)
         .join(', ')
@@ -40,13 +40,13 @@ export const stringifyFullAddressWithObservation = (
     address: any
 ) => {
     if (!address) return '';
-    if (typeof address === 'string') return address.trim();
-    const street = address.street || address.logradouro || address.rua || address.address || '';
+    if (typeof address === 'string') return toTitleCase(address.trim());
+    const street = toTitleCase(address.street || address.logradouro || address.rua || address.address || '');
     const number = address.number || address.numero || '';
-    const complement = address.complement || address.complemento || '';
+    const complement = toTitleCase(address.complement || address.complemento || '');
     const observation = address.observation || address.observacao || '';
-    const neighborhood = address.neighborhood || address.bairro || '';
-    const city = address.city || address.cidade || '';
+    const neighborhood = toTitleCase(address.neighborhood || address.bairro || '');
+    const city = toTitleCase(address.city || address.cidade || '');
     return [street, number, complement, observation, neighborhood, city]
         .filter(Boolean)
         .join(', ')
@@ -137,18 +137,36 @@ export const formatDate = (value: string) => {
     });
 };
 
-export const toTitleCase = (text: any) => {
+export const toTitleCase = (text: any): string => {
     if (!text) return "";
-    const str = String(text);
-    const exceptions = ["de", "da", "do", "das", "dos", "com", "em"];
+    const str = String(text).trim();
+    if (!str) return "";
+
+    const exceptions = new Set([
+        "de", "da", "do", "das", "dos", 
+        "e", "em", "com", "por", "para", 
+        "na", "no", "nas", "nos", "ao", "aos", "a", "à", "às", "d'", "d’"
+    ]);
+
+    // Trata palavras separadas por espaços, hífens ou apóstrofos
     return str
         .toLowerCase()
-        .split(" ")
+        .split(/\s+/)
         .map((word, index) => {
-            if (exceptions.includes(word) && index !== 0) {
+            if (!word) return "";
+            
+            // Tratar casos como D'Ávila ou d'água
+            if (word.startsWith("d'") || word.startsWith("d’")) {
+                const rest = word.slice(2);
+                return (index === 0 ? "D'" : "d'") + (rest ? rest.charAt(0).toUpperCase() + rest.slice(1) : "");
+            }
+
+            if (exceptions.has(word) && index !== 0) {
                 return word;
             }
-            return (word.charAt(0).toUpperCase() + word.slice(1)) || "";
+
+            // Capitaliza a primeira letra preservando acentos
+            return word.charAt(0).toUpperCase() + word.slice(1);
         })
         .join(" ");
 };

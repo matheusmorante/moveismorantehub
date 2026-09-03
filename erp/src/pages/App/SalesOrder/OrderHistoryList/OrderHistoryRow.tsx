@@ -344,10 +344,10 @@ const OrderHistoryRow = ({
                         <div className="flex flex-col py-1 group/name">
                             <span 
                                 onClick={(e) => { if (isCancelled) return; e.stopPropagation(); if (!isEditLocked) onEdit(order); }}
-                                className={`text-[13px] font-black text-slate-700 dark:text-slate-200 uppercase tracking-tight leading-tight mb-1 truncate transition-colors flex items-center gap-1.5 w-fit ${isCancelled ? 'cursor-pointer' : (isEditLocked ? 'cursor-default' : 'cursor-pointer group-hover/name:text-blue-600 dark:group-hover/name:text-blue-400')}`}
+                                className={`text-[13px] font-black text-slate-700 dark:text-slate-200 tracking-tight leading-tight mb-1 truncate transition-colors flex items-center gap-1.5 w-fit ${isCancelled ? 'cursor-pointer' : (isEditLocked ? 'cursor-default' : 'cursor-pointer group-hover/name:text-blue-600 dark:group-hover/name:text-blue-400')}`}
                                 title={isCancelled ? 'Pedido cancelado (clique para ver detalhes)' : (isEditLocked ? 'Pedido atendido não pode ser editado' : 'Clique para editar o pedido')}
                             >
-                                {order.customerData?.fullName || "Não informado"}
+                                {toTitleCase(order.customerData?.fullName || "Não informado")}
                                 {!isEditLocked && !isCancelled && (
                                     <i className="bi bi-pencil text-[10px] opacity-0 group-hover/name:opacity-50 transition-opacity" />
                                 )}

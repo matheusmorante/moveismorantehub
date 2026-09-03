@@ -1,4 +1,5 @@
 import CustomerData from "../types/customerData.type"
+import { toTitleCase } from "../utils/formatters";
 
 interface Props {
     customerData: CustomerData;
@@ -24,7 +25,7 @@ const CustomerDataInputs = ({ customerData, isPickup, noAddress }: Props) => {
                 <div className="flex flex-wrap gap-x-6 gap-y-1">
                     <div className="flex flex-col flex-grow min-w-[200px]">
                         <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-0.5 leading-none">Nome Completo</span>
-                        <span className="text-lg font-bold text-slate-900 leading-tight uppercase">{customerData.fullName}</span>
+                        <span className="text-lg font-bold text-slate-900 leading-tight">{toTitleCase(customerData.fullName)}</span>
                     </div>
                     
                     <div className="flex flex-wrap gap-x-6 gap-y-2">
@@ -38,7 +39,7 @@ const CustomerDataInputs = ({ customerData, isPickup, noAddress }: Props) => {
                         {(customerData.additionalContacts || []).map((contact, idx) => (
                             <div key={idx} className="flex flex-col">
                                 <span className="text-[10px] font-bold uppercase text-slate-400 tracking-wider mb-0.5">
-                                    {contact.name || 'Contato Extra'}
+                                    {toTitleCase(contact.name || 'Contato Extra')}
                                 </span>
                                 <span className="text-base font-medium text-slate-800">{contact.phone}</span>
                             </div>
@@ -51,22 +52,22 @@ const CustomerDataInputs = ({ customerData, isPickup, noAddress }: Props) => {
                         <div className="flex flex-col">
                             <span className="text-[10px] font-bold uppercase text-slate-400 tracking-wider mb-0.5">Endereço</span>
                             <span className="text-base font-medium text-slate-800">
-                                {addr.street}{addr.number ? `, ${addr.number}` : ''}
-                                {addr.complement && <span className="text-slate-400 ml-2 font-normal">({addr.complement})</span>}
+                                {toTitleCase(addr.street)}{addr.number ? `, ${addr.number}` : ''}
+                                {addr.complement && <span className="text-slate-400 ml-2 font-normal">({toTitleCase(addr.complement)})</span>}
                             </span>
                         </div>
                         
                         {addr.neighborhood && (
                             <div className="flex flex-col border-l border-slate-100 pl-4 min-w-[120px]">
-                                <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-0.5 leading-none">Bairro</span>
-                                <span className="text-lg font-bold text-slate-900 uppercase">{addr.neighborhood}</span>
+                                <span className="text-[10px] font-bold uppercase text-slate-400 tracking-wider mb-0.5">Bairro</span>
+                                <span className="text-base font-medium text-slate-800">{toTitleCase(addr.neighborhood)}</span>
                             </div>
                         )}
 
                         {addr.city && (
-                            <div className="flex flex-col border-l border-slate-100 pl-4 min-w-[150px]">
-                                <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-0.5 leading-none">Cidade / UF</span>
-                                <span className="text-lg font-bold text-slate-900 uppercase">{addr.city}{addr.state ? ` - ${addr.state}` : ''}</span>
+                            <div className="flex flex-col border-l border-slate-100 pl-4 min-w-[120px]">
+                                <span className="text-[10px] font-bold uppercase text-slate-400 tracking-wider mb-0.5">Cidade</span>
+                                <span className="text-base font-medium text-slate-800">{toTitleCase(addr.city)}{addr.state ? ` - ${addr.state}` : ''}</span>
                             </div>
                         )}
                     </div>

@@ -49,10 +49,12 @@ const OrderPage = () => {
             {/* Professional Header */}
             <div className={`flex justify-between items-center p-6 rounded-3xl mb-4 ${headerColor} text-white print-exact-bg shadow-xl`}>
                 <div className="flex gap-6 items-center">
-                    <img src={logoMorante} alt="Móveis Morante" className="w-16 h-16 rounded-full object-cover border-4 border-white/30 shadow-lg" />
+                    <div className="w-20 h-16 bg-white rounded-2xl p-1 shadow-lg flex items-center justify-center">
+                        <img src={logoMorante} alt="Móveis Morante" className="w-full h-full object-contain rounded-xl" />
+                    </div>
                     <div>
                         <h1 className="text-3xl font-black tracking-tighter leading-none">MÓVEIS MORANTE</h1>
-                        <div className="text-[11px] font-bold opacity-80 uppercase tracking-[0.3em] mt-1.5 ml-1">Excelência em cada detalhe</div>
+                        <div className="text-[11px] font-bold opacity-80 uppercase tracking-[0.3em] mt-1.5 ml-1">Qualidade que cabe no seu bolso</div>
                     </div>
                 </div>
                 <div className="text-right">

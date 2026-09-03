@@ -109,28 +109,48 @@ export const CompanyFiscalDataSection: React.FC<CompanyFiscalDataSectionProps> =
                 </div>
             </div>
 
-            {/* Ambiente e Série Padrão */}
+            {/* Ambiente, Série e Numeração Sequencial Inicial */}
             <div className="p-8 hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                     <div>
-                        <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 block mb-2">Ambiente de Emissão Padrão</label>
+                        <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 block mb-2">Ambiente de Emissão</label>
                         <select
                             value={settings.nfeEnvironment || 2}
                             onChange={(e) => onChange('nfeEnvironment', Number(e.target.value))}
-                            className="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl px-5 py-3 text-sm outline-none focus:border-emerald-500 dark:text-slate-200 w-full transition-all font-bold"
+                            className="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl px-4 py-3 text-sm outline-none focus:border-emerald-500 dark:text-slate-200 w-full transition-all font-bold"
                         >
-                            <option value={2}>2 - Homologação (Ambiente de Testes / Sem Valor Fiscal)</option>
-                            <option value={1}>1 - Produção (Ambiente Oficial com Valor Fiscal)</option>
+                            <option value={2}>2 - Homologação (Testes)</option>
+                            <option value={1}>1 - Produção (Oficial)</option>
                         </select>
                     </div>
                     <div>
-                        <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 block mb-2">Série Padrão da NF-e</label>
+                        <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 block mb-2">Série Padrão</label>
                         <input
                             type="text"
                             value={settings.nfeSerie || '1'}
                             onChange={(e) => onChange('nfeSerie', e.target.value)}
                             placeholder="1"
-                            className="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl px-5 py-3 text-sm outline-none focus:border-emerald-500 dark:text-slate-200 w-full transition-all font-bold font-mono"
+                            className="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl px-4 py-3 text-sm outline-none focus:border-emerald-500 dark:text-slate-200 w-full transition-all font-bold font-mono"
+                        />
+                    </div>
+                    <div>
+                        <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 block mb-2">Próxima NFC-e (Mod 65)</label>
+                        <input
+                            type="number"
+                            value={settings.nfceNextNumber ?? 700}
+                            onChange={(e) => onChange('nfceNextNumber', parseInt(e.target.value, 10) || 700)}
+                            placeholder="700"
+                            className="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl px-4 py-3 text-sm outline-none focus:border-emerald-500 dark:text-slate-200 w-full transition-all font-bold font-mono"
+                        />
+                    </div>
+                    <div>
+                        <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 block mb-2">Próxima NF-e (Mod 55)</label>
+                        <input
+                            type="number"
+                            value={settings.nfeNextNumber ?? 700}
+                            onChange={(e) => onChange('nfeNextNumber', parseInt(e.target.value, 10) || 700)}
+                            placeholder="700"
+                            className="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl px-4 py-3 text-sm outline-none focus:border-emerald-500 dark:text-slate-200 w-full transition-all font-bold font-mono"
                         />
                     </div>
                 </div>

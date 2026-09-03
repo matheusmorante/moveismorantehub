@@ -1,4 +1,5 @@
 import CustomerData from "../types/customerData.type"
+import { toTitleCase } from "../utils/formatters";
 
 interface Props {
     customerData: CustomerData;
@@ -16,7 +17,7 @@ const CustomerDataInputs = ({ customerData, isPickup }: Props) => {
             <div className="flex flex-wrap gap-y-3 gap-x-10">
                 <div className="flex flex-col">
                     <span className="text-[9px] font-black uppercase text-slate-400 tracking-wider">Cliente</span>
-                    <span className="text-sm font-black text-slate-800 uppercase tracking-tight">{customerData.fullName}</span>
+                    <span className="text-sm font-black text-slate-800 tracking-tight">{toTitleCase(customerData.fullName)}</span>
                 </div>
                 
                 {customerData.phone && (
@@ -38,7 +39,7 @@ const CustomerDataInputs = ({ customerData, isPickup }: Props) => {
                         <div key={idx} className="flex flex-col">
                             <span className="text-[9px] font-black uppercase text-slate-400 tracking-wider text-nowrap">Contato Adic. {idx + 1}</span>
                             <span className="text-sm font-black text-slate-800 text-nowrap">
-                                {contact.name ? `${contact.name} ` : ''}
+                                {contact.name ? `${toTitleCase(contact.name)} ` : ''}
                                 {contact.phone ? `(${contact.phone})` : ''}
                             </span>
                         </div>
@@ -51,21 +52,21 @@ const CustomerDataInputs = ({ customerData, isPickup }: Props) => {
                     {addr.street && (
                         <div className="flex flex-col">
                             <span className="text-[9px] font-black uppercase text-slate-400 tracking-wider">Endereço</span>
-                            <span className="text-sm font-bold text-slate-800">{addr.street}{addr.number ? `, ${addr.number}` : ''}</span>
+                            <span className="text-sm font-bold text-slate-800">{toTitleCase(addr.street)}{addr.number ? `, ${addr.number}` : ''}</span>
                         </div>
                     )}
                     
                     {addr.neighborhood && (
                         <div className="flex flex-col">
                             <span className="text-[9px] font-black uppercase text-slate-400 tracking-wider">Bairro</span>
-                            <span className="text-sm font-bold text-slate-800">{addr.neighborhood}</span>
+                            <span className="text-sm font-bold text-slate-800">{toTitleCase(addr.neighborhood)}</span>
                         </div>
                     )}
 
                     {addr.city && (
                         <div className="flex flex-col">
                             <span className="text-[9px] font-black uppercase text-slate-400 tracking-wider">Cidade</span>
-                            <span className="text-sm font-bold text-slate-800">{addr.city}</span>
+                            <span className="text-sm font-bold text-slate-800">{toTitleCase(addr.city)}</span>
                         </div>
                     )}
 

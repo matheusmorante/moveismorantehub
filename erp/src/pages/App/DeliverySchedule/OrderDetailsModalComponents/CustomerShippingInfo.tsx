@@ -1,5 +1,5 @@
 import React from "react";
-import { stringifyFullAddressWithObservation, formatToBRDate } from "../../../utils/formatters";
+import { stringifyFullAddressWithObservation, formatToBRDate, toTitleCase } from "../../../utils/formatters";
 import { getSettings } from '@/pages/utils/settingsService';
 import { getOrderTypeClasses, resolveOrderColor } from "../../../utils/orderTypeColorUtils";
 
@@ -13,8 +13,8 @@ export const CustomerSection = ({ fullName, phone, noPhone, email, cpfCnpj, obse
 
         <div className="flex items-start justify-between gap-4">
             <div className="flex-1">
-                <p className="text-base font-black text-slate-800 dark:text-slate-100 lowercase first-letter:uppercase mb-1">
-                    {fullName || "Consumidor Não Identificado"}
+                <p className="text-base font-black text-slate-800 dark:text-slate-100 mb-1">
+                    {toTitleCase(fullName || "Consumidor Não Identificado")}
                 </p>
                 <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
                     <i className="bi bi-telephone-fill text-blue-400 text-[10px]" />

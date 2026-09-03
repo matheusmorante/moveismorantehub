@@ -1,88 +1,111 @@
-export function getDanfeStyles(isHomologacao: boolean): string {
+export function getDanfeOfficialStyles(isHomologacao: boolean): string {
     return `
-        body {
-            font-family: Arial, sans-serif;
-            font-size: 11px;
-            color: #0f172a;
-            margin: 0;
-            padding: 20px;
-            background: #f8fafc;
+        * {
+            box-sizing: border-box;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
         }
-        .danfe-container {
-            max-width: 800px;
+        body {
+            font-family: 'Courier New', Courier, monospace, Arial, sans-serif;
+            font-size: 8px;
+            color: #000;
+            margin: 0;
+            padding: 10px;
+            background: #f1f5f9;
+        }
+        .danfe-a4 {
+            width: 210mm;
+            min-height: 297mm;
             margin: 0 auto;
             background: #fff;
-            padding: 20px;
-            border: 1px solid #94a3b8;
-            box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);
+            padding: 5mm;
+            border: 1px solid #000;
         }
-        .watermark {
+        .border-box {
+            border: 1px solid #000;
+            position: relative;
+        }
+        .border-t-0 { border-top: 0 !important; }
+        .border-b-0 { border-bottom: 0 !important; }
+        .border-l-0 { border-left: 0 !important; }
+        .border-r-0 { border-right: 0 !important; }
+        
+        .box-title {
+            font-family: Arial, Helvetica, sans-serif;
+            font-size: 6px;
+            font-weight: 800;
+            text-transform: uppercase;
+            color: #000;
+            padding: 1px 2px 0 2px;
+            line-height: 1;
+        }
+        .box-value {
+            font-family: Arial, Helvetica, sans-serif;
+            font-size: 8.5px;
+            font-weight: bold;
+            color: #000;
+            padding: 1px 2px 2px 2px;
+            min-height: 12px;
+            line-height: 1.1;
+        }
+        .box-value-sm {
+            font-size: 7.5px;
+        }
+        .text-center { text-align: center; }
+        .text-right { text-align: right; }
+        .text-left { text-align: left; }
+        .font-black { font-weight: 900; }
+        .font-bold { font-weight: bold; }
+        
+        /* Canhoto */
+        .canhoto-container {
+            border: 1px solid #000;
+            border-bottom: 1px dashed #000;
+            padding-bottom: 3px;
+            margin-bottom: 4px;
+        }
+        
+        /* Tabela de Produtos Oficial */
+        .items-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-family: Arial, Helvetica, sans-serif;
+            font-size: 7px;
+        }
+        .items-table th {
+            border: 1px solid #000;
+            background: #e2e8f0;
+            font-size: 6.5px;
+            font-weight: 800;
+            padding: 2px;
+            text-transform: uppercase;
+            text-align: center;
+        }
+        .items-table td {
+            border: 1px solid #000;
+            padding: 2px;
+            font-size: 7.5px;
+        }
+        
+        .watermark-homologacao {
             ${isHomologacao ? `
-                border: 2px dashed #ef4444;
+                border: 2px dashed #dc2626;
                 background: #fef2f2;
                 color: #b91c1c;
                 text-align: center;
                 font-weight: 900;
-                font-size: 13px;
-                padding: 8px;
-                margin-bottom: 12px;
+                font-size: 11px;
+                padding: 4px;
+                margin-bottom: 4px;
                 text-transform: uppercase;
-                letter-spacing: 1px;
+                letter-spacing: 0.5px;
             ` : 'display: none;'}
         }
-        .header-box {
-            display: flex;
-            border: 1px solid #94a3b8;
-            margin-bottom: 10px;
-        }
-        .emit-info {
-            flex: 1;
-            padding: 10px;
-            border-right: 1px solid #94a3b8;
-        }
-        .danfe-badge {
-            width: 140px;
-            text-align: center;
-            padding: 10px;
-            border-right: 1px solid #94a3b8;
-        }
-        .key-info {
-            flex: 1.5;
-            padding: 10px;
-        }
-        .section-title {
-            font-weight: 900;
-            font-size: 9px;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            background: #f1f5f9;
-            padding: 4px 8px;
-            border: 1px solid #94a3b8;
-            border-bottom: none;
-            margin-top: 10px;
-        }
-        .data-box {
-            border: 1px solid #94a3b8;
-            padding: 8px;
-            font-size: 10px;
-        }
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            font-size: 10px;
-            margin-top: 10px;
-        }
-        th {
-            background: #f1f5f9;
-            padding: 5px;
-            border: 1px solid #94a3b8;
-            font-size: 9px;
-            text-transform: uppercase;
-        }
+        
         @media print {
             body { background: #fff; padding: 0; }
-            .danfe-container { border: none; box-shadow: none; max-width: 100%; }
-            .no-print { display: none; }
+            .danfe-a4 { border: none; padding: 0; width: 100%; min-height: auto; }
+            .no-print { display: none !important; }
         }
     `;
 }

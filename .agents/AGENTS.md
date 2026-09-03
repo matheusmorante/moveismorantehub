@@ -316,6 +316,15 @@ Ao incrementar versao em `mobile/app.json`, sincronizar:
 
 ## MODULO: EMISSÃO FISCAL SEFAZ (NF-e / NFC-e)
 
+### Separação entre Domínio Comercial e Documento Fiscal
+- **Fronteira Comercial vs Fiscal**:
+  - A NF-e/NFC-e autorizada **NUNCA** é editada ou excluída. Cancelamentos e devoluções são registrados via novos estados fiscais ou emissão de documentos reversos vinculados (NF-e de entrada/devolução referenciando a chave original).
+  - O módulo fiscal **NUNCA altera estoque diretamente**. O estoque é governado exclusivamente pelas operações de pedidos (`orders` / `inventory_moves`), e o módulo fiscal apenas reflete/documenta a operação.
+- **Ações na Tela Fiscal (`/fiscal-documents` — Vendas > Notas Fiscais)**:
+  - Exclusivamente voltada para administração de eventos SEFAZ: **Consultar Situação SEFAZ**, **Cancelar NF**, **Carta de Correção (CC-e)**, **Reenviar/Consultar Transmissão**, **Baixar XML**, **Visualizar/Imprimir DANFE** e **Inutilizar Numeração**.
+- **Ações na Tela de Pedidos (`/sales-order` — Pedidos de Venda / Pós-Venda)**:
+  - Operações comerciais de cliente: **Cancelar Venda** (estorna estoque e solicita cancelamento de NF autorizada), **Registrar Devolução Total/Parcial** (lança entrada de estoque e emite NF-e de Devolução referenciada) e **Troca** (devolução do item antigo + venda do novo).
+
 ### Regras de Emissão e Homologação (`tpAmb = 2`)
 - **Regra de Modelo do Documento (`fiscalDocumentRule.ts`)**:
   - Pedidos com entrega (`shipping.deliveryMethod === 'delivery'`): Sugerida **NF-e (Modelo 55)**.
@@ -328,7 +337,7 @@ Ao incrementar versao em `mobile/app.json`, sincronizar:
 - **Configurações Fiscais da Empresa (`CompanyFiscalDataSection.tsx` / `FiscalSettingsSection.tsx`)**:
   - Cadastro de Inscrição Estadual (IE), Inscrição Municipal, CRT (Simples Nacional), Endereço completo com Código IBGE do Município (PR), Ambiente padrão e Série.
 - **Persistência do Histórico Fiscal**:
-  - Dados da nota fiscal autorizada/homologada (`accessKey`, `nfeNumber`, `series`, `model`, `environment`, `protocolNumber`, `xml`, `emittedAt`) são vinculados diretamente ao pedido (`order.nfeData`) e salvos no histórico.
+  - Dados da nota fiscal autorizada/homologada (`accessKey`, `nfeNumber`, `series`, `model`, `environment`, `protocolNumber`, `xml`, `emittedAt`) são vinculados diretamente ao pedido (`order.nfeData`) e salvos no histórico `nfe_documents`.
   - O DANFE gerado pode ser impresso ou visualizado a qualquer momento via botão no modal e ações do pedido.
 
 ---

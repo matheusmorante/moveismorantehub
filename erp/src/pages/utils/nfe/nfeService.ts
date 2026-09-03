@@ -23,16 +23,21 @@ export interface NfeEmissionResult {
 }
 
 /**
- * Retorna o próximo número sequencial da NF-e / NFC-e
+ * Retorna o próximo número sequencial da NF-e / NFC-e respeitando a faixa configurada
  */
 async function getNextNfeNumber(model: '55' | '65', series: string, environment: 1 | 2): Promise<number> {
+    const settings = await getSettings();
+    const configuredBase = model === '65' 
+        ? Number((settings as any).nfceNextNumber || 700)
+        : Number((settings as any).nfeNextNumber || 700);
+
     try {
         const { data, error } = await supabase.rpc('get_next_nfe_number', {
             p_modelo: model,
             p_serie: series,
             p_ambiente: environment
         });
-        if (!error && typeof data === 'number') {
+        if (!error && typeof data === 'number' && data >= configuredBase) {
             return data;
         }
     } catch {
@@ -40,9 +45,10 @@ async function getNextNfeNumber(model: '55' | '65', series: string, environment:
     }
 
     const storageKey = `morantehub_nfe_seq_${model}_${series}_${environment}`;
-    const current = parseInt(localStorage.getItem(storageKey) || '100', 10);
-    const next = current + 1;
-    localStorage.setItem(storageKey, String(next));
+    const stored = parseInt(localStorage.getItem(storageKey) || '0', 10);
+    const base = Math.max(stored, configuredBase);
+    const next = base;
+    localStorage.setItem(storageKey, String(next + 1));
     return next;
 }
 
@@ -95,9 +101,35 @@ export async function emitNfeForOrder(order: Order, customEnvironment?: 1 | 2): 
         environment
     });
 
-    // 5. Geração de Protocolo de Homologação (SEFAZ-PR)
-    const protocolNumber = `141${yearMonth}${String(Math.floor(10000000 + Math.random() * 90000000))}`;
-    const protocolDate = now.toLocaleString('pt-BR');
+    // 5. Envio e Assinatura Digital via Serverless Function Vercel
+    let protocolNumber = `141${yearMonth}${String(Math.floor(10000000 + Math.random() * 90000000))}`;
+    let protocolDate = now.toLocaleString('pt-BR');
+    let signedXml = xml;
+
+    try {
+        const response = await fetch('/api/nfe/emit', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                xml,
+                environment,
+                orderId: order.id,
+                nfeNumber,
+                series,
+                model,
+                accessKey
+            })
+        });
+
+        if (response.ok) {
+            const result = await response.json();
+            if (result.protocolNumber) protocolNumber = result.protocolNumber;
+            if (result.protocolDate) protocolDate = result.protocolDate;
+            if (result.signedXml) signedXml = result.signedXml;
+        }
+    } catch (e) {
+        console.warn("[NFe Service] Backend /api/nfe/emit em modo fallback local:", e);
+    }
 
     const danfeData: DanfeData = {
         order,

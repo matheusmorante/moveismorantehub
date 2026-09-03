@@ -57,6 +57,7 @@ const menuItems = [
         bg: 'bg-blue-50 dark:bg-blue-900/20',
         links: [
             { to: '/sales-order', icon: 'bi-receipt', iconColor: 'text-blue-500', label: 'Pedidos de Venda' },
+            { to: '/fiscal-documents', icon: 'bi-file-earmark-spreadsheet-fill', iconColor: 'text-emerald-500', label: 'Notas Fiscais (NFC/NF)' },
             { to: '/budgets', icon: 'bi-file-earmark-text-fill', iconColor: 'text-sky-500', label: 'Orçamentos' },
             { to: '/assistance-orders', icon: 'bi-tools', iconColor: 'text-orange-500', label: 'Assistências' },
             { to: '/returns', icon: 'bi-arrow-return-left', iconColor: 'text-rose-500', label: 'Devoluções' },

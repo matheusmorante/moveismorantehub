@@ -51,7 +51,7 @@ const ShippingLabelPage = () => {
 
                 {/* Header */}
                 <div className="flex justify-between items-start border-b-2 border-slate-100 pb-6 shrink-0 relative z-10">
-                    <img src={logoMorante} alt="Móveis Morante" className="w-12 h-12 rounded-full object-cover border-2 border-slate-50 shadow-sm" />
+                    <img src={logoMorante} alt="Móveis Morante" className="w-14 h-12 rounded-xl object-contain border border-slate-100 bg-white p-0.5 shadow-sm" />
                     <div className="text-right">
                         <div className="text-[10px] font-black uppercase tracking-widest text-slate-400">PEDIDO</div>
                         <div className="text-2xl font-black text-slate-900">#{formatOrderCode(order)}</div>

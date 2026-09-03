@@ -15,14 +15,15 @@ export function BrandLogo({ isAdminMode }: BrandLogoProps) {
   }
 
   return (
-    <Link href="/" className="flex items-end gap-2 sm:gap-3 group h-full relative">
-      <div className="relative h-full w-18 sm:w-24 flex items-end">
+    <Link href="/" className="flex items-center gap-2 sm:gap-3 group h-full relative py-1">
+      <div className="relative h-10 sm:h-12 w-12 sm:w-14 bg-white rounded-xl shadow-xs border border-slate-100 p-0.5 overflow-hidden flex items-center justify-center group-hover:scale-105 transition-transform duration-300">
         <Image
-          src="/images/avatar-morante.png"
-          alt="Seu Lizandro - Móveis Morante"
+          src="/logo-morante.png"
+          alt="Móveis Morante"
           fill
-          sizes="(max-width: 640px) 48px, 96px"
-          className="object-contain object-bottom"
+          sizes="(max-width: 640px) 48px, 64px"
+          className="object-contain p-0.5"
+          priority
         />
       </div>
 
@@ -36,10 +37,14 @@ export function BrandLogo({ isAdminMode }: BrandLogoProps) {
         </button>
       )}
 
-      <span className="text-base sm:text-xl font-bold text-primary italic uppercase tracking-tighter leading-none flex flex-col sm:flex-row sm:gap-1 self-center">
-        <span>Móveis</span>
-        <span className="text-accent">Morante</span>
-      </span>
+      <div className="flex flex-col self-center">
+        <span className="text-base sm:text-lg font-black text-primary uppercase tracking-tight leading-none">
+          Móveis <span className="text-accent">Morante</span>
+        </span>
+        <span className="text-[8px] sm:text-[9px] font-bold text-muted-foreground uppercase tracking-widest leading-none mt-1">
+          Qualidade que cabe no seu bolso
+        </span>
+      </div>
     </Link>
   )
 }

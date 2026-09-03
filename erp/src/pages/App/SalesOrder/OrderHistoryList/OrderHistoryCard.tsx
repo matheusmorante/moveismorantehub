@@ -354,7 +354,7 @@ const OrderHistoryCard = ({
                     className={`text-sm font-bold text-slate-800 dark:text-slate-100 leading-tight transition-colors w-fit ${isCancelled ? 'cursor-pointer' : (isEditLocked ? 'cursor-default' : 'cursor-pointer hover:text-blue-600 dark:hover:text-blue-400')}`}
                     title={isCancelled ? 'Pedido cancelado (clique para ver detalhes)' : (isEditLocked ? 'Pedido atendido não pode ser editado' : 'Clique para editar o pedido')}
                 >
-                    {order.customerData?.fullName || "Cliente não informado"}
+                    {toTitleCase(order.customerData?.fullName || "Cliente não informado")}
                 </h3>
 
                 {order.linkedOrderId && (
