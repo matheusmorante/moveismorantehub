@@ -1,4 +1,6 @@
 import { binaryOrderBadgeClass } from "./orderBadgeStyles";
+import Order from "../../../types/order.type";
+import Item from "../../../types/items.type";
 
 export interface InventoryBadgeContentOptions {
     isReturn: boolean;
@@ -13,6 +15,17 @@ export interface InventoryBadgeContentResult {
     statusLabel: string;
     statusTextColor: string;
     badgeColorClass: string;
+}
+
+export type ItemMovementStatus = 'effective' | 'reversed' | 'not_effective' | 'unregistered';
+
+export interface ItemMovementDisplay {
+    description: string;
+    quantity: number;
+    status: ItemMovementStatus;
+    statusLabel: string;
+    statusBadgeClass: string;
+    tooltip?: string;
 }
 
 export const getInventoryBadgeContent = ({
@@ -74,4 +87,82 @@ export const getInventoryBadgeContent = ({
         statusTextColor,
         badgeColorClass,
     };
+};
+
+export const getOrderItemsMovementList = (
+    order?: Order,
+    hasMovement: boolean = false,
+    isReversed: boolean = false
+): ItemMovementDisplay[] => {
+    if (!order || !order.items || order.items.length === 0) return [];
+
+    const isOrderReversed = isReversed || order.status === 'cancelled' || Boolean(order.stockReversed) || Boolean(order.returnStockReversed);
+    const movedSet = order.movedProductIds ? new Set(order.movedProductIds.map(String)) : null;
+
+    return order.items.map((item: Item) => {
+        const description = item.description || (item as any).name || 'Produto';
+        const quantity = item.quantity || 1;
+        const isUnregistered = !item.productId || item.productId.trim() === '' || Boolean(item.isTemporaryProduct);
+
+        if (isUnregistered) {
+            return {
+                description,
+                quantity,
+                status: 'unregistered',
+                statusLabel: 'Item não cadastrado (sem movimentação)',
+                statusBadgeClass: 'bg-amber-100 text-amber-800 dark:bg-amber-950/70 dark:text-amber-300 border-amber-300 dark:border-amber-800',
+                tooltip: 'Item sem cadastro no banco não gera saída de estoque.',
+            };
+        }
+
+        if (isOrderReversed) {
+            return {
+                description,
+                quantity,
+                status: 'reversed',
+                statusLabel: 'Estornada',
+                statusBadgeClass: 'bg-red-100 text-red-700 dark:bg-red-950/70 dark:text-red-300 border-red-200 dark:border-red-900',
+                tooltip: 'A movimentação deste item foi estornada.',
+            };
+        }
+
+        if (movedSet) {
+            const wasMoved = movedSet.has(String(item.productId));
+            if (wasMoved) {
+                return {
+                    description,
+                    quantity,
+                    status: 'effective',
+                    statusLabel: 'Efetivada',
+                    statusBadgeClass: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/70 dark:text-emerald-300 border-emerald-300 dark:border-emerald-800',
+                };
+            } else {
+                return {
+                    description,
+                    quantity,
+                    status: 'not_effective',
+                    statusLabel: 'Não efetivada',
+                    statusBadgeClass: 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400 border-slate-200 dark:border-slate-700',
+                };
+            }
+        }
+
+        if (hasMovement) {
+            return {
+                description,
+                quantity,
+                status: 'effective',
+                statusLabel: 'Efetivada',
+                statusBadgeClass: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/70 dark:text-emerald-300 border-emerald-300 dark:border-emerald-800',
+            };
+        }
+
+        return {
+            description,
+            quantity,
+            status: 'not_effective',
+            statusLabel: 'Não efetivada',
+            statusBadgeClass: 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400 border-slate-200 dark:border-slate-700',
+        };
+    });
 };

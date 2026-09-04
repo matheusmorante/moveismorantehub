@@ -231,6 +231,7 @@ Toda movimentacao de estoque e registrada em `inventory_moves` com:
   - **Verde (`bg-emerald-600`)**: Saída/Entrada completa efetivada para todos os itens no estoque (ícone `PackageCheck`).
   - **Cinza (`bg-slate-400 dark:bg-slate-600`)**: Sem movimentação lançada (ícone `Package`).
   - **Vermelho (`bg-red-600 border-red-700`)**: Movimentação de estoque estornada / cancelada (ícone `PackageX` do lucide-react).
+  - **Detalhamento de Itens no Popover (`InventoryBadgePopover`)**: Ao passar o mouse sobre o selo, o modal flutuante exibe a lista de todos os itens da venda com nome, quantidade e status de movimentação: `Efetivada` (verde), `Estornada` (vermelho), `Não efetivada` (cinza) e `Item não cadastrado (sem movimentação)` (âmbar com aviso explícito).
 - **Rótulo Visual no Histórico de Movimentações (Stock > Movimentações)**: Movimentações estornadas (`status === 'reversed'` ou `cancelled`) exibem rótulos de tipo e status com **fundo amarelo / âmbar** (`bg-amber-100 / bg-amber-50 dark:bg-amber-950`).
 
 ### Arquivo Central de Estoque

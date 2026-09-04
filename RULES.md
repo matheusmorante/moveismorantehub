@@ -49,3 +49,8 @@ Este arquivo consolida as regras de ouro e diretrizes de desenvolvimento para o 
    - **Verde com ícone `PackageCheck`**: Saída/entrada completa gerada para todos os itens.
    - **Cinza com ícone `Package`**: Sem movimentação lançada.
    - **Vermelho com ícone `PackageX`**: Movimentação estornada / cancelada.
+   - **Detalhamento de Itens no Hover / Modal Flutuante (`InventoryBadgePopover`)**: O popover lista todos os itens da venda com **Nome do Produto**, **Quantidade** e **Status Individual da Movimentação**:
+     - *Efetivada*: Saída/movimentação lançada e ativa no estoque.
+     - *Estornada*: Saída estornada / cancelada.
+     - *Não efetivada*: Produto cadastrado que ainda não teve saída lançada.
+     - *Item não cadastrado (sem movimentação)*: Avisa com destaque visual âmbar que itens temporários ou sem cadastro não movimentam estoque.

@@ -51,12 +51,14 @@ export const applyActualInventoryStatus = async (orders: Order[]): Promise<Order
         const hasReversedEntry = !hasEffectiveEntry && (reversedEntries.has(orderId) || order.status === 'cancelled');
         const hasReversedExit = !hasEffectiveExit && (reversedExits.has(orderId) || order.status === 'cancelled');
         const movedProductIds = movedProductsByOrder.get(orderId);
+        const movedProductIdsArray = movedProductIds ? Array.from(movedProductIds) : undefined;
 
         if (order.orderType === 'return') {
             const updatedOrder: Order = {
                 ...order,
                 returnStockProcessed: hasEffectiveEntry,
-                returnStockReversed: hasReversedEntry
+                returnStockReversed: hasReversedEntry,
+                movedProductIds: movedProductIdsArray,
             };
             return {
                 ...updatedOrder,
@@ -67,7 +69,8 @@ export const applyActualInventoryStatus = async (orders: Order[]): Promise<Order
             const updatedOrder: Order = {
                 ...order,
                 stockProcessed: hasEffectiveExit,
-                stockReversed: hasReversedExit
+                stockReversed: hasReversedExit,
+                movedProductIds: movedProductIdsArray,
             };
             return {
                 ...updatedOrder,

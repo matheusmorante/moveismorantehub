@@ -47,7 +47,8 @@ Este documento unifica todo o planejamento estratégico, ideias futuras, tarefas
 - [ ] **Backlog de Arquivos Extensos a Modularizar Sob Demanda**:
   - `ProductFormModal.tsx` (> 600 linhas): dividir abas, validação de legibilidade e gerenciadores de variações.
   - `ProductRow.tsx` e `ProductCard.tsx`: isolar ações, menus e renderizadores de status.
-  - `OrderHistoryRow.tsx` e `OrderHistoryCard.tsx`: desacoplar badges de triagem, modal de cancelamento e ações.
+  - [x] `OrderHistoryRow.tsx` e `OrderHistoryCard.tsx` + `InventoryMovementBadge.tsx`: modularizados com sucesso segundo a skill `modularizacao_codigo` (redução de mais de 70% das linhas com submódulos coesos).
+  - [x] **Detalhamento de Itens no Popover de Estoque**: Exibição da lista de todos os itens da venda com nome, quantidade e status de movimentação (`Efetivada`, `Estornada`, `Não efetivada` e `Item não cadastrado (sem movimentação)` com alerta).
   - `useProducts.ts` e `orderHistoryService.ts`: segregação de queries, mutations e regras de negócio.
 
 ### 📱 Mobile Offline-First Baseado em Eventos & Risco Operacional

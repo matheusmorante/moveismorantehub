@@ -115,3 +115,9 @@
   - Exibido quando ainda não há movimentação de estoque registrada para o pedido.
 - **Selo Vermelho com Ícone `PackageX` (`bg-red-600 border-red-700 text-white`)**:
   - Exibido quando a movimentação de estoque vinculada foi estornada (ex: cancelamento de pedido de venda).
+- **Detalhamento de Itens no Modal Flutuante / Hover (`InventoryBadgePopover`)**:
+  - O popover exibe a lista completa dos itens da venda com **Nome**, **Quantidade** e **Status Individual da Movimentação**:
+    - **Efetivada** (verde): saída/movimentação lançada no estoque para o produto.
+    - **Estornada** (vermelho): saída estornada por cancelamento do pedido.
+    - **Não efetivada** (cinza): produto cadastrado que ainda não teve movimentação lançada.
+    - **Item não cadastrado (sem movimentação)** (âmbar): alerta explícito de que itens sem cadastro (temporários) ou serviços não movimentam estoque.

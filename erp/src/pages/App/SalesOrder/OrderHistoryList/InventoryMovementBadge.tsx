@@ -34,8 +34,9 @@ const InventoryMovementBadge = ({ orderType, hasMovement, isReversed, isPartial,
     const updatePosition = useCallback(() => {
         if (!buttonRef.current) return;
         const rect = buttonRef.current.getBoundingClientRect();
-        const popoverWidth = 288;
-        const popoverHeight = 160;
+        const hasItems = Boolean(order?.items && order.items.length > 0);
+        const popoverWidth = Math.min(384, window.innerWidth - 24);
+        const popoverHeight = hasItems ? 280 : 160;
 
         const spaceBelow = window.innerHeight - rect.bottom;
         const placement = spaceBelow < popoverHeight + 20 && rect.top > popoverHeight + 20 ? 'top' : 'bottom';
@@ -44,7 +45,7 @@ const InventoryMovementBadge = ({ orderType, hasMovement, isReversed, isPartial,
         left = Math.max(12, Math.min(window.innerWidth - popoverWidth - 12, left));
 
         setCoords({ top, left, placement });
-    }, []);
+    }, [order?.items]);
 
     const handleMouseEnter = () => {
         if (closeTimerRef.current) {
@@ -128,6 +129,7 @@ const InventoryMovementBadge = ({ orderType, hasMovement, isReversed, isPartial,
                     isReturn={isReturn}
                     hasMovement={hasMovement}
                     isReversed={isReversed}
+                    order={order}
                     onClose={() => setIsOpen(false)}
                     onMouseEnter={() => {
                         if (closeTimerRef.current) {
