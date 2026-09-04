@@ -41,6 +41,14 @@ const OrderEditModal = ({ order, orderId, onClose: propOnClose, onSaveSuccess: p
         navigate("/sales-order");
     });
 
+    useEffect(() => {
+        const previousOverflow = document.body.style.overflow;
+        document.body.style.overflow = 'hidden';
+        return () => {
+            document.body.style.overflow = previousOverflow;
+        };
+    }, []);
+
     const form = useSalesOrderForm();
     const [view, setView] = useState<'form' | 'timeline'>('form');
     const [isSellerSearchOpen, setIsSellerSearchOpen] = useState(false);
@@ -411,17 +419,9 @@ const OrderEditModal = ({ order, orderId, onClose: propOnClose, onSaveSuccess: p
         </div>
     );
 
-    if (isPageRoute) {
-        return (
-            <div className="w-full h-[calc(100vh-64px)] xl:h-[calc(100vh-80px)] overflow-hidden animate-fade-in">
-                {renderContent()}
-            </div>
-        );
-    }
-
     return (
         <div
-            className="fixed inset-0 z-[100] bg-slate-900/60 backdrop-blur-sm animate-fade-in flex"
+            className="fixed inset-0 z-[999999] w-screen h-screen flex flex-col bg-slate-900/60 backdrop-blur-sm animate-fade-in overflow-hidden"
             onClick={onClose}
         >
             {renderContent()}

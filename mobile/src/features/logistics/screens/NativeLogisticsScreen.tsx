@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, SectionList, ActivityIndicator, RefreshControl, StyleSheet, Platform, StatusBar, Modal } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Calendar, Truck, RefreshCw, ChevronRight, ChevronDown, Hammer, Clock, MapPin, Navigation, Package, AlertCircle, Wrench, Check } from 'lucide-react-native';
+import { Calendar, Truck, RefreshCw, ChevronRight, ChevronDown, Hammer, Clock, MapPin, Navigation, Package, AlertCircle, Wrench, Check, Map } from 'lucide-react-native';
 import { supabase } from '../../../services/supabaseClient';
 import { subscribeToLogisticsChanges } from '../../../services/logisticsRealtimeService';
 import { isAssemblyOutsideType, isAssemblyInternalType } from '../../../utils/aiSummaryHelper';
@@ -9,6 +9,7 @@ import { formatFullAddress, groupOrdersByDate, formatItemNameExact, isCancelledO
 import { OrderCardDeliveryFooter } from '../../../components/cards/OrderCardDeliveryFooter';
 import { getOperationalScheduleDate } from '../../../utils/operationalSchedule';
 import { offlineStorageService } from '../../../services/offline/offlineStorageService';
+import { TodayDeliveriesScreen } from './TodayDeliveriesScreen';
 
 interface Props {
   isDarkMode: boolean;
@@ -36,6 +37,7 @@ export const NativeLogisticsScreen: React.FC<Props> = ({ isDarkMode, isAdmin, on
   const [selectedPeriod, setSelectedPeriod] = useState<string>('today_and_following');
   const [showPeriodModal, setShowPeriodModal] = useState<boolean>(false);
   const [handlingOptions, setHandlingOptions] = useState<any[]>([]);
+  const [showTodayMap, setShowTodayMap] = useState<boolean>(false);
   const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({
     sem_data: true, // Entregas a Agendar fechadas por padrão
   });
@@ -423,8 +425,40 @@ export const NativeLogisticsScreen: React.FC<Props> = ({ isDarkMode, isAdmin, on
           <ChevronDown size={14} color={isDarkMode ? '#cbd5e1' : '#64748b'} style={{ marginLeft: 2 }} />
         </TouchableOpacity>
       </View>
+
+      {/* Banner de Acesso Rápido ao Mapa de Entregas de Hoje */}
+      <TouchableOpacity
+        style={[styles.mapBannerBtn, isDarkMode && styles.mapBannerBtnDark]}
+        onPress={() => setShowTodayMap(true)}
+        activeOpacity={0.85}
+      >
+        <View style={styles.mapBannerLeft}>
+          <View style={styles.mapIconCircle}>
+            <Map size={16} color="#ffffff" />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={[styles.mapBannerTitle, isDarkMode && styles.textDark]}>
+              Entregas de Hoje no Mapa
+            </Text>
+            <Text style={styles.mapBannerSubtitle}>
+              Visualizar roteiro, GPS e próxima parada
+            </Text>
+          </View>
+        </View>
+        <ChevronRight size={18} color="#2563eb" />
+      </TouchableOpacity>
     </View>
   );
+
+  if (showTodayMap) {
+    return (
+      <TodayDeliveriesScreen
+        isDarkMode={isDarkMode}
+        onBack={() => setShowTodayMap(false)}
+        onSelectOrder={(o) => onSelectOrder && onSelectOrder(o)}
+      />
+    );
+  }
 
   return (
     <View style={[styles.container, isDarkMode && styles.containerDark]}>
@@ -742,5 +776,46 @@ const styles = StyleSheet.create({
   itemPillText: { fontSize: 11, fontWeight: '700', flexShrink: 1 },
   itemPillTextDefault: { color: '#64748b' },
   itemPillTextInternal: { color: '#b45309' },
-  itemPillTextOutside: { color: '#991b1b' }
+  itemPillTextOutside: { color: '#991b1b' },
+  mapBannerBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#eff6ff',
+    borderRadius: 16,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    marginTop: 10,
+    borderWidth: 1,
+    borderColor: '#dbeafe',
+  },
+  mapBannerBtnDark: {
+    backgroundColor: '#1e293b',
+    borderColor: '#334155',
+  },
+  mapBannerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    flex: 1,
+  },
+  mapIconCircle: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#2563eb',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  mapBannerTitle: {
+    fontSize: 13,
+    fontWeight: '900',
+    color: '#0f172a',
+  },
+  mapBannerSubtitle: {
+    fontSize: 11,
+    fontWeight: '500',
+    color: '#64748b',
+    marginTop: 1,
+  },
 });

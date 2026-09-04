@@ -50,7 +50,7 @@ export const ProfitHeatMap: React.FC<ProfitHeatMapProps> = ({ orders }) => {
                     console.warn(`Erro ao geocodificar pedido ${order.id}:`, e);
                 }
                 
-                // Delay reduzido para processar mais rápido, Nominatim permite pequenos picos
+                // Pequeno delay entre requisições de geocodificação
                 await new Promise(r => setTimeout(r, 250));
             }
 

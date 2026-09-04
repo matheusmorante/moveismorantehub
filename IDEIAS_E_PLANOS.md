@@ -45,9 +45,12 @@ Este documento unifica todo o planejamento estratégico, ideias futuras, tarefas
 - [ ] **Diretriz Contínua do Usuário**: Em cada arquivo tocado ou analisado (especialmente > 150 linhas), perguntar explicitamente ao usuário no final se deseja modularizá-lo em conformidade com a skill `modularizacao_codigo`.
 - [ ] **Meta de Arquitetura**: 30–100 linhas (aceitável até 150). Responsabilidade única estrita. Estratégia segura: COPIAR → VALIDAR → CONECTAR → TESTAR → SÓ DEPOIS REMOVER.
 - [ ] **Backlog de Arquivos Extensos a Modularizar Sob Demanda**:
+  - `PersonFormModal.tsx` (~1.065 linhas): modularização planejada em `usePersonForm.ts`, `PersonTypeAndOrigin.tsx`, `PersonBasicFields.tsx`, `PersonContactsSection.tsx`, `PersonEmployeeSection.tsx` e `PersonAddressSection.tsx`.
   - `ProductFormModal.tsx` (> 600 linhas): dividir abas, validação de legibilidade e gerenciadores de variações.
-  - `ProductRow.tsx` e `ProductCard.tsx`: isolar ações, menus e renderizadores de status.
-  - [x] `OrderHistoryRow.tsx` e `OrderHistoryCard.tsx` + `InventoryMovementBadge.tsx`: modularizados com sucesso segundo a skill `modularizacao_codigo` (redução de mais de 70% das linhas com submódulos coesos).
+- [x] `ProductRow.tsx` e `ProductCard.tsx` (ERP): modularizados com sucesso segundo a skill `modularizacao_codigo` (redução de mais de 70% das linhas com extração de `useProductMetadata`, `ProductRowDescriptionCell`, `ProductRowActionsCell`, `ProductRowStandardCells`, `ProductRowModals`, `ProductCardActions` e `ProductCardVariationList`).
+  - [x] `MobileProductCard.tsx` e `MobileProductVariationList.tsx` (Mobile): modularizados com sucesso com extração de `useMobileProductMetadata`, `MobileChannelBadges`, `MobileProductActionsMenu` e `MobileProductVariationCard`.
+  - [x] **Atualização Imediata da Lista ao Salvar Edição (ERP e Mobile)**: Ao salvar produto ou alterar fornecedor, a lista reflete imediatamente os novos dados no ERP (`onSuccess` com `refresh` e `fetchStats`) e no Mobile (`saveMobileProduct` com persistência de `supplier_id`/`main_supplier_id`/`supplier_ids` e recarregamento instantâneo da página atual).
+  - [x] `OrderHistoryRow.tsx` e `OrderHistoryCard.tsx` + `InventoryMovementBadge.tsx`: modularizados com sucesso segundo a skill `modularizacao_codigo`.
   - [x] **Detalhamento de Itens no Popover de Estoque**: Exibição da lista de todos os itens da venda com nome, quantidade e status de movimentação (`Efetivada`, `Estornada`, `Não efetivada` e `Sem Cadastro` com alerta).
   - `useProducts.ts` e `orderHistoryService.ts`: segregação de queries, mutations e regras de negócio.
 

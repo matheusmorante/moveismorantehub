@@ -366,6 +366,7 @@ const Products: React.FC = () => {
                 onSuccess={() => {
                     productListRef.current?.refresh();
                     trashListRef.current?.refresh();
+                    fetchStats();
                 }}
                 product={editingProduct}
                 initialData={initialFormData}
@@ -379,7 +380,13 @@ const Products: React.FC = () => {
 
             <VariationFormModal
                 isOpen={isVariationModalOpen}
-                onClose={() => { setIsVariationModalOpen(false); setEditingVariation(null); setVariationParentProduct(null); }}
+                onClose={() => {
+                    setIsVariationModalOpen(false);
+                    setEditingVariation(null);
+                    setVariationParentProduct(null);
+                    productListRef.current?.refresh();
+                    fetchStats();
+                }}
                 parentId={variationParentProduct?.parentId || ""}
                 parentProduct={variationParentProduct || {} as any}
                 variation={editingVariation}

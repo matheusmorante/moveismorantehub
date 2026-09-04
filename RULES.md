@@ -6,7 +6,9 @@ Este arquivo consolida as regras de ouro e diretrizes de desenvolvimento para o 
 
 ## 🛠️ Regras de Desenvolvimento
 
-1. **Código Limpo e Modular**: Sempre siga o princípio de código limpo, legível, manutenível e com forte modularização.
+1. **Código Limpo, Modular e Gatilho Pré-Edição de Skills**:
+   - Sempre siga o princípio de código limpo, legível, manutenível e com forte modularização (`modularizacao_codigo`).
+   - **Gatilho Pré-Edição de Arquivo**: Antes de propor ou realizar qualquer edição (`replace_file_content` / `write_to_file`), o agente deve obrigatoriamente checar o arquivo contra as skills do workspace (`modularizacao_codigo`, `regras-de-negocio-erp`, `analise-compatibilidade-mudancas`, `mobile-offline-first`). Se o arquivo manipulado passar de 150–200 linhas ou acumular mais de uma responsabilidade, o agente deve alertar o usuário e planejar a modularização segura.
 2. **Registro de Planos e Ideias**: Mantenha sempre um registro atualizado de ideias, planos pendentes e roadmap no arquivo [IDEIAS_E_PLANOS.md](file:///c:/Users/Rosilene/Desktop/morantehub/IDEIAS_E_PLANOS.md).
 3. **Economia de Cota de Assinatura**: Otimize ao máximo o consumo de tokens e cotas do plano de assinatura, evitando chamadas repetitivas ou desnecessárias.
 4. **Isolamento de Ambientes (Dev vs Prod)**:
@@ -17,7 +19,7 @@ Este arquivo consolida as regras de ouro e diretrizes de desenvolvimento para o 
 7. **Documentação das Regras**: Este arquivo de regras (`RULES.md`) e `.agents/AGENTS.md` devem ser mantidos sempre no projeto para referência contínua.
 8. **Idioma Oficial**: Toda a comunicação com o usuário e documentações específicas devem ser em **Português Brasileiro**.
 9. **Git Push**: Nunca executar `git push` automaticamente sem autorização explícita do usuário.
-10. **Consulta Obrigatória de Modularização ao Passar por Arquivos**: Sempre que passar, analisar ou editar um arquivo no projeto (especialmente aqueles com mais de 150 linhas ou com acúmulo de responsabilidades), **perguntar explicitamente ao usuário no final da resposta** se ele deseja que seja implementado código limpo, responsabilidade única e modularização nele, em estrita conformidade com a skill `modularizacao_codigo` (alvo de 30–100 linhas, aceitável até 150, com estratégia segura: COPIAR → VALIDAR → CONECTAR → TESTAR → SÓ DEPOIS REMOVER).
+10. **Consulta de Modularização ao Passar por Arquivos**: Somente perguntar explicitamente ao usuário no final da resposta sobre modularização se o arquivo **realmente infringir responsabilidade única, código limpo ou ultrapassar 200 linhas** (segundo a skill `modularizacao_codigo`, alvo de 30–100 linhas, aceitável até 150, estratégia conservadora: COPIAR → VALIDAR → CONECTAR → TESTAR → SÓ DEPOIS REMOVER). Arquivos pequenos e coesos não devem gerar perguntas repetitivas.
 
 ---
 

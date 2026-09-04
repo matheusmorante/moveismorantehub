@@ -17,7 +17,7 @@ const useShipping = (initialDeliveryMethod: 'delivery' | 'pickup' = 'delivery') 
                     endTime: "",
                     type: "range"
                 },
-                autoCalculateValue: false,
+                autoCalculateValue: true,
                 useCustomerAddress: true,
                 noAddress: false,
                 deliveryAddress: {

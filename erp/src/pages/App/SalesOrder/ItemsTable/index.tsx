@@ -40,12 +40,12 @@ const ItemsTable = ({ items, setItems, summary, deliveryMethod, errors, onSelect
     }
 
     const { width } = useWindowSize();
-    const isMobile = width < 1024; // Usar visualização em cards para telas menores que LG (< 1024px)
+    const isCardsView = width < 1280; // Visualização em cards para telas menores que XL (< 1280px)
 
-    if (isMobile) {
+    if (isCardsView) {
         return (
-            <div className="flex flex-col gap-3 p-0 h-full">
-                <div className="grid grid-cols-1 gap-3">
+            <div className="flex flex-col gap-3.5 p-0 h-full">
+                <div className="grid grid-cols-1 gap-3.5">
                     <Body items={items} setItems={setItems} deliveryMethod={deliveryMethod} errors={errors} isMobile={true} onSelectProduct={onSelectProduct} isBudget={isBudget} isReturn={isReturn} hideHandling={hideHandling} highlightTemporaryItems={highlightTemporaryItems} />
                 </div>
 
@@ -61,7 +61,7 @@ const ItemsTable = ({ items, setItems, summary, deliveryMethod, errors, onSelect
             <thead className="bg-slate-50/50 dark:bg-slate-800/30">
                 <tr>
                     <th className="px-3 py-3 text-left text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">Produto <span className="text-red-500">*</span></th>
-                    {!hideHandling && <th className="px-3 py-3 text-left text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 w-[140px]">Manuseio</th>}
+                    {!hideHandling && <th className="px-3 py-3 text-left text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 w-[140px]">Manuseio <span className="text-red-500">*</span></th>}
                     <th className="px-2 py-3 text-center text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 w-[80px]">Qtd. <span className="text-red-500">*</span></th>
                     <th className="px-2 py-3 text-right text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 w-[110px]">Preço Un. <span className="text-red-500">*</span></th>
                     <th className="px-2 py-3 text-right text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 w-[100px]">Desc. R$</th>

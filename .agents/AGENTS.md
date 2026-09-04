@@ -6,10 +6,17 @@ Este documento registra as regras e comportamentos **implementados** no sistema,
 
 ## REGRAS GERAIS DO AGENTE
 
+- **Gatilho Obrigatório Pré-Edição de Arquivo (Pre-Flight de Skills)**: Antes de propor ou realizar qualquer edição (`replace_file_content` / `write_to_file`) em QUALQUER arquivo, o agente DEVE obrigatoriamente executar a verificação prévia de conformidade com as skills do projeto:
+  1. **Tamanho e Coesão (`modularizacao_codigo`)**: Quantas linhas tem o arquivo? Possui responsabilidade única clara? Se ultrapassar 150–200 linhas ou misturar múltiplos domínios, o agente é OBRIGADO a apontar a infração ao usuário e propor/consultar a modularização segura.
+  2. **Regras de Negócio (`regras-de-negocio-erp`)**: O arquivo toca pedidos, estoque, custos, devoluções, recebimentos ou fiscal? As regras oficiais de negócio estão sendo estritamente preservadas sem alterações silenciosas?
+  3. **Retrocompatibilidade e Histórico (`analise-compatibilidade-mudancas`)**: A alteração afeta snapshots, formatos de dados legados ou estruturas persistidas? Garantir fallbacks resilientes.
+  4. **Mobile Offline-First (`mobile-offline-first`)**: Se for código do App Mobile em contexto operacional, respeita o ciclo de 4 estados de eventos e autoridade do backend?
+  5. **Testes e Validação (`testes-seguros-erp`)**: Validar com testes automatizados antes de concluir a resposta.
 - **Git Push**: Nao executar `git push` automaticamente. Aguardar solicitacao explicita do usuario.
-- **Modularização Segura e Código Limpo (`modularizacao_codigo`)**: Cada arquivo deve possuir uma única responsabilidade clara. Alvo recomendado de 30–100 linhas (aceitável até aproximadamente 150 linhas; acima disso analisar divisão obrigatória). Estratégia conservadora sem perda de código: **COPIAR → VALIDAR → CONECTAR → TESTAR → SÓ DEPOIS REMOVER**. Nunca alterar regras de negócio silenciosamente durante refatorações. **Sempre que o agente passar por um arquivo (especialmente com mais de 150 linhas ou acúmulo de responsabilidades), deve perguntar explicitamente ao usuário no final da resposta se ele deseja que seja implementado código limpo, responsabilidade única e modularização naquele arquivo segundo esta skill**.
+- **Modularização Segura e Código Limpo (`modularizacao_codigo`)**: Cada arquivo deve possuir uma única responsabilidade clara. Alvo recomendado de 30–100 linhas (aceitável até aproximadamente 150 linhas; acima de 200 linhas ou infração real analisar divisão). Estratégia conservadora sem perda de código: **COPIAR → VALIDAR → CONECTAR → TESTAR → SÓ DEPOIS REMOVER**. Nunca alterar regras de negócio silenciosamente durante refatorações. **O agente deve perguntar explicitamente ao usuário no final da resposta se ele deseja modularização SOMENTE se o arquivo tocado realmente infringir responsabilidade única, código limpo ou ultrapassar 200 linhas**, evitando perguntas em arquivos pequenos e coesos.
 - **Idioma dos termos no ERP**: Produtos **Ativos** / **Desativados** (nunca publicados/despublicados). No catalogo digital: **Publicado no Catalogo** / **Ocultado do Catalogo**.
 - **Ícone de Montagem (`Drill` - Parafusadeira / Furadeira Preenchida)**: Em todos os módulos (cards e linhas de pedidos, cronograma logístico, lista de montagens, modais e itens), os rótulos e elementos referentes a **Montagem** (Montagem no Depósito, Montagem Fora/Cliente, Mostruário) utilizam exclusivamente o componente preenchido **`Drill`** (`@/components/shared/DrillIcon`), com design sólido/preenchido (Filled), em substituição ao martelo e ao ícone linear.
+- **Inputs Numéricos (Sem Borda Divisória em Símbolos)**: Nos inputs numéricos de todo o sistema (`CurrencyInput`, `CurrencyOrPercentInput`, `UnitInput`), os símbolos monetários (`R$`), unidades de quantidade (`UN`) e símbolos percentuais (`%`) não possuem linha ou borda vertical separadora (`border-r` / `border-l`) dividindo o símbolo do valor digitado, garantindo visual limpo, contínuo e moderno.
 - **Retrocompatibilidade e Análise de Impacto**: Antes e durante a criação/alteração de novas estruturas de dados ou snapshots, analisar o impacto em registros históricos legados. Sempre garantir fallbacks resilientes e consultar o usuário sobre decisões de adaptação/migração quando houver ambiguidade.
 - **Mobile Offline-First Baseado em Eventos (`mobile-offline-first`)**: No aplicativo Mobile, o suporte offline-first é restrito ao **risco operacional de campo e depósito**: entregas, montagens, checklists, assinaturas, fotos, vistorias, **inventário físico e recebimento/conferência de mercadorias**. Operações administrativas (criação/edição de produtos, precificação, dashboard/métricas) são estritamente **Online-First**. O mobile nunca grava estados absolutos (como `stock = X`), mas registra **eventos de negócio com UUID idempotente, timestamp e ciclo de 4 estados: `PENDING` → `SYNCING` → `CONFIRMED` / `REJECTED`** (onde `REJECTED` interrompe retentativas e exige atenção do operador). O backend é a autoridade estrita para validar regras, encadeamentos e movimentações de estoque. Mídias possuem fila separada de upload. Avaliar automaticamente o escopo em novos recursos mobile sem perguntas repetitivas.
 
@@ -114,6 +121,53 @@ Este documento registra as regras e comportamentos **implementados** no sistema,
   - **Blindagem em Updates (`updateOrder`)**: Atualizações em pedidos (inclusive auto-saves parciais) nunca podem sobrescrever o `orderIndex` existente com `undefined`. Propriedades `undefined` são filtradas e o código sequencial prévio é estritamente preservado. Se algum pedido legado ou corrompido for atualizado sem código, um código sequencial único de 6 dígitos é gerado imediatamente. Sincroniza também a coluna `order_number` da tabela `orders`.
 
 
+### Modais de Cadastro e Edição de Pedido em Tela Cheia (`NewSaleOrder` / `OrderEditModal`)
+
+- **Sobreposição Completa do Cabeçalho (Full Screen) e Bloqueio de Scroll**: Tanto o modal de novo pedido ([`NewSaleOrder.tsx`](file:///c:/Users/Rosilene/Desktop/morantehub/erp/src/pages/App/SalesOrder/NewSaleOrder.tsx)) quanto o modal de edição ([`OrderEditModal.tsx`](file:///c:/Users/Rosilene/Desktop/morantehub/erp/src/pages/App/SalesOrder/OrderEditModal.tsx)) e assistência ([`AssistanceOrderModal.tsx`](file:///c:/Users/Rosilene/Desktop/morantehub/erp/src/pages/App/SalesOrder/AssistanceOrderModal.tsx)) são renderizados em **tela cheia (full screen)** (`fixed inset-0 w-screen h-screen`) com camada superior `z-[999999]`, ficando estritamente por cima do header principal da aplicação (`AppLayout` com `z-[99999]`). Modais auxiliares disparados de dentro do pedido (como edição/criação de cliente via [`PersonFormModal.tsx`](file:///c:/Users/Rosilene/Desktop/morantehub/erp/src/pages/App/Registrations/shared/PersonFormModal.tsx) e confirmações) utilizam camada `z-[9999999]`, garantindo que fiquem sempre visíveis sobre o formulário full screen. O toast container utiliza `z-[9999999]` para manter notificações sempre visíveis. Enquanto abertos, bloqueiam o scroll da página de trás (`document.body.style.overflow = 'hidden'`), restaurando o scroll original ao fechar.
+
+### Itens do Pedido em Cards para Telas Menores que XL (< 1280px) (`ItemsTable` / `BodyRow`)
+
+- **Transição Automática para Cards**: Em qualquer resolução menor que `xl` (`width < 1280px`), a aba de itens do formulário de pedidos transita automaticamente para a visualização em **Cards** (`isCardsView = width < 1280`), reservando a tabela de 8 colunas exclusivamente para monitores largos (>= 1280px).
+- **Estrutura Organizada dos Cards (`BodyRow`)**:
+  - Cada card possui fundo branco puro com cantos arredondados (`rounded-3xl`), botão de exclusão ágil no canto superior direito (`absolute top-3.5 right-3.5`), sem cabeçalhos redundantes de `#1` ou repetição de nome, iniciando diretamente pelos campos funcionais.
+  - **Linha 1 (Descrição em Largura Total)**: O campo de descrição/busca do item ocupa toda a largura da linha (`w-full`), com check verde de confirmação exclusivamente dentro do próprio input (`ProductAutocomplete`), com borda inferior verde, mantendo o rótulo "Descrição do Item *" limpo, neutro e sem checks duplicados.
+  - **Linha 2 (Manuseio e Observação Lado a Lado)**: O campo **Tipo de Manuseio** (`Tipo de Manuseio *`) e o campo **Observação** (`Ex: salvados, peça do mostruário com avaria...`) ficam dispostos na mesma linha de forma fluida e alinhada.
+  - **Linha 3 (Valores Numéricos)**: A linha numérica de valores utiliza um grid fluido e simétrico (`grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 items-end`), alinhando Qtd, Preço Un., Desc. R$, Desc. %, Preço Un. Líq. e Total do Item sem quebras desordenadas.
+- **Cabeçalho Compacto da Seção de Itens (`SectionCard` / `compactHeader`)**:
+  - O cabeçalho da seção **Itens do Pedido** utiliza modo compacto (`compactHeader`), reduzindo a altura ocupada com ícone menor (`w-7 h-7 sm:w-8 sm:h-8`), tipografia ajustada (`text-sm sm:text-base font-black tracking-wider`), padding vertical contido e botão de adicionar item harmonizado (`px-3 py-1.5 sm:py-2 rounded-xl`).
+  - A adição de novos itens é acionada exclusivamente pelo botão "Adicionar Item" do cabeçalho, mantendo a visualização limpa e sem botões redundantes no rodapé.
+
+### Etapa Cliente no Formulário de Pedido (`CustomerData`)
+
+- **Feedback Visual de Cliente Selecionado**: Quando um cliente está selecionado (`isCustomerSelected` com ID/nome e termo ativo), o input de busca/seleção exibe um ícone de check circular verde no início (`bi-check-circle-fill text-emerald-600 dark:text-emerald-400`), padding adaptado (`pl-9`), e a borda inferior em tom verde vibrante (`border-emerald-500 focus:border-emerald-600 dark:border-emerald-500 dark:focus:border-emerald-400`) para confirmação imediata ao operador de que o cliente foi selecionado com sucesso.
+- **Campo de Logradouro com Sugestões do Google Places (`PersonFormModal`)**:
+  - O rótulo é simplificado para **"Logradouro"** (com `*` para clientes), com placeholder `Ex: Rua das Flores, Avenida Brasil...` e botão **"Rota"** (`bi-geo-alt-fill` em azul).
+  - **Autocomplete do Google Places**: Ao digitar 2 ou mais caracteres no campo de Logradouro (clientes, fornecedores ou colaboradores), é exibido um dropdown suspenso via `DropdownPortal` com sugestões em tempo real do Google Places.
+  - Ao selecionar uma sugestão, os detalhes oficiais são obtidos via `fetchPlaceDetails` (`Geocoder.geocode({ placeId })`), preenchendo automaticamente rua, bairro, cidade, estado, número (se retornado) e CEP caso ainda não preenchidos.
+  - O input possui busca com debounce de 300ms e fechamento automático ao clicar fora.
+- **Remoção do Campo 'Nome Social' no Formulário de Cliente**: O campo desnecessário de "Nome Social" foi removido do cadastro/edição de clientes PF no `PersonFormModal`, alinhando simetricamente o grid com Nome Completo em destaque (`col-span-2`), CPF e Telefone.
+
+### Etapa Logística: Frete e Distância Automáticos (`FreteDistancia` / `ShippingData`)
+
+- **Uso Exclusivo da API do Google Maps (Sem APIs de Fallback)**:
+  - O sistema opera **única e exclusivamente com a API oficial do Google Maps** para serviços geoespaciais, rotas e distâncias.
+  - Não são utilizadas APIs de fallback ou serviços terceiros abertos (proibido o uso de OSRM, OpenRouteService, Nominatim/OSM, ArcGIS, Photon ou cálculos por aproximação geodésica em linha reta).
+  - Geocodificação de endereços: realizada exclusivamente via `google.maps.Geocoder`.
+  - Cálculo de rotas e distâncias: realizado exclusivamente via `google.maps.DirectionsService`.
+  - Sugestões e autocompletar de endereços: realizado via cache de endereços e `google.maps.places.AutocompleteService` / Geocoder.
+  - Caso a API do Google Maps esteja sem chave configurada ou retorne erro (ex: `REQUEST_DENIED` por falta de faturamento vinculado no Google Cloud Console), o sistema reporta o status sem recorrer a APIs secundárias de terceiros.
+- **Botão Único "Auto" com Ícone de Raio**:
+  - Na seção de frete e distância da etapa logística, há um botão único **"Auto"** com ícone de raio à esquerda (`bi-lightning-charge-fill`).
+  - O botão vem **ligado por padrão** (`autoCalculateValue: true`) em novos pedidos.
+  - Quando ativo, calcula automaticamente a distância via rotas da Directions API do Google Maps e o valor proporcional do frete.
+  - Ao ligar o botão, se houver endereço de entrega informado, dispara imediatamente o recálculo automático da rota.
+- **Bloqueio Condicional dos Inputs**:
+  - **Com "Auto" Ligado**: Ambos os inputs (**Valor do Frete** e **Distância KM**) ficam bloqueados para alteração (`disabled` com estilo desativado `cursor-not-allowed bg-slate-50/60 dark:bg-slate-800/30`), garantindo que o frete e a quilometragem reflitam com precisão a rota calculada pela API do Google Maps.
+  - **Com "Auto" Desligado**: Os dois inputs tornam-se imediatamente editáveis para preenchimento manual livre pelo operador.
+  - O link/botão **"Ver Rota"** permanece sempre clicável para abrir o Google Maps em uma nova aba com o trajeto traçado.
+
+
+
 ### Vendedor da Venda (Apenas Colaboradores Habilitados)
 
 - Apenas colaboradores ativos com perfil de acesso válido (`isValidEmployee`) aparecem listados para seleção como vendedor da venda no formulário e no modal de busca.
@@ -163,6 +217,7 @@ Este documento registra as regras e comportamentos **implementados** no sistema,
 
 - Cada item do pedido suporta um campo de texto de observação (`observation`), acessível tanto na visualização em tabela desktop quanto nos cards mobile.
 - **Concatenação na Impressão e WhatsApp**: Quando preenchido, o texto da observação do item é anexado ao nome/descrição do produto no formato `${item.description} - ${item.observation}` na folha de pedido impressa (`OrderPage`), no recibo impresso (`ReceiptPage`), nas ordens de serviço (`orderActionsConfig`) e nas mensagens automáticas de WhatsApp (`formatters.ts` / `whatsapp.ts`).
+- **Alinhamento da Tabela de Itens e Resumo (`OrderPage/ItemsTable`)**: A tabela de especificações dos itens e o resumo de rodapé (`Footer`) possuem rigorosamente 5 colunas alinhadas: (1) Descrição/Resumo, (2) Qtd, (3) Preço Un./Subtotal, (4) Desc. Un./Desc. Total, e (5) Valor Total/Total Itens. A célula de Resumo não utiliza `colSpan={2}` para evitar empurrar as colunas de valores para a direita.
 
 ### Assinatura Digital no Recibo do Pedido (`ReceiptPage` / `DigitalSignatureBadge`)
 

@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState, useMemo } from 'react';
 import maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { getSettings } from '@/pages/utils/settingsService';
-import { geocodeAddress } from '@/pages/utils/maps';
+import { geocodeAddress, autoCalculateRouteDistance } from '@/pages/utils/maps';
 
 interface AddressVerificationMapProps {
     address: {
@@ -41,53 +41,51 @@ const AddressVerificationMap = ({ address }: AddressVerificationMapProps) => {
         const timer = setTimeout(async () => {
             setLoading(true);
             try {
-                const result = await geocodeAddress(address as any);
-                if (result) {
-                    setCoords(result.coords);
-                    setIsPrecision(result.isPrecision);
+                const routeResult = await autoCalculateRouteDistance(address as any);
+                if (routeResult) {
+                    setCoords(routeResult.destinationCoords);
+                    setIsPrecision(true);
+                    setRouteInfo({
+                        distance: `${routeResult.distanceKm.toFixed(1)} km`,
+                        duration: `${routeResult.durationMinutes} min`
+                    });
                     
-                    // Fetch route info
-                    const url = `https://router.project-osrm.org/route/v1/driving/${storeOrigin[0]},${storeOrigin[1]};${result.coords[0]},${result.coords[1]}?overview=full&geometries=geojson`;
-                    const res = await fetch(url);
-                    const data = await res.json();
-                    
-                    if (data.routes && data.routes[0]) {
-                        const route = data.routes[0];
-                        setRouteInfo({
-                            distance: `${(route.distance / 1000).toFixed(1)} km`,
-                            duration: `${Math.round(route.duration / 60)} min`
-                        });
-                        
-                        // Update map route
-                        if (map.current) {
-                            if (map.current.getSource('route')) {
-                                (map.current.getSource('route') as maplibregl.GeoJSONSource).setData(route.geometry);
-                            } else {
-                                map.current.addSource('route', {
-                                    type: 'geojson',
-                                    data: {
-                                        type: 'Feature',
-                                        properties: {},
-                                        geometry: route.geometry
-                                    }
-                                });
-                                map.current.addLayer({
-                                    id: 'route',
-                                    type: 'line',
-                                    source: 'route',
-                                    layout: { 'line-join': 'round', 'line-cap': 'round' },
-                                    paint: { 'line-color': '#3b82f6', 'line-width': 5, 'line-opacity': 0.6 }
-                                });
-                            }
+                    // Update map route
+                    if (map.current && routeResult.routeGeoJSON) {
+                        if (map.current.getSource('route')) {
+                            (map.current.getSource('route') as maplibregl.GeoJSONSource).setData(routeResult.routeGeoJSON);
+                        } else {
+                            map.current.addSource('route', {
+                                type: 'geojson',
+                                data: {
+                                    type: 'Feature',
+                                    properties: {},
+                                    geometry: routeResult.routeGeoJSON
+                                }
+                            });
+                            map.current.addLayer({
+                                id: 'route',
+                                type: 'line',
+                                source: 'route',
+                                layout: { 'line-join': 'round', 'line-cap': 'round' },
+                                paint: { 'line-color': '#3b82f6', 'line-width': 5, 'line-opacity': 0.6 }
+                            });
                         }
                     }
                 } else {
-                    setCoords(null);
-                    setIsPrecision(false);
-                    setRouteInfo(null);
+                    const geoResult = await geocodeAddress(address as any);
+                    if (geoResult) {
+                        setCoords(geoResult.coords);
+                        setIsPrecision(geoResult.isPrecision);
+                        setRouteInfo(null);
+                    } else {
+                        setCoords(null);
+                        setIsPrecision(false);
+                        setRouteInfo(null);
+                    }
                 }
             } catch (e) {
-                console.error("Erro na verificação de endereço:", e);
+                console.error("Erro na verificação de endereço via Google Maps:", e);
             } finally {
                 setLoading(false);
             }

@@ -63,6 +63,14 @@ const DEFAULT_SHIPPING: any = {
 };
 
 const AssistanceOrderModal = ({ onClose, onSaveSuccess, order, initialData }: AssistanceOrderModalProps) => {
+    useEffect(() => {
+        const previousOverflow = document.body.style.overflow;
+        document.body.style.overflow = 'hidden';
+        return () => {
+            document.body.style.overflow = previousOverflow;
+        };
+    }, []);
+
     const [customerData, setCustomerData] = useState<CustomerData>(order?.customerData || {
         ...EMPTY_CUSTOMER,
         fullName: initialData?.customerName || "",
@@ -321,7 +329,7 @@ const AssistanceOrderModal = ({ onClose, onSaveSuccess, order, initialData }: As
     };
 
     return (
-        <div className="fixed inset-0 z-[200] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-900/60 backdrop-blur-[3px] animate-fade-in" onClick={onClose}>
+        <div className="fixed inset-0 z-[999999] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-900/60 backdrop-blur-[3px] animate-fade-in" onClick={onClose}>
             <div className="bg-white dark:bg-slate-900 w-full max-w-2xl rounded-t-[2.5rem] sm:rounded-[2.5rem] shadow-2xl flex flex-col overflow-hidden animate-slide-up border-t sm:border border-slate-100 dark:border-slate-800" style={{ height: '90vh', maxHeight: '90vh' }} onClick={e => e.stopPropagation()}>
                 
                 <AssistanceOrderHeader isEditing={isEditing} onClose={onClose} />

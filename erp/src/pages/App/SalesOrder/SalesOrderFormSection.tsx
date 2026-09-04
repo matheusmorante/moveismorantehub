@@ -46,31 +46,31 @@ const SalesOrderFormSection = ({ form, scrollRef, onLoadJSON, onOpenSellerSearch
             {/* Scrollable Body */}
             <div 
                 ref={scrollRef}
-                className="flex-1 overflow-y-auto p-4 md:p-8 pt-0 custom-scrollbar"
+                className="flex-1 overflow-y-auto p-4 md:p-8 pt-4 custom-scrollbar"
             >
-                <FormHeader
-                    currentOrder={state.currentOrder}
-                    onClearForm={actions.clearForm}
-                    orderDate={state.orderDate}
-                    setOrderDate={actions.setOrderDate}
-                    seller={state.seller}
-                    setSeller={actions.setSeller}
-                    isSavingDraft={state.isSavingDraft}
-                    errors={state.errors}
-                    deliveryMethod={state.shipping.deliveryMethod}
-                    setDeliveryMethod={(method) => actions.setShipping(prev => ({ ...prev, deliveryMethod: method }))}
-                    status={state.status}
-                    isSaving={state.isSaving}
-                    onMainAction={state.status === 'draft' ? actions.handleCompleteOrder : actions.handleSaveOrder}
-                    currentOrderId={state.currentOrderId}
-                    isBudget={isBudget}
-                    onLoadJSON={onLoadJSON}
-                />
-
                 {/* Wizard Steps Content */}
                 <div className="max-w-[1400px] mx-auto pb-10">
                     {currentStep === 1 && (
-                        <div className="max-w-4xl mx-auto animate-fade-in space-y-8">
+                        <div className="max-w-4xl mx-auto animate-fade-in space-y-6">
+                            <FormHeader
+                                currentOrder={state.currentOrder}
+                                onClearForm={actions.clearForm}
+                                orderDate={state.orderDate}
+                                setOrderDate={actions.setOrderDate}
+                                seller={state.seller}
+                                setSeller={actions.setSeller}
+                                isSavingDraft={state.isSavingDraft}
+                                errors={state.errors}
+                                deliveryMethod={state.shipping.deliveryMethod}
+                                setDeliveryMethod={(method) => actions.setShipping(prev => ({ ...prev, deliveryMethod: method }))}
+                                status={state.status}
+                                isSaving={state.isSaving}
+                                onMainAction={state.status === 'draft' ? actions.handleCompleteOrder : actions.handleSaveOrder}
+                                currentOrderId={state.currentOrderId}
+                                isBudget={isBudget}
+                                onLoadJSON={onLoadJSON}
+                            />
+
                             <SectionCard
                                 icon="bi bi-info-circle"
                                 iconBg="bg-blue-600 shadow-blue-100 dark:shadow-blue-900/20"
@@ -117,6 +117,7 @@ const SalesOrderFormSection = ({ form, scrollRef, onLoadJSON, onOpenSellerSearch
                                 icon="bi bi-box-seam"
                                 iconBg="bg-blue-600 shadow-blue-100 dark:shadow-blue-900/20"
                                 title="Itens do Pedido"
+                                compactHeader
                                 action={
                                     <button
                                         type="button"
@@ -133,7 +134,7 @@ const SalesOrderFormSection = ({ form, scrollRef, onLoadJSON, onOpenSellerSearch
                                                 }
                                             ]);
                                         }}
-                                        className="flex items-center gap-2 px-4 py-2 sm:py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl font-black text-xs uppercase tracking-wider shadow-md shadow-blue-500/20 active:scale-95 transition-all"
+                                        className="flex items-center gap-1.5 px-3 py-1.5 sm:py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-black text-xs uppercase tracking-wider shadow-sm shadow-blue-500/20 active:scale-95 transition-all"
                                     >
                                         <i className="bi bi-plus-lg text-xs" />
                                         <span>Adicionar Item</span>

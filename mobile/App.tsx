@@ -709,8 +709,8 @@ export default function App() {
         />
 
         <MandatoryUpdateModal
-          visible={mandatoryUpdate.isMandatory}
-          url={mandatoryUpdate.storeUrl}
+          visible={mandatoryUpdate.required}
+          url={mandatoryUpdate.url}
         />
       </SafeAreaView>
     </SafeAreaProvider>

@@ -18,7 +18,7 @@ const PostOrderActionsModal: React.FC<PostOrderActionsModalProps> = ({ order, on
     const [clickedButtons, setClickedButtons] = React.useState<Record<string, boolean>>(order.isButtonsClicked || {});
 
     return (
-        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md animate-fade-in" onClick={onClose}>
+        <div className="fixed inset-0 z-[999999] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md animate-fade-in" onClick={onClose}>
             <div className="bg-white dark:bg-slate-900 w-full max-w-lg rounded-3xl shadow-2xl flex flex-col overflow-hidden animate-slide-up border border-slate-100 dark:border-slate-800" onClick={(e) => e.stopPropagation()}>
                 
                 <div className="px-6 py-5 border-b border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 flex justify-between items-center">

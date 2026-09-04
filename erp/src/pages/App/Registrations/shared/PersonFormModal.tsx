@@ -9,7 +9,7 @@ import SmartInput from "../../../../components/SmartInput";
 import { getSettings } from "../../../utils/settingsService";
 import { PatternFormat as PatternFormatBase } from "react-number-format";
 const PatternFormat = PatternFormatBase as any;
-import { getAddressByCep, searchAddressSuggestions } from "../../../utils/maps";
+import { getAddressByCep, searchAddressSuggestions, getShippingRouteUrl, fetchPlaceDetails } from "../../../utils/maps";
 import DropdownPortal from "../../../../components/shared/DropdownPortal";
 import AddressVerificationMap from "../../SalesOrder/AddressVerificationMap";
 import { UserRole } from "@/context/AuthContext";
@@ -76,6 +76,21 @@ const PersonFormModal = ({ isOpen, onClose, onSuccess, person, collectionName, t
     const [streetSuggestions, setStreetSuggestions] = useState<any[]>([]);
     const [isStreetSuggestionsOpen, setIsStreetSuggestionsOpen] = useState(false);
     const streetWrapperRef = useRef<HTMLDivElement>(null);
+    const searchTimerRef = useRef<NodeJS.Timeout | null>(null);
+    const lastSearchValRef = useRef<string>('');
+
+    useEffect(() => {
+        const handleClickOutside = (e: MouseEvent) => {
+            if (streetWrapperRef.current && !streetWrapperRef.current.contains(e.target as Node)) {
+                setIsStreetSuggestionsOpen(false);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => {
+            document.removeEventListener('mousedown', handleClickOutside);
+            if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
+        };
+    }, []);
 
     const toggleEmployeeRole = (roleValue: UserRole) => {
         const currentRoles = (formData.roles && formData.roles.length > 0)
@@ -267,21 +282,36 @@ const PersonFormModal = ({ isOpen, onClose, onSuccess, person, collectionName, t
         }
     }, [formData.fullName]);
 
-    const handleStreetChange = async (val: string) => {
+    const handleStreetChange = (val: string) => {
         handleAddressChange('street', val);
-        if (val.length >= 2) {
+        lastSearchValRef.current = val;
+
+        if (searchTimerRef.current) {
+            clearTimeout(searchTimerRef.current);
+        }
+
+        if (val.trim().length >= 2) {
             setLoadingSuggestions(true);
             setIsStreetSuggestionsOpen(true);
-            try {
-                const suggestions = await searchAddressSuggestions(val, formData.fullAddress?.city);
-                setStreetSuggestions(suggestions);
-                if (suggestions.length === 0) setIsStreetSuggestionsOpen(false);
-            } catch {
-                setStreetSuggestions([]);
-                setIsStreetSuggestionsOpen(false);
-            } finally {
-                setLoadingSuggestions(false);
-            }
+
+            searchTimerRef.current = setTimeout(async () => {
+                try {
+                    const suggestions = await searchAddressSuggestions(val, formData.fullAddress?.city);
+                    if (lastSearchValRef.current === val) {
+                        setStreetSuggestions(suggestions);
+                        setIsStreetSuggestionsOpen(suggestions.length > 0);
+                    }
+                } catch {
+                    if (lastSearchValRef.current === val) {
+                        setStreetSuggestions([]);
+                        setIsStreetSuggestionsOpen(false);
+                    }
+                } finally {
+                    if (lastSearchValRef.current === val) {
+                        setLoadingSuggestions(false);
+                    }
+                }
+            }, 300);
         } else {
             setStreetSuggestions([]);
             setIsStreetSuggestionsOpen(false);
@@ -289,22 +319,41 @@ const PersonFormModal = ({ isOpen, onClose, onSuccess, person, collectionName, t
         }
     };
 
-    const handleSelectAddressSuggestion = (suggestion: any) => {
-        const addr = suggestion.address;
-        const streetName = addr.road || addr.pedestrian || addr.suburb || suggestion.display_name.split(',')[0];
-        const neighborhood = addr.neighbourhood || addr.suburb || formData.fullAddress?.neighborhood || "";
-        const city = addr.city || addr.town || addr.village || formData.fullAddress?.city || "";
-        const state = addr.state || formData.fullAddress?.state || "PR";
-        const cep = addr.postcode ? addr.postcode.replace(/\D/g, '') : formData.fullAddress?.cep || "";
+    const handleSelectAddressSuggestion = async (suggestion: any) => {
+        setIsStreetSuggestionsOpen(false);
 
-        const mapsQuery = encodeURIComponent(`${streetName}, ${neighborhood}, ${city} - ${state}`);
-        const generatedMapsUrl = formData.fullAddress?.mapsUrl || `https://www.google.com/maps/search/?api=1&query=${mapsQuery}`;
+        let streetName = suggestion.address?.road || suggestion.address?.pedestrian || suggestion.address?.suburb || suggestion.display_name?.split(',')[0] || '';
+        let neighborhood = suggestion.address?.neighbourhood || suggestion.address?.suburb || formData.fullAddress?.neighborhood || "";
+        let city = suggestion.address?.city || suggestion.address?.town || suggestion.address?.village || formData.fullAddress?.city || "";
+        let state = suggestion.address?.state || formData.fullAddress?.state || "PR";
+        let cep = suggestion.address?.postcode ? suggestion.address.postcode.replace(/\D/g, '') : (formData.fullAddress?.cep || "");
+        let number = formData.fullAddress?.number || "";
+
+        if (suggestion.place_id) {
+            try {
+                const details = await fetchPlaceDetails(suggestion.place_id);
+                if (details) {
+                    if (details.street) streetName = details.street;
+                    if (details.neighborhood) neighborhood = details.neighborhood;
+                    if (details.city) city = details.city;
+                    if (details.state) state = details.state;
+                    if (details.cep && !cep) cep = details.cep;
+                    if (details.number && !number) number = details.number;
+                }
+            } catch (e) {
+                console.warn("Erro ao buscar detalhes da Places API:", e);
+            }
+        }
+
+        const mapsQuery = encodeURIComponent(`${streetName}${number ? ', ' + number : ''}, ${neighborhood}, ${city} - ${state}`);
+        const generatedMapsUrl = `https://www.google.com/maps/search/?api=1&query=${mapsQuery}`;
 
         setFormData((prev: Partial<Person>) => ({
             ...prev,
             fullAddress: {
                 ...prev.fullAddress!,
                 street: streetName,
+                number: number,
                 neighborhood: neighborhood,
                 city: city,
                 state: state,
@@ -312,7 +361,6 @@ const PersonFormModal = ({ isOpen, onClose, onSuccess, person, collectionName, t
                 mapsUrl: generatedMapsUrl
             }
         }));
-        setIsStreetSuggestionsOpen(false);
     };
 
     const handleCepBlur = async (e: React.FocusEvent<HTMLInputElement>) => {
@@ -475,8 +523,14 @@ const PersonFormModal = ({ isOpen, onClose, onSuccess, person, collectionName, t
 
     if (!isOpen) return null;
 
+    const routeUrl = formData.fullAddress?.mapsUrl || (
+        formData.fullAddress?.street?.trim()
+            ? getShippingRouteUrl(formData.fullAddress as any)
+            : ""
+    );
+
     const modalContent = (
-        <div className="fixed inset-0 z-[100000] flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-[9999999] flex items-center justify-center p-4">
             <div className="absolute inset-0 bg-slate-900/80 backdrop-blur-sm" onClick={onClose} />
             <div className="relative bg-white dark:bg-slate-900 w-full max-w-2xl rounded-[2.5rem] shadow-2xl overflow-hidden animate-slide-up border border-slate-100 dark:border-slate-800">
                 <div className="p-8 border-b border-slate-50 dark:border-slate-800 flex items-center justify-between">
@@ -633,18 +687,6 @@ const PersonFormModal = ({ isOpen, onClose, onSuccess, person, collectionName, t
                             </div>
                         )}
 
-                        {formData.personType === 'PF' && collectionName === 'customers' && (
-                            <div className="flex flex-col gap-2">
-                                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">Nome Social</label>
-                                <input
-                                    type="text"
-                                    value={formData.socialName || ""}
-                                    onChange={(e) => setFormData({ ...formData, socialName: e.target.value })}
-                                    className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none transition-all text-sm font-bold dark:text-slate-100"
-                                    placeholder="Como a pessoa prefere ser chamada"
-                                />
-                            </div>
-                        )}
 
                         <div className="flex flex-col gap-2">
                             <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">
@@ -844,41 +886,88 @@ const PersonFormModal = ({ isOpen, onClose, onSuccess, person, collectionName, t
                                     />
                                 </div>
                                 <div className="md:col-span-2 flex flex-col gap-2 relative group/field" ref={streetWrapperRef}>
-                                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">Rua / Logradouro {collectionName === 'customers' && <span className="text-red-500">*</span>}</label>
+                                    <div className="flex items-center justify-between">
+                                        <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">
+                                            Logradouro {collectionName === 'customers' && <span className="text-red-500">*</span>}
+                                        </label>
+                                        {routeUrl && (
+                                            <a
+                                                href={routeUrl}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="flex shrink-0 items-center gap-1 whitespace-nowrap text-[9px] font-black uppercase leading-none tracking-wider text-blue-600 transition-colors hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
+                                                title="Ver rota no Google Maps"
+                                            >
+                                                <i className="bi bi-geo-alt-fill" />
+                                                <span>Rota</span>
+                                            </a>
+                                        )}
+                                    </div>
                                     <input
                                         type="text"
                                         value={formData.fullAddress?.street || ""}
                                         onChange={(e) => handleStreetChange(e.target.value)}
                                         onFocus={() => { if (streetSuggestions.length > 0) setIsStreetSuggestionsOpen(true); }}
-                                        className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none transition-all text-sm font-bold dark:text-slate-100"
+                                        placeholder="Ex: Rua das Flores, Avenida Brasil..."
+                                        className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none transition-all text-sm font-bold dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-600 placeholder:font-normal"
                                     />
                                     <DropdownPortal anchorRef={streetWrapperRef} isOpen={isStreetSuggestionsOpen}>
-                                        <div className="mt-1 bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-xl shadow-xl overflow-hidden max-h-48 overflow-y-auto custom-scrollbar">
-                                            {loadingSuggestions && (
-                                                <div className="p-4 text-center text-xs text-slate-400 flex items-center justify-center gap-2">
-                                                    <div className="w-3 h-3 border-2 border-slate-300 border-t-blue-500 rounded-full animate-spin"></div>
-                                                    Buscando endereços...
+                                        <div className="mt-1 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl shadow-2xl overflow-hidden max-h-64 overflow-y-auto custom-scrollbar animate-fade-in divide-y divide-slate-100 dark:divide-slate-800">
+                                            <div className="px-3.5 py-2 bg-slate-50/80 dark:bg-slate-800/60 flex items-center justify-between border-b border-slate-100 dark:border-slate-800">
+                                                <span className="text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
+                                                    <i className="bi bi-geo-alt-fill text-blue-600 dark:text-blue-400 text-xs"></i>
+                                                    Sugestões de Endereço (Google Places)
+                                                </span>
+                                                {loadingSuggestions && (
+                                                    <div className="w-3.5 h-3.5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+                                                )}
+                                            </div>
+
+                                            {loadingSuggestions && streetSuggestions.length === 0 && (
+                                                <div className="p-4 text-center text-xs font-medium text-slate-400 flex items-center justify-center gap-2">
+                                                    <div className="w-3.5 h-3.5 border-2 border-slate-300 border-t-blue-500 rounded-full animate-spin"></div>
+                                                    Buscando endereços no Google Maps...
                                                 </div>
                                             )}
+
                                             {!loadingSuggestions && streetSuggestions.length === 0 && (
-                                                <div className="p-4 text-center text-xs text-slate-400">
-                                                    Nenhum endereço encontrado.
+                                                <div className="p-4 text-center text-xs font-semibold text-slate-400">
+                                                    Nenhum endereço encontrado para esta busca.
                                                 </div>
                                             )}
-                                            {streetSuggestions.map((s, i) => (
-                                                <button key={i} type="button"
-                                                    onClick={() => handleSelectAddressSuggestion(s)}
-                                                    className="w-full text-left p-3 border-b border-slate-50 dark:border-slate-700/50 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors last:border-0"
-                                                >
-                                                    <p className="text-xs font-bold text-slate-800 dark:text-slate-200">
-                                                        {[
-                                                            s.address.road || s.address.pedestrian || s.address.suburb || s.display_name.split(',')[0],
-                                                            s.address.neighbourhood || s.address.suburb,
-                                                            s.address.city || s.address.town || s.address.village
-                                                        ].filter(Boolean).join(', ')}
-                                                    </p>
-                                                </button>
-                                            ))}
+
+                                            {streetSuggestions.map((s, i) => {
+                                                const mainText = s.address?.road || s.address?.pedestrian || s.address?.suburb || s.display_name?.split(',')[0] || '';
+                                                const subText = [
+                                                    s.address?.neighbourhood || s.address?.suburb,
+                                                    s.address?.city || s.address?.town,
+                                                    s.address?.state || 'PR'
+                                                ].filter(Boolean).join(', ');
+
+                                                return (
+                                                    <button
+                                                        key={i}
+                                                        type="button"
+                                                        onClick={() => void handleSelectAddressSuggestion(s)}
+                                                        className="w-full text-left px-4 py-3 hover:bg-blue-50/60 dark:hover:bg-blue-950/30 transition-all flex items-start gap-3 group/item text-slate-700 dark:text-slate-200"
+                                                    >
+                                                        <div className="w-6 h-6 rounded-lg bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0 mt-0.5 group-hover/item:scale-110 transition-transform">
+                                                            <i className="bi bi-geo-alt-fill text-xs"></i>
+                                                        </div>
+                                                        <div className="flex-1 min-w-0">
+                                                            <p className="text-xs font-bold text-slate-900 dark:text-slate-100 truncate group-hover/item:text-blue-600 dark:group-hover/item:text-blue-400 transition-colors">
+                                                                {mainText}
+                                                            </p>
+                                                            {subText && (
+                                                                <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate mt-0.5">
+                                                                    {subText}
+                                                                </p>
+                                                            )}
+                                                        </div>
+                                                        <i className="bi bi-arrow-up-left text-slate-300 dark:text-slate-600 group-hover/item:text-blue-500 text-xs shrink-0 self-center transition-colors"></i>
+                                                    </button>
+                                                );
+                                            })}
                                         </div>
                                     </DropdownPortal>
                                 </div>

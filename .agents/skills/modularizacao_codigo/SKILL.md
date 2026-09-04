@@ -87,15 +87,18 @@ Alvo recomendado:
 Aceitável:
 até aproximadamente 150 linhas.
 
-Acima de 150 linhas:
-analisar obrigatoriamente possibilidade de modularização.
+Acima de 200 linhas ou infração real de Responsabilidade Única / Código Limpo:
+Analisar modularização e consultar o usuário.
 ```
+
+**Regra Estrita de Consulta ao Usuário**:
+> SOMENTE perguntar ao usuário sobre implementação de código limpo, responsabilidade única e modularização se o arquivo **realmente infringir responsabilidade única, código limpo ou ultrapassar 200 linhas**. Arquivos pequenos, coesos e bem estruturados (ex: < 150–200 linhas) NÃO devem gerar perguntas repetitivas ao usuário.
 
 Não criar divisões artificiais apenas para obedecer ao número de linhas.
 
 Um arquivo com 120 linhas e uma responsabilidade clara é melhor que cinco arquivos de 25 linhas altamente acoplados.
 
-Mas arquivos grandes não devem permanecer apenas por comodidade.
+Mas arquivos grandes (> 200 linhas ou com acúmulo de responsabilidades) não devem permanecer apenas por comodidade.
 
 ---
 

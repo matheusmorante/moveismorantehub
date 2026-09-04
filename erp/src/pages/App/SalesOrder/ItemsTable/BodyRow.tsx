@@ -153,122 +153,102 @@ const BodyRow = ({ item, onChange, onBatchChange, onDelete, idx, deliveryMethod,
     if (isMobile) {
         return (
             <div className={`p-4 sm:p-5 bg-white dark:bg-slate-900 border rounded-3xl ${highlightAsTemporary ? 'border-amber-400 dark:border-amber-500 ring-4 ring-amber-400/20 bg-amber-50/20 dark:bg-amber-950/10' : error ? 'border-red-500 ring-4 ring-red-500/10' : 'border-slate-200/80 dark:border-slate-800'} shadow-sm relative group transition-all hover:shadow-md space-y-4`}>
-                {/* Header do Card: Número do Item + Botão Excluir */}
-                <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
-                    <div className="flex items-center gap-2.5 min-w-0">
-                        <span className="w-7 h-7 rounded-xl bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 font-black text-xs flex items-center justify-center border border-blue-200/60 dark:border-blue-800/60 shrink-0">
-                            #{idx + 1}
-                        </span>
-                        <span className="text-xs font-black uppercase tracking-wider text-slate-700 dark:text-slate-200 truncate">
-                            {item.description ? item.description : 'Novo Item'}
-                        </span>
-                    </div>
+                {/* Botão Excluir no canto superior direito do card */}
+                {!item.isComboItem && (
+                    <button
+                        type="button"
+                        onClick={onDelete}
+                        className="absolute top-3.5 right-3.5 sm:top-4 sm:right-4 w-8 h-8 flex items-center justify-center text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30 rounded-xl transition-all z-10"
+                        title="Excluir item"
+                    >
+                        <i className="bi bi-trash text-sm" />
+                    </button>
+                )}
 
-                    {!item.isComboItem && (
-                        <button
-                            type="button"
-                            onClick={onDelete}
-                            className="w-8 h-8 flex items-center justify-center text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30 rounded-xl transition-all shrink-0"
-                            title="Excluir item"
-                        >
-                            <i className="bi bi-trash text-sm" />
-                        </button>
-                    )}
-                </div>
-
-                {/* Linha 1: Descrição e Manuseio */}
-                <div className="flex flex-wrap items-start gap-3 sm:gap-4">
-                    <div className="flex-1 min-w-[220px]">
-                        <label className={`text-[10px] font-black uppercase tracking-wider mb-1 flex items-center gap-1.5 ml-1 ${
-                            isLinkedProduct 
-                                ? 'text-emerald-600 dark:text-emerald-400' 
-                                : isTemporaryProduct 
-                                    ? 'text-amber-600 dark:text-amber-400' 
-                                    : 'text-slate-400 dark:text-slate-500'
-                        }`}>
-                            {isLinkedProduct && (
-                                <i className="bi bi-check-circle-fill text-emerald-500 text-xs" title="Produto vinculado ao catálogo" />
-                            )}
-                            <span>Descrição do Item</span> <span className="text-red-500">*</span>
-                            {isTemporaryProduct && <TemporaryProductAlert />}
-                        </label>
-                        {!item.isComboItem ? (
-                            <ProductAutocomplete
-                                value={item.description}
-                                onChange={(val) => onChange(idx, 'description', val)}
-                                onSelect={(p, v) => onSelectProduct(idx, p, v)}
-                                placeholder="Buscar produto..."
-                                isTemporary={isTemporaryProduct}
-                                isSelected={isLinkedProduct}
-                                className={error ? 'border-red-500 rounded-2xl ring-2 ring-red-500' : ''}
-                            />
-                        ) : (
-                            <div className="flex items-center gap-2 px-3 py-2 bg-slate-50 dark:bg-slate-800/40 rounded-2xl border border-slate-100 dark:border-slate-800">
-                                <i className="bi bi-arrow-return-right text-slate-400" />
-                                <span className="text-xs italic font-bold text-slate-600 dark:text-slate-300">{item.description}</span>
-                            </div>
-                        )}
-                    </div>
-
-                    {!shouldHideHandling && !item.isComboItem && (
-                        <div className="w-[240px] sm:w-[260px] shrink-0">
-                            <label className="text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500 mb-1 block ml-1">
-                                Tipo de Manuseio
-                            </label>
-                            <select
-                                className={`w-full appearance-none border-b-2 bg-transparent px-3 py-2 text-xs font-bold text-slate-700 outline-none transition-colors dark:text-slate-200 ${handlingError ? 'border-red-500 focus:border-red-500' : 'border-slate-200 focus:border-blue-600 dark:border-slate-700 dark:focus:border-blue-500'}`}
-                                value={item.handlingType || ''}
-                                onChange={(e) => {
-                                    const val = e.target.value;
-                                    if (!val) return;
-                                    if (item.handlingType === val) return;
-                                    onChange(idx, 'handlingType', val);
-                                }}
-                            >
-                                <option value="" disabled className="dark:bg-slate-900">Manuseio...</option>
-                                {(() => {
-                                    const options = deliveryMethod === 'delivery' ? (settings.deliveryHandlingOptions || []) : (settings.pickupHandlingOptions || []);
-                                    const isSelectedInOptions = item.handlingType && options.some(o => o.label === item.handlingType);
-                                    
-                                    return (
-                                        <>
-                                            {options.map(opt => (
-                                                <option key={opt.label} value={opt.label} className="dark:bg-slate-900">{opt.label}</option>
-                                            ))}
-                                            {item.handlingType && !isSelectedInOptions && (
-                                                <option value={item.handlingType} className="italic text-slate-400">
-                                                    {item.handlingType} (Atual)
-                                                </option>
-                                            )}
-                                        </>
-                                    );
-                                })()}
-                            </select>
+                {/* Linha 1: Descrição do Item ocupando toda a linha */}
+                <div className="w-full pr-9 sm:pr-10">
+                    <label className="text-[10px] font-black uppercase tracking-wider mb-1 flex items-center gap-1.5 ml-1 text-slate-400 dark:text-slate-500">
+                        <span>Descrição do Item</span> <span className="text-red-500">*</span>
+                        {isTemporaryProduct && <TemporaryProductAlert />}
+                    </label>
+                    {!item.isComboItem ? (
+                        <ProductAutocomplete
+                            value={item.description}
+                            onChange={(val) => onChange(idx, 'description', val)}
+                            onSelect={(p, v) => onSelectProduct(idx, p, v)}
+                            placeholder="Buscar produto..."
+                            isTemporary={isTemporaryProduct}
+                            isSelected={isLinkedProduct}
+                            className={error ? 'border-red-500 rounded-2xl ring-2 ring-red-500' : ''}
+                        />
+                    ) : (
+                        <div className="flex items-center gap-2 px-3 py-2 bg-slate-50 dark:bg-slate-800/40 rounded-2xl border border-slate-100 dark:border-slate-800">
+                            <i className="bi bi-arrow-return-right text-slate-400" />
+                            <span className="text-xs italic font-bold text-slate-600 dark:text-slate-300">{item.description}</span>
                         </div>
                     )}
                 </div>
 
-                {/* Campo de Observações do Item (Mobile) */}
+                {/* Linha 2: Tipo de Manuseio e Observação na mesma linha */}
                 {!item.isComboItem && (
-                    <div className="w-full">
-                        <label className="text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500 mb-1 block ml-1">
-                            Observações do Item
-                        </label>
-                        <input
-                            type="text"
-                            value={tempObservation}
-                            onChange={(e) => setTempObservation(e.target.value)}
-                            onBlur={commitObservation}
-                            placeholder="Ex: cor, acabamento, detalhes específicos..."
-                            className="w-full bg-slate-50/50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700 focus:border-blue-500 px-3 py-1.5 rounded-xl text-xs font-medium text-slate-700 dark:text-slate-200 outline-none transition-all placeholder:text-slate-400"
-                        />
+                    <div className="flex flex-wrap sm:flex-nowrap items-start gap-3 sm:gap-4">
+                        {!shouldHideHandling && (
+                            <div className="w-full sm:w-[260px] md:w-[280px] shrink-0">
+                                <label className="text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500 mb-1 block ml-1">
+                                    Tipo de Manuseio <span className="text-red-500">*</span>
+                                </label>
+                                <select
+                                    className={`w-full appearance-none border-b-2 bg-transparent px-3 py-2 text-xs font-bold text-slate-700 outline-none transition-colors dark:text-slate-200 ${handlingError ? 'border-red-500 focus:border-red-500' : 'border-slate-200 focus:border-blue-600 dark:border-slate-700 dark:focus:border-blue-500'}`}
+                                    value={item.handlingType || ''}
+                                    onChange={(e) => {
+                                        const val = e.target.value;
+                                        if (!val) return;
+                                        if (item.handlingType === val) return;
+                                        onChange(idx, 'handlingType', val);
+                                    }}
+                                >
+                                    <option value="" disabled className="dark:bg-slate-900">Manuseio...</option>
+                                    {(() => {
+                                        const options = deliveryMethod === 'delivery' ? (settings.deliveryHandlingOptions || []) : (settings.pickupHandlingOptions || []);
+                                        const isSelectedInOptions = item.handlingType && options.some(o => o.label === item.handlingType);
+                                        
+                                        return (
+                                            <>
+                                                {options.map(opt => (
+                                                    <option key={opt.label} value={opt.label} className="dark:bg-slate-900">{opt.label}</option>
+                                                ))}
+                                                {item.handlingType && !isSelectedInOptions && (
+                                                    <option value={item.handlingType} className="italic text-slate-400">
+                                                        {item.handlingType} (Atual)
+                                                    </option>
+                                                )}
+                                            </>
+                                        );
+                                    })()}
+                                </select>
+                            </div>
+                        )}
+
+                        <div className="flex-1 min-w-[200px] w-full">
+                            <label className="text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500 mb-1 block ml-1">
+                                Observação
+                            </label>
+                            <input
+                                type="text"
+                                value={tempObservation}
+                                onChange={(e) => setTempObservation(e.target.value)}
+                                onBlur={commitObservation}
+                                placeholder="Ex: salvados, peça do mostruário com avaria..."
+                                className="w-full bg-slate-50/50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700 focus:border-blue-500 px-3 py-1.5 rounded-xl text-xs font-medium text-slate-700 dark:text-slate-200 outline-none transition-all placeholder:text-slate-400"
+                            />
+                        </div>
                     </div>
                 )}
 
                 {/* Linha 2: Quantidade, Preço Unitário, Descontos, Líquido e Total */}
                 {!item.isComboItem && (
-                    <div className="flex flex-wrap items-end gap-3 pt-1">
-                        <div className="w-[85px] shrink-0">
+                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 items-end pt-1">
+                        <div className="w-full">
                             <label className="text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500 mb-1 block ml-1">
                                 Qtd. <span className="text-red-500">*</span>
                             </label>
@@ -279,7 +259,7 @@ const BodyRow = ({ item, onChange, onBatchChange, onDelete, idx, deliveryMethod,
                             />
                         </div>
 
-                        <div className="w-[120px] shrink-0">
+                        <div className="w-full">
                             <label className="text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500 mb-1 block ml-1">
                                 Preço Un. <span className="text-red-500">*</span>
                             </label>
@@ -290,7 +270,7 @@ const BodyRow = ({ item, onChange, onBatchChange, onDelete, idx, deliveryMethod,
                             />
                         </div>
 
-                        <div className="w-[110px] shrink-0">
+                        <div className="w-full">
                             <label className="text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500 mb-1 block ml-1">
                                 Desc. R$
                             </label>
@@ -302,7 +282,7 @@ const BodyRow = ({ item, onChange, onBatchChange, onDelete, idx, deliveryMethod,
                             />
                         </div>
 
-                        <div className="w-[90px] shrink-0">
+                        <div className="w-full">
                             <label className="text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500 mb-1 block ml-1">
                                 Desc. %
                             </label>
@@ -316,7 +296,7 @@ const BodyRow = ({ item, onChange, onBatchChange, onDelete, idx, deliveryMethod,
                             />
                         </div>
 
-                        <div className="w-[120px] shrink-0">
+                        <div className="w-full">
                             <label className="text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500 mb-1 block ml-1">
                                 Preço Un. Líq.
                             </label>
@@ -329,7 +309,7 @@ const BodyRow = ({ item, onChange, onBatchChange, onDelete, idx, deliveryMethod,
                         </div>
 
                         {/* Total do Item */}
-                        <div className="ml-auto flex flex-col items-end justify-center px-4 py-2 bg-blue-50/70 dark:bg-blue-950/30 rounded-2xl shrink-0">
+                        <div className="w-full flex flex-col items-end justify-center px-4 py-2 bg-blue-50/70 dark:bg-blue-950/30 border border-blue-100/80 dark:border-blue-900/40 rounded-2xl min-h-[50px]">
                             <span className="text-[8px] font-black uppercase text-blue-600/70 dark:text-blue-400/70 tracking-widest">Total Item</span>
                             <div className="text-sm font-black text-blue-600 dark:text-blue-400">
                                 <CurrencyDisplay value={calcItemTotalValue(item)} />
@@ -361,7 +341,7 @@ const BodyRow = ({ item, onChange, onBatchChange, onDelete, idx, deliveryMethod,
                             value={tempObservation}
                             onChange={(e) => setTempObservation(e.target.value)}
                             onBlur={commitObservation}
-                            placeholder="Observações do item (ex: cor, acabamento)..."
+                            placeholder="Observação (ex: salvados, peça do mostruário com avaria)..."
                             className="w-full bg-slate-50/60 dark:bg-slate-800/40 border border-slate-200/80 dark:border-slate-700/80 focus:border-blue-500 px-2.5 py-1 rounded-lg text-[11px] font-medium text-slate-700 dark:text-slate-200 outline-none transition-all placeholder:text-slate-400"
                         />
                     </div>

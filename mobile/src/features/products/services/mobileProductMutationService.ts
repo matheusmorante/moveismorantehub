@@ -87,6 +87,11 @@ export const saveMobileProduct = async (productData: any) => {
     active: productData.active ?? true,
     is_draft: Boolean(productData.isDraft),
     status: productData.isDraft ? 'draft' : (productData.status || 'published'),
+    supplier_id: productData.mainSupplierId || productData.supplierId || null,
+    main_supplier_id: productData.mainSupplierId || productData.supplierId || null,
+    supplier_ids: Array.isArray(productData.supplierIds) && productData.supplierIds.length > 0
+      ? productData.supplierIds
+      : (productData.mainSupplierId || productData.supplierId ? [productData.mainSupplierId || productData.supplierId] : []),
     has_variations: Boolean(productData.variations && productData.variations.length > 0),
     updated_at: new Date().toISOString(),
   };

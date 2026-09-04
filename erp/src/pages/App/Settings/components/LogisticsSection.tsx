@@ -32,7 +32,7 @@ const LogisticsSection: React.FC<Props> = ({ settings, onChange }) => {
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
                     <div className="flex-1 max-w-lg">
                         <h4 className="font-bold text-slate-800 dark:text-slate-200 text-sm uppercase tracking-wider">Chave de API do Google Maps</h4>
-                        <p className="text-xs text-slate-400 dark:text-slate-500 mt-1 leading-relaxed">Usada para buscar endereços com máxima precisão pelo autocompletar ao invés das APIs gratuitas (Nominatim/ArcGIS).</p>
+                        <p className="text-xs text-slate-400 dark:text-slate-500 mt-1 leading-relaxed">Usada exclusivamente para geocodificação de endereços, autocompletar e cálculo dinâmico de rotas e distâncias de frete.</p>
                     </div>
                     <div className="w-full md:w-80 relative">
                         <i className="bi bi-key absolute left-5 top-1/2 -translate-y-1/2 text-slate-400"></i>

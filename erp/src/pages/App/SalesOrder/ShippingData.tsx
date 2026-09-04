@@ -378,14 +378,20 @@ const ShippingData = ({ shipping, setShipping, customerData, isCalculatingDistan
                             onChangeDistance={onChangeDistance}
                             onAutoCalculateDistance={onAutoCalculateDistance}
                             autoCalculateValue={shipping.autoCalculateValue}
-                            onToggleAutoCalculate={() => setShipping(prev => {
-                                const newValue = !prev.autoCalculateValue;
-                                let newShippingValue = prev.value;
-                                if (newValue && prev.distance !== undefined) {
-                                    newShippingValue = calculateFreightByDistance(prev.distance);
+                            onToggleAutoCalculate={() => {
+                                const isCurrentlyAuto = shipping.autoCalculateValue !== false;
+                                const willBeAuto = !isCurrentlyAuto;
+                                setShipping(prev => {
+                                    let newShippingValue = prev.value;
+                                    if (willBeAuto && prev.distance !== undefined) {
+                                        newShippingValue = calculateFreightByDistance(prev.distance);
+                                    }
+                                    return { ...prev, autoCalculateValue: willBeAuto, value: newShippingValue };
+                                });
+                                if (willBeAuto && onAutoCalculateDistance) {
+                                    onAutoCalculateDistance();
                                 }
-                                return { ...prev, autoCalculateValue: newValue, value: newShippingValue };
-                            })}
+                            }}
                             isCalculatingDistance={isCalculatingDistance}
                             errors={errors}
                         />

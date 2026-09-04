@@ -95,7 +95,7 @@ export function useMobileProducts() {
 
   const handleSave = async (productData: any) => {
     await saveMobileProduct(productData);
-    loadProducts(false, 1);
+    await loadProducts(false, currentPage);
   };
 
   const totalPages = Math.max(1, Math.ceil(totalItems / ITEMS_PER_PAGE));

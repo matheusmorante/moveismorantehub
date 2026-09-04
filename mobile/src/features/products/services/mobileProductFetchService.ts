@@ -147,6 +147,9 @@ export const fetchMobileProductsPage = async (
         stock: Number(p.stock ?? 0),
         isParent,
         isDraft: Boolean(p.is_draft || p.status === 'draft'),
+        mainSupplierId: p.main_supplier_id || p.supplier_id || null,
+        supplierId: p.supplier_id || p.main_supplier_id || null,
+        supplierIds: Array.isArray(p.supplier_ids) ? p.supplier_ids : (p.supplier_id ? [p.supplier_id] : (p.main_supplier_id ? [p.main_supplier_id] : [])),
       };
     });
 

@@ -3,7 +3,7 @@ import maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import Order from "@/pages/types/order.type";
 import { getSettings } from '@/pages/utils/settingsService';
-import { getNeighborhoodCoords, geocodeAddress } from '@/pages/utils/maps';
+import { getNeighborhoodCoords, geocodeAddress, calculateRouteViaGoogleMaps } from '@/pages/utils/maps';
 
 interface DeliveryMapProps {
     orders: Order[];
@@ -52,7 +52,7 @@ export default function DeliveryMap({ orders, onOrderClick, onOrderEdit }: Deliv
                         continue;
                     }
 
-                    // 2. Geocodificação Dinâmica (OSM Nominatim)
+                    // 2. Geocodificação Dinâmica (Google Maps Geocoder)
                     const address = order.shipping?.useCustomerAddress === false && order.shipping?.deliveryAddress 
                         ? order.shipping.deliveryAddress 
                         : order.customerData.fullAddress;
@@ -113,7 +113,7 @@ export default function DeliveryMap({ orders, onOrderClick, onOrderEdit }: Deliv
         }).filter(Boolean) as RoutePoint[];
     }, [orders, geocodedPoints]);
 
-    // Fetch routing info from OSRM
+    // Fetch routing info from Google Maps
     useEffect(() => {
         const fetchAllRoutes = async () => {
             const newInfo: Record<string, { distance: string, duration: string }> = {};
@@ -122,19 +122,15 @@ export default function DeliveryMap({ orders, onOrderClick, onOrderEdit }: Deliv
 
             for (const p of toFetch) {
                 try {
-                    const url = `https://router.project-osrm.org/route/v1/driving/${storeOrigin[0]},${storeOrigin[1]};${p.lng},${p.lat}?overview=false`;
-                    const res = await fetch(url);
-                    const data = await res.json();
-                    
-                    if (data.routes && data.routes[0]) {
-                        const route = data.routes[0];
+                    const route = await calculateRouteViaGoogleMaps(storeOrigin, [p.lng, p.lat]);
+                    if (route) {
                         newInfo[p.id!] = {
-                            distance: `${(route.distance / 1000).toFixed(1)} km`,
-                            duration: `${Math.round(route.duration / 60)} min`
+                            distance: `${route.distanceKm.toFixed(1)} km`,
+                            duration: `${route.durationMinutes} min`
                         };
                     }
                 } catch (e) {
-                    console.warn(`Erro ao calcular rota para ${p.id}:`, e);
+                    console.warn(`Erro ao calcular rota via Google Maps para ${p.id}:`, e);
                 }
             }
             setRouteInfo(prev => ({ ...prev, ...newInfo }));

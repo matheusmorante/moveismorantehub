@@ -41,10 +41,17 @@
       "versionCode": 25,
       "experimentalLauncherActivity": true,
       "googleServicesFile": "./google-services.json",
+      "config": {
+        "googleMaps": {
+          "apiKey": "AIzaSyCROtDtnGmCBnzSiTA2sJTmoEnTsGMf6Qk"
+        }
+      },
       "permissions": [
         "RECEIVE_BOOT_COMPLETED",
         "VIBRATE",
-        "POST_NOTIFICATIONS"
+        "POST_NOTIFICATIONS",
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_FINE_LOCATION"
       ]
     },
     "web": {},

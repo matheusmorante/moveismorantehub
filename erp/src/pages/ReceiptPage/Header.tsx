@@ -15,12 +15,12 @@ const Header = ({ seller }: Props) => {
     return (
         <header className='flex justify-between items-start pb-4 border-b-2 border-slate-100 text-slate-800 transition-colors duration-300 shrink-0'>
             <div className="flex flex-col gap-4">
-                <div className="flex items-center gap-4">
-                    <div className="w-16 h-16 sm:w-20 sm:h-20 bg-white rounded-2xl p-1 shadow-sm border border-slate-50 overflow-hidden flex items-center justify-center">
+                <div className="flex items-center gap-5">
+                    <div className="header-logo-container w-28 h-28 sm:w-32 sm:h-32 bg-white rounded-2xl p-2 shadow-sm border border-slate-100 overflow-hidden flex items-center justify-center shrink-0">
                         <img src={logo} alt={`Logo ${companyName}`} className='w-full h-full object-contain rounded-xl' />
                     </div>
                     <div>
-                        <h1 className="text-xl font-black text-slate-900 tracking-tight leading-none uppercase">{companyName}</h1>
+                        <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight leading-none uppercase">{companyName}</h1>
                     </div>
                 </div>
             </div>

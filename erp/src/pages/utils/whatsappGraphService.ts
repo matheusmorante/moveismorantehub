@@ -1,4 +1,7 @@
 import { getSettings } from '@/pages/utils/settingsService';
+import { toast } from "react-toastify";
+import { ApiUsageGuard } from "@/services/apiMonitoring/apiUsageGuard";
+import { ApiUsageTracker } from "@/services/apiMonitoring/apiUsageTracker";
 
 const GRAPH_API_VERSION = 'v18.0';
 const FACEBOOK_GRAPH_URL = 'https://graph.facebook.com';
@@ -554,7 +557,13 @@ ____________________________________
             }
         };
 
+        const guard = await ApiUsageGuard.check('meta_whatsapp');
+        if (!guard.allowed) {
+            throw new Error(`[ApiUsageGuard] Disparo WhatsApp bloqueado: ${guard.reason}`);
+        }
+
         console.log("[WhatsApp API] Enviando Template Payload:", JSON.stringify(payload, null, 2));
+        const startTime = Date.now();
 
         let response = await fetch(
             `${FACEBOOK_GRAPH_URL}/${GRAPH_API_VERSION}/${whatsappConfig.phoneNumberId}/messages`,
@@ -613,6 +622,16 @@ ____________________________________
 
         if (data.error) {
             console.error("[WhatsApp API] Erro retornado pela Meta:", JSON.stringify(data.error, null, 2));
+            ApiUsageTracker.record({
+                provider: 'meta',
+                service: 'meta_whatsapp',
+                operation: 'send_template',
+                units: 1,
+                status: 'ERROR',
+                response_time_ms: Date.now() - startTime,
+                module_source: 'communication',
+                error_message: data.error.message
+            });
             const details = data.error.error_data?.details || '';
             const userTitle = data.error.error_user_title ? ` (${data.error.error_user_title})` : '';
             const userMsg = data.error.error_user_msg ? ` - ${data.error.error_user_msg}` : '';
@@ -620,6 +639,17 @@ ____________________________________
             const fullMsg = details ? `${baseMsg}: ${details}` : `${baseMsg}${userTitle}${userMsg}`;
             throw new Error(`Meta API (Código ${data.error.code}): ${fullMsg}`);
         }
+
+        ApiUsageTracker.record({
+            provider: 'meta',
+            service: 'meta_whatsapp',
+            operation: 'send_template',
+            units: 1,
+            status: 'SUCCESS',
+            response_time_ms: Date.now() - startTime,
+            module_source: 'communication'
+        });
+
         return data;
     }
 };

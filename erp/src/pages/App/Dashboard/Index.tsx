@@ -16,6 +16,7 @@ import GeoMapPanel from './components/GeoMapPanel';
 import LogisticsPanel from './components/LogisticsPanel';
 import AlertsPanel from './components/AlertsPanel';
 import { ChartContainer } from './components/DashboardCharts';
+import ApiUsageSummaryCard from './components/ApiUsageSummaryCard';
 import { runDraftCleanup } from '../../utils/draftCleanupService';
 
 const PERIODS: { label: string; value: Period }[] = [
@@ -130,15 +131,16 @@ export default function Dashboard() {
                 <RecentOrders orders={allActiveOrders} />
             )}
 
-            {/* ── Mapa + Logística ── */}
+            {/* ── Mapa + Logística + Consumo de APIs ── */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 pb-16">
                 <div className="lg:col-span-2">
                     <GeoMapPanel orders={filteredOrders} />
                 </div>
-                <div>
+                <div className="space-y-6">
                     {loading ? <PanelSkeleton rows={4} /> : (
                         <LogisticsPanel filteredOrders={filteredOrders} allActiveOrders={allActiveOrders} />
                     )}
+                    <ApiUsageSummaryCard />
                 </div>
             </div>
         </div>

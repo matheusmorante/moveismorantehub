@@ -95,8 +95,16 @@ const mapToDB = (product: Partial<Product>) => {
     if (product.active !== undefined) data.active = product.active;
     if (product.isDraft !== undefined) data.is_draft = product.isDraft;
     if (product.deleted !== undefined) data.deleted = product.deleted;
-    if (product.supplierId !== undefined) data.supplier_id = product.supplierId || null;
-    if (product.supplierIds !== undefined) data.supplier_ids = product.supplierIds || [];
+    const supplierCandidate = product.mainSupplierId || product.supplierId || (product as any).main_supplier_id || (product as any).supplier_id || null;
+    if (product.mainSupplierId !== undefined || product.supplierId !== undefined || (product as any).main_supplier_id !== undefined || (product as any).supplier_id !== undefined) {
+        data.supplier_id = supplierCandidate;
+        data.main_supplier_id = supplierCandidate;
+    }
+    if (product.supplierIds !== undefined || (product as any).supplier_ids !== undefined) {
+        data.supplier_ids = product.supplierIds || (product as any).supplier_ids || (supplierCandidate ? [supplierCandidate] : []);
+    } else if (supplierCandidate) {
+        data.supplier_ids = [supplierCandidate];
+    }
     if (product.images !== undefined) data.images = product.images;
     if (product.ecommerceDescription !== undefined) data.ecommerce_description = product.ecommerceDescription;
     if (product.whatsappDescription !== undefined) data.whatsapp_description = product.whatsappDescription;
@@ -374,8 +382,9 @@ export const mapFromDB = (data: any, index?: number): Product => {
         active: Boolean(data.active),
         isDraft: Boolean(data.is_draft) || data.status === 'draft',
         deleted: data.deleted ?? false,
-        supplierId: data.supplier_id || '',
-        supplierIds: data.supplier_ids || [],
+        supplierId: data.supplier_id || data.main_supplier_id || '',
+        mainSupplierId: data.main_supplier_id || data.supplier_id || '',
+        supplierIds: Array.isArray(data.supplier_ids) ? data.supplier_ids : (data.supplier_id ? [data.supplier_id] : (data.main_supplier_id ? [data.main_supplier_id] : [])),
         images: productImages,
         ecommerceDescription: data.ecommerce_description || '',
         whatsappDescription: data.whatsapp_description || '',
@@ -420,7 +429,6 @@ export const mapFromDB = (data: any, index?: number): Product => {
         featured: data.featured ?? false,
         depthUseLength: data.depth_use_length ?? false,
         status: data.status || 'draft',
-        mainSupplierId: data.main_supplier_id || '',
         supplierRef: data.supplier_ref || '',
         observations: data.observations || '',
         parentId: data.parent_id || '',

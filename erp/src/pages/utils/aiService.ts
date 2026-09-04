@@ -1,4 +1,6 @@
 import { toast } from "react-toastify";
+import { ApiUsageGuard } from "@/services/apiMonitoring/apiUsageGuard";
+import { ApiUsageTracker } from "@/services/apiMonitoring/apiUsageTracker";
 
 export interface AIIntentResponse {
     intent: 'create_product' | 'create_service' | 'create_order' | 'chat';
@@ -68,13 +70,34 @@ async function callGeminiDirect(prompt: string, isJsonMode: boolean = true): Pro
         bodyPayload.generationConfig.responseMimeType = "application/json";
     }
 
-    const response = await fetch(url, {
-        method: 'POST',
-        headers: { 
-            'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(bodyPayload)
-    });
+    const guard = await ApiUsageGuard.check('gemini_flash');
+    if (!guard.allowed) {
+        throw new Error(`[ApiUsageGuard] Chamada à IA bloqueada: ${guard.reason}`);
+    }
+
+    const startTime = Date.now();
+    let response: Response;
+    try {
+        response = await fetch(url, {
+            method: 'POST',
+            headers: { 
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(bodyPayload)
+        });
+    } catch (networkErr: any) {
+        ApiUsageTracker.record({
+            provider: 'gemini',
+            service: 'gemini_flash',
+            operation: 'generateContent',
+            units: 1,
+            status: 'ERROR',
+            response_time_ms: Date.now() - startTime,
+            module_source: 'marketing',
+            error_message: networkErr.message,
+        });
+        throw networkErr;
+    }
 
     if (!response.ok) {
         let errDetail = `HTTP ${response.status}`;
@@ -86,6 +109,18 @@ async function callGeminiDirect(prompt: string, isJsonMode: boolean = true): Pro
             errDetail += `: ${response.statusText}`;
         }
 
+        ApiUsageTracker.record({
+            provider: 'gemini',
+            service: 'gemini_flash',
+            operation: 'generateContent',
+            units: 1,
+            status: response.status === 429 ? 'RATE_LIMITED' : 'ERROR',
+            http_status: response.status,
+            response_time_ms: Date.now() - startTime,
+            module_source: 'marketing',
+            error_message: errDetail,
+        });
+
         if (response.status === 429) {
             throw new Error(`Limite de requisições da IA atingido. Aguarde um momento e tente novamente. (${errDetail})`);
         } else if (response.status === 403 || response.status === 401) {
@@ -95,6 +130,17 @@ async function callGeminiDirect(prompt: string, isJsonMode: boolean = true): Pro
         }
         throw new Error(`Gemini API retornou erro. (${errDetail})`);
     }
+
+    ApiUsageTracker.record({
+        provider: 'gemini',
+        service: 'gemini_flash',
+        operation: 'generateContent',
+        units: 1,
+        status: 'SUCCESS',
+        http_status: 200,
+        response_time_ms: Date.now() - startTime,
+        module_source: 'marketing',
+    });
 
     const resJson = await response.json();
 

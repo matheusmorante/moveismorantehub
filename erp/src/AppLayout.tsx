@@ -79,7 +79,8 @@ export default function AppLayout() {
         newestOnTop={false}
         closeOnClick
         theme={theme === 'dark' ? 'dark' : 'colored'}
-        style={{ marginTop: '65px' }}
+        style={{ marginTop: '65px', zIndex: 9999999 }}
+        className="!z-[9999999]"
         draggable
       />
 
@@ -165,6 +166,10 @@ export default function AppLayout() {
                         <Link to="/settings" className="flex items-center gap-4 p-4 text-slate-600 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50/50 dark:hover:bg-blue-900/20 rounded-[1.5rem] transition-all font-bold text-[10px] uppercase tracking-widest">
                           <i className="bi bi-gear-fill text-lg"></i>
                           Configurações
+                        </Link>
+                        <Link to="/api-usage" className="flex items-center gap-4 p-4 text-slate-600 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-indigo-50/50 dark:hover:bg-indigo-900/20 rounded-[1.5rem] transition-all font-bold text-[10px] uppercase tracking-widest">
+                          <i className="bi bi-cpu-fill text-lg text-indigo-500"></i>
+                          Uso de APIs & Custos
                         </Link>
                         <Link to="/acessos-e-usuarios" className="flex items-center gap-4 p-4 text-slate-600 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50/50 dark:hover:bg-blue-900/20 rounded-[1.5rem] transition-all font-bold text-[10px] uppercase tracking-widest">
                           <i className="bi bi-shield-lock-fill text-lg"></i>

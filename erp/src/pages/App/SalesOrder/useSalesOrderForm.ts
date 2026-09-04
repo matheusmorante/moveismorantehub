@@ -278,7 +278,7 @@ export const useSalesOrderForm = (initialDeliveryMethod?: 'delivery' | 'pickup',
             deliveryMethod: 'delivery',
             orderType: '',
             scheduling: defaultScheduling,
-            autoCalculateValue: false,
+            autoCalculateValue: true,
             useCustomerAddress: true,
             deliveryAddress: {
                 cep: '',
@@ -367,14 +367,18 @@ export const useSalesOrderForm = (initialDeliveryMethod?: 'delivery' | 'pickup',
 
         setIsCalculatingDistance(true);
         try {
-            const distance = await autoCalculateRouteDistance(addressObj);
-            if (distance !== null && distance !== undefined) {
+            const routeResult = await autoCalculateRouteDistance(addressObj);
+            const distance = routeResult?.distanceKm;
+            if (distance !== null && distance !== undefined && !isNaN(distance)) {
                 lastCalculatedAddressRef.current = currentAddrStr;
                 const calculatedFreight = calculateFreightByDistance(distance);
                 setShipping(prev => ({
                     ...prev,
                     distance: distance,
                     value: calculatedFreight,
+                    durationMinutes: routeResult?.durationMinutes,
+                    destinationCoords: routeResult?.destinationCoords,
+                    routeGeoJSON: routeResult?.routeGeoJSON,
                     autoCalculateValue: true
                 }));
                 toast.success(`Distância calculada: ${distance.toFixed(1)} km (Frete: R$ ${calculatedFreight.toFixed(2)})`);
@@ -383,7 +387,7 @@ export const useSalesOrderForm = (initialDeliveryMethod?: 'delivery' | 'pickup',
             }
         } catch (error) {
             console.error("Erro ao calcular distância:", error);
-            toast.error("Erro ao calcular a distância via Google Maps.");
+            toast.error("Erro ao calcular a distância da rota.");
         } finally {
             setIsCalculatingDistance(false);
         }

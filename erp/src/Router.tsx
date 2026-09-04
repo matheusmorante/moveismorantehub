@@ -42,6 +42,7 @@ import MarketingPosts from './pages/App/Marketing/Posts';
 import AssemblyListPage from './pages/App/Logistics/AssemblyListPage';
 import AssemblyPrintPage from './pages/App/Logistics/AssemblyPrintPage';
 import MobileAppLanding from './pages/App/MobileAppLanding';
+import ApiUsagePage from './pages/App/ApiUsage/Index';
 const SalesOrderReports = lazy(() => import('./pages/App/SalesOrder/Reports/Index'));
 const SalesOrderReportView = lazy(() => import('./pages/App/SalesOrder/Reports/ReportView'));
 const SalesOrderReportsBling = lazy(() => import('./pages/App/SalesOrder/ReportsBling/Index'));
@@ -147,6 +148,7 @@ function Router() {
             <Route path='/warranty-term' element={<WarrantyTermPage />} />
             <Route path='/delivery-schedule' element={<DeliverySchedule />} />
             <Route path='/settings' element={<AdminRoute><Settings /></AdminRoute>} />
+            <Route path='/api-usage' element={<AdminRoute><ApiUsagePage /></AdminRoute>} />
 
             {/* Registrations */}
             <Route path='/registrations/products' element={<Products />} />

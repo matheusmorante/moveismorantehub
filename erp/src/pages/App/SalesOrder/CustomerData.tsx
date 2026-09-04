@@ -106,6 +106,8 @@ const CustomerDataInputs = ({ customerData, setCustomerData, errors, marketingOr
         }
     };
 
+    const isCustomerSelected = Boolean((customerData.id || customerData.fullName) && searchTerm.trim());
+
     return (
         <div ref={wrapperRef} className="relative w-full">
             <div className="mb-2 ml-1 flex items-center justify-between gap-3">
@@ -122,6 +124,11 @@ const CustomerDataInputs = ({ customerData, setCustomerData, errors, marketingOr
                 </button>
             </div>
             <div className="relative">
+                {isCustomerSelected && (
+                    <div className="pointer-events-none absolute left-3 top-1/2 flex -translate-y-1/2 items-center text-emerald-600 dark:text-emerald-400 animate-fade-in">
+                        <i className="bi bi-check-circle-fill text-sm sm:text-base" />
+                    </div>
+                )}
                 <input
                     type="text"
                     value={searchTerm}
@@ -143,7 +150,13 @@ const CustomerDataInputs = ({ customerData, setCustomerData, errors, marketingOr
                     }}
                     onFocus={() => setIsOpen(searchTerm.trim().length >= 2)}
                     placeholder="Busque pelo nome ou telefone..."
-                    className={`w-full border-b-2 bg-transparent px-3 py-3 pr-20 text-sm outline-none transition-colors placeholder:text-slate-300 dark:text-slate-300 dark:placeholder:text-slate-700 ${hasError ? "border-red-500 focus:border-red-600" : "border-slate-200 focus:border-blue-600 dark:border-slate-700 dark:focus:border-blue-500"}`}
+                    className={`w-full border-b-2 bg-transparent py-3 pr-20 text-sm outline-none transition-all placeholder:text-slate-300 dark:text-slate-300 dark:placeholder:text-slate-700 ${
+                        hasError
+                            ? "pl-3 border-red-500 focus:border-red-600"
+                            : isCustomerSelected
+                            ? "pl-9 border-emerald-500 focus:border-emerald-600 dark:border-emerald-500 dark:focus:border-emerald-400 font-medium text-slate-800 dark:text-slate-100"
+                            : "pl-3 border-slate-200 focus:border-blue-600 dark:border-slate-700 dark:focus:border-blue-500"
+                    }`}
                 />
                 <div className="absolute right-3 top-1/2 flex -translate-y-1/2 items-center gap-2.5">
                     {Boolean(customerData.id || customerData.fullName) && (

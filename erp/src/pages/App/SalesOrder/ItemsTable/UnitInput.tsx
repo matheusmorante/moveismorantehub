@@ -37,7 +37,7 @@ const UnitInput = ({ value, onChange, disabled, className }: Props) => {
                     }
                 }
             />
-            <div className="bg-transparent text-blue-700 dark:text-blue-300 font-black text-[10px] uppercase tracking-wider px-2 py-2 border-l border-slate-200/60 dark:border-slate-700/60 flex items-center justify-center shrink-0 self-stretch">
+            <div className="bg-transparent text-blue-700 dark:text-blue-300 font-black text-[10px] uppercase tracking-wider pl-1.5 pr-2 py-2 flex items-center justify-center shrink-0 self-stretch">
                 UN
             </div>
         </div>
