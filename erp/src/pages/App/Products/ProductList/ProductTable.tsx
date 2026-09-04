@@ -46,7 +46,7 @@ const COLUMNS_DEF: ColumnDef[] = [
     { key: 'category', label: 'Categoria' },
     { key: 'unitPrice', label: 'Preço Venda', align: 'text-right' },
     { key: 'stock', label: 'Estoque', align: 'text-center' },
-    { key: 'status', label: 'Canais', align: 'text-center' },
+    { key: 'status', label: 'Status de Canais', align: 'text-center' },
     { key: 'actions', label: 'Ações', align: 'text-center' },
 ];
 
@@ -185,25 +185,22 @@ const ProductTable = ({
                             Sair
                         </button>
 
-                        {!showTrash ? (
-                            <button
-                                onClick={onBulkTrash}
-                                className="bg-amber-100 hover:bg-amber-200 dark:bg-amber-900/40 dark:hover:bg-amber-900/60 text-amber-700 dark:text-amber-300 text-[9px] md:text-[10px] font-black uppercase tracking-widest px-3 md:px-4 py-2 rounded-xl transition-all shadow-sm flex items-center gap-2"
-                            >
-                                <i className="bi bi-power" />
-                                <span className="hidden sm:inline">Desativar Selecionados</span>
-                                <span className="sm:hidden">Desativar</span>
-                            </button>
-                        ) : (
-                            <button
-                                onClick={onBulkRestore}
-                                className="bg-emerald-600 hover:bg-emerald-700 text-white text-[9px] md:text-[10px] font-black uppercase tracking-widest px-3 md:px-4 py-2 rounded-xl transition-all shadow-sm flex items-center gap-2 font-bold"
-                            >
-                                <i className="bi bi-check-circle-fill" />
-                                <span className="hidden sm:inline">Reativar Selecionados</span>
-                                <span className="sm:hidden">Reativar</span>
-                            </button>
-                        )}
+                        <button
+                            onClick={onBulkTrash}
+                            className="bg-amber-100 hover:bg-amber-200 dark:bg-amber-900/40 dark:hover:bg-amber-900/60 text-amber-700 dark:text-amber-300 text-[9px] md:text-[10px] font-black uppercase tracking-widest px-3 md:px-4 py-2 rounded-xl transition-all shadow-sm flex items-center gap-2"
+                        >
+                            <i className="bi bi-power" />
+                            <span className="hidden sm:inline">Desativar Selecionados</span>
+                            <span className="sm:hidden">Desativar</span>
+                        </button>
+                        <button
+                            onClick={onBulkRestore}
+                            className="bg-emerald-600 hover:bg-emerald-700 text-white text-[9px] md:text-[10px] font-black uppercase tracking-widest px-3 md:px-4 py-2 rounded-xl transition-all shadow-sm flex items-center gap-2 font-bold"
+                        >
+                            <i className="bi bi-check-circle-fill" />
+                            <span className="hidden sm:inline">Ativar Selecionados</span>
+                            <span className="sm:hidden">Ativar</span>
+                        </button>
                     </div>
                 </div>
             )}

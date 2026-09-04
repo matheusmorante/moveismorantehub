@@ -15,14 +15,14 @@ export function BrandLogo({ isAdminMode }: BrandLogoProps) {
   }
 
   return (
-    <Link href="/" className="flex items-center group h-full relative py-0.5 sm:py-1">
-      <div className="relative h-full w-32 sm:w-44 md:w-56 max-h-14 sm:max-h-20 md:max-h-22 flex items-center justify-center transition-transform duration-300 group-hover:scale-105">
+    <Link href="/" className="flex items-center group h-full relative py-1 sm:py-2">
+      <div className="relative h-full w-44 sm:w-64 md:w-80 lg:w-96 max-h-16 sm:max-h-24 md:max-h-28 flex items-center justify-start transition-transform duration-300 group-hover:scale-105">
         <Image
           src="/logo-morante.png"
           alt="Móveis Morante - Qualidade que cabe no seu bolso"
           fill
-          sizes="(max-width: 640px) 140px, (max-width: 768px) 180px, 230px"
-          className="object-contain object-left sm:object-center"
+          sizes="(max-width: 640px) 220px, (max-width: 768px) 320px, 420px"
+          className="object-contain object-left sm:object-left"
           priority
         />
       </div>

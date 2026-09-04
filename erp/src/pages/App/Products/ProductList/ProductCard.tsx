@@ -8,6 +8,7 @@ import ProductSalesModal from "../components/ProductSalesModal";
 import { SendWhatsAppModal } from '@/components/shared/SendWhatsAppModal';
 import { supabase } from '@/pages/utils/supabaseConfig';
 import { normalizeVariationSku } from '@/pages/utils/productVariationDefaults';
+import { ChannelStatusBadges } from './ChannelStatusBadges';
 
 let oppCache: Record<string, string> | null = null;
 let oppPromise: Promise<Record<string, string>> | null = null;
@@ -218,14 +219,23 @@ const ProductCard = ({
                 </div>
 
                 {/* Canto Superior Direito: Todos os Selos + Botões de Ação */}
-                <div className="flex items-center gap-1.5 flex-wrap justify-end ml-auto" onClick={(e) => e.stopPropagation()}>
-                    {/* 1. Selo de Desativado */}
-                    {(product.active === false || product.deleted) && (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-wider bg-red-100 text-red-700 dark:bg-red-950/40 dark:text-red-400 border border-red-200 dark:border-red-800 select-none">
-                            <i className="bi bi-x-circle-fill text-red-500 text-[9px]" />
-                            Desativado
-                        </span>
-                    )}
+                <div className="flex items-center gap-2 flex-wrap justify-end ml-auto" onClick={(e) => e.stopPropagation()}>
+                    {/* 1. Status de Canais (ERP e Catálogo) */}
+                    <ChannelStatusBadges
+                        active={product.active !== false}
+                        catalogStatus={product.status}
+                        isParent={isParent}
+                        canManageCatalog={canManageCatalog}
+                        onToggleActive={(e) => {
+                            e.stopPropagation();
+                            onToggleActive(product.id!, product.active !== false);
+                        }}
+                        onToggleCatalog={(e) => {
+                            e.stopPropagation();
+                            onDeactivateCatalog(product.id!);
+                        }}
+                        size="xs"
+                    />
 
                     {/* 2. Selo de Rascunho */}
                     {isDraft && (
@@ -248,18 +258,6 @@ const ProductCard = ({
                         <span className="text-[8px] px-2 py-0.5 rounded-full font-black uppercase tracking-widest bg-amber-100 text-amber-600 dark:bg-amber-900/20 dark:text-amber-400">
                             Serviço
                         </span>
-                    )}
-
-                    {/* 5. Selo de Catálogo */}
-                    {!isParent && canManageCatalog && (
-                        <button 
-                            onClick={(e) => { e.stopPropagation(); onDeactivateCatalog(product.id!); }} 
-                            title="Clique para alternar status no Catálogo Digital" 
-                            className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-wider border cursor-pointer hover:opacity-90 transition-opacity ${isCatalogActive ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/20 dark:text-emerald-400 dark:border-emerald-900/30' : 'bg-red-50 text-red-700 border-red-200 dark:bg-red-950/20 dark:text-red-400 dark:border-red-900/30'}`}
-                        >
-                            <span className={`w-1.5 h-1.5 rounded-full ${isCatalogActive ? 'bg-emerald-500' : 'bg-red-500'}`} />
-                            Catálogo · {isCatalogActive ? 'Publicado' : 'Ocultado'}
-                        </button>
                     )}
 
                     {/* Botões de Ação */}
@@ -286,7 +284,7 @@ const ProductCard = ({
                                 isOpen={isMenuOpen}
                                 onClose={() => setIsMenuOpen(false)}
                                 anchorRef={menuAnchorRef}
-                                className="min-w-[160px]"
+                                className="min-w-[170px]"
                             >
                                 <div 
                                     className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl shadow-2xl py-2 flex flex-col z-[9999] animate-slide-up"
@@ -365,34 +363,6 @@ const ProductCard = ({
                                             <span className="text-[10px] font-black uppercase tracking-widest text-slate-700 dark:text-slate-200">Movimentações de Estoque</span>
                                         </button>
                                     )}
-
-                                    {canManageCatalog && product.status === 'published' && !showTrash ? (
-                                        <button
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                setIsMenuOpen(false);
-                                                onDelete(product.id!);
-                                            }}
-                                            className="flex items-center gap-3 px-4 py-2.5 hover:bg-amber-50 dark:hover:bg-amber-950/20 transition-colors text-left group border-t border-slate-50 dark:border-slate-800/50"
-                                            title="Desativa o produto e o oculta do Catálogo Meta e das pesquisas de venda"
-                                        >
-                                            <i className="bi bi-slash-circle text-amber-500" />
-                                            <span className="text-[10px] font-black uppercase tracking-widest text-amber-700 dark:text-amber-400">Desativar Produto</span>
-                                        </button>
-                                    ) : (product.active === false || showTrash) ? (
-                                        <button
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                setIsMenuOpen(false);
-                                                onRestore(product.id!);
-                                            }}
-                                            className="flex items-center gap-3 px-4 py-2.5 hover:bg-emerald-50 dark:hover:bg-emerald-950/20 transition-colors text-left group border-t border-slate-50 dark:border-slate-800/50"
-                                            title="Reativa o produto no sistema e catálogo"
-                                        >
-                                            <i className="bi bi-check-circle-fill text-emerald-500" />
-                                            <span className="text-[10px] font-black uppercase tracking-widest text-emerald-700 dark:text-emerald-400">Reativar Produto</span>
-                                        </button>
-                                    ) : null}
                                 </div>
                             </DropdownPortal>
                         </div>
@@ -541,16 +511,21 @@ const ProductCard = ({
                                                     Saída Lançada
                                                 </span>
                                             )}
-                                            {canManageCatalog && <div className="flex gap-1 shrink-0">
-                                                <button 
-                                                    onClick={(e) => { e.stopPropagation(); onDeactivateCatalog(targetVarCatalogId); }} 
-                                                    title="Clique para alternar status desta variação no Catálogo"
-                                                    className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[7px] font-black uppercase tracking-wider border cursor-pointer hover:opacity-90 transition-opacity ${v.status === 'published' ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/20 dark:text-emerald-400 dark:border-emerald-900/30' : 'bg-red-50 text-red-700 border-red-200 dark:bg-red-950/20 dark:text-red-400 dark:border-red-900/30'}`}
-                                                >
-                                                    <span className={`w-1 h-1 rounded-full ${v.status === 'published' ? 'bg-emerald-500' : 'bg-red-500'}`} />
-                                                    Catálogo · {v.status === 'published' ? 'Publicado' : 'Ocultado'}
-                                                </button>
-                                            </div>}
+                                            <ChannelStatusBadges
+                                                active={v.active !== false && product.active !== false}
+                                                catalogStatus={v.status}
+                                                isParent={false}
+                                                canManageCatalog={canManageCatalog}
+                                                onToggleActive={(e) => {
+                                                    e.stopPropagation();
+                                                    onToggleActive(v.id || v.variationId, v.active !== false);
+                                                }}
+                                                onToggleCatalog={(e) => {
+                                                    e.stopPropagation();
+                                                    onDeactivateCatalog(targetVarCatalogId);
+                                                }}
+                                                size="xs"
+                                            />
                                         </div>
                                         <span className="text-[9px] font-mono text-slate-400">
                                             {normalizeVariationSku(v.sku)}

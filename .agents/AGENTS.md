@@ -7,7 +7,7 @@ Este documento registra as regras e comportamentos **implementados** no sistema,
 ## REGRAS GERAIS DO AGENTE
 
 - **Git Push**: Nao executar `git push` automaticamente. Aguardar solicitacao explicita do usuario.
-- **Modularização Segura e Código Limpo (`modularizacao_codigo`)**: Cada arquivo deve possuir uma única responsabilidade clara. Alvo recomendado de 30–100 linhas (aceitável até aproximadamente 150 linhas; acima disso analisar divisão obrigatória). Estratégia conservadora sem perda de código: **COPIAR → VALIDAR → CONECTAR → TESTAR → SÓ DEPOIS REMOVER**. Nunca alterar regras de negócio silenciosamente durante refatorações. Aplicar progressivamente em cada arquivo tocado.
+- **Modularização Segura e Código Limpo (`modularizacao_codigo`)**: Cada arquivo deve possuir uma única responsabilidade clara. Alvo recomendado de 30–100 linhas (aceitável até aproximadamente 150 linhas; acima disso analisar divisão obrigatória). Estratégia conservadora sem perda de código: **COPIAR → VALIDAR → CONECTAR → TESTAR → SÓ DEPOIS REMOVER**. Nunca alterar regras de negócio silenciosamente durante refatorações. **Sempre que o agente passar por um arquivo (especialmente com mais de 150 linhas ou acúmulo de responsabilidades), deve perguntar explicitamente ao usuário no final da resposta se ele deseja que seja implementado código limpo, responsabilidade única e modularização naquele arquivo segundo esta skill**.
 - **Idioma dos termos no ERP**: Produtos **Ativos** / **Desativados** (nunca publicados/despublicados). No catalogo digital: **Publicado no Catalogo** / **Ocultado do Catalogo**.
 - **Ícone de Montagem (`Drill` - Parafusadeira / Furadeira Preenchida)**: Em todos os módulos (cards e linhas de pedidos, cronograma logístico, lista de montagens, modais e itens), os rótulos e elementos referentes a **Montagem** (Montagem no Depósito, Montagem Fora/Cliente, Mostruário) utilizam exclusivamente o componente preenchido **`Drill`** (`@/components/shared/DrillIcon`), com design sólido/preenchido (Filled), em substituição ao martelo e ao ícone linear.
 - **Retrocompatibilidade e Análise de Impacto**: Antes e durante a criação/alteração de novas estruturas de dados ou snapshots, analisar o impacto em registros históricos legados. Sempre garantir fallbacks resilientes e consultar o usuário sobre decisões de adaptação/migração quando houver ambiguidade.
@@ -17,7 +17,7 @@ Este documento registra as regras e comportamentos **implementados** no sistema,
 
 ## MODULO: PRODUTOS
 
-### Ciclo de Vida do Produto (3 Estados Mutuamente Exclusivos)
+### Ciclo de Vida do Produto e Independência de Catálogo
 
 | Estado | Condicao no Banco |
 |---|---|
@@ -25,16 +25,29 @@ Este documento registra as regras e comportamentos **implementados** no sistema,
 | **Produto Desativado** | `is_draft: false`, `active: false`, `deleted: false` |
 | **Rascunho** | `is_draft: true` ou `status == 'draft'` |
 
-- Rascunhos so aparecem no filtro dedicado de Rascunhos. **Nunca** na lista Ativa nem Desativada.
-- Produto concluido (`is_draft: false`) **NUNCA** volta para rascunho. Transita apenas entre Ativo e Desativado.
-- Rascunho so e criado se o usuario preencher ao menos o nome e nao finalizar. Fechar sem nome = nenhum rascunho criado.
-- Ao editar produto ja concluido, o auto-save de rascunho e desativado.
+- **Presença na Lista Principal (Rascunhos e Desativados)**: Tanto produtos desativados quanto rascunhos de produtos (`is_draft: true` ou `status == 'draft'`) aparecem diretamente na listagem normal com seus respectivos selos indicativos (âmbar para Rascunho, vermelho para Desativado), sem telas isoladas. O botão segregador de rascunhos do cabeçalho foi removido.
+- **Independência Total entre Ativo/Desativado e Catálogo Digital**: A ativação/desativação no ERP (`active: true/false`) não interfere nem altera o status do produto no Catálogo Meta/Digital (`status: published/hidden`), e vice-versa.
+- **Rascunhos**: Aparecem na listagem normal e podem ser filtrados no select avançado de Situação no ERP ou na sanfona de Resumo.
+- Produto concluído (`is_draft: false`) **NUNCA** volta para rascunho.
+- **Requisitos de Ativação no ERP**:
+  - Para ativar um produto ou variação no ERP, **não** é obrigatório preencher preço de custo (o custo é preenchido na entrada de compras ou quando se lança estoque inicial).
+  - Os requisitos mínimos para ativação no ERP são: **Nome do Produto**, **Preço de Venda** (para produtos simples ou na variação), **Categoria** e **Fornecedor**.
+  - O alerta de requisitos pendentes exibe **apenas e exclusivamente os campos que estiverem de fato faltando**, e não uma mensagem genérica fixa.
+- Rascunho só é criado se o usuário preencher ao menos o nome e não finalizar. Fechar sem nome = nenhum rascunho criado.
+- Ao editar produto já concluído, o auto-save de rascunho é desativado.
 
 ### Variacoes de Produtos
 
 - Ao criar variacao, campos de Informacoes Tecnicas e Precificacao chegam com **Herdar do Pai marcado** por padrao (`syncDescription`, `syncWidth`, `syncHeight`, `syncDepth`, `syncWeight: true`).
 - Botao de adicionar atributo a variacao: chama-se **Adicionar** (nao `+ Vinculo`).
 - Botao de gerenciar atributos globais: chama-se **Gerenciar Atributos** (nao `+ Criar Atributo`).
+
+### Fotos do Produto e Recorte 1:1 (`SquareImageCropper`)
+
+- **Proporção Quadrada 1:1**: Imagens enviadas para produtos e variações utilizam proporção 1:1 padronizada para exibição uniforme no ERP e catálogo.
+- **Moldura sem Borda Interna**: Ao aplicar moldura branca de expansão, a foto interna não possui bordas ou traçados visíveis sobrepostos.
+- **Cantos Retos nos Cards de Foto**: Os cards e slots de foto na aba de fotos e no modal de recorte utilizam bordas retas sem cantos arredondados (`rounded-none`).
+- **Resolução de CORS e Canvas Tainted**: O carregamento de fotos externas (ex: Cloudflare R2) para manipulação em `<canvas>` utiliza proxy anti-CORS para prevenir o bloqueio de segurança `Tainted canvases may not be exported` na exportação do Blob.
 
 ### Listagem de Produtos (Tabela e Cards)
 
@@ -53,9 +66,16 @@ Este documento registra as regras e comportamentos **implementados** no sistema,
   - Ao clicar no botão dropdown, as variações filhas daquele produto pai são exibidas (na tabela como linhas filhas indentadas com `↳`, e nos cards como lista interna de variações).
 - **Selo de Oportunidade e Contagem de Variações Alinhados na Mesma Linha**: Na tabela de produtos (`ProductRow`), o selo/badge de oportunidade (`oppName`) e a contagem de variações (`X variações`) ficam posicionados na mesma linha do título/nome do produto pai, organizados de forma fluida (`flex items-center gap-2 flex-wrap`).
 - **Remoção do Selo 'VARIANTE' nas Linhas Filhas**: O badge com texto 'VARIANTE' foi removido das linhas de variações filhas na tabela de produtos, mantendo a listagem mais limpa, visto que o recuo hierárquico `↳` e o dropdown do produto pai já identificam claramente a condição de variação.
-- **Cabeçalho da Tabela Limpo**: As colunas da tabela de produtos não exibem botão de olhinho de ocultação rápida no cabeçalho; o gerenciamento de visibilidade é feito no menu dedicado.
+- **Cabeçalho da Tabela e Sidebar Limpos**: As colunas da tabela de produtos não exibem botão de olhinho de ocultação rápida no cabeçalho e a seção de visibilidade de colunas na sidebar foi removida, mantendo todas as colunas padrão sempre visíveis e a interface limpa e focada.
 - **Largura Expandida da Coluna Produto/Variação (Tabela)**: A coluna de **Produto/Variação** possui largura dobrada com `min-w-[520px] w-[45%]`, garantindo espaço visual amplo e confortável para fotos, chevrons expansíveis de variação, nomes longos, tags de oportunidade e contagem de variações.
-- **Contagens da Sidebar Exclusivas para Variações**: Nas contagens de resumo da sidebar de produtos (Total de Cadastrados, Publicados, Desativados e Rascunhos), são contabilizadas **exclusivamente as variações filhas** (`product_variations`), visto que os produtos pais são apenas agupadores/referências estruturais e não produtos reais de venda/estoque.
+- **Contagens da Sidebar Exclusivas para Variações**: Nas contagens de resumo da sidebar de produtos (Total de Cadastrados, Publicados, Desativados e Rascunhos), são contabilizadas **exclusivamente as variações filhas** (`product_variations`), visto que os produtos pais são apenas agrupadores/referências estruturais e não produtos reais de venda/estoque.
+- **Coluna e Botões de Status de Canais (ERP e Catálogo)**:
+  - A coluna de canais chama-se **"Status de Canais"** na tabela (`COLUMNS_DEF`) e nas preferências de visibilidade de colunas.
+  - Utiliza botões/pills bipartidos (`ChannelStatusBadges`):
+    - **Botão ERP**: Tag fixa `ERP` em azul suave + status interativo `Ativo` (verde com ponto) ou `Inativo` (cinza com ponto). Alterna o estado ativo/inativo no ERP ao clicar.
+    - **Botão Catálogo**: Tag fixa `Catálogo` em roxo suave + status interativo `Publicado` (verde com ponto) ou `Oculto` (cinza com ponto). Alterna publicação no Catálogo Digital ao clicar.
+  - A ação de Ativar/Desativar produto foi removida do menu de 3 pontinhos e agora é acionada diretamente pelo botão de ERP na coluna e nos cards.
+  - O mesmo padrão bipartido aplica-se na visualização em **Tabela** (`ProductRow`), nos **Cards** (`ProductCard`) e na listagem expandida de variações filhas.
 
 ---
 
@@ -84,9 +104,9 @@ Este documento registra as regras e comportamentos **implementados** no sistema,
   - **Blindagem em Updates (`updateOrder`)**: Atualizações em pedidos (inclusive auto-saves parciais) nunca podem sobrescrever o `orderIndex` existente com `undefined`. Propriedades `undefined` são filtradas e o código sequencial prévio é estritamente preservado. Se algum pedido legado ou corrompido for atualizado sem código, um código sequencial único de 6 dígitos é gerado imediatamente. Sincroniza também a coluna `order_number` da tabela `orders`.
 
 
-### Vendedor da Venda (Snapshot de Nome e ID)
+### Vendedor da Venda (Apenas Colaboradores Habilitados)
 
-- Qualquer colaborador cadastrado pode ser selecionado como vendedor na venda.
+- Apenas colaboradores ativos com perfil de acesso válido (`isValidEmployee`) aparecem listados para seleção como vendedor da venda no formulário e no modal de busca.
 - O pedido persiste o snapshot do nome (`seller`) e do identificador do colaborador (`sellerId`), garantindo consistência histórica mesmo se o colaborador for editado posteriormente.
 
 ### Paginação e Busca na Listagem de Pedidos (`OrderPagination` / `OrderCustomerSearchBar`)
@@ -128,6 +148,20 @@ Este documento registra as regras e comportamentos **implementados** no sistema,
 - **Bling** (`isRegisteredInBling`): verde solido (`bg-emerald-600`) quando marcado; cinza slate quando nao marcado. Nao aparece para pedidos `draft`, cancelados ou `assistance`.
 - Os selos ficam **antes** dos badges informativos na lista de badges.
 - Sao botoes clicaveis sem checkbox visivel que alternam o valor diretamente.
+
+### Observações por Item de Pedido de Venda (`item.observation`)
+
+- Cada item do pedido suporta um campo de texto de observação (`observation`), acessível tanto na visualização em tabela desktop quanto nos cards mobile.
+- **Concatenação na Impressão e WhatsApp**: Quando preenchido, o texto da observação do item é anexado ao nome/descrição do produto no formato `${item.description} - ${item.observation}` na folha de pedido impressa (`OrderPage`), no recibo impresso (`ReceiptPage`), nas ordens de serviço (`orderActionsConfig`) e nas mensagens automáticas de WhatsApp (`formatters.ts` / `whatsapp.ts`).
+
+### Assinatura Digital no Recibo do Pedido (`ReceiptPage` / `DigitalSignatureBadge`)
+
+- **Remoção de Assinatura Manual**: O campo/linha em branco de assinatura manual do vendedor foi removido do recibo (`ReceiptPage`).
+- **Carimbo com Assinatura Digital e QR Code**: O recibo passa a exibir um selo/carimbo oficial (`DigitalSignatureBadge`) com:
+  - Rótulo de documento assinado digitalmente com padrão ICP-Brasil / A1.
+  - Dados da empresa (Razão/Nome e CNPJ), emissor/vendedor responsável, data e hora da assinatura.
+  - Código de validação determinístico do pedido.
+  - QR Code dinâmico gerado via `bwip-js` para consulta e autenticação pública do comprovante/recibo.
 
 ### Itens Temporarios (Produto sem Cadastro no Banco) e Conciliação Comercial
 
@@ -193,7 +227,8 @@ Toda movimentacao de estoque e registrada em `inventory_moves` com:
 - Ao cancelar pedido: estorno automatico de todas as saidas; `stockProcessed` volta a `false` e `stockReversed` torna-se `true`.
 - Ao editar item de pedido ja processado: estorno do item anterior + nova saida do item corrigido.
 - **Selo de Movimentação de Estoque no Pedido (`InventoryMovementBadge` - Ícone da Caixa)**:
-  - **Verde (`bg-emerald-600`)**: Saída/Entrada efetivada no estoque (ícone `PackageCheck`).
+  - **Amarelo (`border-amber-600 bg-amber-500 text-white`)**: Movimentação parcial de estoque (ícone `PackageCheck` do lucide-react). Exibido quando apenas alguns itens do pedido tiveram saída/entrada gerada (ex: pedido misto com produtos cadastrados e itens sem cadastro/temporários ou serviços, saídas de apenas parte dos itens, ou devolução parcial com `returnKind === 'partial'`).
+  - **Verde (`bg-emerald-600`)**: Saída/Entrada completa efetivada para todos os itens no estoque (ícone `PackageCheck`).
   - **Cinza (`bg-slate-400 dark:bg-slate-600`)**: Sem movimentação lançada (ícone `Package`).
   - **Vermelho (`bg-red-600 border-red-700`)**: Movimentação de estoque estornada / cancelada (ícone `PackageX` do lucide-react).
 - **Rótulo Visual no Histórico de Movimentações (Stock > Movimentações)**: Movimentações estornadas (`status === 'reversed'` ou `cancelled`) exibem rótulos de tipo e status com **fundo amarelo / âmbar** (`bg-amber-100 / bg-amber-50 dark:bg-amber-950`).

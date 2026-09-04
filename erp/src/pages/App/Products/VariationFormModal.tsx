@@ -8,6 +8,8 @@ import { ecommerceSupabase as supabase } from '@/pages/utils/supabaseConfig';
 import DropdownPortal from '@/components/shared/DropdownPortal';
 import CurrencyInput from '@/components/CurrencyInput';
 import InitialStockList from './components/InitialStockList';
+import ManageAttributesModal from './components/ManageAttributesModal';
+import VariationPhotosTab from './components/tabs/VariationPhotosTab';
 import { getSettings } from '@/pages/utils/settingsService';
 import { toTitleCase } from '@/pages/utils/textUtils';
 
@@ -29,12 +31,8 @@ const VariationFormModal = ({ isOpen, onClose, parentId, parentProduct, variatio
     const [dbAttributes, setDbAttributes] = useState<{ id: string; name: string }[]>([]);
     const [dbAttributeValues, setDbAttributeValues] = useState<{ id: string; attribute_id: string; value: string }[]>([]);
     
-    // Dialog fast CRUD attributes
-    const [isFastCreateOpen, setIsFastCreateOpen] = useState(false);
-    const [fastAttrName, setFastAttrName] = useState("");
-    const [fastAttrValues, setFastAttrValues] = useState<string[]>([]);
-    const [fastAttrValInput, setFastAttrValInput] = useState("");
-    const [editingAttrId, setEditingAttrId] = useState<string | null>(null);
+    // Manage Global Attributes Modal
+    const [isManageAttributesOpen, setIsManageAttributesOpen] = useState(false);
 
     // Form data
     const [formData, setFormData] = useState<Variation | null>(null);
@@ -195,96 +193,6 @@ const VariationFormModal = ({ isOpen, onClose, parentId, parentProduct, variatio
             }
         }
     }, [variation, isOpen, parentProduct]);
-
-    const handleFastSaveAttribute = async () => {
-        const attributeName = fastAttrName.trim();
-        const values = Array.from(new Set(
-            [...fastAttrValues, fastAttrValInput]
-                .map(value => value.trim().replace(/,$/, ''))
-                .filter(Boolean)
-        ));
-
-        if (!attributeName) {
-            toast.error("Preencha o nome do atributo!");
-            return;
-        }
-        if (values.length === 0) {
-            toast.error("Adicione pelo menos um valor!");
-            return;
-        }
-
-        try {
-            const existingAttribute = dbAttributes.find(attribute =>
-                attribute.name.trim().toLocaleLowerCase('pt-BR') === attributeName.toLocaleLowerCase('pt-BR')
-            );
-            const attributeId = editingAttrId || existingAttribute?.id;
-
-            if (attributeId) {
-                const { error: attrErr } = await supabase
-                    .from("attributes")
-                    .update({ name: attributeName })
-                    .eq("id", attributeId);
-
-                if (attrErr) throw attrErr;
-
-                const existingValues = dbAttributeValues
-                    .filter(value => value.attribute_id === attributeId)
-                    .map(value => value.value.trim().toLocaleLowerCase('pt-BR'));
-                const newValues = values.filter(value => !existingValues.includes(value.toLocaleLowerCase('pt-BR')));
-
-                if (newValues.length > 0) {
-                    const { error: valErr } = await supabase.from("attribute_values").insert(
-                        newValues.map(value => ({ attribute_id: attributeId, value }))
-                    );
-                    if (valErr) throw valErr;
-                }
-
-                toast.success(newValues.length > 0 ? "Valores adicionados com sucesso!" : "Esses valores já estão cadastrados.");
-                await fetchDbAttributes();
-            } else {
-                const { data: attr, error: attrErr } = await supabase
-                    .from("attributes")
-                    .insert([{ name: attributeName }])
-                    .select()
-                    .single();
-
-                if (attrErr) throw attrErr;
-
-                const { error: valErr } = await supabase.from("attribute_values").insert(
-                    values.map(value => ({ attribute_id: attr.id, value }))
-                );
-                if (valErr) throw valErr;
-
-                toast.success("Atributo criado com sucesso!");
-                await fetchDbAttributes();
-            }
-
-            setIsFastCreateOpen(false);
-            setFastAttrName("");
-            setFastAttrValues([]);
-            setFastAttrValInput("");
-            setEditingAttrId(null);
-        } catch (err: any) {
-            toast.error("Erro ao salvar atributo: " + err.message);
-        }
-    };
-
-    const handleKeyDownFastAttrVal = (e: React.KeyboardEvent<HTMLInputElement>) => {
-        if (e.key === "Enter" || e.key === ",") {
-            e.preventDefault();
-            const val = fastAttrValInput.trim().replace(/,/g, "");
-            if (val) {
-                if (fastAttrValues.includes(val)) {
-                    toast.error("Este valor já foi adicionado!");
-                    return;
-                }
-                setFastAttrValues(prev => [...prev, val]);
-            }
-            setFastAttrValInput("");
-        } else if (e.key === "Backspace" && !fastAttrValInput) {
-            setFastAttrValues(prev => prev.slice(0, -1));
-        }
-    };
 
     const handlePriceChange = (valStr: string) => {
         if (!formData) return;
@@ -633,8 +541,8 @@ const VariationFormModal = ({ isOpen, onClose, parentId, parentProduct, variatio
                                     <div className="flex items-center gap-2">
                                         <button
                                             type="button"
-                                            onClick={() => setIsFastCreateOpen(true)}
-                                            className="px-2 py-1 text-[9px] font-bold text-blue-600 bg-blue-50 dark:bg-blue-900/20 rounded-lg hover:bg-blue-100"
+                                            onClick={() => setIsManageAttributesOpen(true)}
+                                            className="px-2 py-1 text-[9px] font-bold text-blue-600 bg-blue-50 dark:bg-blue-900/20 rounded-lg hover:bg-blue-100 transition-colors"
                                         >
                                             Gerenciar Atributos
                                         </button>
@@ -952,59 +860,11 @@ const VariationFormModal = ({ isOpen, onClose, parentId, parentProduct, variatio
 
                     {/* Aba Fotos */}
                     {activeTab === 'fotos' && (
-                        <div className="space-y-4 animate-in fade-in duration-350">
-                            <h3 className="text-xs font-black uppercase tracking-widest text-slate-800 dark:text-slate-200 flex items-center gap-1.5 h-6">
-                                <span>Fotos do Produto Pai</span>
-                                <span className="text-red-500">*</span>
-                                <span className="inline-flex items-center text-[9px] font-black bg-purple-100/60 dark:bg-purple-955/40 text-purple-600 dark:text-purple-400 px-1.5 py-0.5 rounded border border-purple-200/30 uppercase select-none">Catálogo Digital</span>
-                            </h3>
-                            <p className="text-xs text-slate-500 bg-blue-50/50 dark:bg-blue-900/15 p-3 rounded-2xl border border-blue-100 dark:border-blue-900/25">
-                                Selecione as fotos que representam esta variação. As fotos selecionadas ficarão circuladas de azul.
-                            </p>
-                            {parentImages.length === 0 ? (
-                                <div className="text-center p-8 border border-dashed rounded-2xl text-xs text-red-500 bg-red-50 dark:bg-red-955/20 font-bold">
-                                    Nenhuma imagem cadastrada no produto principal. Adicione fotos na aba principal primeiro!
-                                </div>
-                            ) : (
-                                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-                                    {parentImages.map((url, imgIndex) => {
-                                        const isSelected = formData.images?.includes(url);
-                                        const selectIndex = formData.images?.indexOf(url) ?? -1;
-                                        return (
-                                            <button
-                                                key={imgIndex}
-                                                type="button"
-                                                onClick={() => {
-                                                    const currentImages = formData.images || [];
-                                                    if (isSelected) {
-                                                        setFormData({ ...formData, images: currentImages.filter(u => u !== url) });
-                                                    } else {
-                                                        setFormData({ ...formData, images: [...currentImages, url] });
-                                                    }
-                                                }}
-                                                className={`relative aspect-square rounded-2xl overflow-hidden cursor-pointer transition-all border-4 ${
-                                                    isSelected 
-                                                        ? "border-blue-600 ring-4 ring-blue-500/50 scale-[1.03] shadow-md opacity-100" 
-                                                        : "border-slate-200 dark:border-slate-800 opacity-60 hover:opacity-100 hover:border-blue-300"
-                                                }`}
-                                            >
-                                                <img src={url} alt={`Foto ${imgIndex + 1}`} className="object-cover h-full w-full pointer-events-none" />
-                                                {isSelected && (
-                                                    <div className="absolute top-2 right-2 w-7 h-7 bg-blue-600 text-white rounded-full flex items-center justify-center shadow-lg border-2 border-white">
-                                                        <i className="bi bi-check-lg text-sm font-black" />
-                                                    </div>
-                                                )}
-                                                {isSelected && selectIndex === 0 && (
-                                                    <span className="absolute bottom-2 left-2 bg-blue-600 text-white text-[8px] font-black uppercase px-2 py-0.5 rounded-full shadow border border-white/40">
-                                                        Capa
-                                                    </span>
-                                                )}
-                                            </button>
-                                        );
-                                    })}
-                                </div>
-                            )}
-                        </div>
+                        <VariationPhotosTab
+                            images={formData.images || []}
+                            parentImages={allParentImages.length > 0 ? allParentImages : (parentProduct?.images || [])}
+                            onChangeImages={(newImages) => setFormData(prev => prev ? ({ ...prev, images: newImages }) : null)}
+                        />
                     )}
 
                     {/* Aba Estoque e Precificação */}
@@ -1448,62 +1308,14 @@ const VariationFormModal = ({ isOpen, onClose, parentId, parentProduct, variatio
                 </div>
             </div>
 
-            {/* Fast Create Attribute Modal */}
-            {isFastCreateOpen && (
-                <div className="fixed inset-0 z-[100001] flex items-center justify-center p-4">
-                    <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => setIsFastCreateOpen(false)} />
-                    <div className="relative bg-white dark:bg-slate-900 w-full max-w-lg rounded-[2rem] p-6 shadow-2xl border border-slate-100 flex flex-col gap-4 animate-in zoom-in-95 duration-200">
-                        <h3 className="text-sm font-bold text-slate-800 dark:text-slate-100">Gerenciar Atributo Global</h3>
-                        <div className="space-y-1.5">
-                            <label className="text-xs font-bold text-slate-700">Nome do Atributo</label>
-                            <input
-                                type="text"
-                                placeholder="Ex: Voltagem, Cor, Tamanho"
-                                value={fastAttrName}
-                                onChange={e => setFastAttrName(e.target.value)}
-                                className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-950 border rounded-xl text-xs font-bold"
-                            />
-                        </div>
-                        <div className="space-y-1.5">
-                            <label className="text-xs font-bold text-slate-700 font-sans">Valores (Enter ou vírgula para adicionar)</label>
-                            <div className="min-h-12 flex flex-wrap gap-1.5 p-2 bg-slate-50 dark:bg-slate-950 border rounded-xl items-center">
-                                {fastAttrValues.map((val, idx) => (
-                                    <span key={idx} className="bg-blue-100 text-blue-600 text-[10px] font-bold px-2 py-0.5 rounded-lg flex items-center gap-1">
-                                        {val}
-                                        <button type="button" onClick={() => setFastAttrValues(prev => prev.filter((_, i) => i !== idx))}>
-                                            <i className="bi bi-x"></i>
-                                        </button>
-                                    </span>
-                                ))}
-                                <input
-                                    type="text"
-                                    placeholder={fastAttrValues.length === 0 ? "Ex: 110v, 220v..." : ""}
-                                    value={fastAttrValInput}
-                                    onChange={e => setFastAttrValInput(e.target.value)}
-                                    onKeyDown={handleKeyDownFastAttrVal}
-                                    className="flex-1 bg-transparent border-none outline-none text-xs"
-                                />
-                            </div>
-                        </div>
-                        <div className="flex gap-2 justify-end">
-                            <button
-                                type="button"
-                                onClick={() => setIsFastCreateOpen(false)}
-                                className="px-4 py-2 bg-slate-100 rounded-xl text-xs font-bold"
-                            >
-                                Cancelar
-                            </button>
-                            <button
-                                type="button"
-                                onClick={handleFastSaveAttribute}
-                                className="px-4 py-2 bg-blue-600 text-white rounded-xl text-xs font-bold"
-                            >
-                                Salvar
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
+            {/* Manage Global Attributes & Values Modal */}
+            <ManageAttributesModal 
+                isOpen={isManageAttributesOpen} 
+                onClose={() => {
+                    setIsManageAttributesOpen(false);
+                    fetchDbAttributes();
+                }} 
+            />
             </div>
         </>
         , document.body);

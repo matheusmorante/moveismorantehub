@@ -94,7 +94,8 @@ const OrderEditModal = ({ order, orderId, onClose: propOnClose, onSaveSuccess: p
                 quantity: typeof item.quantity === 'number' ? item.quantity : 1,
                 costPrice: typeof item.costPrice === 'number' ? item.costPrice : 0,
                 condition: item.condition || "novo",
-                handlingType: item.handlingType || ""
+                handlingType: item.handlingType || "",
+                observation: item.observation || ""
             }));
             form.actions.setItems(mappedItems);
         }

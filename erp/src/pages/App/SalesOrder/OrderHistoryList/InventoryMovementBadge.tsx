@@ -1,20 +1,35 @@
 import React, { useState, useRef, useEffect, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { Package, PackageCheck, PackageX, X } from "lucide-react";
+import type Order from "../../../types/order.type";
+import { isPartialSaleStockMovement } from "../../../utils/saleInventoryRules";
 import { binaryOrderBadgeClass } from "./orderBadgeStyles";
 
-type Props = { orderType?: string; hasMovement: boolean; isReversed?: boolean };
+type Props = { 
+    orderType?: string; 
+    hasMovement: boolean; 
+    isReversed?: boolean; 
+    isPartial?: boolean;
+    order?: Order;
+};
 
-const InventoryMovementBadge = ({ orderType, hasMovement, isReversed }: Props) => {
+const InventoryMovementBadge = ({ orderType, hasMovement, isReversed, isPartial, order }: Props) => {
     const [isOpen, setIsOpen] = useState(false);
     const [coords, setCoords] = useState<{ top: number; left: number; placement: 'top' | 'bottom' } | null>(null);
     const buttonRef = useRef<HTMLButtonElement>(null);
     const hoverTimerRef = useRef<NodeJS.Timeout | null>(null);
     const closeTimerRef = useRef<NodeJS.Timeout | null>(null);
 
-    const isReturn = orderType === 'return';
+    const resolvedOrderType = orderType || order?.orderType;
+    const isReturn = resolvedOrderType === 'return';
+
+    // Determina se a movimentação é parcial (apenas parte dos itens tiveram saída/entrada)
+    const isPartialMovement = isPartial ?? (order?.isPartialStockProcessed ?? (order ? isPartialSaleStockMovement(order) : false));
+
     const title = isReversed
         ? (isReturn ? 'Entrada de estoque estornada' : 'Saída de estoque estornada')
+        : isPartialMovement && hasMovement
+        ? (isReturn ? 'Entrada parcial de estoque registrada' : 'Saída parcial de estoque (apenas alguns itens geraram saída)')
         : isReturn
         ? (hasMovement ? 'Entrada de estoque registrada pela devolução' : 'Entrada de estoque ainda não registrada')
         : (hasMovement ? 'Saída de estoque registrada pela venda' : 'Saída de estoque ainda não registrada');
@@ -23,16 +38,27 @@ const InventoryMovementBadge = ({ orderType, hasMovement, isReversed }: Props) =
         ? (isReturn
             ? 'A entrada de estoque vinculada a esta devolução foi estornada / cancelada.'
             : 'A saída de estoque vinculada a esta venda foi estornada (ex: cancelamento do pedido).')
+        : isPartialMovement && hasMovement
+        ? (isReturn
+            ? 'Esta devolução teve entrada de estoque registrada para apenas parte dos itens devolvidos.'
+            : 'Apenas alguns itens deste pedido tiveram movimentação de saída de estoque gerada. Itens sem cadastro (temporários) ou itens que não geraram movimentação deixam o status de movimentação parcial.')
         : isReturn
         ? (hasMovement
             ? 'Esta devolução possui uma entrada de estoque vinculada e efetiva. A entrada foi criada quando a devolução foi atendida.'
             : 'Ainda não há entrada de estoque vinculada a esta devolução. O selo só ficará verde depois que uma entrada real for registrada para os itens devolvidos.')
         : (hasMovement
-            ? 'Este pedido possui uma saída de estoque vinculada e efetiva para os itens vendidos.'
+            ? 'Este pedido possui uma saída de estoque vinculada e efetiva para todos os itens vendidos.'
             : 'Ainda não há saída de estoque vinculada a este pedido. Alterar o status do pedido, por si só, não deixa este selo verde.');
 
+    // Cor do badge:
+    // - Se estornada: vermelho
+    // - Se parcial com saída/entrada: amarelo com borda e texto branco
+    // - Se completo com saída/entrada: verde
+    // - Se sem movimentação: cinza
     const badgeColorClass = isReversed
         ? 'border-red-700 bg-red-600 text-white hover:bg-red-700'
+        : isPartialMovement && hasMovement
+        ? 'border-amber-600 bg-amber-500 text-white hover:bg-amber-600 dark:border-amber-700 dark:bg-amber-600 shadow-sm'
         : binaryOrderBadgeClass(hasMovement);
 
     const updatePosition = useCallback(() => {
@@ -124,7 +150,13 @@ const InventoryMovementBadge = ({ orderType, hasMovement, isReversed }: Props) =
                 title={title}
                 aria-label={title}
             >
-                {isReversed ? <PackageX className="h-3.5 w-3.5" /> : hasMovement ? <PackageCheck className="h-3.5 w-3.5" /> : <Package className="h-3.5 w-3.5" />}
+                {isReversed ? (
+                    <PackageX className="h-3.5 w-3.5" />
+                ) : hasMovement ? (
+                    <PackageCheck className="h-3.5 w-3.5" />
+                ) : (
+                    <Package className="h-3.5 w-3.5" />
+                )}
             </button>
 
             {isOpen && coords && typeof document !== 'undefined' && createPortal(
@@ -143,7 +175,13 @@ const InventoryMovementBadge = ({ orderType, hasMovement, isReversed }: Props) =
                     <div className="flex items-start justify-between gap-2.5">
                         <div className="flex items-center gap-2.5">
                             <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-xl ${badgeColorClass}`}>
-                                {isReversed ? <PackageX className="h-4 w-4" /> : hasMovement ? <PackageCheck className="h-4 w-4" /> : <Package className="h-4 w-4" />}
+                                {isReversed ? (
+                                    <PackageX className="h-4 w-4" />
+                                ) : hasMovement ? (
+                                    <PackageCheck className="h-4 w-4" />
+                                ) : (
+                                    <Package className="h-4 w-4" />
+                                )}
                             </div>
                             <div>
                                 <h4 className="text-xs font-black tracking-tight text-slate-800 dark:text-slate-100">
@@ -152,12 +190,16 @@ const InventoryMovementBadge = ({ orderType, hasMovement, isReversed }: Props) =
                                 <span className={`text-[9px] font-black uppercase tracking-wider ${
                                     isReversed
                                         ? 'text-red-600 dark:text-red-400'
+                                        : isPartialMovement && hasMovement
+                                        ? 'text-amber-600 dark:text-amber-400'
                                         : hasMovement
                                         ? 'text-emerald-600 dark:text-emerald-400'
                                         : 'text-slate-400 dark:text-slate-500'
                                 }`}>
                                     {isReversed
                                         ? (isReturn ? 'Entrada Estornada' : 'Saída Estornada')
+                                        : isPartialMovement && hasMovement
+                                        ? (isReturn ? 'Entrada Parcial' : 'Saída Parcial')
                                         : hasMovement
                                         ? (isReturn ? 'Entrada Efetivada' : 'Saída Efetivada')
                                         : 'Sem Movimentação'}

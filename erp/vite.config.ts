@@ -21,6 +21,13 @@ export default defineConfig({
   server: {
     port: 5173,
     host: true, // Permite acesso via rede local (mobile)
+    proxy: {
+      '/r2-proxy': {
+        target: 'https://pub-389127027ea5421fa2feff7d0840b3b4.r2.dev',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/r2-proxy/, ''),
+      },
+    },
   },
   build: {
     outDir: 'dist',

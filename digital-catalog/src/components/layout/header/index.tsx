@@ -27,7 +27,7 @@ export function Header() {
 
   return (
     <header className="w-full border-b border-gray-100 bg-white shrink-0">
-      <div className="container mx-auto flex h-16 sm:h-24 items-center justify-between px-4 sm:px-8 md:px-12 lg:px-16 xl:px-24 gap-4">
+      <div className="container mx-auto flex h-20 sm:h-28 md:h-32 items-center justify-between px-4 sm:px-8 md:px-12 lg:px-16 xl:px-24 gap-4">
 
         <div className="flex items-center gap-3 h-full shrink-0">
           <MobileMenu />

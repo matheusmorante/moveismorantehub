@@ -374,7 +374,8 @@ const buildAssistanceOrderDetailsMessage = (order: Order) => {
     const itemsToUse = (order.assistanceItems && order.assistanceItems.length > 0) ? order.assistanceItems : order.items;
     if (itemsToUse && itemsToUse.length > 0) {
         itemsToUse.forEach((item) => {
-            message += `• ${item.quantity}x ${item.description}\n`;
+            const obs = item.observation?.trim() ? ` - ${item.observation.trim()}` : '';
+            message += `• ${item.quantity}x ${item.description}${obs}\n`;
         });
     } else {
         message += `• Nenhum item especificado\n`;
@@ -571,11 +572,13 @@ const buildAssistanceServiceOrderMessage = (order: Order) => {
 
     if (hasAssistanceItems) {
         order.assistanceItems!.forEach((item) => {
-            message += `• ${item.quantity}x ${item.description}\n`;
+            const obs = item.observation?.trim() ? ` - ${item.observation.trim()}` : '';
+            message += `• ${item.quantity}x ${item.description}${obs}\n`;
         });
     } else if (hasItems) {
         order.items.forEach((item) => {
-            message += `• ${item.quantity}x ${item.description}\n`;
+            const obs = item.observation?.trim() ? ` - ${item.observation.trim()}` : '';
+            message += `• ${item.quantity}x ${item.description}${obs}\n`;
         });
     } else {
         message += `• Nenhum item especificado\n`;
@@ -627,7 +630,8 @@ const buildBudgetWhatsappMessage = (order: Order) => {
             const totalDiscount = unitDiscount * qty;
             const finalValue = subtotal - totalDiscount;
 
-            let itemLine = `• *${qty}x ${item.description}* | Subtotal: ${formatCurrency(subtotal)}`;
+            const obs = item.observation?.trim() ? ` - ${item.observation.trim()}` : '';
+            let itemLine = `• *${qty}x ${item.description}${obs}* | Subtotal: ${formatCurrency(subtotal)}`;
             if (totalDiscount > 0) {
                 itemLine += ` | Desconto: -${formatCurrency(totalDiscount)}`;
             }

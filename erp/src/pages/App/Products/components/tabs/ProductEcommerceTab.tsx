@@ -80,13 +80,14 @@ const ProductEcommerceTab: React.FC<ProductEcommerceTabProps> = ({
                 </div>
                 <p className="text-[10px] uppercase font-black tracking-widest bg-purple-50/50 dark:bg-purple-955/10 text-purple-700 dark:text-purple-400 p-3 rounded-2xl border border-purple-100 dark:border-purple-900/20 flex items-center gap-2">
                     <i className="bi bi-info-circle text-sm shrink-0"></i>
+                    <i className="bi bi-info-circle text-sm shrink-0"></i>
                     <span><strong>Dica prática:</strong> Você pode arrastar/soltar imagens, colar fotos (Ctrl+V) ou clicar em Adicionar. Passe o mouse sobre uma foto para substituir, recortar em 1:1 ou excluir.</span>
                 </p>
                 <div className="transition-colors rounded-[2rem] border-2 border-dashed border-slate-150 dark:border-slate-800 p-4 sm:p-6 bg-slate-50/50 dark:bg-slate-955/10">
                     <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 sm:gap-4 select-none min-w-0 w-full">
-                        {Array.from({ length: isDraggingPhoto }, (_, index) => <div key={`uploading-${index}`} className="aspect-square w-full rounded-3xl border-2 border-purple-200 bg-purple-50 dark:border-purple-800 dark:bg-purple-950/30 flex flex-col items-center justify-center gap-2 animate-pulse"><i className="bi bi-arrow-repeat animate-spin text-2xl text-purple-600" /><span className="text-[9px] font-black uppercase tracking-wider text-purple-600">Enviando...</span></div>)}
+                        {Array.from({ length: isDraggingPhoto }, (_, index) => <div key={`uploading-${index}`} className="aspect-square w-full rounded-none border-2 border-purple-200 bg-purple-50 dark:border-purple-800 dark:bg-purple-950/30 flex flex-col items-center justify-center gap-2 animate-pulse"><i className="bi bi-arrow-repeat animate-spin text-2xl text-purple-600" /><span className="text-[9px] font-black uppercase tracking-wider text-purple-600">Enviando...</span></div>)}
                         {currentCount < maxPhotos && (
-                            <label className="aspect-square w-full bg-white dark:bg-slate-900 border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-3xl flex flex-col items-center justify-center gap-2 cursor-pointer hover:border-purple-500 hover:bg-purple-50/20 dark:hover:bg-purple-955/20 transition-all group shadow-sm">
+                            <label className="aspect-square w-full bg-white dark:bg-slate-900 border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-none flex flex-col items-center justify-center gap-2 cursor-pointer hover:border-purple-500 hover:bg-purple-50/20 dark:hover:bg-purple-955/20 transition-all group shadow-sm">
                                 <i className="bi bi-plus text-2xl text-purple-600 dark:text-purple-400 group-hover:scale-125 transition-transform"></i>
                                 <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">Adicionar</span>
                                 <input type="file" className="hidden" accept="image/*" multiple onChange={handleFileChange} />
@@ -112,9 +113,8 @@ const ProductEcommerceTab: React.FC<ProductEcommerceTabProps> = ({
                                     onClick={(event) => {
                                         // Clique na foto não executa ação destrutiva. A remoção
                                         // deve acontecer somente pelo botão da lixeira.
-                                        event.stopPropagation();
                                     }}
-                                    className={`group relative aspect-square w-full rounded-3xl overflow-hidden border-2 cursor-move transition-all shadow-sm ${borderClass}`}
+                                    className={`group relative aspect-square w-full rounded-none overflow-hidden border-2 cursor-move transition-all shadow-sm ${borderClass}`}
                                     title="Arraste para reordenar ou passe o mouse para obter opções"
                                 >
                                     <img src={url} alt={`Foto ${index + 1}`} className="object-cover w-full h-full pointer-events-none" />

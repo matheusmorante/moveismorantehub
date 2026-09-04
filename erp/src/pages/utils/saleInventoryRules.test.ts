@@ -4,6 +4,8 @@ import {
   canCreateSaleExitForItem,
   canMaintainSaleStock,
   hasTemporarySaleItem,
+  isPartialSaleStockMovement,
+  isStockEligibleSaleItem,
   isTemporarySaleItemReconciliation,
   shouldProcessSaleStock,
 } from './saleInventoryRules';
@@ -37,5 +39,61 @@ describe('regras de estoque de pedido de venda', () => {
     expect(shouldProcessSaleStock(pending, ['scheduled'])).toBe(true);
     expect(shouldProcessSaleStock(processed, ['scheduled'])).toBe(false);
     expect(shouldProcessSaleStock(processed, ['scheduled'], true)).toBe(true);
+  });
+
+  it('identifica corretamente quando apenas alguns itens tiveram movimentação de saída gerada', () => {
+    const itemReal1 = { productId: 'prod-1', isTemporaryProduct: false, quantity: 1, unitPrice: 100 };
+    const itemReal2 = { productId: 'prod-2', isTemporaryProduct: false, quantity: 2, unitPrice: 50 };
+    const itemTemp = { description: 'Item sem cadastro', isTemporaryProduct: true, quantity: 1, unitPrice: 30 };
+
+    // Pedido com 2 itens reais que gerou saída para todos: NÃO é parcial (saída completa)
+    const orderCompleto: Order = {
+      orderType: 'sale',
+      status: 'scheduled',
+      stockProcessed: true,
+      items: [itemReal1, itemReal2]
+    } as Order;
+    expect(isPartialSaleStockMovement(orderCompleto)).toBe(false);
+
+    // Pedido misto com item real e item temporário com saída gerada: É PARCIAL
+    const orderMisto: Order = {
+      orderType: 'sale',
+      status: 'scheduled',
+      stockProcessed: true,
+      items: [itemReal1, itemTemp]
+    } as Order;
+    expect(isPartialSaleStockMovement(orderMisto)).toBe(true);
+
+    // Pedido com 2 itens reais, mas apenas 1 no movedProductIds do banco: É PARCIAL
+    expect(isPartialSaleStockMovement(orderCompleto, new Set(['prod-1']))).toBe(true);
+
+    // Pedido sem saída processada: NÃO é parcial
+    const orderSemSaida: Order = {
+      orderType: 'sale',
+      status: 'scheduled',
+      stockProcessed: false,
+      items: [itemReal1, itemTemp]
+    } as Order;
+    expect(isPartialSaleStockMovement(orderSemSaida)).toBe(false);
+
+    // Pedido cancelado: NÃO é parcial
+    const orderCancelado: Order = {
+      orderType: 'sale',
+      status: 'cancelled',
+      stockProcessed: true,
+      stockReversed: true,
+      items: [itemReal1, itemTemp]
+    } as Order;
+    expect(isPartialSaleStockMovement(orderCancelado)).toBe(false);
+
+    // Devolução parcial (returnKind === 'partial')
+    const devolucaoParcial: Order = {
+      orderType: 'return',
+      status: 'fulfilled',
+      returnStockProcessed: true,
+      returnKind: 'partial',
+      items: [itemReal1]
+    } as Order;
+    expect(isPartialSaleStockMovement(devolucaoParcial)).toBe(true);
   });
 });

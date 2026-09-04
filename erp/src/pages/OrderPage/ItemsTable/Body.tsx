@@ -24,7 +24,9 @@ const Body = ({ items }: Props) => {
                 return (
                     <tr key={index} className="text-sm">
                         <td className="px-3 py-1.5 font-bold text-slate-700 uppercase leading-tight text-[13px]">
-                            <div>{item.description}</div>
+                            <div>
+                                {item.description}{item.observation?.trim() ? ` - ${item.observation.trim()}` : ''}
+                            </div>
                             {handlingLabel && handlingLabel !== '-' && (
                                 <div className="mt-1">
                                     <span 

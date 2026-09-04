@@ -12,7 +12,9 @@ const Body = ({ items }: Props) => {
         <tbody className="divide-y divide-slate-50">
             {items.map((item, idx) => (
                 <tr key={idx} className="hover:bg-slate-50/50 transition-colors">
-                    <td className="px-4 py-1 text-sm font-bold text-slate-700">{item.description}</td>
+                    <td className="px-4 py-1 text-sm font-bold text-slate-700">
+                        {item.description}{item.observation?.trim() ? ` - ${item.observation.trim()}` : ''}
+                    </td>
                     <td className="px-4 py-1 text-center text-sm text-slate-600">
                         <UnitDisplay value={item.quantity} />
                     </td>

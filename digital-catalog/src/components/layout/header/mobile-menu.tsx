@@ -139,13 +139,13 @@ export function MobileMenu() {
                         
                         {envCats.length > 0 && isExpanded && (
                           <div className="p-2 pt-0 space-y-1 bg-white border-t border-gray-100/80 animate-in fade-in-0 duration-150">
-                            {/* Opção Todos do Ambiente */}
+                            {/* Primeira Opção: Ver todos */}
                             <Link
                               href={`/?envs=${envSlug}#produtos`}
                               onClick={() => setOpen(false)}
-                              className="block p-2 px-3 rounded-xl text-xs font-black text-primary bg-primary/5 hover:bg-primary/10 transition-colors capitalize"
+                              className="block p-2 px-3 rounded-xl text-xs font-bold text-gray-600 hover:text-primary hover:bg-gray-50 transition-colors"
                             >
-                              Todos os móveis de {env.name.toLowerCase()}
+                              Ver todos
                             </Link>
                             
                             {/* Categorias específicas */}

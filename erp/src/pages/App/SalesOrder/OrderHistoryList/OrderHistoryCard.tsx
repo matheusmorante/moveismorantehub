@@ -271,8 +271,10 @@ const OrderHistoryCard = ({
                     {(order.orderType === 'sale' || order.orderType === 'showroom' || order.orderType === 'return') && (
                         <InventoryMovementBadge 
                             orderType={order.orderType} 
+                            order={order}
                             hasMovement={order.orderType === 'return' ? Boolean(order.returnStockProcessed) : Boolean(order.stockProcessed)} 
                             isReversed={order.orderType === 'return' ? Boolean(order.returnStockReversed) : Boolean(order.stockReversed)}
+                            isPartial={order.isPartialStockProcessed}
                         />
                     )}
 

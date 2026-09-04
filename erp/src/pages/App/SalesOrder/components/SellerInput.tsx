@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { subscribeToPeople } from '@/pages/utils/personService';
 import Person from '@/pages/types/person.type';
+import { isValidEmployee } from '@/pages/utils/accessRoles';
 
 interface SellerInputProps {
     value: string;
@@ -34,8 +35,8 @@ export const SellerInput: React.FC<SellerInputProps> = ({
 
     useEffect(() => {
         const unsub = subscribeToPeople('employees', (data) => {
-            const activeEmployees = data.filter(e => e.active);
-            setEmployees(activeEmployees);
+            const validEmployees = data.filter(e => isValidEmployee(e));
+            setEmployees(validEmployees);
         });
         return unsub;
     }, []);

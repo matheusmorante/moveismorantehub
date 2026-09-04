@@ -469,11 +469,13 @@ export function ProductGrid({ filters }: ProductGridProps) {
                 promotion: !!product.promo_price,
                 opportunity: product.opportunities ? {
                   name: product.opportunities.name,
+                  slug: product.opportunities.slug,
                   badge_color: product.opportunities.badge_color,
                   border_color: product.opportunities.border_color,
                   border_style: product.opportunities.border_style,
                   badge_animation: product.opportunities.badge_animation,
-                } : null,
+                  title_color: product.opportunities.title_color,
+                } : (product.is_salvado ? { name: "Salvados", slug: "salvado", badge_color: "bg-orange-500", border_color: "border-orange-500" } : null),
               }}
               style={cardStyle}
             />

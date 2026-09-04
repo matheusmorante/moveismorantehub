@@ -52,6 +52,7 @@ const BodyRow = ({ item, onChange, onBatchChange, onDelete, idx, deliveryMethod,
     const [tempDiscountValue, setTempDiscountValue] = React.useState(discountInValue);
     const [tempDiscountPercent, setTempDiscountPercent] = React.useState(discountInPercent);
     const [tempSubtotal, setTempSubtotal] = React.useState(initialSubtotal);
+    const [tempObservation, setTempObservation] = React.useState(item.observation || '');
 
     // Sincronizar estados locais apenas quando os valores persistidos mudam externamente
     React.useEffect(() => {
@@ -59,7 +60,14 @@ const BodyRow = ({ item, onChange, onBatchChange, onDelete, idx, deliveryMethod,
         setTempDiscountValue(discountInValue);
         setTempDiscountPercent(discountInPercent);
         setTempSubtotal(initialSubtotal);
-    }, [item.unitPrice, discountInValue, discountInPercent, initialSubtotal]);
+        setTempObservation(item.observation || '');
+    }, [item.unitPrice, discountInValue, discountInPercent, initialSubtotal, item.observation]);
+
+    const commitObservation = () => {
+        if ((item.observation || '') !== tempObservation) {
+            onChange(idx, 'observation', tempObservation);
+        }
+    };
 
     const commitUnitPrice = () => {
         const newUnitPrice = Math.max(0, Math.round(tempUnitPrice * 100) / 100);
@@ -240,6 +248,23 @@ const BodyRow = ({ item, onChange, onBatchChange, onDelete, idx, deliveryMethod,
                     )}
                 </div>
 
+                {/* Campo de Observações do Item (Mobile) */}
+                {!item.isComboItem && (
+                    <div className="w-full">
+                        <label className="text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500 mb-1 block ml-1">
+                            Observações do Item
+                        </label>
+                        <input
+                            type="text"
+                            value={tempObservation}
+                            onChange={(e) => setTempObservation(e.target.value)}
+                            onBlur={commitObservation}
+                            placeholder="Ex: cor, acabamento, detalhes específicos..."
+                            className="w-full bg-slate-50/50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700 focus:border-blue-500 px-3 py-1.5 rounded-xl text-xs font-medium text-slate-700 dark:text-slate-200 outline-none transition-all placeholder:text-slate-400"
+                        />
+                    </div>
+                )}
+
                 {/* Linha 2: Quantidade, Preço Unitário, Descontos, Líquido e Total */}
                 {!item.isComboItem && (
                     <div className="flex flex-wrap items-end gap-3 pt-1">
@@ -330,6 +355,16 @@ const BodyRow = ({ item, onChange, onBatchChange, onDelete, idx, deliveryMethod,
                         isSelected={isLinkedProduct}
                         className={error ? 'border-red-500 rounded-xl ring-2 ring-red-500' : ''}
                     />
+                    <div className="mt-1.5 flex items-center gap-2">
+                        <input
+                            type="text"
+                            value={tempObservation}
+                            onChange={(e) => setTempObservation(e.target.value)}
+                            onBlur={commitObservation}
+                            placeholder="Observações do item (ex: cor, acabamento)..."
+                            className="w-full bg-slate-50/60 dark:bg-slate-800/40 border border-slate-200/80 dark:border-slate-700/80 focus:border-blue-500 px-2.5 py-1 rounded-lg text-[11px] font-medium text-slate-700 dark:text-slate-200 outline-none transition-all placeholder:text-slate-400"
+                        />
+                    </div>
                     {isLinkedProduct && (
                         <div className="flex items-center gap-1 mt-1 text-[10px] font-bold text-emerald-600 dark:text-emerald-400 ml-1">
                             <i className="bi bi-check-circle-fill text-emerald-500 text-xs" />

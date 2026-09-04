@@ -8,6 +8,7 @@ import LabelPrintSelectionModal, { LabelPrintType } from "../components/LabelPri
 import ProductSalesModal from "../components/ProductSalesModal";
 import { supabase } from '@/pages/utils/supabaseConfig';
 import { normalizeVariationSku } from '@/pages/utils/productVariationDefaults';
+import { ChannelStatusBadges } from './ChannelStatusBadges';
 
 let oppCache: Record<string, string> | null = null;
 let oppPromise: Promise<Record<string, string>> | null = null;
@@ -331,7 +332,7 @@ const ProductRow = ({
                                         ))}
                                     </div>
                                     )}
-                                    {(product.active === false || product.deleted) && !product.isDraft && (
+                                    {(product.active === false || product.deleted) && !(Boolean(product.isDraft) || product.status === 'draft') && (
                                         <span className="inline-flex items-center gap-1 text-[9px] font-black uppercase tracking-wider text-rose-600 dark:text-rose-400 mt-0.5">
                                             <i className="bi bi-slash-circle text-rose-500"></i> Desativado
                                         </span>
@@ -343,7 +344,7 @@ const ProductRow = ({
                                                 <i className="bi bi-box-arrow-right"></i> Saída Lançada
                                             </span>
                                         )}
-                                        {product.isDraft && (
+                                        {(Boolean(product.isDraft) || product.status === 'draft') && (
                                             <span className="flex items-center gap-1 bg-amber-50 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 px-2 py-0.5 rounded-lg text-[8px] font-black uppercase tracking-widest border border-amber-200 dark:border-amber-800">
                                                 <i className="bi bi-file-earmark-text"></i> Rascunho
                                             </span>
@@ -455,18 +456,23 @@ const ProductRow = ({
 
                 return (
                     <td key="status" className={`px-3 py-3 text-center ${firstCellBorder}`} onClick={(e) => e.stopPropagation()}>
-                        {!product.isParent && canManageCatalog && (
-                            <div className="flex items-center justify-center">
-                                <button 
-                                    onClick={(e) => { e.stopPropagation(); onDeactivateCatalog(targetCatalogId); }} 
-                                    title="Clique para alternar status no Catálogo" 
-                                    className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-wider border cursor-pointer hover:opacity-90 ${product.status === 'published' ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-955/20 dark:text-emerald-400 dark:border-emerald-900/30' : 'bg-red-50 text-red-700 border-red-200 dark:bg-red-955/20 dark:text-red-400 dark:border-red-900/30'}`}
-                                >
-                                    <span className={`w-1.5 h-1.5 rounded-full ${product.status === 'published' ? 'bg-emerald-500' : 'bg-red-500'}`} />
-                                    Catálogo · {product.status === 'published' ? 'Publicado' : 'Ocultado'}
-                                </button>
-                            </div>
-                        )}
+                        <div className="flex items-center justify-center">
+                            <ChannelStatusBadges
+                                active={product.active !== false}
+                                catalogStatus={product.status}
+                                isParent={product.isParent}
+                                canManageCatalog={canManageCatalog}
+                                onToggleActive={(e) => {
+                                    e.stopPropagation();
+                                    onToggleActive(product.id!, product.active !== false);
+                                }}
+                                onToggleCatalog={(e) => {
+                                    e.stopPropagation();
+                                    onDeactivateCatalog(targetCatalogId);
+                                }}
+                                size="sm"
+                            />
+                        </div>
                     </td>
                 );
             case 'actions':
@@ -478,31 +484,33 @@ const ProductRow = ({
                         <div className="flex items-center justify-center gap-2">
                             {showTrash ? (
                                 <button
-                                    onClick={(e) => { e.stopPropagation(); onRestore(product.id!); }}
-                                    className="p-2 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 rounded-xl transition-all shadow-sm bg-white dark:bg-slate-950 border border-slate-100 dark:border-slate-800 flex items-center gap-1 text-xs font-bold"
-                                    title="Reativar Produto"
+                                    onClick={() => onRestore(product.id!)}
+                                    className="p-1 text-emerald-600 hover:text-emerald-700"
+                                    title="Restaurar"
                                 >
-                                    <i className="bi bi-check-circle-fill text-sm" />
-                                    <span>Ativar</span>
+                                    <i className="bi bi-arrow-counterclockwise" />
                                 </button>
                             ) : (
                                 <>
                                     <button
                                         onClick={(e) => { e.stopPropagation(); onEdit(product); }}
-                                        className="p-2 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-xl transition-all shadow-sm bg-white dark:bg-slate-955 border border-blue-100 dark:border-blue-900/30"
-                                        title="Editar produto"
+                                        className="w-8 h-8 flex items-center justify-center bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/40 rounded-xl transition-all border border-slate-200/80 dark:border-slate-700 shadow-2xs cursor-pointer active:scale-95"
+                                        title="Editar Produto"
                                     >
-                                        <i className="bi bi-pencil-fill text-sm" />
+                                        <i className="bi bi-pencil text-xs font-bold" />
                                     </button>
 
                                     <div className="relative">
                                         <button
                                             ref={menuAnchorRef}
-                                            onClick={(e) => { e.stopPropagation(); setIsMenuOpen(!isMenuOpen); }}
-                                            className={`p-2 rounded-xl transition-all shadow-sm border bg-white dark:bg-slate-950 hover:bg-slate-50 dark:hover:bg-slate-900 ${isMenuOpen ? 'border-blue-200 text-blue-600 ring-4 ring-blue-50 dark:ring-blue-900/10' : 'text-slate-400 dark:text-slate-500 border-slate-100 dark:border-slate-800'}`}
-                                            title="Mais Ações"
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                setIsMenuOpen(!isMenuOpen);
+                                            }}
+                                            className="w-8 h-8 flex items-center justify-center bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/40 rounded-xl transition-all border border-slate-200/80 dark:border-slate-700 shadow-2xs cursor-pointer active:scale-95"
+                                            title="Mais opções"
                                         >
-                                            <i className="bi bi-three-dots-vertical text-sm" />
+                                            <i className="bi bi-three-dots text-xs font-bold" />
                                         </button>
 
                                         <DropdownPortal
@@ -515,66 +523,62 @@ const ProductRow = ({
                                                 className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl shadow-2xl py-2 flex flex-col z-[9999] animate-slide-up"
                                                 onMouseLeave={() => setIsMenuOpen(false)}
                                             >
-                                                {!product.isVariation && onDuplicate && (
+                                                {onDuplicate && (
                                                     <button
-                                                        onClick={(e) => { e.stopPropagation(); setIsMenuOpen(false); onDuplicate(product); }}
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            setIsMenuOpen(false);
+                                                            onDuplicate(product);
+                                                        }}
                                                         className="flex items-center gap-3 px-4 py-2.5 hover:bg-slate-50 dark:hover:bg-slate-950 transition-colors text-left group"
                                                     >
-                                                        <i className="bi bi-copy text-indigo-500" />
+                                                        <i className="bi bi-copy text-blue-500" />
                                                         <span className="text-[10px] font-black uppercase tracking-widest text-slate-700 dark:text-slate-200">Duplicar Produto</span>
                                                     </button>
                                                 )}
-
-                                                {onShowHistory && !product.isParent && (
+                                                {onShowHistory && (
                                                     <button
-                                                        onClick={(e) => { e.stopPropagation(); setIsMenuOpen(false); onShowHistory(product); }}
-                                                        className="flex items-center gap-3 px-4 py-2.5 hover:bg-slate-50 dark:hover:bg-slate-955 transition-colors text-left group"
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            setIsMenuOpen(false);
+                                                            onShowHistory(product);
+                                                        }}
+                                                        className="flex items-center gap-3 px-4 py-2.5 hover:bg-slate-50 dark:hover:bg-slate-950 transition-colors text-left group"
                                                     >
                                                         <i className="bi bi-clock-history text-amber-500" />
                                                         <span className="text-[10px] font-black uppercase tracking-widest text-slate-700 dark:text-slate-200">Histórico de Preços</span>
                                                     </button>
                                                 )}
-
-                                                {!product.isParent && (
+                                                {!product.isParent && product.itemType !== 'service' && onLaunchStock && (
                                                     <button
-                                                        onClick={(e) => { e.stopPropagation(); setIsMenuOpen(false); setIsSalesModalOpen(true); }}
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            setIsMenuOpen(false);
+                                                            onLaunchStock?.(product);
+                                                        }}
                                                         className="flex items-center gap-3 px-4 py-2.5 hover:bg-slate-50 dark:hover:bg-slate-950 transition-colors text-left group"
                                                     >
-                                                        <i className="bi bi-cart-check text-blue-500" />
-                                                        <span className="text-[10px] font-black uppercase tracking-widest text-slate-700 dark:text-slate-200">Ver Vendas Vinculadas</span>
+                                                        <span className="flex items-center gap-0.5 text-emerald-500">
+                                                            <i className="bi bi-box-seam-fill" />
+                                                            <i className="bi bi-arrow-left-right text-[9px]" />
+                                                        </span>
+                                                        <span className="text-[10px] font-black uppercase tracking-widest text-slate-700 dark:text-slate-200">Movimentações de Estoque</span>
                                                     </button>
                                                 )}
-
-                                                <button
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        setIsMenuOpen(false);
-                                                        const pPrice = Number(product.promoPrice) > 0 && Number(product.promoPrice) < Number(product.unitPrice) ? product.promoPrice : product.unitPrice;
-                                                        const msg = `*${product.name || product.title || product.description}*\n*Código/SKU:* ${product.sku || product.code || 'S/REF'}\n*Preço:* ${formatCurrency(pPrice || 0)}\n\nConfira mais detalhes em nosso catálogo oficial!`;
-                                                        setWhatsAppModal({ open: true, message: msg });
-                                                    }}
-                                                    className="flex items-center gap-3 px-4 py-2.5 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 transition-colors text-left group"
-                                                >
-                                                    <i className="bi bi-whatsapp text-emerald-600 dark:text-emerald-400" />
-                                                    <span className="text-[10px] font-black uppercase tracking-widest text-emerald-700 dark:text-emerald-300">Enviar por WhatsApp</span>
-                                                </button>
-
-                                                <Link
-                                                    to={`/marketing/posts?product=${product.id}`}
-                                                    onClick={(e) => { e.stopPropagation(); setIsMenuOpen(false); }}
-                                                    className="flex items-center gap-3 px-4 py-2.5 hover:bg-slate-50 dark:hover:bg-slate-950 transition-colors text-left group"
-                                                >
-                                                    <i className="bi bi-instagram text-pink-500" />
-                                                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-700 dark:text-slate-200">Posts Redes Sociais</span>
-                                                </Link>
-
-                                                {product.itemType !== 'service' && !product.isParent && (
+                                                {!product.isParent && (
                                                     <>
-                                                        <div className="h-px bg-slate-50 dark:bg-slate-800 my-1"></div>
-                                                        <div className="px-4 py-1.5">
-                                                            <span className="text-[8px] font-black uppercase tracking-widest text-slate-400">Etiquetas</span>
-                                                        </div>
-                                                        <div className="flex flex-col w-full">
+                                                        <button
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                setIsMenuOpen(false);
+                                                                setIsSalesModalOpen(true);
+                                                            }}
+                                                            className="flex items-center gap-3 px-4 py-2.5 hover:bg-slate-50 dark:hover:bg-slate-950 transition-colors text-left group"
+                                                        >
+                                                            <i className="bi bi-receipt text-indigo-500" />
+                                                            <span className="text-[10px] font-black uppercase tracking-widest text-slate-700 dark:text-slate-200">Histórico de Vendas</span>
+                                                        </button>
+                                                        <div className="border-t border-slate-50 dark:border-slate-800/50 my-1">
                                                             <button
                                                                 onClick={(e) => { e.stopPropagation(); setIsMenuOpen(false); setLabelModal({ open: true, type: 'identification' }); }}
                                                                 className="flex items-center gap-3 px-4 py-2.5 hover:bg-slate-50 dark:hover:bg-slate-950 transition-colors text-left group w-full"
@@ -592,34 +596,6 @@ const ProductRow = ({
                                                         </div>
                                                     </>
                                                 )}
-
-                                                {canManageCatalog && product.status === 'published' && !showTrash ? (
-                                                    <button
-                                                        onClick={(e) => {
-                                                            e.stopPropagation();
-                                                            setIsMenuOpen(false);
-                                                            onDelete(product.id!);
-                                                        }}
-                                                        className="flex items-center gap-3 px-4 py-2.5 hover:bg-amber-50 dark:hover:bg-amber-950/20 transition-colors text-left group border-t border-slate-50 dark:border-slate-800/50"
-                                                        title="Desativa o produto e o oculta do Catálogo Meta e das pesquisas de venda"
-                                                    >
-                                                        <i className="bi bi-slash-circle text-amber-500" />
-                                                        <span className="text-[10px] font-black uppercase tracking-widest text-amber-700 dark:text-amber-400">Desativar Produto</span>
-                                                    </button>
-                                                ) : (product.active === false || showTrash) ? (
-                                                    <button
-                                                        onClick={(e) => {
-                                                            e.stopPropagation();
-                                                            setIsMenuOpen(false);
-                                                            onRestore(product.id!);
-                                                        }}
-                                                        className="flex items-center gap-3 px-4 py-2.5 hover:bg-emerald-50 dark:hover:bg-emerald-950/20 transition-colors text-left group border-t border-slate-50 dark:border-slate-800/50"
-                                                        title="Reativa o produto no sistema e catálogo"
-                                                    >
-                                                        <i className="bi bi-check-circle-fill text-emerald-500" />
-                                                        <span className="text-[10px] font-black uppercase tracking-widest text-emerald-700 dark:text-emerald-400">Reativar Produto</span>
-                                                    </button>
-                                                ) : null}
                                             </div>
                                         </DropdownPortal>
                                     </div>

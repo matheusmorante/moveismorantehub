@@ -88,3 +88,42 @@ export const productGridStyleClasses = {
     large: "gap-6 md:gap-8",
   },
 } as const
+
+export function getOpportunityTitleColor(opportunity?: {
+  name?: string
+  slug?: string
+  title_color?: string | null
+  badge_color?: string | null
+} | null): string {
+  if (!opportunity) return 'inherit'
+  
+  if (opportunity.title_color && opportunity.title_color.trim()) {
+    return opportunity.title_color.trim()
+  }
+
+  const isSalvado = 
+    opportunity.slug === 'salvado' || 
+    opportunity.name?.toLowerCase()?.includes('salvado')
+
+  if (isSalvado) {
+    return '#EA580C' // Laranja vibrante de salvados
+  }
+
+  const badgeColor = opportunity.badge_color || ''
+
+  if (badgeColor.startsWith('#') || badgeColor.startsWith('rgb')) {
+    return badgeColor
+  }
+
+  if (badgeColor.includes('red')) return '#DC2626'
+  if (badgeColor.includes('orange')) return '#EA580C'
+  if (badgeColor.includes('amber')) return '#D97706'
+  if (badgeColor.includes('yellow')) return '#CA8A04'
+  if (badgeColor.includes('emerald') || badgeColor.includes('green')) return '#16A34A'
+  if (badgeColor.includes('teal')) return '#0D9488'
+  if (badgeColor.includes('blue')) return '#2563EB'
+  if (badgeColor.includes('indigo') || badgeColor.includes('purple')) return '#7C3AED'
+  if (badgeColor.includes('pink') || badgeColor.includes('rose')) return '#DB2777'
+
+  return 'inherit'
+}

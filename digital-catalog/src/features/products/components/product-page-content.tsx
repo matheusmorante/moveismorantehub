@@ -19,7 +19,7 @@ import { useAuth } from "@/hooks/use-auth"
 import { useAdminMode } from "@/hooks/use-admin-mode"
 import { Pencil } from "lucide-react"
 import { AdminProductModal } from "@/features/products/components/admin-product-modal"
-import { productCardStyleClasses } from "@/lib/product-card-style"
+import { productCardStyleClasses, getOpportunityTitleColor } from "@/lib/product-card-style"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
 
 type TechnicalSpecification = { name: string; slug: string }
@@ -127,18 +127,23 @@ export default function ProductPageContent({
   const displayHeight = activeVariation && !isParentDims && activeVariation.height ? activeVariation.height : product?.height
 
   // Imagens
-  const varImages = activeVariation?.image_url ? activeVariation.image_url.split(",").filter(Boolean) : []
-  const displayImages = varImages.length > 0 ? varImages : (product?.images || [])
+  const varImages = useMemo(() => {
+    return activeVariation?.image_url ? activeVariation.image_url.split(",").filter(Boolean) : []
+  }, [activeVariation?.image_url])
+
+  const displayImages = useMemo(() => {
+    return varImages.length > 0 ? varImages : (product?.images || [])
+  }, [varImages, product?.images])
 
   const totalImages = displayImages.length
 
-  // Sincroniza activeImage e activeIndex quando a variação ativa muda. Se for uma variação com imagem própria, limita a exibição a ela.
+  // Sincroniza activeImage e activeIndex apenas quando a variação ativa muda ou o produto muda
   useEffect(() => {
     if (displayImages.length > 0) {
       setActiveImage(displayImages[0])
       setActiveIndex(0)
     }
-  }, [activeVarId, product, displayImages, varImages.length])
+  }, [activeVarId, product?.id, displayImages[0]])
 
   // Sincroniza selectedAttributes com a variação selecionada
   useEffect(() => {
@@ -241,7 +246,10 @@ export default function ProductPageContent({
             <div className="space-y-4">
               <button
                 className="relative w-full aspect-[4/5] sm:aspect-square lg:aspect-[4/5] max-h-[500px] md:max-h-[600px] overflow-hidden rounded-2xl border bg-gray-50 shadow-sm block cursor-zoom-in group/main"
-                onClick={() => setLightboxOpen(true)}
+                onClick={() => {
+                  setLightboxIndex(activeIndex)
+                  setLightboxOpen(true)
+                }}
                 aria-label="Ampliar imagem"
               >
                 {activeImage && (
@@ -306,24 +314,20 @@ export default function ProductPageContent({
           {/* ── COLUNA DIREITA: INFOS + COMPRA (6 COLUNAS NO PC) ── */}
           <div className="lg:col-span-6 flex flex-col gap-6 lg:gap-8">
             <div className="space-y-3 relative">
-              <h1 
-                className="text-2xl sm:text-3xl font-extrabold leading-[1.1] tracking-tight pr-12 capitalize"
-                style={{
-                  color: product.opportunities 
-                    ? (product.opportunities.title_color ? product.opportunities.title_color : (
-                       product.opportunities.badge_color === 'bg-red-600' ? '#DC2626' : 
-                       product.opportunities.badge_color === 'bg-amber-600' ? '#D97706' :
-                       product.opportunities.badge_color === 'bg-purple-600' ? '#7C3AED' :
-                       product.opportunities.badge_color === 'bg-blue-600' ? '#2563EB' :
-                       product.opportunities.badge_color === 'bg-green-600' ? '#16A34A' :
-                       product.opportunities.badge_color === 'bg-pink-600' ? '#DB2777' :
-                       product.opportunities.badge_color === 'bg-orange-600' ? '#EA580C' :
-                       product.opportunities.badge_color === 'bg-teal-600' ? '#0D9488' : 'var(--primary)'))
-                    : 'var(--primary)'
-                }}
-              >
-                {displayTitle}
-              </h1>
+              {(() => {
+                const currentOpp = product.opportunities || (product.is_salvado ? { name: 'Salvados', slug: 'salvado' } : null)
+                const oppTitleColor = getOpportunityTitleColor(currentOpp)
+                const finalTitleColor = oppTitleColor === 'inherit' ? 'var(--primary)' : oppTitleColor
+
+                return (
+                  <h1 
+                    className="text-2xl sm:text-3xl font-extrabold leading-[1.1] tracking-tight pr-12 capitalize"
+                    style={{ color: finalTitleColor }}
+                  >
+                    {displayTitle}
+                  </h1>
+                )
+              })()}
               
               {isAdmin && isAdminMode && (
                 <Button 

@@ -39,4 +39,52 @@ export const userDocumentation: DocumentationSection[] = [
         ],
         flow: [{ title: "Receber", detail: "Registre a mercadoria que chegou." }, { title: "Conferir", detail: "Veja saldo e movimentos por item físico." }, { title: "Contar", detail: "Faça inventário com responsável." }, { title: "Ajustar", detail: "Finalize apenas após conferir as divergências." }],
     },
+    {
+        title: "Cadastro de Produtos e Canais",
+        icon: "bi-tags-fill",
+        summary: "Guia para cadastrar, ativar e gerenciar a publicação de produtos nos canais de venda (ERP e Catálogo Digital).",
+        rules: [
+            "Para ativar um produto ou variação no ERP, não é necessário custo antecipado; preencha apenas Nome, Preço de Venda, Categoria e Fornecedor.",
+            "Use os botões bipartidos da coluna 'Status de Canais' para ativar/desativar no ERP ou publicar/ocultar no Catálogo com um único clique.",
+            "Produtos desativados permanecem na listagem normal com selo próprio, sem irem para uma tela separada.",
+            "Na aba Fotos, utilize imagens quadradas 1:1 e ferramentas de recorte livre sem bordas internas.",
+        ],
+        flow: [
+            { title: "Cadastrar", detail: "Preencha dados básicos e selecione categoria e fornecedor." },
+            { title: "Ativar ERP", detail: "Ative para permitir o uso em vendas e estoque." },
+            { title: "Publicar Catálogo", detail: "Publique para exibir no catálogo digital público." },
+        ],
+    },
+    {
+        title: "Gerência e Controle Operacional",
+        icon: "bi-shield-shaded",
+        summary: "Guia para acompanhamento de vendas, auditoria de cancelamentos, conciliação e comissões de colaboradores.",
+        rules: [
+            "Acompanhe o desempenho de vendas utilizando o filtro de vendedores elegíveis e o relatório de comissões.",
+            "Pedidos agendados cancelados estornam automaticamente os movimentos de estoque e exibem carimbo CANCELADO em destaque.",
+            "Utilize a Conciliação Comercial para associar produtos cadastrados a vendas que continham itens temporários para efeito de métricas analíticas.",
+            "Pedidos vencidos há mais de 5 dias da data de entrega são atendidos automaticamente pelo sistema para garantir conformidade de saldo.",
+        ],
+        flow: [
+            { title: "Auditar Pedidos", detail: "Confira vendas agendadas, canceladas e atendidas." },
+            { title: "Conciliar Itens", detail: "Vincule itens temporários para qualificar relatórios comerciais." },
+            { title: "Fechar Período", detail: "Analise comissões e balanço de estoque de forma consistente." },
+        ],
+    },
+    {
+        title: "Comprovantes e Validação Digital",
+        icon: "bi-qr-code-scan",
+        summary: "Guia para emissão de recibos digitais com QR Code, carimbo ICP-Brasil e envio automatizado aos clientes.",
+        rules: [
+            "Recibos contam com assinatura digital e QR Code público dinâmico para validação imediata no smartphone.",
+            "Observações cadastradas no item de venda são anexadas automaticamente ao nome do produto na folha de pedido, no recibo e no WhatsApp.",
+            "Para reimprimir ou reenviar um pedido com comprovante assinado, acerte as opções no botão de Ações pós-venda ou no menu do pedido.",
+            "Cada pedido possui código sequencial único de 6 dígitos (#000000) impresso no topo de todos os documentos oficiais.",
+        ],
+        flow: [
+            { title: "Emitir Recibo", detail: "Gera documento assinado digitalmente com padrão ICP-Brasil." },
+            { title: "Leitura QR Code", detail: "Cliente ou fiscal confere autenticidade pelo celular." },
+            { title: "Disparar WhatsApp", detail: "Envia link e detalhes formatados com as observações registradas." },
+        ],
+    },
 ];

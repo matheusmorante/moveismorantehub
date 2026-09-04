@@ -1,6 +1,7 @@
 import Order from "../types/order.type";
 import { supabase } from "./supabaseConfig";
 import { isEffectiveInventoryMove } from './movingAverageCostRules';
+import { isPartialSaleStockMovement } from './saleInventoryRules';
 
 /** Atualiza flags visuais com base em movimentações efetivas ou estornadas vinculadas ao pedido. */
 export const applyActualInventoryStatus = async (orders: Order[]): Promise<Order[]> => {
@@ -9,7 +10,7 @@ export const applyActualInventoryStatus = async (orders: Order[]): Promise<Order
 
     const { data, error } = await supabase
         .from('inventory_moves')
-        .select('order_id, type, observation, reason, status')
+        .select('order_id, type, observation, reason, status, product_id')
         .in('order_id', orderIds);
 
     if (error) {
@@ -21,6 +22,7 @@ export const applyActualInventoryStatus = async (orders: Order[]): Promise<Order
     const effectiveExits = new Set<string>();
     const reversedEntries = new Set<string>();
     const reversedExits = new Set<string>();
+    const movedProductsByOrder = new Map<string, Set<string>>();
 
     (data || []).forEach((move: any) => {
         if (!move.order_id) return;
@@ -30,6 +32,12 @@ export const applyActualInventoryStatus = async (orders: Order[]): Promise<Order
         if (isEffective) {
             if (move.type === 'entry') effectiveEntries.add(orderIdStr);
             if (move.type === 'exit' || move.type === 'withdrawal') effectiveExits.add(orderIdStr);
+            if (move.product_id) {
+                if (!movedProductsByOrder.has(orderIdStr)) {
+                    movedProductsByOrder.set(orderIdStr, new Set());
+                }
+                movedProductsByOrder.get(orderIdStr)!.add(String(move.product_id));
+            }
         } else {
             if (move.type === 'entry') reversedEntries.add(orderIdStr);
             if (move.type === 'exit' || move.type === 'withdrawal') reversedExits.add(orderIdStr);
@@ -42,19 +50,28 @@ export const applyActualInventoryStatus = async (orders: Order[]): Promise<Order
         const hasEffectiveExit = effectiveExits.has(orderId);
         const hasReversedEntry = !hasEffectiveEntry && (reversedEntries.has(orderId) || order.status === 'cancelled');
         const hasReversedExit = !hasEffectiveExit && (reversedExits.has(orderId) || order.status === 'cancelled');
+        const movedProductIds = movedProductsByOrder.get(orderId);
 
         if (order.orderType === 'return') {
-            return {
+            const updatedOrder: Order = {
                 ...order,
                 returnStockProcessed: hasEffectiveEntry,
                 returnStockReversed: hasReversedEntry
             };
+            return {
+                ...updatedOrder,
+                isPartialStockProcessed: isPartialSaleStockMovement(updatedOrder, movedProductIds)
+            };
         }
         if (order.orderType === 'sale' || order.orderType === 'showroom' || !order.orderType) {
-            return {
+            const updatedOrder: Order = {
                 ...order,
                 stockProcessed: hasEffectiveExit,
                 stockReversed: hasReversedExit
+            };
+            return {
+                ...updatedOrder,
+                isPartialStockProcessed: isPartialSaleStockMovement(updatedOrder, movedProductIds)
             };
         }
         return order;

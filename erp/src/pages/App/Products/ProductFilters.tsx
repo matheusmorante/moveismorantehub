@@ -37,36 +37,59 @@ const ProductFilters = ({ filters, setFilters }: ProductFiltersProps) => {
             setFilters(prev => ({ ...prev, [name]: value }));
         }
     };
+    const hasActiveFilters = Boolean(
+        filters.category ||
+        filters.activeOnly !== undefined ||
+        filters.isDraft !== undefined ||
+        filters.status ||
+        (filters.search && filters.search.trim().length > 0)
+    );
 
     const resetFilters = () => {
-        setFilters({
+        setFilters(prev => ({
+            ...prev,
             search: "",
             category: "",
             activeOnly: undefined,
-            isDraft: false,
+            isDraft: undefined,
+            status: undefined,
             sortBy: "createdAt",
             sortOrder: "desc",
-            showTrash: filters.showTrash
-        });
+            showTrash: prev.showTrash
+        }));
     };
 
     return (
         <aside className="w-full bg-transparent flex flex-col h-full transition-colors">
             <div className="p-1 flex flex-col gap-4">
-                <div className="flex flex-col gap-6">
+                <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+                    <span className="text-[11px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500">Parâmetros</span>
+                    {hasActiveFilters && (
+                        <button
+                            onClick={resetFilters}
+                            className="text-[10px] font-bold text-blue-600 hover:text-blue-700 dark:text-blue-400 flex items-center gap-1 transition-colors"
+                        >
+                            <i className="bi bi-x-circle-fill"></i> Limpar
+                        </button>
+                    )}
+                </div>
+
+                <div className="flex flex-col gap-4">
                     <div className="flex flex-col gap-2">
-                        <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">Categorias</label>
+                        <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">Categoria</label>
                         <select
                             name="category"
-                            value={filters.category}
-                            onChange={handleChange}
+                            value={filters.category || ""}
+                            onChange={(e) => setFilters(prev => ({ ...prev, category: e.target.value }))}
                             className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all text-sm appearance-none cursor-pointer dark:text-slate-300"
                         >
                             <option value="" className="dark:bg-slate-900">Todas as Categorias</option>
-                            <option value="Serviços" className="dark:bg-slate-900">Somente Serviços</option>
-                            <option value="Produtos" className="dark:bg-slate-900">Somente Produtos</option>
+                            <optgroup label="Tipos Gerais" className="dark:bg-slate-900 font-bold">
+                                <option value="Produtos" className="dark:bg-slate-900 font-normal">Somente Produtos</option>
+                                <option value="Serviços" className="dark:bg-slate-900 font-normal">Somente Serviços</option>
+                            </optgroup>
                             {availableCategories.length > 0 && (
-                                <optgroup label="Categorias" className="dark:text-slate-500 font-bold mt-2">
+                                <optgroup label="Categorias do Sistema" className="dark:bg-slate-900 font-bold">
                                     {availableCategories.map(cat => (
                                         <option key={cat.id} value={cat.id} className="dark:bg-slate-900 font-normal">
                                             {cat.name}
@@ -84,18 +107,18 @@ const ProductFilters = ({ filters, setFilters }: ProductFiltersProps) => {
                             onChange={(e) => {
                                 const val = e.target.value;
                                 if (val === "draft") {
-                                    setFilters(prev => ({ ...prev, isDraft: true, activeOnly: undefined, showTrash: false }));
+                                    setFilters(prev => ({ ...prev, isDraft: true, activeOnly: undefined }));
                                 } else if (val === "active") {
-                                    setFilters(prev => ({ ...prev, isDraft: false, activeOnly: true, showTrash: false }));
+                                    setFilters(prev => ({ ...prev, isDraft: false, activeOnly: true }));
                                 } else if (val === "deactivated") {
-                                    setFilters(prev => ({ ...prev, isDraft: false, activeOnly: false, showTrash: true }));
+                                    setFilters(prev => ({ ...prev, isDraft: false, activeOnly: false }));
                                 } else {
-                                    setFilters(prev => ({ ...prev, isDraft: false, activeOnly: undefined, showTrash: false }));
+                                    setFilters(prev => ({ ...prev, isDraft: undefined, activeOnly: undefined }));
                                 }
                             }}
                             className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all text-sm appearance-none cursor-pointer dark:text-slate-300"
                         >
-                            <option value="" className="dark:bg-slate-900">Todos os Cadastrados</option>
+                            <option value="" className="dark:bg-slate-900">Todos os Produtos</option>
                             <option value="active" className="dark:bg-slate-900">Produtos Ativos</option>
                             <option value="deactivated" className="dark:bg-slate-900">Produtos Desativados</option>
                             <option value="draft" className="dark:bg-slate-900">Rascunhos (Em Cadastro)</option>

@@ -93,19 +93,16 @@ export function SubHeader() {
                 {/* Dropdown Modal com Categorias do Ambiente */}
                 {isOpen && (
                   <div 
-                    className="absolute top-full left-0 mt-0.5 min-w-[220px] max-w-xs bg-white text-slate-800 rounded-2xl shadow-2xl border border-slate-100 p-2 flex flex-col gap-1 animate-in fade-in-0 zoom-in-95 duration-150 z-50"
+                    className="absolute top-full left-0 mt-0.5 min-w-[200px] max-w-xs bg-white text-slate-800 rounded-2xl shadow-2xl border border-slate-100 p-1.5 flex flex-col gap-0.5 animate-in fade-in-0 zoom-in-95 duration-150 z-50"
                   >
-                    {/* Opção Todos os Móveis do Ambiente */}
+                    {/* Primeira opção: Ver todos */}
                     <Link
                       href={`/?envs=${envSlug}#produtos`}
                       onClick={() => setActiveDropdown(null)}
-                      className={`p-2.5 rounded-xl font-black text-xs uppercase tracking-wider flex items-center justify-between transition-all ${isActive && !activeCatId ? 'bg-primary text-white' : 'text-primary hover:bg-primary/5'}`}
+                      className={`p-2.5 rounded-xl text-xs font-bold flex items-center justify-between transition-all ${isActive && !activeCatId ? 'bg-primary/10 text-primary font-black' : 'text-slate-600 hover:text-primary hover:bg-slate-50'}`}
                     >
-                      <span>Todos os móveis de {env.name.toLowerCase()}</span>
-                      <span className="text-[10px] font-bold opacity-60">Ver todos</span>
+                      <span>Ver todos</span>
                     </Link>
-
-                    {envCats.length > 0 && <div className="h-px bg-slate-100 my-1" />}
 
                     {/* Categorias específicas do ambiente */}
                     {envCats.map((cat) => {

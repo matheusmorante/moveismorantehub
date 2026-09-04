@@ -54,16 +54,18 @@ export const stringifyFullAddressWithObservation = (
 };
 
 export const stringifyItems = (items: Item[]) => {
-    return items.map(item => `${item.description} (${item.quantity} UN)`)
-        .join(', ')
+    return items.map(item => {
+        const obs = item.observation?.trim() ? ` - ${item.observation.trim()}` : '';
+        return `${item.description}${obs} (${item.quantity} UN)`;
+    }).join(', ');
 };
 
 export const stringifyItemsWithValues = (items: Item[]) => {
     return items.map(item => {
         const totalValue = calcItemTotalValue(item);
-        return `${item.description} | ${item.quantity} UN | ${formatCurrency(totalValue)}`
-
-    }).join('\n')
+        const obs = item.observation?.trim() ? ` - ${item.observation.trim()}` : '';
+        return `${item.description}${obs} | ${item.quantity} UN | ${formatCurrency(totalValue)}`;
+    }).join('\n');
 };
 
 export const stringifyPayments = (payments: Payment[]) => {

@@ -4,6 +4,7 @@ import Header from "./Header";
 import ItemsTable from "./ItemsTable";
 import PaymentsTable from "./PaymentsTable";
 import ShippingData from "./ShippingData";
+import DigitalSignatureBadge from "./DigitalSignatureBadge";
 import { getSettings } from '@/pages/utils/settingsService';
 
 const ReceiptPage = () => {
@@ -69,18 +70,11 @@ const ReceiptPage = () => {
                 <div className="flex flex-col gap-2 w-1/2">
                     <ShippingData shipping={order.shipping} />
                     
-                    <div className="mt-16 pt-4">
-                        <div className="max-w-[280px] text-center">
-                            <div className="h-[1px] bg-slate-400 mb-2"></div>
-                            <div className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">
-                                Assinatura do Vendedor
-                            </div>
-                            {order?.seller?.fullName && (
-                                <div className="text-[9px] uppercase tracking-widest text-slate-400 mt-1">
-                                    {order.seller.fullName}
-                                </div>
-                            )}
-                        </div>
+                    <div className="mt-4 pt-2">
+                        <DigitalSignatureBadge 
+                            order={order} 
+                            sellerName={typeof order?.seller === 'string' ? order.seller : order?.seller?.fullName} 
+                        />
                     </div>
                 </div>
 

@@ -38,8 +38,6 @@ const Products: React.FC = () => {
     const [isStockModalOpen, setIsStockModalOpen] = React.useState(false);
     const [stockLaunchTarget, setStockLaunchTarget] = React.useState<{ product?: any; variation?: Variation } | null>(null);
 
-    const [isTrashOpen, setIsTrashOpen] = React.useState(false);
-    const [isDraftsOpen, setIsDraftsOpen] = React.useState(false);
     const [isSidebarOpen, setIsSidebarOpen] = React.useState(false);
 
     const [accordionOpen, setAccordionOpen] = React.useState<{
@@ -97,13 +95,14 @@ const Products: React.FC = () => {
         // Ordenação gerenciada internamente pela ProductList
     };
 
-    const activeFilters = React.useMemo(() => ({ ...filters, showTrash: false, activeOnly: true, isDraft: false }), [filters]);
-    const trashFilters = React.useMemo(() => ({ ...filters, showTrash: true, activeOnly: false, isDraft: false }), [filters]);
-    const draftFilters = React.useMemo(() => ({ ...filters, showTrash: false, isDraft: true, activeOnly: undefined }), [filters]);
-
-    const currentFilters = isDraftsOpen ? draftFilters : isTrashOpen ? trashFilters : activeFilters;
-    const currentTitle = isDraftsOpen ? "Rascunhos de Produtos" : isTrashOpen ? "Produtos Desativados" : undefined;
-    const handleCloseSpecialView = isDraftsOpen ? () => setIsDraftsOpen(false) : isTrashOpen ? () => setIsTrashOpen(false) : undefined;
+    const currentFilters = React.useMemo(() => ({
+        ...filters,
+        showTrash: false,
+        activeOnly: filters.activeOnly,
+        isDraft: filters.isDraft
+    }), [filters]);
+    const currentTitle = filters.isDraft ? "Rascunhos de Produtos" : undefined;
+    const handleCloseSpecialView = filters.isDraft ? () => setFilters(prev => ({ ...prev, isDraft: undefined })) : undefined;
 
     return (
         <div className="flex min-h-screen bg-slate-50 dark:bg-slate-950 transition-colors duration-300 relative pb-16">
@@ -116,7 +115,7 @@ const Products: React.FC = () => {
                                 <i className="bi bi-search absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-600"></i>
                                 <input
                                     type="text"
-                                    placeholder={isDraftsOpen ? "Pesquisar rascunhos..." : isTrashOpen ? "Pesquisar produtos desativados..." : "Pesquisar produtos ativos..."}
+                                    placeholder="Pesquisar produtos..."
                                     value={filters.search || ""}
                                     onChange={(e) => setFilters(prev => ({ ...prev, search: e.target.value }))}
                                     className="w-full pl-12 pr-4 py-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none transition-all text-sm font-medium dark:text-slate-200 shadow-sm placeholder:text-slate-400 dark:placeholder:text-slate-600"
@@ -137,43 +136,6 @@ const Products: React.FC = () => {
                             </button>
 
                             <div className="flex gap-2 ml-auto shrink-0 items-center">
-                                {/* Botão para Abrir Rascunhos */}
-                                <button
-                                    onClick={() => {
-                                        setIsDraftsOpen(prev => !prev);
-                                        setIsTrashOpen(false);
-                                    }}
-                                    className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl transition-all shadow-sm font-bold text-xs tracking-wide whitespace-nowrap active:scale-95 border ${isDraftsOpen 
-                                        ? 'bg-amber-500 text-white border-amber-600 shadow-amber-500/20' 
-                                        : 'bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border-slate-200 dark:border-slate-700'
-                                    }`}
-                                    title="Ver Rascunhos de Produtos em andamento"
-                                >
-                                    <i className="bi bi-file-earmark-text text-amber-500 text-sm"></i>
-                                    <span>Rascunhos</span>
-                                    {catalogStats.drafts > 0 && (
-                                        <span className="ml-0.5 px-1.5 py-0.2 bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-300 text-[10px] font-black rounded-full">
-                                            {catalogStats.drafts}
-                                        </span>
-                                    )}
-                                </button>
-
-                                {/* Botão para Abrir Produtos Desativados */}
-                                <button
-                                    onClick={() => {
-                                        setIsTrashOpen(prev => !prev);
-                                        setIsDraftsOpen(false);
-                                    }}
-                                    className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl transition-all shadow-sm font-bold text-xs tracking-wide whitespace-nowrap active:scale-95 border ${isTrashOpen 
-                                        ? 'bg-slate-700 text-white border-slate-800' 
-                                        : 'bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border-slate-200 dark:border-slate-700'
-                                    }`}
-                                    title="Ver Produtos Desativados no ERP"
-                                >
-                                    <i className="bi bi-slash-circle text-rose-500 text-sm"></i>
-                                    <span>Produtos Desativados</span>
-                                </button>
-
                                 <button
                                     onClick={() => {
                                         setEditingProduct(null);
@@ -272,7 +234,7 @@ const Products: React.FC = () => {
                                     <div className="flex flex-col gap-2 mt-3 animate-fade-in">
                                         <button 
                                             type="button"
-                                            onClick={() => { setIsTrashOpen(false); setIsDraftsOpen(false); }}
+                                            onClick={() => { setIsTrashOpen(false); setFilters(prev => ({ ...prev, activeOnly: undefined, isDraft: undefined })); }}
                                             className="w-full p-3 bg-blue-50/70 dark:bg-blue-950/40 hover:bg-blue-100/70 dark:hover:bg-blue-900/50 rounded-2xl border border-blue-100 dark:border-blue-900/50 flex items-center justify-between transition-colors text-left"
                                         >
                                             <div className="flex items-center gap-2">
@@ -287,8 +249,8 @@ const Products: React.FC = () => {
                                         <div className="grid grid-cols-2 gap-2">
                                             <button 
                                                 type="button"
-                                                onClick={() => { setIsTrashOpen(false); setIsDraftsOpen(false); }}
-                                                className="p-3 bg-slate-50 dark:bg-slate-950/60 hover:bg-slate-100 dark:hover:bg-slate-900 rounded-2xl border border-slate-200/60 dark:border-slate-800 text-left transition-colors"
+                                                onClick={() => { setIsTrashOpen(false); setFilters(prev => ({ ...prev, activeOnly: true, isDraft: undefined })); }}
+                                                className={`p-3 rounded-2xl border text-left transition-colors ${filters.activeOnly === true && !filters.isDraft ? 'bg-emerald-50 border-emerald-300 dark:bg-emerald-950/40 dark:border-emerald-800' : 'bg-slate-50 dark:bg-slate-950/60 hover:bg-slate-100 dark:hover:bg-slate-900 border-slate-200/60 dark:border-slate-800'}`}
                                             >
                                                 <span className="text-[9px] font-black uppercase text-slate-400 block">Publicados</span>
                                                 <span className="text-base font-black text-emerald-600 dark:text-emerald-400 mt-0.5 block">
@@ -297,8 +259,10 @@ const Products: React.FC = () => {
                                             </button>
                                             <button 
                                                 type="button"
-                                                onClick={() => { setIsTrashOpen(true); setIsDraftsOpen(false); }}
-                                                className="p-3 bg-slate-50 dark:bg-slate-950/60 hover:bg-slate-100 dark:hover:bg-slate-900 rounded-2xl border border-slate-200/60 dark:border-slate-800 text-left transition-colors"
+                                                onClick={() => {
+                                                    setFilters(prev => ({ ...prev, activeOnly: prev.activeOnly === false ? undefined : false, isDraft: undefined }));
+                                                }}
+                                                className={`p-3 rounded-2xl border text-left transition-colors ${filters.activeOnly === false ? 'bg-rose-50 border-rose-300 dark:bg-rose-950/40 dark:border-rose-800' : 'bg-slate-50 dark:bg-slate-950/60 hover:bg-slate-100 dark:hover:bg-slate-900 border-slate-200/60 dark:border-slate-800'}`}
                                             >
                                                 <span className="text-[9px] font-black uppercase text-slate-400 block">Desativados</span>
                                                 <span className="text-base font-black text-rose-500 dark:text-rose-400 mt-0.5 block">
@@ -307,8 +271,8 @@ const Products: React.FC = () => {
                                             </button>
                                             <button 
                                                 type="button"
-                                                onClick={() => { setIsDraftsOpen(true); setIsTrashOpen(false); }}
-                                                className="col-span-2 p-3 bg-slate-50 dark:bg-slate-950/60 hover:bg-slate-100 dark:hover:bg-slate-900 rounded-2xl border border-slate-200/60 dark:border-slate-800 flex items-center justify-between text-left transition-colors"
+                                                onClick={() => { setFilters(prev => ({ ...prev, isDraft: prev.isDraft === true ? undefined : true, activeOnly: undefined })); }}
+                                                className={`col-span-2 p-3 rounded-2xl border flex items-center justify-between text-left transition-colors ${filters.isDraft === true ? 'bg-amber-50 border-amber-300 dark:bg-amber-950/40 dark:border-amber-800 shadow-sm' : 'bg-slate-50 dark:bg-slate-950/60 hover:bg-slate-100 dark:hover:bg-slate-900 border-slate-200/60 dark:border-slate-800'}`}
                                             >
                                                 <div className="flex items-center gap-2">
                                                     <i className="bi bi-file-earmark-text text-amber-500 text-sm" />
@@ -344,87 +308,6 @@ const Products: React.FC = () => {
                                 {accordionOpen.filters && (
                                     <div className="mt-3 animate-fade-in">
                                         <ProductFilters filters={filters} setFilters={setFilters} />
-                                    </div>
-                                )}
-                            </div>
-
-                            {/* TÓPICO 3: Visibilidade de Colunas (Sanfona) */}
-                            <div className="border-b border-slate-100 dark:border-slate-800 pb-3">
-                                <button
-                                    type="button"
-                                    onClick={() => toggleAccordion('columns')}
-                                    className="w-full flex items-center justify-between py-2 text-left hover:opacity-80 transition-opacity"
-                                >
-                                    <div className="flex items-center gap-2.5">
-                                        <div className="w-8 h-8 rounded-xl bg-amber-50 dark:bg-amber-950/50 text-amber-600 dark:text-amber-400 flex items-center justify-center font-bold text-sm">
-                                            <i className="bi bi-eye-fill" />
-                                        </div>
-                                        <h4 className="text-xs font-black uppercase tracking-wider text-slate-800 dark:text-slate-100">
-                                            Visibilidade das Colunas
-                                        </h4>
-                                    </div>
-                                    <i className={`bi bi-chevron-down text-slate-400 text-xs transition-transform duration-200 ${accordionOpen.columns ? 'rotate-180' : ''}`} />
-                                </button>
-
-                                {accordionOpen.columns && (
-                                    <div className="grid grid-cols-1 gap-1 mt-3 animate-fade-in">
-                                        {[
-                                            { key: 'code', label: 'SKU / Código' },
-                                            { key: 'description', label: 'Título do Produto' },
-                                            { key: 'category', label: 'Categoria' },
-                                            { key: 'createdAt', label: 'Data de Criação' },
-                                            { key: 'unitPrice', label: 'Preço de Venda' },
-                                            { key: 'stock', label: 'Estoque' },
-                                            { key: 'status', label: 'Canais de Venda' },
-                                            { key: 'actions', label: 'Ações da Linha' },
-                                        ].map((col) => (
-                                            <button
-                                                key={col.key}
-                                                onClick={() => toggleVisibility(col.key as keyof ProductVisibilitySettings)}
-                                                className="flex items-center justify-between p-2 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800/60 transition-all text-left outline-none"
-                                            >
-                                                <span className={`text-xs font-bold ${visibilitySettings[col.key as keyof ProductVisibilitySettings] ? 'text-slate-700 dark:text-slate-200' : 'text-slate-400 dark:text-slate-600'}`}>
-                                                    {col.label}
-                                                </span>
-                                                <div className={`w-7 h-3.5 rounded-full p-0.5 transition-colors ${visibilitySettings[col.key as keyof ProductVisibilitySettings] ? 'bg-blue-600' : 'bg-slate-200 dark:bg-slate-700'}`}>
-                                                    <div className={`w-2.5 h-2.5 bg-white rounded-full transition-transform ${visibilitySettings[col.key as keyof ProductVisibilitySettings] ? 'translate-x-3.5' : 'translate-x-0'}`} />
-                                                </div>
-                                            </button>
-                                        ))}
-                                    </div>
-                                )}
-                            </div>
-
-                            {/* TÓPICO 4: Produtos Desativados (Sanfona) */}
-                            <div>
-                                <button
-                                    type="button"
-                                    onClick={() => toggleAccordion('shortcuts')}
-                                    className="w-full flex items-center justify-between py-2 text-left hover:opacity-80 transition-opacity"
-                                >
-                                    <div className="flex items-center gap-2.5">
-                                        <div className="w-8 h-8 rounded-xl bg-amber-50 dark:bg-amber-950/50 text-amber-600 dark:text-amber-400 flex items-center justify-center font-bold text-sm">
-                                            <i className="bi bi-slash-circle" />
-                                        </div>
-                                        <h4 className="text-xs font-black uppercase tracking-wider text-slate-800 dark:text-slate-100">
-                                            Produtos Desativados
-                                        </h4>
-                                    </div>
-                                    <i className={`bi bi-chevron-down text-slate-400 text-xs transition-transform duration-200 ${accordionOpen.shortcuts ? 'rotate-180' : ''}`} />
-                                </button>
-
-                                {accordionOpen.shortcuts && (
-                                    <div className="mt-3 animate-fade-in">
-                                        <button
-                                            onClick={() => setIsTrashOpen(true)}
-                                            className="w-full flex items-center justify-between p-3 rounded-2xl bg-slate-50 hover:bg-slate-100 dark:bg-slate-800/50 dark:hover:bg-slate-800 border border-slate-200/60 dark:border-slate-700/60 text-xs font-bold text-slate-700 dark:text-slate-200 transition-all"
-                                        >
-                                            <div className="flex items-center gap-2">
-                                                <i className="bi bi-eye-slash text-amber-500" />
-                                                <span>Ver Produtos Desativados</span>
-                                            </div>
-                                            <i className="bi bi-chevron-right text-slate-400 text-xs" />
-                                        </button>
                                     </div>
                                 )}
                             </div>

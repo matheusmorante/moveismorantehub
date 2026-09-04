@@ -57,11 +57,12 @@ export const calculateVariationCatalogStats = (products: ProductWithVariations[]
             } else {
                 total += 1;
                 const isVarActive = isParentActive && v.active !== false;
-                const isVarPublished = product.status === 'published' && v.status !== 'hidden';
+                const isVarPublished = (product.status === 'published' || !product.status) && v.status !== 'hidden';
 
-                if (isVarActive && isVarPublished) {
+                if (isVarPublished) {
                     published += 1;
-                } else if (!isVarActive) {
+                }
+                if (!isVarActive) {
                     disabled += 1;
                 }
             }

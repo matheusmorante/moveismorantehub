@@ -94,14 +94,14 @@ export const useProducts = (filters?: any) => {
                 const isActive = !isDraft && product.active !== false && !product.deleted;
                 const isDeactivated = !isDraft && (product.active === false || product.deleted);
 
-                if (filters?.isDraft) {
+                if (filters?.isDraft === true) {
                     if (!isDraft) return false;
+                } else if (filters?.isDraft === false) {
+                    if (isDraft) return false;
                 } else if (filters?.showTrash || filters?.activeOnly === false) {
                     if (!isDeactivated) return false;
                 } else if (filters?.activeOnly === true) {
                     if (!isActive) return false;
-                } else {
-                    if (isDraft) return false;
                 }
 
                 const searchTerm = filters.search?.toLowerCase() || "";
@@ -244,16 +244,15 @@ export const useProducts = (filters?: any) => {
 
     const handleDelete = async (id: string) => {
         const confirmed = window.confirm(
-            "Desativar este produto?\n\nEle será removido das pesquisas de venda e ocultado do Catálogo Meta (status: Ocultado). Você poderá reativá-lo depois na lista de produtos desativados."
+            "Desativar este produto?\n\nEle permanecerá na lista com a etiqueta de 'Desativado'."
         );
         if (!confirmed) return;
 
         const toastId = toast.loading("Desativando produto...");
         try {
-            await moveToTrash(id);
-            removeDeactivatedProductsFromActiveList([id]);
+            await deactivateProduct(id);
             refresh();
-            toast.update(toastId, { render: "Produto desativado e ocultado do Catálogo Meta com sucesso.", type: "info", isLoading: false, autoClose: 3500 });
+            toast.update(toastId, { render: "Produto desativado com sucesso.", type: "info", isLoading: false, autoClose: 3500 });
         } catch (error: any) {
             toast.update(toastId, { render: error.message || "Erro ao desativar produto.", type: "error", isLoading: false, autoClose: 3000 });
         }
@@ -261,8 +260,7 @@ export const useProducts = (filters?: any) => {
 
     const handleRestore = async (id: string) => {
         try {
-            await restoreProduct(id);
-            removeRestoredProductsFromTrash([id]);
+            await activateProduct(id);
             refresh();
             toast.success("Produto ativado com sucesso!");
         } catch (error: any) {
@@ -288,7 +286,7 @@ export const useProducts = (filters?: any) => {
     const handleBulkTrash = async () => {
         if (selectedProducts.length === 0) return;
         const confirmed = window.confirm(
-            `Desativar ${selectedProducts.length} produto(s)?\n\nOs itens serão removidos das pesquisas de venda e ocultados do Catálogo Meta (status: Ocultado).`
+            `Desativar ${selectedProducts.length} produto(s)?`
         );
         if (!confirmed) return;
 
@@ -297,15 +295,11 @@ export const useProducts = (filters?: any) => {
         try {
             const realIds = selectedProducts.filter(id => !id.toString().includes('_'));
             const result = await bulkMoveToTrash(realIds);
-            const deactivatedIds = result.deactivatedIds;
-            if (deactivatedIds.length > 0) {
-                removeDeactivatedProductsFromActiveList(deactivatedIds);
-                refresh();
-            }
+            refresh();
             
             if (result.successCount > 0) {
                 toast.update(toastId, { 
-                    render: `${result.successCount} produto(s) desativado(s) e ocultado(s) do Catálogo Meta.`,
+                    render: `${result.successCount} produto(s) desativado(s) com sucesso.`,
                     type: "info", 
                     isLoading: false, 
                     autoClose: 3000 
@@ -451,32 +445,51 @@ export const useProducts = (filters?: any) => {
                             return String(sku) === targetSku;
                         });
                         if (v) {
+                            const missingFields: string[] = [];
                             const isVPriceValid = (v.syncUnitPrice || Number(v.unitPrice || 0) > 0 || Number(parent.unitPrice || 0) > 0);
-                            const isVCostPriceValid = (v.syncCostPrice || Number(v.costPrice || 0) > 0 || Number(parent.costPrice || 0) > 0);
-                            const isVarEligible = (parent.description || '').trim().length >= 2 &&
-                                isVPriceValid &&
-                                (parent.categoryIds || []).length > 0 &&
-                                Boolean(parent.mainSupplierId) &&
-                                isVCostPriceValid;
+                            
+                            if (!(parent.description || '').trim() || (parent.description || '').trim().length < 2) {
+                                missingFields.push('nome do produto no pai');
+                            }
+                            if (!isVPriceValid) {
+                                missingFields.push('preço de venda');
+                            }
+                            if (!(parent.categoryIds || []).length && !parent.category) {
+                                missingFields.push('categoria no pai');
+                            }
+                            if (!parent.mainSupplierId && !parent.supplierId) {
+                                missingFields.push('fornecedor no pai');
+                            }
 
-                            if (!isVarEligible) {
-                                toast.error('Preencha os requisitos do ERP (preço de custo, preço de venda, fornecedor e categoria no pai) antes de ativar esta variação.');
+                            if (missingFields.length > 0) {
+                                toast.error(`Preencha os requisitos do ERP (${missingFields.join(', ')}) antes de ativar esta variação.`);
                                 return;
                             }
                         }
                     }
                 } else {
                     const productToActivate = products.find(product => String(product.id) === String(id));
-                    const isErpEligible = productToActivate &&
-                        (productToActivate.description || '').trim().length >= 2 &&
-                        Number(productToActivate.unitPrice || 0) > 0 &&
-                        (productToActivate.categoryIds || []).length > 0 &&
-                        Boolean(productToActivate.mainSupplierId) &&
-                        Number(productToActivate.costPrice || 0) > 0;
+                    if (productToActivate) {
+                        const missingFields: string[] = [];
+                        const isParent = productToActivate.isParent || (productToActivate.variations && productToActivate.variations.length > 0);
 
-                    if (!isErpEligible) {
-                        toast.error('Preencha os requisitos do ERP (preço de custo, preço de venda, fornecedor e categoria) antes de ativar este produto.');
-                        return;
+                        if (!(productToActivate.name || productToActivate.description || '').trim() || (productToActivate.name || productToActivate.description || '').trim().length < 2) {
+                            missingFields.push('nome do produto');
+                        }
+                        if (!isParent && (!productToActivate.unitPrice || Number(productToActivate.unitPrice) <= 0)) {
+                            missingFields.push('preço de venda');
+                        }
+                        if (!(productToActivate.categoryIds || []).length && !productToActivate.category) {
+                            missingFields.push('categoria');
+                        }
+                        if (!productToActivate.mainSupplierId && !productToActivate.supplierId) {
+                            missingFields.push('fornecedor');
+                        }
+
+                        if (missingFields.length > 0) {
+                            toast.error(`Preencha os requisitos do ERP (${missingFields.join(', ')}) antes de ativar este produto.`);
+                            return;
+                        }
                     }
                 }
             }

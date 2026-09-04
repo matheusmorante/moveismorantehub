@@ -14,6 +14,7 @@ export type Item = {
     unitDiscount: number;
     discountType: DiscountType;
     handlingType: string;
+    observation?: string;
     condition?: 'novo' | 'usado' | 'salvado' | '';
     deliveryMethod?: 'delivery' | 'pickup';
     isCombo?: boolean;

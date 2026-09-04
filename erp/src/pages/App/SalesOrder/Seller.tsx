@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import SmartInput from "../../../components/SmartInput";
 import { ValidationErrors } from "../../utils/validations";
 import { subscribeToPeople } from "../../utils/personService";
+import { isValidEmployee } from "@/pages/utils/accessRoles";
 
 interface Props {
     seller: string,
@@ -13,10 +14,11 @@ const Seller = ({ seller, setSeller, errors }: Props) => {
     const [employeeNames, setEmployeeNames] = useState<string[]>([]);
 
     useEffect(() => {
-        // Busca a lista de funcionários para sugerir no autocomplete
+        // Busca a lista de colaboradores válidos para sugerir no autocomplete
         const unsubscribe = subscribeToPeople('employees', (people) => {
             const names = people
-                .map(p => p.fullName)
+                .filter(p => isValidEmployee(p))
+                .map(p => p.nickname || p.fullName)
                 .filter(name => name && name.trim() !== "");
             setEmployeeNames(names);
         });

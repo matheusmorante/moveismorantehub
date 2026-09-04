@@ -92,7 +92,7 @@ export const actionsMap: Record<OrderAction, (order: Order) => void> = {
 
         const assistanceItemsHtml = (order.assistanceItems || []).map(item => `
             <tr>
-                <td style="padding: 12px; border-bottom: 1px solid #eee; font-weight: 700;">${item.description}</td>
+                <td style="padding: 12px; border-bottom: 1px solid #eee; font-weight: 700;">${item.description}${item.observation?.trim() ? ` - ${item.observation.trim()}` : ''}</td>
                 <td style="padding: 12px; border-bottom: 1px solid #eee; text-align: center; font-weight: 700;">${item.quantity}</td>
             </tr>
         `).join('');
@@ -104,7 +104,7 @@ export const actionsMap: Record<OrderAction, (order: Order) => void> = {
             
             return `
                 <tr>
-                    <td style="padding: 12px; border-bottom: 1px solid #eee; font-weight: 700;">${item.description}</td>
+                    <td style="padding: 12px; border-bottom: 1px solid #eee; font-weight: 700;">${item.description}${item.observation?.trim() ? ` - ${item.observation.trim()}` : ''}</td>
                     <td style="padding: 12px; border-bottom: 1px solid #eee; text-align: center; font-weight: 700; background-color: ${bgColor}; color: ${textColor}; -webkit-print-color-adjust: exact; print-color-adjust: exact; font-size: 10px;">${item.handlingType || '-'}</td>
                     <td style="padding: 12px; border-bottom: 1px solid #eee; text-align: center; font-weight: 700;">${item.quantity}</td>
                     <td style="padding: 12px; border-bottom: 1px solid #eee; text-align: right; font-weight: 700;">R$ ${item.unitPrice.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
@@ -232,7 +232,7 @@ export const actionsMap: Record<OrderAction, (order: Order) => void> = {
         const itemsHtml = (order.items || []).map(item => `
             <tr>
                 <td style="padding: 12px; border-bottom: 1px solid #eee;">
-                    <div style="font-weight: 900; font-size: 12px; text-transform: uppercase;">${item.description}</div>
+                    <div style="font-weight: 900; font-size: 12px; text-transform: uppercase;">${item.description}${item.observation?.trim() ? ` - ${item.observation.trim()}` : ''}</div>
                 </td>
                 <td style="padding: 12px; border-bottom: 1px solid #eee; text-align: center; font-weight: 700;">${item.quantity}</td>
                 <td style="padding: 12px; border-bottom: 1px solid #eee; text-align: right; font-weight: 700;">R$ ${item.totalValue?.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>

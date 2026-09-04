@@ -15,7 +15,7 @@ import { cn, formatCurrency } from "@/lib/utils"
 import { sendProductInterest } from "@/services/whatsapp"
 import { toast } from "sonner"
 import { AdminProductModal } from "@/features/products/components/admin-product-modal"
-import { defaultProductCardStyle, ProductCardStyle, productCardStyleClasses } from "@/lib/product-card-style"
+import { defaultProductCardStyle, ProductCardStyle, productCardStyleClasses, getOpportunityTitleColor } from "@/lib/product-card-style"
 
 interface ProductCardProps {
   product: {
@@ -166,17 +166,7 @@ export function ProductCard({ product, style = defaultProductCardStyle }: Produc
           <h3 
             className="font-bold text-[14px] sm:text-[15px] line-clamp-2 overflow-hidden transition-colors min-h-[2.5rem] leading-tight"
             style={{
-              color: product.opportunity 
-                ? (product.opportunity.title_color ? product.opportunity.title_color : (
-                   product.opportunity.badge_color === 'bg-red-600' ? '#DC2626' : 
-                   product.opportunity.badge_color === 'bg-amber-600' ? '#D97706' :
-                   product.opportunity.badge_color === 'bg-purple-600' ? '#7C3AED' :
-                   product.opportunity.badge_color === 'bg-blue-600' ? '#2563EB' :
-                   product.opportunity.badge_color === 'bg-green-600' ? '#16A34A' :
-                   product.opportunity.badge_color === 'bg-pink-600' ? '#DB2777' :
-                   product.opportunity.badge_color === 'bg-orange-600' ? '#EA580C' :
-                   product.opportunity.badge_color === 'bg-teal-600' ? '#0D9488' : 'inherit'))
-                : 'inherit'
+              color: getOpportunityTitleColor(product.opportunity)
             }}
           >
             {product.name}

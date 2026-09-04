@@ -44,6 +44,7 @@ export type Order = {
     reviewRequested?: boolean,
     marketingOrigin?: string,
     stockProcessed?: boolean,
+    isPartialStockProcessed?: boolean,
     isRegisteredInBling?: boolean,
     isStockChecked?: boolean,
     isButtonsClicked?: IsButtonsClicked,

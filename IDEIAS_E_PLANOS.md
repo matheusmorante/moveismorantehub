@@ -41,10 +41,14 @@ Este documento unifica todo o planejamento estratégico, ideias futuras, tarefas
 
 ## 📌 2. Próximos Passos e Pendências Imediatas
 
-### 🐛 Bugs e Correções Críticas
-- [ ] **Erro de Sincronização de Pedidos**: Corrigir `TypeError` ao acessar `date` no `useDashboardData.ts`.
-- [ ] **Validação de Estoque**: Implementar lógica que impede venda de itens sem estoque (atualmente scripts de importação permitem stock 0).
-- [ ] **Sincronização ERP-Automation**: Garantir que as baixas no Showroom reflitam instantaneamente na API de estoque.
+### 🧹 Refatoração, Código Limpo e Modularização (`modularizacao_codigo`)
+- [ ] **Diretriz Contínua do Usuário**: Em cada arquivo tocado ou analisado (especialmente > 150 linhas), perguntar explicitamente ao usuário no final se deseja modularizá-lo em conformidade com a skill `modularizacao_codigo`.
+- [ ] **Meta de Arquitetura**: 30–100 linhas (aceitável até 150). Responsabilidade única estrita. Estratégia segura: COPIAR → VALIDAR → CONECTAR → TESTAR → SÓ DEPOIS REMOVER.
+- [ ] **Backlog de Arquivos Extensos a Modularizar Sob Demanda**:
+  - `ProductFormModal.tsx` (> 600 linhas): dividir abas, validação de legibilidade e gerenciadores de variações.
+  - `ProductRow.tsx` e `ProductCard.tsx`: isolar ações, menus e renderizadores de status.
+  - `OrderHistoryRow.tsx` e `OrderHistoryCard.tsx`: desacoplar badges de triagem, modal de cancelamento e ações.
+  - `useProducts.ts` e `orderHistoryService.ts`: segregação de queries, mutations e regras de negócio.
 
 ### 📱 Mobile Offline-First Baseado em Eventos & Risco Operacional
 - [x] **Criação da Skill `mobile-offline-first` (Completa & Fechada)**: Diretrizes baseadas em risco operacional de campo/depósito (entregas, montagens, inventário, conferência), ciclo de 4 estados (`PENDING` → `SYNCING` → `CONFIRMED` / `REJECTED`), idempotência via UUID e backend como autoridade estrita de estoque.
@@ -68,6 +72,12 @@ Este documento unifica todo o planejamento estratégico, ideias futuras, tarefas
 ### 💎 UX / Refinamentos
 - [x] **App Mobile - Código e SKU 100% Automáticos (Sem Input Manual)**: Código sequencial de 6 dígitos gerado na abertura via `getNextSequentialProductCode` (`000245`) e SKUs das variações gerados via `generateVariationSku` (`000245-01`), sem inputs de digitação manual para o usuário, idêntico ao ERP.
 - [x] **App Mobile - Cadastro Geral com Paridade ERP**: Campos de nomes/títulos diferenciados, slug amigável em tempo real, seleção de oportunidades e múltiplas categorias sincronizadas via tabela intermediária `product_categories`.
+- [x] **Catálogo Digital - Logo Ampliado no Header**: Logo aumentado com proporção de destaque visual e header expandido para maior presença da marca.
+- [x] **Catálogo Digital - 'Ver todos' na Lista de Categorias**: Dropdown de ambientes e menu mobile ajustados para exibir 'Ver todos' como primeira opção da lista, eliminando cabeçalhos duplicados.
+- [x] **Catálogo Digital - Troca Fluida de Fotos na Página do Produto**: Corrigido bug de reset para a 1ª foto ao clicar em thumbnails e sincronização com lightbox.
+- [x] **Catálogo Digital - Cores de Título por Oportunidade**: Cor dos títulos de produtos dinamizada tanto nos cards quanto na página de detalhes conforme a oportunidade vinculada.
+- [x] **ERP - Modal Completo de Gerenciamento de Atributos na Variação**: Ao clicar em "Gerenciar Atributos" no formulário de variação de produto (`VariationFormModal`), abre o painel oficial completo do sistema (`ManageAttributesModal`) com busca em tempo real, criação de atributos por tags, remoção segura e adição de valores, atualizando automaticamente os atributos da variação ao concluir.
+- [x] **ERP - Aba de Fotos da Variação com Input 1:1 e Drag and Drop**: Aba de fotos reformulada com card/slot de adicionar 1:1 (`aspect-square`) que abre o modal de seleção das fotos do pai (`VariationParentImagesSelectModal`), e fotos vinculadas exibidas em sequência com reordenação por Drag & Drop e selo de foto de Capa na primeira imagem.
 - [x] **Correção da Tela Branca em Detalhes do Pedido (Mobile)**: Corrigido o `ReferenceError` em `OrderDetailsSections.tsx` restaurando a declaração de `displayOriginalPrice` e `displayFinalPrice` ao renderizar o manuseio e preço com desconto.
 - [x] **Card de Formas de Pagamento Dinâmico (Mobile)**:
   - Fundo e borda em **Amarelo/Âmbar** (`#f59e0b` / `#fffbeb`) com alerta quando o status estiver **Pendente**, **A Verificar** ou houver saldo a receber.
@@ -112,6 +122,20 @@ Este documento unifica todo o planejamento estratégico, ideias futuras, tarefas
     - Cabeçalho limpo com foco na **barra de pesquisa por texto** (sem botão de atualizar nem botões/pills de filtro) e botão de 3 pontinhos com:
       - **Novo Produto**: formulário com abas (Básico, Preços & Estoque, Variações), permitindo salvar como Ativo ou Rascunho.
       - **Configurações de Produto**: modal dedicado com gerenciamento completo (CRUD) de **Categorias** e **Atributos e Variações**.
+- [x] **Observações por Item de Pedido de Venda (`item.observation`)**: Campo adicionado ao final da linha de cada item no formulário do pedido (desktop e cards mobile), concatenado com `-` na folha de pedido impressa, no recibo impresso, nas ordens de serviço e nas mensagens de WhatsApp.
+- [x] **Carimbo de Assinatura Digital no Recibo (`ReceiptPage` / `DigitalSignatureBadge`)**: Remoção da linha de assinatura manual e inclusão do selo oficial com certificado digital ICP-Brasil/A1, dados da empresa/emissor, hash determinístico e QR Code dinâmico para consulta pública e validação.
+- [x] **Independência de Catálogo e Produtos Desativados na Lista Normal**:
+  - Remoção da tela/aba separada de "Produtos Desativados", mantendo produtos ativos e desativados juntos na listagem principal com seus respectivos selos visuais.
+  - Desacoplamento total entre o estado ativo/desativado no ERP (`active`) e o status do Catálogo Digital (`status: published/hidden`), de modo que ativar/desativar um produto ou variação não altera seu status de catálogo.
+- [x] **Status de Canais (ERP e Catálogo) com Botões Bipartidos**:
+  - Nova estilização de botões/pills bipartidos conforme layout oficial (`ERP` em azul com status `Ativo`/`Inativo` e `Catálogo` em roxo com status `Publicado`/`Oculto`).
+  - Coluna renomeada para **"Status de Canais"** na tabela de produtos e no menu de visibilidade de colunas.
+  - Ação de Ativar/Desativar produto movida diretamente para o botão interativo da coluna/card, removida do menu de 3 pontinhos.
+  - Padronização aplicada tanto na visualização em **Tabela** (`ProductRow`) quanto em **Cards** (`ProductCard` e na listagem expandida de variações filhas).
+- [x] **Flexibilização de Requisitos do ERP e Alerta Específico de Pendências**:
+  - Removida a exigência de preço de custo para ativar produtos/variações no ERP (custo só é obrigatório ao lançar estoque inicial ou entrada de mercadoria).
+  - O alerta de requisitos agora lista dinamicamente apenas os campos que estiverem de fato faltando (ex: `nome do produto`, `preço de venda`, `categoria`, `fornecedor`).
+- [x] **Remoção do Painel de Visibilidade de Colunas da Sidebar**: Eliminada a sanfona de visibilidade de colunas da barra lateral da lista de produtos, simplificando a interface e mantendo as colunas padrão visíveis.
 - [ ] **CategorySearchModal**: Avaliar o comportamento em dispositivos móveis.
 - [ ] **Feedback de Sincronização de Preços**: Testar se a sincronização de preços entre pai e filhos funciona corretamente em tempo real após a economia.
 - [ ] **Feedback visual de Herança**: Adicionar feedback visual mais claro quando a herança está ativa.
@@ -133,11 +157,45 @@ Este documento unifica todo o planejamento estratégico, ideias futuras, tarefas
     - **PDV Web**: Adicionar itens ao carrinho via câmera do celular/tablet.
     - **Motoristas**: Confirmar entregas via QR Code + GPS.
     - **Produção**: Controle de etapas de montagem por escaneamento de peças.
+- **Emissão de NF-e e NFC-e Direto SEFAZ-PR (Sem Intermediários)**: Conexão direta com webservices SEFAZ-PR usando certificado digital A1 (.pfx), geração e assinatura de XMLs fiscais e impressão de DANFE sem custo por nota.
+- **Conferência Cega no Recebimento de Mercadorias**: Interface para o operador do almoxarifado conferir mercadorias recebidas sem ver previamente a quantidade esperada, garantindo integridade física do estoque.
+- **Relatório de Comissões por Vendedor**: Cálculo analítico de comissões com base em vendas efetivamente atendidas no período com abatimento proporcional de devoluções.
 - **Análise de BOM**: Processar `belichemilao.csv` para criar variações automáticas de tecido e acabamento no ERP.
 
 ---
 
 ## 📈 4. Histórico Recente de Entregas
+
+### Concluído Recentemente (Setembro 2026)
+
+#### 🏷️ Status de Canais (ERP e Catálogo) com Botões Bipartidos & Independência Total
+- **Desacoplamento Completo:** O estado do produto no ERP (`active: true/false`) não interfere e não altera o status do produto no Catálogo Digital (`status: published/hidden`), e vice-versa.
+- **Produtos Desativados na Lista Normal:** Produtos desativados permanecem na listagem normal com selo próprio, sem isolamento em aba separada.
+- **Botões Bipartidos Padronizados:** Implementados novos botões/pills bipartidos (`ERP` azul com `Ativo`/`Inativo`, `Catálogo` roxo com `Publicado`/`Oculto`) na Tabela (`ProductRow`), nos Cards (`ProductCard`) e na listagem de variações filhas.
+- **Ação Rápida de Ativação:** Ação de ativar/desativar removida do menu de 3 pontinhos e incorporada diretamente no clique do botão `ERP`.
+- **Coluna Renomeada:** Coluna atualizada para **"Status de Canais"** na tabela e nas preferências de visualização.
+
+#### ⚡ Flexibilização de Requisitos de Ativação no ERP
+- **Custo Desobrigado na Ativação:** Preço de custo não é mais obrigatório para ativar produtos ou variações no ERP (o custo é lançado na compra ou saldo inicial).
+- **Alerta Específico de Pendências:** Mensagem de erro ao tentar ativar exibe dinamicamente apenas os campos realmente faltantes (ex: `nome do produto`, `preço de venda`, `categoria`, `fornecedor`).
+
+#### 🧹 Limpeza da Barra Lateral de Produtos
+- **Remoção da Visibilidade de Colunas:** Eliminada a sanfona de visibilidade de colunas na sidebar de produtos, tornando a interface mais limpa e mantendo todas as colunas padrão ativas.
+
+#### 🔏 Assinatura Digital ICP-Brasil / A1 com QR Code no Recibo
+- **Substituição da Assinatura Manual:** Removida a linha de assinatura manual a caneta do recibo de venda (`ReceiptPage`).
+- **Carimbo Digital Oficial:** Implementado componente `DigitalSignatureBadge` com padrão ICP-Brasil / A1, dados da empresa, responsável emissor, hash criptográfico determinístico e QR Code dinâmico via `bwip-js` para validação pública instantânea.
+
+#### 📝 Observações por Item no Pedido de Venda (`item.observation`)
+- **Campo de Observação nos Itens:** Suporte a notas específicas por item (cor, detalhe técnico, pedido especial do cliente) na tabela desktop e nos cards mobile.
+- **Concatenação nos Comprovantes e WhatsApp:** Observações são automaticamente concatenadas com `" - "` na descrição do produto em folhas de pedido impressas, ordens de serviço, mensagens automáticas de WhatsApp e recibos.
+
+#### 👤 Vendedores em Pedidos Restritos a Colaboradores Habilitados
+- **Validação Estrita (`isValidEmployee`):** Apenas colaboradores cadastrados com perfil de acesso ativo no sistema são listados para seleção como vendedor da venda.
+
+#### 🖼️ Editor de Fotos 1:1 e Recorte com Proxy Anti-CORS
+- **Fotos Padronizadas:** Recorte proporcional 1:1, moldura de expansão branca sem linhas ou bordas internas, e cards de fotos com cantos retos (`rounded-none`).
+- **Bypass de CORS:** Implementado proxy de imagens para contornar bloqueios de CORS em buckets Cloudflare R2 e evitar erro de canvas tainted na exportação.
 
 ### Concluído Recentemente (Agosto 2026)
 
@@ -220,5 +278,15 @@ Este documento unifica todo o planejamento estratégico, ideias futuras, tarefas
 #### Logística & Sincronização Híbrida
 - **Estoque Híbrido:** Integração de `showroomStock` e `warehouseStock` ao ERP.
 - **AI Profit Margin + Fee:** Inclusão de taxa de cartão (4%) nas sugestões financeiras da IA.
-- **Dimensional Weight & LTL:** Cálculo de peso volumétrico integrado e alertas de carga LTL (> 68kg).
-- **Label Printing System:** Visual premium para etiquetas, botão "Baixar PNG" e layout vertical com QR Code maximizado.
+#### 🖼️ Editor & Recorte de Fotos do Produto (1:1 + Moldura Branca)
+- **Recorte Livre & Moldura Branca Simultâneos**: Permite ajustar livremente o enquadramento 1:1 e controlar a margem branca (0% por padrão) para estender fotos sem corte.
+- **Proxy Anti-CORS para Canvas**: Rota `/api/proxy-image` no Digital Catalog e proxy local no Vite para contornar o bloqueio de CORS de domínios R2 e evitar o erro `Tainted canvases may not be exported` no recorte de fotos.
+- **Auto-Ajuste Proporcional**: Exportação padronizada em 1080 × 1080 px com compressão otimizada para catálogo digital e ERP.
+
+#### 👤 Vendedores em Pedidos de Venda
+- **Filtro Estrito de Colaboradores com Acesso (`isValidEmployee`)**: Apenas colaboradores ativos cadastrados com perfil de acesso válido (administrador, gestor, estoquista, vendedor, entregador, etc.) e sem restrição `pending` são listados no campo de seleção de vendedor e no modal de busca de atendentes.
+
+#### 📝 Observações por Item no Pedido de Venda
+- **Campo de Observação do Item**: Adicionado campo `observation` em cada item do pedido (com suporte na tabela desktop e card mobile), persistindo detalhes como cor, acabamento e especificações do cliente.
+- **Concatenação na Impressão e WhatsApp**: O texto preenchido nas observações do item é exibido automaticamente ao lado da descrição do produto separado por `" - "` no papel de pedido (`/order`), no recibo de venda (`/receipt`), na impressão de ordens de serviço e nas mensagens formatadas de WhatsApp enviadas ao cliente e logística.
+

@@ -136,4 +136,86 @@ export const systemDocumentation: DocumentationSection[] = [
         ],
         flow: [{ title: "Iniciar", detail: "Responsável e itens compõem a contagem." }, { title: "Salvar andamento", detail: "Alterações da contagem são persistidas." }, { title: "Finalizar", detail: "Divergências viram ajustes auditáveis." }],
     },
+    {
+        title: "Catálogo Digital e Status de Canais",
+        icon: "bi-shop-window",
+        summary: "Os canais de venda (ERP e Catálogo Digital) operam de maneira 100% independente para flexibilidade comercial.",
+        rules: [
+            "O estado do produto no ERP (Ativo / Inativo) não interfere no Catálogo Digital (Publicado / Ocultado), e vice-versa.",
+            "Produtos desativados no ERP permanecem na listagem normal com selo indicativo, sem aba isolada.",
+            "Botões bipartidos de 'Status de Canais' permitem alternar ERP e Catálogo em 1 clique tanto na tabela quanto nos cards e variações.",
+            "Para ativar no ERP, são validados Nome, Preço de Venda, Categoria e Fornecedor. Preço de custo não é exigido previamente (é alimentado por compras ou saldo inicial).",
+            "O alerta de ativação destaca especificamente apenas os campos que estiverem de fato faltando.",
+        ],
+        flow: [
+            { title: "Status ERP", detail: "Controla se o produto está ativo para novos pedidos." },
+            { title: "Status Catálogo", detail: "Controla a visibilidade na vitrine online pública." },
+            { title: "Independência", detail: "Desativar no ERP preserva o catálogo e vice-versa." },
+        ],
+    },
+    {
+        title: "Recibos e Assinatura Digital ICP-Brasil",
+        icon: "bi-shield-check",
+        summary: "Recibos de venda possuem carimbo de autenticidade criptográfica e QR Code público para validação em conformidade técnica.",
+        rules: [
+            "Assinatura manual do vendedor foi eliminada do recibo de venda.",
+            "O recibo traz carimbo oficial padrão ICP-Brasil / A1 com dados da empresa, emissor responsável e hash determinístico da venda.",
+            "QR Code dinâmico gerado via biblioteca criptográfica permite ao cliente ou terceiro escanear e consultar a autenticidade do documento.",
+            "Observações por item são concatenadas com ' - ' na descrição do produto em recibos, folhas de pedido, ordens de serviço e mensagens de WhatsApp.",
+        ],
+        flow: [
+            { title: "Venda concluída", detail: "Gera identificador determinístico para o recibo." },
+            { title: "Carimbo ICP-Brasil", detail: "Emite certificado digital com dados do emissor." },
+            { title: "QR Code Dinâmico", detail: "Permite leitura e validação pública instantânea." },
+        ],
+    },
+    {
+        title: "Emissão Fiscal SEFAZ-PR Direta",
+        icon: "bi-file-earmark-lock2-fill",
+        summary: "Emissão e comunicação direta com a SEFAZ-PR para NF-e e NFC-e sem necessidade de APIs ou intermediários pagos.",
+        rules: [
+            "Comunicação SOAP HTTPS mTLS diretamente com os servidores da Receita Estadual do Paraná.",
+            "Autenticação e assinatura de lote XML via Certificado Digital A1 no padrão W3C XMLDSig.",
+            "Isolamento rigoroso de ambiente: Homologação (tpAmb: 2) para testes e Produção (tpAmb: 1) para operações fiscais reais.",
+            "Tratamento automático de duplicidades (Rejeição 204) e contingência offline com retransmissão síncrona.",
+        ],
+        flow: [
+            { title: "Montagem do XML", detail: "Gera estrutura tributária conforme NCM, CSOSN e CFOP do pedido." },
+            { title: "Assinatura A1", detail: "Aplica certificado digital e calcula digest value do lote." },
+            { title: "Transmissão SEFAZ", detail: "Envia lote mTLS e recebe protocolo de autorização." },
+        ],
+    },
+    {
+        title: "Aplicativo Mobile e Operações Offline-First",
+        icon: "bi-phone-vibrate-fill",
+        summary: "Arquitetura resiliente focada no risco operacional de campo (entregas, montagens e conferência de almoxarifado).",
+        rules: [
+            "Offline-first restrito à operação de campo: entregas, montagens, checklists, fotos, assinaturas e contagem de inventário.",
+            "Gravação por eventos atômicos de negócio com UUID idempotente, timestamp e ciclo de 4 estados: PENDING → SYNCING → CONFIRMED / REJECTED.",
+            "O estado REJECTED interrompe retentativas automáticas e alerta o operador sobre inconsistência de negócio.",
+            "Fila de upload separada para mídias pesadas (fotos comprimidas), garantindo agilidade na transmissão de eventos de texto.",
+            "O backend é a autoridade estrita e final para validação de regras de negócio e lançamentos de estoque.",
+        ],
+        flow: [
+            { title: "Registro Local", detail: "Evento gerado e gravado no SQLite em estado PENDING." },
+            { title: "Sincronização", detail: "Gerenciador em segundo plano transmite lote quando há rede (SYNCING)." },
+            { title: "Autoridade Backend", detail: "Backend valida e confirma (CONFIRMED) ou rejeita com justificativa (REJECTED)." },
+        ],
+    },
+    {
+        title: "Colaboradores, Vendedores e Segurança",
+        icon: "bi-person-badge",
+        summary: "Governança de acessos, elegibilidade de vendedores e preservação histórica de autoria nas vendas.",
+        rules: [
+            "Apenas pessoas cadastradas como colaboradores ativos com perfil de acesso válido aparecem como opções de vendedor na venda.",
+            "O pedido grava um snapshot permanente do identificador (sellerId) e do nome do vendedor (seller), preservando o histórico para comissões.",
+            "A alteração posterior de dados do colaborador não corrompe nem altera o histórico de vendas já realizadas.",
+            "Geração obrigatória de código sequencial único de 6 dígitos (#000000) com blindagem contra sobrescritas acidentais.",
+        ],
+        flow: [
+            { title: "Colaborador Ativo", detail: "Verifica elegibilidade e credenciais de acesso no ERP." },
+            { title: "Seleção na Venda", detail: "Vendedor selecionado no formulário de novo pedido." },
+            { title: "Snapshot Histórico", detail: "Grava sellerId e seller imutáveis no pedido para relatórios e auditoria." },
+        ],
+    },
 ];

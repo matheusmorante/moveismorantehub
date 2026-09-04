@@ -457,12 +457,14 @@ const OrderHistoryRow = ({
                                     <i className={`bi ${tIcon} text-[11px] text-white`} />
                                 </div>
 
-                                {/* Stock Processed Indicator (Saída lançada = PackageCheck verde / Estornada = Package vermelho / Não lançada = Package cinza) */}
+                                {/* Stock Processed Indicator (Saída total = verde / Saída parcial = amarelo / Estornada = vermelho / Não lançada = cinza) */}
                                 {(order.orderType === 'sale' || order.orderType === 'showroom' || order.orderType === 'return') && (
                                     <InventoryMovementBadge 
                                         orderType={order.orderType} 
+                                        order={order}
                                         hasMovement={order.orderType === 'return' ? Boolean(order.returnStockProcessed) : Boolean(order.stockProcessed)} 
                                         isReversed={order.orderType === 'return' ? Boolean(order.returnStockReversed) : Boolean(order.stockReversed)}
+                                        isPartial={order.isPartialStockProcessed}
                                     />
                                 )}
 

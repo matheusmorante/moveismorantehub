@@ -11,6 +11,7 @@ interface Props {
 }
 
 import { normalizeSearchTerm } from "@/pages/utils/textUtils";
+import { isValidEmployee } from '@/pages/utils/accessRoles';
 
 const SellerSearchModal = ({ onSelect, onClose, anchorRef, onAddNew }: Props) => {
     const [searchTerm, setSearchTerm] = useState('');
@@ -21,9 +22,9 @@ const SellerSearchModal = ({ onSelect, onClose, anchorRef, onAddNew }: Props) =>
 
     useEffect(() => {
         const unsub = subscribeToPeople('employees', (data) => {
-            const activeEmployees = data.filter(e => e.active);
-            setEmployees(activeEmployees);
-            setFilteredEmployees(activeEmployees);
+            const validEmployees = data.filter(e => isValidEmployee(e));
+            setEmployees(validEmployees);
+            setFilteredEmployees(validEmployees);
             setLoading(false);
         });
         return unsub;

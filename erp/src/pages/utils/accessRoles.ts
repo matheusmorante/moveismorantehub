@@ -21,3 +21,26 @@ export const getPrimaryRole = (roles: UserRole[]): UserRole =>
 
 export const roleLabel = (role: UserRole) =>
     SYSTEM_ROLES.find(([value]) => value === role)?.[1] || 'Sem acesso';
+
+/**
+ * Verifica se um registro de pessoa é um colaborador válido e ativo para seleção (ex: vendedor, atendente).
+ * Requer estar ativo, não deletado, ser do tipo 'employees' ou possuir cargo/role válido (não 'pending').
+ */
+export const isValidEmployee = (person?: any): boolean => {
+    if (!person || person.active === false || person.deleted === true) return false;
+    
+    // Obter papéis/roles
+    const rolesList: UserRole[] = Array.isArray(person.roles) && person.roles.length > 0
+        ? person.roles
+        : (person.role ? [person.role] : []);
+
+    const hasValidRole = rolesList.some(r => r && r !== 'pending');
+    const isEmployeeType = person.type === 'employees' || person.person_type === 'employees';
+    
+    // Se for do tipo employees e possuir role 'pending' exclusiva, não tem acesso
+    if (rolesList.length === 1 && rolesList[0] === 'pending') {
+        return false;
+    }
+
+    return isEmployeeType || hasValidRole;
+};

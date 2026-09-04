@@ -561,21 +561,17 @@ export const fetchProductsPage = async (
 
         query = query.eq('deleted', false);
 
-        // 3 Estados exclusivos no ERP: Ativo, Desativado ou Rascunho
+        // Rascunhos agora aparecem na listagem normal por padrão
         if (options?.isDraft === true) {
-            // RASCUNHO: Apenas rascunhos (is_draft = true ou status = 'draft')
             query = query.or('is_draft.eq.true,status.eq.draft');
-        } else {
-            // NÃO É RASCUNHO: Deve ser produto com cadastro concluído
+        } else if (options?.isDraft === false) {
             query = query.not('is_draft', 'is', true).neq('status', 'draft');
+        }
 
-            if (showTrash || options?.activeOnly === false) {
-                // DESATIVADO: Cadastro concluído e desativado no ERP (NUNCA rascunho)
-                query = query.eq('active', false);
-            } else if (options?.activeOnly === true) {
-                // ATIVO: Cadastro concluído e ativo no ERP (NUNCA rascunho nem desativado)
-                query = query.eq('active', true);
-            }
+        if (options?.activeOnly === false) {
+            query = query.eq('active', false);
+        } else if (options?.activeOnly === true) {
+            query = query.eq('active', true);
         }
 
         query = query
@@ -1416,11 +1412,11 @@ export const bulkPermanentDeleteProducts = async (ids: string[]): Promise<{ succ
 };
 
 export const deactivateProduct = async (id: string): Promise<void> => {
-    await updateProduct(id, { active: false, deleted: true, status: 'hidden' });
+    await updateProduct(id, { active: false, deleted: false });
 };
 
 export const activateProduct = async (id: string): Promise<void> => {
-    await updateProduct(id, { active: true, deleted: false, status: 'published' });
+    await updateProduct(id, { active: true, deleted: false });
 };
 
 export const moveToTrash = async (id: string): Promise<void> => {

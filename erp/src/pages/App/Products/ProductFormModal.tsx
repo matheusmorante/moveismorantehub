@@ -322,9 +322,6 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
             if (!data.unitPrice || data.unitPrice <= 0) {
                 errors.push("Preço de Venda deve ser maior que zero.");
             }
-            if (!data.costPrice || data.costPrice <= 0) {
-                errors.push("Preço de Custo Final deve ser maior que zero.");
-            }
             if (data.promoPrice !== undefined && data.promoPrice !== null && !isNaN(data.promoPrice) && data.promoPrice > 0) {
                 const up = data.unitPrice || 0;
                 if (data.promoPrice >= up) {
@@ -350,8 +347,7 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
                 description: !!data.description && data.description.trim().length >= 2,
                 unitPrice: hasVars ? (data.variations && data.variations.length > 0) : (!!data.unitPrice && data.unitPrice > 0),
                 categories: !!data.categoryIds && data.categoryIds.length > 0,
-                supplier: !!data.mainSupplierId,
-                costPrice: hasVars ? true : (!!data.costPrice && data.costPrice > 0)
+                supplier: !!data.mainSupplierId
             }
         };
     }, []);
