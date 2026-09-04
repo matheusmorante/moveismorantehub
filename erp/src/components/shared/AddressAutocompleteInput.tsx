@@ -42,7 +42,7 @@ export const AddressAutocompleteInput: React.FC<Props> = ({
     cityHint,
     stateHint = 'PR',
     label = 'Logradouro',
-    placeholder = 'Ex: Rua das Flores, Avenida Brasil...',
+    placeholder = 'Ex: Rua das Flores, Avenida Brasil, Travessa, Marginal...',
     required = false,
     routeUrl,
     disabled = false,
@@ -88,12 +88,12 @@ export const AddressAutocompleteInput: React.FC<Props> = ({
                     const results = await searchAddressSuggestions(val, cityHint, stateHint);
                     if (lastSearchValRef.current === val) {
                         setSuggestions(results);
-                        setIsOpen(results.length > 0);
+                        setIsOpen(true);
                     }
                 } catch {
                     if (lastSearchValRef.current === val) {
                         setSuggestions([]);
-                        setIsOpen(false);
+                        setIsOpen(true);
                     }
                 } finally {
                     if (lastSearchValRef.current === val) {
@@ -153,7 +153,7 @@ export const AddressAutocompleteInput: React.FC<Props> = ({
             cep,
             placeId: suggestion.place_id,
             coords,
-            mapsUrl: generatedMapsUrl,
+            mapsUrl: mapsUrl || undefined, // Preserva o link manual se existir, sem auto-preencher link automático
             formattedAddress: suggestion.display_name,
         });
     };

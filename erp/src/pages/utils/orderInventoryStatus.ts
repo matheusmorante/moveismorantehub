@@ -10,7 +10,7 @@ export const applyActualInventoryStatus = async (orders: Order[]): Promise<Order
 
     const { data, error } = await supabase
         .from('inventory_moves')
-        .select('order_id, type, observation, reason, status, product_id')
+        .select('order_id, type, observation, reason, product_id')
         .in('order_id', orderIds);
 
     if (error) {

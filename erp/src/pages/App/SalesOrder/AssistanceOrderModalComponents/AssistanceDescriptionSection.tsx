@@ -49,15 +49,14 @@ const AssistanceDescriptionSection = ({
                 </div>
             )}
         </div>
-        <div className="flex flex-col gap-2 mt-4 px-1">
+        <div className="flex flex-col gap-2 mt-2">
             <NoticeInput
-                label="Avisos Importantes / Alertas"
+                label="Observações Importantes"
                 value={observation}
                 onChange={setObservation}
-                placeholder="Alertas de entrega, observações críticas ou raridade..."
+                placeholder="Digite uma observação e pressione Enter..."
             />
         </div>
-
     </div>
 );
 

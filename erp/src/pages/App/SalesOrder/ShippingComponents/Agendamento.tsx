@@ -8,9 +8,11 @@ interface AgendamentoProps {
     errors: ValidationErrors;
     isPickup?: boolean;
     hideSchedulingShortcuts?: boolean;
+    hideNotice?: boolean;
+    title?: string;
 }
 
-const Agendamento = ({ scheduling, onChangeScheduling, errors, isPickup, hideSchedulingShortcuts }: AgendamentoProps) => {
+const Agendamento = ({ scheduling, onChangeScheduling, errors, isPickup, hideSchedulingShortcuts, hideNotice, title }: AgendamentoProps) => {
     if (!scheduling) return null;
     const hasError = errors['shipping_date'] || errors['shipping_time'];
     const onScheduleChange = (key: keyof Shipping['scheduling'], value: string | Date | boolean) => {
@@ -22,7 +24,7 @@ const Agendamento = ({ scheduling, onChangeScheduling, errors, isPickup, hideSch
         <div className="flex-1 flex flex-col min-w-0">
             <div className="flex items-center justify-between mb-4 ml-1">
                 <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">
-                    {isPickup ? 'Agendamento da Retirada' : 'Agendamento da Entrega'}
+                    {title || (isPickup ? 'Agendamento da Retirada' : 'Agendamento da Entrega')}
                 </label>
                 
                 {!hideSchedulingShortcuts && <div className="flex items-center gap-2">
@@ -92,7 +94,7 @@ const Agendamento = ({ scheduling, onChangeScheduling, errors, isPickup, hideSch
                     </div>
                 )}
 
-                {!scheduling.notInformed ? (
+                {(!scheduling.notInformed || hideNotice) ? (
                     <div className={`flex flex-col gap-6 w-full transition-all duration-300 ${scheduling.pendingScheduling ? 'opacity-40 grayscale-[0.5] pointer-events-none' : ''}`}>
                         {/* Section 1: DATE */}
                         <div className="flex flex-col gap-3">

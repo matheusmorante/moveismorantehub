@@ -50,26 +50,39 @@ const AddressVerificationMap = ({ address }: AddressVerificationMapProps) => {
                         duration: `${routeResult.durationMinutes} min`
                     });
                     
-                    // Update map route
-                    if (map.current && routeResult.routeGeoJSON) {
-                        if (map.current.getSource('route')) {
-                            (map.current.getSource('route') as maplibregl.GeoJSONSource).setData(routeResult.routeGeoJSON);
+                    // Update map route de forma segura
+                    const addRouteToMap = () => {
+                        if (!map.current || !routeResult.routeGeoJSON) return;
+                        try {
+                            if (map.current.getSource('route')) {
+                                (map.current.getSource('route') as maplibregl.GeoJSONSource).setData(routeResult.routeGeoJSON);
+                            } else {
+                                map.current.addSource('route', {
+                                    type: 'geojson',
+                                    data: {
+                                        type: 'Feature',
+                                        properties: {},
+                                        geometry: routeResult.routeGeoJSON
+                                    }
+                                });
+                                map.current.addLayer({
+                                    id: 'route',
+                                    type: 'line',
+                                    source: 'route',
+                                    layout: { 'line-join': 'round', 'line-cap': 'round' },
+                                    paint: { 'line-color': '#2563eb', 'line-width': 5, 'line-opacity': 0.8 }
+                                });
+                            }
+                        } catch (err) {
+                            console.warn("Aguardando carregamento do estilo do mapa para desenhar rota:", err);
+                        }
+                    };
+
+                    if (map.current) {
+                        if (map.current.isStyleLoaded()) {
+                            addRouteToMap();
                         } else {
-                            map.current.addSource('route', {
-                                type: 'geojson',
-                                data: {
-                                    type: 'Feature',
-                                    properties: {},
-                                    geometry: routeResult.routeGeoJSON
-                                }
-                            });
-                            map.current.addLayer({
-                                id: 'route',
-                                type: 'line',
-                                source: 'route',
-                                layout: { 'line-join': 'round', 'line-cap': 'round' },
-                                paint: { 'line-color': '#3b82f6', 'line-width': 5, 'line-opacity': 0.6 }
-                            });
+                            map.current.once('styledata', addRouteToMap);
                         }
                     }
                 } else {
@@ -78,6 +91,11 @@ const AddressVerificationMap = ({ address }: AddressVerificationMapProps) => {
                         setCoords(geoResult.coords);
                         setIsPrecision(geoResult.isPrecision);
                         setRouteInfo(null);
+                        
+                        // Centralizar o mapa no ponto localizado
+                        if (map.current) {
+                            map.current.flyTo({ center: geoResult.coords, zoom: 14 });
+                        }
                     } else {
                         setCoords(null);
                         setIsPrecision(false);

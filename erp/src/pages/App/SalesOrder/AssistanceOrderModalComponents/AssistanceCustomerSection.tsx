@@ -1,25 +1,24 @@
 import React from "react";
-import SmartInput from "../../../../components/SmartInput";
+import CustomerDataInputs from "../CustomerData";
 import { PatternFormat as PatternFormatBase } from "react-number-format";
 const PatternFormat = PatternFormatBase as any;
 
 import CustomerData from "../../../types/customerData.type";
 import AddressVerificationMap from "../AddressVerificationMap";
+import { AddressAutocompleteInput } from "@/components/shared/AddressAutocompleteInput";
+import SmartInput from "../../../../components/SmartInput";
 
 interface AssistanceCustomerSectionProps {
     customerData: CustomerData;
     setCustomerData: (val: CustomerData) => void;
-    onOpenSearch: () => void;
+    onOpenSearch?: () => void;
     errors: Record<string, string>;
     isLinked?: boolean;
 }
 
-import { AddressAutocompleteInput } from "@/components/shared/AddressAutocompleteInput";
-
 const AssistanceCustomerSection = ({
     customerData,
     setCustomerData,
-    onOpenSearch,
     errors,
     isLinked
 }: AssistanceCustomerSectionProps) => {
@@ -35,186 +34,166 @@ const AssistanceCustomerSection = ({
     };
 
     return (
-    <div className="flex flex-col gap-4">
-        <h3 className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 flex items-center gap-2">
-            <i className="bi bi-person-fill text-amber-500" />
-            Dados do Cliente
-        </h3>
+        <div className="flex flex-col gap-4">
+            <h3 className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 flex items-center gap-2">
+                <i className="bi bi-person-fill text-amber-500" />
+                Dados do Cliente
+            </h3>
 
-        <div className="flex flex-col gap-2 relative group/field">
-            <SmartInput
-                 label="Nome do Cliente *"
-                 required
-                 value={customerData.fullName}
-                 onValueChange={(val: string) => updateCustomer('fullName', val)}
-                 tableName="people"
-                 columnName="fullName"
-                 placeholder="Ex: João da Silva"
-                 icon="bi-person"
-                 error={!!errors.customer_fullName}
+            <CustomerDataInputs
+                customerData={customerData}
+                setCustomerData={setCustomerData as any}
+                errors={errors}
+                isPickup={false}
             />
-            {errors.customer_fullName && (
-                <div className="absolute left-0 -top-7 hidden group-hover/field:flex items-center px-2 py-1 bg-red-500 text-white text-[9px] font-black uppercase rounded shadow-lg z-50 whitespace-nowrap animate-fade-in">
-                    {errors.customer_fullName}
-                    <div className="absolute -bottom-1 left-4 w-2 h-2 bg-red-500 rotate-45" />
-                </div>
-            )}
-            <button
-                type="button"
-                onClick={onOpenSearch}
-                className="absolute right-3 top-[34px] p-2 text-slate-400 hover:text-blue-600 transition-colors"
-                title="Busca Avançada"
-            >
-                <i className="bi bi-search text-xs"></i>
-            </button>
-        </div>
 
-        <div className="flex flex-col gap-2 relative group/field">
-            <div className="flex items-center justify-between">
-                <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400">
-                    Telefone / WhatsApp {!customerData.noPhone && <span className="text-red-500">*</span>}
-                </label>
-                <button
-                    type="button"
-                    onClick={() => {
-                        const newVal = !customerData.noPhone;
+            <div className="flex flex-col gap-2 relative group/field">
+                <div className="flex items-center justify-between">
+                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400">
+                        Telefone / WhatsApp {!customerData.noPhone && <span className="text-red-500">*</span>}
+                    </label>
+                    <button
+                        type="button"
+                        onClick={() => {
+                            const newVal = !customerData.noPhone;
+                            setCustomerData({
+                                ...customerData,
+                                noPhone: newVal,
+                                phone: newVal ? "" : customerData.phone
+                            });
+                        }}
+                        className={`text-[9px] font-black uppercase tracking-widest px-2 py-1 rounded-lg transition-all ${customerData.noPhone ? 'bg-red-100 text-red-600 dark:bg-red-900/40 dark:text-red-400' : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'}`}
+                    >
+                        {customerData.noPhone ? <><i className="bi bi-phone-mute mr-1"></i> S/ Telefone</> : 'Não possui?'}
+                    </button>
+                </div>
+                <div className="flex gap-2">
+                    <PatternFormat
+                        format="(##) #####-####"
+                        type="tel"
+                        value={customerData.phone}
+                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => updateCustomer('phone', e.target.value)}
+                        placeholder={customerData.noPhone ? "NÃO POSSUI TELEFONE" : "(00) 00000-0000"}
+                        disabled={customerData.noPhone}
+                        className={`w-full border-b-2 bg-transparent py-2 px-1 text-sm font-bold text-slate-700 dark:text-slate-300 focus:outline-none transition-all ${errors.customer_phone && !customerData.noPhone ? 'border-red-500' : 'border-slate-200 dark:border-slate-800 focus:border-amber-400'} ${customerData.noPhone ? 'opacity-50 grayscale' : ''}`}
+                    />
+                    <button type="button"
+                        onClick={() => {
+                            if (!customerData.phone || customerData.noPhone) return;
+                            const cleanPhone = customerData.phone.replace(/\D/g, '');
+                            const finalPhone = cleanPhone.length >= 10 && cleanPhone.length <= 11 ? `55${cleanPhone}` : cleanPhone;
+                            window.open(`https://wa.me/${finalPhone}`, '_blank');
+                        }}
+                        disabled={customerData.noPhone}
+                        title="Verificar WhatsApp"
+                        className={`shrink-0 w-12 flex items-center justify-center bg-[#25D366] hover:bg-[#128C7E] text-white rounded-2xl transition-all shadow-sm shadow-[#25D366]/30 active:scale-95 ${customerData.noPhone ? 'opacity-50 grayscale pointer-events-none' : ''}`}
+                    >
+                        <i className="bi bi-whatsapp text-lg"></i>
+                    </button>
+                </div>
+                {errors.customer_phone && !customerData.noPhone && (
+                    <div className="absolute left-0 -top-7 hidden group-hover/field:flex items-center px-2 py-1 bg-red-500 text-white text-[9px] font-black uppercase rounded shadow-lg z-50 whitespace-nowrap animate-fade-in">
+                        {errors.customer_phone}
+                        <div className="absolute -bottom-1 left-4 w-2 h-2 bg-red-500 rotate-45" />
+                    </div>
+                )}
+            </div>
+
+            {/* Address Fields */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <AddressAutocompleteInput
+                    value={customerData.fullAddress?.street || ""}
+                    onChange={val => updateAddress('street', val)}
+                    onSelectAddress={data => {
                         setCustomerData({
                             ...customerData,
-                            noPhone: newVal,
-                            phone: newVal ? "" : customerData.phone
+                            fullAddress: {
+                                ...customerData.fullAddress,
+                                street: data.street,
+                                neighborhood: data.neighborhood || customerData.fullAddress?.neighborhood || "",
+                                city: data.city || customerData.fullAddress?.city || "",
+                                state: data.state || customerData.fullAddress?.state || "PR",
+                                cep: data.cep || customerData.fullAddress?.cep || "",
+                                number: data.number || customerData.fullAddress?.number || "",
+                                mapsUrl: data.mapsUrl || customerData.fullAddress?.mapsUrl
+                            }
                         });
                     }}
-                    className={`text-[9px] font-black uppercase tracking-widest px-2 py-1 rounded-lg transition-all ${customerData.noPhone ? 'bg-red-100 text-red-600 dark:bg-red-900/40 dark:text-red-400' : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'}`}
-                >
-                    {customerData.noPhone ? <><i className="bi bi-phone-mute mr-1"></i> S/ Telefone</> : 'Não possui?'}
-                </button>
-            </div>
-            <div className="flex gap-2">
-                <PatternFormat
-                    format="(##) #####-####"
-                    type="tel"
-                    value={customerData.phone}
-                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => updateCustomer('phone', e.target.value)}
-                    placeholder={customerData.noPhone ? "NÃO POSSUI TELEFONE" : "(00) 00000-0000"}
-                    disabled={customerData.noPhone}
-                    className={`w-full px-4 py-3 bg-slate-50 dark:bg-slate-950 border rounded-2xl text-sm font-bold text-slate-700 dark:text-slate-300 focus:outline-none transition-all ${errors.customer_phone && !customerData.noPhone ? 'border-red-500 ring-2 ring-red-500/10' : 'border-slate-100 dark:border-slate-800 focus:ring-2 focus:ring-amber-400'} ${customerData.noPhone ? 'opacity-50 grayscale' : ''}`}
+                    cityHint={customerData.fullAddress?.city}
+                    stateHint={customerData.fullAddress?.state || "PR"}
+                    label="Rua"
+                    variant="underline"
+                    placeholder="Ex: Rua das Flores"
+                    className="flex flex-col gap-2 relative group/field sm:col-span-2"
                 />
-                <button type="button"
-                    onClick={() => {
-                        if (!customerData.phone || customerData.noPhone) return;
-                        const cleanPhone = customerData.phone.replace(/\D/g, '');
-                        const finalPhone = cleanPhone.length >= 10 && cleanPhone.length <= 11 ? `55${cleanPhone}` : cleanPhone;
-                        window.open(`https://wa.me/${finalPhone}`, '_blank');
-                    }}
-                    disabled={customerData.noPhone}
-                    title="Verificar WhatsApp"
-                    className={`shrink-0 w-12 flex items-center justify-center bg-[#25D366] hover:bg-[#128C7E] text-white rounded-2xl transition-all shadow-sm shadow-[#25D366]/30 active:scale-95 ${customerData.noPhone ? 'opacity-50 grayscale pointer-events-none' : ''}`}
-                >
-                    <i className="bi bi-whatsapp text-lg"></i>
-                </button>
-            </div>
-            {errors.customer_phone && !customerData.noPhone && (
-                <div className="absolute left-0 -top-7 hidden group-hover/field:flex items-center px-2 py-1 bg-red-500 text-white text-[9px] font-black uppercase rounded shadow-lg z-50 whitespace-nowrap animate-fade-in">
-                    {errors.customer_phone}
-                    <div className="absolute -bottom-1 left-4 w-2 h-2 bg-red-500 rotate-45" />
+                <div className="flex flex-col gap-2 relative group/field">
+                    <SmartInput
+                         label="Número"
+                         value={customerData.fullAddress.number}
+                         onValueChange={(val: string) => updateAddress('number', val)}
+                         tableName="people"
+                         columnName="number"
+                         placeholder="Ex: 123"
+                    />
                 </div>
-            )}
-        </div>
+                <div className="flex flex-col gap-2 relative group/field">
+                    <SmartInput
+                         label="Bairro"
+                         value={customerData.fullAddress.neighborhood}
+                         onValueChange={(val: string) => updateAddress('neighborhood', val)}
+                         tableName="people"
+                         columnName="neighborhood"
+                         placeholder="Ex: Centro"
+                         icon="bi-geo"
+                    />
+                </div>
+                <div className="flex flex-col gap-2 relative group/field">
+                    <SmartInput
+                         label="Cidade"
+                         value={customerData.fullAddress.city}
+                         onValueChange={(val: string) => updateAddress('city', val)}
+                         tableName="people"
+                         columnName="city"
+                         placeholder="Ex: Colombo"
+                         icon="bi-building"
+                    />
+                </div>
+                <div className="flex flex-col gap-2 relative group/field">
+                    <SmartInput
+                         label="Estado (UF)"
+                         value={customerData.fullAddress?.state || "PR"}
+                         onValueChange={(val: string) => updateAddress('state', val.toUpperCase())}
+                         tableName="people"
+                         columnName="state"
+                         placeholder="PR"
+                         maxLength={2}
+                    />
+                </div>
+                <div className="flex flex-col gap-2 relative group/field sm:col-span-2">
+                    <SmartInput
+                         label="CEP"
+                         value={customerData.fullAddress.cep}
+                         onValueChange={(val: string) => updateAddress('cep', val)}
+                         tableName="people"
+                         columnName="cep"
+                         placeholder="00000-000"
+                    />
+                </div>
+            </div>
 
-        {/* Address Fields */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="flex flex-col gap-2 relative group/field sm:col-span-2">
-                <SmartInput
-                     label="Bairro"
-                     value={customerData.fullAddress.neighborhood}
-                     onValueChange={(val: string) => updateAddress('neighborhood', val)}
-                     tableName="people"
-                     columnName="neighborhood"
-                     placeholder="Ex: Centro"
-                     icon="bi-geo"
-                />
-            </div>
-            <AddressAutocompleteInput
-                value={customerData.fullAddress?.street || ""}
-                onChange={val => updateAddress('street', val)}
-                onSelectAddress={data => {
-                    setCustomerData({
-                        ...customerData,
-                        fullAddress: {
-                            ...customerData.fullAddress,
-                            street: data.street,
-                            neighborhood: data.neighborhood || customerData.fullAddress?.neighborhood || "",
-                            city: data.city || customerData.fullAddress?.city || "",
-                            state: data.state || customerData.fullAddress?.state || "PR",
-                            cep: data.cep || customerData.fullAddress?.cep || "",
-                            number: data.number || customerData.fullAddress?.number || "",
-                            mapsUrl: data.mapsUrl || customerData.fullAddress?.mapsUrl
-                        }
-                    });
-                }}
-                cityHint={customerData.fullAddress?.city}
-                stateHint={customerData.fullAddress?.state || "PR"}
-                label="Rua"
-                placeholder="Ex: Rua das Flores"
-                className="flex flex-col gap-2 relative group/field"
-            />
-            <div className="flex flex-col gap-2 relative group/field">
-                <SmartInput
-                     label="Número"
-                     value={customerData.fullAddress.number}
-                     onValueChange={(val: string) => updateAddress('number', val)}
-                     tableName="people"
-                     columnName="number"
-                     placeholder="Ex: 123"
-                />
-            </div>
-            <div className="flex flex-col gap-2 relative group/field">
-                <SmartInput
-                     label="Cidade"
-                     value={customerData.fullAddress.city}
-                     onValueChange={(val: string) => updateAddress('city', val)}
-                     tableName="people"
-                     columnName="city"
-                     placeholder="Ex: Colombo"
-                     icon="bi-building"
-                />
-            </div>
-            <div className="flex flex-col gap-2 relative group/field">
-                <SmartInput
-                     label="Estado (UF)"
-                     value={customerData.fullAddress?.state || "PR"}
-                     onValueChange={(val: string) => updateAddress('state', val.toUpperCase())}
-                     tableName="people"
-                     columnName="state"
-                     placeholder="PR"
-                     maxLength={2}
-                />
-            </div>
-            <div className="flex flex-col gap-2 relative group/field">
-                <SmartInput
-                     label="CEP"
-                     value={customerData.fullAddress.cep}
-                     onValueChange={(val: string) => updateAddress('cep', val)}
-                     tableName="people"
-                     columnName="cep"
-                     placeholder="00000-000"
+            {/* Address Verification Map */}
+            <div className="mt-2 animate-fade-in border-t border-slate-50 dark:border-slate-800/50 pt-4">
+                <AddressVerificationMap 
+                    address={{
+                        street: customerData.fullAddress.street,
+                        number: customerData.fullAddress.number,
+                        neighborhood: customerData.fullAddress.neighborhood,
+                        city: customerData.fullAddress.city
+                    }}
                 />
             </div>
         </div>
-
-        {/* Address Verification Map */}
-        <div className="mt-2 animate-fade-in border-t border-slate-50 dark:border-slate-800/50 pt-4">
-            <AddressVerificationMap 
-                address={{
-                    street: customerData.fullAddress.street,
-                    number: customerData.fullAddress.number,
-                    neighborhood: customerData.fullAddress.neighborhood,
-                    city: customerData.fullAddress.city
-                }}
-            />
-        </div>
-    </div>
-);
+    );
 };
 
 export default AssistanceCustomerSection;

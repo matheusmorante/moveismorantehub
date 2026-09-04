@@ -107,7 +107,7 @@ export class ApiUsageTracker {
             const error = rpcResult?.error;
 
             if (error || !rpcResult) {
-                // Fallback: se a RPC não existir ainda (banco local ou pré-migration), insere direto na tabela se possível
+                // Fallback: se a RPC não existir ainda (banco local ou pré-migration), tenta inserir direto na tabela silenciando se falhar
                 this.fallbackDirectInsert({
                     provider,
                     service,
@@ -122,13 +122,12 @@ export class ApiUsageTracker {
                     response_time_ms,
                     request_id,
                     error_message,
-                });
+                }).catch(() => {});
                 return null;
             }
 
             return data as string;
-        } catch (err) {
-            console.warn("ApiUsageTracker: aviso ao registrar métrica de API:", err);
+        } catch {
             return null;
         }
     }
@@ -138,7 +137,10 @@ export class ApiUsageTracker {
      */
     private static async fallbackDirectInsert(log: ApiUsageLog) {
         try {
-            await supabase.from('api_usage_logs').insert([log]);
+            const { error } = await supabase.from('api_usage_logs').insert([log]);
+            if (error) {
+                // Ignorar erro 404 / 42P01 (relação não existente) silenciosamente
+            }
         } catch {}
     }
 

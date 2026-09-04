@@ -300,8 +300,8 @@ const migrateSettings = (settings: any): AppSettings => {
         settings.pickupHandlingOptions = MORANTE_PICKUP_HANDLING_OPTIONS;
     }
 
-    if (!settings.googleMapsApiKey) {
-        settings.googleMapsApiKey = 'AIzaSyCROtDtnGmCBnzSiTA2sJTmoEnTsGMf6Qk';
+    if (!settings.googleMapsApiKey || !settings.googleMapsApiKey.trim()) {
+        settings.googleMapsApiKey = (import.meta.env.VITE_GOOGLE_MAPS_API_KEY as string)?.trim() || 'AIzaSyCROtDtnGmCBnzSiTA2sJTmoEnTsGMf6Qk';
     }
 
     return settings as AppSettings;

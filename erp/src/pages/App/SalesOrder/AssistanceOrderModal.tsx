@@ -382,10 +382,12 @@ const AssistanceOrderModal = ({ onClose, onSaveSuccess, order, initialData }: As
 
                     <div className="flex flex-col gap-4">
                         <Agendamento 
+                            title="Agendamento da Assistência"
                             scheduling={scheduling}
                             onChangeScheduling={handleChangeScheduling}
                             errors={validationErrors}
                             isPickup={false}
+                            hideNotice={true}
                         />
                     </div>
 

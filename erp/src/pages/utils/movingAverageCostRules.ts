@@ -17,13 +17,17 @@ export type AppliedCostMove = CostMove & { resolvedUnitCost?: number };
 
 const isExit = (type: string) => type === 'exit' || type === 'withdrawal';
 
-export const isEffectiveInventoryMove = (move: Pick<CostMove, 'status' | 'observation'>) => {
+export const isEffectiveInventoryMove = (move: Pick<CostMove, 'status' | 'observation'> & { reason?: string | null }) => {
   try {
-    const metadata = typeof move.observation === 'string' ? JSON.parse(move.observation) : null;
-    return move.status !== 'reversed' && move.status !== 'cancelled'
-      && metadata?.status !== 'reversed' && metadata?.status !== 'cancelled';
+    const metadata = typeof move.observation === 'string' && (move.observation.startsWith('{') || move.observation.startsWith('[')) ? JSON.parse(move.observation) : null;
+    const isReversed = move.status === 'reversed' || move.status === 'cancelled'
+      || metadata?.status === 'reversed' || metadata?.status === 'cancelled'
+      || (typeof move.reason === 'string' && move.reason.startsWith('Cancelamento da venda'));
+    return !isReversed;
   } catch {
-    return move.status !== 'reversed' && move.status !== 'cancelled';
+    const isReversed = move.status === 'reversed' || move.status === 'cancelled'
+      || (typeof move.reason === 'string' && move.reason.startsWith('Cancelamento da venda'));
+    return !isReversed;
   }
 };
 
