@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, SectionList, ActivityIndicator, RefreshControl, StyleSheet, Platform, StatusBar, Modal } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Calendar, Truck, RefreshCw, ChevronRight, ChevronDown, Hammer, Clock, MapPin, Navigation, Package, AlertCircle, Wrench, Check, Map } from 'lucide-react-native';
+import { MobileDrill } from '../../../components/shared/MobileDrill';
 import { supabase } from '../../../services/supabaseClient';
 import { subscribeToLogisticsChanges } from '../../../services/logisticsRealtimeService';
 import { isAssemblyOutsideType, isAssemblyInternalType } from '../../../utils/aiSummaryHelper';
@@ -15,6 +16,7 @@ interface Props {
   isDarkMode: boolean;
   isAdmin: boolean;
   onSelectOrder?: (order: any) => void;
+  isEmbeddedInHub?: boolean;
 }
 
 const PERIOD_OPTIONS = [
@@ -27,7 +29,7 @@ const PERIOD_OPTIONS = [
   { id: 'all', label: 'Todos' },
 ];
 
-export const NativeLogisticsScreen: React.FC<Props> = ({ isDarkMode, isAdmin, onSelectOrder }) => {
+export const NativeLogisticsScreen: React.FC<Props> = ({ isDarkMode, isAdmin, onSelectOrder, isEmbeddedInHub = false }) => {
   const insets = useSafeAreaInsets();
   const topInset = Math.max(insets.top, Platform.OS === 'android' ? (StatusBar.currentHeight || 24) : 0) + 8;
 
@@ -308,14 +310,14 @@ export const NativeLogisticsScreen: React.FC<Props> = ({ isDarkMode, isAdmin, on
 
             {hasInternalAssembly && (
               <View style={[styles.handlingBadge, styles.badgeInternal]}>
-                <Hammer size={12} color="#ffffff" />
+                <MobileDrill size={12} color="#ffffff" />
                 <Text style={styles.handlingBadgeText}>MONTAGEM DEPÓSITO</Text>
               </View>
             )}
 
             {hasOutsideAssembly && (
               <View style={[styles.handlingBadge, styles.badgeOutside]}>
-                <Hammer size={12} color="#ffffff" />
+                <MobileDrill size={12} color="#ffffff" />
                 <Text style={styles.handlingBadgeText}>MONTAGEM FORA</Text>
               </View>
             )}
@@ -426,27 +428,29 @@ export const NativeLogisticsScreen: React.FC<Props> = ({ isDarkMode, isAdmin, on
         </TouchableOpacity>
       </View>
 
-      {/* Banner de Acesso Rápido ao Mapa de Entregas de Hoje */}
-      <TouchableOpacity
-        style={[styles.mapBannerBtn, isDarkMode && styles.mapBannerBtnDark]}
-        onPress={() => setShowTodayMap(true)}
-        activeOpacity={0.85}
-      >
-        <View style={styles.mapBannerLeft}>
-          <View style={styles.mapIconCircle}>
-            <Map size={16} color="#ffffff" />
+      {/* Banner de Acesso Rápido ao Mapa de Entregas de Hoje (apenas se fora do hub unificado) */}
+      {!isEmbeddedInHub && (
+        <TouchableOpacity
+          style={[styles.mapBannerBtn, isDarkMode && styles.mapBannerBtnDark]}
+          onPress={() => setShowTodayMap(true)}
+          activeOpacity={0.85}
+        >
+          <View style={styles.mapBannerLeft}>
+            <View style={styles.mapIconCircle}>
+              <Map size={16} color="#ffffff" />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.mapBannerTitle, isDarkMode && styles.textDark]}>
+                Entregas de Hoje no Mapa
+              </Text>
+              <Text style={styles.mapBannerSubtitle}>
+                Visualizar roteiro, GPS e próxima parada
+              </Text>
+            </View>
           </View>
-          <View style={{ flex: 1 }}>
-            <Text style={[styles.mapBannerTitle, isDarkMode && styles.textDark]}>
-              Entregas de Hoje no Mapa
-            </Text>
-            <Text style={styles.mapBannerSubtitle}>
-              Visualizar roteiro, GPS e próxima parada
-            </Text>
-          </View>
-        </View>
-        <ChevronRight size={18} color="#2563eb" />
-      </TouchableOpacity>
+          <ChevronRight size={18} color="#2563eb" />
+        </TouchableOpacity>
+      )}
     </View>
   );
 

@@ -5,6 +5,7 @@ import { getSettings } from '@/pages/utils/settingsService';
 import { autoCalculateRouteDistance, searchAddressSuggestions, RouteResult } from '../../utils/maps';
 import { formatCurrency } from '../../utils/formatters';
 import DropdownPortal from '@/components/shared/DropdownPortal';
+import { AddressAutocompleteInput } from '@/components/shared/AddressAutocompleteInput';
 import { calculateFreightByDistance } from '../../utils/shippingPricing';
 
 const FreightCalculation = () => {
@@ -211,15 +212,26 @@ const FreightCalculation = () => {
                         </div>
 
                         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                            <div className="md:col-span-2">
-                                <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1.5 block">Rua</label>
-                                <input
-                                    type="text"
-                                    value={addressForm.street}
-                                    onChange={(e) => setAddressForm({ ...addressForm, street: e.target.value })}
-                                    className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800/50 border border-slate-50 dark:border-slate-700 rounded-2xl text-xs font-bold"
-                                />
-                            </div>
+                            <AddressAutocompleteInput
+                                value={addressForm.street}
+                                onChange={(val) => setAddressForm({ ...addressForm, street: val })}
+                                onSelectAddress={(data) => {
+                                    setAddressForm(prev => ({
+                                        ...prev,
+                                        street: data.street,
+                                        number: data.number || prev.number,
+                                        neighborhood: data.neighborhood || prev.neighborhood,
+                                        city: data.city || prev.city,
+                                        state: data.state || prev.state,
+                                        cep: data.cep || prev.cep,
+                                    }));
+                                }}
+                                cityHint={addressForm.city}
+                                stateHint={addressForm.state || 'PR'}
+                                label="Rua"
+                                className="md:col-span-2"
+                                inputClassName="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800/50 border border-slate-50 dark:border-slate-700 rounded-2xl text-xs font-bold text-slate-800 dark:text-slate-100"
+                            />
                             <div>
                                 <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1.5 block">Nº</label>
                                 <input

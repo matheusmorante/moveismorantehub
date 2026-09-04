@@ -16,8 +16,8 @@ import CustomerData from "../../types/customerData.type";
 import { autoCalculateRouteDistance } from "../../utils/maps";
 import { migrateOrderHandlings } from '@/pages/utils/handlingMigration';
 import { calculateFreightByDistance } from "../../utils/shippingPricing";
-import { getNextOrderIndex, getOrderIndex } from "../../utils/orderCode";
 import { getSelectedProductDisplayName } from "../../utils/productVariationDefaults";
+import { getSelectedProductPricing } from "../../utils/productPricing";
 
 const getCurrentDatetimeLocal = () => {
     const now = new Date();
@@ -287,7 +287,8 @@ export const useSalesOrderForm = (initialDeliveryMethod?: 'delivery' | 'pickup',
                 complement: '',
                 observation: '',
                 neighborhood: '',
-                city: ''
+                city: '',
+                state: 'PR'
             }
         };
 
@@ -301,7 +302,8 @@ export const useSalesOrderForm = (initialDeliveryMethod?: 'delivery' | 'pickup',
                 },
                 deliveryAddress: {
                     ...defaultShipping.deliveryAddress!,
-                    ...(migratedOrder.shipping.deliveryAddress || {})
+                    ...(migratedOrder.shipping.deliveryAddress || {}),
+                    state: migratedOrder.shipping.deliveryAddress?.state || 'PR'
                 }
             });
         } else {
@@ -347,21 +349,26 @@ export const useSalesOrderForm = (initialDeliveryMethod?: 'delivery' | 'pickup',
         }
     }, [setItems, setShipping, setPayments, setCustomerData]);
 
-    const handleAutoCalculateDistance = useCallback(async () => {
-        if (!shipping.useCustomerAddress && !shipping.deliveryAddress?.cep && !shipping.deliveryAddress?.street) {
+    const handleAutoCalculateDistance = useCallback(async (customAddress?: any) => {
+        const addressObj = customAddress || (
+            shipping.useCustomerAddress === false && shipping.deliveryAddress
+                ? shipping.deliveryAddress
+                : customerData.fullAddress
+        );
+
+        if (!shipping.useCustomerAddress && !customAddress && !shipping.deliveryAddress?.cep && !shipping.deliveryAddress?.street) {
             toast.warn("Preencha o endereço de entrega para calcular a distância.");
             return;
         }
 
-        const addressObj = shipping.useCustomerAddress ? customerData.fullAddress : shipping.deliveryAddress;
         if (!addressObj) {
             toast.warn("Endereço não informado.");
             return;
         }
 
         const currentAddrStr = `${addressObj.street || ''}, ${addressObj.number || ''}, ${addressObj.neighborhood || ''}, ${addressObj.city || ''}, ${addressObj.cep || ''}`;
-        if (currentAddrStr.trim() === ", , , ,") {
-            toast.warn("Preencha os campos do endereço.");
+        if (currentAddrStr.trim() === ", , , ," || (!addressObj.street && !addressObj.neighborhood && !addressObj.city && !addressObj.cep)) {
+            toast.warn("Preencha ao menos a rua, bairro ou cidade para calcular a distância.");
             return;
         }
 
@@ -394,9 +401,7 @@ export const useSalesOrderForm = (initialDeliveryMethod?: 'delivery' | 'pickup',
     }, [shipping.useCustomerAddress, shipping.deliveryAddress, customerData.fullAddress, setShipping]);
 
     const handleSelectProduct = useCallback((index: number, product: Product, variation?: Variation) => {
-        const selectedPrice = variation 
-            ? (variation.syncUnitPrice ? (product.unitPrice ?? variation.unitPrice) : (variation.unitPrice ?? product.unitPrice))
-            : (product.unitPrice ?? 0);
+        const pricing = getSelectedProductPricing(product, variation);
 
         const selectedCost = variation
             ? (variation.costPrice ?? product.costPrice ?? 0)
@@ -425,7 +430,9 @@ export const useSalesOrderForm = (initialDeliveryMethod?: 'delivery' | 'pickup',
                     isTemporaryProduct: false,
                     code: resolvedCode,
                     description: fullDescription,
-                    unitPrice: Number(selectedPrice) || 0,
+                    unitPrice: pricing.unitPrice,
+                    unitDiscount: pricing.unitDiscount,
+                    discountType: pricing.discountType,
                     costPrice: Number(selectedCost) || 0,
                     handlingType: defaultHandling,
                     condition: variation?.condition || product.condition || "novo"

@@ -14,8 +14,7 @@ interface AssistanceCustomerSectionProps {
     isLinked?: boolean;
 }
 
-import { searchAddressSuggestions } from "../../../utils/maps";
-import DropdownPortal from "../../../../components/shared/DropdownPortal";
+import { AddressAutocompleteInput } from "@/components/shared/AddressAutocompleteInput";
 
 const AssistanceCustomerSection = ({
     customerData,
@@ -24,10 +23,6 @@ const AssistanceCustomerSection = ({
     errors,
     isLinked
 }: AssistanceCustomerSectionProps) => {
-    const [streetSuggestions, setStreetSuggestions] = React.useState<any[]>([]);
-    const [isStreetSuggestionsOpen, setIsStreetSuggestionsOpen] = React.useState(false);
-    const streetWrapperRef = React.useRef<HTMLDivElement>(null);
-
     const updateCustomer = (field: string, value: any) => {
         setCustomerData({ ...customerData, [field]: value });
     };
@@ -37,44 +32,6 @@ const AssistanceCustomerSection = ({
             ...customerData,
             fullAddress: { ...customerData.fullAddress, [field]: value }
         });
-    };
-
-    const handleStreetChange = async (val: string) => {
-        updateAddress('street', val);
-        if (val.length >= 2) {
-            const suggestions = await searchAddressSuggestions(val, customerData.fullAddress?.city);
-            setStreetSuggestions(suggestions);
-            setIsStreetSuggestionsOpen(suggestions.length > 0);
-        } else {
-            setStreetSuggestions([]);
-            setIsStreetSuggestionsOpen(false);
-        }
-    };
-
-    const handleSelectAddressSuggestion = (suggestion: any) => {
-        const addr = suggestion.address;
-        const streetName = addr.road || addr.pedestrian || addr.suburb || suggestion.display_name.split(',')[0];
-        const neighborhood = addr.neighbourhood || addr.suburb || customerData.fullAddress?.neighborhood || "";
-        const city = addr.city || addr.town || addr.village || customerData.fullAddress?.city || "";
-        const state = addr.state || customerData.fullAddress?.state || "PR";
-        const cep = addr.postcode ? addr.postcode.replace(/\D/g, '') : customerData.fullAddress?.cep || "";
-
-        const mapsQuery = encodeURIComponent(`${streetName}, ${neighborhood}, ${city} - ${state}`);
-        const generatedMapsUrl = customerData.fullAddress?.mapsUrl || `https://www.google.com/maps/search/?api=1&query=${mapsQuery}`;
-
-        setCustomerData({
-            ...customerData,
-            fullAddress: {
-                ...customerData.fullAddress,
-                street: streetName,
-                neighborhood: neighborhood,
-                city: city,
-                state: state,
-                cep: cep,
-                mapsUrl: generatedMapsUrl
-            }
-        });
-        setIsStreetSuggestionsOpen(false);
     };
 
     return (
@@ -177,35 +134,30 @@ const AssistanceCustomerSection = ({
                      icon="bi-geo"
                 />
             </div>
-            <div className="flex flex-col gap-2 relative group/field" ref={streetWrapperRef}>
-                <SmartInput
-                     label="Rua"
-                     value={customerData.fullAddress.street}
-                     onValueChange={handleStreetChange}
-                     tableName="people"
-                     columnName="street"
-                     placeholder="Ex: Rua das Flores"
-                     onFocus={() => { if (streetSuggestions.length > 0) setIsStreetSuggestionsOpen(true); }}
-                />
-                <DropdownPortal anchorRef={streetWrapperRef} isOpen={isStreetSuggestionsOpen && streetSuggestions.length > 0}>
-                    <div className="mt-1 bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-xl shadow-xl overflow-hidden max-h-48 overflow-y-auto custom-scrollbar">
-                        {streetSuggestions.map((s, i) => (
-                            <button key={i} type="button"
-                                onClick={() => handleSelectAddressSuggestion(s)}
-                                className="w-full text-left p-3 border-b border-slate-50 dark:border-slate-700/50 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors last:border-0"
-                            >
-                                <p className="text-xs font-bold text-slate-800 dark:text-slate-200">
-                                    {[
-                                        s.address.road || s.address.pedestrian || s.address.suburb || s.display_name.split(',')[0],
-                                        s.address.neighbourhood || s.address.suburb,
-                                        s.address.city || s.address.town || s.address.village
-                                    ].filter(Boolean).join(', ')}
-                                </p>
-                            </button>
-                        ))}
-                    </div>
-                </DropdownPortal>
-            </div>
+            <AddressAutocompleteInput
+                value={customerData.fullAddress?.street || ""}
+                onChange={val => updateAddress('street', val)}
+                onSelectAddress={data => {
+                    setCustomerData({
+                        ...customerData,
+                        fullAddress: {
+                            ...customerData.fullAddress,
+                            street: data.street,
+                            neighborhood: data.neighborhood || customerData.fullAddress?.neighborhood || "",
+                            city: data.city || customerData.fullAddress?.city || "",
+                            state: data.state || customerData.fullAddress?.state || "PR",
+                            cep: data.cep || customerData.fullAddress?.cep || "",
+                            number: data.number || customerData.fullAddress?.number || "",
+                            mapsUrl: data.mapsUrl || customerData.fullAddress?.mapsUrl
+                        }
+                    });
+                }}
+                cityHint={customerData.fullAddress?.city}
+                stateHint={customerData.fullAddress?.state || "PR"}
+                label="Rua"
+                placeholder="Ex: Rua das Flores"
+                className="flex flex-col gap-2 relative group/field"
+            />
             <div className="flex flex-col gap-2 relative group/field">
                 <SmartInput
                      label="Número"
@@ -225,6 +177,17 @@ const AssistanceCustomerSection = ({
                      columnName="city"
                      placeholder="Ex: Colombo"
                      icon="bi-building"
+                />
+            </div>
+            <div className="flex flex-col gap-2 relative group/field">
+                <SmartInput
+                     label="Estado (UF)"
+                     value={customerData.fullAddress?.state || "PR"}
+                     onValueChange={(val: string) => updateAddress('state', val.toUpperCase())}
+                     tableName="people"
+                     columnName="state"
+                     placeholder="PR"
+                     maxLength={2}
                 />
             </div>
             <div className="flex flex-col gap-2 relative group/field">

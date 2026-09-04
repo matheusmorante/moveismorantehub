@@ -45,7 +45,7 @@ Este documento unifica todo o planejamento estratégico, ideias futuras, tarefas
 - [ ] **Diretriz Contínua do Usuário**: Em cada arquivo tocado ou analisado (especialmente > 150 linhas), perguntar explicitamente ao usuário no final se deseja modularizá-lo em conformidade com a skill `modularizacao_codigo`.
 - [ ] **Meta de Arquitetura**: 30–100 linhas (aceitável até 150). Responsabilidade única estrita. Estratégia segura: COPIAR → VALIDAR → CONECTAR → TESTAR → SÓ DEPOIS REMOVER.
 - [ ] **Backlog de Arquivos Extensos a Modularizar Sob Demanda**:
-  - `PersonFormModal.tsx` (~1.065 linhas): modularização planejada em `usePersonForm.ts`, `PersonTypeAndOrigin.tsx`, `PersonBasicFields.tsx`, `PersonContactsSection.tsx`, `PersonEmployeeSection.tsx` e `PersonAddressSection.tsx`.
+  - [x] `PersonFormModal.tsx` (ERP): modularizado com sucesso de ~1.015 linhas para ~160 linhas orquestradoras, com extração de `usePersonForm.ts`, `PersonIdentificationSection.tsx`, `PersonEmployeeRolesSection.tsx`, `PersonContactsSection.tsx`, `PersonAddressSection.tsx` e `PersonObservationsSection.tsx`, preservando 100% das regras de negócio.
   - `ProductFormModal.tsx` (> 600 linhas): dividir abas, validação de legibilidade e gerenciadores de variações.
 - [x] `ProductRow.tsx` e `ProductCard.tsx` (ERP): modularizados com sucesso segundo a skill `modularizacao_codigo` (redução de mais de 70% das linhas com extração de `useProductMetadata`, `ProductRowDescriptionCell`, `ProductRowActionsCell`, `ProductRowStandardCells`, `ProductRowModals`, `ProductCardActions` e `ProductCardVariationList`).
   - [x] `MobileProductCard.tsx` e `MobileProductVariationList.tsx` (Mobile): modularizados com sucesso com extração de `useMobileProductMetadata`, `MobileChannelBadges`, `MobileProductActionsMenu` e `MobileProductVariationCard`.
@@ -61,6 +61,18 @@ Este documento unifica todo o planejamento estratégico, ideias futuras, tarefas
 - [ ] **Processador de Eventos no Backend / Supabase RPC**: Endpoint atômico que valida idempotência, processa eventos na ordem de dependência, resolve estoque em `inventory_moves` e retorna confirmação ou rejeição fundamentada.
 - [ ] **Working-Set Cache (Read-Only)**: Cache local apenas dos roteiros, pedidos, NFs/recebimentos e clientes atribuídos ao operador do dia.
 - [ ] **Status Visual na UI**: Badges dos 4 estados com tratamento visual destacado para `REJECTED` (alerta e motivo claro ao operador).
+
+- [x] **Padronização Global de Logradouro com Google Places API (`AddressAutocompleteInput`)**:
+  - Componente único e modularizado reutilizado em todo o sistema (`PersonFormModal`, `ShippingData`, `AssistanceCustomerSection`, `CompanyFiscalDataSection`, `OrderRouteMap`).
+  - Renderização suspensa via `DropdownPortal` (`z-[99999999]`), sem cortes em modais.
+  - Otimização de cota via cache no banco (`address_cache`).
+- [x] **Monitoramento e Governança de APIs Externas (`/api-usage`)**:
+  - Tabelas e RPC atômica (`record_api_usage_atomic`) para auditoria de Google Maps, Gemini AI, WhatsApp e SEFAZ.
+  - Circuit Breaker contra loops e Hard Limit de 95% contra estouro de faturas.
+  - Tela completa de métricas, gráficos e edição de custos/franquias sem hardcode.
+- [x] **Módulo Unificado de Entregas no Mobile (`DeliveriesHubScreen`)**:
+  - Unificação de roteiro do dia, cronograma semanal e mapa interativo com 3 abas no topo: `[ Hoje ] [ Cronograma ] [ Mapa ]`.
+  - Navegação inferior simplificada com aba "Entregas" (`Truck`).
 
 ### 📦 Logística e Estoque
 - [ ] **Status de Pedido**: Sincronizar status 'Atendido' com o fluxo de estoque (baixa automática).

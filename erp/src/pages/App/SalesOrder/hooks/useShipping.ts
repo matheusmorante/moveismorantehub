@@ -27,7 +27,8 @@ const useShipping = (initialDeliveryMethod: 'delivery' | 'pickup' = 'delivery') 
                     complement: '',
                     observation: '',
                     neighborhood: '',
-                    city: ''
+                    city: '',
+                    state: 'PR'
                 }
             }
         );

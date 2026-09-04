@@ -65,3 +65,18 @@ Este arquivo consolida as regras de ouro e diretrizes de desenvolvimento para o 
      - *Estornada*: Saída estornada / cancelada.
      - *Não efetivada*: Produto cadastrado que ainda não teve saída lançada.
      - *Sem Cadastro*: Avisa com destaque visual âmbar `SEM CADASTRO` que itens temporários ou sem cadastro não movimentam estoque.
+6. **Padronização Global de Logradouro com Google Places API (`AddressAutocompleteInput`)**:
+   - Todo campo onde o usuário digita endereço ou logradouro no ERP (`PersonFormModal` - clientes/fornecedores/colaboradores, `ShippingData` - entrega de pedidos, `AssistanceCustomerSection` - assistência técnica, `CompanyFiscalDataSection` - dados fiscais da empresa emitente, `OrderRouteMap` - mapa da rota) utiliza exclusivamente o componente unificado `AddressAutocompleteInput`.
+   - **UF Padrão "PR" (Paraná) e Filtro de Estado**: O campo de UF / Estado vem preenchido por padrão como `PR` em todos os formulários. A busca de sugestões (`searchAddressSuggestions`) recebe o estado selecionado (`stateHint`) e restringe as consultas ao estado especificado, evitando trazer ruas e bairros aleatórios de outros estados do país.
+   - As sugestões flutuantes são renderizadas via portal (`DropdownPortal`) com z-index `99999999` para evitar quebras visuais em modais full screen.
+   - Utiliza cache no Supabase (`address_cache`) antes de requisitar a Places API para economizar cotas e custos.
+7. **Monitoramento de APIs Externas e Hard Limits (`/api-usage`)**:
+   - Registro atômico no banco (`record_api_usage_atomic`) para auditoria de consumo (Google Maps, Gemini AI, WhatsApp, SEFAZ).
+   - Bloqueio preventivo (Hard Limit a 95% do teto configurado) e Circuit Breaker contra loops anômalos.
+8. **Módulo Unificado de Entregas no Mobile (`DeliveriesHubScreen`)**:
+   - O aplicativo mobile concentra todo o fluxo logístico em uma única tela de Entregas com 3 abas no topo: `[ Hoje ]` (roteiro operacional do dia e próxima parada), `[ Cronograma ]` (visão diária/semanal) e `[ Mapa ]` (Google Maps interativo em tela cheia).
+   - A barra inferior utiliza a aba central **"Entregas"** (ícone `Truck`).
+9. **Modularização do Formulário de Pessoas (`PersonFormModal` e `personForm/`)**:
+   - O formulário foi modularizado segundo a skill `modularizacao_codigo`: lógica isolada no hook `usePersonForm.ts`, e apresentação dividida em `PersonIdentificationSection.tsx`, `PersonEmployeeRolesSection.tsx`, `PersonContactsSection.tsx`, `PersonAddressSection.tsx` e `PersonObservationsSection.tsx`, mantendo o modal orquestrador limpo e preservando 100% das regras de negócio de clientes, fornecedores e colaboradores.
+10. **Preenchimento Automático de Desconto e Preço Líquido ao Selecionar Produto (`productPricing.ts`)**:
+    - Ao selecionar um produto ou variação na lista de itens do formulário de pedido, se houver preço promocional ativo (`promoPrice > 0 && promoPrice < unitPrice`), o sistema preenche automaticamente o **Preço Unitário de Tabela** (`unitPrice`), calcula e insere o **Desconto** (`unitDiscount` = `unitPrice - promoPrice`) e reflete o **Preço Final Líquido** (`Preço Un. Líq.` = `promoPrice`), calculando o Total do Item com base no valor promocional.

@@ -44,6 +44,7 @@ const EMPTY_CUSTOMER: CustomerData = {
         complement: "",
         neighborhood: "",
         city: "",
+        state: "PR",
         observation: "",
     },
 };

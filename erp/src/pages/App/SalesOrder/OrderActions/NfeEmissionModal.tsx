@@ -2,6 +2,7 @@ import React from "react";
 import Order from "@/pages/types/order.type";
 import { NfeOrderSummary } from "./nfe-modal/NfeOrderSummary";
 import { NfeEnvironmentSelector } from "./nfe-modal/NfeEnvironmentSelector";
+import { NfeItemsSection } from "./nfe-modal/NfeItemsSection";
 import { NfeSuccessCard } from "./nfe-modal/NfeSuccessCard";
 import { useNfeEmission } from "./nfe-modal/useNfeEmission";
 
@@ -23,6 +24,9 @@ export const NfeEmissionModal: React.FC<NfeEmissionModalProps> = ({
         setEnvironment,
         isSubmitting,
         emissionResult,
+        nfeItems,
+        handleUpdateItemFiscal,
+        handleBatchUpdateItems,
         handleEmit,
         handlePrintDanfe
     } = useNfeEmission(order, onSuccess);
@@ -36,9 +40,9 @@ export const NfeEmissionModal: React.FC<NfeEmissionModalProps> = ({
         <div className="fixed inset-0 z-[999999] flex items-center justify-center p-4">
             <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={onClose} />
 
-            <div className="relative bg-white dark:bg-slate-900 w-full max-w-2xl rounded-3xl shadow-2xl border border-slate-100 dark:border-slate-800 overflow-hidden flex flex-col max-h-[90vh] animate-in fade-in zoom-in-95 duration-200">
+            <div className="relative bg-white dark:bg-slate-900 w-full max-w-4xl rounded-3xl shadow-2xl border border-slate-100 dark:border-slate-800 overflow-hidden flex flex-col max-h-[92vh] animate-in fade-in zoom-in-95 duration-200">
                 {/* Header */}
-                <div className="p-6 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50 dark:bg-slate-950">
+                <div className="p-5 sm:p-6 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50 dark:bg-slate-950">
                     <div className="flex items-center gap-3">
                         <div className="w-10 h-10 rounded-2xl bg-blue-600 text-white flex items-center justify-center shadow-lg shadow-blue-500/20">
                             <i className="bi bi-receipt-cutoff text-lg" />
@@ -58,7 +62,7 @@ export const NfeEmissionModal: React.FC<NfeEmissionModalProps> = ({
                 </div>
 
                 {/* Content */}
-                <div className="p-6 overflow-y-auto space-y-6 flex-1 custom-scrollbar">
+                <div className="p-5 sm:p-6 overflow-y-auto space-y-6 flex-1 custom-scrollbar">
                     {/* Tarja de Homologação */}
                     <div className="p-4 rounded-2xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900/50 flex items-start gap-3">
                         <i className="bi bi-shield-exclamation text-amber-600 dark:text-amber-400 text-xl shrink-0 mt-0.5" />
@@ -74,6 +78,16 @@ export const NfeEmissionModal: React.FC<NfeEmissionModalProps> = ({
 
                     {/* Resumo do Pedido */}
                     <NfeOrderSummary order={order} />
+
+                    {/* Lista de Itens com Campos Fiscais e IA para NCM */}
+                    {!emissionResult?.success && (
+                        <NfeItemsSection
+                            order={order}
+                            items={nfeItems}
+                            onUpdateItemFiscal={handleUpdateItemFiscal}
+                            onBatchUpdateItems={handleBatchUpdateItems}
+                        />
+                    )}
 
                     {/* Seleção de Ambiente */}
                     <NfeEnvironmentSelector environment={environment} onSelect={setEnvironment} />

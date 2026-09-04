@@ -153,9 +153,26 @@ const TableCell = ({ order, duration, onOrderClick }: Props) => {
                 })()}
                 <div className="flex justify-between items-center mb-1">
                     <div className="flex items-center gap-1.5 flex-wrap">
-                        <span className={`text-[10px] font-black px-2.5 py-1 rounded-full uppercase tracking-widest border shadow-sm transition-all text-white border-white/20 ${isAssemblyOutside ? 'bg-red-600' : (isAssemblyTask || isOnlyInternalAssembly) ? 'bg-amber-500' : cls.dotBg}`}>
-                            {isAssemblyOutside ? '🔨 Montagem Fora' : (isAssemblyTask || isOnlyInternalAssembly) ? '🔨 Montagem Depósito' : typeLabel}
-                        </span>
+                        {/* Selo Primário (ou quando não é tarefa pura de montagem) */}
+                        {(!isAssembly || (!isAssemblyOutside && !isOnlyInternalAssembly)) && (
+                            <span className={`text-[10px] font-black px-2.5 py-1 rounded-full uppercase tracking-widest border shadow-sm transition-all text-white border-white/20 ${cls.dotBg}`}>
+                                {typeLabel}
+                            </span>
+                        )}
+
+                        {/* Selo Montagem Depósito */}
+                        {(isAssemblyTask || isOnlyInternalAssembly) && (
+                            <span className="text-[10px] font-black px-2.5 py-1 rounded-full uppercase tracking-widest border shadow-sm transition-all text-white border-white/20 bg-amber-500 inline-flex items-center gap-1">
+                                <Drill size={11} className="text-white fill-white" /> Montagem Depósito
+                            </span>
+                        )}
+
+                        {/* Selo Montagem Fora */}
+                        {isAssemblyOutside && (
+                            <span className="text-[10px] font-black px-2.5 py-1 rounded-full uppercase tracking-widest border shadow-sm transition-all text-white border-white/20 bg-red-600 inline-flex items-center gap-1">
+                                <Drill size={11} className="text-white fill-white" /> Montagem Fora
+                            </span>
+                        )}
                     </div>
                 </div>
 

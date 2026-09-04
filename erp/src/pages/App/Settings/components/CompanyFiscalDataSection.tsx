@@ -1,4 +1,5 @@
 import React from 'react';
+import { AddressAutocompleteInput } from '@/components/shared/AddressAutocompleteInput';
 
 interface CompanyFiscalDataSectionProps {
     settings: any;
@@ -46,16 +47,24 @@ export const CompanyFiscalDataSection: React.FC<CompanyFiscalDataSectionProps> =
             {/* Endereço Desmembrado do Emitente */}
             <div className="p-8 hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors">
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    <div className="md:col-span-2">
-                        <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 block mb-2">Logradouro (Rua / Av)</label>
-                        <input
-                            type="text"
-                            value={settings.companyLogradouro || ''}
-                            onChange={(e) => onChange('companyLogradouro', e.target.value)}
-                            placeholder="Ex: R. Cascavel"
-                            className="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl px-5 py-3 text-sm outline-none focus:border-emerald-500 dark:text-slate-200 w-full transition-all font-bold"
-                        />
-                    </div>
+                    <AddressAutocompleteInput
+                        value={settings.companyLogradouro || ''}
+                        onChange={(val) => onChange('companyLogradouro', val)}
+                        onSelectAddress={(data) => {
+                            onChange('companyLogradouro', data.street);
+                            if (data.number) onChange('companyNumero', data.number);
+                            if (data.neighborhood) onChange('companyBairro', data.neighborhood);
+                            if (data.city) onChange('companyXMun', data.city);
+                            if (data.state) onChange('companyUF', data.state);
+                            if (data.cep) onChange('companyCep', data.cep);
+                        }}
+                        cityHint={settings.companyXMun}
+                        stateHint={settings.companyUF || 'PR'}
+                        label="Logradouro (Rua / Av)"
+                        placeholder="Ex: R. Cascavel"
+                        className="md:col-span-2"
+                        inputClassName="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl px-5 py-3 text-sm outline-none focus:border-emerald-500 dark:text-slate-200 w-full transition-all font-bold"
+                    />
                     <div>
                         <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 block mb-2">Número</label>
                         <input

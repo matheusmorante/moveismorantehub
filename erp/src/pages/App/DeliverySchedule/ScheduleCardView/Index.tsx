@@ -7,6 +7,7 @@ import { calcItemTotalValue } from "../../../utils/calculations";
 import { updateOrder } from "../../../utils/orderHistoryService";
 import { splitNoticeTags } from "../../../utils/noticeTags";
 import { toast } from "react-toastify";
+import { Drill } from "@/components/shared/DrillIcon";
 
 import { OrderTypeFilter } from "../useDeliverySchedule";
 
@@ -140,15 +141,15 @@ const DeliveryOrderCard = ({ order, index, onOrderClick, isReadOnly, hasInitialS
 
                     {/* Rótulo de Montagem Depósito */}
                     {(hasInternalAssembly || (isAssemblyTask && !hasOutsideAssembly)) && (
-                        <span className="text-[9px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider border transition-all text-white border-white/20 bg-amber-500 shadow-sm">
-                            🔨 Montagem Depósito
+                        <span className="text-[9px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider border transition-all text-white border-white/20 bg-amber-500 shadow-sm inline-flex items-center gap-1">
+                            <Drill size={11} className="text-white fill-white" /> Montagem Depósito
                         </span>
                     )}
 
                     {/* Rótulo de Montagem Fora */}
                     {hasOutsideAssembly && (
-                        <span className="text-[9px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider border transition-all text-white border-white/20 bg-red-600 shadow-sm">
-                            🔨 Montagem Fora
+                        <span className="text-[9px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider border transition-all text-white border-white/20 bg-red-600 shadow-sm inline-flex items-center gap-1">
+                            <Drill size={11} className="text-white fill-white" /> Montagem Fora
                         </span>
                     )}
                 </div>

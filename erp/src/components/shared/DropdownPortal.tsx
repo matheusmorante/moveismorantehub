@@ -58,4 +58,5 @@ const DropdownPortal: React.FC<DropdownPortalProps> = ({ anchorRef, children, is
     );
 };
 
+export { DropdownPortal };
 export default DropdownPortal;

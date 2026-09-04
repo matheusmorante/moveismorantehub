@@ -8,10 +8,10 @@ import {
   Wrench,
   RotateCcw,
   Megaphone,
-  Hammer,
   CheckCircle2,
   XCircle,
 } from 'lucide-react-native';
+import { MobileDrill } from '../../../components/shared/MobileDrill';
 import { formatOrderCode, formatOrderDate, formatOrderTotal } from '../../../utils/orderUtils';
 import { OrderCardDeliveryFooter } from '../../../components/cards/OrderCardDeliveryFooter';
 
@@ -183,14 +183,14 @@ export function MobileOrderCard({ order, dark, handlingOptions, onDetails }: Pro
           {/* 5. Selo de Montagem Fora */}
           {!cancelled && hasAssemblyOutside && (
             <View style={[styles.iconBadge, styles.badgeRed]}>
-              <Hammer size={11} color="#ffffff" />
+              <MobileDrill size={11} color="#ffffff" />
             </View>
           )}
 
           {/* 6. Selo de Montagem Depósito */}
           {!cancelled && hasAssemblyDepot && (
             <View style={[styles.iconBadge, styles.badgeAmber]}>
-              <Hammer size={11} color="#ffffff" />
+              <MobileDrill size={11} color="#ffffff" />
             </View>
           )}
 

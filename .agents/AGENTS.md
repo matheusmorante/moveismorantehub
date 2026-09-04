@@ -15,8 +15,23 @@ Este documento registra as regras e comportamentos **implementados** no sistema,
 - **Git Push**: Nao executar `git push` automaticamente. Aguardar solicitacao explicita do usuario.
 - **Modularização Segura e Código Limpo (`modularizacao_codigo`)**: Cada arquivo deve possuir uma única responsabilidade clara. Alvo recomendado de 30–100 linhas (aceitável até aproximadamente 150 linhas; acima de 200 linhas ou infração real analisar divisão). Estratégia conservadora sem perda de código: **COPIAR → VALIDAR → CONECTAR → TESTAR → SÓ DEPOIS REMOVER**. Nunca alterar regras de negócio silenciosamente durante refatorações. **O agente deve perguntar explicitamente ao usuário no final da resposta se ele deseja modularização SOMENTE se o arquivo tocado realmente infringir responsabilidade única, código limpo ou ultrapassar 200 linhas**, evitando perguntas em arquivos pequenos e coesos.
 - **Idioma dos termos no ERP**: Produtos **Ativos** / **Desativados** (nunca publicados/despublicados). No catalogo digital: **Publicado no Catalogo** / **Ocultado do Catalogo**.
-- **Ícone de Montagem (`Drill` - Parafusadeira / Furadeira Preenchida)**: Em todos os módulos (cards e linhas de pedidos, cronograma logístico, lista de montagens, modais e itens), os rótulos e elementos referentes a **Montagem** (Montagem no Depósito, Montagem Fora/Cliente, Mostruário) utilizam exclusivamente o componente preenchido **`Drill`** (`@/components/shared/DrillIcon`), com design sólido/preenchido (Filled), em substituição ao martelo e ao ícone linear.
+- **Ícone e Selos de Montagem (`Drill` - Parafusadeira / Furadeira Preenchida & Cores Padronizadas ERP/Mobile)**:
+  - Em todos os módulos (cards e linhas de pedidos, cronograma logístico, lista de montagens, modais e itens), os rótulos e elementos referentes a **Montagem** utilizam o componente preenchido **`Drill`** (`@/components/shared/DrillIcon` no ERP e `MobileDrill` no mobile), com design sólido/preenchido (Filled), em substituição ao martelo e ao ícone linear.
+  - **Cores dos Selos**:
+    - **Montagem Fora** (na casa do cliente): Fundo **Vermelho** (`bg-red-600` / `#dc2626`).
+    - **Montagem Depósito** (antes da entrega/retirada): Fundo **Amarelo** (`bg-amber-500` / `#d97706`).
+  - **Exibição Simultânea**: Quando um pedido contém itens com montagem fora e outros com montagem no depósito, o sistema exibe obrigatoriamente **ambos os selos à mostra** lado a lado tanto no ERP quanto no App Mobile.
+  - **Rótulos Padronizados**: O rótulo é uniformemente **"Montagem Depósito"** (nunca "Montagem na Loja") e **"Montagem Fora"**, mantendo a mesma linguagem e estilo visual no ERP e no App.
+- **Emissão Fiscal SEFAZ-PR — Lista de Itens da Venda e IA para NCM (`NfeEmissionModal` / `NfeItemsSection`)**:
+  - O modal de emissão fiscal exibe a lista completa de itens da venda que estão sendo passados para a NF-e/NFC-e.
+  - Produtos não cadastrados no ERP (`!item.productId`) recebem destaque visual indicativo e vêm sem NCM fixo.
+  - No topo da lista há um switch **"IA NCM para Não Cadastrados"** (ativo por padrão) e botão de ação em lote para disparar a geração automática de NCM via Inteligência Artificial (`aiService.findNCM`), além de botão de disparo individual por item.
+  - Cada item possui campos tributários editáveis caso necessário (NCM direto, e sanfona para CFOP, CSOSN/CST, Origem e CEST), garantindo conformidade fiscal antes da emissão.
 - **Inputs Numéricos (Sem Borda Divisória em Símbolos)**: Nos inputs numéricos de todo o sistema (`CurrencyInput`, `CurrencyOrPercentInput`, `UnitInput`), os símbolos monetários (`R$`), unidades de quantidade (`UN`) e símbolos percentuais (`%`) não possuem linha ou borda vertical separadora (`border-r` / `border-l`) dividindo o símbolo do valor digitado, garantindo visual limpo, contínuo e moderno.
+- **Cálculo Automático de Distância, Rotas e Frete (Google Maps)**:
+  - O cálculo de distância via Google Maps no formulário de pedidos (`handleAutoCalculateDistance`) prioriza e resolve dinamicamente o endereço ativo selecionado: se `shipping.useCustomerAddress === false` e houver endereço de entrega alternativo, calcula para o endereço alternativo; caso contrário, calcula para o endereço principal do cliente.
+  - A função de geocodificação (`geocodeAddress` em `maps.ts`) possui suporte a fallback resiliente (se a busca com número falhar, tenta sem número e, em último caso, aproxima pelas coordenadas cadastradas do bairro/cidade), evitando falhas silenciosas.
+  - Na busca de endereços (`searchAddressSuggestions`) e nos componentes de formulário (`AddressAutocompleteInput`, `usePersonForm`, `ShippingData`), o estado padrão é **Paraná (`PR`)**, garantindo que consultas do Google Places fiquem restritas a municípios paranaenses e que preenchimentos via CEP ou seleção nunca limpem ou deixem o estado em branco.
 - **Retrocompatibilidade e Análise de Impacto**: Antes e durante a criação/alteração de novas estruturas de dados ou snapshots, analisar o impacto em registros históricos legados. Sempre garantir fallbacks resilientes e consultar o usuário sobre decisões de adaptação/migração quando houver ambiguidade.
 - **Mobile Offline-First Baseado em Eventos (`mobile-offline-first`)**: No aplicativo Mobile, o suporte offline-first é restrito ao **risco operacional de campo e depósito**: entregas, montagens, checklists, assinaturas, fotos, vistorias, **inventário físico e recebimento/conferência de mercadorias**. Operações administrativas (criação/edição de produtos, precificação, dashboard/métricas) são estritamente **Online-First**. O mobile nunca grava estados absolutos (como `stock = X`), mas registra **eventos de negócio com UUID idempotente, timestamp e ciclo de 4 estados: `PENDING` → `SYNCING` → `CONFIRMED` / `REJECTED`** (onde `REJECTED` interrompe retentativas e exige atenção do operador). O backend é a autoridade estrita para validar regras, encadeamentos e movimentações de estoque. Mídias possuem fila separada de upload. Avaliar automaticamente o escopo em novos recursos mobile sem perguntas repetitivas.
 
@@ -227,6 +242,14 @@ Este documento registra as regras e comportamentos **implementados** no sistema,
   - Dados da empresa (Razão/Nome e CNPJ), emissor/vendedor responsável, data e hora da assinatura.
   - Código de validação determinístico do pedido.
   - QR Code dinâmico gerado via `bwip-js` para consulta e autenticação pública do comprovante/recibo.
+
+### Preenchimento Automático de Desconto e Preço Líquido ao Selecionar Produto (`getSelectedProductPricing`)
+
+- Ao selecionar um produto ou variação cadastrada na lista de itens do pedido (`useSalesOrderForm.ts` e `ReturnItemsTable.tsx` via `getSelectedProductPricing`):
+  - **Preço Unitário de Tabela (`unitPrice`)**: Puxa o preço original do produto/variação (sem promoção).
+  - **Desconto Unitário (`unitDiscount`)**: Se o produto possuir preço promocional (`promoPrice > 0 && promoPrice < unitPrice`), o desconto é calculado automaticamente (`unitPrice - promoPrice`) e preenchido como valor fixo (`discountType: 'fixed'`).
+  - **Preço Unitário Líquido (`Preço Un. Líq.` / `tempSubtotal`)**: Reflete o valor promocional final do produto (`promoPrice`), exibindo claramente a economia do cliente no item.
+  - **Sem Promoção**: Se o produto não tiver preço promocional cadastrado, o desconto é preenchido com zero (`0,00`) e o preço líquido torna-se idêntico ao preço unitário de tabela.
 
 ### Itens Temporarios (Produto sem Cadastro no Banco) e Conciliação Comercial
 
@@ -457,5 +480,65 @@ Ao incrementar versao em `mobile/app.json`, sincronizar:
 - **Pedidos Recentes (`RecentOrders.tsx`)**: Últimos 5 pedidos com status, valores e link para o pedido de venda.
 - **Radar Geográfico (`GeoMapPanel.tsx`) & Logística (`LogisticsPanel.tsx`)**: Mapa térmico de vendas com expansão/retração e métricas de entregas e KM rodados.
 - **Atalhos Rápidos (`QuickActions.tsx`)**: Localizados no cabeçalho do Dashboard para acesso imediato a Novo Pedido, Recebimento, Novo Produto, Cronograma e Inventário.
+- **Card de Monitoramento de APIs (`ApiUsageSummaryCard.tsx`)**: Exibe no Dashboard o total de requisições do mês, franquia configurada, estimativa de custo em R$, status dos limites e atalho para a tela completa de gerenciamento de APIs (`/api-usage`).
 
+---
 
+## MODULO: ENDEREÇOS E SUGESTÕES DE LOGRADOURO (`AddressAutocompleteInput`)
+
+- **Padronização Global de Logradouro com Google Places API**:
+  - Em **todos os campos de endereço/logradouro** do ERP (`PersonFormModal` - clientes, fornecedores e colaboradores; `ShippingData` - entrega de pedidos; `AssistanceCustomerSection` - assistência técnica; `CompanyFiscalDataSection` - dados fiscais da empresa emitente; `OrderRouteMap` - mapa e rotas), a digitação do logradouro utiliza exclusivamente o componente padronizado **`AddressAutocompleteInput`** (`@/components/shared/AddressAutocompleteInput`).
+  - O componente desacopla o menu de sugestões em **`AddressSuggestionsMenu`** (`@/components/shared/AddressSuggestionsMenu`), respeitando o princípio de responsabilidade única e modularização limpa.
+  - **UF Padrão "PR" (Paraná) e Filtro Geográfico por Estado**:
+    - O campo de Estado / UF vem preenchido por padrão com `PR` em todos os formulários (`PersonFormModal`, `ShippingData`, `AssistanceCustomerSection`, `CompanyFiscalDataSection`, `OrderRouteMap`).
+    - A função de busca (`searchAddressSuggestions`) recebe o estado selecionado (`stateHint`, padrão `PR`), injeta o estado no payload da consulta e filtra os resultados do Google Places e Geocoder para o estado alvo, impedindo a exibição de endereços irrelevantes de outros estados do país.
+  - **Portal Suspenso (`DropdownPortal`)**: As sugestões são renderizadas via portal diretamente no `document.body` com camada `z-[99999999]`, evitando que fiquem ocultas ou cortadas por modais full screen (`z-[999999]`) ou containers com `overflow-hidden`.
+  - **Economia de Cota e Cache Local**: As consultas de endereço utilizam a função `searchAddressSuggestions`, que verifica primeiro a tabela `address_cache` no Supabase antes de consumir requisições pagas da API do Google Places, com chaves de cache indexadas por estado (`v2_pr_...`).
+  - **Variantes Visuais**:
+    - `variant="default"`: Caixa moderna arredondada (`rounded-2xl`) com suporte a modo escuro, utilizada em formulários gerais de cadastro e configurações.
+    - `variant="underline"`: Borda inferior minimalista (`border-b-2 bg-transparent`), perfeitamente integrada aos formulários de Pedido de Venda e Assistência Técnica.
+  - **Preenchimento Automático em Cascata**: Ao selecionar uma sugestão, o componente resolve os dados oficiais via Places API e preenche automaticamente rua, número, bairro, município, UF, CEP e link oficial do Google Maps (`mapsUrl`).
+
+---
+
+## MODULO: MONITORAMENTO DE APIS EXTERNAS E CONTROLE DE CUSTOS (`/api-usage`)
+
+- **Tabelas de Monitoramento no Supabase**:
+  - `api_configurations`: Limites mensais, franquias gratuitas, custos por requisição (em R$), limite de segurança diário, limite por minuto e flags de bloqueio.
+  - `api_usage_daily`: Agregação diária por API com contadores de requisições, chamadas bem-sucedidas, falhas, cache hits e custo diário apurado.
+  - `api_usage_logs`: Auditoria de cada chamada externa contendo API, módulo de origem, tempo de resposta (ms), status, payload, erro e flag de cache.
+  - `record_api_usage_atomic`: RPC Postgres para gravação atômica concorrente e incremento de métricas sem perdas.
+- **Circuit Breaker e Hard Limit (`apiUsageGuard.ts`)**:
+  - **Hard Limit**: Bloqueia preventivamente chamadas não-críticas caso o consumo mensal atinja 95% do teto definido na configuração, evitando custos descontrolados de cartão de crédito.
+  - **Circuit Breaker**: Detecta loops de requisições anômalas (ex: mais de N chamadas em 1 minuto) e bloqueia temporariamente a API com esfriamento programado.
+  - **Alertas Preventivos**: Níveis de alerta visual no ERP (70% Atenção, 90% Crítico).
+- **Tela de Gerenciamento (`/api-usage`)**:
+  - Visualização de cards de status por serviço (Google Maps / Places / Routes, Google Gemini AI, WhatsApp Cloud API, SEFAZ-PR).
+  - Gráfico de tendência diária de chamadas (`ApiUsageLineChart.tsx`) e distribuição por módulo (`ApiModuleDistributionChart.tsx`).
+  - Modal de edição de limites, preços e franquias (`ApiConfigEditModal.tsx`), garantindo que nenhum valor comercial fique hardcoded no código.
+
+---
+
+## MODULO: LOGÍSTICA E ENTREGAS NO MOBILE (`DeliveriesHubScreen`)
+
+- **Unificação Operacional das Entregas**:
+  - As telas anteriormente fragmentadas de Cronograma, Entregas e Mapa de Entregas foram unificadas em uma única tela principal: **`DeliveriesHubScreen`** (`src/features/logistics/screens/DeliveriesHubScreen.tsx`).
+  - **Tabs de Topo**: Seletor moderno com 3 abas operacionais:
+    - **`[ Hoje ]`**: Foco do entregador para o dia atual — roteiro das paradas, próxima entrega destacada, botão "Iniciar Entrega", otimização de rota e lista de pedidos.
+    - **`[ Cronograma ]`**: Visão diária e semanal com filtros de status e agendamentos futuros e passados.
+    - **`[ Mapa ]`**: Google Maps Platform interativo em tela cheia com marcadores geocodificados dos pedidos, localização em tempo real do entregador e traçado de rotas.
+  - **Barra de Navegação Inferior (`NativeBottomNav.tsx`)**: Aba central atualizada para **"Entregas"** (ícone `Truck`), eliminando o item separado de mapa e centralizando o fluxo logístico do entregador.
+
+---
+
+## MODULO: CADASTROS (Clientes, Fornecedores e Colaboradores)
+
+- **Modularização do Formulário de Pessoas (`PersonFormModal.tsx` / `personForm/`)**:
+  - O componente formulário monolítico foi desacoplado seguindo a skill `modularizacao_codigo`:
+    - **`usePersonForm.ts`**: Hook responsável pelo estado unificado (`formData`), validações específicas de cada tipo (`customers`, `suppliers`, `employees`), submissão, verificação de duplicidade de e-mail/nome, vinculação automática com conta de usuário (`employee_profiles`) e persistência.
+    - **`PersonIdentificationSection.tsx`**: Identificação básica: tipo PF/PJ, indicação de marketing/tráfego pago, nome completo/razão social (`SmartInput`), nome fantasia, CPF/CNPJ (`PatternFormat`) e lead time para fornecedores.
+    - **`PersonEmployeeRolesSection.tsx`**: Seleção de perfis de acesso do colaborador (`EMPLOYEE_ROLES`) e smart input de cargo principal com orientações funcionais.
+    - **`PersonContactsSection.tsx`**: Telefone principal, toggle "S/ Telefone", atalho WhatsApp (`wa.me`), e-mail (com bloqueio para contas existentes) e contatos adicionais dinâmicos para clientes.
+    - **`PersonAddressSection.tsx`**: Accordion de endereço com toggle "Não Informar", busca por CEP (`getAddressByCep`), autocomplete de logradouro (`AddressAutocompleteInput` com UF padrão PR), campos complementares, moradia, link Maps e validação com `AddressVerificationMap`.
+    - **`PersonObservationsSection.tsx`**: Bloco de anotações e observações importantes.
+    - **`PersonFormModal.tsx`**: Atua como orquestrador limpo (< 160 linhas) com `createPortal` e rodapé de ações com salvamento rápido.

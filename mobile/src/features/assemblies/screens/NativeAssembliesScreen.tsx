@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, SectionList, ActivityIndicator, RefreshControl, StyleSheet, Platform, StatusBar, Modal } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Hammer, RefreshCw, ChevronRight, ChevronDown, ChevronUp, Calendar, Clock, MapPin, Navigation, Package, Truck, AlertCircle, Check } from 'lucide-react-native';
+import { MobileDrill } from '../../../components/shared/MobileDrill';
 import { supabase } from '../../../services/supabaseClient';
 import { subscribeToLogisticsChanges } from '../../../services/logisticsRealtimeService';
 import { isAssemblyOutsideType, isAssemblyInternalType } from '../../../utils/aiSummaryHelper';
@@ -292,24 +293,30 @@ export const NativeAssembliesScreen: React.FC<Props> = ({ isDarkMode, initialSub
         </TouchableOpacity>
       </View>
 
-      {/* Sub-tabs: Montagem Na Loja vs Montagem Fora */}
+      {/* Sub-tabs: Montagem Depósito vs Montagem Fora */}
       <View style={[styles.tabsRow, isDarkMode && styles.tabsRowDark]}>
         <TouchableOpacity
           style={[styles.tabBtn, subTab === 'internal' && styles.tabBtnActive]}
           onPress={() => setSubTab('internal')}
         >
-          <Text style={[styles.tabBtnText, subTab === 'internal' && styles.tabBtnTextActive]}>
-            Montagem na Loja
-          </Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+            <MobileDrill size={13} color={subTab === 'internal' ? '#ffffff' : '#64748b'} />
+            <Text style={[styles.tabBtnText, subTab === 'internal' && styles.tabBtnTextActive]}>
+              Montagem Depósito
+            </Text>
+          </View>
         </TouchableOpacity>
 
         <TouchableOpacity
           style={[styles.tabBtn, subTab === 'outside' && styles.tabBtnOutsideActive]}
           onPress={() => setSubTab('outside')}
         >
-          <Text style={[styles.tabBtnText, subTab === 'outside' && styles.tabBtnTextActive]}>
-            Montagem Fora
-          </Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+            <MobileDrill size={13} color={subTab === 'outside' ? '#ffffff' : '#64748b'} />
+            <Text style={[styles.tabBtnText, subTab === 'outside' && styles.tabBtnTextActive]}>
+              Montagem Fora
+            </Text>
+          </View>
         </TouchableOpacity>
       </View>
     </View>
@@ -367,9 +374,9 @@ export const NativeAssembliesScreen: React.FC<Props> = ({ isDarkMode, initialSub
           ListHeaderComponent={renderHeader}
           ListEmptyComponent={
             <View style={styles.emptyBox}>
-              <Hammer size={40} color="#cbd5e1" />
+              <MobileDrill size={40} color="#cbd5e1" />
               <Text style={{ fontSize: 14, fontWeight: '800', color: '#64748b', marginTop: 12 }}>
-                Nenhuma montagem {subTab === 'outside' ? 'fora' : 'na loja'} encontrada
+                Nenhuma montagem {subTab === 'outside' ? 'fora' : 'no depósito'} encontrada
               </Text>
             </View>
           }

@@ -23,6 +23,7 @@ import { useMandatoryAppUpdate } from './src/hooks/useMandatoryAppUpdate';
 
 import { NativeOrdersScreen } from './src/features/orders/screens/NativeOrdersScreen';
 import { NativeLogisticsScreen } from './src/features/logistics/screens/NativeLogisticsScreen';
+import { DeliveriesHubScreen } from './src/features/logistics/screens/DeliveriesHubScreen';
 import { NativeAssembliesScreen } from './src/features/assemblies/screens/NativeAssembliesScreen';
 import { NativeReportsScreen } from './src/features/reports/screens/NativeReportsScreen';
 import { NativeSettingsScreen } from './src/features/settings/screens/NativeSettingsScreen';
@@ -657,7 +658,7 @@ export default function App() {
             ) : currentTab === 'produtos' && canSeeProducts ? (
               <NativeProductsScreen isDarkMode={isDarkMode} userProfile={userProfile} />
             ) : (currentTab === 'entregas' || currentTab === 'logistica') ? (
-              <NativeLogisticsScreen isDarkMode={isDarkMode} isAdmin={isAdmin} onSelectOrder={setAppSelectedOrder} />
+              <DeliveriesHubScreen isDarkMode={isDarkMode} isAdmin={isAdmin} onSelectOrder={setAppSelectedOrder} />
             ) : currentTab === 'montagens' ? (
               <NativeAssembliesScreen isDarkMode={isDarkMode} initialSubTab={assemblySubTab} onSelectOrder={setAppSelectedOrder} />
             ) : currentTab === 'configuracoes' ? (

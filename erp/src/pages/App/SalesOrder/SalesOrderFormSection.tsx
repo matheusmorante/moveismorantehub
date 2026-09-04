@@ -191,7 +191,12 @@ const SalesOrderFormSection = ({ form, scrollRef, onLoadJSON, onOpenSellerSearch
                                     setShipping={actions.setShipping}
                                     customerData={state.customerData}
                                     isCalculatingDistance={state.isCalculatingDistance}
-                                    onAutoCalculateDistance={() => actions.handleAutoCalculateDistance(state.customerData.fullAddress)}
+                                    onAutoCalculateDistance={() => {
+                                        const targetAddr = (state.shipping.useCustomerAddress === false && state.shipping.deliveryAddress)
+                                            ? state.shipping.deliveryAddress
+                                            : state.customerData.fullAddress;
+                                        actions.handleAutoCalculateDistance(targetAddr);
+                                    }}
                                     errors={state.errors}
                                     orderType={state.currentOrder.orderType}
                                 />

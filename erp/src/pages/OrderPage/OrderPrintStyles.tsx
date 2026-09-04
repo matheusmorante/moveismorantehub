@@ -19,10 +19,10 @@ const OrderPrintStyles = () => {
                     border-radius: 1rem !important;
                 }
                 .header-logo-container {
-                    width: 6.5rem !important;
-                    height: 6.5rem !important;
-                    padding: 0.35rem !important;
-                    border-radius: 0.75rem !important;
+                    width: 13rem !important;
+                    height: 13rem !important;
+                    padding: 0.5rem !important;
+                    border-radius: 1.25rem !important;
                 }
                 .header-logo-container img {
                     width: 100% !important;

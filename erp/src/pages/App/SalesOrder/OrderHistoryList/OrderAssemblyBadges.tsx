@@ -21,7 +21,7 @@ export const OrderAssemblyBadges = ({
         <div className="flex items-center gap-1">
             {hasAssemblyDepot && (
                 <div
-                    className={`flex ${boxSize} items-center justify-center rounded-md bg-blue-600 text-white border border-blue-700 shadow-2xs`}
+                    className={`flex ${boxSize} items-center justify-center rounded-md bg-amber-500 text-white border border-amber-600 shadow-2xs`}
                     title="Montagem no Depósito (antes da entrega/retirada)"
                 >
                     <Drill size={iconSize} className="text-white fill-white" />
@@ -29,7 +29,7 @@ export const OrderAssemblyBadges = ({
             )}
             {hasAssemblyOutside && (
                 <div
-                    className={`flex ${boxSize} items-center justify-center rounded-md bg-indigo-600 text-white border border-indigo-700 shadow-2xs`}
+                    className={`flex ${boxSize} items-center justify-center rounded-md bg-red-600 text-white border border-red-700 shadow-2xs`}
                     title="Montagem Fora (na casa do cliente)"
                 >
                     <Drill size={iconSize} className="text-white fill-white" />

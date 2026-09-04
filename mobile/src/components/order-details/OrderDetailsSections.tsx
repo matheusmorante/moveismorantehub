@@ -1,10 +1,11 @@
 import React from 'react';
 import { StyleSheet, Text, View, TouchableOpacity, Linking } from 'react-native';
 import { Calendar, Clock, DollarSign, FileText, Hammer, MapPin, Navigation, Package, Truck, User, Wrench, ExternalLink } from 'lucide-react-native';
+import { MobileDrill } from '../shared/MobileDrill';
 import { formatFullAddress, formatItemNameExact, formatOrderDate, getLocationMapsUrl } from '../../utils/orderUtils';
 
 export function OrderTypeBadges({ assistance, pickup, internal, outside }: any) {
-  return <View style={styles.badges}><View style={[styles.badge, assistance ? styles.orange : pickup ? styles.purple : styles.green]}>{assistance ? <Wrench size={14} color="#fff" /> : pickup ? <Package size={14} color="#fff" /> : <Truck size={14} color="#fff" />}<Text style={styles.badgeText}>{assistance ? 'ASSISTÊNCIA' : pickup ? 'RETIRADA' : 'ENTREGA'}</Text></View>{internal && <View style={[styles.badge, styles.orange]}><Hammer size={14} color="#fff" /><Text style={styles.badgeText}>MONTAGEM DEPÓSITO</Text></View>}{outside && <View style={[styles.badge, styles.red]}><Hammer size={14} color="#fff" /><Text style={styles.badgeText}>MONTAGEM FORA</Text></View>}</View>;
+  return <View style={styles.badges}><View style={[styles.badge, assistance ? styles.orange : pickup ? styles.purple : styles.green]}>{assistance ? <Wrench size={14} color="#fff" /> : pickup ? <Package size={14} color="#fff" /> : <Truck size={14} color="#fff" />}<Text style={styles.badgeText}>{assistance ? 'ASSISTÊNCIA' : pickup ? 'RETIRADA' : 'ENTREGA'}</Text></View>{internal && <View style={[styles.badge, styles.orange]}><MobileDrill size={14} color="#fff" /><Text style={styles.badgeText}>MONTAGEM DEPÓSITO</Text></View>}{outside && <View style={[styles.badge, styles.red]}><MobileDrill size={14} color="#fff" /><Text style={styles.badgeText}>MONTAGEM FORA</Text></View>}</View>;
 }
 
 const Header = ({ icon, title, dark }: any) => <View style={styles.header}>{icon}<Text style={[styles.title, dark && styles.light]}>{title}</Text></View>;

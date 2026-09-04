@@ -87,28 +87,38 @@ export interface GeocodeResponse {
 }
 
 export const geocodeAddress = async (address: CustomerData['fullAddress'] | string): Promise<GeocodeResponse | null> => {
-    let street = '', neighborhood = '', city = '', number = '';
+    let street = '', neighborhood = '', city = '', number = '', state = 'PR';
     
     if (typeof address === 'string') {
         street = address;
-    } else {
+    } else if (address) {
         street = address.street || '';
         neighborhood = address.neighborhood || '';
         city = address.city || '';
         number = address.number || '';
+        state = address.state || 'PR';
     }
 
     const settings = getSettings();
     if (!settings.googleMapsApiKey) {
-        console.warn("Google Maps API Key não configurada.");
+        console.warn("[geocodeAddress] Google Maps API Key não configurada.");
         return null;
     }
 
-    const query = [
+    // Monta query primária completa
+    const queryPrimary = [
         street ? `${street}${number ? ', ' + number : ''}` : '',
         neighborhood,
-        city || 'Curitiba e Região',
-        'PR',
+        city || 'Colombo',
+        state || 'PR',
+        'Brasil'
+    ].filter(Boolean).join(', ');
+
+    // Query de fallback caso número ou rua específica falhe
+    const queryFallback = [
+        street || neighborhood,
+        city || 'Colombo',
+        state || 'PR',
         'Brasil'
     ].filter(Boolean).join(', ');
 
@@ -123,12 +133,29 @@ export const geocodeAddress = async (address: CustomerData['fullAddress'] | stri
     try {
         await loadGoogleMapsApi(settings.googleMapsApiKey);
         const geocoder = new (window as any).google.maps.Geocoder();
-        const r: any = await new Promise((resolve, reject) => {
-            geocoder.geocode({ address: query, region: 'br' }, (results: any, status: any) => {
-                if (status === 'OK' && results && results.length > 0) resolve(results[0]);
-                else reject(status);
+
+        const runGeocode = async (q: string): Promise<any> => {
+            return new Promise((resolve, reject) => {
+                geocoder.geocode({ address: q, region: 'br', componentRestrictions: { country: 'br' } }, (results: any, status: any) => {
+                    if (status === 'OK' && results && results.length > 0) resolve(results[0]);
+                    else reject(status);
+                });
             });
-        });
+        };
+
+        let r: any = null;
+        try {
+            r = await runGeocode(queryPrimary);
+        } catch (errPrimary) {
+            if (queryFallback !== queryPrimary) {
+                console.warn("[geocodeAddress] Falha na query primária, tentando fallback:", queryFallback, errPrimary);
+                try {
+                    r = await runGeocode(queryFallback);
+                } catch (errFb) {
+                    console.warn("[geocodeAddress] Falha no fallback de geocode:", errFb);
+                }
+            }
+        }
 
         if (r?.geometry?.location) {
             ApiUsageTracker.record({
@@ -157,6 +184,16 @@ export const geocodeAddress = async (address: CustomerData['fullAddress'] | stri
             module_source: 'sales_order',
             error_message: String(e),
         });
+    }
+
+    // Fallback secundário por coordenadas de bairro/cidade conhecidas se geocoder não retornar
+    const fallbackCoords = getNeighborhoodCoords(neighborhood, city);
+    if (fallbackCoords) {
+        console.info("[geocodeAddress] Utilizando coordenadas de aproximação por bairro/cidade:", fallbackCoords);
+        return {
+            coords: [fallbackCoords.lng, fallbackCoords.lat] as [number, number],
+            isPrecision: false
+        };
     }
 
     return null;
@@ -241,23 +278,32 @@ export const calculateRouteViaGoogleMaps = async (
 
 // ─── Public: Auto-calculate route distance (Exclusivo Google Maps) ───────────
 
-export const autoCalculateRouteDistance = async (address: CustomerData['fullAddress']): Promise<RouteResult | null> => {
+export const autoCalculateRouteDistance = async (address: CustomerData['fullAddress'] | any): Promise<RouteResult | null> => {
     try {
         const settings = getSettings();
         if (!settings.googleMapsApiKey) {
-            console.warn("Google Maps API Key não configurada.");
+            console.warn("[autoCalculateRouteDistance] Google Maps API Key não configurada nas configurações do sistema.");
             return null;
         }
 
-        const origin: [number, number] = settings.storeOriginCoords;
+        const origin: [number, number] = settings.storeOriginCoords || [-49.16928181659719, -25.352030536045138];
 
+        console.info("[autoCalculateRouteDistance] Iniciando geocodificação do endereço de destino:", address);
         const geoRes = await geocodeAddress(address);
-        if (!geoRes) return null;
+        if (!geoRes) {
+            console.warn("[autoCalculateRouteDistance] Geocodificação retornou nulo para o endereço:", address);
+            return null;
+        }
         
         const destCoords = geoRes.coords;
+        console.info("[autoCalculateRouteDistance] Coordenadas obtidas:", destCoords, "Calculando rota de:", origin);
         const routeData = await calculateRouteViaGoogleMaps(origin, destCoords, settings.googleMapsApiKey);
-        if (!routeData) return null;
+        if (!routeData) {
+            console.warn("[autoCalculateRouteDistance] DirectionsService não encontrou rota viável para as coordenadas:", destCoords);
+            return null;
+        }
 
+        console.info(`[autoCalculateRouteDistance] Sucesso! Distância: ${routeData.distanceKm} km, Duração: ${routeData.durationMinutes} min`);
         return {
             distanceKm: routeData.distanceKm,
             durationMinutes: routeData.durationMinutes,
@@ -272,7 +318,7 @@ export const autoCalculateRouteDistance = async (address: CustomerData['fullAddr
 
 // ─── Search Address Suggestions via Google Places / Geocoder (Exclusivo) ─────
 
-export const searchAddressSuggestions = async (query: string, city?: string): Promise<any[]> => {
+export const searchAddressSuggestions = async (query: string, city?: string, state: string = 'PR'): Promise<any[]> => {
     if (!query || query.trim().length < 2) return [];
     
     const settings = getSettings();
@@ -280,16 +326,19 @@ export const searchAddressSuggestions = async (query: string, city?: string): Pr
         return [];
     }
 
+    const stateTarget = (state || 'PR').trim().toUpperCase();
     const cleanQuery = query
         .replace(/^(rua|travessa|avenida|trav|r\.|av\.|aven|rod\.|rodovia|prefeito|pref\.|gov\.|governador|pres\.|presidente)\s+/i, '')
         .replace(/\s(da|do|de|das|dos|d')\s/gi, ' ')
         .trim();
 
+    const cacheQueryKey = `v2_${stateTarget.toLowerCase()}_${cleanQuery.toLowerCase()}`;
+
     try {
         const { data, error } = await supabase
             .from('address_cache')
             .select('results')
-            .eq('query_key', 'v2_' + cleanQuery.toLowerCase())
+            .eq('query_key', cacheQueryKey)
             .single();
         if (!error && data && data.results && data.results.length > 0) {
             // Registrar chamada economizada pelo cache
@@ -313,22 +362,24 @@ export const searchAddressSuggestions = async (query: string, city?: string): Pr
         return [];
     }
 
-    const searchSuffix = city ? `, ${city}, PR, Brasil` : ', Paraná, Brasil';
-    const fullQuery = query.includes('Paraná') || query.includes('PR') ? query : query + searchSuffix;
+    const stateLabel = stateTarget === 'PR' ? 'Paraná' : stateTarget;
+    const searchSuffix = `${city ? city + ', ' : ''}${stateLabel}, Brasil`;
+    const fullQuery = query.toUpperCase().includes(stateTarget) ? query : `${query}, ${searchSuffix}`;
 
     const startTime = Date.now();
     try {
         await loadGoogleMapsApi(settings.googleMapsApiKey);
         const google = (window as any).google;
 
-        // 1. Tenta AutocompleteService do Google Places (retorna todos os tipos)
+        // 1. Tenta AutocompleteService do Google Places (com restrição ao país e direcionamento ao estado)
         if (google?.maps?.places?.AutocompleteService) {
             try {
                 const autocompleteService = new google.maps.places.AutocompleteService();
+                const searchInput = `${query}${city ? ', ' + city : ''}, ${stateLabel}, Brasil`;
                 const predictions: any[] = await new Promise((resolve) => {
                     autocompleteService.getPlacePredictions(
                         {
-                            input: query + (city ? `, ${city}` : ''),
+                            input: searchInput,
                             componentRestrictions: { country: 'br' },
                         },
                         (res: any, status: any) => {
@@ -342,13 +393,25 @@ export const searchAddressSuggestions = async (query: string, city?: string): Pr
                 });
 
                 if (predictions && predictions.length > 0) {
-                    const placesMapped = predictions.map((pred: any) => {
+                    // Filtrar predições para garantir que pertencem ao estado selecionado (evitando dados de outros estados)
+                    const isStateMatch = (desc: string) => {
+                        const d = desc.toUpperCase();
+                        if (stateTarget === 'PR') {
+                            return d.includes('PR') || d.includes('PARANÁ') || d.includes('PARANA');
+                        }
+                        return d.includes(stateTarget);
+                    };
+
+                    const filteredPredictions = predictions.filter((p: any) => isStateMatch(p.description));
+                    const selectedPredictions = filteredPredictions.length > 0 ? filteredPredictions : predictions;
+
+                    const placesMapped = selectedPredictions.map((pred: any) => {
                         const mainText = pred.structured_formatting?.main_text || pred.description.split(',')[0];
                         const secondaryParts = (pred.structured_formatting?.secondary_text || '').split(',').map((s: string) => s.trim());
                         
                         const suburb = secondaryParts[0] || '';
                         const cityFound = secondaryParts[1] || city || 'Colombo';
-                        const stateFound = secondaryParts[2] || 'PR';
+                        const stateFound = secondaryParts[2] || stateTarget;
 
                         return {
                             display_name: pred.description,
@@ -365,6 +428,11 @@ export const searchAddressSuggestions = async (query: string, city?: string): Pr
                             }
                         };
                     });
+
+                    supabase.from('address_cache').upsert({
+                        query_key: cacheQueryKey,
+                        results: placesMapped
+                    }).then().catch(() => {});
 
                     ApiUsageTracker.record({
                         provider: 'google',
@@ -384,10 +452,14 @@ export const searchAddressSuggestions = async (query: string, city?: string): Pr
             }
         }
 
-        // 2. Google Geocoder
+        // 2. Google Geocoder (com restrição ao estado)
         const geocoder = new google.maps.Geocoder();
         const gResults: any[] = await new Promise((resolve, reject) => {
-            geocoder.geocode({ address: fullQuery, region: 'br' }, (res: any, status: any) => {
+            geocoder.geocode({
+                address: fullQuery,
+                region: 'br',
+                componentRestrictions: { country: 'br', administrativeArea: stateTarget }
+            }, (res: any, status: any) => {
                 if (status === 'OK' && res) resolve(res);
                 else reject(status);
             });
@@ -409,14 +481,14 @@ export const searchAddressSuggestions = async (query: string, city?: string): Pr
                         suburb: getComponent("sublocality") || getComponent("sublocality_level_1") || getComponent("neighborhood"),
                         neighbourhood: getComponent("neighborhood") || getComponent("sublocality") || getComponent("sublocality_level_1"),
                         city: getComponent("administrative_area_level_2") || getComponent("locality") || city || 'Colombo',
-                        state: getComponent("administrative_area_level_1") || 'PR',
+                        state: getComponent("administrative_area_level_1") || stateTarget,
                         postcode: getComponent("postal_code")
                     }
                 };
             });
             
             supabase.from('address_cache').upsert({
-                query_key: 'v2_' + cleanQuery.toLowerCase(),
+                query_key: cacheQueryKey,
                 results: mappedResults
             }).then().catch(() => {});
 
