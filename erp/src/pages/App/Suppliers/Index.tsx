@@ -3,7 +3,7 @@ import PersonPage from "../Registrations/shared/PersonPage";
 const Suppliers = () => (
     <PersonPage
         title="Fornecedores"
-        subtitle="Cadeia de Parceiros e Fornecedores"
+        subtitle=""
         newLabel="Novo Fornecedor"
         newIcon="bi bi-truck"
         collectionName="suppliers"

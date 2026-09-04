@@ -9,6 +9,7 @@ import ShowcaseAssemblyModal from './components/ShowcaseAssemblyModal';
 import { ShowcaseAssembly, getShowcaseAssemblies, deleteShowcaseAssembly } from '@/pages/utils/showcaseAssemblyService';
 import { getOrderTypeClasses } from '@/pages/utils/orderTypeColorUtils';
 import { Drill } from '@/components/shared/DrillIcon';
+import { normalizeSearchTerm } from '@/pages/utils/textUtils';
 
 const AssemblyListPage = () => {
     const [assemblies, setAssemblies] = useState<any[]>([]);
@@ -176,8 +177,8 @@ const AssemblyListPage = () => {
     };
 
     const filteredAssemblies = assemblies.filter(item =>
-        item.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        item.id?.toLowerCase().includes(searchTerm.toLowerCase())
+        normalizeSearchTerm(item.title).includes(normalizeSearchTerm(searchTerm)) ||
+        normalizeSearchTerm(item.id || '').includes(normalizeSearchTerm(searchTerm))
     );
 
     useEffect(() => {

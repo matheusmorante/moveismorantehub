@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import Purchase from '../../../types/purchase.type';
 import { subscribeToPurchases } from '../../../utils/purchaseService';
 import { formatCurrency } from '../../../utils/formatters';
+import { normalizeSearchTerm } from '../../../utils/textUtils';
 
 type Props = {
     isOpen: boolean;
@@ -23,8 +24,8 @@ export default function PurchaseReceiptPickerModal({ isOpen, onClose, onSelect, 
         if (purchase.status === 'cancelled') return false;
         if (supplierId && purchase.supplierId === supplierId) return true;
         if (supplierName && purchase.supplierName) {
-            const sName = supplierName.toLowerCase();
-            const pName = purchase.supplierName.toLowerCase();
+            const sName = normalizeSearchTerm(supplierName);
+            const pName = normalizeSearchTerm(purchase.supplierName);
             return pName.includes(sName) || sName.includes(pName);
         }
         return false;

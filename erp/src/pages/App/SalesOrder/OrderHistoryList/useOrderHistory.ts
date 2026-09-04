@@ -3,6 +3,7 @@ import Order, { IsButtonsClicked } from "../../../types/order.type";
 import { subscribeToOrders, restoreOrder, permanentDeleteDraftOrder, permanentDeleteOrder, updateOrder, undoReturn } from "../../../utils/orderHistoryService";
 import { actionsMap, buttons } from "../OrderActions/orderActionsConfig";
 import { autoFulfillExpiredOrders } from "@/pages/utils/orderFulfillmentCountdown";
+import { normalizeSearchTerm } from "@/pages/utils/textUtils";
 import { toast } from "react-toastify";
 import { useWindowSize } from "../../../../hooks/useWindowSize";
 
@@ -72,8 +73,8 @@ export const useOrderHistory = (filters?: any) => {
 
         return orders
             .filter(order => {
-                const customerNameQuery = filters?.customerName?.toLowerCase() || '';
-                const orderCustomerName = order.customerData?.fullName?.toLowerCase() || '';
+                const customerNameQuery = normalizeSearchTerm(filters?.customerName || '');
+                const orderCustomerName = normalizeSearchTerm(order.customerData?.fullName || '');
                 const isSearchingCustomer = customerNameQuery.length > 0;
                 const matchesCustomer = orderCustomerName.includes(customerNameQuery);
 
@@ -109,9 +110,10 @@ export const useOrderHistory = (filters?: any) => {
 
                 const customerMatch = !filters.customerName || matchesCustomer;
 
+                const prodQuery = normalizeSearchTerm(filters.productName || '');
                 const productMatch = !filters.productName ||
-                    (order.items?.some(item => item.description.toLowerCase().includes(filters.productName.toLowerCase()))) ||
-                    (order.assistanceDescription?.toLowerCase().includes(filters.productName.toLowerCase()));
+                    (order.items?.some(item => normalizeSearchTerm(item.description).includes(prodQuery))) ||
+                    (normalizeSearchTerm(order.assistanceDescription || '').includes(prodQuery));
 
                 const isBudgetView = filters?.isBudgetView || false;
                 const isAssistanceView = filters?.isAssistanceView || false;
@@ -133,7 +135,8 @@ export const useOrderHistory = (filters?: any) => {
                         : (order.orderType !== 'budget' && order.orderType !== 'assistance' && order.orderType !== 'return');
                 }
 
-                const sellerMatch = !filters.seller || order.seller?.toLowerCase().includes(filters.seller.toLowerCase());
+                const sellerQuery = normalizeSearchTerm(filters.seller || '');
+                const sellerMatch = !filters.seller || normalizeSearchTerm(order.seller || '').includes(sellerQuery);
 
                 const totalOrderValue = order.paymentsSummary?.totalOrderValue || 0;
                 const valueMatch = totalOrderValue >= filters.valueRange.min &&

@@ -895,22 +895,44 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
         }
     };
 
-    const handleGenerateNCM = async () => {
-        if (!formData.description) return toast.warning("Título necessário para buscar NCM");
+    const handleGenerateNCM = async (isAutoTrigger = false) => {
+        const title = (formData.name || formData.description || '').trim();
+        if (!title) {
+            if (!isAutoTrigger) toast.warning("Título necessário para buscar NCM");
+            return;
+        }
         setIsGeneratingNCM(true);
         try {
-            const { ncm } = await aiService.findNCM(formData.description, formData.material || '');
-            setFormData(prev => ({
-                ...prev,
-                fiscal: { ...prev.fiscal!, ncm }
-            }));
-            toast.success(`NCM Encontrado: ${ncm}`);
+            const { ncm } = await aiService.findNCM(title, formData.material || '');
+            if (ncm) {
+                setFormData(prev => ({
+                    ...prev,
+                    fiscal: { ...prev.fiscal!, ncm }
+                }));
+                if (!isAutoTrigger) {
+                    toast.success(`NCM Encontrado: ${ncm}`);
+                }
+            }
         } catch (error) {
             console.error(error);
         } finally {
             setIsGeneratingNCM(false);
         }
     };
+
+    // Auto-preencher NCM com IA quando Título, Descrição e Categoria forem preenchidos e NCM estiver vazio
+    useEffect(() => {
+        const title = (formData.name || formData.description || '').trim();
+        const temCategoria = (formData.categoryIds && formData.categoryIds.length > 0) || !!formData.category;
+        const ncmVazio = !formData.fiscal?.ncm || formData.fiscal.ncm.trim() === '';
+
+        if (title && temCategoria && ncmVazio && !isGeneratingNCM) {
+            const timer = setTimeout(() => {
+                handleGenerateNCM(true);
+            }, 1000);
+            return () => clearTimeout(timer);
+        }
+    }, [formData.name, formData.description, formData.categoryIds, formData.category, formData.fiscal?.ncm]);
 
     const handleImproveDescriptionWithAI = async () => {
         // Validação de pré-requisitos

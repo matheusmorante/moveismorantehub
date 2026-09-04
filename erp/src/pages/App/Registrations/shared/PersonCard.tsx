@@ -51,7 +51,8 @@ const PersonCard = ({
 }: PersonCardProps) => {
     const [isMenuOpen, setIsMenuOpen] = React.useState(false);
     const menuAnchorRef = React.useRef<HTMLButtonElement>(null);
-    const canSelect = allowsSelection && person.type !== 'employees';
+    const isSupplier = person.type === 'suppliers';
+    const canSelect = allowsSelection && person.type !== 'employees' && !isSupplier;
 
     const hasActions = showTrash || person.type !== 'employees' || Boolean(onViewPurchaseHistory);
 
@@ -117,14 +118,14 @@ const PersonCard = ({
                                     <>
                                         <button
                                             onClick={(e) => { e.stopPropagation(); setIsMenuOpen(false); onRestore(person.id!); }}
-                                            className="flex items-center gap-3 px-4 py-2.5 hover:bg-slate-50 dark:hover:bg-slate-950 transition-colors text-left group"
+                                            className="flex items-center gap-3 px-4 py-2.5 hover:bg-slate-50 dark:hover:bg-slate-955 transition-colors text-left group"
                                         >
                                             <i className="bi bi-arrow-counterclockwise text-emerald-500" />
                                             <span className="text-[10px] font-black uppercase tracking-widest text-slate-700 dark:text-slate-200">Restaurar</span>
                                         </button>
                                         <button
                                             onClick={(e) => { e.stopPropagation(); setIsMenuOpen(false); onPermanentDelete(person.id!); }}
-                                            className="flex items-center gap-3 px-4 py-2.5 hover:bg-red-50 dark:hover:bg-red-950/20 transition-colors text-left group border-t border-slate-50 dark:border-slate-800/50"
+                                            className="flex items-center gap-3 px-4 py-2.5 hover:bg-red-50 dark:hover:bg-red-955/20 transition-colors text-left group border-t border-slate-50 dark:border-slate-800/50"
                                         >
                                             <i className="bi bi-trash3-fill text-red-500" />
                                             <span className="text-[10px] font-black uppercase tracking-widest text-red-600 dark:text-red-400">Excluir Permanentemente</span>
@@ -135,7 +136,7 @@ const PersonCard = ({
                                         {person.type !== 'employees' && (
                                             <button
                                                 onClick={(e) => { e.stopPropagation(); setIsMenuOpen(false); onEdit(person); }}
-                                                className="flex items-center gap-3 px-4 py-2.5 hover:bg-slate-50 dark:hover:bg-slate-950 transition-colors text-left group"
+                                                className="flex items-center gap-3 px-4 py-2.5 hover:bg-slate-50 dark:hover:bg-slate-955 transition-colors text-left group"
                                             >
                                                 <i className="bi bi-pencil-fill text-blue-500" />
                                                 <span className="text-[10px] font-black uppercase tracking-widest text-slate-700 dark:text-slate-200">Editar</span>
@@ -145,14 +146,14 @@ const PersonCard = ({
                                         {onViewPurchaseHistory && (
                                             <button
                                                 onClick={(e) => { e.stopPropagation(); setIsMenuOpen(false); onViewPurchaseHistory(person); }}
-                                                className="flex items-center gap-3 px-4 py-2.5 hover:bg-slate-50 dark:hover:bg-slate-950 transition-colors text-left group"
+                                                className="flex items-center gap-3 px-4 py-2.5 hover:bg-slate-50 dark:hover:bg-slate-955 transition-colors text-left group"
                                             >
                                                 <i className="bi bi-bag-check-fill text-amber-500" />
                                                 <span className="text-[10px] font-black uppercase tracking-widest text-slate-700 dark:text-slate-200">Histórico de Pedidos</span>
                                             </button>
                                         )}
 
-                                        {person.type !== 'employees' && (
+                                        {person.type !== 'employees' && !isSupplier && (
                                             <button
                                                 onClick={(e) => { 
                                                      e.stopPropagation(); 
@@ -168,10 +169,10 @@ const PersonCard = ({
                                             </button>
                                         )}
 
-                                        {person.type !== 'employees' && (
+                                        {person.type !== 'employees' && !isSupplier && (
                                             <button
                                                 onClick={(e) => { e.stopPropagation(); setIsMenuOpen(false); onDelete(person.id!); }}
-                                                className="flex items-center gap-3 px-4 py-2.5 hover:bg-red-50 dark:hover:bg-red-950/20 transition-colors text-left group border-t border-slate-50 dark:border-slate-800/50"
+                                                className="flex items-center gap-3 px-4 py-2.5 hover:bg-red-50 dark:hover:bg-red-955/20 transition-colors text-left group border-t border-slate-50 dark:border-slate-800/50"
                                             >
                                                 <i className="bi bi-trash-fill text-red-500" />
                                                 <span className="text-[10px] font-black uppercase tracking-widest text-red-600 dark:text-red-400">Mover para Lixeira</span>

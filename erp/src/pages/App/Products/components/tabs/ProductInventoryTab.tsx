@@ -121,16 +121,7 @@ const ProductInventoryTab: React.FC<ProductInventoryTabProps> = ({
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <ProductSupplierField formData={formData} suppliers={suppliers} onChange={updateCost} hasError={validationErrors.mainSupplierId} />
 
-                {formData.hasVariations ? (
-                    <div className="md:col-span-1 flex items-center">
-                        <div className="p-4 bg-amber-50 dark:bg-amber-900/10 border border-amber-100 dark:border-amber-900/30 rounded-xl flex items-center gap-3 w-full h-full">
-                            <i className="bi bi-exclamation-triangle-fill text-amber-600 text-lg shrink-0"></i>
-                            <p className="text-[9px] font-bold text-amber-800 dark:text-amber-400 leading-tight uppercase tracking-widest">
-                                Grade de variações gerenciada na aba "Grade".
-                            </p>
-                        </div>
-                    </div>
-                ) : (
+                {!formData.hasVariations && (
                     /* Estoque Mínimo */
                     <div className="flex flex-col gap-2 p-2 rounded-2xl">
                         <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 flex items-center gap-1.5 h-6">
@@ -161,14 +152,6 @@ const ProductInventoryTab: React.FC<ProductInventoryTabProps> = ({
                 validationErrors={validationErrors}
                 setValidationErrors={setValidationErrors}
             />
-
-            {/* Info Box */}
-            <div className="flex items-center gap-3 p-3 bg-blue-50/50 dark:bg-blue-900/10 rounded-xl">
-                <i className="bi bi-info-circle-fill text-blue-500 text-sm"></i>
-                <p className="text-[10px] font-bold text-blue-700 dark:text-blue-400 leading-tight">
-                    Vincule o fornecedor para automatizar o cálculo de Lead Time e pedidos de compra. O Lead Time é definido no cadastro do fornecedor.
-                </p>
-            </div>
 
         </div>
     );

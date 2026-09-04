@@ -106,9 +106,7 @@ const ProductCard = ({
     const [oppName, setOppName] = React.useState<string | null>(
         product.opportunityName || product.opportunity?.name || null
     );
-    const [supplierName, setSupplierName] = React.useState<string | null>(
-        (product as any).supplierName || (product as any).supplier?.name || (product as any).supplier || null
-    );
+    const [supplierNames, setSupplierNames] = React.useState<string[]>([]);
 
     React.useEffect(() => {
         let isMounted = true;
@@ -126,18 +124,40 @@ const ProductCard = ({
 
     React.useEffect(() => {
         let isMounted = true;
-        const targetSupplierId = product.mainSupplierId || product.supplierId || (product as any).supplier_id || (product as any).main_supplier_id;
-        if (targetSupplierId) {
+        const rawIds = [
+            product.mainSupplierId,
+            product.supplierId,
+            (product as any).main_supplier_id,
+            (product as any).supplier_id,
+            ...(product.supplierIds || (product as any).supplier_ids || [])
+        ];
+        const sIds = Array.from(new Set(rawIds.filter(Boolean))).map(String);
+
+        if (sIds.length > 0) {
             fetchSupplierMap().then(map => {
-                if (isMounted && map && map[targetSupplierId]) {
-                    setSupplierName(map[targetSupplierId]);
+                if (!isMounted) return;
+                const resolvedNames: string[] = [];
+                sIds.forEach(id => {
+                    if (map && map[id]) resolvedNames.push(map[id]);
+                });
+                if (resolvedNames.length === 0) {
+                    const fallback = (product as any).supplierName || (product as any).supplier?.name || (product as any).supplier || null;
+                    if (fallback) resolvedNames.push(fallback);
                 }
+                setSupplierNames(Array.from(new Set(resolvedNames)));
             });
         } else {
-            setSupplierName((product as any).supplierName || (product as any).supplier?.name || (product as any).supplier || null);
+            const fallback = (product as any).supplierName || (product as any).supplier?.name || (product as any).supplier || null;
+            setSupplierNames(fallback ? [fallback] : []);
         }
         return () => { isMounted = false; };
-    }, [product.mainSupplierId, product.supplierId, (product as any).supplier_id, (product as any).main_supplier_id]);
+    }, [
+        product.mainSupplierId,
+        product.supplierId,
+        (product as any).main_supplier_id,
+        (product as any).supplier_id,
+        JSON.stringify(product.supplierIds || (product as any).supplier_ids || [])
+    ]);
 
     // Process attributes text if variation
     let variationName = '';
@@ -417,15 +437,15 @@ const ProductCard = ({
                             <span className="text-[10px] text-slate-400 dark:text-slate-500 font-bold uppercase tracking-wide">
                                 {getCategoryBreadcrumb(product.categoryIds || [], categoryTree) || product.category || "-"}
                             </span>
-                            {supplierName && (
-                                <>
+                            {supplierNames.map((supName, sIdx) => (
+                                <React.Fragment key={sIdx}>
                                     <span className="text-slate-300 dark:text-slate-700 text-[10px]">•</span>
                                     <span className="inline-flex items-center gap-1 text-[10px] font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wide bg-slate-100 dark:bg-slate-800/80 px-1.5 py-0.5 rounded border border-slate-200/60 dark:border-slate-700/60">
                                         <i className="bi bi-truck text-[9px] text-slate-400 dark:text-slate-500" />
-                                        {supplierName}
+                                        {supName}
                                     </span>
-                                </>
-                            )}
+                                </React.Fragment>
+                            ))}
                         </div>
                     )}
                 </div>

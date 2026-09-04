@@ -54,6 +54,8 @@ const PersonRow = ({
     const [isMenuOpen, setIsMenuOpen] = React.useState(false);
     const menuAnchorRef = React.useRef<HTMLButtonElement>(null);
 
+    const isSupplier = person.type === 'suppliers';
+
     const renderCell = (key: string) => {
         if (!visibilitySettings[key as keyof PersonVisibilitySettings]) return null;
 
@@ -231,7 +233,7 @@ const PersonRow = ({
                                                         </button>
                                                     )}
 
-                                                    {person.type !== 'employees' && (
+                                                    {person.type !== 'employees' && !isSupplier && (
                                                         <button
                                                             onClick={(e) => { 
                                                                 e.stopPropagation(); 
@@ -247,7 +249,7 @@ const PersonRow = ({
                                                         </button>
                                                     )}
 
-                                                    {person.type !== 'employees' && (
+                                                    {person.type !== 'employees' && !isSupplier && (
                                                         <button
                                                             onClick={(e) => {
                                                                 e.stopPropagation();
@@ -256,9 +258,9 @@ const PersonRow = ({
                                                             }}
                                                             className="flex items-center gap-3 px-4 py-2.5 hover:bg-red-50 dark:hover:bg-red-955/20 transition-colors text-left group border-t border-slate-50 dark:border-slate-800/50"
                                                         >
-                                                            <i className={`bi ${person.type === 'suppliers' ? 'bi-person-dash-fill text-amber-500' : 'bi-trash-fill text-red-500'}`} />
+                                                            <i className="bi bi-trash-fill text-red-500" />
                                                             <span className="text-[10px] font-black uppercase tracking-widest text-red-600 dark:text-red-400">
-                                                                {person.type === 'suppliers' ? 'Desvincular' : 'Mover para Lixeira'}
+                                                                Mover para Lixeira
                                                             </span>
                                                         </button>
                                                     )}
@@ -286,7 +288,7 @@ const PersonRow = ({
                 }
             }}
         >
-            {person.type !== 'employees' && (
+            {person.type !== 'employees' && !isSupplier && (
                 <td className="p-0 w-12 text-center">
                     <label
                         className="flex items-center justify-center w-full h-full cursor-pointer py-1.5 px-3"

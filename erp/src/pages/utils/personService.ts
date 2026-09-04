@@ -308,7 +308,19 @@ export const subscribeToPeople = (collectionName: string, callback: (people: Per
 
     fetchAll();
 
-    return () => {};
+    const handlePeopleUpdate = () => {
+        fetchAll();
+    };
+
+    if (typeof window !== 'undefined') {
+        window.addEventListener('people_updated', handlePeopleUpdate);
+    }
+
+    return () => {
+        if (typeof window !== 'undefined') {
+            window.removeEventListener('people_updated', handlePeopleUpdate);
+        }
+    };
 };
 
 export const savePerson = async (collectionName: string, person: Person): Promise<Person> => {
@@ -324,6 +336,9 @@ export const savePerson = async (collectionName: string, person: Person): Promis
             .select();
 
         if (error) throw error;
+        if (typeof window !== 'undefined') {
+            window.dispatchEvent(new CustomEvent('people_updated', { detail: { collectionName } }));
+        }
         return mapFromDB(data[0]);
     } catch (error) {
         console.error(`Erro ao salvar em ${collectionName}: `, error);
@@ -339,6 +354,9 @@ export const savePeopleBatch = async (collectionName: string, people: Partial<Pe
             .insert(dbPeople);
 
         if (error) throw error;
+        if (typeof window !== 'undefined') {
+            window.dispatchEvent(new CustomEvent('people_updated', { detail: { collectionName } }));
+        }
     } catch (error) {
         console.error(`Erro ao salvar lote em ${collectionName}: `, error);
         throw error;
@@ -357,6 +375,9 @@ export const updatePerson = async (collectionName: string, id: string, personToU
         if (error) throw error;
         if (!data || data.length === 0) {
             return {} as Person;
+        }
+        if (typeof window !== 'undefined') {
+            window.dispatchEvent(new CustomEvent('people_updated', { detail: { collectionName } }));
         }
         return mapFromDB(data[0]);
     } catch (error) {
@@ -524,4 +545,22 @@ export const isEmployeeEmailTaken = async (email: string, excludeId?: string): P
     }
 
     return Boolean(data && data.length > 0);
+};
+
+export const isSupplierNameTaken = async (name: string, excludeId?: string): Promise<boolean> => {
+    const normalized = name?.trim().toLowerCase();
+    if (!normalized) return false;
+
+    const { data } = await supabase
+        .from(TABLE_NAME)
+        .select('id, full_name, nickname, social_name')
+        .or('person_type.ilike.suppliers,person_type.ilike.supplier');
+
+    if (!data) return false;
+
+    return data.some((p: any) => {
+        if (excludeId && String(p.id) === String(excludeId)) return false;
+        const pName = (p.full_name || p.nickname || p.social_name || '').trim().toLowerCase();
+        return pName === normalized;
+    });
 };

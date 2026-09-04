@@ -154,7 +154,7 @@ ${message}`;
             }
 
             const prompt = `${systemContext}\n\nUsuário: ${message}\nAssistente:`;
-            const textResponse = await callGeminiDirect(prompt);
+            const textResponse = await callGeminiDirect(prompt, false);
             return { answer: textResponse.trim() };
         } catch (error: any) {
             console.warn("Falha no chat direto via Gemini, tentando backend local:", error);
@@ -176,8 +176,18 @@ Preço: R$ ${productData.unitPrice || 0}
 ${productData.promptTemplate ? `Diretriz: ${productData.promptTemplate}` : ''}
 Retorne apenas o texto da descrição, sem títulos markdown ou saudações.`;
 
-        const textResponse = await callGeminiDirect(prompt);
-        return { description: textResponse.trim() };
+        const textResponse = await callGeminiDirect(prompt, false);
+        let cleanText = textResponse.trim();
+        if (cleanText.startsWith('{') && cleanText.endsWith('}')) {
+            try {
+                const parsed = JSON.parse(cleanText);
+                const extracted = parsed.product_description || parsed.improvedDescription || parsed.description || parsed.text || parsed.content;
+                if (extracted && typeof extracted === 'string') {
+                    cleanText = extracted.trim();
+                }
+            } catch {}
+        }
+        return { description: cleanText };
     },
 
     async generateMarketplaceTitle(data: { 
@@ -231,8 +241,18 @@ Não Acompanha: ${data.notIncluded || 'Não informado'}
 Formate com parágrafos curtos, emojis elegantes e liste características e medidas.
 Retorne apenas o texto da descrição.`;
 
-        const textResponse = await callGeminiDirect(prompt);
-        return { description: textResponse.trim() };
+        const textResponse = await callGeminiDirect(prompt, false);
+        let cleanText = textResponse.trim();
+        if (cleanText.startsWith('{') && cleanText.endsWith('}')) {
+            try {
+                const parsed = JSON.parse(cleanText);
+                const extracted = parsed.product_description || parsed.improvedDescription || parsed.description || parsed.text || parsed.content;
+                if (extracted && typeof extracted === 'string') {
+                    cleanText = extracted.trim();
+                }
+            } catch {}
+        }
+        return { description: cleanText };
     },
 
     async suggestCategory(title: string, categories: string[]) {
@@ -273,58 +293,68 @@ Retorne APENAS o JSON: {"name": "NOME DO COMBO"}`;
     },
 
     async generateNCM(productName: string, material: string): Promise<{ ncm: string, desc: string }> {
-        const prompt = `Você é um classificador fiscal (especialista tributário do Brasil). 
-Você é um especialista em classificação fiscal de produtos no Brasil, com foco em NCM (Nomenclatura Comum do Mercosul) e CEST (Código Especificador da Substituição Tributária).
+        const prompt = `CLASSIFICADOR FISCAL DE PRODUTOS — NCM
 
-Sua tarefa é analisar as informações de um produto e identificar o NCM mais adequado e, quando aplicável, o CEST correspondente.
+Você é um especialista em classificação fiscal de mercadorias brasileiras, especializado principalmente em móveis, colchões, estofados, utilidades e produtos relacionados ao varejo de móveis.
 
-IMPORTANTE:
-- Não escolha NCM apenas pela palavra-chave do produto.
-- Analise conjuntamente TÍTULO e MATERIAL.
-- Considere a natureza, composição, finalidade, material predominante, características e utilização do produto.
-- Diferencie produtos semelhantes que possuem classificações fiscais diferentes.
-- Não invente códigos.
-- Não altere ou complete códigos com números fictícios.
-- Se não houver informação suficiente para determinar o código com segurança, informe a melhor classificação possível baseada nos NCMs existentes na TIPI.
-- Não use o nome comercial ou marca como principal critério de classificação.
-- Considere que pequenas diferenças no produto podem mudar o NCM.
+Sua função é analisar os dados fornecidos de um produto e determinar a classificação NCM mais adequada.
 
-Produto: ${productName}
-Material / Composição: ${material || "Não informado"}
+Você NÃO deve classificar o produto apenas por palavras-chave isoladas. Primeiro determine o que o produto realmente é, sua função, seu material e sua utilização. Depois faça a classificação.
 
-RETORNE APENAS um objeto JSON no formato exato, sem markdown e sem explicações adicionais:
-{"ncm": "8 digitos apenas numeros, ex: 94036000", "desc": "uma descricao curta de ate 80 caracteres"}
+PROCESSO OBRIGATÓRIO DE ANÁLISE:
+1. O que é o produto?
+2. Qual é sua função principal?
+3. Qual é o material relevante para sua classificação?
+4. Qual é sua finalidade de uso?
+5. Existe um ambiente específico ao qual esse tipo de produto se destina? (ex: quarto -> dormitório)
+6. MDP/MDF são derivados de madeira.
+7. Cômodas, Guarda-roupas, Criados-mudos, Camas em madeira/MDP/MDF para quarto pertencem estritamente ao NCM 94035000 (Móveis de madeira do tipo dos utilizados em quartos de dormir). NUNCA os classifique como 94036000.
+8. Móveis genuinamente multiuso (ex: Armário Multiuso) não devem ser forçados para dormitório apenas pelo ambiente Quarto.
+9. NÃO INVENTE NCM. Se não houver informações suficientes para determinar o NCM com segurança ou se a confiança for baixa (<0.50), retorne suggestedNcm: null e needsReview: true.
 
-NÃO adicione nenhum texto antes ou depois do JSON.`;
+DADOS DO PRODUTO:
+- Nome/Título: ${productName}
+- Material: ${material || "Não informado"}
+
+FORMATO OBRIGATÓRIO DA RESPOSTA:
+Retorne SOMENTE JSON válido no formato exato abaixo, sem markdown:
+{
+  "productType": "string",
+  "fiscalProductType": "string",
+  "detectedMaterials": ["string"],
+  "normalizedMaterial": "string | null",
+  "catalogEnvironment": "string | null",
+  "normalizedFiscalEnvironment": "string | null",
+  "intendedUse": "string",
+  "suggestedNcm": "8 dígitos apenas números (ex: 94035000) ou null",
+  "ncmDescription": "descrição oficial do NCM na TIPI ou null",
+  "confidence": 0.95,
+  "needsReview": false,
+  "missingInformation": [],
+  "reasoningSummary": "justificativa técnica curta"
+}`;
 
         try {
             const textResponse = await callGeminiDirect(prompt);
             const match = textResponse.match(/\{[\s\S]*\}/);
             const clean = match ? match[0] : textResponse.trim();
             const parsed = JSON.parse(clean);
+            
+            const ncmCode = parsed.suggestedNcm ? String(parsed.suggestedNcm).replace(/\D/g, '').slice(0, 8) : '';
+            const isReliable = parsed.confidence >= 0.50 && !parsed.needsReview && ncmCode.length === 8;
+
+            if (!isReliable || !ncmCode) {
+                return { ncm: '', desc: '' };
+            }
+
             return {
-                ncm: String(parsed.ncm || '').replace(/\D/g, '').slice(0, 8),
-                desc: String(parsed.desc || parsed.description || 'MÓVEL DE MADEIRA')
+                ncm: ncmCode,
+                desc: String(parsed.ncmDescription || parsed.reasoningSummary || '')
             };
         } catch (error) {
-            console.error("Erro extraindo o NCM:", error);
-            
-            const titleLower = (productName || "").toLowerCase();
-            const isCadeira = titleLower.includes("cadeira") || titleLower.includes("sofá") || titleLower.includes("sofa") || titleLower.includes("poltrona") || titleLower.includes("banco");
-            const isMesa = titleLower.includes("mesa") || titleLower.includes("aparador") || titleLower.includes("balcão") || titleLower.includes("balcao") || titleLower.includes("cairo");
-            
-            let ncm = "94035500";
-            let desc = "OUTROS MÓVEIS DE MADEIRA DO TIPO UTILIZADO EM QUARTOS DE DORMITÓRIO";
-            
-            if (isCadeira) {
-                ncm = "94016100";
-                desc = "ASSENTOS COM ARMAÇÃO DE MADEIRA, ESTOFADOS";
-            } else if (isMesa) {
-                ncm = "94036000";
-                desc = "OUTROS MÓVEIS DE MADEIRA (MESAS, APARADORES, ETC.)";
-            }
-            
-            return { ncm, desc };
+            console.error("Erro na classificação NCM por IA:", error);
+            // NCM NÃO DEVE TER FALLBACK DUMMY / PADRÃO
+            return { ncm: '', desc: '' };
         }
     },
 
@@ -373,13 +403,26 @@ Retorne APENAS um JSON no formato:
         pisCst: string;
         cofinsCst: string;
     }> {
-        const prompt = `Você é um especialista em classificação fiscal de produtos no Brasil, com foco em NCM (Nomenclatura Comum do Mercosul) e CEST (Código Especificador da Substituição Tributária).
+        const prompt = `CLASSIFICADOR FISCAL DE PRODUTOS — NCM E REGIME TRIBUTÁRIO
 
-Sua tarefa é analisar as informações do produto e da empresa e determinar os dados fiscais e tributários para emissão de NF-e seguindo estritamente as etapas de classificação descritas abaixo.
+Você é um especialista em classificação fiscal de mercadorias brasileiras, especializado principalmente em móveis, colchões, estofados, utilidades e produtos relacionados ao varejo de móveis.
+
+Sua função é analisar os dados fornecidos de um produto e determinar a classificação NCM mais adequada.
+
+Você NÃO deve classificar o produto apenas por palavras-chave isoladas. Primeiro determine o que o produto realmente é, sua função, seu material e sua utilização. Depois faça a classificação.
+
+PROCESSO OBRIGATÓRIO DE ANÁLISE:
+1. O que é o produto?
+2. Qual é sua função principal?
+3. Qual é o material relevante para sua classificação? (MDP/MDF = derivado de madeira)
+4. Qual é sua finalidade de uso? (quarto = dormitório, cozinha planejada = cozinha)
+5. Cômodas, Guarda-roupas, Criados-mudos, Camas em madeira/MDP/MDF para quarto pertencem estritamente ao NCM 94035000 (Móveis de madeira do tipo dos utilizados em quartos de dormir). NUNCA os classifique como 94036000.
+6. Armários Multiuso genuínos não devem ser forçados para dormitório apenas pelo ambiente Quarto.
+7. NÃO INVENTE NCM. Se não houver informações suficientes para determinar o NCM com segurança ou se a confiança for baixa (<0.50), retorne suggestedNcm: null e needsReview: true.
 
 DADOS DO PRODUTO:
 - Nome/Título: ${productData.title}
-- Categoria: ${productData.category || "Móveis e Decoração"}
+- Categoria: ${productData.category || "Não informada"}
 - Material/Composição: ${productData.material || "Não informado"}
 - Descrição Completa: ${productData.description || "Não informada"}
 
@@ -388,39 +431,29 @@ DADOS DA EMPRESA:
 - CNPJ: ${productData.companyCnpj || "Não informado"}
 - Localização/Estado: ${productData.companyAddress || "Paraná (PR)"}
 
-ETAPAS OBRIGATÓRIAS DE ANÁLISE QUE VOCÊ DEVE FAZER INTERNAMENTE:
-1. Identifique exatamente o que é o produto.
-2. Identifique sua finalidade principal.
-3. Identifique o material ou composição predominante.
-4. Identifique características relevantes para classificação fiscal.
-5. Determine a posição/capítulo mais provável da NCM.
-6. Compare possíveis NCMs concorrentes.
-7. Escolha o NCM mais adequado somente se houver fundamentação suficiente.
-8. Verifique se existe CEST aplicável ao produto. Se não houver CEST aplicável, retorne null.
-
-IMPORTANTE (Siga estas regras estritamente):
-1. Não escolha NCM apenas pela palavra-chave do produto.
-2. Analise conjuntamente TÍTULO, DESCRIÇÃO e CATEGORIA.
-3. Diferencie produtos semelhantes que possuem classificações fiscais diferentes.
-4. Não invente códigos e não altere ou complete códigos com números fictícios.
-5. Se não houver informação suficiente para determinar o código com segurança, forneça a classificação mais genérica e segura cabível.
-6. CEST não deve ser preenchido simplesmente porque o produto possui NCM. O CEST somente deve ser informado quando houver enquadramento aplicável na legislação de substituição tributária. Não presuma que todo produto possui CEST. Se não houver CEST aplicável, o campo "cest" no JSON de retorno DEVE ser null.
-7. CFOP: Use 5102 para venda varejista interna comum ou 5405 caso haja ST no estado da empresa.
-8. CST/CSOSN: Geralmente CSOSN 102 ou 500 para varejo Simples Nacional.
-9. PIS/COFINS CST: Geralmente 49, 07 ou 01.
-10. Origem: 0 para Nacional.
-
-Retorne APENAS um JSON no formato abaixo, sem markdown e sem textos adicionais:
+FORMATO OBRIGATÓRIO DA RESPOSTA:
+Retorne SOMENTE JSON válido no formato exato abaixo, sem markdown:
 {
-  "ncm": "8 dígitos do NCM (apenas números)",
-  "cest": null, // ou "7 dígitos do CEST caso seja aplicável"
-  "ncmDescription": "descrição oficial do NCM",
-  "cfop": "CFOP",
-  "cst": "CST/CSOSN",
-  "icmsPercent": alíquota_numérica,
-  "origem": "origem",
-  "pisCst": "CST PIS",
-  "cofinsCst": "CST COFINS"
+  "productType": "string",
+  "fiscalProductType": "string",
+  "detectedMaterials": ["string"],
+  "normalizedMaterial": "string | null",
+  "catalogEnvironment": "string | null",
+  "normalizedFiscalEnvironment": "string | null",
+  "intendedUse": "string",
+  "suggestedNcm": "8 dígitos apenas números (ex: 94035000) ou null",
+  "ncmDescription": "descrição oficial do NCM na TIPI ou null",
+  "cest": null,
+  "cfop": "5102",
+  "cst": "102",
+  "icmsPercent": 0,
+  "origem": "0",
+  "pisCst": "49",
+  "cofinsCst": "49",
+  "confidence": 0.95,
+  "needsReview": false,
+  "missingInformation": [],
+  "reasoningSummary": "justificativa técnica curta"
 }`;
 
         try {
@@ -429,10 +462,13 @@ Retorne APENAS um JSON no formato abaixo, sem markdown e sem textos adicionais:
             const cleanJson = match ? match[0] : textResponse.trim();
             const parsed = JSON.parse(cleanJson);
             
+            const ncmCode = parsed.suggestedNcm ? String(parsed.suggestedNcm).replace(/\D/g, '').slice(0, 8) : '';
+            const isReliable = parsed.confidence >= 0.50 && !parsed.needsReview && ncmCode.length === 8;
+
             return {
-                ncm: String(parsed.ncm || '').replace(/\D/g, '').slice(0, 8),
+                ncm: isReliable ? ncmCode : '',
                 cest: parsed.cest ? String(parsed.cest).replace(/\D/g, '').slice(0, 7) : '',
-                ncmDescription: String(parsed.ncmDescription || parsed.desc || 'MÓVEL DE MADEIRA'),
+                ncmDescription: isReliable ? String(parsed.ncmDescription || parsed.reasoningSummary || '') : '',
                 cfop: String(parsed.cfop || '5102').replace(/\D/g, '').slice(0, 4),
                 cst: String(parsed.cst || '102'),
                 icmsPercent: Number(parsed.icmsPercent || 0),
@@ -442,36 +478,14 @@ Retorne APENAS um JSON no formato abaixo, sem markdown e sem textos adicionais:
             };
         } catch (error: any) {
             console.error("Erro na classificação tributária automática:", error);
-            
-            // Fallback inteligente baseado em regras para desenvolvimento e testes locais
-            const titleLower = (productData.title || "").toLowerCase();
-            const isCadeira = titleLower.includes("cadeira") || titleLower.includes("sofá") || titleLower.includes("sofa") || titleLower.includes("poltrona") || titleLower.includes("banco");
-            const isMesa = titleLower.includes("mesa") || titleLower.includes("aparador") || titleLower.includes("balcão") || titleLower.includes("balcao") || titleLower.includes("cairo");
-            const isColchao = titleLower.includes("colchão") || titleLower.includes("colchao") || titleLower.includes("cama");
-            
-            let ncm = "94035500";
-            let cest = "";
-            let ncmDescription = "OUTROS MÓVEIS DE MADEIRA DO TIPO UTILIZADO EM QUARTOS DE DORMITÓRIO";
-            
-            if (isCadeira) {
-                ncm = "94016100";
-                ncmDescription = "ASSENTOS COM ARMAÇÃO DE MADEIRA, ESTOFADOS";
-            } else if (isMesa) {
-                ncm = "94036000";
-                ncmDescription = "OUTROS MÓVEIS DE MADEIRA (MESAS, APARADORES, ETC.)";
-            } else if (isColchao) {
-                ncm = "94042100";
-                cest = "2806100";
-                ncmDescription = "COLCHÕES DE MATÉRIAS CELULARES";
-            }
-            
+            // NCM NÃO DEVE TER FALLBACK DUMMY / PADRÃO
             return {
-                ncm,
-                cest,
-                ncmDescription,
+                ncm: '',
+                cest: '',
+                ncmDescription: '',
                 cfop: "5102",
                 cst: "102",
-                icmsPercent: 12,
+                icmsPercent: 0,
                 origem: "0",
                 pisCst: "49",
                 cofinsCst: "49"
@@ -539,11 +553,23 @@ REGRAS FINAIS:
 - NUNCA escreva informações que não estejam nos dados acima.`;
 
         try {
-            const textResponse = await callGeminiDirect(prompt);
+            const textResponse = await callGeminiDirect(prompt, false);
             if (!textResponse.trim()) {
                 throw new Error("A IA retornou uma resposta vazia. Verifique se o produto tem título e descrição preenchidos.");
             }
-            return { improvedDescription: textResponse.trim() };
+
+            let cleanText = textResponse.trim();
+            if (cleanText.startsWith('{') && cleanText.endsWith('}')) {
+                try {
+                    const parsed = JSON.parse(cleanText);
+                    const extracted = parsed.product_description || parsed.improvedDescription || parsed.description || parsed.text || parsed.content;
+                    if (extracted && typeof extracted === 'string') {
+                        cleanText = extracted.trim();
+                    }
+                } catch {}
+            }
+
+            return { improvedDescription: cleanText };
         } catch (error: any) {
             console.error("Erro ao aperfeiçoar descrição:", error);
             throw new Error(error?.message || "Falha ao aperfeiçoar descrição com o Gemini.");

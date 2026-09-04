@@ -10,6 +10,8 @@ interface Props {
     onAddNew: () => void;
 }
 
+import { normalizeSearchTerm } from "@/pages/utils/textUtils";
+
 const SellerSearchModal = ({ onSelect, onClose, anchorRef, onAddNew }: Props) => {
     const [searchTerm, setSearchTerm] = useState('');
     const [employees, setEmployees] = useState<Person[]>([]);
@@ -28,12 +30,12 @@ const SellerSearchModal = ({ onSelect, onClose, anchorRef, onAddNew }: Props) =>
     }, []);
 
     useEffect(() => {
-        const lowerTerm = searchTerm.toLowerCase();
+        const normTerm = normalizeSearchTerm(searchTerm);
         setFilteredEmployees(
             employees.filter(e => 
-                (e.fullName || '').toLowerCase().includes(lowerTerm) || 
-                (e.nickname && e.nickname.toLowerCase().includes(lowerTerm)) ||
-                (e.position && e.position.toLowerCase().includes(lowerTerm))
+                normalizeSearchTerm(e.fullName || '').includes(normTerm) || 
+                normalizeSearchTerm(e.nickname || '').includes(normTerm) ||
+                normalizeSearchTerm(e.position || '').includes(normTerm)
             )
         );
     }, [searchTerm, employees]);

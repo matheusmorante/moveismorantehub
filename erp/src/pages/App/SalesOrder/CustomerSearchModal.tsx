@@ -4,6 +4,7 @@ import Person from "../../types/person.type";
 import Order from "../../types/order.type";
 import { subscribeToPeople } from '@/pages/utils/personService';
 import { getOrdersCustomerDataOnly } from "../../utils/orderHistoryService";
+import { normalizeSearchTerm } from "@/pages/utils/textUtils";
 
 interface CustomerSearchEntry {
     id: string;
@@ -174,15 +175,15 @@ const CustomerSearchModal = ({ onSelect, onClose, onAddNew, initialSearch = "" }
         }
 
         if (!search.trim()) return list;
-        const s = search.toLowerCase().trim();
-        const cleanSearch = s.replace(/\D/g, '');
+        const s = normalizeSearchTerm(search);
+        const cleanSearch = search.replace(/\D/g, '');
         return list.filter(c => {
             const cleanPhone = (c.phone || '').replace(/\D/g, '');
-            const matchesPhone = cleanSearch.length > 0 && cleanPhone.includes(cleanSearch);
-            return c.fullName.toLowerCase().includes(s) ||
-                matchesPhone ||
-                (c.customerData.fullAddress.city || '').toLowerCase().includes(s) ||
-                (c.customerData.fullAddress.neighborhood || '').toLowerCase().includes(s);
+            const addr = c.customerData.fullAddress;
+            const fullAddrText = normalizeSearchTerm(`${addr?.street || ''} ${addr?.number || ''} ${addr?.neighborhood || ''} ${addr?.city || ''}`);
+            return normalizeSearchTerm(c.fullName).includes(s) ||
+                fullAddrText.includes(s) ||
+                (cleanSearch.length > 2 && cleanPhone.includes(cleanSearch));
         });
     }, [customerList, search, selectedType, people]);
 

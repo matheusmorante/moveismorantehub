@@ -75,14 +75,7 @@ export const MobileProductVariationList: React.FC<Props> = ({
                   </Text>
 
                   <View style={styles.stockWrapper}>
-                    {isOutOfStock ? (
-                      <View style={styles.outOfStockBadge}>
-                        <AlertCircle size={9} color="#ef4444" />
-                        <Text style={styles.outOfStockText}>Sem estoque</Text>
-                      </View>
-                    ) : (
-                      <Text style={styles.stock}>Estoque: {stock}</Text>
-                    )}
+                    <Text style={[styles.stock, dark && styles.darkStock]}>Estoque: {stock}</Text>
                   </View>
                 </View>
               </View>
@@ -227,6 +220,9 @@ const styles = StyleSheet.create({
     fontSize: 10,
     color: '#64748b',
     fontWeight: '700',
+  },
+  darkStock: {
+    color: '#94a3b8',
   },
   outOfStockBadge: {
     flexDirection: 'row',

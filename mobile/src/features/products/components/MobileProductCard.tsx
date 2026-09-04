@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { ChevronDown, ChevronRight, Pencil, Trash2, Tag, Power, Flame, Truck } from 'lucide-react-native';
+import { Modal, StyleSheet, Text, TouchableOpacity, View, TouchableWithoutFeedback } from 'react-native';
+import { ChevronDown, ChevronRight, Pencil, Trash2, Tag, Power, Flame, Truck, MoreVertical } from 'lucide-react-native';
 import { MobileProductVariationList } from './MobileProductVariationList';
 import { fetchOppMap, fetchSupplierMap } from '../services/mobileProductHelpers';
 
@@ -22,8 +22,9 @@ export const MobileProductCard: React.FC<Props> = ({
   onDelete,
 }) => {
   const [expanded, setExpanded] = useState(false);
+  const [menuVisible, setMenuVisible] = useState(false);
   const [oppName, setOppName] = useState<string | null>(product.opportunityName || null);
-  const [supplierName, setSupplierName] = useState<string | null>(product.supplierName || null);
+  const [supplierNames, setSupplierNames] = useState<string[]>([]);
 
   const variations = product.allVariations || [];
   const hasVars = variations.length > 0;
@@ -40,14 +41,44 @@ export const MobileProductCard: React.FC<Props> = ({
         if (mounted && map[oppId]) setOppName(map[oppId]);
       });
     }
-    const supId = product.supplier_id || product.supplierId || product.main_supplier_id;
-    if (supId) {
+
+    const rawIds = [
+      product.mainSupplierId,
+      product.supplierId,
+      product.main_supplier_id,
+      product.supplier_id,
+      ...(product.supplierIds || product.supplier_ids || [])
+    ];
+    const sIds = Array.from(new Set(rawIds.filter(Boolean))).map(String);
+
+    if (sIds.length > 0) {
       fetchSupplierMap().then(map => {
-        if (mounted && map[supId]) setSupplierName(map[supId]);
+        if (!mounted) return;
+        const names: string[] = [];
+        sIds.forEach(id => {
+          if (map && map[id]) names.push(map[id]);
+        });
+        if (names.length === 0) {
+          const fallback = product.supplierName || product.supplier_name || product.supplier?.name || product.supplier;
+          if (fallback) names.push(String(fallback));
+        }
+        setSupplierNames(Array.from(new Set(names)));
       });
+    } else {
+      const fallback = product.supplierName || product.supplier_name || product.supplier?.name || product.supplier;
+      setSupplierNames(fallback ? [String(fallback)] : []);
     }
+
     return () => { mounted = false; };
-  }, [product.opportunity_id, product.opportunityId, product.supplier_id, product.supplierId]);
+  }, [
+    product.opportunity_id,
+    product.opportunityId,
+    product.mainSupplierId,
+    product.supplierId,
+    product.main_supplier_id,
+    product.supplier_id,
+    JSON.stringify(product.supplierIds || product.supplier_ids || [])
+  ]);
 
   return (
     <TouchableOpacity
@@ -60,7 +91,7 @@ export const MobileProductCard: React.FC<Props> = ({
         !isActive && styles.deactivatedCard,
       ]}
     >
-      {/* Linha Superior: Botão Variações (X) + Código do Pai + Badges de Tipo e Ações */}
+      {/* Linha Superior: Botão Variações + Código do Pai + Menu de 3 Pontinhos */}
       <View style={styles.topRow}>
         <View style={styles.codeRow}>
           {hasVars && (
@@ -87,24 +118,13 @@ export const MobileProductCard: React.FC<Props> = ({
           {product.is_combo && <Text style={styles.comboBadge}>Combo</Text>}
         </View>
 
+        {/* Botão de 3 Pontinhos */}
         <View style={styles.actionBtns}>
           <TouchableOpacity
-            onPress={(e) => { e.stopPropagation(); onEdit(product); }}
+            onPress={(e) => { e.stopPropagation(); setMenuVisible(true); }}
             style={[styles.actionIconBtn, dark && styles.darkBtn]}
           >
-            <Pencil size={14} color="#2563eb" />
-          </TouchableOpacity>
-          <TouchableOpacity
-            onPress={(e) => { e.stopPropagation(); onToggleActive(product.id, isActive); }}
-            style={[styles.actionIconBtn, dark && styles.darkBtn]}
-          >
-            <Power size={14} color={isActive ? '#059669' : '#94a3b8'} />
-          </TouchableOpacity>
-          <TouchableOpacity
-            onPress={(e) => { e.stopPropagation(); onDelete(product.id); }}
-            style={[styles.actionIconBtn, dark && styles.darkBtn]}
-          >
-            <Trash2 size={14} color="#ef4444" />
+            <MoreVertical size={16} color={dark ? '#cbd5e1' : '#64748b'} />
           </TouchableOpacity>
         </View>
       </View>
@@ -123,12 +143,12 @@ export const MobileProductCard: React.FC<Props> = ({
             </View>
           )}
 
-          {supplierName && (
-            <View style={[styles.supplierBadge, dark && styles.darkBadge]}>
+          {supplierNames.map((sName, sIdx) => (
+            <View key={sIdx} style={[styles.supplierBadge, dark && styles.darkBadge]}>
               <Truck size={10} color="#64748b" />
-              <Text style={styles.supplierText}>{supplierName}</Text>
+              <Text style={styles.supplierText}>{sName}</Text>
             </View>
-          )}
+          ))}
 
           {product.category && (
             <Text style={[styles.categoryBadge, dark && styles.darkCategory]}>
@@ -141,12 +161,7 @@ export const MobileProductCard: React.FC<Props> = ({
       {/* Linha Inferior: Preço/Estoque e Status (Alinhado ao ERP) */}
       <View style={styles.bottomRow}>
         <View style={styles.priceCol}>
-          {isParent ? (
-            <View style={styles.parentPriceStock}>
-              <Text style={styles.dashText}>Preço: <Text style={styles.dashVal}>-</Text></Text>
-              <Text style={styles.dashText}>Estoque: <Text style={styles.dashVal}>-</Text></Text>
-            </View>
-          ) : (
+          {!isParent && (
             <>
               {product.promoPrice > 0 && product.promoPrice < product.unitPrice && (
                 <Text style={styles.oldPrice}>
@@ -157,7 +172,7 @@ export const MobileProductCard: React.FC<Props> = ({
                 R$ {(product.promoPrice > 0 ? product.promoPrice : product.unitPrice).toFixed(2).replace('.', ',')}
               </Text>
               <Text style={styles.stockText}>
-                Estoque: <Text style={styles.stockVal}>{product.stock}</Text>
+                Estoque: <Text style={styles.stockVal}>{product.stock ?? 0}</Text>
               </Text>
             </>
           )}
@@ -194,6 +209,57 @@ export const MobileProductCard: React.FC<Props> = ({
           onToggleCatalog={(varId, st) => onToggleCatalog(product.id, st, true, varId)}
         />
       )}
+
+      {/* Modal de Ações dos 3 Pontinhos */}
+      <Modal
+        visible={menuVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setMenuVisible(false)}
+      >
+        <TouchableWithoutFeedback onPress={() => setMenuVisible(false)}>
+          <View style={styles.modalOverlay}>
+            <TouchableWithoutFeedback>
+              <View style={[styles.menuContainer, dark && styles.darkMenuContainer]}>
+                <TouchableOpacity
+                  style={styles.menuItem}
+                  onPress={() => {
+                    setMenuVisible(false);
+                    onEdit(product);
+                  }}
+                >
+                  <Pencil size={18} color={dark ? '#93c5fd' : '#2563eb'} />
+                  <Text style={[styles.menuItemText, dark && styles.lightText]}>Editar Produto</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.menuItem}
+                  onPress={() => {
+                    setMenuVisible(false);
+                    onToggleActive(product.id, isActive);
+                  }}
+                >
+                  <Power size={18} color={isActive ? '#dc2626' : '#16a34a'} />
+                  <Text style={[styles.menuItemText, dark && styles.lightText]}>
+                    {isActive ? 'Desativar Produto' : 'Reativar Produto'}
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[styles.menuItem, styles.menuItemDanger]}
+                  onPress={() => {
+                    setMenuVisible(false);
+                    onDelete(product.id);
+                  }}
+                >
+                  <Trash2 size={18} color="#ef4444" />
+                  <Text style={[styles.menuItemText, styles.dangerText]}>Excluir Produto</Text>
+                </TouchableOpacity>
+              </View>
+            </TouchableWithoutFeedback>
+          </View>
+        </TouchableWithoutFeedback>
+      </Modal>
     </TouchableOpacity>
   );
 };
@@ -249,4 +315,12 @@ const styles = StyleSheet.create({
   pubBtn: { backgroundColor: '#ecfdf5', borderColor: '#a7f3d0' },
   hidBtn: { backgroundColor: '#fff1f2', borderColor: '#fecdd3' },
   catalogBtnText: { fontSize: 9, fontWeight: '800', textTransform: 'uppercase' },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.4)', justifyContent: 'center', alignItems: 'center', padding: 20 },
+  menuContainer: { width: '80%', maxWidth: 320, backgroundColor: '#ffffff', borderRadius: 16, padding: 12, gap: 4, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.15, shadowRadius: 10, elevation: 8 },
+  darkMenuContainer: { backgroundColor: '#1e293b', borderColor: '#334155', borderWidth: 1 },
+  menuItem: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12, paddingHorizontal: 16, borderRadius: 10 },
+  menuItemDanger: { borderTopWidth: 1, borderTopColor: '#f1f5f9', marginTop: 4, paddingTop: 12 },
+  menuItemText: { fontSize: 14, fontWeight: '700', color: '#0f172a' },
+  dangerText: { color: '#ef4444' },
 });
+

@@ -10,11 +10,11 @@ interface ProductFiscalTabProps {
 }
 
 const COMMON_NCMS = [
-    { code: "94036000", description: "Outros móveis de madeira (Rack, Painel, Aparador, Mesa de Centro, Estante)" },
-    { code: "94016100", description: "Assentos com armação de madeira, estofados (Sofá, Poltrona, Cadeira Estofada)" },
-    { code: "94035000", description: "Móveis de madeira para dormitórios (Guarda-roupa, Cama, Cômoda, Cabeceira)" },
-    { code: "94033000", description: "Móveis de madeira para escritórios (Escrivaninha, Mesa de Reunião)" },
-    { code: "94034000", description: "Móveis de madeira para cozinhas (Armário, Balcão, Paneleiro)" },
+    { code: "94035000", description: "Móveis de madeira para dormitórios (Guarda-roupa, Cama, Cômoda, Cabeceira, Criado-Mudo)" },
+    { code: "94036000", description: "Outros móveis de madeira (Rack, Painel, Aparador, Mesa de Centro, Estante, Buffet)" },
+    { code: "94016100", description: "Assentos com armação de madeira, estofados (Sofá, Poltrona, Cadeira Estofada, Banqueta)" },
+    { code: "94033000", description: "Móveis de madeira para escritórios (Escrivaninha, Mesa de Reunião, Gaveteiro)" },
+    { code: "94034000", description: "Móveis de madeira para cozinhas (Armário, Balcão, Paneleiro, Kit Cozinha)" },
     { code: "94016900", description: "Assentos com armação de madeira, não estofados (Cadeira de Madeira)" },
     { code: "94042100", description: "Colchões de espuma (borracha ou plástico alveolar)" },
     { code: "94042900", description: "Colchões de molas ou outros materiais" },
@@ -82,35 +82,36 @@ const ProductFiscalTab: React.FC<ProductFiscalTabProps> = ({
 }) => {
     const [searchQuery, setSearchQuery] = useState(formData.fiscal?.ncm || '');
     const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+    const [isInfoModalOpen, setIsInfoModalOpen] = useState(false);
     const dropdownRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => setSearchQuery(formData.fiscal?.ncm || ''), [formData.fiscal?.ncm]);
 
-    // Carrega os dados padrões fiscais das configurações se o formulário for novo e não tiver dados fiscais definidos
+    // Carrega os dados padrões fiscais das configurações apenas se a estrutura fiscal ainda não foi inicializada
     useEffect(() => {
-        if (!formData.fiscal || Object.keys(formData.fiscal).length === 0 || !formData.fiscal.ncm) {
+        if (!formData.fiscal || Object.keys(formData.fiscal).length === 0) {
             const settings = getSettings();
             if (settings.fiscalDefaults) {
-                setFormData(prev => ({
-                    ...prev,
-                    fiscal: {
-                        ncm: prev.fiscal?.ncm || settings.fiscalDefaults?.ncm || '94036000',
-                        cest: prev.fiscal?.cest || settings.fiscalDefaults?.cest || '',
-                        cst: prev.fiscal?.cst || settings.fiscalDefaults?.cst || '102',
-                        cfop: prev.fiscal?.cfop || (prev.itemType === 'service' ? '5933' : settings.fiscalDefaults?.cfop || '5102'),
-                        origem: prev.fiscal?.origem || settings.fiscalDefaults?.origem || '0',
-                        icmsPercent: prev.fiscal?.icmsPercent !== undefined ? prev.fiscal.icmsPercent : settings.fiscalDefaults?.icmsPercent || 0,
-                        pisCst: prev.fiscal?.pisCst || settings.fiscalDefaults?.pisCst || '49',
-                        cofinsCst: prev.fiscal?.cofinsCst || settings.fiscalDefaults?.cofinsCst || '49',
-                        codigoServico: prev.fiscal?.codigoServico || ''
-                    }
-                }));
-                if (settings.fiscalDefaults?.ncm) {
-                    setSearchQuery(settings.fiscalDefaults.ncm);
-                }
+                setFormData(prev => {
+                    if (prev.fiscal && Object.keys(prev.fiscal).length > 0) return prev;
+                    return {
+                        ...prev,
+                        fiscal: {
+                            ncm: settings.fiscalDefaults?.ncm || '',
+                            cest: settings.fiscalDefaults?.cest || '',
+                            cst: settings.fiscalDefaults?.cst || '102',
+                            cfop: (prev.itemType === 'service' ? '5933' : settings.fiscalDefaults?.cfop || '5102'),
+                            origem: settings.fiscalDefaults?.origem || '0',
+                            icmsPercent: settings.fiscalDefaults?.icmsPercent || 0,
+                            pisCst: settings.fiscalDefaults?.pisCst || '49',
+                            cofinsCst: settings.fiscalDefaults?.cofinsCst || '49',
+                            codigoServico: ''
+                        }
+                    };
+                });
             }
         }
-    }, [formData.fiscal, setFormData, formData.itemType]);
+    }, []);
 
     useEffect(() => {
         const handleClickOutside = (event: MouseEvent) => {
@@ -143,7 +144,7 @@ const ProductFiscalTab: React.FC<ProductFiscalTabProps> = ({
                     </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div className={`grid grid-cols-1 ${['201', '202', '500'].includes(formData.fiscal?.cst || '') ? 'md:grid-cols-2' : ''} gap-8`}>
                     {formData.itemType === 'service' ? (
                         <div className="flex flex-col gap-2">
                             <label className="text-[9px] font-black uppercase tracking-widest text-slate-400">Código Municipal / Serviço (LC 116/03) *</label>
@@ -158,7 +159,30 @@ const ProductFiscalTab: React.FC<ProductFiscalTabProps> = ({
                         <>
                             {/* NCM input pesquisável */}
                             <div className="flex flex-col gap-2 relative" ref={dropdownRef}>
-                                <div className="flex items-center justify-between gap-2"><label className="text-[9px] font-black uppercase tracking-widest text-slate-400">NCM *</label><button type="button" disabled={isGeneratingNCM} onClick={handleGenerateNCM} className="inline-flex items-center gap-1 text-[9px] font-black uppercase tracking-wider text-blue-600 hover:text-blue-700 disabled:opacity-50" title="Usar IA para preencher o NCM">{isGeneratingNCM ? <i className="bi bi-arrow-repeat animate-spin" /> : <i className="bi bi-stars" />}Preencher com IA</button></div>
+                                <div className="flex items-center justify-between gap-2">
+                                    <label className="text-[9px] font-black uppercase tracking-widest text-slate-400">NCM *</label>
+                                    <div className="flex items-center gap-2">
+                                        <button
+                                            type="button"
+                                            disabled={isGeneratingNCM}
+                                            onClick={handleGenerateNCM}
+                                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-purple-100/80 hover:bg-purple-200/80 dark:bg-purple-950/60 dark:hover:bg-purple-900/60 border border-purple-200 dark:border-purple-800/70 text-amber-600 dark:text-amber-400 font-black uppercase text-[9px] tracking-wider transition-all disabled:opacity-50 active:scale-95 shadow-sm"
+                                            title="Usar IA para auto-preencher o NCM"
+                                        >
+                                            {isGeneratingNCM ? <i className="bi bi-arrow-repeat animate-spin text-amber-500" /> : <i className="bi bi-stars text-amber-500 text-xs font-bold" />}
+                                            Auto-preencher com IA
+                                        </button>
+
+                                        <button
+                                            type="button"
+                                            onClick={() => setIsInfoModalOpen(true)}
+                                            className="p-1 text-slate-400 hover:text-blue-500 transition-colors"
+                                            title="Como funciona a IA do NCM?"
+                                        >
+                                            <i className="bi bi-info-circle text-xs" />
+                                        </button>
+                                    </div>
+                                </div>
                                 <div className="relative">
                                     <input
                                         type="text"
@@ -220,29 +244,31 @@ const ProductFiscalTab: React.FC<ProductFiscalTabProps> = ({
                                 )}
                             </div>
 
-                            {/* CEST como Select */}
-                            <div className="flex flex-col gap-2">
-                                <label className="text-[9px] font-black uppercase tracking-widest text-slate-400">Código CEST (ST)</label>
+                            {/* CEST - Exibido apenas se a operação for sujeita à Substituição Tributária (CSOSN 201, 202, 500) */}
+                            {['201', '202', '500'].includes(formData.fiscal?.cst || '') && (
                                 <div className="flex flex-col gap-2">
-                                    <select
-                                        value={formData.fiscal?.cest || ''}
-                                        onChange={(e) => setFormData({ ...formData, fiscal: { ...formData.fiscal!, cest: e.target.value } })}
-                                        className="w-full px-4 py-4 bg-white dark:bg-slate-955 border border-slate-200 dark:border-slate-800 rounded-2xl outline-none text-xs font-bold dark:text-slate-200"
-                                    >
-                                        {CEST_OPTIONS.map(c => (
-                                            <option key={c.value} value={c.value}>{c.label}</option>
-                                        ))}
-                                    </select>
-                                    <input
-                                        type="text"
-                                        maxLength={7}
-                                        value={formData.fiscal?.cest || ''}
-                                        onChange={(e) => setFormData({ ...formData, fiscal: { ...formData.fiscal!, cest: e.target.value.replace(/\D/g, '') } })}
-                                        placeholder="Ou digite outro CEST (7 dígitos)..."
-                                        className="w-full px-4 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-850 rounded-xl outline-none text-[10px] font-mono font-bold dark:text-slate-300"
-                                    />
+                                    <label className="text-[9px] font-black uppercase tracking-widest text-slate-400">Código CEST (Substituição Tributária)</label>
+                                    <div className="flex flex-col gap-2">
+                                        <select
+                                            value={formData.fiscal?.cest || ''}
+                                            onChange={(e) => setFormData({ ...formData, fiscal: { ...formData.fiscal!, cest: e.target.value } })}
+                                            className="w-full px-4 py-4 bg-white dark:bg-slate-955 border border-slate-200 dark:border-slate-800 rounded-2xl outline-none text-xs font-bold dark:text-slate-200"
+                                        >
+                                            {CEST_OPTIONS.map(c => (
+                                                <option key={c.value} value={c.value}>{c.label}</option>
+                                            ))}
+                                        </select>
+                                        <input
+                                            type="text"
+                                            maxLength={7}
+                                            value={formData.fiscal?.cest || ''}
+                                            onChange={(e) => setFormData({ ...formData, fiscal: { ...formData.fiscal!, cest: e.target.value.replace(/\D/g, '') } })}
+                                            placeholder="Ou digite outro CEST (7 dígitos)..."
+                                            className="w-full px-4 py-2 bg-slate-50 dark:bg-slate-955 border border-slate-200 dark:border-slate-850 rounded-xl outline-none text-[10px] font-mono font-bold dark:text-slate-300"
+                                        />
+                                    </div>
                                 </div>
-                            </div>
+                            )}
                         </>
                     )}
                 </div>
@@ -274,7 +300,18 @@ const ProductFiscalTab: React.FC<ProductFiscalTabProps> = ({
                         </label>
                         <select
                             value={formData.fiscal?.cst || '102'}
-                            onChange={(e) => setFormData({ ...formData, fiscal: { ...formData.fiscal!, cst: e.target.value } })}
+                            onChange={(e) => {
+                                const val = e.target.value;
+                                const isSt = ['201', '202', '500'].includes(val);
+                                setFormData(prev => ({
+                                    ...prev,
+                                    fiscal: {
+                                        ...prev.fiscal!,
+                                        cst: val,
+                                        cest: isSt ? (prev.fiscal?.cest || '') : ''
+                                    }
+                                }));
+                            }}
                             className="w-full px-4 py-3.5 bg-white dark:bg-slate-955 border border-slate-200 dark:border-slate-800 rounded-2xl outline-none text-xs font-bold dark:text-slate-200"
                         >
                             {CSOSN_OPTIONS.map(c => (
@@ -361,6 +398,42 @@ const ProductFiscalTab: React.FC<ProductFiscalTabProps> = ({
                     </div>
                 </div>
             </div>
+
+            {/* Modal de Informação sobre NCM por IA */}
+            {isInfoModalOpen && (
+                <div className="fixed inset-0 z-[300] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in" onClick={() => setIsInfoModalOpen(false)}>
+                    <div className="bg-white dark:bg-slate-900 w-full max-w-md rounded-3xl p-6 shadow-2xl border border-slate-100 dark:border-slate-800 space-y-4 animate-scale-up" onClick={e => e.stopPropagation()}>
+                        <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
+                            <div className="flex items-center gap-2.5">
+                                <div className="p-2 bg-amber-50 dark:bg-amber-900/20 text-amber-500 rounded-xl">
+                                    <i className="bi bi-stars text-base" />
+                                </div>
+                                <h3 className="text-sm font-black text-slate-800 dark:text-slate-100">
+                                    Classificação Fiscal por IA
+                                </h3>
+                            </div>
+                            <button type="button" onClick={() => setIsInfoModalOpen(false)} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">
+                                <i className="bi bi-x-lg text-sm" />
+                            </button>
+                        </div>
+                        <p className="text-xs text-slate-600 dark:text-slate-300 font-medium leading-relaxed">
+                            O NCM é classificado automaticamente por Inteligência Artificial (Gemini) à medida que você preenche o <strong className="text-slate-800 dark:text-slate-100">título</strong>, a <strong className="text-slate-800 dark:text-slate-100">descrição</strong> e a <strong className="text-slate-800 dark:text-slate-100">categoria</strong> do produto.
+                        </p>
+                        <p className="text-xs text-slate-600 dark:text-slate-300 font-medium leading-relaxed">
+                            Você também pode clicar no botão <strong className="text-amber-600 dark:text-amber-400">"Auto-preencher com IA"</strong> a qualquer momento para recalcular e atualizar a classificação fiscal.
+                        </p>
+                        <div className="pt-2 flex justify-end">
+                            <button
+                                type="button"
+                                onClick={() => setIsInfoModalOpen(false)}
+                                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl transition-all shadow-md active:scale-95"
+                            >
+                                Entendi
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

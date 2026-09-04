@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react';
+import { normalizeSearchTerm } from '@/pages/utils/textUtils';
 
 interface ItemExclusionModalProps {
     isOpen: boolean;
@@ -38,8 +39,8 @@ const ItemExclusionModal: React.FC<ItemExclusionModalProps> = ({
 
     const filteredAndSortedItems = useMemo(() => {
         let result = items.filter(item => {
-            const matchesSearch = item.product.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                                   (item.supplier && item.supplier.toLowerCase().includes(searchTerm.toLowerCase()));
+            const matchesSearch = normalizeSearchTerm(item.product).includes(normalizeSearchTerm(searchTerm)) || 
+                                   (item.supplier && normalizeSearchTerm(item.supplier).includes(normalizeSearchTerm(searchTerm)));
             const matchesSupplier = selectedSupplier ? item.supplier === selectedSupplier : true;
             
             const itemQuadrant = item.quadrant;

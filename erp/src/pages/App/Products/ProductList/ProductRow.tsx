@@ -110,9 +110,7 @@ const ProductRow = ({
     const [oppName, setOppName] = React.useState<string | null>(
         product.opportunityName || product.opportunity?.name || null
     );
-    const [supplierName, setSupplierName] = React.useState<string | null>(
-        (product as any).supplierName || (product as any).supplier?.name || null
-    );
+    const [supplierNames, setSupplierNames] = React.useState<string[]>([]);
 
     React.useEffect(() => {
         let isMounted = true;
@@ -130,16 +128,40 @@ const ProductRow = ({
 
     React.useEffect(() => {
         let isMounted = true;
-        const sid = (product as any).mainSupplierId || (product as any).supplierId || (product as any).supplier_id;
-        if (sid) {
+        const rawIds = [
+            product.mainSupplierId,
+            product.supplierId,
+            (product as any).main_supplier_id,
+            (product as any).supplier_id,
+            ...(product.supplierIds || (product as any).supplier_ids || [])
+        ];
+        const sIds = Array.from(new Set(rawIds.filter(Boolean))).map(String);
+
+        if (sIds.length > 0) {
             fetchSupplierMap().then(map => {
-                if (isMounted && map[sid]) setSupplierName(map[sid]);
+                if (!isMounted) return;
+                const resolvedNames: string[] = [];
+                sIds.forEach(id => {
+                    if (map && map[id]) resolvedNames.push(map[id]);
+                });
+                if (resolvedNames.length === 0) {
+                    const fallback = (product as any).supplierName || (product as any).supplier?.name || null;
+                    if (fallback) resolvedNames.push(fallback);
+                }
+                setSupplierNames(Array.from(new Set(resolvedNames)));
             });
         } else {
-            setSupplierName((product as any).supplierName || (product as any).supplier?.name || null);
+            const fallback = (product as any).supplierName || (product as any).supplier?.name || null;
+            setSupplierNames(fallback ? [fallback] : []);
         }
         return () => { isMounted = false; };
-    }, [(product as any).mainSupplierId, (product as any).supplierId]);
+    }, [
+        product.mainSupplierId,
+        product.supplierId,
+        (product as any).main_supplier_id,
+        (product as any).supplier_id,
+        JSON.stringify(product.supplierIds || (product as any).supplier_ids || [])
+    ]);
 
     let firstCellRendered = false;
 
@@ -285,8 +307,8 @@ const ProductRow = ({
                                     <span className={`text-sm ${isChildVariation ? 'font-semibold text-slate-800 dark:text-slate-200' : product.isParent ? 'font-bold text-slate-900 dark:text-slate-100' : 'font-bold text-slate-700 dark:text-slate-200'}`}>
                                         {displayName}
                                     </span>
-                                    {/* Linha 2 (abaixo do título): contagem de variações + oportunidade + fornecedor */}
-                                    {(product.isParent || oppName || supplierName) && (
+                                    {/* Linha 2 (abaixo do título): contagem de variações + oportunidade + fornecedores */}
+                                    {(product.isParent || oppName || supplierNames.length > 0) && (
                                     <div className="flex items-center gap-1.5 flex-wrap mt-0.5">
                                         {product.isParent && Boolean(variationsCount || ((product as any).allVariations?.length)) && (
                                             <span className="inline-flex items-center gap-1 text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800/60 select-none">
@@ -302,11 +324,11 @@ const ProductRow = ({
                                                 <i className="bi bi-fire text-amber-600 dark:text-amber-400"></i> {oppName}
                                             </span>
                                         )}
-                                        {!isChildVariation && supplierName && (
-                                            <span className="inline-flex items-center gap-1 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 px-1.5 py-0.5 rounded text-[9px] font-black uppercase tracking-wider border border-slate-200 dark:border-slate-700">
-                                                <i className="bi bi-truck text-slate-400 dark:text-slate-500"></i> {supplierName}
+                                        {!isChildVariation && supplierNames.map((supName, sIdx) => (
+                                            <span key={sIdx} className="inline-flex items-center gap-1 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 px-1.5 py-0.5 rounded text-[9px] font-black uppercase tracking-wider border border-slate-200 dark:border-slate-700">
+                                                <i className="bi bi-truck text-slate-400 dark:text-slate-500"></i> {supName}
                                             </span>
-                                        )}
+                                        ))}
                                     </div>
                                     )}
                                     {(product.active === false || product.deleted) && !product.isDraft && (

@@ -3,6 +3,7 @@ import VariationType, { VariationOption } from "../../types/variation.type";
 import { useVariations } from "./useVariations";
 import { saveVariation, updateVariation, checkVariationUsage } from "../../utils/variationService";
 import { toast } from "react-toastify";
+import { normalizeSearchTerm } from "../../utils/textUtils";
 
 const Variations = () => {
     const { variations, loading, handleDelete, refresh } = useVariations();
@@ -203,8 +204,8 @@ const Variations = () => {
 
     const filteredVariations = variations.filter(
         (v) =>
-            v.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            (v.id && v.id.toLowerCase().includes(searchTerm.toLowerCase()))
+            normalizeSearchTerm(v.name).includes(normalizeSearchTerm(searchTerm)) ||
+            (v.id && normalizeSearchTerm(v.id).includes(normalizeSearchTerm(searchTerm)))
     );
 
     return (

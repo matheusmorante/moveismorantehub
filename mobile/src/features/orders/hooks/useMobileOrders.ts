@@ -60,10 +60,11 @@ export function useMobileOrders() {
       return false;
     }
 
-    const term = searchTerm.toLowerCase().trim();
-    const customer = String(data.customerData?.fullName || order.customer_name || '').toLowerCase();
-    const city = String(data.shipping?.deliveryAddress?.city || order.city || '').toLowerCase();
-    const orderCode = String(data.orderIndex || data.order_index || order.order_index || order.order_number || order.id || '');
+    const normalizeText = (str: any) => String(str || '').normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
+    const term = normalizeText(searchTerm);
+    const customer = normalizeText(data.customerData?.fullName || order.customer_name);
+    const city = normalizeText(data.shipping?.deliveryAddress?.city || order.city);
+    const orderCode = normalizeText(data.orderIndex || data.order_index || order.order_index || order.order_number || order.id);
     
     if (term && !customer.includes(term) && !city.includes(term) && !orderCode.includes(term)) {
       return false;

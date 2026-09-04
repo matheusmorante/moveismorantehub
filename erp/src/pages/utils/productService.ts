@@ -4,6 +4,7 @@ import { crmIntelligenceService } from "./crmIntelligenceService";
 import { saveInventoryMove } from "./inventoryService";
 import { normalizeSlug, resolveUniqueSlug } from './uniqueSlug';
 import { ensureDefaultVariation, isDefaultVariation, normalizeVariationSku } from './productVariationDefaults';
+import { removeAccents } from './textUtils';
 
 const TABLE_NAME = "products";
 const LOCAL_STORAGE_KEY = 'local_products';
@@ -581,19 +582,21 @@ export const fetchProductsPage = async (
             .order(orderColumn, { ascending })
             .range(from, to);
 
-        // Filtro de busca textual — busca EXCLUSIVAMENTE pelo nome do produto (name) na tabela de produtos e variações
+        // Filtro de busca textual — busca EXCLUSIVAMENTE pelo nome do produto (name) na tabela de produtos e variações (insensível a acentos)
         if (options?.search) {
             const rawSearch = options.search.trim().replace(/[(),]/g, ' ').replace(/[%_]/g, '');
             if (rawSearch.length > 0) {
-                const term = `%${rawSearch}%`;
+                const unaccented = removeAccents(rawSearch);
+                const searchTerms = Array.from(new Set([rawSearch, unaccented])).filter(Boolean);
 
-                // 1. Buscar variações exclusivamente pelo campo 'name' na tabela product_variations
+                // 1. Buscar variações pelo campo 'name' na tabela product_variations
                 let variationParentIds: string[] = [];
                 try {
+                    const varOr = searchTerms.map(t => `name.ilike.%${t}%`).join(',');
                     const { data: matchedVariations } = await supabase
                         .from('product_variations')
                         .select('product_id')
-                        .ilike('name', term)
+                        .or(varOr)
                         .limit(100);
 
                     if (matchedVariations && matchedVariations.length > 0) {
@@ -605,8 +608,11 @@ export const fetchProductsPage = async (
                     console.warn('[ProductService] Erro ao buscar em product_variations:', e);
                 }
 
-                // 2. Montar filtro or exclusivamente com o campo name dos produtos e os IDs de variações
-                const orConditions = [`name.ilike.${term}`];
+                // 2. Montar filtro or com o campo name dos produtos e os IDs de variações
+                const orConditions: string[] = [];
+                searchTerms.forEach(t => {
+                    orConditions.push(`name.ilike.%${t}%`);
+                });
 
                 if (variationParentIds.length > 0) {
                     variationParentIds.forEach(id => {

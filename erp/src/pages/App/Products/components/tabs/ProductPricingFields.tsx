@@ -23,12 +23,6 @@ export function ProductPricingFields({
             <h5 className="text-[10px] font-black uppercase tracking-widest text-blue-600 mb-2 flex items-center gap-1.5">
                 <i className="bi bi-tag-fill"></i> Precificação e Descontos {formData.hasVariations ? '(Produto Pai)' : ''}
             </h5>
-            {formData.hasVariations && (
-                <p className="text-[9px] font-bold text-blue-600 dark:text-blue-400 mb-4 bg-blue-50 dark:bg-blue-950/40 p-2.5 rounded-xl border border-blue-100 dark:border-blue-900/30 flex items-center gap-2">
-                    <i className="bi bi-info-circle-fill text-xs"></i>
-                    <span>As variações que possuem a opção "Sincronizar Preço" ativa herdarão os preços definidos abaixo do produto pai.</span>
-                </p>
-            )}
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
                 <div id="field-unit-price" className="flex flex-col gap-2 transition-all p-2 rounded-2xl">
                     <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 flex items-center gap-1.5 h-6">

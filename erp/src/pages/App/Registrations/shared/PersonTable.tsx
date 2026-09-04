@@ -60,7 +60,7 @@ const PersonTable = ({
     onViewPurchaseHistory, collectionName, supplierProductCounts
 }: PersonTableProps) => {
     const columnsDef = getColumnsDef(collectionName);
-    const allowsSelection = collectionName !== 'employees';
+    const allowsSelection = collectionName !== 'employees' && collectionName !== 'suppliers';
     const containerRef = React.useRef<HTMLDivElement>(null);
     const settings = getSettings();
     

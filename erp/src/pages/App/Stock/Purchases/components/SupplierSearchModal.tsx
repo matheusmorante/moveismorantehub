@@ -2,6 +2,8 @@ import React, { useState, useEffect, useMemo } from "react";
 import Person from "../../../../types/person.type";
 import { subscribeToPeople } from '@/pages/utils/personService';
 
+import { normalizeSearchTerm } from "@/pages/utils/textUtils";
+
 interface Props {
     onSelect: (supplier: Person) => void;
     onClose: () => void;
@@ -22,10 +24,10 @@ const SupplierSearchModal = ({ onSelect, onClose }: Props) => {
 
     const filtered = useMemo(() => {
         if (!search.trim()) return suppliers;
-        const s = search.toLowerCase();
+        const s = normalizeSearchTerm(search);
         return suppliers.filter(e =>
-            (e.fullName || '').toLowerCase().includes(s) ||
-            (e.tradeName || '').toLowerCase().includes(s) ||
+            normalizeSearchTerm(e.fullName || '').includes(s) ||
+            normalizeSearchTerm(e.tradeName || '').includes(s) ||
             (e.cpfCnpj || '').includes(s)
         );
     }, [suppliers, search]);

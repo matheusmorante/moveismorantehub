@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import Person from "../../../types/person.type";
-import { savePerson, getPersonByIdentifiers, isEmployeeEmailTaken } from '@/pages/utils/personService';
+import { savePerson, getPersonByIdentifiers, isEmployeeEmailTaken, isSupplierNameTaken } from '@/pages/utils/personService';
 import { getUserProfileByEmail, getUserProfileByIdOrEmail, saveEmployeeInProfile } from '@/pages/utils/employeeProfileService';
 import { toast } from "react-toastify";
 import { capitalizePerson, toTitleCase } from "../../../utils/formatters";
@@ -408,6 +408,14 @@ const PersonFormModal = ({ isOpen, onClose, onSuccess, person, collectionName, t
             }
         }
 
+        if (collectionName === 'suppliers' && formData.fullName && formData.fullName.trim() !== '') {
+            const isNameTaken = await isSupplierNameTaken(formData.fullName, person?.id);
+            if (isNameTaken) {
+                toast.error("Já existe um fornecedor cadastrado com este nome.");
+                return;
+            }
+        }
+
         if (!person) { 
             const existing = await getPersonByIdentifiers({
                 cpfCnpj: formData.cpfCnpj || "",
@@ -468,7 +476,7 @@ const PersonFormModal = ({ isOpen, onClose, onSuccess, person, collectionName, t
     if (!isOpen) return null;
 
     const modalContent = (
-        <div className="fixed inset-0 z-[9900] flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-[100000] flex items-center justify-center p-4">
             <div className="absolute inset-0 bg-slate-900/80 backdrop-blur-sm" onClick={onClose} />
             <div className="relative bg-white dark:bg-slate-900 w-full max-w-2xl rounded-[2.5rem] shadow-2xl overflow-hidden animate-slide-up border border-slate-100 dark:border-slate-800">
                 <div className="p-8 border-b border-slate-50 dark:border-slate-800 flex items-center justify-between">

@@ -31,16 +31,16 @@ const ProductTechnicalTab: React.FC<ProductTechnicalTabProps> = ({
                             type="button"
                             onClick={handleImproveDescriptionWithAI}
                             disabled={isImprovingDescription}
-                            className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all ${isImprovingDescription ? 'bg-slate-100 dark:bg-slate-800 text-slate-400 cursor-not-allowed' : 'bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white shadow-md shadow-purple-500/10 active:scale-95'}`}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-purple-100/80 hover:bg-purple-200/80 dark:bg-purple-950/60 dark:hover:bg-purple-900/60 border border-purple-200 dark:border-purple-800/70 text-amber-600 dark:text-amber-400 font-black uppercase text-[9px] tracking-wider transition-all disabled:opacity-50 active:scale-95 shadow-sm"
                         >
                             {isImprovingDescription ? (
                                 <>
-                                    <div className="w-2.5 h-2.5 border-2 border-slate-400 border-t-transparent rounded-full animate-spin"></div>
+                                    <i className="bi bi-arrow-repeat animate-spin text-amber-500" />
                                     Aperfeiçoando...
                                 </>
                             ) : (
                                 <>
-                                    <i className="bi bi-sparkles"></i>
+                                    <i className="bi bi-stars text-amber-500 text-xs font-bold" />
                                     Aperfeiçoar com IA
                                 </>
                             )}
