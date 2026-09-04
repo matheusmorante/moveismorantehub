@@ -1,4 +1,5 @@
 import { Drill } from "@/components/shared/DrillIcon";
+import { getSettings } from "@/pages/utils/settingsService";
 
 const getOpportunityLabel = (item: any) => {
     const opportunity = item.opportunityName || item.opportunity?.name || item.opportunity;
@@ -65,18 +66,38 @@ export const ItemsTable = ({ items }: { items: any[] }) => (
                                                 {item.originalOrderId && ` (#${item.originalOrderId.slice(-5)})`}
                                             </span>
                                         )}
-                                        {item.handlingType && (
-                                            <div className="flex items-center gap-1.5">
-                                                <span className="px-2 py-0.5 rounded-lg bg-blue-50 dark:bg-blue-900/30 text-[9px] font-black uppercase tracking-widest text-blue-600 dark:text-blue-400 border border-blue-100/50 dark:border-blue-900/30 flex items-center gap-1.5">
-                                                    {item.handlingType.toLowerCase().includes('montagem') ? (
-                                                        <Drill className="w-3 h-3 text-blue-500" />
-                                                    ) : (
-                                                        <i className="bi bi-box-seam text-blue-500 text-[10px]" />
-                                                    )}
-                                                    {item.handlingType}
-                                                </span>
-                                            </div>
-                                        )}
+                                        {item.handlingType && (() => {
+                                            const settings = getSettings();
+                                            const allOptions = [
+                                                ...(settings?.deliveryHandlingOptions || []),
+                                                ...(settings?.pickupHandlingOptions || [])
+                                            ];
+                                            const hLower = item.handlingType.toLowerCase();
+                                            const matchedOpt = allOptions.find(o => (o.label || '').toLowerCase().trim() === hLower.trim());
+                                            const isOutside = matchedOpt?.isAssemblyOutside || hLower.includes('fora') || hLower.includes('no local da entrega') || hLower.includes('na entrega');
+                                            const isDepot = (matchedOpt?.includeInAssemblySchedule && !isOutside) || hLower.includes('deposito') || hLower.includes('depósito') || hLower.includes('para retirada');
+                                            const isAssembly = isOutside || isDepot || hLower.includes('montagem');
+
+                                            let badgeClasses = "bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 border-blue-100/50 dark:border-blue-900/30";
+                                            if (isOutside) {
+                                                badgeClasses = "bg-red-600 text-white border-red-700 shadow-2xs";
+                                            } else if (isDepot) {
+                                                badgeClasses = "bg-amber-500 text-white border-amber-600 shadow-2xs";
+                                            }
+
+                                            return (
+                                                <div className="flex items-center gap-1.5">
+                                                    <span className={`px-2 py-0.5 rounded-lg text-[9px] font-black uppercase tracking-widest border flex items-center gap-1.5 ${badgeClasses}`}>
+                                                        {isAssembly ? (
+                                                            <Drill size={11} className={isOutside || isDepot ? "text-white fill-white" : "text-blue-500"} />
+                                                        ) : (
+                                                            <i className={`bi bi-box-seam ${isOutside || isDepot ? "text-white" : "text-blue-500"} text-[10px]`} />
+                                                        )}
+                                                        {item.handlingType}
+                                                    </span>
+                                                </div>
+                                            );
+                                        })()}
                                     </div>
                                 </td>
 

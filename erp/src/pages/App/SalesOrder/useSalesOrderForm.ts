@@ -477,15 +477,8 @@ export const useSalesOrderForm = (initialDeliveryMethod?: 'delivery' | 'pickup',
     }, [items]);
 
     useEffect(() => {
-        if (shipping.deliveryMethod !== prevDeliveryMethodRef.current) {
-            const isPickup = shipping.deliveryMethod === 'pickup';
-            setItems(currentItems => currentItems.map(item => ({
-                ...item,
-                handlingType: isPickup ? 'Retirada no depósito' : item.handlingType
-            })));
-        }
         prevDeliveryMethodRef.current = shipping.deliveryMethod;
-    }, [shipping.deliveryMethod, setItems]);
+    }, [shipping.deliveryMethod]);
 
     const handleSaveOrder = useCallback(async (e?: React.MouseEvent) => {
         if (e) e.preventDefault();

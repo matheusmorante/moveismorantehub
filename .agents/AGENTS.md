@@ -22,11 +22,13 @@ Este documento registra as regras e comportamentos **implementados** no sistema,
     - **Montagem Depósito** (antes da entrega/retirada): Fundo **Amarelo** (`bg-amber-500` / `#d97706`).
   - **Exibição Simultânea**: Quando um pedido contém itens com montagem fora e outros com montagem no depósito, o sistema exibe obrigatoriamente **ambos os selos à mostra** lado a lado tanto no ERP quanto no App Mobile.
   - **Rótulos Padronizados**: O rótulo é uniformemente **"Montagem Depósito"** (nunca "Montagem na Loja") e **"Montagem Fora"**, mantendo a mesma linguagem e estilo visual no ERP e no App.
-- **Emissão Fiscal SEFAZ-PR — Lista de Itens da Venda e IA para NCM (`NfeEmissionModal` / `NfeItemsSection`)**:
-  - O modal de emissão fiscal exibe a lista completa de itens da venda que estão sendo passados para a NF-e/NFC-e.
-  - Produtos não cadastrados no ERP (`!item.productId`) recebem destaque visual indicativo e vêm sem NCM fixo.
-  - No topo da lista há um switch **"IA NCM para Não Cadastrados"** (ativo por padrão) e botão de ação em lote para disparar a geração automática de NCM via Inteligência Artificial (`aiService.findNCM`), além de botão de disparo individual por item.
-  - Cada item possui campos tributários editáveis caso necessário (NCM direto, e sanfona para CFOP, CSOSN/CST, Origem e CEST), garantindo conformidade fiscal antes da emissão.
+- **Emissão Fiscal SEFAZ-PR — Lista de Itens da Venda e Campos Tributários (`NfeEmissionModal` / `NfeItemsSection`)**:
+  - O modal de emissão fiscal exibe a lista completa de itens da venda que estão sendo passados para a NF-e/NFC-e, sem numeração estática `#1, #2...`.
+  - Produtos não cadastrados no ERP (`!item.productId`) recebem destaque visual indicativo.
+  - O campo de **NCM** é selecionável e pesquisável através do componente `NcmSelect` (com lista de NCMs comuns e digitação livre), exatamente igual ao cadastro de produtos.
+  - Não há botões de geração por IA no modal de emissão de NF-e.
+  - Todos os campos tributários essenciais (**CFOP**, **CSOSN / CST**, **Origem da Mercadoria** e **CEST**) são padronizados através de `<select>` tanto no cadastro de produtos quanto na emissão de notas fiscais.
+- **Preservação Fiel do Manuseio de Itens do Pedido**: O manuseio individual selecionado pelo usuário para cada item no formulário do pedido é estritamente preservado e nunca sobrescrito por valores genéricos. No modal de detalhes do pedido (`ItemsTable`), o badge de manuseio respeita as cores oficiais de montagem (amarelo para depósito, vermelho para fora com ícone `Drill`).
 - **Inputs Numéricos (Sem Borda Divisória em Símbolos)**: Nos inputs numéricos de todo o sistema (`CurrencyInput`, `CurrencyOrPercentInput`, `UnitInput`), os símbolos monetários (`R$`), unidades de quantidade (`UN`) e símbolos percentuais (`%`) não possuem linha ou borda vertical separadora (`border-r` / `border-l`) dividindo o símbolo do valor digitado, garantindo visual limpo, contínuo e moderno.
 - **Cálculo Automático de Distância, Rotas e Frete (Google Maps)**:
   - O cálculo de distância via Google Maps no formulário de pedidos (`handleAutoCalculateDistance`) prioriza e resolve dinamicamente o endereço ativo selecionado: se `shipping.useCustomerAddress === false` e houver endereço de entrega alternativo, calcula para o endereço alternativo; caso contrário, calcula para o endereço principal do cliente.
