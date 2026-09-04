@@ -274,7 +274,7 @@ const ProductTable = ({
                                         onEdit={onEdit}
                                         onShowHistory={onShowHistory}
                                         onLaunchStock={onLaunchStock}
-                                        onDelete={() => onDelete(product.id || '')}
+                                        onDelete={(id) => onDelete(id || product.id || '')}
                                         onRestore={() => onRestore(product.id || '')}
                                         onPermanentDelete={() => onPermanentDelete(product.id || '')}
                                         onToggleActive={(id, status) => onToggleActive(product.id || '', product.active)}

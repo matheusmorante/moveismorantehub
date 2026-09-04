@@ -27,9 +27,8 @@ export const fetchMobileProductsPage = async (
       query = query.not('is_draft', 'is', true).neq('status', 'draft').eq('active', true);
     } else if (status === 'disabled') {
       query = query.not('is_draft', 'is', true).neq('status', 'draft').eq('active', false);
-    } else {
-      query = query.not('is_draft', 'is', true).neq('status', 'draft');
     }
+    // No modo 'all' (padrão), rascunhos, ativos e desativados aparecem na lista normal com suas respectivas badges
 
     if (options?.category) {
       query = query.eq('category', options.category);

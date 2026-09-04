@@ -27,6 +27,8 @@ Este arquivo consolida as regras de ouro e diretrizes de desenvolvimento para o 
    - **"Produtos Ativos"** (`active: true`): Produtos operacionais no sistema para movimentações, pedidos e controle.
    - **"Produtos Desativados"** (`active: false`): Produtos desativados no sistema que permanecem na listagem normal com selo indicativo (sem tela separada).
    - **"Rascunhos"** (`is_draft: true` ou `status == 'draft'`): Aparecem diretamente na listagem normal de produtos com selo indicativo em âmbar (sem botão segregador no topo).
+   - **Descarte de Rascunho nos 3 Pontinhos**: Rascunhos possuem a opção "Descartar Rascunho" no menu de 3 pontinhos tanto na tabela quanto nos cards.
+   - **Bloqueio de Ativação e Publicação para Rascunhos**: Produtos em rascunho **não podem** ser ativados no ERP nem publicados no Catálogo. Ao tentar ativar ou publicar, o sistema bloqueia e emite alerta explicativo orientando o operador a concluir o cadastramento primeiro.
    - Requisitos de Ativação: Nome do produto, Preço de Venda (produtos simples ou variações), Categoria e Fornecedor. Preço de custo não é pré-requisito de ativação.
    - Ações: Botão interativo `ERP` na coluna "Status de Canais" e nos cards para Ativar / Inativar.
 2. **No Catálogo Digital (E-commerce / Catálogo Online)**:
@@ -35,6 +37,13 @@ Este arquivo consolida as regras de ouro e diretrizes de desenvolvimento para o 
    - Ações: Botão interativo `Catálogo` na coluna "Status de Canais" e nos cards para Publicar / Ocultar.
 3. **Independência Total entre Canais**:
    - Ativar ou desativar no ERP não altera nem despublica do catálogo digital, e vice-versa.
+4. **Paridade Rigorosa no App Mobile (`MobileProductCard` / `MobileProductVariationList`)**:
+   - O aplicativo mobile segue rigorosamente os mesmos comportamentos do ERP:
+     - Rascunhos e desativados aparecem na listagem normal com selos `Rascunho` (âmbar) e `Desativado` (vermelho).
+     - Botões bipartidos de canais (`ERP` azul suave e `Catálogo` roxo suave).
+     - Bloqueio preventivo ao clicar em ERP ou Catálogo para rascunhos, alertando sobre a necessidade de finalizar o cadastro.
+     - Menu de 3 pontinhos com "Editar Produto" e "Descartar Rascunho" (exclusão permanente com remoção das variações filhas).
+     - Variações com cards individuais de fundo branco puro (`#ffffff`), cantos arredondados e botões bipartidos.
 
 ---
 
@@ -53,4 +62,4 @@ Este arquivo consolida as regras de ouro e diretrizes de desenvolvimento para o 
      - *Efetivada*: Saída/movimentação lançada e ativa no estoque.
      - *Estornada*: Saída estornada / cancelada.
      - *Não efetivada*: Produto cadastrado que ainda não teve saída lançada.
-     - *Item não cadastrado (sem movimentação)*: Avisa com destaque visual âmbar que itens temporários ou sem cadastro não movimentam estoque.
+     - *Sem Cadastro*: Avisa com destaque visual âmbar `SEM CADASTRO` que itens temporários ou sem cadastro não movimentam estoque.

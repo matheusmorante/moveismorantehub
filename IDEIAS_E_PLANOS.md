@@ -48,7 +48,7 @@ Este documento unifica todo o planejamento estratégico, ideias futuras, tarefas
   - `ProductFormModal.tsx` (> 600 linhas): dividir abas, validação de legibilidade e gerenciadores de variações.
   - `ProductRow.tsx` e `ProductCard.tsx`: isolar ações, menus e renderizadores de status.
   - [x] `OrderHistoryRow.tsx` e `OrderHistoryCard.tsx` + `InventoryMovementBadge.tsx`: modularizados com sucesso segundo a skill `modularizacao_codigo` (redução de mais de 70% das linhas com submódulos coesos).
-  - [x] **Detalhamento de Itens no Popover de Estoque**: Exibição da lista de todos os itens da venda com nome, quantidade e status de movimentação (`Efetivada`, `Estornada`, `Não efetivada` e `Item não cadastrado (sem movimentação)` com alerta).
+  - [x] **Detalhamento de Itens no Popover de Estoque**: Exibição da lista de todos os itens da venda com nome, quantidade e status de movimentação (`Efetivada`, `Estornada`, `Não efetivada` e `Sem Cadastro` com alerta).
   - `useProducts.ts` e `orderHistoryService.ts`: segregação de queries, mutations e regras de negócio.
 
 ### 📱 Mobile Offline-First Baseado em Eventos & Risco Operacional
@@ -77,6 +77,10 @@ Este documento unifica todo o planejamento estratégico, ideias futuras, tarefas
 - [x] **Catálogo Digital - 'Ver todos' na Lista de Categorias**: Dropdown de ambientes e menu mobile ajustados para exibir 'Ver todos' como primeira opção da lista, eliminando cabeçalhos duplicados.
 - [x] **Catálogo Digital - Troca Fluida de Fotos na Página do Produto**: Corrigido bug de reset para a 1ª foto ao clicar em thumbnails e sincronização com lightbox.
 - [x] **Catálogo Digital - Cores de Título por Oportunidade**: Cor dos títulos de produtos dinamizada tanto nos cards quanto na página de detalhes conforme a oportunidade vinculada.
+- [x] **ERP - Confirmação Segura de Cancelamento de Venda com Contador de 5s**: O botão de confirmar cancelamento no `CancelSaleModal` inicia com contagem regressiva de 5 segundos (`Cancelar venda (5s)`), ficando desabilitado e protegido contra cliques acidentais até a liberação.
+- [x] **ERP - Botão de Editar Produto nos 3 Pontinhos**: Disponibilizada a opção "Editar Produto" dentro do menu de opções de 3 pontinhos tanto na tabela (`ProductRow`) quanto nos cards (`ProductCard`), além do botão de atalho direto do lápis.
+- [x] **ERP - Descarte de Rascunhos nos 3 Pontinhos**: Adicionado botão "Descartar Rascunho" (ícone de lixeira vermelha `bi-trash3-fill`) no menu de 3 pontinhos tanto na tabela (`ProductRow`) quanto nos cards (`ProductCard`), permitindo descartar definitivamente rascunhos com limpeza das variações associadas.
+- [x] **ERP - Bloqueio de Ativação e Publicação para Rascunhos**: Produtos em rascunho não podem ser ativados no ERP nem publicados no Catálogo Digital; botões de status de canais (`ChannelStatusBadges`) mantêm estado inativo/oculto e, ao clicar, disparam aviso orientando que o cadastramento precisa ser finalizado.
 - [x] **ERP - Modal Completo de Gerenciamento de Atributos na Variação**: Ao clicar em "Gerenciar Atributos" no formulário de variação de produto (`VariationFormModal`), abre o painel oficial completo do sistema (`ManageAttributesModal`) com busca em tempo real, criação de atributos por tags, remoção segura e adição de valores, atualizando automaticamente os atributos da variação ao concluir.
 - [x] **ERP - Aba de Fotos da Variação com Input 1:1 e Drag and Drop**: Aba de fotos reformulada com card/slot de adicionar 1:1 (`aspect-square`) que abre o modal de seleção das fotos do pai (`VariationParentImagesSelectModal`), e fotos vinculadas exibidas em sequência com reordenação por Drag & Drop e selo de foto de Capa na primeira imagem.
 - [x] **Correção da Tela Branca em Detalhes do Pedido (Mobile)**: Corrigido o `ReferenceError` em `OrderDetailsSections.tsx` restaurando a declaração de `displayOriginalPrice` e `displayFinalPrice` ao renderizar o manuseio e preço com desconto.
@@ -136,7 +140,14 @@ Este documento unifica todo o planejamento estratégico, ideias futuras, tarefas
 - [x] **Flexibilização de Requisitos do ERP e Alerta Específico de Pendências**:
   - Removida a exigência de preço de custo para ativar produtos/variações no ERP (custo só é obrigatório ao lançar estoque inicial ou entrada de mercadoria).
   - O alerta de requisitos agora lista dinamicamente apenas os campos que estiverem de fato faltando (ex: `nome do produto`, `preço de venda`, `categoria`, `fornecedor`).
-- [x] **Remoção do Painel de Visibilidade de Colunas da Sidebar**: Eliminada a sanfona de visibilidade de colunas da barra lateral da lista de produtos, simplificando a interface e mantendo as colunas padrão visíveis.
+- [x] **App Mobile - Sincronização Completa de Estilo e Lógica com o ERP (Lista de Produtos)**:
+  - Rascunhos agora aparecem na listagem geral com badge em âmbar `Rascunho` (`#d97706`), sem necessidade de telas separadas.
+  - Produtos desativados exibidos normalmente na listagem com badge vermelho `Desativado` (`#ef4444`).
+  - Status de canais bipartido nos cards do produto e em cada variação filha (`ERP` azul suave com `Ativo`/`Inativo`, `Catálogo` roxo suave com `Publicado`/`Oculto`).
+  - Bloqueio estrito para rascunhos: produtos em rascunho não podem ser ativados nem publicados; ao clicar em qualquer canal, o app emite alerta amigável informando que o cadastramento deve ser concluído primeiro.
+  - Menu de 3 pontinhos com atalho "Editar Produto" (além do ícone de lápis) e ação "Descartar Rascunho" em vermelho para exclusão definitiva do rascunho e suas variações filhas.
+  - Cada variação filha com card de fundo branco puro (`#ffffff`), cantos arredondados, bordas sutis e botões de canais bipartidos sincronizados.
+- [x] **Remoção do Painel de Visibilidade de Colunas da Sidebar**: Eliminada a sanfona de visibilidade de colunas na sidebar de produtos, simplificando a interface e mantendo as colunas padrão visíveis.
 - [ ] **CategorySearchModal**: Avaliar o comportamento em dispositivos móveis.
 - [ ] **Feedback de Sincronização de Preços**: Testar se a sincronização de preços entre pai e filhos funciona corretamente em tempo real após a economia.
 - [ ] **Feedback visual de Herança**: Adicionar feedback visual mais claro quando a herança está ativa.

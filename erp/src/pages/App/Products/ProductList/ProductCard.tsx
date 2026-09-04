@@ -100,7 +100,7 @@ const ProductCard = ({
     const isLowStock = (product.stock || 0) <= (product.minStock || 0);
     const isParent = product.isParent;
     const isVariation = product.isVariation || !!product.parentId;
-    const isDraft = Boolean(product.isDraft) || product.status === 'draft';
+    const isDraft = Boolean(product.isDraft) || Boolean((product as any).is_draft) || product.status === 'draft';
     const canManageCatalog = !isDraft && product.active !== false;
     const isCatalogActive = product.status === 'published';
 
@@ -226,6 +226,7 @@ const ProductCard = ({
                         catalogStatus={product.status}
                         isParent={isParent}
                         canManageCatalog={canManageCatalog}
+                        isDraft={isDraft}
                         onToggleActive={(e) => {
                             e.stopPropagation();
                             onToggleActive(product.id!, product.active !== false);
@@ -295,7 +296,7 @@ const ProductCard = ({
                                         className="flex items-center gap-3 px-4 py-2.5 hover:bg-slate-50 dark:hover:bg-slate-950 transition-colors text-left group"
                                     >
                                         <i className="bi bi-pencil-fill text-blue-500" />
-                                        <span className="text-[10px] font-black uppercase tracking-widest text-slate-700 dark:text-slate-200">Editar</span>
+                                        <span className="text-[10px] font-black uppercase tracking-widest text-slate-700 dark:text-slate-200">Editar Produto</span>
                                     </button>
 
                                     {onShowHistory && !product.isParent && (
@@ -362,6 +363,23 @@ const ProductCard = ({
                                             </span>
                                             <span className="text-[10px] font-black uppercase tracking-widest text-slate-700 dark:text-slate-200">Movimentações de Estoque</span>
                                         </button>
+                                    )}
+
+                                    {isDraft && (
+                                        <div className="border-t border-slate-50 dark:border-slate-800/50 my-1">
+                                            <button
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    setIsMenuOpen(false);
+                                                    if (product.id) onDelete(product.id);
+                                                }}
+                                                className="flex items-center gap-3 px-4 py-2.5 hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors text-left group w-full text-red-600 dark:text-red-400 cursor-pointer"
+                                                title="Descartar Rascunho"
+                                            >
+                                                <i className="bi bi-trash3-fill text-red-500" />
+                                                <span className="text-[10px] font-black uppercase tracking-widest font-bold">Descartar Rascunho</span>
+                                            </button>
+                                        </div>
                                     )}
                                 </div>
                             </DropdownPortal>
@@ -516,6 +534,7 @@ const ProductCard = ({
                                                 catalogStatus={v.status}
                                                 isParent={false}
                                                 canManageCatalog={canManageCatalog}
+                                                isDraft={isDraft}
                                                 onToggleActive={(e) => {
                                                     e.stopPropagation();
                                                     onToggleActive(v.id || v.variationId, v.active !== false);

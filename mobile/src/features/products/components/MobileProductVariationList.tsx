@@ -1,23 +1,51 @@
 import React from 'react';
-import { Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { Package, Tag, AlertCircle } from 'lucide-react-native';
+import { Alert, Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Package } from 'lucide-react-native';
 
 interface Props {
   variations: any[];
   dark: boolean;
+  isParentDraft?: boolean;
   onToggleCatalog: (varId: string, currentStatus: string) => void;
+  onToggleActive?: (varId: string, currentActive: boolean) => void;
 }
 
 export const MobileProductVariationList: React.FC<Props> = ({
   variations,
   dark,
+  isParentDraft = false,
   onToggleCatalog,
+  onToggleActive,
 }) => {
   if (!variations || variations.length === 0) return null;
 
+  const handleToggleActive = (varId: string, currentActive: boolean) => {
+    if (isParentDraft) {
+      Alert.alert(
+        'Cadastro Pendente',
+        'Este produto é um rascunho. Você deve concluir o cadastramento do produto antes de ativar ou publicar suas variações.'
+      );
+      return;
+    }
+    if (onToggleActive) {
+      onToggleActive(varId, currentActive);
+    }
+  };
+
+  const handleToggleCatalog = (varId: string, currentStatus: string) => {
+    if (isParentDraft) {
+      Alert.alert(
+        'Cadastro Pendente',
+        'Este produto é um rascunho. Você deve concluir o cadastramento do produto antes de ativar ou publicar suas variações.'
+      );
+      return;
+    }
+    onToggleCatalog(varId, currentStatus);
+  };
+
   return (
     <View style={[styles.container, dark && styles.darkContainer]}>
-      <Text style={[styles.headerText, dark && styles.lightText]}>
+      <Text style={[styles.headerText, dark && styles.lightHeaderText]}>
         Variações ({variations.length})
       </Text>
 
@@ -31,17 +59,18 @@ export const MobileProductVariationList: React.FC<Props> = ({
         if (!varName) varName = v.name || v.displayName || `Variação #${index + 1}`;
 
         const isPublished = v.status === 'published';
+        const isActive = v.active !== false;
         const imgUrl = Array.isArray(v.images) && v.images[0] ? v.images[0] : (v.imageUrl || null);
         const normalPrice = Number(v.price ?? v.unit_price ?? 0);
         const promoPrice = Number(v.promo_price ?? v.promoPrice ?? 0);
         const hasPromo = promoPrice > 0 && promoPrice < normalPrice;
         const displayPrice = hasPromo ? promoPrice : normalPrice;
         const stock = Number(v.stock ?? 0);
-        const isOutOfStock = stock <= 0;
 
         return (
-          <View key={v.id || index} style={[styles.varItem, dark && styles.darkVarItem]}>
-            <View style={styles.leftRow}>
+          <View key={v.id || index} style={[styles.varCard, dark && styles.darkVarCard]}>
+            {/* Linha Superior: Foto e Info da Variação */}
+            <View style={styles.topRow}>
               {imgUrl ? (
                 <Image source={{ uri: imgUrl }} style={styles.image} resizeMode="cover" />
               ) : (
@@ -55,9 +84,6 @@ export const MobileProductVariationList: React.FC<Props> = ({
                   <Text style={[styles.name, dark && styles.lightText]} numberOfLines={1}>
                     {varName}
                   </Text>
-                  {v.active === false && (
-                    <Text style={styles.disabledBadge}>Inativa</Text>
-                  )}
                 </View>
 
                 <Text style={styles.sku}>
@@ -81,18 +107,50 @@ export const MobileProductVariationList: React.FC<Props> = ({
               </View>
             </View>
 
-            <TouchableOpacity
-              onPress={() => onToggleCatalog(v.id, v.status || 'published')}
-              style={[
-                styles.catalogBadge,
-                isPublished ? styles.publishedBadge : styles.hiddenBadge,
-              ]}
-            >
-              <Tag size={10} color={isPublished ? '#059669' : '#e11d48'} />
-              <Text style={[styles.badgeText, { color: isPublished ? '#059669' : '#e11d48' }]}>
-                {isPublished ? 'No Catálogo' : 'Oculto'}
-              </Text>
-            </TouchableOpacity>
+            {/* Linha Inferior: Status de Canais Bipartido (ERP e Catálogo) */}
+            <View style={styles.channelsRow}>
+              {/* Botão ERP Variação */}
+              <TouchableOpacity
+                activeOpacity={0.8}
+                onPress={() => handleToggleActive(v.id, isActive)}
+                style={[
+                  styles.bipartiteBtn,
+                  isActive && !isParentDraft ? styles.bipartiteActiveBorder : styles.bipartiteInactiveBorder,
+                  dark && styles.darkBipartiteBorder,
+                ]}
+              >
+                <View style={[styles.bipartiteTag, styles.erpTag, dark && styles.darkErpTag]}>
+                  <Text style={[styles.bipartiteTagText, styles.erpTagText, dark && styles.darkErpTagText]}>ERP</Text>
+                </View>
+                <View style={[styles.bipartiteStatus, isActive && !isParentDraft ? styles.statusActiveBg : styles.statusInactiveBg, dark && (isActive && !isParentDraft ? styles.darkStatusActiveBg : styles.darkStatusInactiveBg)]}>
+                  <View style={[styles.statusDot, { backgroundColor: isActive && !isParentDraft ? '#10b981' : '#94a3b8' }]} />
+                  <Text style={[styles.bipartiteStatusText, { color: isActive && !isParentDraft ? '#047857' : '#64748b' }]}>
+                    {isActive && !isParentDraft ? 'Ativo' : 'Inativo'}
+                  </Text>
+                </View>
+              </TouchableOpacity>
+
+              {/* Botão Catálogo Variação */}
+              <TouchableOpacity
+                activeOpacity={0.8}
+                onPress={() => handleToggleCatalog(v.id, v.status || 'published')}
+                style={[
+                  styles.bipartiteBtn,
+                  isPublished && !isParentDraft ? styles.bipartiteActiveBorder : styles.bipartiteInactiveBorder,
+                  dark && styles.darkBipartiteBorder,
+                ]}
+              >
+                <View style={[styles.bipartiteTag, styles.catTag, dark && styles.darkCatTag]}>
+                  <Text style={[styles.bipartiteTagText, styles.catTagText, dark && styles.darkCatTagText]}>Catálogo</Text>
+                </View>
+                <View style={[styles.bipartiteStatus, isPublished && !isParentDraft ? styles.statusActiveBg : styles.statusInactiveBg, dark && (isPublished && !isParentDraft ? styles.darkStatusActiveBg : styles.darkStatusInactiveBg)]}>
+                  <View style={[styles.statusDot, { backgroundColor: isPublished && !isParentDraft ? '#10b981' : '#94a3b8' }]} />
+                  <Text style={[styles.bipartiteStatusText, { color: isPublished && !isParentDraft ? '#047857' : '#64748b' }]}>
+                    {isPublished && !isParentDraft ? 'Publicado' : 'Oculto'}
+                  </Text>
+                </View>
+              </TouchableOpacity>
+            </View>
           </View>
         );
       })}
@@ -109,54 +167,56 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     borderBottomLeftRadius: 16,
     borderBottomRightRadius: 16,
-    backgroundColor: '#ffffff',
+    backgroundColor: '#f8fafc',
     borderTopWidth: 1,
-    borderTopColor: '#f1f5f9',
-    gap: 4,
+    borderTopColor: '#e2e8f0',
+    gap: 8,
   },
   darkContainer: {
-    backgroundColor: '#0f172a',
+    backgroundColor: '#090d16',
     borderTopColor: '#1e293b',
   },
   headerText: {
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: '800',
     color: '#64748b',
     textTransform: 'uppercase',
+    letterSpacing: 0.5,
     marginBottom: 2,
+  },
+  lightHeaderText: {
+    color: '#94a3b8',
   },
   lightText: {
     color: '#f8fafc',
   },
-  varItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 8,
-    paddingHorizontal: 4,
+  varCard: {
     backgroundColor: '#ffffff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#f1f5f9',
+    borderRadius: 12,
+    padding: 10,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    gap: 8,
   },
-  darkVarItem: {
+  darkVarCard: {
     backgroundColor: '#0f172a',
-    borderBottomColor: '#1e293b',
+    borderColor: '#1e293b',
   },
-  leftRow: {
+  topRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    flex: 1,
+    gap: 10,
   },
   image: {
-    width: 40,
-    height: 40,
-    borderRadius: 8,
+    width: 42,
+    height: 42,
+    borderRadius: 6,
+    backgroundColor: '#f1f5f9',
   },
   placeholder: {
-    width: 40,
-    height: 40,
-    borderRadius: 8,
+    width: 42,
+    height: 42,
+    borderRadius: 6,
     backgroundColor: '#f1f5f9',
     alignItems: 'center',
     justifyContent: 'center',
@@ -177,26 +237,17 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#0f172a',
   },
-  disabledBadge: {
-    fontSize: 8,
-    fontWeight: '800',
-    color: '#ef4444',
-    backgroundColor: '#fef2f2',
-    paddingHorizontal: 4,
-    paddingVertical: 1,
-    borderRadius: 4,
-    textTransform: 'uppercase',
-  },
   sku: {
     fontSize: 10,
     color: '#64748b',
     fontWeight: '600',
+    marginTop: 1,
   },
   priceStockRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    marginTop: 2,
+    marginTop: 3,
     flexWrap: 'wrap',
   },
   oldPrice: {
@@ -206,7 +257,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   price: {
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: '800',
     color: '#2563eb',
   },
@@ -224,40 +275,99 @@ const styles = StyleSheet.create({
   darkStock: {
     color: '#94a3b8',
   },
-  outOfStockBadge: {
+  channelsRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 2,
-    backgroundColor: '#fef2f2',
-    paddingHorizontal: 4,
-    paddingVertical: 1,
-    borderRadius: 4,
+    justifyContent: 'flex-end',
+    gap: 6,
+    paddingTop: 6,
+    borderTopWidth: 1,
+    borderTopColor: '#f1f5f9',
   },
-  outOfStockText: {
-    fontSize: 9,
-    fontWeight: '800',
-    color: '#ef4444',
-  },
-  catalogBadge: {
+  /* Botões bipartidos */
+  bipartiteBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 8,
+    borderRadius: 6,
     borderWidth: 1,
+    overflow: 'hidden',
   },
-  publishedBadge: {
-    backgroundColor: '#ecfdf5',
-    borderColor: '#a7f3d0',
+  bipartiteActiveBorder: {
+    borderColor: '#bbf7d0',
   },
-  hiddenBadge: {
-    backgroundColor: '#fff1f2',
-    borderColor: '#fecdd3',
+  bipartiteInactiveBorder: {
+    borderColor: '#e2e8f0',
   },
-  badgeText: {
+  darkBipartiteBorder: {
+    borderColor: '#334155',
+  },
+  bipartiteTag: {
+    paddingHorizontal: 5,
+    paddingVertical: 3,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  erpTag: {
+    backgroundColor: '#eff6ff',
+    borderRightWidth: 1,
+    borderRightColor: '#dbeafe',
+  },
+  darkErpTag: {
+    backgroundColor: '#1e3a8a30',
+    borderRightColor: '#1e3a8a60',
+  },
+  bipartiteTagText: {
+    fontSize: 9,
+    fontWeight: '900',
+    letterSpacing: 0.3,
+  },
+  erpTagText: {
+    color: '#2563eb',
+  },
+  darkErpTagText: {
+    color: '#93c5fd',
+  },
+  catTag: {
+    backgroundColor: '#faf5ff',
+    borderRightWidth: 1,
+    borderRightColor: '#f3e8ff',
+  },
+  darkCatTag: {
+    backgroundColor: '#581c8730',
+    borderRightColor: '#581c8760',
+  },
+  catTagText: {
+    color: '#7c3aed',
+  },
+  darkCatTagText: {
+    color: '#c084fc',
+  },
+  bipartiteStatus: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 6,
+    paddingVertical: 3,
+    gap: 3,
+  },
+  statusActiveBg: {
+    backgroundColor: '#f0fdf4',
+  },
+  darkStatusActiveBg: {
+    backgroundColor: '#064e3b30',
+  },
+  statusInactiveBg: {
+    backgroundColor: '#f8fafc',
+  },
+  darkStatusInactiveBg: {
+    backgroundColor: '#1e293b',
+  },
+  statusDot: {
+    width: 5,
+    height: 5,
+    borderRadius: 3,
+  },
+  bipartiteStatusText: {
     fontSize: 9,
     fontWeight: '800',
-    textTransform: 'uppercase',
   },
 });

@@ -35,7 +35,21 @@ export const toggleMobileProductActive = async (productId: string, currentActive
   return nextActive;
 };
 
-export const deleteMobileProduct = async (productId: string) => {
+export const deleteMobileProduct = async (productId: string, isDraft = false) => {
+  if (isDraft) {
+    try {
+      await supabase.from('product_variations').delete().eq('product_id', productId);
+    } catch (_) {}
+    const { error } = await supabase.from('products').delete().eq('id', productId);
+    if (error) {
+      await supabase
+        .from('products')
+        .update({ deleted: true, active: false, updated_at: new Date().toISOString() })
+        .eq('id', productId);
+    }
+    return;
+  }
+
   const { error } = await supabase
     .from('products')
     .update({ deleted: true, active: false, updated_at: new Date().toISOString() })

@@ -109,7 +109,7 @@ export const getOrderItemsMovementList = (
                 description,
                 quantity,
                 status: 'unregistered',
-                statusLabel: 'Item não cadastrado (sem movimentação)',
+                statusLabel: 'Sem Cadastro',
                 statusBadgeClass: 'bg-amber-100 text-amber-800 dark:bg-amber-950/70 dark:text-amber-300 border-amber-300 dark:border-amber-800',
                 tooltip: 'Item sem cadastro no banco não gera saída de estoque.',
             };

@@ -243,6 +243,30 @@ export const useProducts = (filters?: any) => {
 
 
     const handleDelete = async (id: string) => {
+        const targetProduct = serverProducts.find(p => String(p.id) === String(id) || String((p as any).realId) === String(id));
+        const isDraft = Boolean(targetProduct?.is_draft) || targetProduct?.status === 'draft' || Boolean((targetProduct as any)?.isDraft);
+
+        if (isDraft) {
+            const confirmed = window.confirm(
+                "Deseja descartar este rascunho permanentemente?\n\nEsta ação não poderá ser desfeita."
+            );
+            if (!confirmed) return;
+
+            const toastId = toast.loading("Descartando rascunho...");
+            try {
+                await supabase.from('product_variations').delete().eq('product_id', id);
+                const { error } = await supabase.from('products').delete().eq('id', id);
+                if (error) {
+                    await supabase.from('products').update({ deleted: true, active: false }).eq('id', id);
+                }
+                refresh();
+                toast.update(toastId, { render: "Rascunho descartado com sucesso!", type: "success", isLoading: false, autoClose: 3000 });
+            } catch (error: any) {
+                toast.update(toastId, { render: error.message || "Erro ao descartar rascunho.", type: "error", isLoading: false, autoClose: 3000 });
+            }
+            return;
+        }
+
         const confirmed = window.confirm(
             "Desativar este produto?\n\nEle permanecerá na lista com a etiqueta de 'Desativado'."
         );
@@ -435,6 +459,24 @@ export const useProducts = (filters?: any) => {
             const newActive = !currentStatus;
 
             if (newActive) {
+                // Bloqueio rigoroso para Rascunhos: não pode ativar no ERP
+                if (id.includes('_')) {
+                    const [parentId] = id.split('_');
+                    const parent = serverProducts.find(p => String(p.id) === String(parentId)) || products.find(p => String(p.id) === String(parentId));
+                    const isParentDraft = Boolean(parent?.is_draft) || parent?.status === 'draft' || Boolean((parent as any)?.isDraft);
+                    if (isParentDraft) {
+                        toast.warning("Este produto é um rascunho. Termine o cadastramento para poder ativá-lo no ERP.");
+                        return;
+                    }
+                } else {
+                    const targetProduct = serverProducts.find(p => String(p.id) === String(id)) || products.find(p => String(p.id) === String(id));
+                    const isDraft = Boolean(targetProduct?.is_draft) || targetProduct?.status === 'draft' || Boolean((targetProduct as any)?.isDraft);
+                    if (isDraft) {
+                        toast.warning("Este produto é um rascunho. Termine o cadastramento para poder ativá-lo no ERP.");
+                        return;
+                    }
+                }
+
                 if (id.includes('_')) {
                     const [parentId, ...skuParts] = id.split('_');
                     const targetSku = skuParts.join('_');
@@ -575,6 +617,12 @@ export const useProducts = (filters?: any) => {
             const newStatus = currentStatus === 'published' ? 'hidden' : 'published';
 
             if (newStatus === 'published') {
+                const isDraft = Boolean(parentProduct?.is_draft) || parentProduct?.status === 'draft' || Boolean((parentProduct as any)?.isDraft);
+                if (isDraft) {
+                    toast.warning("Este produto é um rascunho. Termine o cadastramento para poder publicá-lo no Catálogo.");
+                    return;
+                }
+
                 if (isEmbeddedVariation && parentProduct?.variations) {
                     const variation = parentProduct.variations.find((item: any, index: number) => {
                         const sku = item.sku || `${parentProduct.sku || parentProduct.code}-${String(index + 1).padStart(2, '0')}`;

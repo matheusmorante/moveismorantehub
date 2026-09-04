@@ -35,7 +35,7 @@ describe('getOrderItemsMovementList', () => {
         const result = getOrderItemsMovementList(order, true, false);
         expect(result).toHaveLength(1);
         expect(result[0].status).toBe('unregistered');
-        expect(result[0].statusLabel).toBe('Item não cadastrado (sem movimentação)');
+        expect(result[0].statusLabel).toBe('Sem Cadastro');
         expect(result[0].quantity).toBe(2);
     });
 
@@ -109,6 +109,6 @@ describe('getOrderItemsMovementList', () => {
         expect(result[1].status).toBe('not_effective');
         expect(result[1].statusLabel).toBe('Não efetivada');
         expect(result[2].status).toBe('unregistered');
-        expect(result[2].statusLabel).toBe('Item não cadastrado (sem movimentação)');
+        expect(result[2].statusLabel).toBe('Sem Cadastro');
     });
 });

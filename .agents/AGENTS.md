@@ -35,6 +35,8 @@ Este documento registra as regras e comportamentos **implementados** no sistema,
   - O alerta de requisitos pendentes exibe **apenas e exclusivamente os campos que estiverem de fato faltando**, e não uma mensagem genérica fixa.
 - Rascunho só é criado se o usuário preencher ao menos o nome e não finalizar. Fechar sem nome = nenhum rascunho criado.
 - Ao editar produto já concluído, o auto-save de rascunho é desativado.
+- **Descarte de Rascunho nos 3 Pontinhos**: Produtos em rascunho possuem a opção **"Descartar Rascunho"** (ícone `bi-trash3-fill` em vermelho) no menu de 3 pontinhos tanto na tabela (`ProductRow`) quanto nos cards (`ProductCard`). Ao confirmar a exclusão definitiva, o rascunho e suas variações filhas associadas são removidos de forma permanente.
+- **Bloqueio de Ativação e Publicação para Rascunhos**: Produtos em rascunho (`is_draft: true` ou `status == 'draft'`) **não podem ser ativados no ERP nem publicados no Catálogo Digital**. Os botões de status de canais (`ChannelStatusBadges`) exibem o estado Inativo / Oculto com tooltips orientativos. Ao clicar para ativar ou publicar, o sistema impede a operação e emite um aviso explicativo via toast informando que o usuário deve terminar o cadastramento do produto antes de ativá-lo ou publicá-lo.
 
 ### Variacoes de Produtos
 
@@ -55,7 +57,7 @@ Este documento registra as regras e comportamentos **implementados** no sistema,
 - **Remoção do Rótulo Redundante 'Produto'**: Tanto na visualização em Tabela (`ProductRow`) quanto em Cards (`ProductCard`), o selo/badge redundante com texto "Produto" foi removido, mantendo a listagem mais limpa. Selos especiais como "Serviço", "Combo" ou "Oportunidade" continuam ativos normalmente.
 - **Cor do Título do Produto Pai**: Tanto na visualização em Tabela (`ProductRow`) quanto em Cards (`ProductCard`), o título/nome do produto pai utiliza a cor padrão escura (`text-slate-900 dark:text-slate-100`), harmonizada com as variações e produtos simples.
 - **Contagem de Variações ao Lado do Título (Tabela)**: Na tabela de produtos (`ProductRow`), ao lado direito do título/nome do produto pai, é exibido um selo/badge indicando o quantitativo de variações filhas cadastradas (ex: `3 variações` ou `1 variação`).
-- **Abertura Exclusiva de Edição via Botão de Editar do Pai**: Clicar na linha da tabela (`ProductRow`) ou na área livre do card (`ProductCard`) **NÃO** abre o modal de edição de produto. A abertura do modal de edição (`onEdit`) é acionada **exclusivamente** pelo clique no botão de edição (ícone de lápis `bi-pencil`). As variações filhas não possuem botões de editar (lápis) nem menu de 3 pontinhos nas linhas/cards; a edição de qualquer variação é realizada exclusivamente acessando o formulário modal de edição do produto pai (aba Variações).
+- **Abertura de Edição via Botão de Editar e Menu de 3 Pontinhos**: Clicar na linha da tabela (`ProductRow`) ou na área livre do card (`ProductCard`) **NÃO** abre o modal de edição de produto. A abertura do modal de edição (`onEdit`) é acionada pelo clique no botão de edição (ícone de lápis `bi-pencil`) ou pela opção **"Editar Produto"** presente no menu de 3 pontinhos tanto na tabela quanto nos cards. As variações filhas não possuem botões de editar (lápis) nem menu de 3 pontinhos nas linhas/cards; a edição de qualquer variação é realizada exclusivamente acessando o formulário modal de edição do produto pai (aba Variações).
 - **Expansão de Variações ao Clicar na Linha / Card**: Ao clicar na linha da tabela (`ProductRow`) ou no card (`ProductCard`) de um produto pai que possui variações, as variações filhas são exibidas/recolhidas automaticamente (com cursor pointer). Os botões de ação (editar com lápis, 3 pontinhos e tags de catálogo) contam com stopPropagation e executam suas respectivas ações isoladamente.
 - **Cards em Telas Menores que XL (< 1280px)**: A listagem de produtos transita automaticamente para visualização em **Cards** (`ProductCard`) em resoluções menores que `xl` (`width < 1280px`) ou ambiente mobile/webview, reservando a visualização em **Tabela** (`ProductTable`) para telas largas a partir de 1280px (`xl` em diante).
 - **Fundo Cinza para o Produto Pai e Fundo Branco para Variações**: Tanto na visualização em Tabela (`ProductRow`) quanto em Cards (`ProductCard`), o produto pai (`isParent`) recebe background cinza destacado (`bg-slate-200/70 dark:bg-slate-800/80`), diferenciando-o visualmente. Cada variação (tanto no card isolado quanto na lista expandida do produto pai ou na tabela) possui obrigatoriamente **background branco puro** (`bg-white dark:bg-slate-900`).
@@ -76,6 +78,14 @@ Este documento registra as regras e comportamentos **implementados** no sistema,
     - **Botão Catálogo**: Tag fixa `Catálogo` em roxo suave + status interativo `Publicado` (verde com ponto) ou `Oculto` (cinza com ponto). Alterna publicação no Catálogo Digital ao clicar.
   - A ação de Ativar/Desativar produto foi removida do menu de 3 pontinhos e agora é acionada diretamente pelo botão de ERP na coluna e nos cards.
   - O mesmo padrão bipartido aplica-se na visualização em **Tabela** (`ProductRow`), nos **Cards** (`ProductCard`) e na listagem expandida de variações filhas.
+- **Sincronização Total no App Mobile (`MobileProductCard` e `MobileProductVariationList`)**:
+  - A listagem de produtos no app mobile segue rigorosamente a mesma lógica e linguagem visual do ERP:
+    - Rascunhos aparecem na listagem principal com badge indicativo em tom âmbar (`Rascunho`).
+    - Produtos desativados aparecem na listagem principal com badge indicativo em vermelho (`Desativado`).
+    - Botões bipartidos de canais (`ERP: Ativo/Inativo` e `Catálogo: Publicado/Oculto`) com cores e dots de status padronizados.
+    - Bloqueio para rascunhos: produtos em rascunho não podem ser ativados nem publicados; o app emite aviso preventivo orientando a concluir o cadastro.
+    - Menu de 3 pontinhos com atalho "Editar Produto" e ação "Descartar Rascunho" (exclusão definitiva com remoção em cascata de variações filhas).
+    - Variações filhas com cards individuais em fundo branco puro (`#ffffff`), cantos arredondados, bordas sutis e botões de canais bipartidos.
 
 ---
 
@@ -129,7 +139,7 @@ Este documento registra as regras e comportamentos **implementados** no sistema,
 - **Menu de Ações do Rascunho (3 pontinhos)**: Exibe as opções **Retomar Cadastramento** (azul com `bi-arrow-repeat`) e **Descartar Rascunho** (vermelho com `bi-trash3-fill`), com tipografia (`text-xs font-black uppercase tracking-widest`) e espaçamento vertical uniformizados.
 - **Cancelamento de Venda Agendada (`CancelScheduledSaleButton`)**:
   - Para pedidos de venda (`sale` ou `showroom`) com status **Agendado** (`scheduled`), o menu de 3 pontos exibe o botão **"Cancelar venda"** em vermelho com ícone `bi-x-circle-fill`.
-  - Ao clicar, abre o modal de confirmação `CancelSaleModal`, esclarecendo que a ação é definitiva e que as saídas de estoque vinculadas serão estornadas.
+  - Ao clicar, abre o modal de confirmação `CancelSaleModal`, esclarecendo que a ação é definitiva e que as saídas de estoque vinculadas serão estornadas. O botão de confirmação possui um contador regressivo de 5 segundos (`5s`) para prevenir cliques acidentais antes de ser liberado para clique.
   - Ao confirmar, o status é alterado para `cancelled` e o estoque estornado automaticamente via regras centrais de estoque.
   - **Ocultação do Botão de Editar em Cancelados e Atendidos**: O botão de editar (ícone de lápis) é ocultado tanto nos cards quanto no menu de 3 pontinhos para pedidos com status **Cancelado** (`cancelled`) ou **Atendido** (`fulfilled`).
   - O carimbo **"CANCELADO"** (`CancelledOrderBadge`) mantém **100% de opacidade e brilho normal/vívido** (`bg-red-600` com texto e borda brancos nítidos), posicionado no centro sem inclinação na Tabela e com inclinação nos Cards.

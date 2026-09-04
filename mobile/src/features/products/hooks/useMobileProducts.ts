@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { Alert } from 'react-native';
 import { fetchMobileProductsPage } from '../services/mobileProductFetchService';
 import {
   toggleMobileProductCatalog,
@@ -46,6 +47,11 @@ export function useMobileProducts() {
   }, [searchTerm, statusFilter, categoryFilter]);
 
   const handleToggleCatalog = async (productId: string, currentStatus: string, isVar = false, varId?: string) => {
+    const targetProd = products.find(p => p.id === productId);
+    if (targetProd && (targetProd.isDraft || targetProd.is_draft || targetProd.status === 'draft')) {
+      Alert.alert('Produto em Rascunho', 'Termine o cadastramento deste produto para poder publicá-lo no Catálogo.');
+      return;
+    }
     try {
       const next = await toggleMobileProductCatalog(productId, currentStatus, isVar, varId);
       setProducts(prev => prev.map(p => {
@@ -64,6 +70,11 @@ export function useMobileProducts() {
   };
 
   const handleToggleActive = async (productId: string, currentActive: boolean) => {
+    const targetProd = products.find(p => p.id === productId);
+    if (targetProd && (targetProd.isDraft || targetProd.is_draft || targetProd.status === 'draft')) {
+      Alert.alert('Produto em Rascunho', 'Termine o cadastramento deste produto para poder ativá-lo no ERP.');
+      return;
+    }
     try {
       const next = await toggleMobileProductActive(productId, currentActive);
       setProducts(prev => prev.map(p => p.id === productId ? { ...p, active: next } : p));
@@ -72,9 +83,9 @@ export function useMobileProducts() {
     }
   };
 
-  const handleDelete = async (productId: string) => {
+  const handleDelete = async (productId: string, isDraft = false) => {
     try {
-      await deleteMobileProduct(productId);
+      await deleteMobileProduct(productId, isDraft);
       setProducts(prev => prev.filter(p => p.id !== productId));
       setTotalItems(prev => Math.max(0, prev - 1));
     } catch (err) {

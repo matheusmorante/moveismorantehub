@@ -106,7 +106,8 @@ const ProductRow = ({
     const [isSalesModalOpen, setIsSalesModalOpen] = React.useState(false);
     const [whatsAppModal, setWhatsAppModal] = React.useState<{ open: boolean; message: string }>({ open: false, message: '' });
     const menuAnchorRef = React.useRef<HTMLButtonElement>(null);
-    const canManageCatalog = product.status !== 'draft' && !product.isDraft && product.active !== false;
+    const isDraft = Boolean(product.isDraft) || Boolean((product as any).is_draft) || product.status === 'draft';
+    const canManageCatalog = !isDraft && product.active !== false;
 
     const [oppName, setOppName] = React.useState<string | null>(
         product.opportunityName || product.opportunity?.name || null
@@ -462,6 +463,7 @@ const ProductRow = ({
                                 catalogStatus={product.status}
                                 isParent={product.isParent}
                                 canManageCatalog={canManageCatalog}
+                                isDraft={isDraft}
                                 onToggleActive={(e) => {
                                     e.stopPropagation();
                                     onToggleActive(product.id!, product.active !== false);
@@ -523,6 +525,18 @@ const ProductRow = ({
                                                 className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl shadow-2xl py-2 flex flex-col z-[9999] animate-slide-up"
                                                 onMouseLeave={() => setIsMenuOpen(false)}
                                             >
+                                                <button
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        setIsMenuOpen(false);
+                                                        onEdit(product);
+                                                    }}
+                                                    className="flex items-center gap-3 px-4 py-2.5 hover:bg-slate-50 dark:hover:bg-slate-950 transition-colors text-left group w-full"
+                                                >
+                                                    <i className="bi bi-pencil-fill text-blue-500" />
+                                                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-700 dark:text-slate-200">Editar Produto</span>
+                                                </button>
+
                                                 {onDuplicate && (
                                                     <button
                                                         onClick={(e) => {
@@ -595,6 +609,22 @@ const ProductRow = ({
                                                             </button>
                                                         </div>
                                                     </>
+                                                )}
+                                                {isDraft && (
+                                                    <div className="border-t border-slate-50 dark:border-slate-800/50 my-1">
+                                                        <button
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                setIsMenuOpen(false);
+                                                                if (product.id) onDelete(product.id);
+                                                            }}
+                                                            className="flex items-center gap-3 px-4 py-2.5 hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors text-left group w-full text-red-600 dark:text-red-400 cursor-pointer"
+                                                            title="Descartar Rascunho"
+                                                        >
+                                                            <i className="bi bi-trash3-fill text-red-500" />
+                                                            <span className="text-[10px] font-black uppercase tracking-widest font-bold">Descartar Rascunho</span>
+                                                        </button>
+                                                    </div>
                                                 )}
                                             </div>
                                         </DropdownPortal>
