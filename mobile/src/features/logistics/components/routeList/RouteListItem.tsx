@@ -22,7 +22,7 @@ export const RouteListItem: React.FC<Props> = ({
   const isCompleted = item.status === 'completed';
   const isUnattended = item.status === 'unattended';
   const isInProgress = item.status === 'in_progress' || item.status === 'in_service';
-  const isNext = item.isNext && !isInProgress;
+  const isFixedTime = item.scheduleSlot?.isFixedTime;
 
   const handleOpenNav = () => {
     openExternalNavigation({
@@ -38,24 +38,13 @@ export const RouteListItem: React.FC<Props> = ({
         styles.card,
         isDarkMode && styles.cardDark,
         isInProgress && styles.cardInProgress,
-        isNext && styles.cardNext,
       ]}
       onPress={() => onSelect(item)}
       activeOpacity={0.7}
     >
-      {/* Linha Superior: Ordem, Código e Status */}
+      {/* Linha Superior: Código, Cliente e Restrição de Horário */}
       <View style={styles.topRow}>
-        <View style={styles.sequenceBadge}>
-          {isCompleted ? (
-            <Check size={13} color="#16a34a" strokeWidth={3} />
-          ) : isUnattended ? (
-            <AlertTriangle size={13} color="#dc2626" strokeWidth={3} />
-          ) : (
-            <Text style={styles.sequenceText}>{item.sequence}</Text>
-          )}
-        </View>
-
-        <View style={{ flex: 1, marginLeft: 8 }}>
+        <View style={{ flex: 1 }}>
           <Text style={[styles.customerName, isDarkMode && styles.textLight]} numberOfLines={1}>
             {item.customerName}
           </Text>
@@ -66,24 +55,32 @@ export const RouteListItem: React.FC<Props> = ({
           )}
         </View>
 
-        {/* Status Badge */}
-        <View style={[
-          styles.statusBadge,
-          isCompleted && styles.statusCompleted,
-          isUnattended && styles.statusUnattended,
-          isInProgress && styles.statusProgress,
-          (!isCompleted && !isUnattended && !isInProgress) && styles.statusPending,
-        ]}>
-          <Text style={[
-            styles.statusText,
-            isCompleted && { color: '#16a34a' },
-            isUnattended && { color: '#dc2626' },
-            isInProgress && { color: '#2563eb' },
-            (!isCompleted && !isUnattended && !isInProgress) && { color: '#64748b' },
+        {/* Badge de Horário ou Status */}
+        {isFixedTime ? (
+          <View style={[styles.statusBadge, styles.statusFixed]}>
+            <Text style={[styles.statusText, { color: '#7c3aed' }]}>
+              {item.scheduleSlot.sublabel}
+            </Text>
+          </View>
+        ) : (
+          <View style={[
+            styles.statusBadge,
+            isCompleted && styles.statusCompleted,
+            isUnattended && styles.statusUnattended,
+            isInProgress && styles.statusProgress,
+            (!isCompleted && !isUnattended && !isInProgress) && styles.statusPending,
           ]}>
-            {isCompleted ? 'ENTREGUE' : isUnattended ? 'NÃO ATENDIDO' : isInProgress ? 'EM ROTA' : 'PENDENTE'}
-          </Text>
-        </View>
+            <Text style={[
+              styles.statusText,
+              isCompleted && { color: '#16a34a' },
+              isUnattended && { color: '#dc2626' },
+              isInProgress && { color: '#2563eb' },
+              (!isCompleted && !isUnattended && !isInProgress) && { color: '#64748b' },
+            ]}>
+              {isCompleted ? 'ENTREGUE' : isUnattended ? 'NÃO ATENDIDO' : isInProgress ? 'EM ROTA' : item.scheduleSlot.displayBadge}
+            </Text>
+          </View>
+        )}
       </View>
 
       {/* Endereço */}
@@ -97,13 +94,10 @@ export const RouteListItem: React.FC<Props> = ({
       {/* Rodapé: Métricas e Ações Rápidas */}
       <View style={styles.footerRow}>
         <View style={styles.metricsGroup}>
+          <Text style={[styles.metricText, { color: '#64748b' }]}>📦 {item.itemsCount} vol</Text>
           {item.distanceKm ? (
-            <Text style={styles.metricText}>{item.distanceKm} km</Text>
+            <Text style={[styles.metricText, { color: '#2563eb' }]}>• {item.distanceKm} km</Text>
           ) : null}
-          {item.durationMin ? (
-            <Text style={[styles.metricText, { color: '#64748b' }]}>• ~{item.durationMin} min</Text>
-          ) : null}
-          <Text style={[styles.metricText, { color: '#94a3b8' }]}>• {item.itemsCount} vol</Text>
         </View>
 
         <View style={styles.actionsGroup}>
@@ -124,7 +118,10 @@ export const RouteListItem: React.FC<Props> = ({
           {item.status === 'pending' && (
             <TouchableOpacity
               style={styles.startActionBtn}
-              onPress={() => onStartDelivery(item)}
+              onPress={() => {
+                onStartDelivery(item);
+                handleOpenNav();
+              }}
             >
               <Play size={12} color="#ffffff" fill="#ffffff" />
             </TouchableOpacity>
@@ -203,6 +200,9 @@ const styles = StyleSheet.create({
   },
   statusProgress: {
     backgroundColor: '#eff6ff',
+  },
+  statusFixed: {
+    backgroundColor: '#f3e8ff',
   },
   statusPending: {
     backgroundColor: '#f1f5f9',

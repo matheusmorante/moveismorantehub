@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
 import VariationType from "../../../types/variation.type";
 import { subscribeToVariations } from "../../../utils/variationService";
+import { normalizeSearchTerm } from "../../../utils/textUtils";
 
 interface AttributeSelectionModalProps {
     isOpen: boolean;
@@ -26,8 +27,9 @@ const AttributeSelectionModal: React.FC<AttributeSelectionModalProps> = ({ isOpe
 
     if (!isOpen) return null;
 
+    const normSearch = normalizeSearchTerm(searchTerm);
     const filteredAttributes = availableVariations.filter(v => 
-        v.name.toLowerCase().includes(searchTerm.toLowerCase())
+        normalizeSearchTerm(v.name).includes(normSearch)
     );
 
     return createPortal(

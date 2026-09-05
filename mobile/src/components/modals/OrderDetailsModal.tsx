@@ -19,7 +19,13 @@ export const OrderDetailsModal: React.FC<Props> = ({ order, onClose, isDarkMode,
   const [canStartDelivery, setCanStartDelivery] = useState(false);
   const topInset = Math.max(insets.top, Platform.OS === 'android' ? (StatusBar.currentHeight || 24) : 0);
 
-  useEffect(() => { if (!order) setPreparingDelivery(false); }, [order]);
+  useEffect(() => {
+    if (!order) {
+      setPreparingDelivery(false);
+    } else if (order._openDeliveryPreparation) {
+      setPreparingDelivery(true);
+    }
+  }, [order]);
   useEffect(() => {
     const loadPermission = async () => {
       const { data } = await supabase.from('settings').select('data').eq('id', 'app').maybeSingle();

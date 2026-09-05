@@ -2,9 +2,11 @@ import { supabase } from '@/pages/utils/supabaseConfig';
 import Product, { Variation } from "../types/product.type";
 import { crmIntelligenceService } from "./crmIntelligenceService";
 import { saveInventoryMove } from "./inventoryService";
-import { normalizeSlug, resolveUniqueSlug } from './uniqueSlug';
 import { ensureDefaultVariation, isDefaultVariation, normalizeVariationSku } from './productVariationDefaults';
-import { removeAccents } from './textUtils';
+import { removeAccents, buildAccentInsensitiveRegex } from './textUtils';
+import { normalizeSlug, resolveUniqueSlug } from './uniqueSlug';
+
+
 
 const TABLE_NAME = "products";
 const LOCAL_STORAGE_KEY = 'local_products';
@@ -592,15 +594,19 @@ export const fetchProductsPage = async (
             if (rawSearch.length > 0) {
                 const unaccented = removeAccents(rawSearch);
                 const searchTerms = Array.from(new Set([rawSearch, unaccented])).filter(Boolean);
+                const regexPattern = `.*${buildAccentInsensitiveRegex(rawSearch)}.*`;
 
                 // 1. Buscar variações pelo campo 'name' na tabela product_variations
                 let variationParentIds: string[] = [];
                 try {
-                    const varOr = searchTerms.map(t => `name.ilike.%${t}%`).join(',');
+                    const varOrList = [
+                        `name.imatch.${regexPattern}`,
+                        ...searchTerms.map(t => `name.ilike.%${t}%`)
+                    ];
                     const { data: matchedVariations } = await supabase
                         .from('product_variations')
                         .select('product_id')
-                        .or(varOr)
+                        .or(varOrList.join(','))
                         .limit(100);
 
                     if (matchedVariations && matchedVariations.length > 0) {
@@ -614,6 +620,7 @@ export const fetchProductsPage = async (
 
                 // 2. Montar filtro or com o campo name dos produtos e os IDs de variações
                 const orConditions: string[] = [];
+                orConditions.push(`name.imatch.${regexPattern}`);
                 searchTerms.forEach(t => {
                     orConditions.push(`name.ilike.%${t}%`);
                 });

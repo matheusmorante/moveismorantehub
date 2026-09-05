@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import Order from "../../../types/order.type";
 import InventoryMovementBadge from "./InventoryMovementBadge";
 import { binaryOrderBadgeClass, warningOrderBadgeClass } from "./orderBadgeStyles";
+import { isPartialSaleStockMovement } from "@/pages/utils/saleInventoryRules";
 
 interface OrderOperationalBadgesProps {
     order: Order;
@@ -160,7 +161,7 @@ export const OrderOperationalBadges = ({
                     order={order}
                     hasMovement={order.orderType === 'return' ? Boolean(order.returnStockProcessed) : Boolean(order.stockProcessed)} 
                     isReversed={order.orderType === 'return' ? Boolean(order.returnStockReversed) : Boolean(order.stockReversed)}
-                    isPartial={order.isPartialStockProcessed}
+                    isPartial={isPartialSaleStockMovement(order, order.movedProductIds)}
                 />
             )}
 

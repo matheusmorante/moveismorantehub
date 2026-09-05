@@ -147,19 +147,24 @@ export class ApiUsageTracker {
     /**
      * Consulta o consumo acumulado no mês corrente para um serviço e ambiente
      */
-    public static async getCurrentMonthUsage(serviceId: ApiServiceId, environment: ApiEnvironment = 'production'): Promise<number> {
+    public static async getCurrentMonthUsage(serviceId: ApiServiceId, environment: ApiEnvironment | 'all' = 'all'): Promise<number> {
         const now = new Date();
         const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
         const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split('T')[0];
 
         try {
-            const { data, error } = await supabase
+            let query = supabase
                 .from('api_usage_daily')
                 .select('total_requests')
                 .eq('service', serviceId)
-                .eq('environment', environment)
                 .gte('usage_date', startOfMonth)
                 .lte('usage_date', endOfMonth);
+
+            if (environment !== 'all') {
+                query = query.eq('environment', environment);
+            }
+
+            const { data, error } = await query;
 
             if (error || !data) return 0;
             return data.reduce((acc, row) => acc + (row.total_requests || 0), 0);
@@ -174,18 +179,23 @@ export class ApiUsageTracker {
     public static async getDashboardMetrics(
         startDate: string,
         endDate: string,
-        environment: ApiEnvironment = 'production'
+        environment: ApiEnvironment | 'all' = 'all'
     ): Promise<ApiDashboardMetrics> {
         const configs = await ApiConfigService.getAllConfigurations();
         
         let dailyRows: any[] = [];
         try {
-            const { data, error } = await supabase
+            let query = supabase
                 .from('api_usage_daily')
                 .select('*')
-                .eq('environment', environment)
                 .gte('usage_date', startDate)
                 .lte('usage_date', endDate);
+
+            if (environment !== 'all') {
+                query = query.eq('environment', environment);
+            }
+
+            const { data, error } = await query;
 
             if (!error && data) {
                 dailyRows = data;

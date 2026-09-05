@@ -238,17 +238,27 @@ export const reverseInventoryMove = async (
             reversedAt: reversedAt
         });
 
-        // Atualizar no banco usando reason, status e observation (compatibilidade universal)
-        const updatePayload: any = {
-            status: 'reversed',
+        // Atualizar no banco de forma resiliente:
+        // A coluna 'status' pode não existir nativamente em todos os schemas (persiste em observation JSON e reason).
+        // Se a coluna 'status' existir no banco, atualiza-a; se der erro PGRST204 (coluna ausente),
+        // faz o fallback salvando com segurança em reason e observation (padrão oficial retrocompatível).
+        const basePayload: any = {
             reason: reason,
             observation: updatedObservation
         };
 
-        const { error } = await supabase
+        let { error } = await supabase
             .from(TABLE_NAME)
-            .update(updatePayload)
+            .update({ ...basePayload, status: 'reversed' })
             .eq('id', id);
+
+        if (error && ((error as any).code === 'PGRST204' || (error as any).message?.includes('status'))) {
+            const retry = await supabase
+                .from(TABLE_NAME)
+                .update(basePayload)
+                .eq('id', id);
+            error = retry.error;
+        }
 
         if (error) throw error;
 

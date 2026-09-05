@@ -8,9 +8,10 @@ export const formatOrderCode = (order: any): string => {
     order.orderIndex ?? 
     order.order_index ?? 
     data.order_index ?? 
+    order.order_number ?? 
+    data.order_number ?? 
     order.orderNumber ?? 
-    data.orderNumber ?? 
-    order.id;
+    data.orderNumber;
 
   const value = Number(rawValue);
   return Number.isInteger(value) && value > 0 && value <= 999999

@@ -1,8 +1,8 @@
 import React from 'react';
-import { StyleSheet, Text, TouchableOpacity, View, Linking, Platform } from 'react-native';
-import { MapPin, Navigation, CheckCircle2, User, Clock, ExternalLink } from 'lucide-react-native';
+import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { MapPin, Navigation, User, Clock } from 'lucide-react-native';
 import { SlideHoldToStart } from '../SlideHoldToStart';
-import { getLocationMapsUrl } from '../../../../utils/orderUtils';
+import { openGoogleMapsNavigation, extractNavigationTarget } from '../../../logistics/utils/externalMapsNavigation';
 
 interface Props {
   order: any;
@@ -25,29 +25,9 @@ export const DeliveryRouteStep: React.FC<Props> = ({
   onStepBackToPreparation,
   loading,
 }) => {
-  const mapsUrl = getLocationMapsUrl(order) || getLocationMapsUrl(customer);
-
-  const openGPS = () => {
-    if (mapsUrl) {
-      Linking.openURL(mapsUrl).catch(() => {});
-      return;
-    }
-    if (!fullAddress) return;
-    const encoded = encodeURIComponent(fullAddress);
-    const url = Platform.select({
-      ios: `maps:0,0?q=${encoded}`,
-      android: `geo:0,0?q=${encoded}`,
-    }) || `https://www.google.com/maps/search/?api=1&query=${encoded}`;
-
-    Linking.openURL(url).catch(() => {
-      Linking.openURL(`https://www.google.com/maps/search/?api=1&query=${encoded}`);
-    });
-  };
-
-  const openExactMapsLink = () => {
-    if (mapsUrl) {
-      Linking.openURL(mapsUrl).catch(() => {});
-    }
+  const handleOpenGoogleMaps = () => {
+    const target = extractNavigationTarget(order, fullAddress);
+    void openGoogleMapsNavigation(target);
   };
 
   const formattedStartedTime = startedAt
@@ -83,20 +63,14 @@ export const DeliveryRouteStep: React.FC<Props> = ({
           <Text style={[styles.addressText, isDarkMode && styles.textLight]}>{fullAddress}</Text>
         </View>
 
-        {/* Botão de Localização Exata (Google Maps) caso cadastrado */}
-        {Boolean(mapsUrl) && (
-          <TouchableOpacity onPress={openExactMapsLink} style={styles.exactMapsButton} activeOpacity={0.8}>
-            <ExternalLink size={16} color="#dc2626" />
-            <Text style={styles.exactMapsButtonText}>Abrir Localização no Google Maps</Text>
-          </TouchableOpacity>
-        )}
-
-        {/* Botão de abrir GPS */}
-        <TouchableOpacity onPress={openGPS} style={styles.gpsButton} activeOpacity={0.8}>
-          <Navigation size={16} color="#2563eb" />
-          <Text style={styles.gpsButtonText}>
-            {mapsUrl ? 'Navegar com GPS' : 'Abrir no GPS / Navegador'}
-          </Text>
+        {/* Ação Destacada: ABRIR ROTA NO GOOGLE MAPS (Idêntico à Etapa 1) */}
+        <TouchableOpacity
+          onPress={handleOpenGoogleMaps}
+          style={styles.googleMapsNavButton}
+          activeOpacity={0.85}
+        >
+          <Navigation size={17} color="#ffffff" fill="#ffffff" />
+          <Text style={styles.googleMapsNavButtonText}>ABRIR ROTA NO GOOGLE MAPS</Text>
         </TouchableOpacity>
       </View>
 
@@ -209,39 +183,26 @@ const styles = StyleSheet.create({
     color: '#475569',
     lineHeight: 18,
   },
-  gpsButton: {
+  googleMapsNavButton: {
+    height: 48,
+    borderRadius: 14,
+    backgroundColor: '#2563eb',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    backgroundColor: '#eff6ff',
-    paddingVertical: 10,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#bfdbfe',
-    marginTop: 4,
+    marginTop: 8,
+    elevation: 3,
+    shadowColor: '#2563eb',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
   },
-  gpsButtonText: {
+  googleMapsNavButtonText: {
     fontSize: 13,
-    fontWeight: '800',
-    color: '#2563eb',
-  },
-  exactMapsButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    backgroundColor: '#fef2f2',
-    paddingVertical: 10,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#fecaca',
-    marginTop: 4,
-  },
-  exactMapsButtonText: {
-    fontSize: 13,
-    fontWeight: '800',
-    color: '#dc2626',
+    fontWeight: '900',
+    letterSpacing: 0.6,
+    color: '#ffffff',
   },
   arriveButton: {
     height: 56,

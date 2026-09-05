@@ -22,7 +22,9 @@ const InventoryMovementBadge = ({ orderType, hasMovement, isReversed, isPartial,
 
     const resolvedOrderType = orderType || order?.orderType;
     const isReturn = resolvedOrderType === 'return';
-    const isPartialMovement = isPartial ?? (order?.isPartialStockProcessed ?? (order ? isPartialSaleStockMovement(order) : false));
+    const isPartialMovement = order 
+        ? isPartialSaleStockMovement(order, order.movedProductIds) 
+        : (isPartial ?? false);
 
     const content = getInventoryBadgeContent({
         isReturn,

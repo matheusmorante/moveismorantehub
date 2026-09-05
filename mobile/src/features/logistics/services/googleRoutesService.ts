@@ -1,4 +1,5 @@
 import { supabase } from '../../../services/supabaseClient';
+import { MobileApiUsageTracker } from '../../../services/apiUsageTracker';
 
 export interface RouteComputationResult {
   distanceMeters: number;
@@ -56,7 +57,7 @@ export function decodePolyline(encoded: string): { latitude: number; longitude: 
 /**
  * Obtém a chave do Google Maps configurada no banco (settings)
  */
-async function getGoogleApiKey(): Promise<string | null> {
+export async function getGoogleApiKey(): Promise<string | null> {
   try {
     const { data } = await supabase.from('settings').select('data').limit(1).maybeSingle();
     const key = data?.data?.googleMapsApiKey;
@@ -78,6 +79,15 @@ export async function computeRoute(
   const cached = routesCache.get(cacheKey);
 
   if (cached && Date.now() - cached.timestamp < CACHE_TTL_MS) {
+    void MobileApiUsageTracker.record({
+      provider: 'google',
+      service: 'google_routes',
+      operation: 'compute_routes_v2',
+      units: 1,
+      status: 'SUCCESS',
+      cache_hit: true,
+      module_source: 'mobile_map_navigation',
+    });
     return cached.result;
   }
 
@@ -87,6 +97,7 @@ export async function computeRoute(
     return null;
   }
 
+  const startTime = Date.now();
   const url = 'https://routes.googleapis.com/directions/v2:computeRoutes';
 
   const body = {
@@ -124,9 +135,22 @@ export async function computeRoute(
       body: JSON.stringify(body),
     });
 
+    const elapsed = Date.now() - startTime;
+
     if (!response.ok) {
       const errText = await response.text();
       console.warn('[RoutesService] Erro da API Google Routes:', response.status, errText);
+      void MobileApiUsageTracker.record({
+        provider: 'google',
+        service: 'google_routes',
+        operation: 'compute_routes_v2',
+        units: 1,
+        status: 'ERROR',
+        http_status: response.status,
+        response_time_ms: elapsed,
+        module_source: 'mobile_map_navigation',
+        error_message: errText.slice(0, 200),
+      });
       return null;
     }
 
@@ -151,9 +175,31 @@ export async function computeRoute(
     };
 
     routesCache.set(cacheKey, { result, timestamp: Date.now() });
+
+    void MobileApiUsageTracker.record({
+      provider: 'google',
+      service: 'google_routes',
+      operation: 'compute_routes_v2',
+      units: 1,
+      status: 'SUCCESS',
+      http_status: 200,
+      response_time_ms: elapsed,
+      module_source: 'mobile_map_navigation',
+    });
+
     return result;
   } catch (error) {
     console.warn('[RoutesService] Falha na requisição computeRoutes:', error);
+    void MobileApiUsageTracker.record({
+      provider: 'google',
+      service: 'google_routes',
+      operation: 'compute_routes_v2',
+      units: 1,
+      status: 'ERROR',
+      response_time_ms: Date.now() - startTime,
+      module_source: 'mobile_map_navigation',
+      error_message: String(error).slice(0, 200),
+    });
     return null;
   }
 }

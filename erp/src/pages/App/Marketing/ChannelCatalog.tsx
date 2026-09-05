@@ -5,6 +5,7 @@ import { whatsappGraphService } from '@/pages/utils/whatsappGraphService';
 import { updateProduct } from '@/pages/utils/productService';
 import { getSettings } from '@/pages/utils/settingsService';
 import { pluralizeProductType } from '@/pages/utils/pluralize';
+import { normalizeSearchTerm } from '@/pages/utils/textUtils';
 
 // ── Tipos ─────────────────────────────────────────────────────────────────
 interface VariationRow {
@@ -219,11 +220,11 @@ function ChannelCatalog() {
     const collections = useMemo(() => buildCollections(rows), [rows]);
 
     const filteredRows = useMemo(() => rows.filter(r => {
-        const q = search.toLowerCase();
+        const q = normalizeSearchTerm(search);
         const matchesSearch =
-            r.varName.toLowerCase().includes(q) ||
-            r.varSku.toLowerCase().includes(q) ||
-            r.parentDescription.toLowerCase().includes(q);
+            normalizeSearchTerm(r.varName).includes(q) ||
+            normalizeSearchTerm(r.varSku).includes(q) ||
+            normalizeSearchTerm(r.parentDescription).includes(q);
         const matchesChannel =
             filterChannel === 'all' ? true :
             filterChannel === 'whatsapp' ? r.varWhatsappSync :

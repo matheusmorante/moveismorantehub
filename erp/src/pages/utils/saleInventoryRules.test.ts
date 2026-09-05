@@ -67,6 +67,17 @@ describe('regras de estoque de pedido de venda', () => {
     // Pedido com 2 itens reais, mas apenas 1 no movedProductIds do banco: É PARCIAL
     expect(isPartialSaleStockMovement(orderCompleto, new Set(['prod-1']))).toBe(true);
 
+    // Pedido que antes tinha isPartialStockProcessed=true no banco, mas agora todos os itens são reais e movimentados: NÃO é parcial
+    const orderAntesParcialAgoraCompleto: Order = {
+      orderType: 'sale',
+      status: 'scheduled',
+      stockProcessed: true,
+      isPartialStockProcessed: true, // flag antigo defasado
+      items: [itemReal1, itemReal2]
+    } as Order;
+    expect(isPartialSaleStockMovement(orderAntesParcialAgoraCompleto, new Set(['prod-1', 'prod-2']))).toBe(false);
+    expect(isPartialSaleStockMovement(orderAntesParcialAgoraCompleto)).toBe(false);
+
     // Pedido sem saída processada: NÃO é parcial
     const orderSemSaida: Order = {
       orderType: 'sale',

@@ -44,13 +44,8 @@ export const DeliveryBottomSheet: React.FC<Props> = ({
           <View style={styles.headerRow}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
               <View style={styles.orderBadge}>
-                <Text style={styles.orderBadgeText}>PARADA #{item.sequence}</Text>
+                <Text style={styles.orderBadgeText}>{item.orderIndex ? `PEDIDO ${item.orderIndex}` : 'ENTREGA'}</Text>
               </View>
-              {item.orderIndex && (
-                <Text style={[styles.orderNumber, isDarkMode && styles.textMuted]}>
-                  #{item.orderIndex}
-                </Text>
-              )}
             </View>
 
             <TouchableOpacity onPress={onClose} style={[styles.closeBtn, isDarkMode && styles.closeBtnDark]}>

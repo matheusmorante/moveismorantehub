@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { financeService } from '@/pages/services/financeService';
 import { AccountPayable } from "../../../types/finance.type";
+import { normalizeSearchTerm } from "@/pages/utils/textUtils";
 import PayableModal from "./PayableModal";
 
 const formatCurrency = (value: number) => {
@@ -72,9 +73,10 @@ export default function Payables() {
         }
     };
 
+    const normSearch = normalizeSearchTerm(search);
     const filtered = payables.filter(p => 
-        p.description?.toLowerCase().includes(search.toLowerCase()) || 
-        p.supplier_name?.toLowerCase().includes(search.toLowerCase())
+        normalizeSearchTerm(p.description || '').includes(normSearch) || 
+        normalizeSearchTerm(p.supplier_name || '').includes(normSearch)
     );
 
     return (

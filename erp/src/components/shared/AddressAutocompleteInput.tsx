@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { DropdownPortal } from './DropdownPortal';
 import { AddressSuggestionsMenu } from './AddressSuggestionsMenu';
-import { searchAddressSuggestions, fetchPlaceDetails } from '@/pages/utils/maps';
+import { searchAddressSuggestions, fetchPlaceDetails, normalizeUf } from '@/pages/utils/maps';
 
 export interface AddressSelectedData {
     street: string;
@@ -111,39 +111,16 @@ export const AddressAutocompleteInput: React.FC<Props> = ({
     const handleSelectSuggestion = async (suggestion: any) => {
         setIsOpen(false);
 
-        let streetName = suggestion.address?.road || suggestion.display_name.split(',')[0];
+        let streetName = suggestion.address?.road || suggestion.display_name.split(',')[0].split('-')[0].trim();
         let neighborhood = suggestion.address?.suburb || suggestion.address?.neighbourhood || '';
         let city = suggestion.address?.city || cityHint || 'Colombo';
-        let state = suggestion.address?.state || stateHint || 'PR';
+        let state = normalizeUf(suggestion.address?.state || stateHint || 'PR');
         let cep = suggestion.address?.postcode || '';
         let number = '';
         let coords: [number, number] | undefined = undefined;
 
-        if (suggestion.place_id) {
-            try {
-                const details = await fetchPlaceDetails(suggestion.place_id);
-                if (details) {
-                    if (details.street) streetName = details.street;
-                    if (details.neighborhood) neighborhood = details.neighborhood;
-                    if (details.city) city = details.city;
-                    if (details.state) state = details.state;
-                    if (details.cep) cep = details.cep;
-                    if (details.number) number = details.number;
-                    if (details.coords) coords = details.coords;
-                }
-            } catch (e) {
-                console.warn("AddressAutocompleteInput: erro ao buscar detalhes Places API:", e);
-            }
-        }
-
-        // Garante que o estado seja preenchido e formatado em maiúsculas (padrão PR)
-        state = (state || stateHint || 'PR').trim().toUpperCase();
-
-        const mapsQuery = encodeURIComponent(`${streetName}${number ? ', ' + number : ''}, ${neighborhood}, ${city} - ${state}`);
-        const generatedMapsUrl = `https://www.google.com/maps/search/?api=1&query=${mapsQuery}`;
-
+        // Disparo síncrono e imediato com os dados da sugestão (Rua, Bairro, Cidade, UF)
         onChange(streetName);
-
         onSelectAddress({
             street: streetName,
             number,
@@ -153,9 +130,44 @@ export const AddressAutocompleteInput: React.FC<Props> = ({
             cep,
             placeId: suggestion.place_id,
             coords,
-            mapsUrl: mapsUrl || undefined, // Preserva o link manual se existir, sem auto-preencher link automático
+            mapsUrl: routeUrl || undefined,
             formattedAddress: suggestion.display_name,
         });
+
+        // Enriquecimento assíncrono via Place Details (número, CEP, coords precisas)
+        if (suggestion.place_id) {
+            try {
+                const details = await fetchPlaceDetails(suggestion.place_id);
+                if (details) {
+                    const refinedStreet = details.street || streetName;
+                    const refinedNeighborhood = details.neighborhood || neighborhood;
+                    const refinedCity = details.city || city;
+                    const refinedState = normalizeUf(details.state || state);
+                    const refinedCep = details.cep || cep;
+                    const refinedNumber = details.number || number;
+                    const refinedCoords = details.coords || coords;
+
+                    if (refinedStreet !== streetName) {
+                        onChange(refinedStreet);
+                    }
+
+                    onSelectAddress({
+                        street: refinedStreet,
+                        number: refinedNumber,
+                        neighborhood: refinedNeighborhood,
+                        city: refinedCity,
+                        state: refinedState,
+                        cep: refinedCep,
+                        placeId: suggestion.place_id,
+                        coords: refinedCoords,
+                        mapsUrl: routeUrl || undefined,
+                        formattedAddress: details.formattedAddress || suggestion.display_name,
+                    });
+                }
+            } catch (e) {
+                console.warn("AddressAutocompleteInput: erro ao buscar detalhes Places API:", e);
+            }
+        }
     };
 
     const resolvedInputClass = inputClassName || (

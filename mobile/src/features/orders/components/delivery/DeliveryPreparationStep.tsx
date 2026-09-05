@@ -1,8 +1,9 @@
 import React from 'react';
-import { StyleSheet, Text, TouchableOpacity, View, Linking } from 'react-native';
-import { Check, ClipboardCheck, MapPin, User, Navigation, ExternalLink } from 'lucide-react-native';
+import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Check, ClipboardCheck, MapPin, User, Navigation, Clock } from 'lucide-react-native';
 import { SlideHoldToStart } from '../SlideHoldToStart';
-import { getLocationMapsUrl } from '../../../../utils/orderUtils';
+import { openGoogleMapsNavigation, extractNavigationTarget } from '../../../logistics/utils/externalMapsNavigation';
+import { extractScheduleSlot } from '../../../logistics/utils/scheduleSlots';
 
 interface Props {
   customer: any;
@@ -27,17 +28,17 @@ export const DeliveryPreparationStep: React.FC<Props> = ({
   saving,
   isDarkMode,
 }) => {
-  const mapsUrl = getLocationMapsUrl(order) || getLocationMapsUrl(customer);
+  const scheduleSlot = order ? extractScheduleSlot(order) : null;
+  const scheduleBadgeText = scheduleSlot?.displayBadge || scheduleSlot?.sublabel;
 
-  const openMapsLink = () => {
-    if (mapsUrl) {
-      Linking.openURL(mapsUrl).catch(() => {});
-    }
+  const handleOpenGoogleMaps = () => {
+    const target = extractNavigationTarget(order, fullAddress);
+    void openGoogleMapsNavigation(target);
   };
 
   return (
     <View style={styles.container}>
-      {/* Informações Iniciais do Cliente */}
+      {/* Informações Iniciais do Cliente e Destino */}
       <View style={[styles.infoCard, isDarkMode && styles.infoCardDark]}>
         <View style={styles.row}>
           <User size={18} color="#2563eb" />
@@ -45,17 +46,30 @@ export const DeliveryPreparationStep: React.FC<Props> = ({
             {customer.fullName || 'Cliente'}
           </Text>
         </View>
+
         <View style={styles.row}>
           <MapPin size={18} color="#ef4444" />
           <Text style={[styles.address, isDarkMode && styles.textLight]}>{fullAddress}</Text>
         </View>
 
-        {Boolean(mapsUrl) && (
-          <TouchableOpacity onPress={openMapsLink} style={styles.mapsButton} activeOpacity={0.8}>
-            <ExternalLink size={15} color="#dc2626" />
-            <Text style={styles.mapsButtonText}>Abrir Localização no Google Maps</Text>
-          </TouchableOpacity>
+        {Boolean(scheduleBadgeText) && (
+          <View style={styles.timeRow}>
+            <Clock size={16} color="#d97706" />
+            <Text style={[styles.timeText, isDarkMode && styles.timeTextDark]}>
+              {scheduleBadgeText}
+            </Text>
+          </View>
         )}
+
+        {/* Ação Destacada: ABRIR ROTA NO GOOGLE MAPS */}
+        <TouchableOpacity
+          onPress={handleOpenGoogleMaps}
+          style={styles.googleMapsNavButton}
+          activeOpacity={0.85}
+        >
+          <Navigation size={17} color="#ffffff" fill="#ffffff" />
+          <Text style={styles.googleMapsNavButtonText}>ABRIR ROTA NO GOOGLE MAPS</Text>
+        </TouchableOpacity>
       </View>
 
       {/* Checklist */}
@@ -141,21 +155,44 @@ const styles = StyleSheet.create({
   itemText: { flex: 1, fontSize: 13, lineHeight: 18, fontWeight: '800', color: '#334155' },
   safety: { fontSize: 11, lineHeight: 16, textAlign: 'center', color: '#64748b', marginTop: 8 },
   textLight: { color: '#f8fafc' },
-  mapsButton: {
+  timeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: '#fef3c7',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+    alignSelf: 'flex-start',
+    marginTop: 2,
+  },
+  timeText: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#b45309',
+  },
+  timeTextDark: {
+    color: '#d97706',
+  },
+  googleMapsNavButton: {
+    height: 48,
+    borderRadius: 14,
+    backgroundColor: '#2563eb',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    backgroundColor: '#fef2f2',
-    paddingVertical: 10,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#fecaca',
-    marginTop: 4,
+    marginTop: 8,
+    elevation: 3,
+    shadowColor: '#2563eb',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
   },
-  mapsButtonText: {
-    fontSize: 12,
-    fontWeight: '800',
-    color: '#dc2626',
+  googleMapsNavButtonText: {
+    fontSize: 13,
+    fontWeight: '900',
+    letterSpacing: 0.6,
+    color: '#ffffff',
   },
 });

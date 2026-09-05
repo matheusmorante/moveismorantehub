@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from "react";
 import Order from "../../types/order.type";
 import { formatCurrency, formatToBRDate } from "../../utils/formatters";
+import { normalizeSearchTerm } from "../../utils/textUtils";
 
 interface OrderSelectionModalProps {
     orders: Order[];
@@ -16,10 +17,11 @@ const OrderSelectionModal = ({ orders, onSelect, onClose, title = "Selecionar Pe
     const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
 
     const filteredOrders = useMemo(() => {
+        const normTerm = normalizeSearchTerm(searchTerm);
         return orders
             .filter(o => 
-                o.id?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                o.customerData?.fullName?.toLowerCase().includes(searchTerm.toLowerCase())
+                normalizeSearchTerm(o.id || "").includes(normTerm) ||
+                normalizeSearchTerm(o.customerData?.fullName || "").includes(normTerm)
             )
             .sort((a, b) => {
                 let comparison = 0;

@@ -37,7 +37,11 @@ Este documento registra as regras e comportamentos **implementados** no sistema,
   - O cálculo de distância via Google Maps no formulário de pedidos (`handleAutoCalculateDistance`) prioriza e resolve dinamicamente o endereço ativo selecionado: se `shipping.useCustomerAddress === false` e houver endereço de entrega alternativo, calcula para o endereço alternativo; caso contrário, calcula para o endereço principal do cliente.
   - A função de geocodificação (`geocodeAddress` em `maps.ts`) possui suporte a fallback resiliente (se a busca com número falhar, tenta sem número e, em último caso, aproxima pelas coordenadas cadastradas do bairro/cidade), evitando falhas silenciosas.
   - Na busca de endereços (`searchAddressSuggestions`) e nos componentes de formulário (`AddressAutocompleteInput`, `usePersonForm`, `ShippingData`), o estado padrão é **Paraná (`PR`)**, garantindo que consultas do Google Places fiquem restritas a municípios paranaenses e que preenchimentos via CEP ou seleção nunca limpem ou deixem o estado em branco.
+  - **Autopreenchimento Completo na Seleção de Sugestão de Endereço (`AddressAutocompleteInput` / `addressParsing`)**: Ao clicar em qualquer sugestão retornada pelo Google Places, o sistema preenche de forma imediata e síncrona os campos de **Rua/Logradouro**, **Bairro**, **Cidade** e **Estado (UF)** (normalizado estritamente para sigla de 2 letras maiúsculas, ex: `PR`, `SP`), refinando de forma não bloqueante via Place Details (número, CEP e coordenadas). O algoritmo prioriza os termos estruturados (`terms`) do Google Places e garante que a cidade nunca seja confundida com o bairro caso a via não possua bairro cadastrado.
 - **Retrocompatibilidade e Análise de Impacto**: Antes e durante a criação/alteração de novas estruturas de dados ou snapshots, analisar o impacto em registros históricos legados. Sempre garantir fallbacks resilientes e consultar o usuário sobre decisões de adaptação/migração quando houver ambiguidade.
+- **Buscas e Filtros Insensíveis a Acentos (Accent-Insensitive) em Todo o Sistema**:
+  - Em todos os inputs de busca, autocompletes, modais e filtros de listagem (em especial **Itens do Pedido / `ProductAutocomplete`**, busca de clientes, vendedores, produtos, serviços, etiquetas, financeiro e logística), a digitação do operador é **100% insensível a acentuações**.
+  - O usuário pode digitar letras com ou sem qualquer acento (ex: `sofa` acha `Sofá`, `comoda` acha `Cômoda`, `armario` acha `Armário`, `joao` acha `João`), devendo utilizar o utilitário `normalizeSearchTerm` (Unicode NFD + remoção de diacríticos `\u0300-\u036f`) em memória e/ou `buildAccentInsensitiveRegex` em consultas com suporte a regex (`imatch`).
 - **Mobile Offline-First Baseado em Eventos (`mobile-offline-first`)**: No aplicativo Mobile, o suporte offline-first é restrito ao **risco operacional de campo e depósito**: entregas, montagens, checklists, assinaturas, fotos, vistorias, **inventário físico e recebimento/conferência de mercadorias**. Operações administrativas (criação/edição de produtos, precificação, dashboard/métricas) são estritamente **Online-First**. O mobile nunca grava estados absolutos (como `stock = X`), mas registra **eventos de negócio com UUID idempotente, timestamp e ciclo de 4 estados: `PENDING` → `SYNCING` → `CONFIRMED` / `REJECTED`** (onde `REJECTED` interrompe retentativas e exige atenção do operador). O backend é a autoridade estrita para validar regras, encadeamentos e movimentações de estoque. Mídias possuem fila separada de upload. Avaliar automaticamente o escopo em novos recursos mobile sem perguntas repetitivas.
 
 ---
@@ -105,14 +109,18 @@ Este documento registra as regras e comportamentos **implementados** no sistema,
     - **Botão Catálogo**: Tag fixa `Catálogo` em roxo suave + status interativo `Publicado` (verde com ponto) ou `Oculto` (cinza com ponto). Alterna publicação no Catálogo Digital ao clicar.
   - A ação de Ativar/Desativar produto foi removida do menu de 3 pontinhos e agora é acionada diretamente pelo botão de ERP na coluna e nos cards.
   - O mesmo padrão bipartido aplica-se na visualização em **Tabela** (`ProductRow`), nos **Cards** (`ProductCard`) e na listagem expandida de variações filhas.
+  - **Alternância de Catálogo Digital Resiliente**: O toggle de catálogo sincroniza o status (`published`/`hidden`) tratando tanto variações simples quanto compostas no Supabase, garantindo integridade de slugs (`normalizeSlug` e `resolveUniqueSlug`) sem interrupções por ReferenceError.
 - **Sincronização Total no App Mobile (`MobileProductCard` e `MobileProductVariationList`)**:
   - A listagem de produtos no app mobile segue rigorosamente a mesma lógica e linguagem visual do ERP:
     - Rascunhos aparecem na listagem principal com badge indicativo em tom âmbar (`Rascunho`).
     - Produtos desativados aparecem na listagem principal com badge indicativo em vermelho (`Desativado`).
     - Botões bipartidos de canais (`ERP: Ativo/Inativo` e `Catálogo: Publicado/Oculto`) com cores e dots de status padronizados.
     - Bloqueio para rascunhos: produtos em rascunho não podem ser ativados nem publicados; o app emite aviso preventivo orientando a concluir o cadastro.
-    - Menu de 3 pontinhos com atalho "Editar Produto" e ação "Descartar Rascunho" (exclusão definitiva com remoção em cascata de variações filhas).
     - Variações filhas com cards individuais em fundo branco puro (`#ffffff`), cantos arredondados, bordas sutis e botões de canais bipartidos.
+- **Atualização Instantânea e Otimista de Status sem Recarregamento de Tela (`toggleActive` / `deactivateCatalog`)**:
+  - Ao clicar no botão de status de canais (tanto **ERP: Ativo/Inativo** quanto **Catálogo: Publicado/Oculto**) na tabela ou nos cards, o status é alternado **imediatamente na interface** através de atualização de estado local otimista (`setServerProducts`), sem recarregar a página, sem flicker/piscar de tela e sem exibir o spinner de loading global.
+  - As funções `toggleActive` e `deactivateCatalog` em `useProducts.ts` nunca disparam `refresh()` bloqueante; a sincronização com o banco de dados (`products` e `product_variations`) ocorre de forma resiliente em segundo plano (background).
+  - Em caso de falha na persistência no banco, o sistema realiza rollback automático para o status anterior e notifica o operador via toast de erro.
 
 ---
 
@@ -128,6 +136,10 @@ Este documento registra as regras e comportamentos **implementados** no sistema,
 - **Ações Pós-Venda (`PostOrderActionsModal`) e Preservação de Status**:
   - Ao concluir ou cadastrar um pedido, o status é resolvido imediatamente para `scheduled` ou `fulfilled`.
   - O modal de ações pós-venda (`PostOrderActionsModal`) registra cliques nos botões de pós-venda (como imprimir comprovante, enviar WhatsApp) atualizando exclusivamente o mapa `isButtonsClicked` no banco, sem passar snapshot estático/desatualizado que possa reverter o status para rascunho ou sobrescrever o código sequencial (`orderIndex`).
+
+- **Edição de Pedido Exclusiva no Menu de 3 Pontinhos**:
+  - Na listagem de pedidos (tanto na visualização em Tabela quanto em Cards), o nome do cliente não exibe botão ou ícone de lápis de edição (`bi-pencil`) nem aciona edição ao ser clicado.
+  - A ação de editar pedido fica centralizada e disponível exclusivamente através da opção **"Editar Pedido"** presente no menu de 3 pontinhos (`OrderOptionsMenu`).
 
 ### Código Sequencial Obrigatório do Pedido (`orderIndex`)
 
@@ -268,6 +280,15 @@ Este documento registra as regras e comportamentos **implementados** no sistema,
 - **Regra da Conciliacao Comercial**: serve exclusivamente para o relatorio de vendas indexar um produto cadastrado no lugar do item temporario original para fins analiticos/metricas. Ela **nao** lanca saidas na venda nem entradas na devolucao.
 - Criterio de item valido para estoque: `item.productId` valido e `!item.isTemporaryProduct`.
 - Avisos de confirmacao e tooltips devem sempre explicitar ao usuario que itens sem cadastro nao movimentam estoque.
+
+### Edição de Pedido, Substituição de Itens Temporários e Recálculo de Status de Estoque
+
+- **Geração de Baixa na Troca para Produto Cadastrado**: Ao editar um pedido de venda e substituir itens temporários por produtos cadastrados do catálogo (ou adicionar novos produtos cadastrados), o sistema gera automaticamente a baixa de saída de estoque (`handleStockAndBusinessRules`) para todos os itens cadastrados que ainda não possuíam saída vinculada ao pedido.
+- **Estorno de Itens Alterados ou Excluídos**: Se itens cadastrados prévios forem alterados ou removidos na edição, as saídas de estoque vinculadas ao item anterior são estornadas automaticamente via `reverseSaleItemMoves`.
+- **Recálculo Fidedigno de Status de Estoque**:
+  - A função `isPartialSaleStockMovement` avalia a cobertura real entre os itens elegíveis do pedido e os produtos com saída efetiva no banco (`movedProductIds`).
+  - Quando **todos os itens vendáveis** do pedido forem produtos cadastrados e possuírem saída de estoque registrada, `isPartialStockProcessed` é atualizado para `false` no banco e o selo de estoque torna-se **Verde** (**Saída Efetivada**).
+  - Quando houver itens sem cadastro (temporários) misturados com itens cadastrados, ou quando nem todos os itens cadastrados possuírem saída no banco, o selo é **Laranja/Âmbar** (**Saída Parcial**).
 
 ### Contagem Regressiva e Auto-Atendimento de Pedidos Vencidos (5 Dias)
 
@@ -533,6 +554,21 @@ Ao incrementar versao em `mobile/app.json`, sincronizar:
     - **`[ Cronograma ]`**: Visão diária e semanal com filtros de status e agendamentos futuros e passados.
     - **`[ Mapa ]`**: Google Maps Platform interativo em tela cheia com marcadores geocodificados dos pedidos, localização em tempo real do entregador e traçado de rotas.
   - **Barra de Navegação Inferior (`NativeBottomNav.tsx`)**: Aba central atualizada para **"Entregas"** (ícone `Truck`), eliminando o item separado de mapa e centralizando o fluxo logístico do entregador.
+- **Fluxo de "Iniciar Entrega" e Navegação Externa no Google Maps Android**:
+  - **Botão "Iniciar Entrega"**: No card de entregas (`NextDeliveryCard`), o botão é uniformemente **"Iniciar Entrega"** (nunca "Iniciar e Navegar").
+  - **Abertura da Tela de Etapas Existente**: Ao tocar em "Iniciar Entrega", o app registra o início operacional (`status = in_progress`, `deliveryStartedAt = now`) e abre a tela de etapas existente (`DeliveryPreparationScreen`) na **Primeira Etapa** (`DeliveryPreparationStep`).
+  - **Ação "ABRIR ROTA NO GOOGLE MAPS" na Primeira Etapa**: A primeira etapa contém o botão destacado `[ 🧭 ABRIR ROTA NO GOOGLE MAPS ]` e a exibição do horário agendado (período ou fixo). Tocar neste botão não conclui a etapa, não altera status e não duplica início de entrega.
+  - **Intent Direto Android (`com.google.android.apps.maps`)**: Abertura gerenciada pelo service centralizado `openGoogleMapsNavigation` (`externalMapsNavigation.ts`) via URI `google.navigation:q=LAT,LNG&mode=d` (origem assumida pelo GPS do aparelho).
+  - **Validação de Coordenadas e Fallback Seguro**:
+    - Rejeita `null`, `undefined`, `NaN`, `0,0` e fora de -90..90, -180..180.
+    - Prioridade: 1º Coordenadas válidas (`destinationCoords`, `coords`); 2º Endereço formatado e codificado; 3º Caso sem destino, emite alerta sem crash.
+    - Se o Google Maps não estiver instalado, utiliza fallback web oficial sem travar o aplicativo.
+  - **Preservação de Estado**: Ao retornar do Google Maps ao app (ou ao reabrir uma entrega em andamento), o fluxo, o checklist e a etapa atual são estritamente preservados.
+- **Aba "Mapa" das Entregas (Android e Web)**:
+  - **Mapa Real e Interativo em Ambos os Ambientes**: A aba Mapa exibe obrigatoriamente um mapa interativo da Google Maps Platform ocupando o espaço principal da tela, sem substituir a visualização por listas estáticas ou fallbacks textuais.
+  - **Android / iOS Nativo (`DeliveryMapView.tsx`)**: Utiliza `react-native-maps` com `PROVIDER_GOOGLE`, marcadores nativos (`DeliveryMarker`), polylines da rota e `fitToCoordinates` com padding inferior reservado para o card flutuante.
+  - **Web / Expo Web (`DeliveryMapView.web.tsx`)**: Utiliza a Google Maps JavaScript API oficial com carregador assíncrono via singleton, pins personalizados com cores por status (depósito em azul escuro, entrega em andamento em verde, horário fixo em roxo com 🔒, concluída em verde esmeralda com ✓, não atendida em vermelho com !), traçado de rota e `fitBounds` dinâmico com padding inferior. O clique em qualquer marcador seleciona a entrega no app abrindo o card/bottom sheet.
+  - **Responsividade e Troca de Abas**: O container do mapa ocupa `flex: 1` absoluto e ouve eventos de resize/troca de aba para disparar `google.maps.event.trigger(map, 'resize')`, evitando telas cinzas ou colapsadas.
 
 ---
 

@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from "react";
+import { normalizeSearchTerm } from "@/pages/utils/textUtils";
 
 interface Category {
     id: string;
@@ -18,9 +19,9 @@ const CategorySearchModal = ({ isOpen, onClose, categories, onSelect, selectedId
     const [search, setSearch] = useState("");
 
     const filtered = useMemo(() => {
-        const s = search.toLowerCase();
+        const s = normalizeSearchTerm(search);
         return categories
-            .filter(c => c.name.toLowerCase().includes(s))
+            .filter(c => normalizeSearchTerm(c.name).includes(s))
             .sort((a, b) => a.name.localeCompare(b.name))
             .slice(0, 30);
     }, [categories, search]);

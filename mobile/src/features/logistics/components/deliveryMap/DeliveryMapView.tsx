@@ -13,6 +13,7 @@ interface Props {
   polylineCoords?: { latitude: number; longitude: number }[];
   selectedItem: DeliveryRouteItem | null;
   onSelectMarker: (item: DeliveryRouteItem) => void;
+  onDeselectMarker?: () => void;
   isDarkMode?: boolean;
 }
 
@@ -23,6 +24,7 @@ export const DeliveryMapView: React.FC<Props> = ({
   polylineCoords,
   selectedItem,
   onSelectMarker,
+  onDeselectMarker,
   isDarkMode = false,
 }) => {
   const mapRef = useRef<MapView | null>(null);
@@ -90,6 +92,9 @@ export const DeliveryMapView: React.FC<Props> = ({
         showsCompass={false}
         toolbarEnabled={false}
         loadingEnabled={true}
+        onPress={() => {
+          onDeselectMarker?.();
+        }}
       >
         {/* Marcador do Depósito / Loja */}
         {storeCoords && (
@@ -101,12 +106,13 @@ export const DeliveryMapView: React.FC<Props> = ({
           <DeliveryMarker
             key={item.id}
             item={item}
+            isSelected={selectedItem?.id === item.id}
             onPress={() => onSelectMarker(item)}
           />
         ))}
 
         {/* Linha do Trajeto (Routes API) */}
-        {polylineCoords && polylineCoords.length > 1 && (
+        {polylineCoords && polylineCoords.length > 1 && (selectedItem || items.some((i) => i.isCurrent)) && (
           <Polyline
             coordinates={polylineCoords}
             strokeWidth={4.5}

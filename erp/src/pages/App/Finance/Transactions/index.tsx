@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { toast } from "react-toastify";
 import { financeService } from '@/pages/services/financeService';
 import { FinancialTransaction, FinancialCategory } from "../../../types/finance.type";
+import { normalizeSearchTerm } from '@/pages/utils/textUtils';
 
 const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
@@ -82,7 +83,7 @@ export default function Transactions() {
     };
 
     const filtered = transactions.filter(t => {
-        const matchesSearch = t.description?.toLowerCase().includes(search.toLowerCase());
+        const matchesSearch = normalizeSearchTerm(t.description || '').includes(normalizeSearchTerm(search));
         const matchesType = typeFilter === "all" || t.type === typeFilter;
         return matchesSearch && matchesType;
     });

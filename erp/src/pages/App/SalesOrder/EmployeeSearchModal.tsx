@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from "react";
 import Person from "../../types/person.type";
 import { subscribeToPeople } from '@/pages/utils/personService';
+import { normalizeSearchTerm } from "@/pages/utils/textUtils";
 
 interface Props {
     onSelect: (sellerName: string) => void;
@@ -23,10 +24,10 @@ const EmployeeSearchModal = ({ onSelect, onClose }: Props) => {
 
     const filtered = useMemo(() => {
         if (!search.trim()) return employees;
-        const s = search.toLowerCase();
+        const s = normalizeSearchTerm(search);
         return employees.filter(e =>
-            (e.fullName || '').toLowerCase().includes(s) ||
-            (e.position || '').toLowerCase().includes(s)
+            normalizeSearchTerm(e.fullName || '').includes(s) ||
+            normalizeSearchTerm(e.position || '').includes(s)
         );
     }, [employees, search]);
 

@@ -10,6 +10,8 @@ import { getSettings } from '@/pages/utils/settingsService';
 import { formatOrderCode, getNextOrderIndex, getOrderIndex } from './orderCode';
 import { processReturnInventoryEntries } from './returnInventoryService';
 import { canMaintainSaleStock, getChangedSaleItems, hasActualSaleExit, isTemporarySaleItemReconciliation, reverseSaleItemMoves, shouldProcessSaleStock, syncLinkedReturnProductReferences } from './saleItemInventorySync';
+import { isPartialSaleStockMovement, isStockEligibleSaleItem } from './saleInventoryRules';
+import { isEffectiveInventoryMove } from './movingAverageCostRules';
 import { splitNoticeTags } from './noticeTags';
 import { applyActualInventoryStatus } from './orderInventoryStatus';
 import { dispatchAppNotification } from '@/pages/utils/pushNotificationService';
@@ -644,84 +646,88 @@ export const updateOrder = async (
 
         if (error) throw error;
 
-        const detectedItemChanges = previousOrderData ? getChangedSaleItems(previousOrderData, merged) : [];
-        const changedItems = detectedItemChanges.filter(({ previous, current }) => !isTemporarySaleItemReconciliation(previous, current));
-        const isOnlyTemporaryReconciliation = detectedItemChanges.length > 0 && changedItems.length === 0;
-        if (isOnlyTemporaryReconciliation && merged.orderType === 'sale') {
-            // Ao vincular um item antes temporário a um produto real, a venda já
-            // agendada/atendida precisa gerar a baixa que antes não existia.
-            if (['scheduled', 'fulfilled'].includes(merged.status || '')) {
-                const reconciledItems = detectedItemChanges
-                    .filter(({ previous, current }) => isTemporarySaleItemReconciliation(previous, current))
-                    .map(({ current }) => current!)
-                    .filter(item => item.productId && !item.isTemporaryProduct);
-
-                if (reconciledItems.length > 0) {
-                    const updated = await handleStockAndBusinessRules(id, {
-                        ...merged,
-                        items: reconciledItems,
-                        stockProcessed: false,
-                        inventoryMovementNote: 'Produto cadastrado durante a conciliação do pedido.',
-                    }, true, true);
-                    if (updated.stockProcessed) {
-                        merged.stockProcessed = true;
-                        await supabase.from(TABLE_NAME).update({
-                            order_data: { ...merged, items: merged.items },
-                            updated_at: new Date().toISOString(),
-                        }).eq('id', id);
-                    }
-                }
-            }
-            // A saída acima materializa o CMV no item da venda. Só então a
-            // referência é propagada para a devolução vinculada, permitindo que
-            // uma devolução já atendida receba a entrada histórica correta.
-            await syncLinkedReturnProductReferences(id, previousOrderData, merged);
-        }
-
-        // Integridade: stockProcessed pode estar defasado (por exemplo, quando
-        // um item temporário foi conciliado depois). A fonte de confirmação é a
-        // existência de uma saída efetiva vinculada ao pedido.
-        const hasRegisteredSaleItem = (merged.items || []).some((item: any) => item.productId?.trim() && !item.isTemporaryProduct);
-        const requiresMissingStockExit = merged.orderType === 'sale'
-            && ['scheduled', 'fulfilled'].includes(merged.status || '')
-            && hasRegisteredSaleItem
-            && !await hasActualSaleExit(id);
-
-        if (requiresMissingStockExit) {
-            const updated = await handleStockAndBusinessRules(id, {
-                ...merged,
-                stockProcessed: false,
-                inventoryMovementNote: 'Baixa de estoque recuperada ao salvar a edição do pedido.',
-            }, true, true);
-            if (updated.stockProcessed) {
-                merged.stockProcessed = true;
-                await supabase.from(TABLE_NAME).update({
-                    order_data: { ...merged, items: updated.items },
-                    updated_at: new Date().toISOString(),
-                }).eq('id', id);
-            }
-        }
-        const shouldSynchronizeItems = previousOrderData && previousOrderData.stockProcessed && changedItems.length > 0;
-        if (shouldSynchronizeItems && merged.status !== 'cancelled') {
+        if (merged.orderType === 'sale' && canMaintainSaleStock(merged) && merged.status !== 'cancelled') {
             const orderCode = formatOrderCode(merged);
-            if (canMaintainSaleStock(merged)) {
+            const detectedItemChanges = previousOrderData ? getChangedSaleItems(previousOrderData, merged) : [];
+
+            // 1. Reconciliação de itens temporários que foram vinculados a produtos cadastrados
+            const reconciledItems = detectedItemChanges
+                .filter(({ previous, current }) => isTemporarySaleItemReconciliation(previous, current))
+                .map(({ current }) => current!)
+                .filter(item => isStockEligibleSaleItem(item));
+
+            if (reconciledItems.length > 0) {
+                await handleStockAndBusinessRules(id, {
+                    ...merged,
+                    items: reconciledItems,
+                    stockProcessed: false,
+                    inventoryMovementNote: 'Produto cadastrado durante a conciliação do pedido.',
+                }, true, true);
+                await syncLinkedReturnProductReferences(id, previousOrderData, merged);
+            }
+
+            // 2. Itens modificados ou excluídos (que não eram temporários)
+            const changedItems = detectedItemChanges.filter(({ previous, current }) => !isTemporarySaleItemReconciliation(previous, current));
+            if (previousOrderData?.stockProcessed && changedItems.length > 0) {
                 for (const change of changedItems) {
                     if (change.previous) {
                         await reverseSaleItemMoves(id, change.previous, `Item alterado no pedido de venda #${orderCode}.`);
                     }
-                    if (change.current?.productId && !change.current.isTemporaryProduct) {
-                        const updated = await handleStockAndBusinessRules(id, {
+                    if (change.current && isStockEligibleSaleItem(change.current)) {
+                        await handleStockAndBusinessRules(id, {
                             ...merged,
                             items: [change.current],
                             stockProcessed: false,
                             inventoryMovementNote: `Item alterado no pedido de venda #${orderCode}.`,
                         } as any, true);
-                        merged.stockProcessed = Boolean(updated.stockProcessed);
                     }
                 }
-                merged.stockProcessed = await hasActualSaleExit(id);
-                await supabase.from(TABLE_NAME).update({ order_data: { ...merged, stockProcessed: merged.stockProcessed }, updated_at: new Date().toISOString() }).eq('id', id);
             }
+
+            // 3. Verificação de integridade e cobertura completa de estoque:
+            // Consulta as movimentações reais de saída de estoque para este pedido no banco
+            const { data: dbMoves } = await supabase
+                .from('inventory_moves')
+                .select('product_id, observation, reason, type')
+                .eq('order_id', id)
+                .in('type', ['exit', 'withdrawal']);
+
+            const effectiveMovedSet = new Set<string>();
+            (dbMoves || []).forEach((move: any) => {
+                if (isEffectiveInventoryMove(move) && move.product_id) {
+                    effectiveMovedSet.add(String(move.product_id));
+                }
+            });
+
+            // Se houver qualquer item cadastrado elegível do pedido que ainda não teve saída gerada, gera agora
+            const eligibleItems = (merged.items || []).filter(isStockEligibleSaleItem);
+            const missingExitItems = eligibleItems.filter(item => !effectiveMovedSet.has(String(item.productId)));
+
+            if (missingExitItems.length > 0) {
+                await handleStockAndBusinessRules(id, {
+                    ...merged,
+                    items: missingExitItems,
+                    stockProcessed: false,
+                    inventoryMovementNote: 'Baixa de estoque gerada ao salvar a edição do pedido.',
+                }, true, true);
+
+                missingExitItems.forEach(item => {
+                    effectiveMovedSet.add(String(item.productId));
+                });
+            }
+
+            // 4. Recalcular e persistir os metadados de estoque do pedido
+            const hasAnyMovement = effectiveMovedSet.size > 0;
+            const isPartial = isPartialSaleStockMovement(merged, effectiveMovedSet);
+
+            merged.stockProcessed = hasAnyMovement;
+            merged.movedProductIds = Array.from(effectiveMovedSet);
+            merged.isPartialStockProcessed = isPartial;
+
+            await supabase.from(TABLE_NAME).update({
+                order_data: merged,
+                updated_at: new Date().toISOString(),
+            }).eq('id', id);
         }
 
         // Disparar notificações de atualização / agendamento
@@ -865,7 +871,7 @@ export const updateOrder = async (
                 }
             } 
             // Auto-withdrawal: new status triggers stock deduction and order is in compliance
-            else if (!isOnlyTemporaryReconciliation && isAutoWithdrawalStatus && (!merged.stockProcessed || oldStatus === 'cancelled')) {
+            else if (isAutoWithdrawalStatus && (!merged.stockProcessed || oldStatus === 'cancelled')) {
                 try {
                     const updatedOrder = await handleStockAndBusinessRules(id, { ...merged, status: newStatus, stockProcessed: false }, true);
                     if (updatedOrder.stockProcessed) {
@@ -882,7 +888,7 @@ export const updateOrder = async (
                     console.error("[OrderUpdate] Erro ao processar estoque automático (saída):", stockErr);
                 }
             }
-        } else if (!merged.stockProcessed && !isOnlyTemporaryReconciliation) {
+        } else if (!merged.stockProcessed) {
             // No status change but stock may still need processing (e.g. status was already 'scheduled' on save)
             try {
                 const updatedOrder = await handleStockAndBusinessRules(id, merged);

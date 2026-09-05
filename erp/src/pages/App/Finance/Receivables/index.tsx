@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { financeService } from '@/pages/services/financeService';
 import { AccountReceivable } from "../../../types/finance.type";
+import { normalizeSearchTerm } from "@/pages/utils/textUtils";
 import ReceivableModal from "./ReceivableModal";
 
 const formatCurrency = (value: number) => {
@@ -72,9 +73,10 @@ export default function Receivables() {
         }
     };
 
+    const normSearch = normalizeSearchTerm(search);
     const filtered = receivables.filter(r => 
-        r.description?.toLowerCase().includes(search.toLowerCase()) || 
-        r.customer_name?.toLowerCase().includes(search.toLowerCase())
+        normalizeSearchTerm(r.description || '').includes(normSearch) || 
+        normalizeSearchTerm(r.customer_name || '').includes(normSearch)
     );
 
     return (

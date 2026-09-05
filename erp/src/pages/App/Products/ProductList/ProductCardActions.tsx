@@ -62,9 +62,10 @@ export const ProductCardActions: React.FC<ProductCardActionsProps> = ({
                 <i className="bi bi-three-dots text-xs" />
             </button>
 
-            <DropdownPortal
-                isOpen={isMenuOpen}
-                onClose={() => setIsMenuOpen(false)}
+            {isMenuOpen && (
+                <DropdownPortal
+                    isOpen={isMenuOpen}
+                    onClose={() => setIsMenuOpen(false)}
                 anchorRef={menuAnchorRef}
                 className="min-w-[170px]"
             >
@@ -158,6 +159,7 @@ export const ProductCardActions: React.FC<ProductCardActionsProps> = ({
                     )}
                 </div>
             </DropdownPortal>
+            )}
         </div>
     );
 };

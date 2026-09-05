@@ -4,6 +4,7 @@ import ServiceFormModal from "./ServiceFormModal";
 import ServiceTable from "./ServiceTable";
 import { useServices } from "./useServices";
 import type Service from "../../types/service.type";
+import { normalizeSearchTerm } from "../../utils/textUtils";
 
 type VisibilityKey = keyof ServiceVisibilitySettings;
 
@@ -42,10 +43,11 @@ const Services = () => {
         setIsFormOpen(true);
     };
 
+    const normSearch = normalizeSearchTerm(searchTerm);
     const filteredServices = services.filter(
         (s) =>
-            s.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            (s.id && s.id.toLowerCase().includes(searchTerm.toLowerCase()))
+            normalizeSearchTerm(s.description).includes(normSearch) ||
+            (s.id && normalizeSearchTerm(s.id).includes(normSearch))
     );
 
     return (

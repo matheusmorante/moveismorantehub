@@ -134,9 +134,10 @@ export const ProductCardVariationList: React.FC<ProductCardVariationListProps> =
                                         <i className="bi bi-three-dots text-xs" />
                                     </button>
 
-                                    <DropdownPortal
-                                        isOpen={activeVarMenuId === v.id}
-                                        onClose={() => setActiveVarMenuId(null)}
+                                    {activeVarMenuId === v.id && (
+                                        <DropdownPortal
+                                            isOpen={activeVarMenuId === v.id}
+                                            onClose={() => setActiveVarMenuId(null)}
                                         anchorRef={{ current: varMenuRefs.current[v.id] }}
                                         className="min-w-[160px]"
                                     >
@@ -173,7 +174,8 @@ export const ProductCardVariationList: React.FC<ProductCardVariationListProps> =
                                                 </button>
                                             )}
                                         </div>
-                                    </DropdownPortal>
+                                        </DropdownPortal>
+                                    )}
                                 </div>
                             </div>
                         </div>

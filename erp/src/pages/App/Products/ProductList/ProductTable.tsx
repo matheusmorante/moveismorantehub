@@ -277,7 +277,7 @@ const ProductTable = ({
                                         onDelete={(id) => onDelete(id || product.id || '')}
                                         onRestore={() => onRestore(product.id || '')}
                                         onPermanentDelete={() => onPermanentDelete(product.id || '')}
-                                        onToggleActive={(id, status) => onToggleActive(product.id || '', product.active)}
+                                        onToggleActive={onToggleActive}
                                         onDeactivateCatalog={onDeactivateCatalog}
                                         visibilitySettings={visibilitySettings}
                                         showTrash={showTrash}

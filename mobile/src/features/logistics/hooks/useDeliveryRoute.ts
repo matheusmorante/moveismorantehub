@@ -3,7 +3,9 @@ import { supabase } from '../../../services/supabaseClient';
 import { offlineStorageService } from '../../../services/offline/offlineStorageService';
 import { subscribeToLogisticsChanges } from '../../../services/logisticsRealtimeService';
 import { getOperationalScheduleDate } from '../../../utils/operationalSchedule';
-import { isCancelledOrder } from '../../../utils/orderUtils';
+import { isCancelledOrder, formatOrderCode } from '../../../utils/orderUtils';
+
+import { extractScheduleSlot, ScheduleSlot } from '../utils/scheduleSlots';
 
 export interface DeliveryRouteItem {
   id: string;
@@ -12,7 +14,6 @@ export interface DeliveryRouteItem {
   customerName: string;
   fullAddress: string;
   itemsCount: number;
-  sequence: number; // 1, 2, 3...
   status: 'pending' | 'in_progress' | 'in_service' | 'completed' | 'unattended' | 'cancelled';
   coords: { latitude: number; longitude: number } | null;
   hasValidCoords: boolean;
@@ -21,7 +22,7 @@ export interface DeliveryRouteItem {
   phone?: string;
   observations?: string;
   isCurrent: boolean;
-  isNext: boolean;
+  scheduleSlot: ScheduleSlot;
 }
 
 export function useDeliveryRoute() {
@@ -76,30 +77,7 @@ export function useDeliveryRoute() {
       return rawSchedDate === todayStr;
     });
 
-    // Ordenação: se tiver routeSequence usa; senão, usa índice de criação/agendamento
-    const sorted = [...todayOrders].sort((a, b) => {
-      const seqA = a.order_data?.routeSequence ?? 9999;
-      const seqB = b.order_data?.routeSequence ?? 9999;
-      if (seqA !== seqB) return seqA - seqB;
-      return (a.created_at || '').localeCompare(b.created_at || '');
-    });
-
-    // Encontra primeira em andamento ou primeira pendente
-    let firstInProgressId: string | null = null;
-    let firstPendingId: string | null = null;
-
-    for (const o of sorted) {
-      const dStatus = o.order_data?.deliveryStatus || (o.status === 'fulfilled' ? 'completed' : 'pending');
-      if (dStatus === 'in_progress' || dStatus === 'in_service') {
-        if (!firstInProgressId) firstInProgressId = o.id;
-      } else if (dStatus !== 'completed' && dStatus !== 'unattended') {
-        if (!firstPendingId) firstPendingId = o.id;
-      }
-    }
-
-    const activeTargetId = firstInProgressId || firstPendingId;
-
-    return sorted.map((o, idx) => {
+    return todayOrders.map((o) => {
       const oData = o.order_data || {};
       const customer = oData.customerData || o.customer || {};
       const shipping = oData.shipping || {};
@@ -128,12 +106,13 @@ export function useDeliveryRoute() {
 
       const items = oData.items || o.items || oData.assistanceItems || [];
       const isCurrent = (status === 'in_progress' || status === 'in_service');
-      const isNext = !firstInProgressId && o.id === activeTargetId;
+      const scheduleSlot = extractScheduleSlot(o);
+      const formattedCode = formatOrderCode(o);
 
       return {
         id: o.id,
         order: o,
-        orderIndex: o.order_number || oData.orderIndex,
+        orderIndex: formattedCode !== '—' ? formattedCode : undefined,
         customerName: (customer.fullName || o.customer_name || 'Consumidor').toUpperCase(),
         fullAddress: [
           shipping.deliveryAddress?.street || customer.fullAddress?.street,
@@ -142,7 +121,6 @@ export function useDeliveryRoute() {
           shipping.deliveryAddress?.city || customer.fullAddress?.city || 'Colombo',
         ].filter(Boolean).join(', '),
         itemsCount: items.reduce((acc: number, item: any) => acc + Number(item.quantity || item.qty || 1), 0),
-        sequence: idx + 1,
         status,
         coords,
         hasValidCoords,
@@ -151,8 +129,18 @@ export function useDeliveryRoute() {
         phone: customer.phone,
         observations: oData.observations || o.observations,
         isCurrent,
-        isNext,
+        scheduleSlot,
       };
+    }).sort((a, b) => {
+      // 1. Em andamento sempre no topo
+      if (a.isCurrent && !b.isCurrent) return -1;
+      if (!a.isCurrent && b.isCurrent) return 1;
+
+      // 2. Agrupamento por horário/período
+      if (a.scheduleSlot.timeSortKey !== b.scheduleSlot.timeSortKey) {
+        return a.scheduleSlot.timeSortKey.localeCompare(b.scheduleSlot.timeSortKey);
+      }
+      return (a.order.created_at || '').localeCompare(b.order.created_at || '');
     });
   }, [orders, todayStr]);
 
@@ -161,11 +149,23 @@ export function useDeliveryRoute() {
     return routeItems.find((item) => item.isCurrent) || null;
   }, [routeItems]);
 
-  // Próxima entrega do roteiro
-  const nextDelivery = useMemo(() => {
-    if (currentDelivery) return currentDelivery;
-    return routeItems.find((item) => item.isNext) || null;
-  }, [currentDelivery, routeItems]);
+  // Grupos organizados por Restrição de Horário (Manhã, Tarde, Horários Fixos, etc.)
+  const groupedScheduleSlots = useMemo(() => {
+    const groups: { slot: ScheduleSlot; items: DeliveryRouteItem[] }[] = [];
+    const groupMap = new Map<string, { slot: ScheduleSlot; items: DeliveryRouteItem[] }>();
+
+    for (const item of routeItems) {
+      const key = `${item.scheduleSlot.type}_${item.scheduleSlot.timeSortKey}_${item.scheduleSlot.displayBadge}`;
+      if (!groupMap.has(key)) {
+        const newGroup = { slot: item.scheduleSlot, items: [] };
+        groupMap.set(key, newGroup);
+        groups.push(newGroup);
+      }
+      groupMap.get(key)!.items.push(item);
+    }
+
+    return groups;
+  }, [routeItems]);
 
   // Estatísticas do roteiro de hoje
   const stats = useMemo(() => {
@@ -192,7 +192,7 @@ export function useDeliveryRoute() {
   return {
     routeItems,
     currentDelivery,
-    nextDelivery,
+    groupedScheduleSlots,
     stats,
     loading,
     refreshing,

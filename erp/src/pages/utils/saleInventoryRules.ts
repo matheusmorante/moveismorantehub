@@ -55,23 +55,38 @@ export const isPartialSaleStockMovement = (
   const items = order.items || [];
   if (items.length === 0) return false;
 
+  const eligibleItems = items.filter(isStockEligibleSaleItem);
+  const hasIneligibleItem = items.some(it => !isStockEligibleSaleItem(it));
+
+  // Se o pedido possui itens não elegíveis (temporários sem cadastro ou serviços),
+  // e pelo menos um item gerou saída, a saída é parcial.
+  if (hasIneligibleItem && eligibleItems.length > 0) {
+    return true;
+  }
+
+  // Se tem apenas 1 item e ele não é elegível (ex: temporário), mas o pedido foi marcado com saída:
+  if (items.length === 1 && hasIneligibleItem) {
+    return true;
+  }
+
   // Se foram informados os produtos que de fato tiveram saída registrada no banco
   if (movedProductIds) {
-    const movedSet = Array.isArray(movedProductIds) ? new Set(movedProductIds) : movedProductIds;
-    if (movedSet.size > 0 && movedSet.size < items.length) {
-      return true;
+    const movedSet = Array.isArray(movedProductIds) ? new Set(movedProductIds.map(String)) : movedProductIds;
+
+    // Se há registro de movimentações no banco
+    if (movedSet.size > 0) {
+      // Verifica se todos os itens elegíveis foram movimentados
+      const allEligibleMoved = eligibleItems.length > 0 && eligibleItems.every(it => movedSet.has(String(it.productId)));
+      if (allEligibleMoved && !hasIneligibleItem) {
+        return false; // Saída 100% completa! Não é parcial!
+      }
+      return true; // Nem todos os itens foram movimentados -> Parcial!
     }
   }
 
-  // Se o pedido tem mais de 1 item e nem todos são elegíveis para movimentar estoque (ex: temporários ou serviços)
-  const eligibleItems = items.filter(isStockEligibleSaleItem);
-  if (eligibleItems.length > 0 && eligibleItems.length < items.length) {
-    return true;
-  }
-
-  // Se tem apenas 1 item, mas este único item não é elegível (ex: temporário) e o flag geral estava true
-  if (items.length === 1 && !isStockEligibleSaleItem(items[0])) {
-    return true;
+  // Se todos os itens são elegíveis para estoque e não há itens sem cadastro:
+  if (eligibleItems.length === items.length && eligibleItems.length > 0) {
+    return false; // Saída completa!
   }
 
   return Boolean(order.isPartialStockProcessed);

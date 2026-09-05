@@ -34,7 +34,7 @@ export const TodayDeliveriesScreen: React.FC<Props> = ({
   const [applyingOptimization, setApplyingOptimization] = useState(false);
 
   // Hooks de Dados e Localização
-  const { routeItems, currentDelivery, nextDelivery, stats, loading, refreshing, onRefresh } = useDeliveryRoute();
+  const { routeItems, currentDelivery, stats, loading, refreshing, onRefresh } = useDeliveryRoute();
   const { coords: driverCoords, refreshLocation } = useDriverLocation();
 
   // Coordenadas padrão da loja/depósito Morante (Curitiba/Colombo - PR)
@@ -43,8 +43,8 @@ export const TodayDeliveriesScreen: React.FC<Props> = ({
     longitude: -49.169,
   }), []);
 
-  // Alvo ativo da rota (próxima entrega ou entrega em andamento)
-  const activeDeliveryTarget = currentDelivery || nextDelivery;
+  // Alvo ativo da rota (entrega selecionada ou entrega em andamento)
+  const activeDeliveryTarget = currentDelivery || selectedMarkerItem;
 
   // Polyline e métricas da Routes API entre motorista e próxima parada
   const { polylineCoords, distanceKm, durationMin } = useRoutesApi({
@@ -55,6 +55,9 @@ export const TodayDeliveriesScreen: React.FC<Props> = ({
 
   // Ação de Iniciar Entrega: abre o modal de pedido existente já no fluxo de preparação
   const handleStartDelivery = (item: DeliveryRouteItem) => {
+    if (item.order) {
+      item.order._openDeliveryPreparation = true;
+    }
     onSelectOrder(item.order);
   };
 
@@ -180,8 +183,9 @@ export const TodayDeliveriesScreen: React.FC<Props> = ({
           {/* Card Flutuante de Próxima Entrega / Em Andamento */}
           <View style={styles.floatingCardContainer}>
             <NextDeliveryCard
+              selectedDelivery={selectedMarkerItem}
               currentDelivery={currentDelivery}
-              nextDelivery={nextDelivery}
+              pendingCount={stats.pending}
               allCompleted={stats.total > 0 && stats.pending === 0}
               onStartDelivery={handleStartDelivery}
               onViewOrder={handleViewOrder}

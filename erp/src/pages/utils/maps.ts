@@ -1,8 +1,8 @@
 import CustomerData from "../types/customerData.type"
 import { AddressViaCep } from "../types/fullAddress.type";
 import { stringifyFullAddress, stringifyMapAddress } from "./formatters";
-import { getSettings } from '@/pages/utils/settingsService';
-import { supabase } from '@/pages/utils/supabaseConfig';
+import { getSettings } from './settingsService';
+import { supabase } from './supabaseConfig';
 import { ApiUsageGuard } from '@/services/apiMonitoring/apiUsageGuard';
 import { ApiUsageTracker } from '@/services/apiMonitoring/apiUsageTracker';
 
@@ -339,6 +339,9 @@ export const autoCalculateRouteDistance = async (address: CustomerData['fullAddr
     }
 };
 
+import { normalizeUf, parseAddressPrediction } from './addressParsing';
+export { normalizeUf, parseAddressPrediction };
+
 // ─── Search Address Suggestions via Google Places / Geocoder (Exclusivo) ─────
 
 export const searchAddressSuggestions = async (query: string, city?: string, state: string = 'PR'): Promise<any[]> => {
@@ -354,7 +357,7 @@ export const searchAddressSuggestions = async (query: string, city?: string, sta
         .replace(/\s(da|do|de|das|dos|d')\s/gi, ' ')
         .trim();
 
-    const cacheQueryKey = `v5_${stateTarget.toLowerCase()}_${cleanQuery.toLowerCase()}_${(city || '').toLowerCase()}`;
+    const cacheQueryKey = `v6_street_${stateTarget.toLowerCase()}_${cleanQuery.toLowerCase()}_${(city || '').toLowerCase()}`;
 
     try {
         const { data, error } = await supabase
@@ -403,6 +406,7 @@ export const searchAddressSuggestions = async (query: string, city?: string, sta
                 const predictions: any[] = await new Promise((resolve) => {
                     const reqOpts: any = {
                         input: searchInput,
+                        types: ['address'], // Restringe busca estritamente a logradouros/endereços de rua (sem estabelecimentos/empresas)
                         componentRestrictions: { country: 'br' },
                     };
                     if (locationLatLng) {
@@ -424,23 +428,17 @@ export const searchAddressSuggestions = async (query: string, city?: string, sta
                 });
 
                 if (predictions && predictions.length > 0) {
-                    const placesMapped = predictions.map((pred: any) => {
-                        const mainText = pred.structured_formatting?.main_text || pred.description.split(',')[0];
-                        const secondaryText = pred.structured_formatting?.secondary_text || '';
-                        const secondaryParts = secondaryText.split(',').map((s: string) => s.trim());
+                    // Filtrar para garantir que nenhum estabelecimento comercial/POI passe
+                    const streetPredictions = predictions.filter((pred: any) => {
+                        const types = pred.types || [];
+                        const isEstablishment = types.some((t: string) => 
+                            ['establishment', 'point_of_interest', 'store', 'restaurant', 'food', 'lodging'].includes(t)
+                        );
+                        return !isEstablishment;
+                    });
 
-                        let suburb = secondaryParts[0] || '';
-                        let cityFound = city || '';
-                        let stateFound = stateTarget;
-
-                        if (secondaryParts.length >= 2) {
-                            const cityPart = secondaryParts.find((p: string) => p.includes('-') || p.includes('PR') || p.includes('Paraná')) || secondaryParts[0];
-                            if (cityPart) {
-                                const [c, s] = cityPart.split('-').map(x => x.trim());
-                                if (c) cityFound = c;
-                                if (s) stateFound = s;
-                            }
-                        }
+                    const placesMapped = (streetPredictions.length > 0 ? streetPredictions : predictions).map((pred: any) => {
+                        const parsed = parseAddressPrediction(pred, city, stateTarget);
 
                         return {
                             display_name: pred.description,
@@ -448,11 +446,11 @@ export const searchAddressSuggestions = async (query: string, city?: string, sta
                             lat: 0,
                             lon: 0,
                             address: {
-                                road: mainText,
-                                suburb: suburb,
-                                neighbourhood: suburb,
-                                city: cityFound || city || 'Colombo',
-                                state: stateFound || stateTarget,
+                                road: parsed.road,
+                                suburb: parsed.neighborhood,
+                                neighbourhood: parsed.neighborhood,
+                                city: parsed.city,
+                                state: parsed.state,
                                 postcode: ''
                             }
                         };
@@ -535,18 +533,30 @@ export const fetchPlaceDetails = async (placeId: string): Promise<any | null> =>
                 response_time_ms: Date.now() - startTime,
                 module_source: 'registrations'
             });
-            const getComponent = (type: string) => {
+            const getComponent = (type: string, useShort = false) => {
                 const comp = r.address_components?.find((c: any) => c.types.includes(type));
-                return comp ? comp.long_name : "";
+                return comp ? (useShort ? comp.short_name : comp.long_name) : "";
             };
+
+            const rawState = getComponent("administrative_area_level_1", true) || getComponent("administrative_area_level_1") || "PR";
+            const state = normalizeUf(rawState);
+
+            const neighborhood = getComponent("sublocality_level_1") ||
+                getComponent("sublocality") ||
+                getComponent("neighborhood") ||
+                "";
+
+            const city = getComponent("administrative_area_level_2") ||
+                getComponent("locality") ||
+                "";
 
             return {
                 formattedAddress: r.formatted_address,
                 street: getComponent("route") || r.formatted_address.split(',')[0],
                 number: getComponent("street_number") || "",
-                neighborhood: getComponent("sublocality") || getComponent("sublocality_level_1") || getComponent("neighborhood") || "",
-                city: getComponent("administrative_area_level_2") || getComponent("locality") || "",
-                state: getComponent("administrative_area_level_1") || "PR",
+                neighborhood,
+                city,
+                state,
                 cep: (getComponent("postal_code") || "").replace(/\D/g, ""),
                 coords: [r.geometry.location.lng(), r.geometry.location.lat()] as [number, number]
             };

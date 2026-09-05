@@ -42,3 +42,32 @@ export function normalizeSearchTerm(str: string): string {
     return removeAccents(str).toLowerCase().trim();
 }
 
+/**
+ * Constrói padrão Regex para busca insensível a acentuação em banco de dados ou filtros textuais
+ */
+export function buildAccentInsensitiveRegex(term: string): string {
+    if (!term || typeof term !== 'string') return '';
+    const map: Record<string, string> = {
+        'a': '[aàáâãäåAÀÁÂÃÄÅ]',
+        'e': '[eèéêëEÈÉÊË]',
+        'i': '[iìíîïIÌÍÎÏ]',
+        'o': '[oòóôõöOÒÓÔÕÖ]',
+        'u': '[uùúûüUÙÚÛÜ]',
+        'c': '[cçCÇ]',
+    };
+
+    const clean = removeAccents(term).toLowerCase();
+    let result = '';
+    for (const char of clean) {
+        if (map[char]) {
+            result += map[char];
+        } else if (/[.*+?^${}()|[\]\\]/.test(char)) {
+            result += '\\' + char;
+        } else {
+            result += char;
+        }
+    }
+    return result;
+}
+
+

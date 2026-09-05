@@ -33,13 +33,8 @@ export const DeliveriesHubScreen: React.FC<Props> = ({
   const [activeTab, setActiveTab] = useState<DeliveriesSubTab>(initialTab);
   const [selectedMarkerItem, setSelectedMarkerItem] = useState<DeliveryRouteItem | null>(null);
 
-  // Otimização de rota
-  const [showOptimizationModal, setShowOptimizationModal] = useState(false);
-  const [optimizationResult, setOptimizationResult] = useState<OptimizationResult | null>(null);
-  const [applyingOptimization, setApplyingOptimization] = useState(false);
-
   // Hooks de Dados e Localização
-  const { routeItems, currentDelivery, nextDelivery, stats, loading, refreshing, onRefresh } = useDeliveryRoute();
+  const { routeItems, currentDelivery, stats, loading, refreshing, onRefresh } = useDeliveryRoute();
   const { coords: driverCoords, refreshLocation } = useDriverLocation();
 
   // Coordenadas padrão do depósito Morante (Curitiba/Colombo - PR)
@@ -48,10 +43,10 @@ export const DeliveriesHubScreen: React.FC<Props> = ({
     longitude: -49.169,
   }), []);
 
-  // Alvo ativo da rota (próxima entrega ou entrega em andamento)
-  const activeDeliveryTarget = currentDelivery || nextDelivery;
+  // Alvo ativo para navegação (apenas a entrega selecionada pelo motorista ou em andamento)
+  const activeDeliveryTarget = selectedMarkerItem || (currentDelivery?.isCurrent ? currentDelivery : null);
 
-  // Polyline e métricas da Routes API entre motorista e próxima parada
+  // Polyline e métricas da Routes API entre motorista e entrega selecionada/em andamento
   const { polylineCoords, distanceKm, durationMin } = useRoutesApi({
     origin: driverCoords || storeCoords,
     destination: activeDeliveryTarget?.coords || null,
@@ -59,6 +54,10 @@ export const DeliveriesHubScreen: React.FC<Props> = ({
   });
 
   const handleStartDelivery = (item: DeliveryRouteItem) => {
+    if (item.order) {
+      item.order._openDeliveryPreparation = true;
+    }
+    setSelectedMarkerItem(item);
     onSelectOrder(item.order);
   };
 
@@ -70,58 +69,21 @@ export const DeliveriesHubScreen: React.FC<Props> = ({
     onSelectOrder(item.order);
   };
 
-  const handleOpenOptimization = async () => {
-    try {
-      const origin = driverCoords || storeCoords;
-      const result = await calculateOptimizedRoute(routeItems, origin);
-      setOptimizationResult(result);
-      setShowOptimizationModal(true);
-    } catch (e) {
-      console.warn('Erro ao otimizar rota:', e);
-    }
-  };
-
-  const handleConfirmOptimization = async () => {
-    if (!optimizationResult) return;
-    setApplyingOptimization(true);
-    try {
-      await applyOptimizedSequence(optimizationResult.optimizedItems);
-      setShowOptimizationModal(false);
-      onRefresh();
-    } catch (e) {
-      console.warn('Erro ao aplicar otimização:', e);
-    } finally {
-      setApplyingOptimization(false);
-    }
-  };
-
   return (
     <View style={[styles.container, isDarkMode && styles.containerDark]}>
       {/* Barra de Tabs Superior: [ Hoje ] [ Cronograma ] [ Mapa ] */}
       <View style={[styles.headerContainer, isDarkMode && styles.headerContainerDark, { paddingTop: Math.max(insets.top, 8) }]}>
         <View style={styles.titleRow}>
           <View style={{ flex: 1 }}>
-            <Text style={[styles.screenTitle, isDarkMode && styles.textLight]}>Entregas</Text>
+            <Text style={[styles.screenTitle, isDarkMode && styles.textLight]}>Entregas de Hoje</Text>
             <Text style={[styles.screenSubtitle, isDarkMode && styles.textMuted]}>
               {activeTab === 'today'
-                ? `${stats.total} ${stats.total === 1 ? 'parada programada para hoje' : 'paradas programadas para hoje'}`
+                ? `${stats.pending} ${stats.pending === 1 ? 'entrega pendente' : 'entregas pendentes'} · ${stats.completed} concluídas`
                 : activeTab === 'schedule'
                 ? 'Planejamento e agendamentos logísticos'
                 : 'Visão geográfica e trajeto viário'}
             </Text>
           </View>
-
-          {/* Botão de Otimizar Rota (ativo quando na aba Hoje ou Mapa e tiver mais de 1 pendente) */}
-          {(activeTab === 'today' || activeTab === 'map') && stats.pending > 1 && (
-            <TouchableOpacity
-              style={[styles.optimizeBtn, isDarkMode && styles.optimizeBtnDark]}
-              onPress={handleOpenOptimization}
-              activeOpacity={0.8}
-            >
-              <Sparkles size={13} color="#2563eb" />
-              <Text style={styles.optimizeBtnText}>Otimizar</Text>
-            </TouchableOpacity>
-          )}
         </View>
 
         {/* Tabs no Topo em Pílulas */}
@@ -173,7 +135,7 @@ export const DeliveriesHubScreen: React.FC<Props> = ({
         </View>
       ) : activeTab === 'today' ? (
         <View style={{ flex: 1 }}>
-          {/* Progresso do Roteiro */}
+          {/* Progresso do Dia */}
           <RouteProgressHeader
             total={stats.total}
             completed={stats.completed}
@@ -184,11 +146,12 @@ export const DeliveriesHubScreen: React.FC<Props> = ({
             isDarkMode={isDarkMode}
           />
 
-          {/* Próxima Entrega / Em Andamento em Destaque no Topo */}
-          <View style={{ paddingHorizontal: 16, paddingTop: 10, paddingBottom: 4 }}>
+          {/* Entrega em Andamento / Selecionada */}
+          <View style={{ paddingTop: 6, paddingBottom: 2 }}>
             <NextDeliveryCard
+              selectedDelivery={selectedMarkerItem}
               currentDelivery={currentDelivery}
-              nextDelivery={nextDelivery}
+              pendingCount={stats.pending}
               allCompleted={stats.total > 0 && stats.pending === 0}
               onStartDelivery={handleStartDelivery}
               onViewOrder={handleViewOrder}
@@ -197,7 +160,7 @@ export const DeliveriesHubScreen: React.FC<Props> = ({
             />
           </View>
 
-          {/* Lista de Paradas do Dia */}
+          {/* Lista de Entregas Agrupadas por Período / Horário */}
           {loading ? (
             <View style={styles.loadingCenter}>
               <ActivityIndicator size="large" color="#2563eb" />
@@ -208,7 +171,10 @@ export const DeliveriesHubScreen: React.FC<Props> = ({
               items={routeItems}
               refreshing={refreshing}
               onRefresh={onRefresh}
-              onSelect={(item) => onSelectOrder(item.order)}
+              onSelect={(item) => {
+                setSelectedMarkerItem(item);
+                onSelectOrder(item.order);
+              }}
               onStartDelivery={handleStartDelivery}
               onViewOrder={handleViewOrder}
               isDarkMode={isDarkMode}
@@ -239,21 +205,24 @@ export const DeliveriesHubScreen: React.FC<Props> = ({
                 items={routeItems}
                 driverCoords={driverCoords}
                 storeCoords={storeCoords}
-                polylineCoords={polylineCoords}
+                polylineCoords={selectedMarkerItem ? polylineCoords : undefined}
                 selectedItem={selectedMarkerItem}
                 onSelectMarker={(item) => setSelectedMarkerItem(item)}
+                onDeselectMarker={() => setSelectedMarkerItem(null)}
                 isDarkMode={isDarkMode}
               />
 
-              {/* Card Flutuante Inferior */}
+              {/* Card Flutuante Inferior / Bottom Sheet: sem seleção mostra resumo compacto; com seleção mostra entrega */}
               <View style={styles.floatingCardContainer}>
                 <NextDeliveryCard
-                  currentDelivery={currentDelivery}
-                  nextDelivery={nextDelivery}
+                  selectedDelivery={selectedMarkerItem}
+                  currentDelivery={selectedMarkerItem?.isCurrent ? selectedMarkerItem : null}
+                  pendingCount={stats.pending}
                   allCompleted={stats.total > 0 && stats.pending === 0}
                   onStartDelivery={handleStartDelivery}
                   onViewOrder={handleViewOrder}
                   onRegisterService={handleRegisterService}
+                  onClearSelection={() => setSelectedMarkerItem(null)}
                   isDarkMode={isDarkMode}
                 />
               </View>
@@ -261,25 +230,6 @@ export const DeliveriesHubScreen: React.FC<Props> = ({
           )}
         </View>
       )}
-
-      {/* Modal de Detalhes da Parada (Bottom Sheet ao tocar no marcador do mapa) */}
-      <DeliveryBottomSheet
-        item={selectedMarkerItem}
-        onClose={() => setSelectedMarkerItem(null)}
-        onStartDelivery={handleStartDelivery}
-        onViewOrder={handleViewOrder}
-        isDarkMode={isDarkMode}
-      />
-
-      {/* Modal de Confirmação da Otimização */}
-      <RouteOptimizationModal
-        visible={showOptimizationModal}
-        result={optimizationResult}
-        applying={applyingOptimization}
-        onApply={handleConfirmOptimization}
-        onClose={() => setShowOptimizationModal(false)}
-        isDarkMode={isDarkMode}
-      />
     </View>
   );
 };

@@ -14,6 +14,7 @@ import {
     parseVariationImages
 } from '@/pages/utils/productService';
 import { normalizeVariationSku } from '@/pages/utils/productVariationDefaults';
+import { normalizeSearchTerm } from '@/pages/utils/textUtils';
 import { toast } from "react-toastify";
 import { supabase } from '@/pages/utils/supabaseConfig';
 
@@ -104,7 +105,7 @@ export const useProducts = (filters?: any) => {
                     if (!isActive) return false;
                 }
 
-                const searchTerm = filters.search?.toLowerCase() || "";
+                const searchTerm = normalizeSearchTerm(filters.search || "");
                 if (!searchTerm) {
                     const categoryMatch = !filters.category ||
                         product.category === filters.category ||
@@ -114,8 +115,8 @@ export const useProducts = (filters?: any) => {
                     return categoryMatch && activeMatch;
                 }
 
-                // BUSCA DINÂMICA: Filtra EXCLUSIVAMENTE pelo campo de nome ('name') do produto ou variação
-                const checkStringMatch = (str?: string) => (str || "").toLowerCase().includes(searchTerm);
+                // BUSCA DINÂMICA: Filtra EXCLUSIVAMENTE pelo campo de nome ('name') do produto ou variação (insensível a acentos)
+                const checkStringMatch = (str?: string) => normalizeSearchTerm(str || "").includes(searchTerm);
 
                 const matchesSelf = checkStringMatch(product.name);
                 
@@ -455,8 +456,7 @@ export const useProducts = (filters?: any) => {
     const clearSelection = () => setSelectedProducts([]);
 
     const toggleActive = async (id: string, currentStatus: boolean) => {
-        try {
-            const newActive = !currentStatus;
+        const newActive = !currentStatus;
 
             if (newActive) {
                 // Bloqueio rigoroso para Rascunhos: não pode ativar no ERP
@@ -536,11 +536,46 @@ export const useProducts = (filters?: any) => {
                 }
             }
 
+        // ⚡ Atualização Otimista Imediata no estado local (sem recarregar a tela nem flicker)
+        setServerProducts(previous => previous.map(p => {
+            if (String(p.id) === String(id)) {
+                const updatedVars = p.variations?.map((v: any) => ({ ...v, active: newActive }));
+                return { ...p, active: newActive, variations: updatedVars || p.variations };
+            }
+            if (id.includes('_')) {
+                const [parentId, ...skuParts] = id.split('_');
+                const targetSku = skuParts.join('_');
+                if (String(p.id) === String(parentId) && p.variations) {
+                    const updatedVars = p.variations.map((v: any, index: number) => {
+                        const vSku = v.sku || index;
+                        if (String(vSku) === String(targetSku) || String(v.id) === String(targetSku)) {
+                            return { ...v, active: newActive };
+                        }
+                        return v;
+                    });
+                    return { ...p, variations: updatedVars };
+                }
+            }
+            if (p.variations?.some((v: any) => String(v.id) === String(id))) {
+                const updatedVars = p.variations.map((v: any) =>
+                    String(v.id) === String(id) ? { ...v, active: newActive } : v
+                );
+                return { ...p, variations: updatedVars };
+            }
+            if (String(p.parentId) === String(id)) {
+                return { ...p, active: newActive };
+            }
+            return p;
+        }));
+
+        toast.success(`Produto ${newActive ? 'ativado' : 'desativado'} com sucesso!`);
+
+        try {
             // 1. Caso seja uma variação do array JSON (ex: 'parentId_sku')
             if (id.includes('_')) {
                 const [parentId, ...skuParts] = id.split('_');
                 const targetSku = skuParts.join('_');
-                const parent = products.find(p => p.id === parentId);
+                const parent = products.find(p => p.id === parentId) || serverProducts.find(p => p.id === parentId);
                 if (parent && parent.variations) {
                     const newVariations = parent.variations.map((v: any, index: number) => {
                         const vSku = v.sku || index;
@@ -550,18 +585,37 @@ export const useProducts = (filters?: any) => {
                         return v;
                     });
                     await updateProduct(parentId, { variations: newVariations });
-                    toast.success(`Variação ${newActive ? 'ativada' : 'desativada'} com sucesso!`);
-                    refresh();
                     return;
                 }
             }
 
-            // 2. Caso seja um produto pai ou produto regular
-            const parentProduct = products.find(p => p.id === id);
+            // 2. Caso seja uma variação com ID direto no banco ou variação interna
+            const targetProduct = serverProducts.find(p => String(p.id) === String(id));
+            if (!targetProduct) {
+                for (const parent of serverProducts) {
+                    if (Array.isArray(parent.variations)) {
+                        const vIndex = parent.variations.findIndex((v: any) => String(v.id) === String(id));
+                        if (vIndex !== -1) {
+                            const updatedVariations = [...parent.variations];
+                            updatedVariations[vIndex] = { ...updatedVariations[vIndex], active: newActive };
+                            await updateProduct(parent.id!, { variations: updatedVariations });
+                            
+                            const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+                            if (isUUID) {
+                                await supabase.from('product_variations').update({ active: newActive }).eq('id', id);
+                            }
+                            return;
+                        }
+                    }
+                }
+                return;
+            }
+
+            // 3. Caso seja um produto pai ou produto regular
+            const parentProduct = products.find(p => p.id === id) || targetProduct;
             if (parentProduct) {
                 const updatePayload: Partial<Product> = { active: newActive };
 
-                // Atualizar o status de todas as variações internas (array JSON)
                 if (parentProduct.variations && parentProduct.variations.length > 0) {
                     updatePayload.variations = parentProduct.variations.map((v: any) => ({
                         ...v,
@@ -571,25 +625,47 @@ export const useProducts = (filters?: any) => {
 
                 await updateProduct(id, updatePayload);
 
-                // Atualizar produtos filhos independentes vinculados via parentId
-                const independentChildren = products.filter(p => p.parentId === id);
+                const independentChildren = serverProducts.filter(p => p.parentId === id);
                 for (const child of independentChildren) {
                     if (child.id) {
                         await updateProduct(child.id, { active: newActive });
                     }
                 }
-
-                toast.success(`Produto ${newActive ? 'ativado' : 'desativado'} com sucesso!`);
-                refresh();
                 return;
             }
 
             await updateProduct(id, { active: newActive });
-            toast.success(`Produto ${newActive ? 'ativado' : 'desativado'} com sucesso!`);
-            refresh();
         } catch (error) {
             console.error("Erro ao alterar status:", error);
-            toast.error("Erro ao alterar status do produto.");
+            toast.error("Erro ao alterar status do produto no banco.");
+            // Reverte em caso de erro
+            setServerProducts(previous => previous.map(p => {
+                if (String(p.id) === String(id)) {
+                    const revertedVars = p.variations?.map((v: any) => ({ ...v, active: currentStatus }));
+                    return { ...p, active: currentStatus, variations: revertedVars || p.variations };
+                }
+                if (id.includes('_')) {
+                    const [parentId, ...skuParts] = id.split('_');
+                    const targetSku = skuParts.join('_');
+                    if (String(p.id) === String(parentId) && p.variations) {
+                        const revertedVars = p.variations.map((v: any, index: number) => {
+                            const vSku = v.sku || index;
+                            if (String(vSku) === String(targetSku) || String(v.id) === String(targetSku)) {
+                                return { ...v, active: currentStatus };
+                            }
+                            return v;
+                        });
+                        return { ...p, variations: revertedVars };
+                    }
+                }
+                if (p.variations?.some((v: any) => String(v.id) === String(id))) {
+                    const revertedVars = p.variations.map((v: any) =>
+                        String(v.id) === String(id) ? { ...v, active: currentStatus } : v
+                    );
+                    return { ...p, variations: revertedVars };
+                }
+                return p;
+            }));
         }
     };
 
@@ -597,23 +673,77 @@ export const useProducts = (filters?: any) => {
         try {
             const [possibleParentId, ...skuParts] = id.split('_');
             const targetSku = skuParts.join('_');
-            const isEmbeddedVariation = skuParts.length > 0;
-            const parentProduct = isEmbeddedVariation
-                ? serverProducts.find(product => String(product.id) === String(possibleParentId))
-                : serverProducts.find(product => String(product.id) === String(id));
+            const isCompoundId = skuParts.length > 0;
 
-            let currentStatus = 'published';
+            let parentProduct: Product | undefined;
+            let variation: any = undefined;
 
-            if (isEmbeddedVariation && parentProduct?.variations) {
-                const variation = parentProduct.variations.find((item: any, index: number) => {
-                    const sku = item.sku || `${parentProduct.sku || parentProduct.code}-${String(index + 1).padStart(2, '0')}`;
-                    return String(sku) === targetSku;
-                });
-                currentStatus = variation?.status || 'published';
-            } else if (parentProduct) {
-                currentStatus = parentProduct.status || 'published';
+            // 1. Procurar em serverProducts por ID composto (possibleParentId)
+            if (isCompoundId) {
+                parentProduct = serverProducts.find(p => String(p.id) === String(possibleParentId));
+                if (parentProduct && Array.isArray(parentProduct.variations)) {
+                    variation = parentProduct.variations.find((item: any, index: number) => {
+                        if (String(item.id) === targetSku) return true;
+                        if (String(index) === targetSku) return true;
+                        const rawSku = item.sku || '';
+                        const genSku = `${parentProduct!.sku || parentProduct!.code || ''}-${String(index + 1).padStart(2, '0')}`;
+                        if (rawSku && String(rawSku) === targetSku) return true;
+                        if (genSku === targetSku) return true;
+                        if (normalizeVariationSku(rawSku) === normalizeVariationSku(targetSku)) return true;
+                        if (normalizeVariationSku(genSku) === normalizeVariationSku(targetSku)) return true;
+                        return false;
+                    });
+                }
             }
 
+            // 2. Procurar em serverProducts se id for diretamente o ID ou SKU de uma variação
+            if (!variation) {
+                for (const p of serverProducts) {
+                    if (Array.isArray(p.variations)) {
+                        const found = p.variations.find((v: any) => 
+                            String(v.id) === String(id) || 
+                            String(v.id) === targetSku ||
+                            String(v.sku) === String(id) ||
+                            normalizeVariationSku(v.sku || '') === normalizeVariationSku(id)
+                        );
+                        if (found) {
+                            parentProduct = p;
+                            variation = found;
+                            break;
+                        }
+                    }
+                }
+            }
+
+            // 3. Fallback: procurar no Supabase se não estiver na página atual em memória
+            if (isCompoundId && !variation) {
+                const { data: dbProd } = await supabase.from('products').select('*, product_variations(*)').eq('id', possibleParentId).maybeSingle();
+                if (dbProd) {
+                    parentProduct = dbProd;
+                    const vars = (dbProd as any).product_variations || (dbProd as any).variations || [];
+                    variation = vars.find((item: any, index: number) => {
+                        if (String(item.id) === targetSku) return true;
+                        const rawSku = item.sku || '';
+                        const genSku = `${dbProd.code || ''}-${String(index + 1).padStart(2, '0')}`;
+                        return normalizeVariationSku(rawSku) === normalizeVariationSku(targetSku) ||
+                               normalizeVariationSku(genSku) === normalizeVariationSku(targetSku);
+                    });
+                }
+            } else if (!variation) {
+                const { data: dbVar } = await supabase.from('product_variations').select('*, products(*)').eq('id', id).maybeSingle();
+                if (dbVar) {
+                    variation = dbVar;
+                    parentProduct = (dbVar as any).products;
+                }
+            }
+
+            // 4. Se ainda não for variação, verifica se é produto simples/pai
+            if (!parentProduct) {
+                parentProduct = serverProducts.find(p => String(p.id) === String(id));
+            }
+
+            const isVariation = Boolean(variation);
+            const currentStatus = isVariation ? (variation.status || 'published') : (parentProduct?.status || 'published');
             const newStatus = currentStatus === 'published' ? 'hidden' : 'published';
 
             if (newStatus === 'published') {
@@ -623,14 +753,12 @@ export const useProducts = (filters?: any) => {
                     return;
                 }
 
-                if (isEmbeddedVariation && parentProduct?.variations) {
-                    const variation = parentProduct.variations.find((item: any, index: number) => {
-                        const sku = item.sku || `${parentProduct.sku || parentProduct.code}-${String(index + 1).padStart(2, '0')}`;
-                        return String(sku) === targetSku;
-                    });
-                    const hasImages = (variation?.images && variation.images.length > 0) || (parentProduct.images && parentProduct.images.length > 0);
-                    const hasPrice = (variation?.syncUnitPrice || Number(variation?.unitPrice || 0) > 0 || Number(parentProduct.unitPrice || 0) > 0);
-                    const isEligible = hasPrice && hasImages && (parentProduct.description || '').trim().length >= 2;
+                if (isVariation) {
+                    const hasImages = (variation?.images && variation.images.length > 0) || 
+                                      (variation?.image_url && String(variation.image_url).trim().length > 0) ||
+                                      (parentProduct?.images && parentProduct.images.length > 0);
+                    const hasPrice = (variation?.syncUnitPrice || Number(variation?.unitPrice || 0) > 0 || Number(parentProduct?.unitPrice || 0) > 0);
+                    const isEligible = hasPrice && hasImages && (parentProduct?.description || (parentProduct as any)?.name || '').trim().length >= 2;
 
                     if (!isEligible) {
                         toast.error('Preencha os requisitos do Catálogo (preço maior que zero e pelo menos uma imagem) antes de publicar esta variação.');
@@ -639,7 +767,7 @@ export const useProducts = (filters?: any) => {
                 } else if (parentProduct) {
                     const hasImages = parentProduct.images && parentProduct.images.length > 0;
                     const hasPrice = Number(parentProduct.unitPrice || 0) > 0;
-                    const isEligible = hasPrice && hasImages && (parentProduct.description || '').trim().length >= 2;
+                    const isEligible = hasPrice && hasImages && (parentProduct.description || (parentProduct as any)?.name || '').trim().length >= 2;
 
                     if (!isEligible) {
                         toast.error('Preencha os requisitos do Catálogo (preço maior que zero e pelo menos uma imagem) antes de publicar este produto.');
@@ -648,19 +776,57 @@ export const useProducts = (filters?: any) => {
                 }
             }
 
-            // Variações internas têm o ID visual "idDoPai_SKU"
-            if (isEmbeddedVariation && parentProduct?.variations) {
-                const variation = parentProduct.variations.find((item: any, index: number) => {
-                    const sku = item.sku || `${parentProduct.sku || parentProduct.code}-${String(index + 1).padStart(2, '0')}`;
-                    return String(sku) === targetSku;
-                });
-                if (!variation?.id) throw new Error('Variação não encontrada.');
+            // ⚡ Atualização Otimista Imediata no estado local (sem recarregar a tela nem flicker)
+            setServerProducts(previous => previous.map(p => {
+                if (isCompoundId && String(p.id) === String(possibleParentId) && p.variations) {
+                    const updatedVars = p.variations.map((item: any, index: number) => {
+                        const rawSku = item.sku || '';
+                        const genSku = `${p.sku || p.code || ''}-${String(index + 1).padStart(2, '0')}`;
+                        if (
+                            String(item.id) === targetSku ||
+                            String(index) === targetSku ||
+                            (rawSku && String(rawSku) === targetSku) ||
+                            genSku === targetSku ||
+                            normalizeVariationSku(rawSku) === normalizeVariationSku(targetSku) ||
+                            normalizeVariationSku(genSku) === normalizeVariationSku(targetSku)
+                        ) {
+                            return { ...item, status: newStatus };
+                        }
+                        return item;
+                    });
+                    return { ...p, variations: updatedVars };
+                }
+                if (p.variations?.some((v: any) => String(v.id) === String(id) || String(v.sku) === String(id))) {
+                    const updatedVars = p.variations.map((v: any) =>
+                        (String(v.id) === String(id) || String(v.sku) === String(id)) ? { ...v, status: newStatus } : v
+                    );
+                    return { ...p, variations: updatedVars };
+                }
+                if (String(p.id) === String(id)) {
+                    const updatedVars = p.variations?.map((v: any) => ({ ...v, status: newStatus }));
+                    return { ...p, status: newStatus, variations: updatedVars || p.variations };
+                }
+                if (String(p.parentId) === String(id)) {
+                    return { ...p, status: newStatus };
+                }
+                return p;
+            }));
 
-                await updateProduct(parentProduct.id!, {
-                    variations: parentProduct.variations.map((item: any) =>
-                        String(item.id) === String(variation.id) ? { ...item, status: newStatus } : item
-                    )
-                });
+            if (isVariation) {
+                toast.success(`Variação ${newStatus === 'published' ? 'publicada! Adicionada ao Feed Meta CSV.' : 'ocultada! Removida do Feed Meta CSV.'}`);
+            } else {
+                toast.success(`Catálogo Digital: Produto ${newStatus === 'published' ? 'publicado' : 'ocultado'} com sucesso! 🚀`);
+            }
+
+            // Persistência em background
+            if (isVariation && variation) {
+                if (parentProduct?.id && Array.isArray(parentProduct.variations)) {
+                    await updateProduct(parentProduct.id, {
+                        variations: parentProduct.variations.map((item: any) =>
+                            String(item.id) === String(variation.id) ? { ...item, status: newStatus } : item
+                        )
+                    });
+                }
                 
                 const isVarIdUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(variation.id);
                 if (isVarIdUUID) {
@@ -670,9 +836,6 @@ export const useProducts = (filters?: any) => {
                         .eq('id', variation.id);
                     if (error) throw error;
                 }
-
-                toast.success(`Variação ${newStatus === 'published' ? 'publicada! Adicionada ao Feed Meta CSV.' : 'ocultada! Removida do Feed Meta CSV.'}`);
-                refresh();
                 return;
             }
 
@@ -685,7 +848,6 @@ export const useProducts = (filters?: any) => {
                 if (productError) throw productError;
             }
 
-            // Mantém o cache da lista coerente enquanto ela é recarregada.
             await updateProduct(id, { status: newStatus });
 
             if (parentProduct?.variations?.length) {
@@ -706,10 +868,6 @@ export const useProducts = (filters?: any) => {
             await Promise.all(independentChildren
                 .filter(child => child.id)
                 .map(child => updateProduct(child.id!, { status: newStatus })));
-
-            toast.success(`Catálogo Digital: Produto ${newStatus === 'published' ? 'publicado' : 'ocultado'} com sucesso! 🚀`);
-
-            refresh();
         } catch (error) {
             console.error('Erro ao alternar catálogo:', error);
             toast.error('Erro ao alterar status no Catálogo Digital.');

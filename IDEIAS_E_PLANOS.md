@@ -52,6 +52,7 @@ Este documento unifica todo o planejamento estratégico, ideias futuras, tarefas
   - [x] **Atualização Imediata da Lista ao Salvar Edição (ERP e Mobile)**: Ao salvar produto ou alterar fornecedor, a lista reflete imediatamente os novos dados no ERP (`onSuccess` com `refresh` e `fetchStats`) e no Mobile (`saveMobileProduct` com persistência de `supplier_id`/`main_supplier_id`/`supplier_ids` e recarregamento instantâneo da página atual).
   - [x] `OrderHistoryRow.tsx` e `OrderHistoryCard.tsx` + `InventoryMovementBadge.tsx`: modularizados com sucesso segundo a skill `modularizacao_codigo`.
   - [x] **Detalhamento de Itens no Popover de Estoque**: Exibição da lista de todos os itens da venda com nome, quantidade e status de movimentação (`Efetivada`, `Estornada`, `Não efetivada` e `Sem Cadastro` com alerta).
+  - [x] **Alternância Otimista de Status sem Recarregamento de Tela (`toggleActive` e `deactivateCatalog`)**: A troca de status de canais (ERP Ativo/Inativo e Catálogo Publicado/Oculto) atualiza instantaneamente a interface de forma otimista, mantendo a tela estática sem recarregamento, sem piscar e sem perder a posição ou expansão das variações, com sincronização em background e rollback automático em caso de falha.
   - `useProducts.ts` e `orderHistoryService.ts`: segregação de queries, mutations e regras de negócio.
 
 ### 📱 Mobile Offline-First Baseado em Eventos & Risco Operacional
@@ -316,4 +317,35 @@ Este documento unifica todo o planejamento estratégico, ideias futuras, tarefas
 #### 📝 Observações por Item no Pedido de Venda
 - **Campo de Observação do Item**: Adicionado campo `observation` em cada item do pedido (com suporte na tabela desktop e card mobile), persistindo detalhes como cor, acabamento e especificações do cliente.
 - **Concatenação na Impressão e WhatsApp**: O texto preenchido nas observações do item é exibido automaticamente ao lado da descrição do produto separado por `" - "` no papel de pedido (`/order`), no recibo de venda (`/receipt`), na impressão de ordens de serviço e nas mensagens formatadas de WhatsApp enviadas ao cliente e logística.
+
+#### 🔄 Roadmap Cíclico de Testes Contínuos do Morante Hub (ERP & Mobile)
+- **Natureza Cíclica e Contínua**: O roteiro percorre os 9 módulos vitais do sistema em ordem estrita de criticidade e, ao atingir o final do Módulo 9, reinicia no Módulo 1 (Ciclo N → Ciclo N+1).
+- **Continuação Inteligente por Goals**: Sempre que o usuário solicitar para continuar os testes, o sistema retoma exatamente de onde parou consultando o cursor persistente em `docs/ROTEIRO_TESTES_CICLICOS.md`.
+- **Suporte Dinâmico a Docker**: Se o Docker estiver ligado/ativo, utiliza contêiner PostgreSQL/Supabase local isolado para os testes de integração; caso contrário, executa com mocks e transações seguras em memória.
+- **Blindagem Estrita de Dados**: Uso exclusivo de dados com prefixo `[TESTE_AUT]` ou `testRunId` com limpeza obrigatória no teardown, protegendo 100% os dados reais do banco.
+- **Cobertura de Todos os Tipos de Teste**: Unitários (Vitest), Integração (Services/DB), E2E/Interface (Browser Subagent), Tipagem (`tsc --noEmit`) e Mobile Offline-First.
+
+#### 🔎 Buscas e Filtros Accent-Insensitive (Irrelevância de Acentuação)
+- **Universalização em todo o ERP**: O usuário pode buscar digitando com ou sem qualquer acentuação (ex: `sofa` acha `Sofá`, `comoda` acha `Cômoda`, `armario` acha `Armário`, `joao` acha `João`).
+- **Itens do Pedido (`ProductAutocomplete`)**: Implementado com normalização Unicode NFD + remoção de diacríticos e cache em memória para busca instantânea, além de `imatch` com regex no banco de dados e highlight amarelo insensível a acento.
+- **Modais e Filtros Cobertos**: Itens do pedido, busca de clientes (`CustomerSearchModal` / `CustomerData`), busca de vendedores (`SellerInput` / `SellerSearchModal` / `EmployeeSearchModal`), produtos e variações (`useProducts` / `ProductSearchModal`), categorias (`CategoryAutocomplete` / `CategorySearchModal`), serviços (`Services/Index`), financeiro (`Transactions`, `Receivables`, `Payables`), etiquetas e catálogo de canais.
+
+#### 🏷️ Toggle do Catálogo Digital (`deactivateCatalog` & `updateProduct`)
+- **Resolução Resiliente em 4 Etapas**: Correção do erro `Variação não encontrada` ao alternar catálogo na lista de produtos. Agora resolve tanto IDs compostos (`parentId_sku`), SKUs normalizados (`normalizeVariationSku`), UUIDs diretos de `product_variations` e fallback no Supabase, garantindo que o status de publicação no Catálogo Meta seja alterado com sucesso sem exceptions.
+- **Correção de Importação de Slugs (`normalizeSlug` e `resolveUniqueSlug`)**: Importadas e conectadas formalmente as funções utilitárias de slug de `./uniqueSlug` no `productService.ts` (`mapToDB` e `syncProductToSupabase`), eliminando o erro `ReferenceError: normalizeSlug is not defined` ao alternar o status do catálogo digital ou atualizar produtos.
+
+
+#### ✏️ Edição de Pedido Centralizada no Menu de 3 Pontinhos
+- **Remoção do Botão Duplicado de Edição**: Removido o ícone de lápis `bi-pencil` e o evento de clique de edição ao lado do nome do cliente nas linhas (`OrderHistoryRow`) e nos cards (`OrderHistoryCard`) da listagem de pedidos, concentrando a ação exclusivamente no menu de 3 pontinhos (`OrderOptionsMenu`).
+
+#### 📦 Conciliação de Itens e Recálculo Automático de Status de Estoque na Edição
+- **Geração Automática de Baixa**: Ao editar um pedido e substituir itens temporários por produtos cadastrados do catálogo (ou adicionar novos produtos cadastrados), o sistema gera automaticamente a baixa de saída em `inventory_moves` para todos os itens cadastrados que ainda não tinham saída gerada.
+- **Transição Automática para Verde (Saída Efetivada)**: A função `isPartialSaleStockMovement` e o badge `InventoryMovementBadge` agora reconhecem dinamicamente quando todos os itens vendáveis do pedido são cadastrados e possuem saída de estoque no banco (`movedProductIds`), atualizando o status de parcial (laranja) para **Saída Efetivada (verde)** e corrigindo pedidos históricos defasados no Supabase.
+
+#### 📍 Autopreenchimento Completo de Endereço nas Sugestões (`AddressAutocompleteInput` / `addressParsing`)
+- **Preenchimento Imediato de Bairro, Cidade e UF**: Ao clicar em qualquer sugestão de endereço exibida pelo Google Places (`AddressAutocompleteInput`), o sistema preenche de forma síncrona e instantânea os campos de **Logradouro/Rua**, **Bairro**, **Cidade** e **Estado (UF)** nos formulários de Clientes (`PersonAddressSection`), Pedidos de Venda (`ShippingData`), Assistência Técnica (`AssistanceCustomerSection`), Rotas (`OrderRouteMap`) e Dados da Empresa (`CompanyFiscalDataSection`).
+- **Normalização Oficial da UF**: Todos os estados são convertidos estritamente para a sigla de 2 letras maiúsculas (ex: `PR`, `SP`, `SC`), compatibilizando com os inputs `maxLength={2}` de UF em todo o ERP.
+- **Algoritmo Baseado em Termos Estruturados e Prevenção de Ambiguidade**: O novo módulo modularizado `src/pages/utils/addressParsing.ts` prioriza os termos (`terms`) do Google Places, garantindo que a cidade nunca seja confundida ou atribuída como bairro caso a rua não possua bairro cadastrado.
+- **Refinamento Não-Bloqueante**: Busca assíncrona de detalhes via Place Details em segundo plano (enriquecendo número, CEP exato e coordenadas) sem travar a interface e com resolução de dependências sem exceptions no console.
+
 

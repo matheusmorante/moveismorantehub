@@ -13,20 +13,22 @@ Este documento registra todas as integrações Cloud, APIs externas, limites de 
 - **Meta Orçamentária:** R$ 0,00 / mês (Consumo 100% dentro do Free Tier).
 
 #### APIs Ativas e Limites Físicos no Google Cloud (Daily Quotas)
-| Serviço | Identificador Técnico | Finalidade no ERP | Limite Físico Configurado no Google Cloud | Proteção no Código (ERP) |
+| Serviço | Identificador Técnico | Finalidade no ERP / Mobile | Limite Físico Configurado no Google Cloud | Proteção no Código |
 |---|---|---|---|---|
-| **Directions API** | `directions-backend.googleapis.com` | Cálculo de rota, distância (km) e duração para precificação de frete | **100 req / dia** (Bloqueio automático ao atingir) | Circuit Breaker (20 req/min) + Cache |
+| **Directions API** | `directions-backend.googleapis.com` | Cálculo de rota, distância (km) e duração para frete | **100 req / dia** (Bloqueio automático ao atingir) | Circuit Breaker (20 req/min) + Cache |
 | **Maps JavaScript API** | `maps-backend.googleapis.com` | Carregamento da biblioteca de mapas e componentes web | **100 map loads / dia** (Bloqueio automático ao atingir) | Carregamento único singleton (`__googleMapsPromise`) |
+| **Places API** | `places-backend.googleapis.com` | Autocomplete de endereços de clientes | **100 req / dia** (Bloqueio automático ao atingir) | Debounce 600ms + Min 3 caracteres |
+| **Geocoding API** | `geocoding-backend.googleapis.com` | Resolução de coordenadas a partir de logradouro/CEP | **100 req / dia** (Bloqueio automático ao atingir) | Cache de geocodificação em memória |
+| **Maps SDK for Android** | `maps-android-backend.googleapis.com` | Renderização nativa de mapas no App Mobile Android | **100 map loads / dia** (Bloqueio automático ao atingir) | Fallback estático + controle de montagem |
 
 #### APIs Desativadas no Google Cloud (Zero Resíduo)
-As seguintes APIs foram **desabilitadas** no projeto para eliminar riscos de chamadas acidentais ou cobranças inesperadas:
+As seguintes APIs foram **desabilitadas** no projeto por não serem utilizadas:
 - ❌ `navigationsdk.googleapis.com` (Navigation SDK)
 - ❌ `roads.googleapis.com` (Roads API)
 - ❌ `areainsights.googleapis.com` (Places Aggregate API)
 - ❌ `distance-matrix-backend.googleapis.com` (Distance Matrix API)
 - ❌ `placewidgets.googleapis.com` (Places UI Kit)
 - ❌ `maps-embed-backend.googleapis.com` (Maps Embed API)
-- ❌ `maps-android-backend.googleapis.com` (Maps SDK for Android)
 - ❌ `routes.googleapis.com` (Routes API)
 
 ---

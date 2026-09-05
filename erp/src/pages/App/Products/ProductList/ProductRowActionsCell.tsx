@@ -72,9 +72,10 @@ export const ProductRowActionsCell: React.FC<ProductRowActionsCellProps> = ({
                                 <i className="bi bi-three-dots text-xs font-bold" />
                             </button>
 
-                            <DropdownPortal
-                                isOpen={isMenuOpen}
-                                onClose={() => setIsMenuOpen(false)}
+                            {isMenuOpen && (
+                                <DropdownPortal
+                                    isOpen={isMenuOpen}
+                                    onClose={() => setIsMenuOpen(false)}
                                 anchorRef={menuAnchorRef}
                                 className="min-w-[180px]"
                             >
@@ -198,6 +199,7 @@ export const ProductRowActionsCell: React.FC<ProductRowActionsCellProps> = ({
                                     )}
                                 </div>
                             </DropdownPortal>
+                            )}
                         </div>
                     </>
                 )}

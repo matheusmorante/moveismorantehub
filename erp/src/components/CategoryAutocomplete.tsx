@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../pages/utils/supabaseConfig';
+import { normalizeSearchTerm } from '../pages/utils/textUtils';
 import DropdownPortal from './shared/DropdownPortal';
 
 interface Category {
@@ -91,8 +92,9 @@ const CategoryAutocomplete: React.FC<CategoryAutocompleteProps> = ({
             return;
         }
 
+        const normQuery = normalizeSearchTerm(query);
         const filtered = filteredList.filter(c => 
-            c.name.toLowerCase().includes(query.toLowerCase())
+            normalizeSearchTerm(c.name).includes(normQuery)
         ).slice(0, 50);
         
         setSuggestions(filtered);

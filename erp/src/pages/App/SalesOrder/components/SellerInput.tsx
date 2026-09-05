@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { subscribeToPeople } from '@/pages/utils/personService';
 import Person from '@/pages/types/person.type';
 import { isValidEmployee } from '@/pages/utils/accessRoles';
+import { normalizeSearchTerm } from '@/pages/utils/textUtils';
 
 interface SellerInputProps {
     value: string;
@@ -52,11 +53,11 @@ export const SellerInput: React.FC<SellerInputProps> = ({
     }, []);
 
     const filtered = employees.filter(e => {
-        const term = filterText.toLowerCase();
+        const term = normalizeSearchTerm(filterText);
         return (
-            (e.fullName || '').toLowerCase().includes(term) ||
-            (e.nickname || '').toLowerCase().includes(term) ||
-            (e.position || '').toLowerCase().includes(term)
+            normalizeSearchTerm(e.fullName || '').includes(term) ||
+            normalizeSearchTerm(e.nickname || '').includes(term) ||
+            normalizeSearchTerm(e.position || '').includes(term)
         );
     });
 

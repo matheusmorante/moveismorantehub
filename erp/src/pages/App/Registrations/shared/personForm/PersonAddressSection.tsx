@@ -61,7 +61,7 @@ export const PersonAddressSection: React.FC<PersonAddressSectionProps> = ({
             </div>
 
             {(!isEmployee || isAddressOpen) && (
-                <div className={`grid grid-cols-1 md:grid-cols-3 gap-6 transition-all ${formData.noAddress ? 'opacity-30 grayscale pointer-events-none' : ''}`}>
+                <div className={`grid grid-cols-1 md:grid-cols-4 gap-6 transition-all ${formData.noAddress ? 'opacity-30 grayscale pointer-events-none' : ''}`}>
                     <div className="flex flex-col gap-2">
                         <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">CEP</label>
                         <input
@@ -95,7 +95,7 @@ export const PersonAddressSection: React.FC<PersonAddressSectionProps> = ({
                         label="Logradouro"
                         required={collectionName === 'customers'}
                         routeUrl={routeUrl}
-                        className="md:col-span-2 flex flex-col gap-2 relative group/field"
+                        className="md:col-span-3 flex flex-col gap-2 relative group/field"
                     />
                     <div className="flex flex-col gap-2">
                         <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">Número {collectionName === 'customers' && <span className="text-red-500">*</span>}</label>
@@ -115,7 +115,7 @@ export const PersonAddressSection: React.FC<PersonAddressSectionProps> = ({
                             className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none transition-all text-sm font-bold dark:text-slate-100"
                         />
                     </div>
-                    <div className="flex flex-col gap-2">
+                    <div className="flex flex-col gap-2 md:col-span-2">
                         <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">Complemento</label>
                         <input
                             type="text"
@@ -125,7 +125,7 @@ export const PersonAddressSection: React.FC<PersonAddressSectionProps> = ({
                             placeholder="Opcional"
                         />
                     </div>
-                    <div className="flex flex-col gap-2">
+                    <div className="flex flex-col gap-2 md:col-span-3">
                         <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">Cidade {collectionName === 'customers' && <span className="text-red-500">*</span>}</label>
                         <input
                             type="text"
@@ -147,7 +147,7 @@ export const PersonAddressSection: React.FC<PersonAddressSectionProps> = ({
                     </div>
                     {collectionName === 'customers' && (
                         <>
-                            <div className="flex flex-col gap-2">
+                            <div className="flex flex-col gap-2 md:col-span-1">
                                 <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">Tipo de Moradia</label>
                                 <select
                                     value={(formData.fullAddress as any)?.housingType || ""}
@@ -189,7 +189,7 @@ export const PersonAddressSection: React.FC<PersonAddressSectionProps> = ({
                                     placeholder="https://maps.app.goo.gl/... ou link copiado do Google Maps"
                                 />
                             </div>
-                            <div className="md:col-span-3 flex flex-col gap-2">
+                            <div className="md:col-span-4 flex flex-col gap-2">
                                 <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">Observações sobre o Endereço</label>
                                 <input
                                     type="text"

@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import html2canvas from 'html2canvas';
 import { toast } from 'react-toastify';
 import { supabase } from '@/pages/utils/supabaseConfig';
+import { normalizeSearchTerm, buildAccentInsensitiveRegex } from '@/pages/utils/textUtils';
 import { LabelConfig } from './LabelConstants';
 import { PriceLabelArtRenderer } from './PriceLabelArtRenderer';
 import { calculateLabelPhysicalSize } from './LabelPhysicalGeometry';
@@ -343,14 +344,14 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
                     }
                 } catch (e) {}
 
-                const term = productSearchTerm.trim().toLowerCase();
+                const term = normalizeSearchTerm(productSearchTerm);
 
                 // Filtrar itens do cache local se houver busca
                 let filteredLocal = localItems;
                 if (term) {
                     filteredLocal = localItems.filter((p: any) => {
-                        const desc = String(p.name || p.title || p.marketplaceTitle || p.description || '').toLowerCase();
-                        const code = String(p.code || p.sku || '').toLowerCase();
+                        const desc = normalizeSearchTerm(p.name || p.title || p.marketplaceTitle || p.description || '');
+                        const code = normalizeSearchTerm(p.code || p.sku || '');
                         return desc.includes(term) || code.includes(term);
                     });
                 }
@@ -366,7 +367,8 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
                         .limit(40);
 
                     if (term) {
-                        query = query.or(`name.ilike.%${term}%,description.ilike.%${term}%,code.ilike.%${term}%`);
+                        const regexPattern = `.*${buildAccentInsensitiveRegex(term)}.*`;
+                        query = query.or(`name.imatch.${regexPattern},description.imatch.${regexPattern},name.ilike.%${term}%,description.ilike.%${term}%,code.ilike.%${term}%`);
                     }
 
                     const res = await query;

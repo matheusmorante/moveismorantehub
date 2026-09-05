@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/pages/utils/supabaseConfig';
+import { normalizeSearchTerm } from '@/pages/utils/textUtils';
 
 export type LabelPrintType = 'identification' | 'price';
 
@@ -93,11 +94,11 @@ const LabelPrintSelectionModal: React.FC<LabelPrintSelectionModalProps> = ({
     }, []);
 
     const filteredProducts = allProducts.filter(p => {
-        const q = search.toLowerCase();
+        const q = normalizeSearchTerm(search);
         return (
-            p.description?.toLowerCase().includes(q) ||
-            p.code?.toLowerCase().includes(q) ||
-            p.sku?.toLowerCase().includes(q)
+            normalizeSearchTerm(p.description || '').includes(q) ||
+            normalizeSearchTerm(p.code || '').includes(q) ||
+            normalizeSearchTerm(p.sku || '').includes(q)
         );
     });
 

@@ -15,7 +15,7 @@ type PeriodFilter = 'today' | '7_days' | 'month' | 'last_month';
 
 export default function ApiUsagePage() {
     const [period, setPeriod] = useState<PeriodFilter>('month');
-    const [environment, setEnvironment] = useState<ApiEnvironment>('production');
+    const [environment, setEnvironment] = useState<ApiEnvironment | 'all'>('all');
     const [selectedProvider, setSelectedProvider] = useState<string>('all');
     const [selectedServiceId, setSelectedServiceId] = useState<string>('google_routes');
 
@@ -107,6 +107,16 @@ export default function ApiUsagePage() {
                 <div className="flex items-center gap-2.5 flex-wrap">
                     {/* Ambiente */}
                     <div className="flex bg-slate-100 dark:bg-slate-800/80 p-1 rounded-xl border border-slate-200/60 dark:border-slate-700/60 text-xs font-black">
+                        <button
+                            onClick={() => setEnvironment('all')}
+                            className={`px-3 py-1.5 rounded-lg transition-all ${
+                                environment === 'all'
+                                    ? 'bg-white dark:bg-slate-900 text-blue-600 shadow-sm'
+                                    : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
+                            }`}
+                        >
+                            Todos
+                        </button>
                         <button
                             onClick={() => setEnvironment('production')}
                             className={`px-3 py-1.5 rounded-lg transition-all ${

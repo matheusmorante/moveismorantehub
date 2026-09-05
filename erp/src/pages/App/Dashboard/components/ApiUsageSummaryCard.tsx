@@ -15,7 +15,7 @@ export default function ApiUsageSummaryCard() {
                 const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
                 const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split('T')[0];
                 
-                const data = await ApiUsageTracker.getDashboardMetrics(startOfMonth, endOfMonth, 'production');
+                const data = await ApiUsageTracker.getDashboardMetrics(startOfMonth, endOfMonth, 'all');
                 if (isMounted) {
                     setMetrics(data);
                 }

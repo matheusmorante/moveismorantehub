@@ -1,122 +1,182 @@
 ---
 name: testes-seguros-erp
-description: Planeje e execute testes seguros do ERP em alterações de regras de negócio, banco, estoque, vendas, recebimentos, devoluções, custos, relatórios ou integrações, sem tocar dados reais.
+description: Planeje e execute testes seguros do ERP e App Mobile em alterações de regras de negócio, banco, estoque, vendas, recebimentos, devoluções, custos, relatórios ou integrações, sem tocar dados reais, com suporte a roadmap cíclico contínuo e Docker.
 ---
 
-# Testes seguros do ERP
+# Testes Seguros do ERP & App Mobile
 
-Use esta skill sempre que a mudança puder alterar regras de negócio, persistência ou efeitos entre módulos. Para alterações estritamente visuais, aplique-a somente se houver dúvida razoável sobre efeito comportamental.
+Use esta skill sempre que a mudança puder alterar regras de negócio, persistência, interface ou efeitos entre módulos. Também utilize-a como guia mestre para executar e continuar o **Roadmap Cíclico de Testes Contínuos** do Morante Hub.
 
-## Regra de ouro
+---
 
-Teste regras reais do ERP com dados isolados, reproduzíveis e descartáveis. Nunca use, edite, cancele ou tente restaurar registros reais/preexistentes como massa de teste.
+## 1. Regra de Ouro da Blindagem de Dados
 
-Priorize testes de integração da camada de serviço, regras de negócio, unidades, invariantes, idempotência e concorrência quando aplicável. Use browser/E2E apenas para fluxos estratégicos; a interface não é prova suficiente de uma regra crítica.
+> [!CAUTION]
+> **NUNCA TOCAR DADOS REAIS DE PRODUÇÃO OU CLIENTES EXISTENTES.**
+> Teste regras reais com dados 100% isolados, reproduzíveis e descartáveis. Se for fazer adição, criação, edição ou remoção de qualquer dado no banco de dados, utilize **EXCLUSIVAMENTE DADOS DE TESTE** identificados com prefixo padronizado (`[TESTE_AUT]` ou `testRunId`).
 
-## Camada e armazenamento adequados
+1. **Geração de `testRunId`**: Cada bateria gera um identificador único, ex: `TESTE_HUB_20260905_120000_F4A12`.
+2. **Campos Seguros**: O `testRunId` deve estar presente no nome do cliente (`Cliente Teste [TESTE_AUT]`), código de referência, SKU ou observações.
+3. **Limpeza Garantida (Teardown)**: Ao concluir cada teste ou suíte, execute a limpeza imediata de todos os registros contendo o `testRunId` em bloco `finally` ou hooks de pós-execução.
+4. **Ambiente Não-Produção**: Confirme que a execução ocorre em ambiente local, banco de testes ou staging isolado. Se não for possível garantir o isolamento, aborte qualquer operação que execute escrita ou mutação.
 
-Escolha a camada mais simples capaz de provar corretamente o comportamento:
+---
 
-| Necessidade | Execução e dados |
-| --- | --- |
-| Cálculo, validação, total, CMV, custo médio ou transição determinística | Teste unitário totalmente em memória. |
-| Regra que depende de porta/repositório, mas não de SQL | Fake, mock ou repositório em memória. |
-| Query, constraint, relação, transação, migration, atomicidade ou concorrência | PostgreSQL/Supabase exclusivo de testes. |
-| Fluxo completo entre módulos | Aplicação e banco de testes; poucos cenários. |
-| Comportamento de interface realmente crítico | E2E/browser, de forma estratégica. |
+## 2. Uso de Docker no Ambiente de Testes
 
-Não use localStorage para simular PostgreSQL/Supabase. Ele só pode ser testado quando a funcionalidade real usar localStorage.
+> [!IMPORTANT]
+> **Detecção Automática do Docker**: Se o Docker estiver ligado e em execução no sistema, ele **DEVE SER UTILIZADO** como ambiente preferencial para isolamento total dos testes de integração e banco de dados.
 
-## Segurança para dados persistentes
+### Protocolo de Detecção e Seleção de Runtime:
+1. **Verificar se o Docker está ativo**:
+   Executar comando de checagem: `docker ps` ou `docker compose ps`.
+2. **Se o Docker ESTIVER ATIVO**:
+   - Suba/utilize o contêiner dedicado de testes do PostgreSQL/Supabase local (`docker compose -f docker-compose.test.yml up -d` ou contêiner existente de testes).
+   - Execute as migrations de teste no contêiner isolado.
+   - Conecte a suíte de testes de integração à porta do contêiner Docker.
+   - Ao final dos testes destrutivos ou do ciclo, limpe o estado do contêiner ou execute `down -v` se aplicável.
+3. **Se o Docker NÃO ESTIVER ATIVO (ou não instalado)**:
+   - Recorra ao ambiente de testes seguro local com mocks em memória (`vitest`), transações de banco com `ROLLBACK` automático no Supabase dev/staging, ou factories controladas com `testRunId` e limpeza explícita no `finally`.
+   - Nunca interrompa o processo de testes apenas pela ausência do Docker; use o fallback seguro.
 
-Antes de qualquer teste que grave dados:
+---
 
-1. Confirme que o ambiente não é produção. Prefira banco dedicado de testes; em seguida, ambiente local/dev isolado. Se não for possível confirmar, não execute teste destrutivo.
-2. Gere um `testRunId` único, como `TESTE_ERP_20260831_220500_A7F92`, e o aplique em campos seguros existentes (nome, observação, descrição, referência ou código) em todos os registros criados.
-3. Localize e remova somente resíduos inequivocamente marcados por execuções anteriores, respeitando dependências. Nunca apague algo apenas porque parece teste.
-4. Prefira transação com rollback quando ela representar fielmente o fluxo. Caso contrário, use cleanup em `finally`/hooks e valide ao final que não há registros com o `testRunId`.
+## 3. Matriz Completa de Tipos de Testes
 
-Cada teste cria seus próprios dados e não depende de ordem, de execução anterior ou de registros compartilhados. Use factories/fixtures que recebam o `testRunId` para impedir dados sem marcação.
+A suíte do Morante Hub engloba **todos os tipos possíveis de teste** para assegurar tanto a lógica profunda de negócio quanto a integridade da interface:
 
-Testes de integração devem usar PostgreSQL/Supabase de teste, não SQLite nem estruturas simplificadas que escondam diferenças relevantes. A suíte destrutiva deve exigir credenciais explicitamente destinadas a teste e abortar se elas estiverem ausentes ou apontarem para produção; nunca confiar apenas no nome de um arquivo `.env`.
+| Tipo de Teste | Escopo | Ferramentas / Métodos |
+|---|---|---|
+| **Testes Unitários** | Funções puras, cálculos de CMPM, CMV, frete, descontos, transições de status, máscaras de moeda, formatação de endereço, slots de horário. | Vitest (`npm --prefix erp run test:unit`), Jest. Execução em memória sem dependências externas. |
+| **Testes de Integração** | Serviços de Venda, Estoque, Movimentações, Conciliação Financeira, APIs externas (Google Maps, SEFAZ schemas). | Vitest com banco isolado (Docker se ativo / staging isolado com `testRunId`). |
+| **Testes E2E / Interface / Visual** | Navegação, telas full screen, tabelas, cards responsivos (<1280px vs >=1280px), formulários, bottom sheets, modais. | Browser Subagent, Playwright, Chrome DevTools. Validação visual de renderização e fluxos de clique/input. |
+| **Testes de Tipagem & Contratos** | Conformidade TypeScript, integridade de propriedades herdadas, schemas tributários, eventos mobile. | `node mobile/node_modules/typescript/bin/tsc --noEmit`, `npm --prefix erp run typecheck`. |
+| **Testes Mobile Offline-First** | Registro de eventos operacionais, ciclo de 4 estados (`PENDING` → `SYNCING` → `CONFIRMED` / `REJECTED`), fila de sync e autoridade do backend. | Mocks de AsyncStorage/NetInfo, testes dos hooks de rotas e sincronização. |
 
-## O que validar
+---
 
-Para toda funcionalidade nova ou correção, identifique regras tocadas, entidades alteradas e efeitos colaterais. Teste caminho feliz, erros, repetição/idempotência, cancelamento ou reversão quando aplicável e integração com módulos relacionados. Um retorno HTTP bem-sucedido não substitui a validação do estado final.
+## 4. Ordem Oficial dos Módulos Vitais e Críticos
 
-Para uma regressão, adicione teste que reproduza o defeito: ele deve falhar na implementação defeituosa e passar com a correção. Não altere um teste só para ocultar divergência; confirme a regra oficial e corrija teste ou implementação conforme ela.
+Os testes devem seguir rigorosamente a **ordem de criticidade do negócio**:
 
-### Estoque, CMPM e CMV
+```
+[MÓDULO 1] Vendas & Pedidos de Venda (SalesOrder)
+    ↓
+[MÓDULO 2] Estoque, Movimentações, CMPM e CMV
+    ↓
+[MÓDULO 3] Logística, Entregas e Montagens (ERP & Mobile)
+    ↓
+[MÓDULO 4] Fiscal (NF-e / NFC-e SEFAZ-PR Direto)
+    ↓
+[MÓDULO 5] Financeiro, Recebimentos e Contas a Receber
+    ↓
+[MÓDULO 6] Produtos, Variações & Catálogo Digital
+    ↓
+[MÓDULO 7] Pessoas, Clientes, Fornecedores & Geocodificação
+    ↓
+[MÓDULO 8] Catálogo Digital & Integração Meta
+    ↓
+[MÓDULO 9] Relatórios Gerenciais, DRE & Métricas Comerciais
+    ↓
+[RECOMEÇO DO CICLO] → Retorna ao [MÓDULO 1] (Ciclo N+1)
+```
 
-Quando envolver estoque, recebimento, vendas, devoluções, inventário, ajuste, cancelamento ou custo:
+---
 
-- valide efeitos de estoque e custo com valores controlados;
-- execute a mesma ação duas vezes para provar que não duplica movimentos;
-- compare o estado materializado (`stock`, `costPrice`) com o replay do histórico para a massa de teste;
-- assegure que venda preserva custo médio unitário, recebe CMV da data do evento e que custo desconhecido não vira zero;
-- cubra estoque zerado, correções históricas e devolução/cancelamento como eventos distintos;
-- teste concorrência quando houver possibilidade de atualizações simultâneas.
+## 5. Roteiro Cíclico Contínuo e Continuação por Goals
 
-Mantenha duas camadas: muitos cenários matemáticos em memória e poucos cenários completos no PostgreSQL de teste. Concorrência e transações exigem banco real de teste, pois mocks não revelam perdas de atualização.
+> [!IMPORTANT]
+> **Roteiro Cíclico Infinito**: O teste nunca termina em um ponto morto. Quando o **Módulo 9** é concluído com sucesso, o roteiro **recomeça no Módulo 1** em uma nova rodada de checagem (Ciclo 1 → Ciclo 2 → Ciclo 3...).
+> **Continuação Exata de Onde Parou**: Sempre que o usuário solicitar *"continue os testes"*, *"prossiga com o roteiro"* ou acionar a execução, o agente deve obrigatoriamente ler o arquivo de tracking `docs/ROTEIRO_TESTES_CICLICOS.md`, identificar o último goal/módulo concluído e retomar a partir da etapa seguinte.
 
-Para pedidos de venda, cubra criação, itens cadastrados e temporários, agendamento, movimentação correspondente, cancelamento/estorno e vinculação posterior de item temporário, garantindo efeito uma única vez. Para relatórios, valide faturamento, CMV, lucro, margem e efeitos de devoluções/cancelamentos com dados conhecidos.
+### Protocolo de Execução do Roteiro Cíclico:
 
-## Auditoria de integridade de estoque e relatórios
+1. **Leitura do Checkpoint**:
+   Abra e leia `docs/ROTEIRO_TESTES_CICLICOS.md`. Identifique:
+   - `Ciclo Atual` (ex: Ciclo 1)
+   - `Módulo Atual` (ex: Módulo 3 - Logística)
+   - `Próxima Etapa / Goal` (ex: Etapa 3.2 - Teste da Tela de Etapas da Entrega)
+2. **Detecção de Ambiente**:
+   Cheque se Docker está rodando. Se sim, use Docker. Se não, use o ambiente seguro in-memory / local dev.
+3. **Execução da Etapa Atual**:
+   - Execute os testes correspondentes (unitários, integração, tipo ou interface).
+   - Se envolver persistência, gere `testRunId`, crie dados com `[TESTE_AUT]`, valide os resultados e faça o teardown completo.
+4. **Registro de Resultados**:
+   - Atualize `docs/ROTEIRO_TESTES_CICLICOS.md` com:
+     - Status: `PASSOU`, `FALHOU` ou `AVISO`.
+     - Evidência técnica (log, saída do comando, screenshot se visual).
+     - Registro de qualquer bug detectado para correção imediata.
+5. **Avanço do Cursor de Goals**:
+   - Avance o cursor para a próxima etapa.
+   - Se completou o Módulo 9, atualize `Ciclo Atual = Ciclo + 1` e aponte para `Módulo 1 - Etapa 1.1`.
+6. **Reporte ao Usuário**:
+   Apresente um resumo claro do que foi testado, qual foi o resultado, e qual é o próximo goal pronto para execução.
 
-Use este protocolo complementar quando a solicitação envolver auditar, testar ponta a ponta ou corrigir a cadeia de estoque, CMPM/CMV ou relatórios de vendas. Ele não substitui as regras oficiais do ERP: antes de testar, leia `regras-de-negocio-erp` e o código efetivamente responsável pelos fluxos.
+---
 
-### Modos de execução
+## 6. Detalhamento dos Módulos no Roteiro
 
-- **Auditoria de produção:** somente leitura. Pode comparar registros, movimentos, saldos materializados e relatórios existentes, mas nunca cria massa de teste, recalcula cache ou corrige dados reais.
-- **Teste de integração:** usa exclusivamente banco de testes/local isolado, com `testRunId`, dados conhecidos e limpeza comprovada.
-- **Correção:** acontece depois de localizar e explicar a causa. Corrija a regra ou a persistência necessária, adicione a regressão que reproduz o defeito e rode novamente toda a cadeia afetada. Não faça "correção" silenciosa de histórico de produção sem escopo e aprovação explícitos.
+### [MÓDULO 1] Vendas & Pedidos de Venda (`SalesOrder`)
+- **1.1 Código Sequencial Único (`orderIndex`)**: Validação de formato `#00XXXX`, não-nulo, unicidade estrita, bloqueio sem código, blindagem em updates parciais.
+- **1.2 Ciclo de Vida e Status**: Transição `draft` → `scheduled` (para entregas com agendamento) ou `fulfilled` (para retiradas imediatas).
+- **1.3 Ações Pós-Venda (`PostOrderActionsModal`)**: Garantia de que ações de impressão/WhatsApp nunca revertem status para rascunho nem perdem `orderIndex`.
+- **1.4 Itens e Manuseio de Montagem**: Preservação estrita do manuseio selecionado; selos amarelo (`Montagem Depósito`) e vermelho (`Montagem Fora`) com ícone `Drill` preenchido.
+- **1.5 Cálculos Financeiros do Pedido**: Subtotal, descontos (R$ e %), frete manual vs automático, acréscimos, valor total líquido, troco.
+- **1.6 Interface Full Screen**: Modal de pedido em tela cheia (`z-[999999]`) sobrepondo o header, bloqueio de scroll do body e ausência de barra vertical nos inputs numéricos (`CurrencyInput`).
 
-### Preparação e oráculo independente
+### [MÓDULO 2] Estoque, Movimentações, CMPM e CMV
+- **2.1 Entradas de Estoque**: Criação de movimentos de entrada (`inventory_moves`), cálculo correto do Custo Médio Ponderado Móvel (CMPM).
+- **2.2 Saídas por Venda**: Saída única e irreversível vinculada ao pedido atendido; CMV materializado com base no CMPM da data da venda.
+- **2.3 Idempotência**: Validação contra duplicação de saídas ou entradas ao recarregar a tela ou reenviar requisições.
+- **2.4 Cancelamentos & Estornos**: Cancelamento de pedido estorna as saídas de estoque recompondo o saldo físico sem duplicar registros de auditoria.
+- **2.5 Devoluções de Venda**: Entrada única para itens devolvidos recuperando o CMV original histórico da venda, sem usar o custo atual.
 
-1. Mapeie tabelas, serviços, status, constraints e origem de cada relatório; não invente campos ou transições.
-2. Para cada SKU/variação de teste, comece com saldo e custo conhecidos e monte uma linha do tempo com data efetiva e critério de desempate existente no sistema.
-3. Calcule fora da interface o esperado: quantidade, valor de estoque, CMPM, CMV por saída, faturamento, devolução e margem. Esse cálculo é o oráculo; não reutilize a mesma função sob teste para provar a própria regra.
-4. Depois de cada evento, compare o esperado com `inventory_moves` efetivos, `stock`/`costPrice` materializados, histórico da tela e relatório. `inventory_moves` efetivos são a fonte de verdade; caches precisam coincidir com o replay.
+### [MÓDULO 3] Logística, Entregas e Montagens (ERP & App Mobile)
+- **3.1 Sem Ordem Compulsória**: Agendamentos por período (`13:00–18:00`) exibem pin normal sem cadeado e sem `#1, #2, #3`; horários fixos (`15:00`) exibem cadeado `🔒`.
+- **3.2 Hub de Entregas Mobile (Hoje, Cronograma, Mapa)**: Estado sem seleção compacto ("X entregas pendentes hoje"), clique no marcador destaca pin e substitui card, botão `X` limpa seleção.
+- **3.3 Depósito Móveis Morante**: Pin diferenciado (`🏬`), sem opções de entrega.
+- **3.4 Fluxo de Início de Entrega**: Clique em `[ INICIAR ENTREGA ]` direciona para a tela de etapas existente; primeira etapa oferece `[ ABRIR ROTA NO GOOGLE MAPS ]` via navegação externa no Android.
+- **3.5 Mobile Offline-First**: Eventos operacionais locais com UUID idempotente, ciclo de 4 estados (`PENDING` → `SYNCING` → `CONFIRMED` / `REJECTED`).
 
-### Matriz mínima de auditoria
+### [MÓDULO 4] Fiscal (NF-e / NFC-e SEFAZ-PR Direto)
+- **4.1 Modal de Emissão Fiscal**: Lista de itens da venda sem numeração estática `#1, #2...`. Destaque para itens temporários (`!productId`).
+- **4.2 Campos Tributários Obrigatórios**: NCM pesquisável com `NcmSelect`, CFOP, CSOSN/CST, Origem e CEST selecionáveis via `<select>`.
+- **4.3 Validação de XML & Schemas**: Validação dos nós XML contra schemas oficiais do SEFAZ-PR antes da transmissão.
+- **4.4 DANFE & Contingência**: Geração de espelho DANFE e tratamento de contingência sem perda de dados fiscais.
 
-| Evento | Evidência obrigatória |
-| --- | --- |
-| Recebimento | Uma entrada por item cadastrado, quantidade/custo/data corretos, saldo e CMPM atualizados. Criar o pedido de compra, por si só, não pode gerar entrada física. |
-| Venda agendada ou atendida | Uma única saída por item cadastrado, com quantidade, vínculo e CMV materializado. Item temporário não ganha movimento artificial. |
-| Repetição/reload/concorrência | Nenhuma entrada, saída, devolução ou ajuste duplicado; validar idempotência no banco, não apenas no botão. |
-| Cancelamento | Estorna as saídas vinculadas e recompõe o saldo sem fingir uma devolução; histórico de auditoria permanece. |
-| Devolução atendida | Cria uma única entrada para item cadastrado; a saída original continua existindo. Devolução agendada não movimenta. O custo de retorno usa o CMV histórico confiável da venda, nunca o custo atual. |
-| Item temporário e reconciliação | O temporário não movimenta até haver referência operacional válida. Ao reconciliar venda/devolução já efetivada, valide a materialização histórica prevista pela regra oficial, sem duplicidade, com replay quando aplicável. |
-| Inventário/ajuste | Diferença entre contagem física e saldo calculado gera ajuste único; movimentos de inventário confirmado são imutáveis. |
+### [MÓDULO 5] Financeiro, Recebimentos e Contas a Receber
+- **5.1 Geração de Contas a Receber**: Parcelamento, vencimentos e valores gerados automaticamente na conclusão do pedido.
+- **5.2 Baixas e Formas de Pagamento**: Baixas parciais e totais (Dinheiro, PIX, Cartão, Boleto, Promissória).
+- **5.3 Conciliação de Caixa**: Fechamento de caixa diário e conferência de recebimentos por operador.
 
-### Correções históricas de custo
+### [MÓDULO 6] Produtos, Variações & Catálogo Digital
+- **6.1 Ativo / Desativado vs Publicado / Oculto**: Independência total entre ativação no ERP (`active: true/false`) e publicação no Catálogo Digital (`published/hidden`).
+- **6.2 Rascunhos**: Exibição na listagem principal com badge âmbar, bloqueio de ativação/publicação até conclusão e botão "Descartar Rascunho" nos 3 pontinhos.
+- **6.3 Variações Filhas**: Herança padrão de informações do produto pai (`syncDescription`, dimensões, peso); cards brancos individuais e fundo cinza para o pai.
+- **6.4 Fotos 1:1 (`SquareImageCropper`)**: Proporção quadrada sem borda interna, cantos retos e canvas livre de erro CORS tainted.
+- **6.5 Responsividade**: Cards em resoluções `< 1280px` e Tabela em `>= 1280px`.
 
-Quando alterar custo, quantidade ou data efetiva de um recebimento/entrada passada, teste obrigatoriamente:
+### [MÓDULO 7] Pessoas, Clientes, Fornecedores & Geocodificação
+- **7.1 Validações Cadastrais**: CPF/CNPJ, máscaras, estado padrão Paraná (`PR`).
+- **7.2 Autocomplete de Endereços**: Google Places restrito a logradouros/ruas (sem estabelecimentos comerciais).
+- **7.3 Geocodificação Resiliente**: Fallback de coordenadas (número → rua → bairro/cidade) com proteção de cota Google Cloud (margem 70%).
 
-1. o replay cronológico determinístico somente do SKU/variação afetado;
-2. o novo CMPM após cada evento posterior;
-3. o CMV recalculado das saídas posteriores que dependem desse histórico;
-4. `costPrice` e `stock` finais iguais ao replay;
-5. pedidos, saídas e relatórios fora do SKU/período afetado inalterados.
+### [MÓDULO 8] Catálogo Digital & Integração Meta
+- **8.1 Visualização Digital**: Renderização correta de produtos publicados, fotos e preços.
+- **8.2 Geração de Feed Meta**: Formato XML/CSV padronizado para sincronização de catálogo no Facebook/Instagram.
 
-Custo desconhecido é desconhecido: nunca substitua por zero apenas para fechar conta. Use tolerância decimal definida pelo domínio e informe qualquer arredondamento.
+### [MÓDULO 9] Relatórios Gerenciais, DRE & Métricas Comerciais
+- **9.1 Faturamento Líquido vs Bruto**: Dedução de devoluções e desconsideração de pedidos cancelados.
+- **9.2 Apuração de Margem e Lucro**: Confronto de faturamento com o CMV real do estoque.
+- **9.3 Comissões**: Cálculo correto por vendedor e montador de acordo com regras operacionais.
 
-### Relatórios comerciais e operacionais
+---
 
-Valide as duas histórias sem misturá-las:
+## 7. Encerramento de Ciclo e Reinício
 
-- estoque físico vem de movimentos válidos, estornos e ajustes;
-- faturamento, devoluções, venda líquida, CMV, lucro e margem vêm dos registros comerciais e seus snapshots históricos.
+Ao concluir o Módulo 9:
+1. Registre o fechamento do ciclo atual em `docs/ROTEIRO_TESTES_CICLICOS.md`.
+2. Incremente o contador de ciclo: `Ciclo 1 → Ciclo 2`.
+3. Aponte o cursor de execução de volta para `Módulo 1 (Vendas & Pedidos)`.
+4. Comunique o sucesso da rodada ao usuário, indicando eventuais pontos de atenção e deixando o próximo ciclo pronto para ser continuado sob demanda.
 
-Confirme que devolução reduz o resultado comercial mesmo quando um item não movimenta estoque, que cancelamento não é contado como devolução e que item temporário continua no faturamento. Compare totais, quantidades e agrupamentos com uma planilha/cálculo independente para a massa controlada.
-
-### Registro de achados e correções
-
-Para cada cenário, registre: `testRunId`, dados iniciais, eventos/data, movimentos esperados e encontrados, saldo/CMPM/CMV esperado e encontrado, totais de relatório, evidência técnica e resultado. Classifique como crítico quando houver duplicidade, divergência de saldo, CMV histórico alterado indevidamente ou divergência comercial.
-
-Antes de corrigir, descreva comportamento atual, regra violada, causa provável e alcance. Após a correção, registre os arquivos/migrations alterados e execute o cenário que falhava mais regressões de recebimento, venda, devolução, cancelamento e relatório relacionadas.
-
-## Encerramento
-
-Informe cenários executados, resultados, bugs e correções. Em bateria persistente, informe explicitamente o `testRunId`, se o cleanup foi validado e qualquer resíduo que não pôde ser removido com segurança.

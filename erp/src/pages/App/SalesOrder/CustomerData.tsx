@@ -5,6 +5,7 @@ import CustomerData from "../../types/customerData.type";
 import Person from "../../types/person.type";
 import { ValidationErrors } from "../../utils/validations";
 import { toTitleCase } from "../../utils/formatters";
+import { normalizeSearchTerm } from "../../utils/textUtils";
 import PersonFormModal from "../Registrations/shared/PersonFormModal";
 
 interface Props {
@@ -53,10 +54,11 @@ const CustomerDataInputs = ({ customerData, setCustomerData, errors, marketingOr
     }, [customers, customerData.id]);
 
     const filteredCustomers = useMemo(() => {
-        const term = searchTerm.trim().toLowerCase();
+        const term = normalizeSearchTerm(searchTerm);
         if (!term) return customers;
         return customers.filter((customer) =>
-            (customer.fullName || customer.tradeName || "").toLowerCase().includes(term)
+            normalizeSearchTerm(customer.fullName || customer.tradeName || "").includes(term)
+            || (customer.phone || "").replace(/\D/g, '').includes(term.replace(/\D/g, ''))
             || (customer.phone || "").includes(term)
         );
     }, [customers, searchTerm]);

@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { supabase } from '@/pages/utils/supabaseConfig';
+import { normalizeSearchTerm } from '@/pages/utils/textUtils';
 
 interface ProductReference {
     id: string;
@@ -86,9 +87,10 @@ const ProductReferenceModal: React.FC<ProductReferenceModalProps> = ({
         setLoading(false);
     };
 
+    const normSearch = normalizeSearchTerm(searchTerm);
     const filteredReferences = references.filter(r => 
-        r.master_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        r.reference_name.toLowerCase().includes(searchTerm.toLowerCase())
+        normalizeSearchTerm(r.master_name).includes(normSearch) ||
+        normalizeSearchTerm(r.reference_name).includes(normSearch)
     );
 
     if (!isOpen) return null;
