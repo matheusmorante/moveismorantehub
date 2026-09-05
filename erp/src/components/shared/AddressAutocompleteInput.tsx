@@ -79,7 +79,7 @@ export const AddressAutocompleteInput: React.FC<Props> = ({
             clearTimeout(searchTimerRef.current);
         }
 
-        if (val.trim().length >= 2) {
+        if (val.trim().length >= 3) {
             setLoading(true);
             setIsOpen(true);
 
@@ -100,7 +100,7 @@ export const AddressAutocompleteInput: React.FC<Props> = ({
                         setLoading(false);
                     }
                 }
-            }, 300);
+            }, 600);
         } else {
             setSuggestions([]);
             setIsOpen(false);

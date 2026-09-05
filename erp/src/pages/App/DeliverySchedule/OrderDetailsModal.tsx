@@ -50,13 +50,7 @@ const OrderDetailsModal = ({ order: initialOrder, onClose, onEdit, isReadOnly }:
         }
     };
 
-    useEffect(() => {
-        const needsCalc = !isReadOnly && !isPickup && (!order.shipping?.distance || !order.shipping?.durationMinutes);
-        if (needsCalc) {
-            handleRecalculate();
-        }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
+    // Recálculo acionado sob demanda pelo operador através do botão correspondente
 
     useEffect(() => {
         const originalOverflow = document.body.style.overflow;

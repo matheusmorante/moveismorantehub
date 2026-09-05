@@ -1,5 +1,7 @@
 # Regras e Comportamentos do Sistema - Morante Hub
 
+# Regras e Comportamentos do Sistema - Morante Hub
+
 Este documento registra as regras e comportamentos **implementados** no sistema, organizados por modulo, para evitar regressoes.
 
 ---
@@ -10,8 +12,9 @@ Este documento registra as regras e comportamentos **implementados** no sistema,
   1. **Tamanho e Coesão (`modularizacao_codigo`)**: Quantas linhas tem o arquivo? Possui responsabilidade única clara? Se ultrapassar 150–200 linhas ou misturar múltiplos domínios, o agente é OBRIGADO a apontar a infração ao usuário e propor/consultar a modularização segura.
   2. **Regras de Negócio (`regras-de-negocio-erp`)**: O arquivo toca pedidos, estoque, custos, devoluções, recebimentos ou fiscal? As regras oficiais de negócio estão sendo estritamente preservadas sem alterações silenciosas?
   3. **Retrocompatibilidade e Histórico (`analise-compatibilidade-mudancas`)**: A alteração afeta snapshots, formatos de dados legados ou estruturas persistidas? Garantir fallbacks resilientes.
-  4. **Mobile Offline-First (`mobile-offline-first`)**: Se for código do App Mobile em contexto operacional, respeita o ciclo de 4 estados de eventos e autoridade do backend?
-  5. **Testes e Validação (`testes-seguros-erp`)**: Validar com testes automatizados antes de concluir a resposta.
+  4. **Proteção Contra Custos Cloud (`cloud-free-tier-guard`)**: Se a alteração tocar APIs externas, Cloud, Google Maps, Gemini ou requisições faturáveis, respeita estritamente o teto de R$ 0,00, margem de segurança de 70% do Free Tier, cota diária conservadora, debounce, cache e circuit breaker contra loops?
+  5. **Mobile Offline-First (`mobile-offline-first`)**: Se for código do App Mobile em contexto operacional, respeita o ciclo de 4 estados de eventos e autoridade do backend?
+  6. **Testes e Validação (`testes-seguros-erp`)**: Validar com testes automatizados antes de concluir a resposta.
 - **Git Push**: Nao executar `git push` automaticamente. Aguardar solicitacao explicita do usuario.
 - **Modularização Segura e Código Limpo (`modularizacao_codigo`)**: Cada arquivo deve possuir uma única responsabilidade clara. Alvo recomendado de 30–100 linhas (aceitável até aproximadamente 150 linhas; acima de 200 linhas ou infração real analisar divisão). Estratégia conservadora sem perda de código: **COPIAR → VALIDAR → CONECTAR → TESTAR → SÓ DEPOIS REMOVER**. Nunca alterar regras de negócio silenciosamente durante refatorações. **O agente deve perguntar explicitamente ao usuário no final da resposta se ele deseja modularização SOMENTE se o arquivo tocado realmente infringir responsabilidade única, código limpo ou ultrapassar 200 linhas**, evitando perguntas em arquivos pequenos e coesos.
 - **Idioma dos termos no ERP**: Produtos **Ativos** / **Desativados** (nunca publicados/despublicados). No catalogo digital: **Publicado no Catalogo** / **Ocultado do Catalogo**.

@@ -38,7 +38,7 @@ describe('ApiUsageGuard - Controle de Cota e Prevenção de Custos', () => {
     });
 
     it('deve retornar status WARNING quando o consumo ultrapassar 70%', async () => {
-        vi.spyOn(ApiUsageTracker, 'getCurrentMonthUsage').mockResolvedValue(7500); // 75% de 10.000
+        vi.spyOn(ApiUsageTracker, 'getCurrentMonthUsage').mockResolvedValue(750); // 75% de 1.000
         
         const result = await ApiUsageGuard.check('google_routes');
         expect(result.allowed).toBe(true);
@@ -47,7 +47,7 @@ describe('ApiUsageGuard - Controle de Cota e Prevenção de Custos', () => {
     });
 
     it('deve retornar status CRITICAL quando o consumo ultrapassar 90%', async () => {
-        vi.spyOn(ApiUsageTracker, 'getCurrentMonthUsage').mockResolvedValue(9200); // 92% de 10.000
+        vi.spyOn(ApiUsageTracker, 'getCurrentMonthUsage').mockResolvedValue(920); // 92% de 1.000
         
         const result = await ApiUsageGuard.check('google_routes');
         expect(result.allowed).toBe(true);
@@ -56,7 +56,7 @@ describe('ApiUsageGuard - Controle de Cota e Prevenção de Custos', () => {
     });
 
     it('deve BLOQUEAR requisição não crítica ao atingir o Hard Limit (95%) para evitar cobrança', async () => {
-        vi.spyOn(ApiUsageTracker, 'getCurrentMonthUsage').mockResolvedValue(9600); // 96% de 10.000
+        vi.spyOn(ApiUsageTracker, 'getCurrentMonthUsage').mockResolvedValue(960); // 96% de 1.000
         
         const result = await ApiUsageGuard.check('google_routes');
         expect(result.allowed).toBe(false);

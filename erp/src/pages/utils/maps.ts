@@ -391,53 +391,37 @@ export const searchAddressSuggestions = async (query: string, city?: string, sta
         await loadGoogleMapsApi(settings.googleMapsApiKey);
         const google = (window as any).google;
 
-        // 1. Tentar Google Places Autocomplete Service (Google Maps API)
+        // 1. Consulta única e direta via Google Places AutocompleteService
         if (google?.maps?.places?.AutocompleteService) {
             try {
                 const autocompleteService = new google.maps.places.AutocompleteService();
                 const originCoords = settings.storeOriginCoords || [-49.1692, -25.3520];
                 const locationLatLng = google?.maps?.LatLng ? new google.maps.LatLng(originCoords[1], originCoords[0]) : undefined;
 
-                const inputsToTry = [
-                    query.trim(),
-                    city ? `${query.trim()}, ${city}` : null,
-                    `${query.trim()}, ${stateLabel}`
-                ].filter(Boolean) as string[];
-
-                let predictions: any[] = [];
-
-                for (const inputStr of inputsToTry) {
-                    const resList: any[] = await new Promise((resolve) => {
-                        const reqOpts: any = {
-                            input: inputStr,
-                            componentRestrictions: { country: 'br' },
-                        };
-                        if (locationLatLng) {
-                            reqOpts.location = locationLatLng;
-                            reqOpts.radius = 60000; // 60 km em volta da loja/região
-                        }
-
-                        autocompleteService.getPlacePredictions(
-                            reqOpts,
-                            (res: any, status: any) => {
-                                const isOk = status === 'OK' || status === google?.maps?.places?.PlacesServiceStatus?.OK;
-                                if (isOk && res && res.length > 0) {
-                                    resolve(res);
-                                } else {
-                                    if (status !== 'ZERO_RESULTS' && status !== google?.maps?.places?.PlacesServiceStatus?.ZERO_RESULTS) {
-                                        console.warn("[Google Places Autocomplete] Input:", inputStr, "Status:", status);
-                                    }
-                                    resolve([]);
-                                }
-                            }
-                        );
-                    });
-
-                    if (resList && resList.length > 0) {
-                        predictions = resList;
-                        break;
+                const searchInput = city ? `${query.trim()}, ${city}, ${stateLabel}` : `${query.trim()}, ${stateLabel}`;
+                
+                const predictions: any[] = await new Promise((resolve) => {
+                    const reqOpts: any = {
+                        input: searchInput,
+                        componentRestrictions: { country: 'br' },
+                    };
+                    if (locationLatLng) {
+                        reqOpts.location = locationLatLng;
+                        reqOpts.radius = 60000; // 60 km em volta da loja
                     }
-                }
+
+                    autocompleteService.getPlacePredictions(
+                        reqOpts,
+                        (res: any, status: any) => {
+                            const isOk = status === 'OK' || status === google?.maps?.places?.PlacesServiceStatus?.OK;
+                            if (isOk && res && res.length > 0) {
+                                resolve(res);
+                            } else {
+                                resolve([]);
+                            }
+                        }
+                    );
+                });
 
                 if (predictions && predictions.length > 0) {
                     const placesMapped = predictions.map((pred: any) => {
@@ -496,78 +480,6 @@ export const searchAddressSuggestions = async (query: string, city?: string, sta
                 }
             } catch (autoErr) {
                 console.warn("Places AutocompleteService warning:", autoErr);
-            }
-        }
-
-        // 2. Tentar Google Maps Geocoder Service caso Autocomplete não retorne resultados
-        if (google?.maps?.Geocoder) {
-            const geocoder = new google.maps.Geocoder();
-            const geocodeQueriesToTry = [
-                fullSearchQuery,
-                `${query.trim()}, ${city || 'Colombo'}, ${stateLabel}, Brasil`,
-                `${query.trim()}, ${stateLabel}, Brasil`
-            ];
-
-            let gResults: any[] = [];
-            for (const gQuery of geocodeQueriesToTry) {
-                const resList: any[] = await new Promise((resolve) => {
-                    geocoder.geocode({
-                        address: gQuery,
-                        region: 'br',
-                        componentRestrictions: { country: 'br' }
-                    }, (res: any, status: any) => {
-                        if (status === 'OK' && res && res.length > 0) resolve(res);
-                        else resolve([]);
-                    });
-                });
-                if (resList && resList.length > 0) {
-                    gResults = resList;
-                    break;
-                }
-            }
-
-            if (gResults && gResults.length > 0) {
-                const mappedResults = gResults.map((r: any) => {
-                    const getComponent = (type: string) => {
-                        const comp = r.address_components?.find((c: any) => c.types.includes(type));
-                        return comp ? comp.long_name : "";
-                    };
-                    
-                    return {
-                        display_name: r.formatted_address,
-                        place_id: r.place_id,
-                        lat: r.geometry.location.lat(),
-                        lon: r.geometry.location.lng(),
-                        address: {
-                            road: getComponent("route") || r.formatted_address.split(',')[0],
-                            suburb: getComponent("sublocality") || getComponent("sublocality_level_1") || getComponent("neighborhood"),
-                            neighbourhood: getComponent("neighborhood") || getComponent("sublocality") || getComponent("sublocality_level_1"),
-                            city: getComponent("administrative_area_level_2") || getComponent("locality") || city || 'Colombo',
-                            state: getComponent("administrative_area_level_1") || stateTarget,
-                            postcode: getComponent("postal_code")
-                        }
-                    };
-                });
-
-                if (mappedResults.length > 0) {
-                    supabase.from('address_cache').upsert({
-                        query_key: cacheQueryKey,
-                        results: mappedResults
-                    }).then().catch(() => {});
-                }
-
-                ApiUsageTracker.record({
-                    provider: 'google',
-                    service: 'google_geocoding',
-                    operation: 'geocode_search',
-                    units: 1,
-                    status: 'SUCCESS',
-                    cache_hit: false,
-                    response_time_ms: Date.now() - startTime,
-                    module_source: 'registrations'
-                });
-
-                return mappedResults;
             }
         }
     } catch (error) {
