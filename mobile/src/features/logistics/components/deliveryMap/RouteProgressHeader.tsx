@@ -26,15 +26,15 @@ export const RouteProgressHeader: React.FC<Props> = ({
   return (
     <View style={[styles.container, isDarkMode && styles.containerDark]}>
       <View style={styles.topRow}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-          <CheckCircle size={15} color="#10b981" />
-          <Text style={[styles.progressText, isDarkMode && styles.textLight]}>
+        <View style={styles.progressLeftGroup}>
+          <CheckCircle size={14} color="#10b981" />
+          <Text style={[styles.progressText, isDarkMode && styles.textLight]} numberOfLines={1}>
             <Text style={{ fontWeight: '900' }}>{completed}</Text> de {total} concluídas
           </Text>
         </View>
 
         <Text style={[styles.pendingText, isDarkMode && styles.textMuted]}>
-          {pending} {pending === 1 ? 'restante' : 'restantes'} ({percent}%)
+          {percent}%
         </Text>
       </View>
 
@@ -43,16 +43,19 @@ export const RouteProgressHeader: React.FC<Props> = ({
         <View style={[styles.progressBarFill, { width: `${Math.min(100, Math.max(0, percent))}%` }]} />
       </View>
 
-      {/* Estimativas Confiáveis (se disponíveis) */}
+      {/* Estimativas do Roteiro Restante Inteiro */}
       {(remainingKm || remainingMin) ? (
         <View style={styles.metricsRow}>
-          {remainingKm ? (
-            <Text style={styles.estimateText}>{remainingKm.toFixed(1)} km restantes</Text>
-          ) : null}
-          {remainingKm && remainingMin ? <Text style={{ color: '#cbd5e1' }}>•</Text> : null}
-          {remainingMin ? (
-            <Text style={[styles.estimateText, { color: '#64748b' }]}>~{remainingMin} min estimados</Text>
-          ) : null}
+          <Text style={[styles.estimateText, isDarkMode && styles.textMuted]} numberOfLines={2}>
+            <Text style={{ fontWeight: '800' }}>Roteiro restante:</Text>{' '}
+            {remainingKm ? `${remainingKm.toFixed(1)} km` : ''}
+            {remainingKm && remainingMin ? ' · ' : ''}
+            {remainingMin ? (
+              remainingMin >= 60 
+                ? `~${Math.floor(remainingMin / 60)}h${remainingMin % 60 ? `${remainingMin % 60}min` : ''}` 
+                : `~${remainingMin} min`
+            ) : ''}
+          </Text>
         </View>
       ) : null}
     </View>
@@ -62,8 +65,8 @@ export const RouteProgressHeader: React.FC<Props> = ({
 const styles = StyleSheet.create({
   container: {
     backgroundColor: '#ffffff',
-    paddingHorizontal: 16,
-    paddingVertical: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
     borderBottomWidth: 1,
     borderBottomColor: '#f1f5f9',
   },
@@ -75,21 +78,31 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 6,
+    gap: 6,
+    marginBottom: 5,
+  },
+  progressLeftGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    flex: 1,
+    minWidth: 0,
   },
   progressText: {
-    fontSize: 13,
+    fontSize: 12,
     color: '#0f172a',
     fontWeight: '700',
+    flexShrink: 1,
   },
   pendingText: {
     fontSize: 12,
-    fontWeight: '700',
+    fontWeight: '800',
     color: '#64748b',
+    flexShrink: 0,
   },
   progressBarTrack: {
-    height: 6,
-    borderRadius: 3,
+    height: 5,
+    borderRadius: 2.5,
     backgroundColor: '#f1f5f9',
     overflow: 'hidden',
   },
@@ -99,18 +112,19 @@ const styles = StyleSheet.create({
   progressBarFill: {
     height: '100%',
     backgroundColor: '#10b981',
-    borderRadius: 3,
+    borderRadius: 2.5,
   },
   metricsRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    marginTop: 6,
+    marginTop: 5,
+    flexWrap: 'wrap',
   },
   estimateText: {
     fontSize: 11,
     fontWeight: '800',
     color: '#2563eb',
+    lineHeight: 15,
   },
   textLight: {
     color: '#f8fafc',

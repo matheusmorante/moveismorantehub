@@ -1,6 +1,7 @@
 import React from "react";
 import Person, { PersonVisibilitySettings } from "../../../types/person.type";
 import DropdownPortal from "../../../../components/shared/DropdownPortal";
+import ConfirmModal from "../../../../components/shared/ConfirmModal";
 
 interface PersonRowProps {
     person: Person;
@@ -16,6 +17,7 @@ interface PersonRowProps {
     onToggleSelection?: () => void;
     onViewPurchaseHistory?: (person: Person) => void;
     productCount?: number;
+    orderCount?: number;
 }
 
 const getRoleBadge = (role?: string) => {
@@ -49,12 +51,14 @@ const PersonRow = ({
     orderedColumnKeys,
     isSelected,
     onToggleSelection,
-    onViewPurchaseHistory, productCount = 0
+    onViewPurchaseHistory, productCount = 0, orderCount = 0
 }: PersonRowProps) => {
     const [isMenuOpen, setIsMenuOpen] = React.useState(false);
+    const [showDeleteModal, setShowDeleteModal] = React.useState(false);
     const menuAnchorRef = React.useRef<HTMLButtonElement>(null);
 
     const isSupplier = person.type === 'suppliers';
+    const isCustomer = person.type === 'customers' || person.type === 'customer';
 
     const renderCell = (key: string) => {
         if (!visibilitySettings[key as keyof PersonVisibilitySettings]) return null;
@@ -86,6 +90,12 @@ const PersonRow = ({
                                     (person.roles && person.roles.length > 0 ? person.roles : (person.role ? [person.role] : [])).map((r) => (
                                         <React.Fragment key={r}>{getRoleBadge(r)}</React.Fragment>
                                     ))
+                                )}
+                                {isCustomer && orderCount > 0 && (
+                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-wider bg-purple-50 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300 border border-purple-200 dark:border-purple-800" title="Este cliente possui pedidos de venda, assistência ou devolução vinculados">
+                                        <i className="bi bi-link-45deg text-[11px]" />
+                                        Vinculado ({orderCount})
+                                    </span>
                                 )}
                             </div>
                             <div className="flex items-center gap-2 flex-wrap">
@@ -169,13 +179,13 @@ const PersonRow = ({
 
                                     <DropdownPortal
                                         isOpen={isMenuOpen}
-                                        onClose={() => setIsMenuOpen(false)}
+                                        onClose={() => { setIsMenuOpen(false); }}
                                         anchorRef={menuAnchorRef}
                                         className="min-w-[190px]"
                                     >
                                         <div 
                                             className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl shadow-2xl py-2 flex flex-col z-[9999] animate-slide-up"
-                                            onMouseLeave={() => setIsMenuOpen(false)}
+                                            onMouseLeave={() => { setIsMenuOpen(false); }}
                                         >
                                             {showTrash ? (
                                                 <>
@@ -249,18 +259,18 @@ const PersonRow = ({
                                                         </button>
                                                     )}
 
-                                                    {person.type !== 'employees' && !isSupplier && (
+                                                    {person.type !== 'employees' && !isSupplier && isCustomer && orderCount === 0 && (
                                                         <button
                                                             onClick={(e) => {
                                                                 e.stopPropagation();
                                                                 setIsMenuOpen(false);
-                                                                onDelete(person.id!);
+                                                                setShowDeleteModal(true);
                                                             }}
-                                                            className="flex items-center gap-3 px-4 py-2.5 hover:bg-red-50 dark:hover:bg-red-955/20 transition-colors text-left group border-t border-slate-50 dark:border-slate-800/50"
+                                                            className="flex items-center gap-3 px-4 py-2.5 hover:bg-red-50 dark:hover:bg-red-955/20 transition-colors text-left group border-t border-slate-50 dark:border-slate-800/50 w-full"
                                                         >
                                                             <i className="bi bi-trash-fill text-red-500" />
                                                             <span className="text-[10px] font-black uppercase tracking-widest text-red-600 dark:text-red-400">
-                                                                Mover para Lixeira
+                                                                Excluir Cliente
                                                             </span>
                                                         </button>
                                                     )}
@@ -280,39 +290,53 @@ const PersonRow = ({
     };
 
     return (
-        <tr
-            className={`transition-colors group ${person.type !== 'employees' ? 'cursor-pointer' : 'cursor-default'} bg-slate-50/50 dark:bg-slate-900/30 hover:bg-slate-100/50 dark:hover:bg-slate-800/50 ${person.type === 'suppliers' && !person.active ? 'grayscale opacity-55 hover:opacity-70' : ''}`}
-            onClick={() => {
-                if (person.type !== 'employees') {
-                    onEdit(person);
-                }
-            }}
-        >
-            {person.type !== 'employees' && !isSupplier && (
-                <td className="p-0 w-12 text-center">
-                    <label
-                        className="flex items-center justify-center w-full h-full cursor-pointer py-1.5 px-3"
-                        onClick={(e) => e.stopPropagation()}
-                    >
-                        <input
-                            type="checkbox"
-                            checked={isSelected}
-                            onChange={() => onToggleSelection?.()}
-                            className="w-4 h-4 text-blue-600 bg-white border-slate-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-slate-900 focus:ring-2 dark:bg-slate-800 dark:border-slate-700 cursor-pointer"
-                        />
-                    </label>
-                </td>
-            )}
+        <>
+            <tr
+                className={`transition-colors group ${person.type !== 'employees' ? 'cursor-pointer' : 'cursor-default'} bg-slate-50/50 dark:bg-slate-900/30 hover:bg-slate-100/50 dark:hover:bg-slate-800/50 ${person.type === 'suppliers' && !person.active ? 'grayscale opacity-55 hover:opacity-70' : ''}`}
+                onClick={() => {
+                    if (person.type !== 'employees') {
+                        onEdit(person);
+                    }
+                }}
+            >
+                {person.type !== 'employees' && !isSupplier && (
+                    <td className="p-0 w-12 text-center">
+                        <label
+                            className="flex items-center justify-center w-full h-full cursor-pointer py-1.5 px-3"
+                            onClick={(e) => e.stopPropagation()}
+                        >
+                            <input
+                                type="checkbox"
+                                checked={isSelected}
+                                onChange={() => onToggleSelection?.()}
+                                className="w-4 h-4 text-blue-600 bg-white border-slate-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-slate-900 focus:ring-2 dark:bg-slate-800 dark:border-slate-700 cursor-pointer"
+                            />
+                        </label>
+                    </td>
+                )}
 
-            {orderedColumnKeys ? orderedColumnKeys.map(key => renderCell(key)) : (
-                <>
-                    {renderCell('fullName')}
-                    {renderCell('email')}
-                    {renderCell('phone')}
-                    {renderCell('actions')}
-                </>
-            )}
-        </tr>
+                {orderedColumnKeys ? orderedColumnKeys.map(key => renderCell(key)) : (
+                    <>
+                        {renderCell('fullName')}
+                        {renderCell('email')}
+                        {renderCell('phone')}
+                        {renderCell('actions')}
+                    </>
+                )}
+            </tr>
+
+            <ConfirmModal
+                isOpen={showDeleteModal}
+                onClose={() => setShowDeleteModal(false)}
+                onConfirm={() => onDelete(person.id!)}
+                title="Excluir Cliente"
+                message={`Tem certeza que deseja excluir o cliente "${person.fullName}"? Esta ação não pode ser desfeita.`}
+                confirmLabel="Excluir Cliente"
+                cancelLabel="Cancelar"
+                type="danger"
+                countdownSeconds={5}
+            />
+        </>
     );
 };
 

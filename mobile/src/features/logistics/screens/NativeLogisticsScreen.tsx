@@ -17,6 +17,8 @@ interface Props {
   isAdmin: boolean;
   onSelectOrder?: (order: any) => void;
   isEmbeddedInHub?: boolean;
+  title?: string;
+  onNavigateToDeliveriesMap?: () => void;
 }
 
 const PERIOD_OPTIONS = [
@@ -29,7 +31,14 @@ const PERIOD_OPTIONS = [
   { id: 'all', label: 'Todos' },
 ];
 
-export const NativeLogisticsScreen: React.FC<Props> = ({ isDarkMode, isAdmin, onSelectOrder, isEmbeddedInHub = false }) => {
+export const NativeLogisticsScreen: React.FC<Props> = ({
+  isDarkMode,
+  isAdmin,
+  onSelectOrder,
+  isEmbeddedInHub = false,
+  title,
+  onNavigateToDeliveriesMap,
+}) => {
   const insets = useSafeAreaInsets();
   const topInset = Math.max(insets.top, Platform.OS === 'android' ? (StatusBar.currentHeight || 24) : 0) + 8;
 
@@ -409,7 +418,12 @@ export const NativeLogisticsScreen: React.FC<Props> = ({ isDarkMode, isAdmin, on
   const renderHeader = () => (
     <View style={styles.headerPadding}>
       <View style={styles.topRow}>
-        <Text style={[styles.screenTitle, isDarkMode && styles.textDark]}>Cronograma Logístico</Text>
+        <View style={{ flex: 1 }}>
+          <Text style={[styles.screenTitle, isDarkMode && styles.textDark]}>{title || 'Agenda'}</Text>
+          <Text style={[styles.screenSubtitle, isDarkMode && styles.subtitleDark]}>
+            Cronograma Logístico e Agendamentos
+          </Text>
+        </View>
         
         {/* Botão Select de Período posicionado à direita */}
         <TouchableOpacity
@@ -432,7 +446,13 @@ export const NativeLogisticsScreen: React.FC<Props> = ({ isDarkMode, isAdmin, on
       {!isEmbeddedInHub && (
         <TouchableOpacity
           style={[styles.mapBannerBtn, isDarkMode && styles.mapBannerBtnDark]}
-          onPress={() => setShowTodayMap(true)}
+          onPress={() => {
+            if (onNavigateToDeliveriesMap) {
+              onNavigateToDeliveriesMap();
+            } else {
+              setShowTodayMap(true);
+            }
+          }}
           activeOpacity={0.85}
         >
           <View style={styles.mapBannerLeft}>
@@ -616,7 +636,9 @@ const styles = StyleSheet.create({
     gap: 8 
   },
   screenTitle: { fontSize: 18, fontWeight: '900', color: '#0f172a' },
+  screenSubtitle: { fontSize: 11, fontWeight: '700', color: '#64748b', marginTop: 1 },
   textDark: { color: '#f8fafc' },
+  subtitleDark: { color: '#94a3b8' },
   selectBtn: {
     flexDirection: 'row',
     alignItems: 'center',

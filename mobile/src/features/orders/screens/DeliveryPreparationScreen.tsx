@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { Alert, ScrollView, StyleSheet, View } from 'react-native';
 import { supabase } from '../../../services/supabaseClient';
 import { formatFullAddress, formatOrderCode } from '../../../utils/orderUtils';
@@ -13,6 +13,7 @@ import { CancelDeliveryConfirmModal } from '../components/delivery/CancelDeliver
 import { DeliveryStepProgressIndicator } from '../components/delivery/DeliveryStepProgressIndicator';
 import { areDeliveryPaymentsPaid } from '../components/delivery/DeliveryPaymentSection';
 import { offlineSyncManager } from '../../../services/offline/offlineSyncManager';
+import { hasDeliveryExceeded12Hours, autoFulfillOrderIfExceeded12Hours } from '../utils/deliveryAutoFulfillment';
 
 type Props = { order: any; isDarkMode: boolean; onBack: (started?: boolean) => void };
 
@@ -29,6 +30,21 @@ export function DeliveryPreparationScreen({ order, isDarkMode, onBack }: Props) 
     const amount = Number(data.paymentsSummary?.totalOrderValue || data.totalValue || 0);
     return [{ method: data.paymentMethod || 'Pix', amount, status: 'Pendente', fee: 0, feeType: 'fixed' }];
   });
+
+  useEffect(() => {
+    if (hasDeliveryExceeded12Hours(order)) {
+      autoFulfillOrderIfExceeded12Hours(order).then((fulfilled) => {
+        if (fulfilled) {
+          setDeliveryData({ ...(order.order_data || order) });
+          Alert.alert(
+            'Entrega Concluída Automaticamente',
+            'Mais de 12 horas se passaram desde o início desta entrega. O pedido foi marcado automaticamente como ATENDIDO.',
+            [{ text: 'OK', onPress: () => onBack(true) }]
+          );
+        }
+      });
+    }
+  }, [order]);
 
   const checklist = useMemo(() => buildDeliveryChecklist(order), [order]);
   const data = deliveryData;

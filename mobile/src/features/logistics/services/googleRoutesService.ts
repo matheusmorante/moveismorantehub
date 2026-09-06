@@ -61,9 +61,9 @@ export async function getGoogleApiKey(): Promise<string | null> {
   try {
     const { data } = await supabase.from('settings').select('data').limit(1).maybeSingle();
     const key = data?.data?.googleMapsApiKey;
-    return key || 'AIzaSyCROtDtnGmCBnzSiTA2sJTmoEnTsGMf6Qk';
+    return key || '__REDACTED_GCP_API_KEY__';
   } catch {
-    return 'AIzaSyCROtDtnGmCBnzSiTA2sJTmoEnTsGMf6Qk';
+    return '__REDACTED_GCP_API_KEY__';
   }
 }
 

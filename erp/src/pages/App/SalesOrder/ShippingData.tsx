@@ -300,6 +300,34 @@ const ShippingData = ({ shipping, setShipping, customerData, isCalculatingDistan
                                     </div>
                                 </div>
 
+                                <div className="flex flex-col md:flex-row gap-4 mt-2">
+                                    <div className="flex-1 relative group/field">
+                                        <div className="flex items-center justify-between mb-1 ml-1">
+                                            <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 flex items-center gap-1">
+                                                <i className="bi bi-geo-alt-fill text-red-500" />
+                                                Link / URL do Google Maps (Localização Exata)
+                                            </label>
+                                            {shipping.deliveryAddress?.mapsUrl && (
+                                                <a
+                                                    href={shipping.deliveryAddress.mapsUrl}
+                                                    target="_blank"
+                                                    rel="noreferrer"
+                                                    className="text-[9px] font-black uppercase text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1"
+                                                >
+                                                    <i className="bi bi-box-arrow-up-right" /> Testar Link
+                                                </a>
+                                            )}
+                                        </div>
+                                        <input
+                                            type="url"
+                                            className="w-full border-b-2 border-slate-200 bg-transparent px-3 py-2 text-sm font-bold text-slate-700 outline-none transition-colors focus:border-blue-600 dark:border-slate-800 dark:text-slate-300 dark:focus:border-blue-500 placeholder:font-normal"
+                                            placeholder="https://maps.app.goo.gl/... ou link copiado do Google Maps"
+                                            value={shipping.deliveryAddress?.mapsUrl || ""}
+                                            onChange={e => updateDeliveryAddress('mapsUrl', e.target.value)}
+                                        />
+                                    </div>
+                                </div>
+
                                 {/* Address Verification Map for custom address */}
                                 <div className="mt-2 animate-fade-in">
                                     <AddressVerificationMap 

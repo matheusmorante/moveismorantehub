@@ -153,25 +153,38 @@ const TableCell = ({ order, duration, onOrderClick }: Props) => {
                 })()}
                 <div className="flex justify-between items-center mb-1">
                     <div className="flex items-center gap-1.5 flex-wrap">
-                        {/* Selo Primário (ou quando não é tarefa pura de montagem) */}
+                        {/* Selo Primário (Entrega / Retirada / Assistência / Devolução) */}
                         {(!isAssembly || (!isAssemblyOutside && !isOnlyInternalAssembly)) && (
-                            <span className={`text-[10px] font-black px-2.5 py-1 rounded-full uppercase tracking-widest border shadow-sm transition-all text-white border-white/20 ${cls.dotBg}`}>
-                                {typeLabel}
-                            </span>
+                            <div
+                                className={`flex h-6 w-6 items-center justify-center rounded-md text-white border border-white/20 shadow-2xs ${
+                                    isAssistance ? 'bg-orange-500 border-orange-600' :
+                                    isPickup ? 'bg-purple-600 border-purple-700' :
+                                    (order.orderType === 'return' ? 'bg-amber-500 border-amber-600' : 'bg-emerald-600 border-emerald-700')
+                                }`}
+                                title={isAssistance ? 'Assistência Técnica' : isPickup ? 'Retirada na Loja' : (order.orderType === 'return' ? 'Devolução' : 'Entrega')}
+                            >
+                                <i className={`bi ${isAssistance ? 'bi-tools' : isPickup ? 'bi-shop' : (order.orderType === 'return' ? 'bi-arrow-return-left' : 'bi-truck')} text-[11px] text-white`} />
+                            </div>
                         )}
 
                         {/* Selo Montagem Depósito */}
                         {(isAssemblyTask || isOnlyInternalAssembly) && (
-                            <span className="text-[10px] font-black px-2.5 py-1 rounded-full uppercase tracking-widest border shadow-sm transition-all text-white border-white/20 bg-amber-500 inline-flex items-center gap-1">
-                                <Drill size={11} className="text-white fill-white" /> Montagem Depósito
-                            </span>
+                            <div
+                                className="flex h-6 w-6 items-center justify-center rounded-md bg-amber-500 text-white border border-amber-600 shadow-2xs"
+                                title="Montagem Depósito (antes da entrega/retirada)"
+                            >
+                                <Drill size={12} className="text-white fill-white" />
+                            </div>
                         )}
 
                         {/* Selo Montagem Fora */}
                         {isAssemblyOutside && (
-                            <span className="text-[10px] font-black px-2.5 py-1 rounded-full uppercase tracking-widest border shadow-sm transition-all text-white border-white/20 bg-red-600 inline-flex items-center gap-1">
-                                <Drill size={11} className="text-white fill-white" /> Montagem Fora
-                            </span>
+                            <div
+                                className="flex h-6 w-6 items-center justify-center rounded-md bg-red-600 text-white border border-red-700 shadow-2xs"
+                                title="Montagem Fora (na casa do cliente)"
+                            >
+                                <Drill size={12} className="text-white fill-white" />
+                            </div>
                         )}
                     </div>
                 </div>

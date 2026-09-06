@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link, Outlet, useLocation } from "react-router-dom";
-import { ToastContainer } from "react-toastify";
+import { ToastContainer, toast } from "react-toastify";
 import { useTheme } from "./context/ThemeContext";
 import { useAuth } from "./context/AuthContext";
 import DesktopNav from "./components/layout/DesktopNav";
@@ -8,10 +8,9 @@ import MobileNav from "./components/layout/MobileNav";
 import GlobalAutoScroll from "./components/shared/GlobalAutoScroll";
 import NotificationBell from "./components/shared/NotificationBell";
 import AssistanceOrderModal from "./pages/App/SalesOrder/AssistanceOrderModal";
-import { toast } from "react-toastify";
 import { crmIntelligenceService } from "./pages/utils/crmIntelligenceService";
-import { useEffect } from "react";
 import { redeConciliationService } from '@/pages/services/redeConciliationService';
+import FloatingActionsHub from "./components/shared/FloatingActionsHub";
 import logoMorante from "./assets/logo.jpeg";
 
 export type MenuKey = 'products' | 'stock' | 'salesOrder' | 'logistics' | 'registrations' | 'finance' | 'marketing' | 'assembly' | null;
@@ -68,7 +67,8 @@ export default function AppLayout() {
       Boolean((window as any).ReactNativeWebView)
     )
   );
-  const isTemplateEditor = location.pathname === '/templates/price-label' || location.pathname === '/templates/posts';
+  const isTemplateEditor = location.pathname === '/templates/price-label' ||
+    ['/templates/posts', '/marketing/posts', '/marketing'].includes(location.pathname);
 
   return (
     <div className="flex flex-col bg-slate-50 dark:bg-slate-950 min-h-screen font-['Inter',_sans-serif] transition-colors duration-300">
@@ -97,118 +97,96 @@ export default function AppLayout() {
 
             <Link to="/" className="flex items-center gap-2 lg:gap-3 flex-shrink-0 group h-full overflow-visible">
               <img src={logoMorante} alt="ERP Móveis Morante" className="h-[150%] max-h-none w-auto object-contain drop-shadow-sm group-hover:scale-110 transition-transform duration-300 pointer-events-auto" />
-              <h3 className="text-xs lg:text-sm font-black text-slate-800 dark:text-slate-100 tracking-tight uppercase leading-none">ERP</h3>
             </Link>
 
             <DesktopNav activeMenu={activeMenu} setActiveMenu={setActiveMenu} />
           </div>
 
-          <div className="flex items-center gap-3 lg:gap-8">
-            <div className="flex items-center gap-1.5">
-              <NotificationBell />
-              <button
-                onClick={toggleTheme}
-                className="w-10 h-10 flex items-center justify-center text-slate-500 dark:text-slate-400 hover:text-blue-600 dark:hover:text-yellow-400 transition-all rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800"
-                title={theme === 'light' ? 'Ativar Modo Escuro' : 'Ativar Modo Claro'}
-              >
-                {theme === 'light' ? (
-                  <i className="bi bi-moon-stars-fill text-base"></i>
-                ) : (
-                  <i className="bi bi-sun-fill text-base"></i>
-                )}
-              </button>
-            </div>
+          <div className="flex items-center gap-2 lg:gap-4">
+            <GlobalAutoScroll />
+            <NotificationBell />
 
-            {/* Dropdown de Perfil */}
+            <button
+              onClick={toggleTheme}
+              className="p-2.5 text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 transition-all rounded-xl hover:bg-white dark:hover:bg-slate-900 shadow-premium-sm"
+              title={theme === 'dark' ? 'Modo Claro' : 'Modo Escuro'}
+            >
+              <i className={`bi ${theme === 'dark' ? 'bi-sun-fill text-amber-500' : 'bi-moon-stars-fill text-blue-600'} text-lg`}></i>
+            </button>
+
+            {/* User Profile */}
             <div className="relative group">
-              <button className="flex items-center gap-3 p-1.5 hover:bg-white dark:hover:bg-slate-800 rounded-[1.25rem] transition-all border border-transparent hover:border-slate-100 dark:hover:border-slate-700 hover:shadow-premium-sm active:scale-95">
-                <div className="w-8 h-8 lg:w-10 lg:h-10 bg-gradient-to-tr from-blue-600 to-blue-400 rounded-2xl overflow-hidden border-2 border-white dark:border-slate-800 shadow-premium flex items-center justify-center">
-                  {profile?.avatar_url ? (
-                    <img src={profile.avatar_url} alt="Avatar" className="w-full h-full object-cover" />
-                  ) : (
-                    <span className="text-white font-black text-sm uppercase">
-                      {((profile?.full_name || user?.email || 'U') as any)[0]}
-                    </span>
+              <button className="flex items-center gap-2 p-1 pl-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full transition-all border border-transparent hover:border-slate-200 dark:hover:border-slate-700">
+                <div className="w-8 h-8 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold text-xs uppercase shadow-md shadow-blue-500/20">
+                  {profile?.full_name?.charAt(0) || user?.email?.charAt(0) || 'U'}
+                </div>
+                <div className="hidden md:flex flex-col text-left mr-1">
+                  <span className="text-xs font-bold text-slate-800 dark:text-slate-200 leading-tight max-w-[120px] truncate">
+                    {profile?.full_name || user?.email?.split('@')[0]}
+                  </span>
+                  <span className="text-[10px] text-slate-400 dark:text-slate-500 uppercase tracking-wider font-semibold">
+                    {isAdmin ? 'Admin' : 'Usuário'}
+                  </span>
+                </div>
+                <i className="bi bi-chevron-down text-xs text-slate-400"></i>
+              </button>
+
+              {/* Profile Dropdown */}
+              <div className="absolute right-0 top-full mt-2 w-64 bg-white dark:bg-slate-900 rounded-[2rem] shadow-premium-hover border border-slate-100 dark:border-slate-800 p-2 hidden group-hover:block transition-all z-50">
+                <div className="p-4 border-b border-slate-100 dark:border-slate-800">
+                  <p className="text-sm font-black text-slate-900 dark:text-slate-100 truncate">{profile?.full_name || 'Usuário'}</p>
+                  <p className="text-xs text-slate-400 truncate">{user?.email}</p>
+                  <span className="inline-block mt-2 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400">
+                    {isAdmin ? 'Administrador' : 'Colaborador'}
+                  </span>
+                </div>
+
+                <div className="p-2 space-y-1">
+                  <Link
+                    to="/profile"
+                    className="w-full flex items-center gap-3 px-4 py-2.5 text-xs font-bold text-slate-600 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-slate-50 dark:hover:bg-slate-800/50 rounded-xl transition-all"
+                  >
+                    <i className="bi bi-person text-base"></i>
+                    Meu Perfil
+                  </Link>
+
+                  {isAdmin && (
+                    <>
+                      <Link
+                        to="/finance/dashboard"
+                        className="w-full flex items-center gap-3 px-4 py-2.5 text-xs font-bold text-slate-600 dark:text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-slate-50 dark:hover:bg-slate-800/50 rounded-xl transition-all"
+                      >
+                        <i className="bi bi-bank2 text-lg"></i>
+                        Financeiro e Rede
+                      </Link>
+                      
+                      <a
+                          href="https://expo.dev/artifacts/eas/2z1WIeabVBd27Zg66LdlZJTyjyR2v895eRnUiXwwHg0.apk"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center gap-3 px-4 py-3 rounded-2xl text-xs font-black uppercase tracking-wider text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500 hover:text-white transition-all shadow-sm group"
+                        >
+                        <i className="bi bi-android2 text-blue-400"></i>
+                        <span>Baixar App Android</span>
+                      </a>
+                    </>
                   )}
                 </div>
-                <div className="hidden xl:block text-left">
-                  <p className="text-[8px] font-black uppercase tracking-[0.2em] text-slate-400 leading-none mb-1">Conta Master</p>
-                  <p className="text-[11px] font-bold text-slate-700 dark:text-slate-200 truncate max-w-[120px]">
-                    {((profile?.full_name || 'Usuário') as any).split(' ')[0]}
-                  </p>
-                </div>
-                <i className="bi bi-chevron-down text-[10px] text-slate-400 group-hover:rotate-180 transition-transform hidden xl:block ml-1"></i>
-              </button>
 
-              {/* Menu Dropdown */}
-              <div className="absolute top-full pt-2 right-0 w-64 opacity-0 scale-95 origin-top-right translate-y-2 pointer-events-none group-hover:opacity-100 group-hover:scale-100 group-hover:translate-y-0 group-hover:pointer-events-auto transition-all duration-500 z-[99999]">
-                <div className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-[2.5rem] shadow-premium-lg p-3">
-                  <div className="p-5 bg-slate-50 dark:bg-slate-800/50 rounded-[2rem] border border-slate-100 dark:border-slate-800 mb-3 text-center">
-                    <p className="text-xs font-black text-slate-800 dark:text-slate-100 mb-1">{profile?.full_name || 'Usuário'}</p>
-                    <p className="text-[10px] font-bold text-slate-400 dark:text-slate-500 truncate">{user?.email}</p>
-                    <div className="mt-3 inline-flex items-center px-3 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-full text-[9px] font-black uppercase tracking-widest">
-                      {isAdmin ? 'Administrador' : 'Vendedor'}
-                    </div>
-                  </div>
+                <div className="h-px bg-slate-100 dark:bg-slate-800 my-3 mx-4"></div>
 
-                  <div className="space-y-1">
-                    <Link to="/profile" className="flex items-center gap-4 p-4 text-slate-600 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50/50 dark:hover:bg-blue-900/20 rounded-[1.5rem] transition-all font-bold text-[10px] uppercase tracking-widest">
-                      <i className="bi bi-person-circle text-lg"></i>
-                      Meu Perfil
-                    </Link>
-                    <Link to="/system-docs" className="flex items-center gap-4 p-4 text-slate-600 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50/50 dark:hover:bg-blue-900/20 rounded-[1.5rem] transition-all font-bold text-[10px] uppercase tracking-widest">
-                      <i className="bi bi-book-half text-lg"></i>
-                      Documentação do Sistema
-                    </Link>
-
-                    {isAdmin && (
-                      <>
-                        <Link to="/settings" className="flex items-center gap-4 p-4 text-slate-600 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50/50 dark:hover:bg-blue-900/20 rounded-[1.5rem] transition-all font-bold text-[10px] uppercase tracking-widest">
-                          <i className="bi bi-gear-fill text-lg"></i>
-                          Configurações
-                        </Link>
-                        <Link to="/api-usage" className="flex items-center gap-4 p-4 text-slate-600 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-indigo-50/50 dark:hover:bg-indigo-900/20 rounded-[1.5rem] transition-all font-bold text-[10px] uppercase tracking-widest">
-                          <i className="bi bi-cpu-fill text-lg text-indigo-500"></i>
-                          Uso de APIs & Custos
-                        </Link>
-                        <Link to="/acessos-e-usuarios" className="flex items-center gap-4 p-4 text-slate-600 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50/50 dark:hover:bg-blue-900/20 rounded-[1.5rem] transition-all font-bold text-[10px] uppercase tracking-widest">
-                          <i className="bi bi-shield-lock-fill text-lg"></i>
-                          Controle de Acesso
-                        </Link>
-                        <Link to="/finance/settings" className="flex items-center gap-4 p-4 text-slate-600 dark:text-slate-400 hover:text-amber-600 dark:hover:text-amber-400 hover:bg-amber-50/50 dark:hover:bg-amber-900/20 rounded-[1.5rem] transition-all font-bold text-[10px] uppercase tracking-widest">
-                          <i className="bi bi-bank2 text-lg"></i>
-                          Financeiro e Rede
-                        </Link>
-                        
-                        <a
-                            href="https://expo.dev/artifacts/eas/2z1WIeabVBd27Zg66LdlZJTyjyR2v895eRnUiXwwHg0.apk"
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="flex items-center gap-3 px-4 py-3 rounded-2xl text-xs font-black uppercase tracking-wider text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500 hover:text-white transition-all shadow-sm group"
-                          >
-                          <i className="bi bi-android2 text-blue-400"></i>
-                          <span>Baixar App Android</span>
-                        </a>
-                      </>
-                    )}
-                  </div>
-
-                  <div className="h-px bg-slate-100 dark:bg-slate-800 my-3 mx-4"></div>
-
-                  <button
-                    onClick={logout}
-                    className="w-full flex items-center gap-4 p-4 text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/20 rounded-[1.5rem] transition-all font-bold text-[10px] uppercase tracking-widest"
-                  >
-                    <i className="bi bi-box-arrow-right text-lg"></i>
-                    Encerrar Sessão
-                  </button>
-                </div>
+                <button
+                  onClick={logout}
+                  className="w-full flex items-center gap-4 p-4 text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/20 rounded-[1.5rem] transition-all font-bold text-[10px] uppercase tracking-widest"
+                >
+                  <i className="bi bi-box-arrow-right text-lg"></i>
+                  Encerrar Sessão
+                </button>
               </div>
             </div>
           </div>
         </header>
       )}
-
 
       {/* Mobile Nav — visível em telas < xl (< 1280px) */}
       {!isTemplateEditor && <MobileNav
@@ -221,6 +199,9 @@ export default function AppLayout() {
       <main className={`flex-1 ${isTemplateEditor ? 'p-0' : isMobileAppView ? 'p-2' : 'p-3 sm:p-4 md:p-6 lg:p-6 xl:p-8'} overflow-x-clip`}>
         <Outlet />
       </main>
+
+      {/* Hub de Ações Flutuantes & Assistente Financeiro IA */}
+      <FloatingActionsHub />
 
       {isAssistanceModalOpen && (
         <AssistanceOrderModal 

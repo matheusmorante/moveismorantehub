@@ -1,10 +1,12 @@
 export type TransactionType = 'income' | 'expense';
 export type PaymentStatus = 'pending' | 'paid' | 'cancelled' | 'overdue';
+export type ResultNature = 'RECEITA' | 'DESPESA' | 'NAO_AFETA_RESULTADO';
 
 export interface FinancialCategory {
   id: string;
   name: string;
   type: TransactionType;
+  result_nature?: ResultNature;
   created_at?: string;
   updated_at?: string;
 }
@@ -46,6 +48,7 @@ export interface FinancialTransaction {
   description: string;
   payment_method: string;
   category_id?: string;
+  result_nature?: ResultNature;
   payable_id?: string;
   receivable_id?: string;
   notes?: string;

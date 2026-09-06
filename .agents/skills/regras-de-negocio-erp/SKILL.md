@@ -61,4 +61,13 @@ Use esta skill antes de alterar comportamentos de domínio referentes a vendas, 
 
 ---
 
+## 6. Variações e Estrutura de Produtos
+
+- **Regra Oficial de Variações de Produto**: No Morante Hub, **TODO produto tem pelo menos uma variação**.
+- **Produtos Simples**: Um produto cadastrado sem atributos específicos (produto simples) é conceitualmente e operacionalmente a sua própria variação principal única (1 produto = 1 variação).
+- **Produtos com Atributos**: Produtos com atributos (ex: cor, tecido, tamanho) possuem múltiplas variações filhas registradas na tabela `product_variations`.
+- **Invariante de Domínio**: Não existe o conceito de produto sem variação no sistema. Todo cadastro de produto representa pelo menos uma variação vendável.
+
+---
+
 > Para o detalhamento completo de 50 tópicos e fórmulas matemáticas da arquitetura, consulte a referência em [references/estoque-cmpm-cmv.md](file:///c:/Users/mathe/OneDrive/%C3%81rea%20de%20Trabalho/projetos/morantehub/.agents/skills/regras-de-negocio-erp/references/estoque-cmpm-cmv.md).

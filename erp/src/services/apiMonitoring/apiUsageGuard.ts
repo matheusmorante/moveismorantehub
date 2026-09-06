@@ -98,7 +98,24 @@ export class ApiUsageGuard {
             usagePercent: Number(usagePercent.toFixed(1)),
         };
 
-        // Regra de Hard Limit
+        // Trava Financeira de Orçamento Mensal (ex: R$ 30,00 para IA Gemini/Antigravity)
+        if (config.max_monthly_budget_brl && config.max_monthly_budget_brl > 0) {
+            const estimatedCostBrl = currentUsage * (config.price_per_unit || 0.01);
+            if (estimatedCostBrl >= config.max_monthly_budget_brl * (config.hard_limit / 100)) {
+                if (config.block_on_hard_limit) {
+                    const res: GuardCheckResult = {
+                        allowed: false,
+                        status: 'BLOCKED',
+                        usagePercent: Number(usagePercent.toFixed(1)),
+                        reason: `Trava de Cota e Economia Ativada: O consumo acumulado da IA (${config.service_name}) atingiu o teto limite financeiro de R$ ${config.max_monthly_budget_brl.toFixed(2)}/mês. Novas chamadas foram bloqueadas para evitar custos.`,
+                    };
+                    checkCache[serviceId] = { result: res, cachedAt: now };
+                    return res;
+                }
+            }
+        }
+
+        // Regra de Hard Limit por Requisições
         if (usagePercent >= config.hard_limit) {
             if (config.criticality === 'CRITICAL') {
                 // Serviços críticos (ex: SEFAZ fiscal) NUNCA são bloqueados

@@ -1,6 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import { Animated, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Truck, MapPin, AlertTriangle, CheckCircle2, PackageCheck } from 'lucide-react-native';
+import { hasDeliveryExceeded12Hours, autoFulfillOrderIfExceeded12Hours } from '../../features/orders/utils/deliveryAutoFulfillment';
 
 interface Props {
   order: any;
@@ -15,6 +16,11 @@ export const OrderCardDeliveryFooter: React.FC<Props> = ({ order, dark, onPress 
   const pickup = /pickup|retirada/.test(String(shipping.deliveryMethod || data.deliveryMethod || '').toLowerCase());
   
   if (pickup) return null;
+
+  if (hasDeliveryExceeded12Hours(order)) {
+    autoFulfillOrderIfExceeded12Hours(order);
+    return null;
+  }
 
   const deliveryStatus = data.deliveryStatus;
   const isFulfilled = status === 'fulfilled' || status === 'atendido' || deliveryStatus === 'completed';

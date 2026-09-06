@@ -68,27 +68,69 @@ const PersonList = forwardRef<PersonListRef, PersonListProps>(({
         refresh
     } = usePeople(collectionName, filters);
 
+    const [customerOrderCounts, setCustomerOrderCounts] = React.useState<Record<string, number>>({});
+
     useEffect(() => {
-        if (collectionName !== 'suppliers') return;
-        const loadSupplierProductCounts = async () => {
-            const { data, error } = await supabase
-                .from('products')
-                .select('id, supplier_id, main_supplier_id, supplier_ids')
-                .eq('deleted', false)
-                .eq('item_type', 'product');
-            if (error) {
-                console.error('Não foi possível carregar os produtos dos fornecedores:', error);
-                return;
-            }
-            const counts: Record<string, number> = {};
-            (data || []).forEach((product) => {
-                const supplierIds = new Set([...(product.supplier_ids || []), product.main_supplier_id, product.supplier_id].filter(Boolean));
-                supplierIds.forEach((supplierId) => { counts[String(supplierId)] = (counts[String(supplierId)] || 0) + 1; });
-            });
-            setSupplierProductCounts(counts);
-        };
-        loadSupplierProductCounts();
-    }, [collectionName]);
+        if (collectionName === 'suppliers') {
+            const loadSupplierProductCounts = async () => {
+                const { data, error } = await supabase
+                    .from('products')
+                    .select('id, supplier_id, main_supplier_id, supplier_ids')
+                    .eq('deleted', false)
+                    .eq('item_type', 'product');
+                if (error) {
+                    console.error('Não foi possível carregar os produtos dos fornecedores:', error);
+                    return;
+                }
+                const counts: Record<string, number> = {};
+                (data || []).forEach((product) => {
+                    const supplierIds = new Set([...(product.supplier_ids || []), product.main_supplier_id, product.supplier_id].filter(Boolean));
+                    supplierIds.forEach((supplierId) => { counts[String(supplierId)] = (counts[String(supplierId)] || 0) + 1; });
+                });
+                setSupplierProductCounts(counts);
+            };
+            loadSupplierProductCounts();
+        }
+
+        if (collectionName === 'customers') {
+            const loadCustomerOrderCounts = async () => {
+                const { data, error } = await supabase
+                    .from('orders')
+                    .select('id, deleted, order_data');
+                if (error || !data) return;
+
+                const counts: Record<string, number> = {};
+                data.forEach((row: any) => {
+                    if (row.deleted) return;
+                    const orderData = row.order_data || {};
+                    const cData = orderData.customerData || {};
+                    const cId = cData.id || orderData.customerId;
+                    const cName = (cData.fullName || '').trim().toLowerCase();
+                    const cPhone = (cData.phone || '').trim();
+                    const cEmail = (cData.email || '').trim().toLowerCase();
+
+                    people.forEach(person => {
+                        const pId = String(person.id);
+                        const pName = (person.fullName || '').trim().toLowerCase();
+                        const pPhone = (person.phone || '').trim();
+                        const pEmail = (person.email || '').trim().toLowerCase();
+
+                        let isMatch = false;
+                        if (cId && String(cId) === pId) isMatch = true;
+                        else if (cName && pName && cName === pName) isMatch = true;
+                        else if (cPhone && pPhone && cPhone === pPhone) isMatch = true;
+                        else if (cEmail && pEmail && cEmail === pEmail) isMatch = true;
+
+                        if (isMatch) {
+                            counts[pId] = (counts[pId] || 0) + 1;
+                        }
+                    });
+                });
+                setCustomerOrderCounts(counts);
+            };
+            loadCustomerOrderCounts();
+        }
+    }, [collectionName, people]);
 
     // Auto-scroll to top when page changes
     React.useEffect(() => {
@@ -209,6 +251,7 @@ const PersonList = forwardRef<PersonListRef, PersonListProps>(({
                     onViewPurchaseHistory={onViewPurchaseHistory}
                     collectionName={collectionName}
                     supplierProductCounts={supplierProductCounts}
+                    customerOrderCounts={customerOrderCounts}
                 />
 
                 {totalPages > 1 && (

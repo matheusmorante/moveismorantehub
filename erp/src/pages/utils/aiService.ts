@@ -1,6 +1,7 @@
 import { toast } from "react-toastify";
 import { ApiUsageGuard } from "@/services/apiMonitoring/apiUsageGuard";
 import { ApiUsageTracker } from "@/services/apiMonitoring/apiUsageTracker";
+import { AiGateway } from "../../services/aiGateway/AiGateway";
 
 export interface AIIntentResponse {
     intent: 'create_product' | 'create_service' | 'create_order' | 'chat';
@@ -49,108 +50,16 @@ async function callAIBackend(endpoint: string, body: any) {
  * Lê o body de erro para expor o motivo real da falha (quota, chave inválida, etc.)
  */
 async function callGeminiDirect(prompt: string, isJsonMode: boolean = true): Promise<string> {
-    const rawApiKey = import.meta.env.VITE_GEMINI_API_KEY || (typeof process !== 'undefined' ? process.env?.VITE_GEMINI_API_KEY || process.env?.GEMINI_API_KEY : '');
-    const apiKey = (rawApiKey || '').trim();
-    console.log("[Gemini API Key Check]:", apiKey ? `Carregada (${apiKey.substring(0, 10)}...)` : "Vazia/Não encontrada");
-    if (!apiKey) {
-        throw new Error("VITE_GEMINI_API_KEY não configurada. Adicione a variável ao painel da Vercel / arquivo .env e faça novo deploy.");
-    }
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${encodeURIComponent(apiKey)}`;
-
-    const bodyPayload: any = {
-        contents: [{ parts: [{ text: prompt }] }],
-        generationConfig: {
-            temperature: 0.1,
-            maxOutputTokens: 2048,
-            thinkingConfig: { thinkingBudget: 0 }
-        }
-    };
-
-    if (isJsonMode) {
-        bodyPayload.generationConfig.responseMimeType = "application/json";
-    }
-
-    const guard = await ApiUsageGuard.check('gemini_flash');
-    if (!guard.allowed) {
-        throw new Error(`[ApiUsageGuard] Chamada à IA bloqueada: ${guard.reason}`);
-    }
-
-    const startTime = Date.now();
-    let response: Response;
-    try {
-        response = await fetch(url, {
-            method: 'POST',
-            headers: { 
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(bodyPayload)
-        });
-    } catch (networkErr: any) {
-        ApiUsageTracker.record({
-            provider: 'gemini',
-            service: 'gemini_flash',
-            operation: 'generateContent',
-            units: 1,
-            status: 'ERROR',
-            response_time_ms: Date.now() - startTime,
-            module_source: 'marketing',
-            error_message: networkErr.message,
-        });
-        throw networkErr;
-    }
-
-    if (!response.ok) {
-        let errDetail = `HTTP ${response.status}`;
-        try {
-            const errBody = await response.json();
-            const msg = errBody?.error?.message || JSON.stringify(errBody);
-            errDetail += `: ${msg}`;
-        } catch {
-            errDetail += `: ${response.statusText}`;
-        }
-
-        ApiUsageTracker.record({
-            provider: 'gemini',
-            service: 'gemini_flash',
-            operation: 'generateContent',
-            units: 1,
-            status: response.status === 429 ? 'RATE_LIMITED' : 'ERROR',
-            http_status: response.status,
-            response_time_ms: Date.now() - startTime,
-            module_source: 'marketing',
-            error_message: errDetail,
-        });
-
-        if (response.status === 429) {
-            throw new Error(`Limite de requisições da IA atingido. Aguarde um momento e tente novamente. (${errDetail})`);
-        } else if (response.status === 403 || response.status === 401) {
-            throw new Error(`Chave de API inválida ou sem permissão. Verifique VITE_GEMINI_API_KEY. (${errDetail})`);
-        } else if (response.status === 400) {
-            throw new Error(`Requisição inválida para a IA (prompt rejeitado). (${errDetail})`);
-        }
-        throw new Error(`Gemini API retornou erro. (${errDetail})`);
-    }
-
-    ApiUsageTracker.record({
-        provider: 'gemini',
-        service: 'gemini_flash',
-        operation: 'generateContent',
-        units: 1,
-        status: 'SUCCESS',
-        http_status: 200,
-        response_time_ms: Date.now() - startTime,
-        module_source: 'marketing',
+    const res = await AiGateway.requestText({
+        operation: 'ai_service_call',
+        payload: prompt
     });
 
-    const resJson = await response.json();
-
-    // Verifica se a resposta foi bloqueada por safety filters
-    const finishReason = resJson?.candidates?.[0]?.finishReason;
-    if (finishReason && finishReason !== 'STOP' && finishReason !== 'MAX_TOKENS') {
-        throw new Error(`Resposta bloqueada pela IA (motivo: ${finishReason}). Tente reformular o conteúdo.`);
+    if (!res.success) {
+        throw new Error(res.userFriendlyMessage || res.errorMessage || 'Falha ao processar requisição de IA no AiGateway');
     }
 
-    return resJson?.candidates?.[0]?.content?.parts?.[0]?.text || "";
+    return res.data || '';
 }
 
 export const aiService = {

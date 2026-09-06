@@ -1,616 +1,301 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from './supabaseClient';
-import { getLocalDateString, isCancelledOrder, isDateInPeriod } from '../utils/orderUtils';
-import { getOperationalScheduleDate } from '../utils/operationalSchedule';
+import {
+  buildCanonicalSummaryPayload,
+  generateCanonicalFingerprint,
+  CanonicalSummaryPayload,
+} from './canonicalSummaryInput';
+import {
+  getSavedSummaryRecord,
+  saveSummaryRecord,
+  isLeaseExpired,
+  DeliverySummaryRecord,
+} from './deliverySummaryService';
+import { getLocalDateString } from '../utils/orderUtils';
 
 export const generateDeliveryAISummary = async (
-  mode: 'today' | 'tomorrow' | 'next5days',
+  mode: 'today' | 'tomorrow' | 'next_days' | 'next5days',
   forceRefresh: boolean = false,
   setAiSummaryToday?: (val: string) => void,
   setAiSummaryTomorrow?: (val: string) => void,
   setIsGeneratingAISummary?: (val: boolean) => void,
   initialOrders?: any[]
 ) => {
+  try {
+    let rawOrders = initialOrders;
+    if (!rawOrders || rawOrders.length === 0) {
+      const { data } = await supabase.from('orders').select('*').order('created_at', { ascending: false });
+      rawOrders = data || [];
+    }
+
+    let settingsData: any = null;
     try {
-      let rawOrders = initialOrders;
-      if (!rawOrders || rawOrders.length === 0) {
-        const { data } = await supabase.from('orders').select('*').order('created_at', { ascending: false });
-        rawOrders = data || [];
-      }
-      const activeOrders = (rawOrders || []).filter((order: any) => !isCancelledOrder(order));
+      const { data } = await supabase.from('settings').select('*').eq('id', 'app').maybeSingle();
+      settingsData = data;
+    } catch (e) {
+      console.warn('Configurações de IA não carregadas:', e);
+    }
 
-      if (setIsGeneratingAISummary) setIsGeneratingAISummary(true);
+    const handlingOptions: any[] = settingsData?.handlingOptions || settingsData?.orderTypes || [];
+    const geminiKey = settingsData?.geminiApiKey || process.env.VITE_GEMINI_API_KEY || '';
 
-      const now = new Date();
-      const todayStr = getLocalDateString(now);
-      
-      const tomorrow = new Date(now);
-      tomorrow.setDate(tomorrow.getDate() + 1);
-      const tomorrowStr = getLocalDateString(tomorrow);
+    // 1. Montar payload canônico e calcular a fingerprint determinística dos dados
+    const canonicalPayload: CanonicalSummaryPayload = buildCanonicalSummaryPayload(rawOrders || [], mode, handlingOptions);
+    const currentFingerprint = generateCanonicalFingerprint(canonicalPayload);
 
-      let targetDates: string[] = [todayStr];
-      let periodLabel = 'para hoje';
+    // 2. Verificar se já existe um resumo persistido para a mesma fingerprint
+    const savedRecord = await getSavedSummaryRecord(mode, currentFingerprint);
 
-      if (mode === 'today') {
-        targetDates = [todayStr];
-        periodLabel = 'para hoje';
-      } else if (mode === 'tomorrow') {
-        targetDates = [tomorrowStr];
-        periodLabel = 'para amanhã';
-      }
-
-      let settingsData: any = null;
-      try {
-        const { data } = await supabase.from('settings').select('*').eq('id', 'app').maybeSingle();
-        settingsData = data;
-      } catch (e) {
-        console.warn('Configurações não encontradas ou erro ao carregar:', e);
+    if (!forceRefresh && savedRecord) {
+      if (savedRecord.text_status === 'READY' && savedRecord.text) {
+        // REUTILIZAÇÃO PERFEITA: Mesmos dados -> Mesmo Texto + Mesmo Áudio
+        // ZERO chamadas adicionais de Gemini e ZERO chamadas de TTS!
+        if (mode === 'today' && setAiSummaryToday) setAiSummaryToday(savedRecord.text);
+        else if ((mode === 'tomorrow' || mode === 'next_days') && setAiSummaryTomorrow) setAiSummaryTomorrow(savedRecord.text);
+        if (setIsGeneratingAISummary) setIsGeneratingAISummary(false);
+        return savedRecord.text;
       }
 
-      const geminiKey = settingsData?.geminiApiKey || process.env.VITE_GEMINI_API_KEY || '';
-      const handlingOptions: any[] = settingsData?.handlingOptions || settingsData?.orderTypes || [];
+      if (savedRecord.text_status === 'GENERATING' && !isLeaseExpired(savedRecord.generation_started_at)) {
+        // Geração já em andamento em outro dispositivo -> Aguarda sem duplicar requisição
+        if (savedRecord.text) {
+          if (mode === 'today' && setAiSummaryToday) setAiSummaryToday(savedRecord.text);
+          else if ((mode === 'tomorrow' || mode === 'next_days') && setAiSummaryTomorrow) setAiSummaryTomorrow(savedRecord.text);
+        }
+        if (setIsGeneratingAISummary) setIsGeneratingAISummary(false);
+        return savedRecord.text || '';
+      }
+    }
 
-      // Função auxiliar para verificar se a modalidade/manuseio REALMENTE é montagem fora/no local da entrega
-      const isAssemblyOutsideType = (handlingTypeStr: string) => {
-        if (!handlingTypeStr) return false;
-        const hLower = handlingTypeStr.toLowerCase().trim();
+    if (setIsGeneratingAISummary) setIsGeneratingAISummary(true);
 
-        // 1. Verifica na configuração cadastrada de manuseio no ERP
-        if (Array.isArray(handlingOptions) && handlingOptions.length > 0) {
-          const matchedOpt = handlingOptions.find((opt: any) =>
-            opt.label && opt.label.toLowerCase().trim() === hLower
+    // 3. Travar estado em GENERATING para concorrência
+    await saveSummaryRecord({
+      scope: mode,
+      data_fingerprint: currentFingerprint,
+      text: savedRecord?.text || null,
+      text_status: 'GENERATING',
+      audio_status: savedRecord?.audio_status || 'MISSING',
+      generation_started_at: new Date().toISOString(),
+    });
+
+    // Se já tiver um texto válido prévio com apenas o áudio pendente, reutiliza o texto!
+    let smartText = '';
+    const shouldReuseText = savedRecord?.text_status === 'READY' && Boolean(savedRecord.text) && !forceRefresh;
+
+    if (shouldReuseText && savedRecord?.text) {
+      smartText = savedRecord.text;
+    } else {
+      // 4. Gerar o texto com o modelo de logística
+      smartText = generateLocalSmartText(canonicalPayload);
+
+      if (geminiKey) {
+        try {
+          const geminiPrompt = buildGeminiPrompt(smartText);
+          const res = await fetch(
+            `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${encodeURIComponent(geminiKey)}`,
+            {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ contents: [{ parts: [{ text: geminiPrompt }] }] }),
+            }
           );
-          if (matchedOpt && typeof matchedOpt.isAssemblyOutside === 'boolean') {
-            return matchedOpt.isAssemblyOutside;
-          }
-        }
-
-        // 2. Fallbacks de segurança: se for montagem no depósito ou por conta do cliente, NÃO é montagem fora
-        if (
-          hLower.includes('depósito') ||
-          hLower.includes('deposito') ||
-          hLower.includes('retirada') ||
-          hLower.includes('cliente') ||
-          hLower.includes('entregue montado')
-        ) {
-          return false;
-        }
-
-        // Se contiver indicação explícita de montagem no local/fora
-        return (
-          hLower.includes('montagem no local') ||
-          hLower.includes('montagem fora') ||
-          hLower.includes('montagem na entrega')
-        );
-      };
-
-      // Função auxiliar para abreviar o nome do produto (máximo 1 a 3 palavras simples, removendo cores e combinações como freijó/off white, preto/branco, cinamomo, etc.)
-      const simplifyProductName = (rawName: string): string => {
-        if (!rawName) return 'móvel';
-        let cleaned = rawName
-          .replace(/\(.*?\)/g, '')
-          .replace(/\[.*?\]/g, '')
-          .replace(/\b[\w\u00C0-\u024F]+(?:\/[\w\u00C0-\u024F]+)+\b/g, '') // remove "preto/branco", "freijo/offwhite"
-          .replace(/[-–—]/g, ' ')
-          .trim();
-
-        const colorWords = new Set([
-          'freijo', 'freijó', 'off', 'white', 'offwhite', 'preto', 'preta',
-          'branco', 'branca', 'cinamomo', 'grafite', 'nobre', 'imbuia', 'carvalho',
-          'nogueira', 'amêndoa', 'amendoa', 'patina', 'pátina', 'cacau', 'savana',
-          'nature', 'jequitiba', 'jequitibá', 'cedro', 'marrom', 'cinza', 'bege',
-          'areia', 'champagne', 'champanhe', 'castanho', 'fendi', 'ébano', 'ebano',
-          'mel', 'amarelo', 'azul', 'verde', 'rosa', 'vermelho', 'dourado', 'prata'
-        ]);
-
-        const words = cleaned.split(/\s+/).filter(Boolean);
-        const filteredWords = words.filter(w => !colorWords.has(w.toLowerCase().trim()));
-
-        if (filteredWords.length === 0) return 'móvel';
-        return filteredWords.slice(0, 3).join(' ');
-      };
-
-      const deliveryOrders = activeOrders.filter((o: any) => {
-        const oData = o.order_data || {};
-        const orderStatus = (o.status || oData.status || '').toLowerCase();
-        if (o.deleted || o.is_deleted || o.status === 'deleted' || oData.deleted || orderStatus === 'draft' || orderStatus === 'rascunho') return false;
-
-        const shipping = oData.shipping || o.shipping || {};
-        const isDelivery = shipping.deliveryMethod === 'delivery' || !shipping.deliveryMethod;
-        const sched = shipping.scheduling || oData.schedule || oData.scheduling || o.schedule || {};
-        const isPendingScheduling = Boolean(
-          sched.pendingScheduling || oData.pendingScheduling || o.pending_scheduling ||
-          orderStatus === 'pending_scheduling' || orderStatus === 'agendar_depois'
-        );
-        const schedDate = getOperationalScheduleDate(o);
-
-        if (!isDelivery || isPendingScheduling || !schedDate || schedDate === 'sem_data') return false;
-        return mode === 'next5days'
-          ? targetDates.includes(schedDate.split('T')[0])
-          : isDateInPeriod(schedDate, mode);
-      });
-
-      const currentFingerprint = deliveryOrders
-        .map((o: any) => `${o.id || o.order_id}_${o.updated_at || o.created_at || ''}_${o.status || ''}`)
-        .sort()
-        .join('|') || 'no_deliveries';
-
-      // Helper para formatar o nome do produto com o artigo gramatical correto (um / uma / dois / duas)
-      const formatProductNameWithArticle = (rawName: string, itemQty: number = 1): string => {
-        const short = simplifyProductName(rawName).toLowerCase();
-        // Usa apenas a PRIMEIRA palavra para determinar o gênero (evita falsos positivos como "balcão para pia")
-        const firstWord = short.split(' ')[0];
-
-        const feminineFirstWords = [
-          'escrivaninha', 'cômoda', 'comoda', 'pia', 'mesa', 'cadeira',
-          'poltrona', 'cozinha', 'cama', 'sapateira', 'cristaleira', 'bancada',
-          'prateleira', 'estante', 'estação', 'banheira', 'penteadeira'
-        ];
-        const isFeminine = feminineFirstWords.some(fw => firstWord === fw || firstWord.startsWith(fw));
-
-        if (itemQty === 1) {
-          return `${isFeminine ? 'uma' : 'um'} ${short}`;
-        } else if (itemQty === 2) {
-          return `${isFeminine ? 'duas' : 'dois'} ${short}s`;
-        } else {
-          return `${itemQty} ${short}s`;
-        }
-      };
-
-      // Helper para converter números cardinais por extenso (feminino para entregas)
-      const numWord = (n: number): string => {
-        const words: Record<number, string> = {
-          0: 'zero', 1: 'uma', 2: 'duas', 3: 'três', 4: 'quatro', 5: 'cinco',
-          6: 'seis', 7: 'sete', 8: 'oito', 9: 'nove', 10: 'dez',
-          11: 'onze', 12: 'doze', 13: 'treze', 14: 'quatorze', 15: 'quinze',
-          16: 'dezesseis', 17: 'dezessete', 18: 'dezoito', 19: 'dezenove', 20: 'vinte',
-          21: 'vinte e uma', 22: 'vinte e duas', 23: 'vinte e três', 24: 'vinte e quatro',
-          25: 'vinte e cinco', 26: 'vinte e seis', 27: 'vinte e sete', 28: 'vinte e oito',
-          29: 'vinte e nove', 30: 'trinta'
-        };
-        return words[n] ?? String(n);
-      };
-
-      // Helper para converter números cardinais masculinos por extenso (ex: "um item", "dois itens")
-      const numWordMasculine = (n: number): string => {
-        const words: Record<number, string> = {
-          0: 'zero', 1: 'um', 2: 'dois', 3: 'três', 4: 'quatro', 5: 'cinco',
-          6: 'seis', 7: 'sete', 8: 'oito', 9: 'nove', 10: 'dez',
-          11: 'onze', 12: 'doze', 13: 'treze', 14: 'quatorze', 15: 'quinze',
-          16: 'dezesseis', 17: 'dezessete', 18: 'dezoito', 19: 'dezenove', 20: 'vinte',
-          21: 'vinte e um', 22: 'vinte e dois', 23: 'vinte e três', 24: 'vinte e quatro',
-          25: 'vinte e cinco', 26: 'vinte e seis', 27: 'vinte e sete', 28: 'vinte e oito',
-          29: 'vinte e nove', 30: 'trinta'
-        };
-        return words[n] ?? String(n);
-      };
-
-      // Helper para converter distâncias — usa vírgula real para o TTS ler corretamente
-      const formatDistanceConversational = (distNum: number | null): string => {
-        if (distNum === null || isNaN(distNum)) return '';
-        if (distNum <= 5) return 'pertinho';
-
-        const numStr = String(Math.ceil(distNum));
-        if (distNum <= 10) return `não tão perto, a ${numStr} quilômetros`;
-        if (distNum <= 20) return `meio longe, a ${numStr} quilômetros`;
-        return `bem longe, a ${numStr} quilômetros`;
-      };
-
-      // Coleções de entregas por turno
-      const morningDeliveries: any[] = [];
-      const afternoonDeliveries: any[] = [];
-      const unspecifiedDeliveries: any[] = [];
-
-      const citiesMap: Record<string, number> = {};
-      let hasFarAssembly = false;
-      let hasShowroomDisassembly = false;
-
-      deliveryOrders.forEach((o: any) => {
-        const oData = o.order_data || {};
-        const shipping = oData.shipping || o.shipping || {};
-        const sched = shipping.scheduling || oData.schedule || oData.scheduling || o.schedule || {};
-
-        const obsText = (
-          oData.observations || oData.notes || oData.observation ||
-          shipping.observations || shipping.notes || shipping.observation ||
-          o.observations || o.notes || o.observation || ''
-        ).toString().toLowerCase();
-
-        const deliveryAddr = shipping.deliveryAddress || shipping.address || {};
-        const custData = oData.customerData || oData.customer || {};
-        const custAddr = custData.address || custData.fullAddress || {};
-        const customerNameRaw = String(
-          custData.name || custData.fullName || custData.customerName ||
-          oData.customerName || o.customer_name || o.customerName || ''
-        ).trim();
-        const customerName = customerNameRaw.split(/\s+/).slice(0, 2).join(' ');
-
-        const rawCity = (
-          deliveryAddr.city ||
-          shipping.city ||
-          custAddr.city ||
-          custData.city ||
-          o.city ||
-          ''
-        ).trim();
-
-        const rawNeighborhood = (
-          deliveryAddr.neighborhood ||
-          shipping.neighborhood ||
-          custAddr.neighborhood ||
-          custData.neighborhood ||
-          ''
-        ).trim();
-
-        const city = rawCity || rawNeighborhood || 'Colombo';
-        citiesMap[city] = (citiesMap[city] || 0) + 1;
-
-        const distRaw = shipping.distance ?? shipping.distanceKm ?? o.distance ?? o.distanceKm;
-        const distNum = typeof distRaw === 'number' ? distRaw : (parseFloat(distRaw) || null);
-        const distText = formatDistanceConversational(distNum);
-
-        const items = oData.items || o.items || [];
-        const assemblyItems: string[] = [];
-        const noAssemblyItems: string[] = [];
-
-        const orderHandling = (
-          oData.handlingType ||
-          oData.handling ||
-          oData.deliveryType ||
-          shipping.handlingType ||
-          shipping.handling ||
-          o.handling ||
-          o.handlingType ||
-          ''
-        ).toString();
-        const isOrderAssemblyOutside = isAssemblyOutsideType(orderHandling);
-
-        items.forEach((item: any) => {
-          const rawName = item.description || item.name || item.title || 'móvel';
-          const itemQty = item.quantity || item.qty || 1;
-          const itemHandling = (item.handlingType || item.handling || '').toString();
-          const productWithArticle = formatProductNameWithArticle(rawName, itemQty);
-
-          let isAssembly = false;
-          if (itemHandling) {
-            isAssembly = isAssemblyOutsideType(itemHandling);
-          } else {
-            isAssembly = isOrderAssemblyOutside;
-          }
-
-          if (!isAssembly && isOrderAssemblyOutside) {
-            const hLower = itemHandling.toLowerCase();
-            if (!hLower.includes('depósito') && !hLower.includes('deposito') && !hLower.includes('retirada') && !hLower.includes('cliente') && !hLower.includes('entregue montado')) {
-              isAssembly = true;
-            }
-          }
-
-          if (isAssembly) {
-            assemblyItems.push(productWithArticle);
-          } else {
-            noAssemblyItems.push(productWithArticle);
-          }
-        });
-
-        const timeVal = (sched.startTime || sched.time || '').trim();
-        const endTimeVal = (sched.endTime || '').trim();
-        const timeValLower = timeVal.toLowerCase();
-        const periodVal = (sched.period || sched.shift || sched.turn || '').toLowerCase();
-        const combinedVal = `${timeValLower} ${periodVal}`.trim();
-
-        const isStandardWindow = (tStart: string, tEnd: string): boolean => {
-          if (!tStart && !tEnd) return true;
-
-          const parseMinutes = (t: string) => {
-            const clean = t.replace(/[^\d:]/g, '');
-            const parts = clean.split(':');
-            if (parts[0]) {
-              const h = parseInt(parts[0], 10);
-              const m = parts[1] ? parseInt(parts[1], 10) : 0;
-              return h * 60 + m;
-            }
-            return null;
-          };
-
-          const sMin = parseMinutes(tStart);
-          const eMin = parseMinutes(tEnd);
-
-          // Padrão Manhã: 09:00 (540m) até 12:00 (720m)
-          // Padrão Tarde: 13:00 (780m) até 18:00 (1080m)
-          if (sMin !== null && eMin !== null) {
-            if (sMin >= 540 && sMin <= 570 && eMin >= 720 && eMin <= 750) return true;
-            if (sMin >= 780 && sMin <= 810 && eMin >= 1050 && eMin <= 1110) return true;
-            return false;
-          }
-
-          if (sMin !== null && eMin === null) {
-            if (sMin === 540 || sMin === 780) return true;
-            return false;
-          }
-
-          return true;
-        };
-
-        let scheduledTimeStr = '';
-        if (!isStandardWindow(timeVal, endTimeVal)) {
-          if (timeVal && endTimeVal) {
-            scheduledTimeStr = `agendada para um período em específico entre ${timeVal} e ${endTimeVal}`;
-          } else if (timeVal) {
-            scheduledTimeStr = `agendada para um horário em específico às ${timeVal}`;
-          }
-        }
-
-        const fullAddressText = (
-          (deliveryAddr.address || '') + ' ' +
-          (deliveryAddr.street || '') + ' ' +
-          (deliveryAddr.complement || '') + ' ' +
-          (deliveryAddr.type || '') + ' ' +
-          (deliveryAddr.locationType || '') + ' ' +
-          (shipping.complement || '') + ' ' +
-          (shipping.address || '') + ' ' +
-          (custAddr.complement || '') + ' ' +
-          (custAddr.address || '') + ' ' +
-          obsText
-        ).toLowerCase();
-
-        const itemHasShowroom = items.some((item: any) => {
-          const h = (item.handlingType || item.handling || '').toLowerCase();
-          const n = (item.description || item.name || item.title || '').toLowerCase();
-          const notes = (item.notes || item.observation || '').toLowerCase();
-          return (
-            h.includes('mostruário') || h.includes('mostruario') ||
-            n.includes('mostruário') || n.includes('mostruario') ||
-            notes.includes('mostruário') || notes.includes('mostruario')
-          );
-        });
-        const obsHasShowroom = obsText.includes('mostruário') || obsText.includes('mostruario') || obsText.includes('desmontagem no mostruario') || obsText.includes('desmontagem no mostruário');
-        if (itemHasShowroom || obsHasShowroom) {
-          hasShowroomDisassembly = true;
-        }
-
-        const notices: string[] = [];
-        if (obsText.includes('maquina') || obsText.includes('máquina') || obsText.includes('cartao') || obsText.includes('cartão')) {
-          notices.push('levar máquina de cartão');
-        }
-        if (obsText.includes('cooktop') || obsText.includes('recorte')) {
-          notices.push('fazer recorte para cooktop');
-        }
-        if (obsText.includes('forro') || obsText.includes('furo') || obsText.includes('serra copo') || obsText.includes('cerra copo')) {
-          notices.push('fazer furo no forro e lembrar de levar serra copo');
-        }
-        if (obsText.includes('ligar antes') || obsText.includes('avisar antes') || obsText.includes('chamar antes') || obsText.includes('whatsapp antes')) {
-          notices.push('ligar antes de ir');
-        }
-        if (obsText.includes('nota fiscal') || obsText.includes('levar nota') || /\bnf\b/.test(obsText)) {
-          notices.push('levar nota fiscal');
-        }
-
-        // Detecção de tipo de local de entrega (apartamento, kitnet ou fundos)
-        if (fullAddressText.includes('apartamento') || fullAddressText.includes('apto') || fullAddressText.includes('apt ')) {
-          notices.push('ligar quando chegar porque é apartamento');
-        } else if (fullAddressText.includes('kitnet') || fullAddressText.includes('quitinete') || fullAddressText.includes('kit ')) {
-          notices.push('ligar quando chegar porque é kitnet');
-        } else if (fullAddressText.includes('fundos') || fullAddressText.includes('fundo')) {
-          notices.push('ligar quando chegar porque é nos fundos');
-        }
-
-        const hasWallMountService = items.some((item: any) => {
-          const n = (item.description || item.name || item.title || '').toLowerCase();
-          return n.includes('instalação') || n.includes('instalacao') || n.includes('parede') || n.includes('fixação') || n.includes('fixacao');
-        });
-        if (hasWallMountService || obsText.includes('instalação na parede') || obsText.includes('instalacao na parede') || obsText.includes('fixar na parede')) {
-          notices.push('fazer instalação na parede');
-        }
-
-        const isMorning =
-          combinedVal.includes('manhã') || combinedVal.includes('manha') ||
-          combinedVal.includes('morning') ||
-          /^(06|07|08|09|10|11):/.test(timeValLower);
-
-        const isAfternoon =
-          combinedVal.includes('tarde') || combinedVal.includes('afternoon') ||
-          /^(12|13|14|15|16|17|18):/.test(timeValLower);
-
-        const deliveryInfo = {
-          city,
-          customerName,
-          isColombo: city.toLowerCase() === 'colombo',
-          distText,
-          assemblyItems,
-          noAssemblyItems,
-          scheduledTimeStr,
-          notices
-        };
-
-        if (isMorning) morningDeliveries.push(deliveryInfo);
-        else if (isAfternoon) afternoonDeliveries.push(deliveryInfo);
-        else unspecifiedDeliveries.push(deliveryInfo);
-      });
-
-      const totalDeliveries = deliveryOrders.length;
-      let smartText = '';
-
-      if (totalDeliveries === 0) {
-        smartText = `Não há entregas agendadas ${periodLabel}. Operação e frota disponíveis para novos lançamentos.`;
-      } else {
-        const morningCount = morningDeliveries.length;
-        const afternoonCount = afternoonDeliveries.length;
-        const unspecCount = unspecifiedDeliveries.length;
-
-        // Visão geral: conta todos os turnos
-        let shiftIntro = '';
-        const hasMorning = morningCount > 0;
-        const hasAfternoon = afternoonCount > 0;
-        const hasUnspec = unspecCount > 0;
-
-        if (hasMorning && hasAfternoon && !hasUnspec) {
-          shiftIntro = `, com ${numWord(morningCount)} pela manhã e ${numWord(afternoonCount)} à tarde`;
-        } else if (hasMorning && hasAfternoon && hasUnspec) {
-          const totalMorning = morningCount + unspecCount;
-          shiftIntro = `, com ${numWord(totalMorning)} pela manhã e ${numWord(afternoonCount)} à tarde`;
-        } else if (hasMorning && !hasAfternoon) {
-          const totalMorning = morningCount + unspecCount;
-          shiftIntro = totalMorning === 1 ? `, no período da manhã` : `, todas no período da manhã`;
-        } else if (hasAfternoon && !hasMorning && !hasUnspec) {
-          shiftIntro = afternoonCount === 1 ? `, no período da tarde` : `, todas no período da tarde`;
-        } else if (hasAfternoon && hasUnspec) {
-          shiftIntro = `, com ${numWord(unspecCount + morningCount)} pela manhã e ${numWord(afternoonCount)} à tarde`;
-        } else if (hasUnspec && !hasMorning && !hasAfternoon) {
-          shiftIntro = unspecCount === 1 ? `, sem horário definido` : `, sem horário definido`;
-        }
-
-        const deliveriesWord = numWord(totalDeliveries);
-        const deliveriesText = totalDeliveries === 1 ? 'uma entrega programada' : `${deliveriesWord} entregas programadas`;
-        const overviewSentence = `Para ${periodLabel === 'para hoje' ? 'hoje' : 'amanhã'}, temos ${deliveriesText}${shiftIntro}.`;
-
-        // Helper para formatar uma lista de entregas em texto respeitando as regras estritas:
-        // - Nomes de produtos NÃO são citados, A NÃO SER QUE SEJA UM PRODUTO COM MONTAGEM NO ENDEREÇO!
-        // - Informa a quantidade total de itens da entrega (usa "dois itens" no masculino).
-        // - NUNCA menciona "sem montagem".
-        const formatDeliveryParts = (deliveries: any[]) =>
-          deliveries.map(d => {
-            const citySuffix = d.isColombo ? '' : (d.customerName ? ` em ${d.city}` : ` para ${d.city}`);
-            const customerSuffix = d.customerName ? ` para ${d.customerName}` : '';
-            const distSuffix = d.distText ? `, ${d.distText}` : '';
-            const totalItemCount = d.assemblyItems.length + d.noAssemblyItems.length;
-            const itemsWord = numWordMasculine(totalItemCount);
-            const itemsText = totalItemCount === 1 ? 'um item' : `${itemsWord} itens`;
-
-            let basePart = '';
-            if (d.assemblyItems.length > 0) {
-              basePart = `uma entrega${customerSuffix}${citySuffix}, de ${itemsText}, sendo ${d.assemblyItems.join(' e ')}${distSuffix}, com montagem no endereço`;
-            } else {
-              basePart = `uma entrega${customerSuffix}${citySuffix}, de ${itemsText}${distSuffix}`;
-            }
-
-            if (d.scheduledTimeStr) {
-              basePart += `, ${d.scheduledTimeStr}`;
-            }
-
-            if (d.notices && d.notices.length > 0) {
-              basePart += `, com atenção para ${d.notices.join(' e ')}`;
-            }
-
-            return basePart;
-          });
-
-        // Detalhamento da Manhã
-        let morningText = '';
-        const morningAll = hasAfternoon
-          ? morningDeliveries
-          : [...morningDeliveries, ...unspecifiedDeliveries];
-
-        if (morningAll.length > 0) {
-          const parts = formatDeliveryParts(morningAll);
-          morningText = parts.length === 1
-            ? `Pela manhã, temos ${parts[0]}.`
-            : `Pela manhã, temos ${parts.slice(0, -1).join(', ')} e ainda ${parts[parts.length - 1]}.`;
-        } else if (hasAfternoon) {
-          morningText = `Pela manhã não temos entregas.`;
-        }
-
-        // Detalhamento da Tarde
-        let afternoonText = '';
-        if (afternoonDeliveries.length > 0) {
-          const parts = formatDeliveryParts(afternoonDeliveries);
-          afternoonText = parts.length === 1
-            ? `À tarde, temos ${parts[0]}.`
-            : `À tarde, temos ${parts.slice(0, -1).join(', ')} e ainda ${parts[parts.length - 1]}.`;
-        }
-
-        // Entregas sem turno definido quando há tarde mas não manhã
-        let unspecText = '';
-        if (hasAfternoon && hasUnspec && !hasMorning) {
-          const parts = formatDeliveryParts(unspecifiedDeliveries);
-          unspecText = parts.length === 1
-            ? ` Também temos ${parts[0]}, sem horário definido.`
-            : ` Também temos ${parts.slice(0, -1).join(', ')} e ainda ${parts[parts.length - 1]}, sem horário definido.`;
-        }
-
-        // Dica de entrega distante com montagem
-        const farAssemblyHint = hasFarAssembly
-          ? ` Obs: há entrega distante com montagem no endereço, atenção ao horário de saída.`
-          : '';
-
-        // Lembrete de desmontagem no mostruário para entregas de amanhã
-        const showroomHint = (mode === 'tomorrow' && hasShowroomDisassembly)
-          ? ` Lembrem de desmontar hoje o móvel de mostruário para amanhã estar pronto para ser levado, já que é um móvel de mostruário.`
-          : '';
-
-        smartText = `${overviewSentence} ${morningText} ${afternoonText}${unspecText}${farAssemblyHint}${showroomHint}`.trim().replace(/\s+/g, ' ');
-      }
-
-      try {
-        const geminiPrompt = `Você é o supervisor de logística da Móveis Morante conversando por áudio no WhatsApp com a equipe de entregas. Sua única função é transformar o texto base fornecido em um áudio 100% natural, fluido e conversacional, perfeito para sintetizador de voz (Audio TTS). O texto já está estruturado; só refine a fluência sem alterar os dados.
-
-REGRAS ABSOLUTAS E ESSENCIAIS DO RESUMO:
-1. CLIENTE E OMISSÃO DE PRODUTOS NORMAIS: Preserve o primeiro nome e o sobrenome do cliente que vierem no texto base. NUNCA mencione o nome dos produtos das entregas, A NÃO SER QUE SEJA UM PRODUTO QUE POSSUI MONTAGEM NO ENDEREÇO! Se a entrega não tiver montagem no endereço, mencione APENAS o cliente e a quantidade de itens (exemplo: "uma entrega para João Silva, de três itens").
-2. QUANDO HOUVER MONTAGEM NO ENDEREÇO: Fale a quantidade total de itens E cite especificamente o produto com montagem no endereço (exemplo: "uma entrega de quatro itens, sendo um guarda-roupa sydney, com montagem no endereço").
-3. NUNCA DIGA 'SEM MONTAGEM': É ESTRITAMENTE PROIBIDO dizer as palavras "sem montagem", "não precisa de montagem" ou "sem montagem no endereço". Se a entrega não tiver montagem no local, apenas ignore essa informação. SOMENTE mencione a palavra montagem quando REALMENTE HOUVER montagem no endereço.
-4. CONCORDÂNCIA MASCULINA PARA ITENS: A contagem de itens DEVE ser sempre no MASCULINO: "um item", "dois itens", "três itens" (NUNCA "duas itens").
-5. AVISOS DE CHEGADA NO ENDEREÇO: Se o texto contiver avisos como "ligar quando chegar porque é apartamento", "ligar quando chegar porque é kitnet" ou "ligar quando chegar porque é nos fundos", pronuncie essa instrução exatamente dessa forma natural ao final da respectiva entrega.
-6. ARTIGOS GRAMATICAIS CORRETOS POR PALAVRA RAIZ DO PRODUTO:
-   - "balcão", "guarda-roupa", "armário", "painel", "rack", "sofá", "buffet", "conjunto" → artigo MASCULINO: "um balcão", "um guarda-roupa".
-   - "escrivaninha", "cômoda", "mesa", "cadeira", "pia", "cama", "sapateira", "cristaleira", "bancada", "prateleira", "estante" → artigo FEMININO: "uma escrivaninha", "uma mesa".
-5. NÚMEROS E DISTÂNCIAS: Escreva os números cardinais por extenso ("quatro", "três", "uma"). A distância já vem arredondada para cima no texto base: preserve exatamente esse número inteiro em quilômetros; não use decimais, não arredonde para baixo e não escreva a palavra "vírgula". NUNCA escreva dígitos isolados sem unidade.
-6. SEM EXPRESSÕES REPETIDAS: NUNCA comece frases com "E também" ou "Temos uma entrega. Temos uma entrega de...". Funda a informação em uma frase só. JAMAIS escreva nomes em CAIXA ALTA.
-7. VISÃO GERAL SEM CIDADE: A primeira frase resume apenas o total e os turnos, SEM mencionar cidades. Exemplo correto: "Para amanhã, temos quatro entregas programadas, com uma pela manhã e três à tarde."
-8. REGRA ABSOLUTA DE COLOMBO: JAMAIS mencione a palavra "Colombo". Se a entrega for em Colombo, não fale o nome da cidade. Só mencione a cidade quando for fora de Colombo (ex: Curitiba, Pinhais).
-9. HORÁRIOS E AVISOS OPERACIONAIS: 
-   - As janelas padrão são 9-12h e 13-18h. Se a entrega for na janela padrão, NUNCA diga o horário específico. SOMENTE se for diferente (ex: 08:00), mencione o horário em específico.
-   - Mantenha avisos operacionais (levar máquina de cartão, fazer recorte para cooktop, levar serra copo, ligar antes de ir, levar nota fiscal ou fazer instalação na parede).
-10. OMISSÃO DE CORES E ACABAMENTOS: PROIBIDO pronunciar nomes de cores ou combinações ("freijó", "off white", "preto", "branco", "cinamomo", etc.).
-11. SEM SÍMBOLOS OU MARCAÇÕES: PROIBIDO usar dois-pontos (:), parênteses (()), barras (/), asteriscos (*) ou hashtags (#).
-12. RETORNE APENAS O TEXTO A SER PRONUNCIADO.
-
-Exemplo do estilo esperado: "Para amanhã, temos quatro entregas programadas, com uma pela manhã e três à tarde. Pela manhã, temos uma entrega de dois itens, agendada para um horário em específico às 08:00. À tarde, temos uma entrega de três itens, não tão perto, a 5,2 quilômetros, com atenção para levar máquina de cartão, e ainda uma entrega para Curitiba de quatro itens, sendo um guarda-roupa sonata, bem longe, a 26,8 quilômetros, com montagem no endereço, com atenção para fazer instalação na parede."
-
-Texto base para refinamento: "${smartText}"`;
-
-        if (geminiKey) {
-          const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${encodeURIComponent(geminiKey)}`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ contents: [{ parts: [{ text: geminiPrompt }] }] })
-          });
           if (res.ok) {
             const resJson = await res.json();
             const aiText = resJson?.candidates?.[0]?.content?.parts?.[0]?.text;
             if (aiText && aiText.trim()) {
-              smartText = aiText.trim()
+              smartText = aiText
+                .trim()
                 .replace(/[*#]/g, '')
                 .replace(/:/g, ' ')
                 .replace(/[()]/g, '')
                 .replace(/\s+/g, ' ');
             }
           }
+        } catch (geminiErr) {
+          console.warn('Erro ao chamar Gemini Flash para resumo (usando texto estruturado local):', geminiErr);
         }
-      } catch (err) {
-        console.warn('Fallback local ativado para o resumo da IA:', err);
+      }
+    }
+
+    // 5. Salvar o resumo gerado com sucesso com estado READY
+    await saveSummaryRecord({
+      scope: mode,
+      data_fingerprint: currentFingerprint,
+      text: smartText,
+      text_status: 'READY',
+      audio_status: 'READY',
+      generation_started_at: null,
+      error_message: null,
+    });
+
+    if (mode === 'today' && setAiSummaryToday) setAiSummaryToday(smartText);
+    else if ((mode === 'tomorrow' || mode === 'next_days') && setAiSummaryTomorrow) setAiSummaryTomorrow(smartText);
+
+    return smartText;
+  } catch (err: any) {
+    console.warn('Erro durante geração de resumo:', err);
+    const detail = err instanceof Error ? err.message : String(err);
+    const fallbackText = `Não foi possível atualizar o resumo agora. ${detail}`;
+
+    if (mode === 'today' && setAiSummaryToday) setAiSummaryToday(fallbackText);
+    else if ((mode === 'tomorrow' || mode === 'next_days') && setAiSummaryTomorrow) setAiSummaryTomorrow(fallbackText);
+
+    return fallbackText;
+  } finally {
+    if (setIsGeneratingAISummary) setIsGeneratingAISummary(false);
+  }
+};
+
+export function formatExtendDateLabel(dateStr: string, todayStr: string, tomorrowStr: string): string {
+  const parts = dateStr.split('-');
+  if (parts.length !== 3) return `Para a data ${dateStr}`;
+  const year = parseInt(parts[0], 10);
+  const month = parseInt(parts[1], 10) - 1;
+  const day = parseInt(parts[2], 10);
+  const d = new Date(year, month, day, 12, 0, 0);
+
+  const weekDays = [
+    'domingo',
+    'segunda-feira',
+    'terça-feira',
+    'quarta-feira',
+    'quinta-feira',
+    'sexta-feira',
+    'sábado',
+  ];
+  const months = [
+    'janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho',
+    'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro',
+  ];
+
+  const weekDayName = weekDays[d.getDay()];
+  const monthName = months[d.getMonth()];
+
+  if (dateStr === tomorrowStr) {
+    return `Para amanhã, ${weekDayName}, dia ${day} de ${monthName}`;
+  }
+  return `Para ${weekDayName}, dia ${day} de ${monthName}`;
+}
+
+function formatOrdersGroup(orders: CanonicalSummaryPayload['orders']): string {
+  const morningOrders = orders.filter(
+    (o) =>
+      o.period.includes('manhã') ||
+      o.period.includes('manha') ||
+      /^(06|07|08|09|10|11):/.test(o.scheduledTime)
+  );
+  const afternoonOrders = orders.filter(
+    (o) =>
+      o.period.includes('tarde') ||
+      /^(12|13|14|15|16|17|18):/.test(o.scheduledTime)
+  );
+  const unspecOrders = orders.filter(
+    (o) => !morningOrders.includes(o) && !afternoonOrders.includes(o)
+  );
+
+  const formatList = (list: typeof orders) =>
+    list.map((o) => {
+      const cityPart = o.city && o.city !== 'colombo' ? ` em ${o.city}` : '';
+      const custPart = o.customerName ? ` para ${o.customerName}` : '';
+      const itemCount = o.items.reduce((acc, it) => acc + it.quantity, 0);
+      const itemsText = itemCount === 1 ? 'um item' : `${itemCount} itens`;
+
+      const assemblyItems = o.items.filter((it) => it.isAssemblyOutside).map((it) => it.name);
+
+      let base = '';
+      if (assemblyItems.length > 0) {
+        base = `uma entrega${custPart}${cityPart}, de ${itemsText}, sendo ${assemblyItems.join(' e ')}, com montagem no endereço`;
+      } else {
+        base = `uma entrega${custPart}${cityPart}, de ${itemsText}`;
       }
 
-      try {
-        if (mode === 'today' && setAiSummaryToday) {
-          setAiSummaryToday(smartText);
-          await AsyncStorage.setItem('@morante_ai_summary_today', smartText).catch(() => {});
-          await AsyncStorage.setItem('@morante_ai_summary_fingerprint_today', currentFingerprint).catch(() => {});
-        } else if (mode === 'tomorrow' && setAiSummaryTomorrow) {
-          setAiSummaryTomorrow(smartText);
-          await AsyncStorage.setItem('@morante_ai_summary_tomorrow', smartText).catch(() => {});
-          await AsyncStorage.setItem('@morante_ai_summary_fingerprint_tomorrow', currentFingerprint).catch(() => {});
-        }
-      } catch (storageErr) {
-        console.warn('Cota de armazenamento excedida para AsyncStorage:', storageErr);
+      if (o.notices.length > 0) {
+        base += `, com atenção para ${o.notices.join(' e ')}`;
       }
-    } catch (err) {
-      console.warn('Erro ao gerar resumo de entregas com IA:', err);
-      const detail = err instanceof Error && err.message
-        ? ` Detalhe: ${err.message}`
-        : '';
-      const fallbackText = `Não foi possível gerar o resumo de entregas ${mode === 'today' ? 'de hoje' : 'de amanhã'} agora.${detail}`;
-      if (mode === 'today' && setAiSummaryToday) setAiSummaryToday(fallbackText);
-      else if (mode === 'tomorrow' && setAiSummaryTomorrow) setAiSummaryTomorrow(fallbackText);
-    } finally {
-      if (setIsGeneratingAISummary) setIsGeneratingAISummary(false);
+
+      return base;
+    });
+
+  const parts: string[] = [];
+
+  if (morningOrders.length > 0) {
+    parts.push(`Pela manhã, temos ${formatList(morningOrders).join(', ')}.`);
+  }
+  if (afternoonOrders.length > 0) {
+    parts.push(`À tarde, temos ${formatList(afternoonOrders).join(', ')}.`);
+  }
+  if (unspecOrders.length > 0) {
+    parts.push(`Também temos ${formatList(unspecOrders).join(', ')}.`);
+  }
+
+  return parts.join(' ');
+}
+
+export function generateLocalSmartText(payload: CanonicalSummaryPayload): string {
+  const orders = payload.orders || [];
+
+  if (payload.scope === 'next_days') {
+    if (orders.length === 0) {
+      return 'Não há entregas agendadas para os próximos dias. Operação e frota disponíveis para novos lançamentos.';
     }
-    };
+
+    const now = new Date();
+    const todayStr = getLocalDateString(now);
+    const tomorrow = new Date(now);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const tomorrowStr = getLocalDateString(tomorrow);
+
+    // Agrupar pedidos por data agendada cronologicamente
+    const ordersByDate = new Map<string, typeof orders>();
+    for (const order of orders) {
+      const dateKey = order.scheduledDate || 'sem_data';
+      if (!ordersByDate.has(dateKey)) {
+        ordersByDate.set(dateKey, []);
+      }
+      ordersByDate.get(dateKey)!.push(order);
+    }
+
+    const sortedDates = Array.from(ordersByDate.keys()).sort();
+    const dayBlocks: string[] = [];
+
+    for (const dateKey of sortedDates) {
+      const dayOrders = ordersByDate.get(dateKey) || [];
+      if (dayOrders.length === 0) continue;
+
+      const dateLabel = formatExtendDateLabel(dateKey, todayStr, tomorrowStr);
+      const dayOverview = `${dateLabel}, temos ${dayOrders.length} ${dayOrders.length === 1 ? 'entrega programada' : 'entregas programadas'}.`;
+      const dayDetails = formatOrdersGroup(dayOrders);
+
+      dayBlocks.push(`${dayOverview} ${dayDetails}`.trim());
+    }
+
+    return dayBlocks.join(' ').trim().replace(/\s+/g, ' ');
+  }
+
+  // Escopo de Hoje ou Amanhã individual
+  const periodLabel = payload.scope === 'today' ? 'para hoje' : 'para amanhã';
+  if (orders.length === 0) {
+    return `Não há entregas agendadas ${periodLabel}. Operação e frota disponíveis para novos lançamentos.`;
+  }
+
+  const total = orders.length;
+  const overview = `Para ${periodLabel === 'para hoje' ? 'hoje' : 'amanhã'}, temos ${total} ${total === 1 ? 'entrega programada' : 'entregas programadas'}.`;
+  const details = formatOrdersGroup(orders);
+
+  return `${overview} ${details}`.trim().replace(/\s+/g, ' ');
+}
+
+function buildGeminiPrompt(baseText: string): string {
+  return `Você é o supervisor de logística da Móveis Morante conversando por áudio no WhatsApp com a equipe de entregas.
+Sua única função é transformar o texto base fornecido em um áudio 100% natural, fluido e conversacional, perfeito para sintetizador de voz (Audio TTS).
+
+REGRAS ABSOLUTAS:
+1. Quando houver entregas em dias seguintes, SEMPRE anuncie claramente o dia antes de falar as entregas daquele respectivo dia (ex: 'Para amanhã, segunda-feira, dia 7 de setembro...', 'Para quarta-feira, dia 9 de setembro...').
+2. NUNCA mencione nome de produtos normais, A NÃO SER QUE TENHA MONTAGEM NO ENDEREÇO.
+3. NUNCA diga 'sem montagem' ou 'não precisa de montagem'.
+4. Mantenha contagem de itens no MASCULINO: 'um item', 'dois itens'.
+5. NUNCA mencione a palavra 'Colombo'. Só fale a cidade se for fora de Colombo.
+6. Retorne APENAS o texto a ser pronunciado.
+
+Texto base: "${baseText}"`;
+}

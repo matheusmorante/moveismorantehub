@@ -135,7 +135,7 @@ export default function ApiUsagePage() {
                                     : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
                             }`}
                         >
-                            Desenvolvimento
+                            Dev
                         </button>
                     </div>
 

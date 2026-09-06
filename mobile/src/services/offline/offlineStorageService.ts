@@ -143,8 +143,20 @@ export const offlineStorageService = {
         `${WORKING_SET_CACHE_KEY_PREFIX}${key}`,
         JSON.stringify({ data, cachedAt: new Date().toISOString() })
       );
-    } catch (e) {
-      console.warn('[OfflineStorage] Erro ao gravar cache local:', e);
+    } catch (e: any) {
+      if (e?.name === 'QuotaExceededError' || e?.message?.includes('exceeded the quota')) {
+        try {
+          const keys = await AsyncStorage.getAllKeys();
+          const oldCacheKeys = keys.filter(k => k.startsWith(WORKING_SET_CACHE_KEY_PREFIX));
+          for (const k of oldCacheKeys) {
+            await AsyncStorage.removeItem(k);
+          }
+        } catch {
+          // Ignorar se falhar no fallback
+        }
+      } else {
+        console.warn('[OfflineStorage] Erro ao gravar cache local:', e);
+      }
     }
   },
 

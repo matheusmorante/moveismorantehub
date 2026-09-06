@@ -28,6 +28,7 @@ import { NativeAssembliesScreen } from './src/features/assemblies/screens/Native
 import { NativeReportsScreen } from './src/features/reports/screens/NativeReportsScreen';
 import { NativeSettingsScreen } from './src/features/settings/screens/NativeSettingsScreen';
 import { NativeProductsScreen } from './src/features/products';
+import { FinanceHubScreen } from './src/features/finance/screens/FinanceHubScreen';
 
 import { NotificationsModal } from './src/components/modals/NotificationsModal';
 import { ProfileModal } from './src/components/modals/ProfileModal';
@@ -70,6 +71,7 @@ export default function App() {
   const [returnsCount, setReturnsCount] = useState(0);
   const [loadingStats, setLoadingStats] = useState(false);
   const [assemblySubTab, setAssemblySubTab] = useState<'internal' | 'outside'>('internal');
+  const [deliveriesSubTab, setDeliveriesSubTab] = useState<'today' | 'map'>('today');
 
   const [aiSummaryTab, setAiSummaryTab] = useState<'today' | 'tomorrow'>('today');
   const [hasTodayDeliveries, setHasTodayDeliveries] = useState<boolean>(true);
@@ -92,6 +94,7 @@ export default function App() {
   );
   const canSeeReports = isAdmin || userProfile?.role === 'manager' || isSeller;
   const canSeeProducts = isAdmin || isSeller || userProfile?.role === 'manager';
+  const canSeeFinance = isAdmin || userProfile?.role === 'manager' || userProfile?.role === 'gerente';
 
   const formatAudioTime = (secs: number) => {
     const s = Math.max(0, Math.floor(secs || 0));
@@ -114,6 +117,9 @@ export default function App() {
       void url;
       setCurrentTab('configuracoes');
       return;
+    }
+    if (newTab === 'entregas' && currentTab !== 'entregas') {
+      setDeliveriesSubTab('today');
     }
     setCurrentTab(newTab);
   };
@@ -380,8 +386,8 @@ export default function App() {
       setReturnsCount(retCount);
 
       if (rawOrders && rawOrders.length > 0) {
-        generateDeliveryAISummary('today', true, setAiSummaryToday, setAiSummaryTomorrow, setIsGeneratingAISummary, rawOrders);
-        generateDeliveryAISummary('tomorrow', true, setAiSummaryToday, setAiSummaryTomorrow, setIsGeneratingAISummary, rawOrders);
+        generateDeliveryAISummary('today', false, setAiSummaryToday, setAiSummaryTomorrow, setIsGeneratingAISummary, rawOrders);
+        generateDeliveryAISummary('tomorrow', false, setAiSummaryToday, setAiSummaryTomorrow, setIsGeneratingAISummary, rawOrders);
       }
     } catch (err) {
       console.warn('[DashboardStats] Erro:', err);
@@ -537,7 +543,24 @@ export default function App() {
         );
 
         fetchDashboardStats();
-        generateDeliveryAISummary('today', true, setAiSummaryToday, setAiSummaryTomorrow, setIsGeneratingAISummary);
+      })
+      .subscribe();
+
+    // Listener Realtime no banco de dados (novas vendas, edições, assistências, devoluções, retiradas)
+    let ordersDebounceTimer: ReturnType<typeof setTimeout> | null = null;
+    const ordersChannel = supabase
+      .channel(`mobile-orders-sync-${Date.now()}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, () => {
+        if (ordersDebounceTimer) clearTimeout(ordersDebounceTimer);
+        ordersDebounceTimer = setTimeout(() => {
+          fetchDashboardStats();
+        }, 400);
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'settings' }, () => {
+        if (ordersDebounceTimer) clearTimeout(ordersDebounceTimer);
+        ordersDebounceTimer = setTimeout(() => {
+          fetchDashboardStats();
+        }, 400);
       })
       .subscribe();
 
@@ -550,6 +573,8 @@ export default function App() {
       appStateSub.remove();
       subscription.unsubscribe();
       notifChannel.unsubscribe();
+      if (ordersDebounceTimer) clearTimeout(ordersDebounceTimer);
+      ordersChannel.unsubscribe();
       deepLinkSubscription.remove();
       clearInterval(pollingInterval);
     };
@@ -615,26 +640,6 @@ export default function App() {
             <OfflineSyncBar isDarkMode={isDarkMode} />
             {currentTab === 'home' ? (
               <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: 128 }}>
-
-                <AISummaryCard
-                  isDarkMode={isDarkMode}
-                  aiSummaryTab={aiSummaryTab}
-                  setAiSummaryTab={setAiSummaryTab}
-                  hasTodayDeliveries={hasTodayDeliveries}
-                  aiSummaryToday={aiSummaryToday}
-                  aiSummaryTomorrow={aiSummaryTomorrow}
-                  isGeneratingAISummary={isGeneratingAISummary}
-                  onRefreshSummary={() => generateDeliveryAISummary(aiSummaryTab, true, setAiSummaryToday, setAiSummaryTomorrow, setIsGeneratingAISummary)}
-                  isSpeakingSummary={isSpeakingSummary}
-                  speechIsPaused={speechIsPaused}
-                  speechCurrentTime={speechCurrentTime}
-                  speechTotalDuration={speechTotalDuration}
-                  handleToggleSpeech={handleToggleSpeech}
-                  finishSeekToPosition={finishSeekToPosition}
-                  setSpeechCurrentTime={setSpeechCurrentTime}
-                  formatAudioTime={formatAudioTime}
-                />
-
                 <OperationalStatsGrid
                   isDarkMode={isDarkMode}
                   selectedPeriod={selectedPeriod}
@@ -653,12 +658,29 @@ export default function App() {
                   WEB_URL={WEB_URL}
                 />
               </ScrollView>
+            ) : currentTab === 'financeiro' && canSeeFinance ? (
+              <FinanceHubScreen isDarkMode={isDarkMode} userProfile={userProfile} />
             ) : currentTab === 'pedidos' ? (
               <NativeOrdersScreen isDarkMode={isDarkMode} isAdmin={isAdmin} onSelectOrder={setAppSelectedOrder} />
             ) : currentTab === 'produtos' && canSeeProducts ? (
               <NativeProductsScreen isDarkMode={isDarkMode} userProfile={userProfile} />
-            ) : (currentTab === 'entregas' || currentTab === 'logistica') ? (
-              <DeliveriesHubScreen isDarkMode={isDarkMode} isAdmin={isAdmin} onSelectOrder={setAppSelectedOrder} />
+            ) : currentTab === 'entregas' ? (
+              <DeliveriesHubScreen
+                isDarkMode={isDarkMode}
+                isAdmin={isAdmin}
+                initialTab={deliveriesSubTab}
+                onSelectOrder={setAppSelectedOrder}
+              />
+            ) : (currentTab === 'agenda' || currentTab === 'logistica' || currentTab === 'cronograma') ? (
+              <NativeLogisticsScreen
+                isDarkMode={isDarkMode}
+                isAdmin={isAdmin}
+                onSelectOrder={setAppSelectedOrder}
+                onNavigateToDeliveriesMap={() => {
+                  setDeliveriesSubTab('map');
+                  setCurrentTab('entregas');
+                }}
+              />
             ) : currentTab === 'montagens' ? (
               <NativeAssembliesScreen isDarkMode={isDarkMode} initialSubTab={assemblySubTab} onSelectOrder={setAppSelectedOrder} />
             ) : currentTab === 'configuracoes' ? (
@@ -675,6 +697,7 @@ export default function App() {
               currentTab={currentTab}
               canSeeReports={canSeeReports}
               canSeeProducts={canSeeProducts}
+              canSeeFinance={canSeeFinance}
               handleTabChange={handleTabChange}
               WEB_URL={WEB_URL}
             />

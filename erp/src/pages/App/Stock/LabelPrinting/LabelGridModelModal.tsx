@@ -4,82 +4,19 @@ import { toast } from 'react-toastify';
 const BOOTSTRAP_ICONS_URL = "https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css";
 const GOOGLE_FONTS_URL = "https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&family=Montserrat:wght@400;700;900&family=Oswald:wght@400;700&family=Roboto:wght@400;700;900&family=Playfair+Display:wght@400;700;900&family=Bebas+Neue&family=Libre+Barcode+128&display=swap";
 
-export interface GridModel {
-    id: string;
-    baseModelId?: string; // ID do modelo padrão original, se este for um override
-    name: string;
-    columns: number;
-    rows: number;
-    marginT: number;
-    marginB: number;
-    marginL: number;
-    marginR: number;
-    gapH: number;
-    gapV: number;
-    paperSize: string;
-    paperWidth?: number;
-    paperHeight?: number;
-    icon: string;
-    category?: 'identificacao' | 'precos' | 'logos' | 'posts';
-    type?: 'round' | 'rect';
-    imageFit?: 'contain' | 'cover' | 'fill';
-    // Design tipográfico
-    nameFontSize?: number;
-    nameColor?: string;
-    nameBold?: boolean;
-    nameAlign?: 'left' | 'center' | 'right';
-    nameVAlign?: 'top' | 'middle' | 'bottom';
-    priceFontSize?: number;
-    priceColor?: string;
-    priceBold?: boolean;
-    priceAlign?: 'left' | 'center' | 'right';
-    priceVAlign?: 'top' | 'middle' | 'bottom';
-    promoFontSize?: number;
-    promoColor?: string;
-    promoBold?: boolean;
-    promoAlign?: 'left' | 'center' | 'right';
-    promoVAlign?: 'top' | 'middle' | 'bottom';
-    // Posições
-    namePosX?: number;
-    namePosY?: number;
-    pricePosX?: number;
-    pricePosY?: number;
-    promoPosX?: number;
-    promoPosY?: number;
-    barcodePosX?: number;
-    barcodePosY?: number;
-    dePricePorGroupPos?: { x: number; y: number };
-    dePricePorGroupRotation?: number;
-    dePricePorGroupGap?: number;
-    // Fontes por faixa
-    priceFontSizeTens?: number;
-    priceFontSizeHundreds?: number;
-    priceFontSizeThousands?: number;
-    priceFontSizeTenThousands?: number;
-    promoPriceColor?: string;
-    oldPriceColor?: string;
-    promoPriceFontSize?: number;
-    // Estilos Independentes Promo/Antigo
-    promoPriceBold?: boolean;
-    promoPriceAlign?: 'left' | 'center' | 'right';
-    promoPriceVAlign?: 'top' | 'middle' | 'bottom';
-    oldPriceBold?: boolean;
-    oldPriceFontSize?: number;
-    oldPriceAlign?: 'left' | 'center' | 'right';
-    oldPriceVAlign?: 'top' | 'middle' | 'bottom';
-    // Estilo de Preço Dividido
-    priceFormat?: 'standard' | 'split';
-    priceSymbolFontSize?: number;
-    priceDecimalsFontSize?: number;
-    priceSymbolPosX?: number;
-    priceSymbolPosY?: number;
-    priceDecimalsPosX?: number;
-    priceDecimalsPosY?: number;
-    priceSymbolColor?: string;
-    priceDecimalsColor?: string;
-    priceSymbolBold?: boolean;
-    priceDecimalsBold?: boolean;
-    // Variações de Promoção (Independentes)
+import type { GridModel as BaseGridModel } from './gridModel/LabelGridModelTypes';
+
+// Este modal mantém campos adicionais de composição usados pelos modelos legados.
+// O tipo-base continua centralizado em gridModel; aqui só declaramos a extensão
+// específica do editor para preservar os modelos já salvos.
+interface GridModel extends BaseGridModel {
+    priceFormat?: string;
+    priceSymbolPosX?: number; priceSymbolPosY?: number;
+    priceSymbolFontSize?: number; priceSymbolBold?: boolean; priceSymbolColor?: string;
+    priceDecimalsPosX?: number; priceDecimalsPosY?: number;
+    priceDecimalsFontSize?: number; priceDecimalsBold?: boolean; priceDecimalsColor?: string;
+    oldPriceFontSize?: number; oldPriceColor?: string; oldPriceBold?: boolean;
+    oldPriceAlign?: 'left' | 'center' | 'right'; oldPriceVAlign?: 'top' | 'middle' | 'bottom';
     oldPricePosX?: number; oldPricePosY?: number; oldPriceWidth?: number; oldPriceHeight?: number;
     promoNamePosX?: number; promoNamePosY?: number; promoNameFontSize?: number;
     promoNameAlign?: 'left' | 'center' | 'right'; promoNameVAlign?: 'top' | 'middle' | 'bottom';

@@ -70,8 +70,15 @@ const TimelineNode = ({ order, onOrderClick }: { order: Order; onOrderClick: (or
             <div className={`p-8 rounded-[2.5rem] border transition-all duration-300 cursor-pointer ${cls.cardBg} ${cls.cardBorder} hover:shadow-premium-lg group-hover:border-blue-300 dark:group-hover:border-blue-800 relative overflow-hidden`}>
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
                     <div className="flex items-center gap-3">
-                        <div className={`px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest text-white shadow-sm ${isAssemblyTask ? 'bg-rose-600' : cls.dotBg}`}>
-                            {typeLabel}
+                        <div
+                            className={`flex h-7 w-7 items-center justify-center rounded-md text-white border border-white/20 shadow-2xs ${
+                                isAssistance ? 'bg-orange-500 border-orange-600' :
+                                isPickupTask ? 'bg-purple-600 border-purple-700' :
+                                (order.orderType === 'return' ? 'bg-amber-500 border-amber-600' : 'bg-emerald-600 border-emerald-700')
+                            }`}
+                            title={isAssistance ? 'Assistência Técnica' : isPickupTask ? 'Retirada na Loja' : (order.orderType === 'return' ? 'Devolução' : 'Entrega')}
+                        >
+                            <i className={`bi ${isAssistance ? 'bi-tools' : isPickupTask ? 'bi-shop' : (order.orderType === 'return' ? 'bi-arrow-return-left' : 'bi-truck')} text-[13px] text-white`} />
                         </div>
                         <div className="flex items-center gap-2 text-slate-800 dark:text-slate-200">
                             <i className="bi bi-clock-fill text-xs opacity-50" />
@@ -104,28 +111,22 @@ const TimelineNode = ({ order, onOrderClick }: { order: Order; onOrderClick: (or
                 </div>
 
                 {/* Assembly Badges */}
-                <div className="flex flex-col gap-2 mt-4">
+                <div className="flex items-center gap-1.5 flex-wrap mt-3">
                     {isOnlyInternalAssembly && (
-                        <div className="flex items-start gap-3 bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400 p-4 rounded-[1.5rem] border-2 border-orange-100 dark:border-orange-900/30 animate-pulse shadow-lg w-fit">
-                            <Drill className="w-5 h-5 text-orange-500 shrink-0 mt-0.5" />
-                            <div className="flex flex-col">
-                                <span className="text-[11px] font-black uppercase tracking-[0.1em] leading-tight">
-                                    Montagem no Depósito
-                                </span>
-                                <span className="text-[9px] font-bold opacity-70 uppercase">Agendado para o depósito</span>
-                            </div>
+                        <div
+                            className="flex h-7 w-7 items-center justify-center rounded-md bg-amber-500 text-white border border-amber-600 shadow-2xs"
+                            title="Montagem Depósito (antes da entrega/retirada)"
+                        >
+                            <Drill size={14} className="text-white fill-white" />
                         </div>
                     )}
 
                     {isAssemblyOutside && (
-                        <div className="flex items-start gap-3 bg-red-600 text-white p-4 rounded-[1.5rem] border-2 border-red-700 animate-pulse shadow-lg w-fit">
-                            <Drill className="w-5 h-5 text-white shrink-0 mt-0.5" />
-                            <div className="flex flex-col">
-                                <span className="text-[11px] font-black uppercase tracking-[0.1em] leading-tight">
-                                    Montagem FORA
-                                </span>
-                                <span className="text-[9px] font-bold opacity-80 uppercase">Realizada no cliente</span>
-                            </div>
+                        <div
+                            className="flex h-7 w-7 items-center justify-center rounded-md bg-red-600 text-white border border-red-700 shadow-2xs"
+                            title="Montagem Fora (na casa do cliente)"
+                        >
+                            <Drill size={14} className="text-white fill-white" />
                         </div>
                     )}
                 </div>

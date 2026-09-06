@@ -2,7 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, Alert } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Map, List, Sparkles, ArrowLeft, RefreshCw, AlertCircle } from 'lucide-react-native';
-import { useDeliveryRoute, DeliveryRouteItem } from '../hooks/useDeliveryRoute';
+import { useDeliveryRoute, DeliveryRouteItem, checkOutOfOrderRisk } from '../hooks/useDeliveryRoute';
 import { useDriverLocation } from '../hooks/useDriverLocation';
 import { useRoutesApi } from '../hooks/useRoutesApi';
 import { DeliveryMapView } from '../components/deliveryMap/DeliveryMapView';
@@ -27,6 +27,7 @@ export const TodayDeliveriesScreen: React.FC<Props> = ({
   const insets = useSafeAreaInsets();
   const [viewMode, setViewMode] = useState<'map' | 'list'>('map');
   const [selectedMarkerItem, setSelectedMarkerItem] = useState<DeliveryRouteItem | null>(null);
+  const [isCardDismissed, setIsCardDismissed] = useState<boolean>(false);
 
   // Otimização de rota
   const [showOptimizationModal, setShowOptimizationModal] = useState(false);
@@ -34,7 +35,7 @@ export const TodayDeliveriesScreen: React.FC<Props> = ({
   const [applyingOptimization, setApplyingOptimization] = useState(false);
 
   // Hooks de Dados e Localização
-  const { routeItems, currentDelivery, stats, loading, refreshing, onRefresh } = useDeliveryRoute();
+  const { routeItems, currentDelivery, nextDelivery, stats, loading, refreshing, onRefresh } = useDeliveryRoute();
   const { coords: driverCoords, refreshLocation } = useDriverLocation();
 
   // Coordenadas padrão da loja/depósito Morante (Curitiba/Colombo - PR)
@@ -43,8 +44,14 @@ export const TodayDeliveriesScreen: React.FC<Props> = ({
     longitude: -49.169,
   }), []);
 
-  // Alvo ativo da rota (entrega selecionada ou entrega em andamento)
-  const activeDeliveryTarget = currentDelivery || selectedMarkerItem;
+  // Alvo ativo da rota (parada selecionada pelo clique no mapa, em andamento ou próxima)
+  const activeDeliveryTarget = selectedMarkerItem || currentDelivery || nextDelivery;
+
+  // Itens restantes da lista/mapa (sem duplicar a próxima entrega exibida no card do topo)
+  const remainingRouteItems = useMemo(() => {
+    if (!activeDeliveryTarget) return routeItems;
+    return routeItems.filter((item) => item.id !== activeDeliveryTarget.id);
+  }, [routeItems, activeDeliveryTarget]);
 
   // Polyline e métricas da Routes API entre motorista e próxima parada
   const { polylineCoords, distanceKm, durationMin } = useRoutesApi({
@@ -53,11 +60,53 @@ export const TodayDeliveriesScreen: React.FC<Props> = ({
     enabled: viewMode === 'map' && !!activeDeliveryTarget?.coords,
   });
 
-  // Ação de Iniciar Entrega: abre o modal de pedido existente já no fluxo de preparação
+  // Métricas do Roteiro Restante Inteiro (Soma de todas as paradas pendentes)
+  const totalRemainingMetrics = useMemo(() => {
+    const pendingItems = routeItems.filter(i => i.status !== 'completed' && i.status !== 'unattended');
+    let totalKm = 0;
+    let totalMin = 0;
+    pendingItems.forEach(item => {
+      if (item.distanceKm) totalKm += item.distanceKm;
+      if (item.durationMin) totalMin += item.durationMin;
+    });
+
+    const finalKm = totalKm > 0 ? totalKm : (distanceKm || 0);
+    const finalMin = totalMin > 0 ? totalMin : (durationMin || 0);
+
+    return {
+      totalKm: finalKm > 0 ? finalKm : undefined,
+      totalMin: finalMin > 0 ? finalMin : undefined,
+    };
+  }, [routeItems, distanceKm, durationMin]);
+
+  // Ação de Iniciar Entrega: verifica risco de atraso em paradas com horário restrito
   const handleStartDelivery = (item: DeliveryRouteItem) => {
-    if (item.order) {
-      item.order._openDeliveryPreparation = true;
+    const risk = checkOutOfOrderRisk(item, routeItems);
+    if (risk.hasRisk) {
+      Alert.alert(
+        '⚠️ Risco de Atraso',
+        `Fazer esta entrega para ${item.customerName} agora pode comprometer o horário da parada de ${risk.riskyItemName} (${risk.riskyTime}).\n\nDeseja continuar mesmo assim ou seguir a ordem sugerida?`,
+        [
+          {
+            text: 'Voltar para a sugerida',
+            style: 'cancel',
+            onPress: () => {
+              const suggested = routeItems.find(i => i.isSuggestedFirst || i.status === 'pending');
+              if (suggested) setSelectedMarkerItem(suggested);
+            },
+          },
+          {
+            text: 'Continuar mesmo assim',
+            style: 'destructive',
+            onPress: () => {
+              onSelectOrder(item.order);
+            },
+          },
+        ]
+      );
+      return;
     }
+
     onSelectOrder(item.order);
   };
 
@@ -112,17 +161,7 @@ export const TodayDeliveriesScreen: React.FC<Props> = ({
             </Text>
           </View>
 
-          {/* Botão de Otimizar Rota */}
-          {stats.pending > 1 && (
-            <TouchableOpacity
-              style={[styles.optimizeBtn, isDarkMode && styles.optimizeBtnDark]}
-              onPress={handleOpenOptimization}
-              activeOpacity={0.8}
-            >
-              <Sparkles size={14} color="#2563eb" />
-              <Text style={styles.optimizeBtnText}>Otimizar</Text>
-            </TouchableOpacity>
-          )}
+          {/* Fim do Título */}
         </View>
 
         {/* Alternância [ Mapa | Lista ] */}
@@ -157,8 +196,8 @@ export const TodayDeliveriesScreen: React.FC<Props> = ({
         completed={stats.completed}
         pending={stats.pending}
         percent={stats.percent}
-        remainingKm={distanceKm}
-        remainingMin={durationMin}
+        remainingKm={totalRemainingMetrics.totalKm}
+        remainingMin={totalRemainingMetrics.totalMin}
         isDarkMode={isDarkMode}
       />
 
@@ -176,27 +215,33 @@ export const TodayDeliveriesScreen: React.FC<Props> = ({
             storeCoords={storeCoords}
             polylineCoords={polylineCoords}
             selectedItem={selectedMarkerItem}
-            onSelectMarker={(item) => setSelectedMarkerItem(item)}
+            onSelectMarker={(item) => {
+              setSelectedMarkerItem(item);
+              setIsCardDismissed(false); // Reabre o card ao clicar no marcador!
+            }}
             isDarkMode={isDarkMode}
           />
 
           {/* Card Flutuante de Próxima Entrega / Em Andamento */}
-          <View style={styles.floatingCardContainer}>
-            <NextDeliveryCard
-              selectedDelivery={selectedMarkerItem}
-              currentDelivery={currentDelivery}
-              pendingCount={stats.pending}
-              allCompleted={stats.total > 0 && stats.pending === 0}
-              onStartDelivery={handleStartDelivery}
-              onViewOrder={handleViewOrder}
-              onRegisterService={handleRegisterService}
-              isDarkMode={isDarkMode}
-            />
-          </View>
+          {!isCardDismissed && (
+            <View style={styles.floatingCardContainer}>
+              <NextDeliveryCard
+                currentDelivery={currentDelivery}
+                nextDelivery={nextDelivery}
+                selectedDelivery={selectedMarkerItem}
+                allCompleted={stats.total > 0 && stats.pending === 0}
+                onCloseCard={() => setIsCardDismissed(true)}
+                onStartDelivery={handleStartDelivery}
+                onViewOrder={handleViewOrder}
+                onRegisterService={handleRegisterService}
+                isDarkMode={isDarkMode}
+              />
+            </View>
+          )}
         </View>
       ) : (
         <RouteListView
-          items={routeItems}
+          items={remainingRouteItems}
           refreshing={refreshing}
           onRefresh={onRefresh}
           onSelect={(item) => onSelectOrder(item.order)}
@@ -238,8 +283,8 @@ const styles = StyleSheet.create({
   },
   topBar: {
     backgroundColor: '#ffffff',
-    paddingHorizontal: 16,
-    paddingBottom: 10,
+    paddingHorizontal: 12,
+    paddingBottom: 8,
     borderBottomWidth: 1,
     borderBottomColor: '#f1f5f9',
   },
@@ -250,13 +295,13 @@ const styles = StyleSheet.create({
   topRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
-    marginBottom: 10,
+    gap: 8,
+    marginBottom: 8,
   },
   iconBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 34,
+    height: 34,
+    borderRadius: 17,
     backgroundColor: '#f1f5f9',
     alignItems: 'center',
     justifyContent: 'center',
@@ -265,7 +310,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#1e293b',
   },
   screenTitle: {
-    fontSize: 17,
+    fontSize: 16,
     fontWeight: '900',
     color: '#0f172a',
   },
@@ -279,9 +324,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 4,
     backgroundColor: '#eff6ff',
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 10,
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+    borderRadius: 8,
   },
   optimizeBtnDark: {
     backgroundColor: '#1e293b',
@@ -294,8 +339,8 @@ const styles = StyleSheet.create({
   toggleContainer: {
     flexDirection: 'row',
     backgroundColor: '#f1f5f9',
-    borderRadius: 12,
-    padding: 3,
+    borderRadius: 10,
+    padding: 2.5,
   },
   toggleContainerDark: {
     backgroundColor: '#1e293b',
@@ -305,9 +350,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 6,
-    paddingVertical: 7,
-    borderRadius: 9,
+    gap: 4,
+    paddingVertical: 6,
+    borderRadius: 8,
   },
   toggleBtnActive: {
     backgroundColor: '#ffffff',
@@ -318,7 +363,7 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   toggleBtnText: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '800',
     color: '#64748b',
   },
@@ -327,6 +372,7 @@ const styles = StyleSheet.create({
   },
   mapArea: {
     flex: 1,
+    width: '100%',
     position: 'relative',
   },
   floatingCardContainer: {
@@ -334,6 +380,7 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
+    zIndex: 90,
   },
   loadingCenter: {
     flex: 1,

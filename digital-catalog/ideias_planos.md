@@ -13,7 +13,7 @@ Este documento serve para guardar ideias de melhorias futuras para o sistema da 
 - Fixada a quantidade padrão para vender em `1` item no CSV.
 
 ## Credenciais e APIs
-- **Gemini API Key**: `AIzaSyCPtMVEueWaBPvX-cbJY2CSnf5jdonu5uQ` (Salvo para futura integração com IA no Catálogo/ERP)
+- **Gemini API Key**: `__REDACTED_GCP_API_KEY__` (Salvo para futura integração com IA no Catálogo/ERP)
 
 ## Filtro e Menu de Navegação (Em andamento)
 - **Correção da Queima dos Salvados**: Consulta ajustada no Supabase para filtrar exclusivamente pelo ID da oportunidade `opportunity_id = 9d8bedae-b366-4f8c-ac49-74b85b882bde`.
@@ -32,7 +32,7 @@ Este documento serve para guardar ideias de melhorias futuras para o sistema da 
 - Fixada a quantidade padrão para vender em `1` item no CSV.
 
 ## Credenciais e APIs
-- **Gemini API Key**: `AIzaSyCPtMVEueWaBPvX-cbJY2CSnf5jdonu5uQ` (Salvo para futura integração com IA no Catálogo/ERP)
+- **Gemini API Key**: `__REDACTED_GCP_API_KEY__` (Salvo para futura integração com IA no Catálogo/ERP)
 
 ## Filtro e Menu de Navegação (Em andamento)
 - **Correção da Queima dos Salvados**: Consulta ajustada no Supabase para filtrar exclusivamente pelo ID da oportunidade `opportunity_id = 9d8bedae-b366-4f8c-ac49-74b85b882bde`.

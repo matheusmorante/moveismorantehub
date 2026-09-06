@@ -427,7 +427,7 @@ const AIChatAssistant = ({ isFloating = true, forceOpen }: AIChatAssistantProps)
 
     return (
         <div className="fixed bottom-6 right-6 z-[9999] flex flex-col items-end gap-6">
-            {isOpen && (
+            {(isOpen || (!isFloating && forceOpen)) && (
                 <div className="w-[420px] h-[650px] glass-card rounded-[3.5rem] shadow-premium-lg flex flex-col overflow-hidden animate-reveal border border-white/40 dark:border-slate-800/40">
                     <header className="p-8 bg-gradient-to-br from-indigo-600 via-indigo-500 to-blue-600 text-white flex items-center justify-between relative overflow-hidden">
                         <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16 blur-3xl"></div>
@@ -477,7 +477,9 @@ const AIChatAssistant = ({ isFloating = true, forceOpen }: AIChatAssistantProps)
                                             )}
                                         </div>
                                     )}
-                                    <div className={`px-5 py-3 rounded-2xl text-sm ${msg.role === 'user'
+                                    <div
+                                        data-testid={msg.role === 'user' ? 'assistant-message-user' : 'assistant-message-ai'}
+                                        className={`px-5 py-3 rounded-2xl text-sm ${msg.role === 'user'
                                         ? 'bg-indigo-600 text-white rounded-tr-none shadow-lg shadow-indigo-200 dark:shadow-none font-medium'
                                         : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 rounded-tl-none border border-slate-100 dark:border-slate-700 shadow-sm'
                                         }`}>
@@ -492,10 +494,23 @@ const AIChatAssistant = ({ isFloating = true, forceOpen }: AIChatAssistantProps)
                                             }
                                         </div>
 
-                                        {msg.isAction && msg.actionStatus === 'pending' && (
-                                            <div className="mt-4 flex flex-col gap-2">
-                                                <div className="group relative">
-                                                    <div className="p-3 bg-gradient-to-br from-indigo-50 to-white dark:from-slate-900 dark:to-slate-950 rounded-xl border border-indigo-100 dark:border-indigo-900/30 shadow-sm cursor-help hover:border-indigo-300 dark:hover:border-indigo-600 transition-all">
+                                        {msg.isAction && (
+                                            <div className="mt-4 flex flex-col gap-2" data-testid="transaction-preview-card">
+                                                {msg.actionStatus === 'success' ? (
+                                                    <div className="p-3 bg-emerald-50 dark:bg-emerald-950/40 rounded-xl border border-emerald-200 dark:border-emerald-900/50 flex items-center justify-between">
+                                                        <div className="flex items-center gap-2">
+                                                            <div className="w-6 h-6 rounded-full bg-emerald-600 text-white flex items-center justify-center text-xs font-bold">✓</div>
+                                                            <div>
+                                                                <span className="text-[10px] font-black uppercase text-emerald-700 dark:text-emerald-400 tracking-wider">✓ REGISTRO CONFIRMADO</span>
+                                                                <p className="text-[11px] font-bold text-slate-800 dark:text-slate-200">
+                                                                    {msg.actionData?.product_name || msg.actionData?.description || "Salvo no sistema com sucesso"}
+                                                                </p>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                ) : (
+                                                    <div className="group relative">
+                                                        <div className="p-3 bg-gradient-to-br from-indigo-50 to-white dark:from-slate-900 dark:to-slate-950 rounded-xl border border-indigo-100 dark:border-indigo-900/30 shadow-sm cursor-help hover:border-indigo-300 dark:hover:border-indigo-600 transition-all">
                                                         <div className="flex items-center gap-2 mb-2">
                                                             <div className="p-1.5 bg-indigo-600 rounded-lg text-white">
                                                                 <i className={`bi ${msg.actionType === 'create_order' ? 'bi-cart-check' : 'bi-box-seam'}`}></i>
@@ -583,41 +598,36 @@ const AIChatAssistant = ({ isFloating = true, forceOpen }: AIChatAssistantProps)
                                                                 })}
                                                             </div>
 
-                                                            <button
-                                                                onClick={() => confirmAction(idx)}
-                                                                className="w-full mt-6 py-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl text-[11px] font-black uppercase tracking-[0.2em] shadow-xl shadow-emerald-200 dark:shadow-none transition-all flex items-center justify-center gap-2 group/btn"
-                                                            >
-                                                                SALVAR
-                                                                <i className="bi bi-arrow-right group-hover/btn:translate-x-1 transition-transform"></i>
-                                                            </button>
+                                                            <div className="flex gap-3 mt-6 w-full">
+                                                                <button
+                                                                    onClick={() => confirmAction(idx)}
+                                                                    data-testid="transaction-confirm"
+                                                                    className="flex-1 py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-[11px] font-black uppercase tracking-widest shadow-lg shadow-emerald-200 dark:shadow-none transition-all flex items-center justify-center gap-2 group/btn"
+                                                                >
+                                                                    <i className="bi bi-check-lg"></i>
+                                                                    SALVAR
+                                                                </button>
+                                                                <button
+                                                                    onClick={() => {
+                                                                        setInput("");
+                                                                        if (isCallMode) recognitionRef.current?.start();
+                                                                        else toggleListening();
+                                                                    }}
+                                                                    data-testid="transaction-edit"
+                                                                    className="flex-1 py-3 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 rounded-xl text-[11px] font-black uppercase tracking-widest hover:bg-slate-200 dark:hover:bg-slate-700 transition-all flex items-center justify-center gap-2"
+                                                                >
+                                                                    <i className="bi bi-chat-left-text"></i>
+                                                                    AJUSTAR
+                                                                </button>
+                                                            </div>
                                                         </div>
                                                     </div>
                                                 </div>
-
-                                                <div className="flex gap-3 mt-2 w-full">
-                                                    <button
-                                                        onClick={() => confirmAction(idx)}
-                                                        className="flex-1 py-3 bg-emerald-600 text-white rounded-xl text-[11px] font-black uppercase tracking-widest hover:bg-emerald-700 shadow-lg shadow-emerald-200 dark:shadow-none transition-all flex items-center justify-center gap-2"
-                                                    >
-                                                        <i className="bi bi-check-lg"></i>
-                                                        SALVAR
-                                                    </button>
-                                                    <button
-                                                        onClick={() => {
-                                                            setInput("");
-                                                            if (isCallMode) recognitionRef.current?.start();
-                                                            else toggleListening();
-                                                        }}
-                                                        className="flex-1 py-3 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 rounded-xl text-[11px] font-black uppercase tracking-widest hover:bg-slate-200 dark:hover:bg-slate-700 transition-all flex items-center justify-center gap-2"
-                                                    >
-                                                        <i className="bi bi-chat-left-text"></i>
-                                                        AJUSTAR
-                                                    </button>
-                                                </div>
-                                            </div>
-                                        )}
-                                    </div>
+                                            )}
+                                        </div>
+                                    )}
                                 </div>
+                            </div>
                                 <span className="text-[9px] text-slate-400 dark:text-slate-600 mt-1 px-1">
                                     {msg.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                 </span>
@@ -641,6 +651,7 @@ const AIChatAssistant = ({ isFloating = true, forceOpen }: AIChatAssistantProps)
                             <div className="relative flex-1">
                                 <input
                                     type="text"
+                                    data-testid="assistant-input"
                                     value={input}
                                     onChange={(e) => setInput(e.target.value)}
                                     onKeyPress={(e) => e.key === 'Enter' && handleSend()}
@@ -657,6 +668,7 @@ const AIChatAssistant = ({ isFloating = true, forceOpen }: AIChatAssistantProps)
                                     </button>
                                     <button
                                         onClick={handleSend}
+                                        data-testid="assistant-send"
                                         disabled={!input.trim() || isLoading}
                                         className="p-1.5 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 transition-colors disabled:opacity-50"
                                     >
@@ -672,6 +684,7 @@ const AIChatAssistant = ({ isFloating = true, forceOpen }: AIChatAssistantProps)
             {isFloating && (
                 <button
                     onClick={() => setIsOpen(!isOpen)}
+                    data-testid="assistant-toggle"
                     className={`w-16 h-16 rounded-[2rem] flex items-center justify-center text-white shadow-2xl transition-all hover:scale-110 active:scale-95 overflow-hidden ${isOpen ? 'bg-slate-800 dark:bg-slate-700 rotate-90' : 'bg-indigo-600 shadow-indigo-300 dark:shadow-none'
                         }`}
                 >

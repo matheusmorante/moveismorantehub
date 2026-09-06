@@ -1,14 +1,50 @@
 import { supabase } from '@/pages/utils/supabaseConfig';
-import { FinancialCategory, AccountPayable, AccountReceivable, FinancialTransaction } from '../types/finance.type';
+import { FinancialCategory, AccountPayable, AccountReceivable, FinancialTransaction, ResultNature } from '../types/finance.type';
+
+export function determineResultNature(categoryName?: string | null, type?: 'income' | 'expense'): ResultNature {
+  if (!categoryName) {
+    return type === 'income' ? 'RECEITA' : 'DESPESA';
+  }
+
+  const nameLower = categoryName.toLowerCase().trim();
+
+  if (
+    nameLower.includes('aporte') ||
+    nameLower.includes('empréstimo recebido') ||
+    nameLower.includes('emprestimo recebido') ||
+    nameLower.includes('saldo inicial') ||
+    nameLower.includes('devolução') ||
+    nameLower.includes('devolucao') ||
+    nameLower.includes('retirada de sócio') ||
+    nameLower.includes('distribuição de lucros') ||
+    nameLower.includes('distribuicao de lucros') ||
+    nameLower.includes('pagamento de empréstimo') ||
+    nameLower.includes('pagamento de emprestimo') ||
+    nameLower.includes('amortização') ||
+    nameLower.includes('amortizacao') ||
+    nameLower.includes('compra de estoque') ||
+    nameLower.includes('compra de mercadoria') ||
+    nameLower.includes('compra de mercadorias')
+  ) {
+    return 'NAO_AFETA_RESULTADO';
+  }
+
+  return type === 'income' ? 'RECEITA' : 'DESPESA';
+}
 
 export const financeService = {
+  determineResultNature,
+
   // --- Categorias ---
   async getCategories(type?: 'income' | 'expense') {
     let query = supabase.from('financial_categories').select('*');
     if (type) query = query.eq('type', type);
     const { data, error } = await query;
     if (error) throw error;
-    return data as FinancialCategory[];
+    return (data || []).map((c: any) => ({
+      ...c,
+      result_nature: c.result_nature || determineResultNature(c.name, c.type),
+    })) as FinancialCategory[];
   },
 
   // --- Contas a Pagar ---
@@ -87,11 +123,25 @@ export const financeService = {
     if (endDate) query = query.lte('date', endDate);
     const { data, error } = await query;
     if (error) throw error;
-    return data;
+    return (data || []).map((t: any) => ({
+      ...t,
+      result_nature: t.result_nature || determineResultNature(t.financial_categories?.name || t.category_name, t.type),
+    }));
   },
 
   async createTransaction(transaction: Omit<FinancialTransaction, 'id' | 'created_at' | 'updated_at'>) {
-    const { data, error } = await supabase.from('financial_transactions').insert([transaction]).select().single();
+    let catName = '';
+    if (transaction.category_id) {
+      const { data: cat } = await supabase.from('financial_categories').select('name').eq('id', transaction.category_id).maybeSingle();
+      if (cat?.name) catName = cat.name;
+    }
+
+    const payload = {
+      ...transaction,
+      result_nature: transaction.result_nature || determineResultNature(catName, transaction.type),
+    };
+
+    const { data, error } = await supabase.from('financial_transactions').insert([payload]).select().single();
     if (error) throw error;
     return data as FinancialTransaction;
   },

@@ -13,10 +13,19 @@ export const formatOrderCode = (order: any): string => {
     order.orderNumber ?? 
     data.orderNumber;
 
-  const value = Number(rawValue);
-  return Number.isInteger(value) && value > 0 && value <= 999999
-    ? String(value).padStart(6, '0')
-    : '—';
+  if (rawValue == null || rawValue === '') return '—';
+
+  const valStr = String(rawValue).trim();
+  const numVal = Number(valStr);
+  if (!isNaN(numVal) && numVal > 0 && numVal <= 999999) {
+    return String(numVal).padStart(6, '0');
+  }
+
+  if (valStr.includes('-') || valStr.length > 20) {
+    return '—';
+  }
+
+  return valStr;
 };
 
 export const getOrderTotalValue = (item: any): number => {
@@ -103,25 +112,71 @@ export const formatFullAddress = (shipping: any, customerData: any): string => {
   return parts.join(' - ');
 };
 
-// Extrai o link do Google Maps cadastrado na localização do cliente
+// Extrai coordenadas (lat, lng) de URLs do Google Maps/Apple Maps via regex
+export const parseCoordinatesFromMapsUrl = (url?: string | null): { latitude: number; longitude: number } | null => {
+  if (!url || typeof url !== 'string') return null;
+  const cleanUrl = url.trim();
+  if (cleanUrl.length < 5) return null;
+
+  // Pattern 1: @-25.3520305,-49.1692818
+  const atMatch = cleanUrl.match(/@(-?\d+\.\d+),(-?\d+\.\d+)/);
+  if (atMatch) {
+    const lat = parseFloat(atMatch[1]);
+    const lng = parseFloat(atMatch[2]);
+    if (!isNaN(lat) && !isNaN(lng) && lat !== 0 && lng !== 0) {
+      return { latitude: lat, longitude: lng };
+    }
+  }
+
+  // Pattern 2: q=-25.352,-49.169 ou query=-25.352,-49.169 ou ll=-25.352,-49.169 ou destination=-25.352,-49.169
+  const queryMatch = cleanUrl.match(/(?:q|query|ll|destination)=(-?\d+\.\d+)\s*,\s*(-?\d+\.\d+)/i);
+  if (queryMatch) {
+    const lat = parseFloat(queryMatch[1]);
+    const lng = parseFloat(queryMatch[2]);
+    if (!isNaN(lat) && !isNaN(lng) && lat !== 0 && lng !== 0) {
+      return { latitude: lat, longitude: lng };
+    }
+  }
+
+  // Pattern 3: lat=-25.352&lng=-49.169
+  const latParam = cleanUrl.match(/[?&]lat=(-?\d+\.\d+)/i);
+  const lngParam = cleanUrl.match(/[?&](?:lng|lon)=(-?\d+\.\d+)/i);
+  if (latParam && lngParam) {
+    const lat = parseFloat(latParam[1]);
+    const lng = parseFloat(lngParam[1]);
+    if (!isNaN(lat) && !isNaN(lng) && lat !== 0 && lng !== 0) {
+      return { latitude: lat, longitude: lng };
+    }
+  }
+
+  return null;
+};
+
+// Extrai o link do Google Maps cadastrado na localização do cliente / entrega com prioridade absoluta
 export const getLocationMapsUrl = (orderOrData: any): string | null => {
   if (!orderOrData) return null;
   const data = orderOrData.order_data || orderOrData;
   const customer = data.customerData || orderOrData.customerData || {};
   const custAddr = customer.fullAddress || customer.address || {};
-  const shippingAddr = data.shipping?.deliveryAddress || data.shipping?.address || {};
+  const shipping = data.shipping || {};
+  const shippingAddr = shipping.deliveryAddress || shipping.address || {};
 
+  // Prioridade Absoluta: 1º shippingAddr.mapsUrl -> 2º shipping.mapsUrl -> 3º custAddr.mapsUrl
   const url = (
-    custAddr.mapsUrl ||
-    custAddr.googleMapsUrl ||
-    custAddr.mapsLink ||
     shippingAddr.mapsUrl ||
     shippingAddr.googleMapsUrl ||
     shippingAddr.mapsLink ||
+    shipping.mapsUrl ||
+    shipping.googleMapsUrl ||
+    shipping.mapsLink ||
+    custAddr.mapsUrl ||
+    custAddr.googleMapsUrl ||
+    custAddr.mapsLink ||
     customer.mapsUrl ||
     customer.googleMapsUrl ||
     customer.mapsLink ||
     data.mapsUrl ||
+    orderOrData.mapsUrl ||
     ''
   );
 

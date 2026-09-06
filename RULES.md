@@ -46,6 +46,11 @@ Este arquivo consolida as regras de ouro e diretrizes de desenvolvimento para o 
      - Bloqueio preventivo ao clicar em ERP ou Catálogo para rascunhos, alertando sobre a necessidade de finalizar o cadastro.
      - Menu de 3 pontinhos com "Editar Produto" e "Descartar Rascunho" (exclusão permanente com remoção das variações filhas).
      - Variações com cards individuais de fundo branco puro (`#ffffff`), cantos arredondados e botões bipartidos.
+5. **Regra Oficial de Variações de Produto**:
+   - No Morante Hub, **TODO produto tem pelo menos uma variação**.
+   - Produtos cadastrados sem atributos específicos (produtos simples) são conceitualmente e operacionalmente a sua própria variação principal única (1 produto = 1 variação).
+   - Produtos com atributos (ex: cor, tecido, tamanho) possuem múltiplas variações filhas registradas.
+   - Não existe conceito de produto sem variação no sistema.
 
 ---
 
@@ -70,9 +75,10 @@ Este arquivo consolida as regras de ouro e diretrizes de desenvolvimento para o 
    - **UF Padrão "PR" (Paraná) e Filtro de Estado**: O campo de UF / Estado vem preenchido por padrão como `PR` em todos os formulários. A busca de sugestões (`searchAddressSuggestions`) recebe o estado selecionado (`stateHint`) e restringe as consultas ao estado especificado, evitando trazer ruas e bairros aleatórios de outros estados do país.
    - As sugestões flutuantes são renderizadas via portal (`DropdownPortal`) com z-index `99999999` para evitar quebras visuais em modais full screen.
    - Utiliza cache no Supabase (`address_cache`) antes de requisitar a Places API para economizar cotas e custos.
-7. **Monitoramento de APIs Externas e Hard Limits (`/api-usage`)**:
+7. **Monitoramento de APIs Externas, Teto Financeiro de IA e Hard Limits (`/api-usage`)**:
    - Registro atômico no banco (`record_api_usage_atomic`) para auditoria de consumo (Google Maps, Gemini AI, WhatsApp, SEFAZ).
-   - Bloqueio preventivo (Hard Limit a 95% do teto configurado) e Circuit Breaker contra loops anômalos.
+   - **Teto Financeiro Estrito para IA (Gemini / Antigravity)**: Limite mensal máximo de **R$ 30,00 por mês** (`max_monthly_budget_brl: 30.00`). Ao atingir o valor acumulado, o `ApiUsageGuard` bloqueia preventivamente novas chamadas para evitar surpresas ou custos adicionais na fatura.
+   - Bloqueio preventivo (Hard Limit a 95% do teto configurado) e Circuit Breaker em memória contra loops anômalos.
 8. **Módulo Unificado de Entregas no Mobile (`DeliveriesHubScreen`)**:
    - O aplicativo mobile concentra todo o fluxo logístico em uma única tela de Entregas com 3 abas no topo: `[ Hoje ]` (roteiro operacional do dia e próxima parada), `[ Cronograma ]` (visão diária/semanal) e `[ Mapa ]` (Google Maps interativo em tela cheia).
    - A barra inferior utiliza a aba central **"Entregas"** (ícone `Truck`).

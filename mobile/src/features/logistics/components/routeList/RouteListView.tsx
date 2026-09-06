@@ -12,6 +12,7 @@ interface Props {
   onStartDelivery: (item: DeliveryRouteItem) => void;
   onViewOrder: (item: DeliveryRouteItem) => void;
   isDarkMode?: boolean;
+  headerComponent?: React.ReactNode;
 }
 
 export const RouteListView: React.FC<Props> = ({
@@ -22,77 +23,61 @@ export const RouteListView: React.FC<Props> = ({
   onStartDelivery,
   onViewOrder,
   isDarkMode = false,
+  headerComponent,
 }) => {
   if (items.length === 0) {
     return (
-      <View style={styles.emptyContainer}>
-        <View style={[styles.emptyIconCircle, isDarkMode && styles.emptyIconCircleDark]}>
-          <PackageCheck size={36} color="#2563eb" />
-        </View>
-        <Text style={[styles.emptyTitle, isDarkMode && styles.textLight]}>
-          Nenhuma entrega para hoje
-        </Text>
-        <Text style={[styles.emptySubtitle, isDarkMode && styles.textMuted]}>
-          Não existem pedidos com entrega agendada para a data de hoje no cronograma.
-        </Text>
-      </View>
+      <FlatList
+        data={[]}
+        renderItem={null}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#2563eb']} />
+        }
+        ListHeaderComponent={
+          <View>
+            {headerComponent}
+            <View style={styles.emptyContainer}>
+              <View style={[styles.emptyIconCircle, isDarkMode && styles.emptyIconCircleDark]}>
+                <PackageCheck size={36} color="#2563eb" />
+              </View>
+              <Text style={[styles.emptyTitle, isDarkMode && styles.textLight]}>
+                Nenhuma entrega para o período
+              </Text>
+              <Text style={[styles.emptySubtitle, isDarkMode && styles.textMuted]}>
+                Não existem pedidos com entrega agendada para o período selecionado.
+              </Text>
+            </View>
+          </View>
+        }
+      />
     );
   }
 
-  // Agrupa por slot de horário/período
-  const groups = React.useMemo(() => {
-    const list: { key: string; title: string; subtitle?: string; isFixed: boolean; items: DeliveryRouteItem[] }[] = [];
-    const map = new Map<string, { key: string; title: string; subtitle?: string; isFixed: boolean; items: DeliveryRouteItem[] }>();
-
-    for (const item of items) {
-      const slot = item.scheduleSlot;
-      const key = `${slot.type}_${slot.timeSortKey}_${slot.label}`;
-      if (!map.has(key)) {
-        const entry = {
-          key,
-          title: slot.label,
-          subtitle: slot.sublabel,
-          isFixed: slot.isFixedTime,
-          items: [],
-        };
-        map.set(key, entry);
-        list.push(entry);
-      }
-      map.get(key)!.items.push(item);
-    }
-    return list;
-  }, [items]);
-
   return (
     <FlatList
-      data={groups}
-      keyExtractor={(grp) => grp.key}
-      renderItem={({ item: grp }) => (
-        <View style={styles.sectionContainer}>
-          {/* Cabeçalho da Seção de Horário */}
-          <View style={styles.sectionHeaderRow}>
-            <View style={[styles.sectionPill, grp.isFixed && styles.sectionPillFixed]}>
-              <Text style={[styles.sectionTitle, grp.isFixed && styles.sectionTitleFixed]}>
-                {grp.title} {grp.subtitle ? `· ${grp.subtitle}` : ''}
-              </Text>
-            </View>
-            <Text style={[styles.sectionCountText, isDarkMode && styles.textMuted]}>
-              {grp.items.length} {grp.items.length === 1 ? 'entrega' : 'entregas'}
+      data={items}
+      keyExtractor={(item) => item.id}
+      refreshControl={
+        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#2563eb']} />
+      }
+      ListHeaderComponent={
+        <View>
+          {headerComponent}
+          <View style={styles.sectionHeader}>
+            <Text style={[styles.sectionTitle, isDarkMode && styles.textMuted]}>
+              PRÓXIMAS PARADAS ({items.length})
             </Text>
           </View>
-
-          {/* Cards de Entregas do Período */}
-          {grp.items.map((routeItem) => (
-            <RouteListItem
-              key={routeItem.id}
-              item={routeItem}
-              onSelect={onSelect}
-              onStartDelivery={onStartDelivery}
-              onViewOrder={onViewOrder}
-              isDarkMode={isDarkMode}
-            />
-          ))}
         </View>
+      }
+      renderItem={({ item }) => (
+        <RouteListItem
+          item={item}
+          onSelect={onSelect}
+          onStartDelivery={onStartDelivery}
+          onViewOrder={onViewOrder}
+          isDarkMode={isDarkMode}
+        />
       )}
       contentContainerStyle={styles.listContent}
       refreshControl={
@@ -110,44 +95,20 @@ export const RouteListView: React.FC<Props> = ({
 const styles = StyleSheet.create({
   listContent: {
     paddingHorizontal: 16,
-    paddingTop: 12,
+    paddingTop: 8,
     paddingBottom: 40,
   },
-  sectionContainer: {
-    marginBottom: 20,
-  },
-  sectionHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 10,
-    paddingHorizontal: 4,
-  },
-  sectionPill: {
-    backgroundColor: '#eff6ff',
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 8,
-    borderLeftWidth: 3,
-    borderLeftColor: '#2563eb',
-  },
-  sectionPillFixed: {
-    backgroundColor: '#faf5ff',
-    borderLeftColor: '#7c3aed',
+  sectionHeader: {
+    paddingVertical: 8,
+    marginBottom: 6,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e2e8f0',
   },
   sectionTitle: {
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: '900',
-    color: '#1e40af',
-    letterSpacing: 0.5,
-  },
-  sectionTitleFixed: {
-    color: '#6b21a8',
-  },
-  sectionCountText: {
-    fontSize: 12,
-    fontWeight: '700',
     color: '#64748b',
+    letterSpacing: 0.8,
   },
   emptyContainer: {
     flex: 1,

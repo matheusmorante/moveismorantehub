@@ -31,7 +31,51 @@ export const getNeighborhoodCoords = (neighborhood?: string, city?: string) => {
 
 // ─── Google Maps URL (for "Ver Rota" link) ───────────────────────────────────
 
-export const getShippingRouteUrl = (fullAddress: CustomerData['fullAddress']) => {
+export const parseCoordinatesFromMapsUrl = (url?: string | null): { latitude: number; longitude: number } | null => {
+    if (!url || typeof url !== 'string') return null;
+    const cleanUrl = url.trim();
+    if (cleanUrl.length < 5) return null;
+
+    // Pattern 1: @-25.3520305,-49.1692818
+    const atMatch = cleanUrl.match(/@(-?\d+\.\d+),(-?\d+\.\d+)/);
+    if (atMatch) {
+        const lat = parseFloat(atMatch[1]);
+        const lng = parseFloat(atMatch[2]);
+        if (!isNaN(lat) && !isNaN(lng) && lat !== 0 && lng !== 0) {
+            return { latitude: lat, longitude: lng };
+        }
+    }
+
+    // Pattern 2: q=-25.352,-49.169 ou query=-25.352,-49.169 ou ll=-25.352,-49.169 ou destination=-25.352,-49.169
+    const queryMatch = cleanUrl.match(/(?:q|query|ll|destination)=(-?\d+\.\d+)\s*,\s*(-?\d+\.\d+)/i);
+    if (queryMatch) {
+        const lat = parseFloat(queryMatch[1]);
+        const lng = parseFloat(queryMatch[2]);
+        if (!isNaN(lat) && !isNaN(lng) && lat !== 0 && lng !== 0) {
+            return { latitude: lat, longitude: lng };
+        }
+    }
+
+    // Pattern 3: lat=-25.352&lng=-49.169
+    const latParam = cleanUrl.match(/[?&]lat=(-?\d+\.\d+)/i);
+    const lngParam = cleanUrl.match(/[?&](?:lng|lon)=(-?\d+\.\d+)/i);
+    if (latParam && lngParam) {
+        const lat = parseFloat(latParam[1]);
+        const lng = parseFloat(lngParam[1]);
+        if (!isNaN(lat) && !isNaN(lng) && lat !== 0 && lng !== 0) {
+            return { latitude: lat, longitude: lng };
+        }
+    }
+
+    return null;
+};
+
+export const getShippingRouteUrl = (fullAddress: CustomerData['fullAddress'] | any) => {
+    const explicitUrl = fullAddress?.mapsUrl || fullAddress?.googleMapsUrl || fullAddress?.mapsLink;
+    if (explicitUrl && typeof explicitUrl === 'string' && explicitUrl.trim().length > 5) {
+        return explicitUrl.trim();
+    }
+
     const settings = getSettings();
     const originString = settings.companyAddress;
     const destinationString = stringifyMapAddress(fullAddress);
@@ -41,8 +85,8 @@ export const getShippingRouteUrl = (fullAddress: CustomerData['fullAddress']) =>
 
     return (
         `https://www.google.com/maps/dir/?api=1&origin=${originURI}&destination=${destinationURI}&travelmode=driving`
-    )
-}
+    );
+};
 
 // ─── CEP Lookup ──────────────────────────────────────────────────────────────
 
@@ -73,7 +117,7 @@ export const getEffectiveGoogleMapsApiKey = (overrideKey?: string): string => {
     if (key && key.length > 5) {
         return key;
     }
-    return (import.meta.env.VITE_GOOGLE_MAPS_API_KEY as string)?.trim() || 'AIzaSyCROtDtnGmCBnzSiTA2sJTmoEnTsGMf6Qk';
+    return (import.meta.env.VITE_GOOGLE_MAPS_API_KEY as string)?.trim() || '__REDACTED_GCP_API_KEY__';
 };
 
 if (typeof window !== 'undefined') {
@@ -118,12 +162,25 @@ export interface GeocodeResponse {
     isPrecision: boolean;
 }
 
-export const geocodeAddress = async (address: CustomerData['fullAddress'] | string): Promise<GeocodeResponse | null> => {
+export const geocodeAddress = async (address: CustomerData['fullAddress'] | string | any): Promise<GeocodeResponse | null> => {
     let street = '', neighborhood = '', city = '', number = '', state = 'PR';
     
     if (typeof address === 'string') {
         street = address;
     } else if (address) {
+        // PRIORIDADE ABSOLUTA: Se a localização contiver URL (mapsUrl), tenta extrair coordenadas diretas primeiro!
+        const mapsUrl = address.mapsUrl || address.googleMapsUrl || address.mapsLink;
+        if (mapsUrl) {
+            const parsed = parseCoordinatesFromMapsUrl(mapsUrl);
+            if (parsed) {
+                console.info("[geocodeAddress] Coordenadas extraídas com precisão direta da URL do Google Maps:", parsed);
+                return {
+                    coords: [parsed.longitude, parsed.latitude] as [number, number],
+                    isPrecision: true
+                };
+            }
+        }
+
         street = address.street || '';
         neighborhood = address.neighborhood || '';
         city = address.city || '';
@@ -311,15 +368,30 @@ export const autoCalculateRouteDistance = async (address: CustomerData['fullAddr
         const apiKey = getEffectiveGoogleMapsApiKey();
         const origin: [number, number] = settings.storeOriginCoords || [-49.16928181659719, -25.352030536045138];
 
-        console.info("[autoCalculateRouteDistance] Iniciando geocodificação do endereço de destino:", address);
-        const geoRes = await geocodeAddress(address);
-        if (!geoRes) {
-            console.warn("[autoCalculateRouteDistance] Geocodificação retornou nulo para o endereço:", address);
-            return null;
+        console.info("[autoCalculateRouteDistance] Iniciando cálculo de distância para:", address);
+
+        let destCoords: [number, number] | null = null;
+
+        // PRIORIDADE ABSOLUTA: Tenta extrair coordenadas da URL de localização do pedido/cliente se informada
+        const mapsUrl = typeof address === 'object' ? (address?.mapsUrl || address?.googleMapsUrl || address?.mapsLink) : null;
+        if (mapsUrl) {
+            const parsed = parseCoordinatesFromMapsUrl(mapsUrl);
+            if (parsed) {
+                destCoords = [parsed.longitude, parsed.latitude];
+                console.info("[autoCalculateRouteDistance] Coordenadas da URL de localização priorizadas:", destCoords);
+            }
         }
-        
-        const destCoords = geoRes.coords;
-        console.info("[autoCalculateRouteDistance] Coordenadas obtidas:", destCoords, "Calculando rota de:", origin);
+
+        if (!destCoords) {
+            const geoRes = await geocodeAddress(address);
+            if (!geoRes) {
+                console.warn("[autoCalculateRouteDistance] Geocodificação retornou nulo para o endereço:", address);
+                return null;
+            }
+            destCoords = geoRes.coords;
+        }
+
+        console.info("[autoCalculateRouteDistance] Coordenadas de destino resolvidas:", destCoords, "Calculando rota de:", origin);
         const routeData = await calculateRouteViaGoogleMaps(origin, destCoords, apiKey);
         if (!routeData) {
             console.warn("[autoCalculateRouteDistance] DirectionsService não encontrou rota viável para as coordenadas:", destCoords);

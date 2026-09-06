@@ -9,6 +9,7 @@ interface ConfirmModalProps {
     confirmLabel?: string;
     cancelLabel?: string;
     type?: 'danger' | 'warning' | 'info';
+    countdownSeconds?: number;
 }
 
 const ConfirmModal: React.FC<ConfirmModalProps> = ({
@@ -19,8 +20,30 @@ const ConfirmModal: React.FC<ConfirmModalProps> = ({
     message,
     confirmLabel = "Confirmar",
     cancelLabel = "Cancelar",
-    type = 'info'
+    type = 'info',
+    countdownSeconds
 }) => {
+    const [timeLeft, setTimeLeft] = React.useState(countdownSeconds ?? 0);
+
+    React.useEffect(() => {
+        if (!isOpen) return;
+        if (!countdownSeconds) {
+            setTimeLeft(0);
+            return;
+        }
+        setTimeLeft(countdownSeconds);
+        const interval = setInterval(() => {
+            setTimeLeft((prev) => {
+                if (prev <= 1) {
+                    clearInterval(interval);
+                    return 0;
+                }
+                return prev - 1;
+            });
+        }, 1000);
+        return () => clearInterval(interval);
+    }, [isOpen, countdownSeconds]);
+
     if (!isOpen) return null;
 
     const colors = {
@@ -42,7 +65,7 @@ const ConfirmModal: React.FC<ConfirmModalProps> = ({
     }[type];
 
     return (
-        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4">
             <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm animate-fade-in" onClick={onClose} />
             <div className="relative bg-white dark:bg-slate-900 w-full max-w-md rounded-[2.5rem] shadow-2xl overflow-hidden animate-slide-up border border-slate-100 dark:border-slate-800">
                 <div className={`p-8 ${colors.bg} flex flex-col items-center text-center gap-4`}>
@@ -67,13 +90,19 @@ const ConfirmModal: React.FC<ConfirmModalProps> = ({
                         {cancelLabel}
                     </button>
                     <button
+                        disabled={timeLeft > 0}
                         onClick={() => {
+                            if (timeLeft > 0) return;
                             onConfirm();
                             onClose();
                         }}
-                        className={`flex-1 px-6 py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest text-white transition-all active:scale-95 shadow-xl ${colors.button}`}
+                        className={`flex-1 px-6 py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest text-white transition-all shadow-xl ${
+                            timeLeft > 0
+                                ? 'bg-slate-300 dark:bg-slate-700 text-slate-400 dark:text-slate-500 cursor-not-allowed opacity-60 shadow-none'
+                                : `active:scale-95 ${colors.button}`
+                        }`}
                     >
-                        {confirmLabel}
+                        {timeLeft > 0 ? `${confirmLabel} (${timeLeft}s)` : confirmLabel}
                     </button>
                 </div>
             </div>

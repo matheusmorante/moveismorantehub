@@ -1,32 +1,32 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
-import { Navigation, Play, Eye, CheckCircle2, MapPin, Package, Clock, Check, Lock, Truck, X } from 'lucide-react-native';
+import { Navigation, Play, Eye, CheckCircle2, MapPin, Package, Clock, Check, X, Truck, Wrench } from 'lucide-react-native';
 import { DeliveryRouteItem } from '../../hooks/useDeliveryRoute';
+import { MobileDrill } from '../../../../components/shared/MobileDrill';
 
 interface Props {
-  selectedDelivery: DeliveryRouteItem | null;
   currentDelivery: DeliveryRouteItem | null;
-  pendingCount: number;
+  nextDelivery: DeliveryRouteItem | null;
+  selectedDelivery?: DeliveryRouteItem | null;
   allCompleted: boolean;
+  onCloseCard?: () => void;
   onStartDelivery: (item: DeliveryRouteItem) => void;
   onViewOrder: (item: DeliveryRouteItem) => void;
-  onRegisterService: (item: DeliveryRouteItem) => void;
-  onClearSelection?: () => void;
+  onRegisterService?: (item: DeliveryRouteItem) => void;
   isDarkMode?: boolean;
 }
 
 export const NextDeliveryCard: React.FC<Props> = ({
-  selectedDelivery,
   currentDelivery,
-  pendingCount,
+  nextDelivery,
+  selectedDelivery,
   allCompleted,
+  onCloseCard,
   onStartDelivery,
   onViewOrder,
   onRegisterService,
-  onClearSelection,
   isDarkMode = false,
 }) => {
-  // 1. Todas as entregas concluídas
   if (allCompleted) {
     return (
       <View style={[styles.card, isDarkMode && styles.cardDark]}>
@@ -43,79 +43,96 @@ export const NextDeliveryCard: React.FC<Props> = ({
     );
   }
 
-  // 2. Estado Sem Seleção: nenhuma entrega foi clicada no mapa
-  if (!selectedDelivery) {
-    return (
-      <View style={[styles.card, styles.cardIdle, isDarkMode && styles.cardDark]}>
-        <View style={styles.idleHeaderRow}>
-          <View style={styles.idleIconCircle}>
-            <Truck size={18} color="#2563eb" />
-          </View>
-          <View style={{ flex: 1 }}>
-            <Text style={[styles.idleTitle, isDarkMode && styles.textLight]}>
-              {pendingCount} {pendingCount === 1 ? 'entrega pendente hoje' : 'entregas pendentes hoje'}
-            </Text>
-            <Text style={[styles.idleSubtitle, isDarkMode && styles.textMuted]}>
-              Toque em uma entrega no mapa para ver os detalhes.
-            </Text>
-          </View>
-        </View>
-      </View>
-    );
-  }
+  const activeItem = selectedDelivery || currentDelivery || nextDelivery;
+  if (!activeItem) return null;
 
-  // 3. Estado Com Entrega Selecionada
-  const activeItem = selectedDelivery;
   const isInProgress = activeItem.isCurrent;
-  const isFixedTime = activeItem.scheduleSlot?.isFixedTime;
-  const slotText = activeItem.scheduleSlot?.displayBadge || activeItem.scheduleSlot?.sublabel;
+
+  const handleOpenNavigation = () => {
+    onViewOrder(activeItem);
+  };
+
+  const handleStartAndNavigate = () => {
+    onStartDelivery(activeItem);
+  };
+
+  const isAssistance = activeItem.order?.orderType === 'assistance' || activeItem.order?.taskType === 'assistance';
+  const isPickup = activeItem.order?.shipping?.deliveryMethod === 'pickup';
+
+  const allItems = [...(activeItem.order?.items || []), ...(activeItem.order?.assistanceItems || [])];
+  const hasOutsideAssembly = allItems.some(i => {
+    const h = String(i?.handlingType || i?.handling || '').toLowerCase();
+    return h.includes('fora') || h.includes('externa') || h.includes('cliente');
+  });
+  const hasInternalAssembly = allItems.some(i => {
+    const h = String(i?.handlingType || i?.handling || '').toLowerCase();
+    return (h.includes('loja') || h.includes('deposito') || h.includes('depósito') || h.includes('interna') || h.includes('montado')) && !h.includes('fora');
+  });
 
   return (
-    <View style={[styles.card, isDarkMode && styles.cardDark, isInProgress && styles.cardProgressBorder]}>
-      {/* Header Badge + Botão Fechar Seleção (X) */}
+    <View style={[styles.card, isDarkMode && styles.cardDark]}>
+      {/* Badge Superior e Botão de Fechar */}
       <View style={styles.headerRow}>
-        <View style={[
-          styles.badge,
-          isInProgress ? styles.badgeProgress : isFixedTime ? styles.badgeFixed : styles.badgeSelected
-        ]}>
-          {isInProgress ? (
-            <Text style={styles.badgeTextProgress}>🚚 ENTREGA EM ANDAMENTO</Text>
-          ) : isFixedTime ? (
-            <View style={styles.badgeRow}>
-              <Lock size={10} color="#7c3aed" />
-              <Text style={styles.badgeTextFixed}>HORÁRIO FIXO COMBINADO</Text>
-            </View>
-          ) : (
-            <Text style={styles.badgeTextSelected}>ENTREGA SELECIONADA</Text>
-          )}
+        <View style={[styles.badge, isInProgress ? styles.badgeProgress : styles.badgeNext]}>
+          <Text style={[styles.badgeText, isInProgress ? styles.badgeTextProgress : styles.badgeTextNext]}>
+            {isInProgress
+              ? 'EM ANDAMENTO'
+              : activeItem.isSuggestedFirst
+              ? `PARADA SUGERIDA · #${activeItem.sequence}`
+              : `PARADA · #${activeItem.sequence}`}
+          </Text>
         </View>
 
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
           {activeItem.orderIndex && (
             <Text style={[styles.orderIndexText, isDarkMode && styles.textMuted]}>
               Pedido #{activeItem.orderIndex}
             </Text>
           )}
 
-          {onClearSelection && (
+          {onCloseCard && (
             <TouchableOpacity
-              onPress={onClearSelection}
-              style={[styles.closeSelectionBtn, isDarkMode && styles.closeSelectionBtnDark]}
+              onPress={onCloseCard}
+              style={[styles.closeCardBtn, isDarkMode && styles.closeCardBtnDark]}
               activeOpacity={0.7}
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              accessibilityLabel="Fechar card da parada"
             >
-              <X size={15} color={isDarkMode ? '#cbd5e1' : '#64748b'} />
+              <X size={15} color={isDarkMode ? '#94a3b8' : '#64748b'} />
             </TouchableOpacity>
           )}
         </View>
       </View>
 
-      {/* Nome do Cliente */}
-      <Text style={[styles.customerName, isDarkMode && styles.textLight]} numberOfLines={1}>
+      {/* Badges de Tipo de Serviço & Montagem & Destaque Sugerido */}
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 5, marginBottom: 6 }}>
+        {activeItem.isSuggestedFirst && !isInProgress && (
+          <View style={[styles.opBadge, { backgroundColor: '#f59e0b' }]}>
+            <Text style={styles.opBadgeText}>⭐ SUGERIDA PELO ROTEIRO</Text>
+          </View>
+        )}
+        <View style={[styles.opBadge, isAssistance ? styles.opBadgeAssis : isPickup ? styles.opBadgePick : styles.opBadgeDeliv]}>
+          {isAssistance ? <Wrench size={10} color="#fff" /> : isPickup ? <Package size={10} color="#fff" /> : <Truck size={10} color="#fff" />}
+          <Text style={styles.opBadgeText}>{isAssistance ? 'ASSISTÊNCIA' : isPickup ? 'RETIRADA' : 'ENTREGA'}</Text>
+        </View>
+        {hasInternalAssembly && (
+          <View style={[styles.opBadge, styles.opBadgeDepot]}>
+            <MobileDrill size={10} color="#fff" />
+            <Text style={styles.opBadgeText}>MONTADO NO DEPÓSITO</Text>
+          </View>
+        )}
+        {hasOutsideAssembly && (
+          <View style={[styles.opBadge, styles.opBadgeOutside]}>
+            <MobileDrill size={10} color="#fff" />
+            <Text style={styles.opBadgeText}>MONTAGEM FORA</Text>
+          </View>
+        )}
+      </View>
+
+      {/* Cliente & Endereço */}
+      <Text style={[styles.customerName, isDarkMode && styles.textLight]} numberOfLines={2}>
         {activeItem.customerName}
       </Text>
 
-      {/* Endereço */}
       <View style={styles.addressRow}>
         <MapPin size={13} color="#ef4444" style={{ marginTop: 2 }} />
         <Text style={[styles.addressText, isDarkMode && styles.textMuted]} numberOfLines={2}>
@@ -123,25 +140,28 @@ export const NextDeliveryCard: React.FC<Props> = ({
         </Text>
       </View>
 
-      {/* Métricas e Agendamento (Período vs Horário Fixo) */}
+      {/* Métricas: Período/Janela, Distância, Duração e Itens */}
       <View style={styles.metricsRow}>
-        {slotText ? (
-          <View style={[styles.metricPill, isFixedTime ? styles.metricPillFixed : styles.metricPillPeriod]}>
-            {isFixedTime ? (
-              <Lock size={11} color="#7c3aed" />
-            ) : (
-              <Clock size={11} color="#2563eb" />
-            )}
-            <Text style={[styles.metricText, isFixedTime ? { color: '#7c3aed' } : { color: '#2563eb' }]}>
-              {slotText}
+        {activeItem.periodLabel ? (
+          <View style={[styles.metricPill, activeItem.isFixedTime ? { backgroundColor: '#fffbeb' } : null]}>
+            <Clock size={11} color={activeItem.isFixedTime ? '#d97706' : '#2563eb'} />
+            <Text style={[styles.metricText, activeItem.isFixedTime ? { color: '#d97706' } : null]}>
+              {activeItem.periodLabel}
             </Text>
           </View>
         ) : null}
 
         {activeItem.distanceKm ? (
           <View style={styles.metricPill}>
-            <Navigation size={11} color="#64748b" />
-            <Text style={[styles.metricText, { color: '#64748b' }]}>{activeItem.distanceKm} km</Text>
+            <Navigation size={11} color="#2563eb" />
+            <Text style={styles.metricText}>{activeItem.distanceKm} km</Text>
+          </View>
+        ) : null}
+
+        {activeItem.durationMin ? (
+          <View style={styles.metricPill}>
+            <Clock size={11} color="#64748b" />
+            <Text style={[styles.metricText, { color: '#64748b' }]}>~{activeItem.durationMin} min</Text>
           </View>
         ) : null}
 
@@ -151,46 +171,46 @@ export const NextDeliveryCard: React.FC<Props> = ({
         </View>
       </View>
 
-      {/* Ações */}
-      <View style={styles.actionsRow}>
+      {/* Ações Operacionais */}
+      <View style={styles.actionsContainer}>
         {isInProgress ? (
           <>
             <TouchableOpacity
-              style={[styles.primaryActionBtn, { backgroundColor: '#16a34a' }]}
-              onPress={() => onViewOrder(activeItem)}
+              style={[styles.primaryActionBtnFull, { backgroundColor: '#2563eb' }]}
+              onPress={handleOpenNavigation}
               activeOpacity={0.85}
             >
-              <Navigation size={16} color="#ffffff" />
-              <Text style={styles.primaryActionText}>Continuar Entrega</Text>
+              <Play size={18} color="#ffffff" fill="#ffffff" />
+              <Text style={styles.primaryActionText}>CONTINUAR ETAPAS DA ENTREGA</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
-              style={[styles.secondaryActionBtn, isDarkMode && styles.secondaryActionBtnDark]}
+              style={[styles.compactSecondaryBtn, isDarkMode && styles.compactSecondaryBtnDark]}
               onPress={() => onViewOrder(activeItem)}
               activeOpacity={0.85}
             >
-              <Eye size={15} color={isDarkMode ? '#94a3b8' : '#475569'} />
-              <Text style={[styles.secondaryActionText, isDarkMode && styles.textLight]}>Ver Pedido</Text>
+              <Eye size={13} color={isDarkMode ? '#94a3b8' : '#64748b'} />
+              <Text style={[styles.compactSecondaryText, isDarkMode && styles.textMuted]}>Ver pedido</Text>
             </TouchableOpacity>
           </>
         ) : (
           <>
             <TouchableOpacity
-              style={[styles.primaryActionBtn, { backgroundColor: '#2563eb' }]}
-              onPress={() => onStartDelivery(activeItem)}
+              style={[styles.primaryActionBtnFull, { backgroundColor: '#2563eb' }]}
+              onPress={handleStartAndNavigate}
               activeOpacity={0.85}
             >
-              <Play size={15} color="#ffffff" fill="#ffffff" />
-              <Text style={styles.primaryActionText}>Iniciar Entrega</Text>
+              <Play size={18} color="#ffffff" fill="#ffffff" />
+              <Text style={styles.primaryActionText}>INICIAR ETAPAS DA ENTREGA</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
-              style={[styles.secondaryActionBtn, isDarkMode && styles.secondaryActionBtnDark]}
+              style={[styles.compactSecondaryBtn, isDarkMode && styles.compactSecondaryBtnDark]}
               onPress={() => onViewOrder(activeItem)}
               activeOpacity={0.85}
             >
-              <Eye size={15} color={isDarkMode ? '#94a3b8' : '#475569'} />
-              <Text style={[styles.secondaryActionText, isDarkMode && styles.textLight]}>Ver Pedido</Text>
+              <Eye size={13} color={isDarkMode ? '#94a3b8' : '#64748b'} />
+              <Text style={[styles.compactSecondaryText, isDarkMode && styles.textMuted]}>Ver pedido</Text>
             </TouchableOpacity>
           </>
         )}
@@ -202,110 +222,64 @@ export const NextDeliveryCard: React.FC<Props> = ({
 const styles = StyleSheet.create({
   card: {
     backgroundColor: '#ffffff',
-    borderRadius: 22,
-    padding: 16,
-    marginHorizontal: 16,
-    marginBottom: 14,
+    borderRadius: 20,
+    padding: 14,
+    marginHorizontal: 12,
+    marginBottom: 12,
     shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    elevation: 4,
-    borderWidth: 1,
-    borderColor: '#f1f5f9',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.12,
+    shadowRadius: 10,
+    elevation: 6,
+    maxWidth: '100%',
   },
   cardDark: {
     backgroundColor: '#1e293b',
-    borderColor: '#334155',
-  },
-  cardIdle: {
-    paddingVertical: 14,
-  },
-  cardProgressBorder: {
-    borderColor: '#16a34a',
-    borderWidth: 1.5,
-  },
-  idleHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  idleIconCircle: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    backgroundColor: '#eff6ff',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  idleTitle: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: '#0f172a',
-  },
-  idleSubtitle: {
-    fontSize: 12,
-    color: '#64748b',
-    marginTop: 2,
-    lineHeight: 16,
   },
   headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    gap: 6,
+    flexWrap: 'wrap',
     marginBottom: 8,
   },
   badge: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 8,
-  },
-  badgeRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  badgeSelected: {
-    backgroundColor: '#eff6ff',
-  },
-  badgeTextSelected: {
-    fontSize: 10,
-    fontWeight: '900',
-    color: '#2563eb',
-    letterSpacing: 0.5,
+    paddingHorizontal: 8,
+    paddingVertical: 3.5,
+    borderRadius: 6,
   },
   badgeProgress: {
-    backgroundColor: '#dcfce7',
+    backgroundColor: '#eff6ff',
+  },
+  badgeNext: {
+    backgroundColor: '#f0fdf4',
+  },
+  badgeText: {
+    fontSize: 10,
+    fontWeight: '900',
+    letterSpacing: 0.5,
   },
   badgeTextProgress: {
-    fontSize: 10,
-    fontWeight: '900',
-    color: '#15803d',
-    letterSpacing: 0.5,
+    color: '#2563eb',
   },
-  badgeFixed: {
-    backgroundColor: '#f5f3ff',
-  },
-  badgeTextFixed: {
-    fontSize: 10,
-    fontWeight: '900',
-    color: '#7c3aed',
-    letterSpacing: 0.5,
+  badgeTextNext: {
+    color: '#16a34a',
   },
   orderIndexText: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '800',
     color: '#64748b',
   },
-  closeSelectionBtn: {
-    width: 26,
-    height: 26,
-    borderRadius: 13,
+  closeCardBtn: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
     backgroundColor: '#f1f5f9',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  closeSelectionBtnDark: {
+  closeCardBtnDark: {
     backgroundColor: '#334155',
   },
   customerName: {
@@ -313,95 +287,89 @@ const styles = StyleSheet.create({
     fontWeight: '900',
     color: '#0f172a',
     marginBottom: 4,
+    lineHeight: 20,
   },
   addressRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    gap: 6,
-    marginBottom: 10,
+    gap: 5,
+    marginBottom: 8,
   },
   addressText: {
-    flex: 1,
     fontSize: 12,
-    color: '#64748b',
-    lineHeight: 16,
     fontWeight: '600',
+    color: '#64748b',
+    flex: 1,
+    lineHeight: 16,
   },
   metricsRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
     flexWrap: 'wrap',
+    gap: 5,
     marginBottom: 12,
   },
   metricPill: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 5,
+    gap: 4,
     backgroundColor: '#f8fafc',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 6,
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
-  },
-  metricPillFixed: {
-    backgroundColor: '#f5f3ff',
-    borderColor: '#ddd6fe',
-  },
-  metricPillPeriod: {
-    backgroundColor: '#eff6ff',
-    borderColor: '#bfdbfe',
+    paddingHorizontal: 7,
+    paddingVertical: 3.5,
+    borderRadius: 8,
   },
   metricText: {
     fontSize: 11,
     fontWeight: '800',
+    color: '#2563eb',
   },
-  actionsRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
+  actionsContainer: {
+    gap: 6,
   },
-  primaryActionBtn: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    height: 44,
-    borderRadius: 14,
-    elevation: 2,
-    shadowColor: '#2563eb',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 3,
-  },
-  primaryActionText: {
-    fontSize: 13,
-    fontWeight: '900',
-    color: '#ffffff',
-    letterSpacing: 0.3,
-  },
-  secondaryActionBtn: {
+  primaryActionBtnFull: {
+    width: '100%',
+    height: 46,
+    borderRadius: 12,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
+    paddingHorizontal: 10,
+  },
+  primaryActionText: {
+    color: '#ffffff',
+    fontSize: 13,
+    fontWeight: '900',
+    letterSpacing: 0.4,
+  },
+  successActionBtn: {
     height: 44,
-    paddingHorizontal: 16,
-    borderRadius: 14,
-    backgroundColor: '#f1f5f9',
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
+    borderRadius: 12,
+    backgroundColor: '#16a34a',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingHorizontal: 10,
   },
-  secondaryActionBtnDark: {
-    backgroundColor: '#334155',
-    borderColor: '#475569',
+  successActionText: {
+    color: '#ffffff',
+    fontSize: 12,
+    fontWeight: '900',
   },
-  secondaryActionText: {
+  compactSecondaryBtn: {
+    width: '100%',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 5,
+    paddingVertical: 6,
+  },
+  compactSecondaryBtnDark: {},
+  compactSecondaryText: {
     fontSize: 12,
     fontWeight: '800',
-    color: '#475569',
+    color: '#64748b',
   },
   completedHeader: {
     flexDirection: 'row',
@@ -417,7 +385,36 @@ const styles = StyleSheet.create({
   completedSubtitle: {
     fontSize: 12,
     color: '#64748b',
-    lineHeight: 16,
+    fontWeight: '600',
+  },
+  opBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+    borderRadius: 10,
+  },
+  opBadgeDeliv: {
+    backgroundColor: '#16a34a',
+  },
+  opBadgePick: {
+    backgroundColor: '#9333ea',
+  },
+  opBadgeAssis: {
+    backgroundColor: '#ea580c',
+  },
+  opBadgeDepot: {
+    backgroundColor: '#f59e0b',
+  },
+  opBadgeOutside: {
+    backgroundColor: '#dc2626',
+  },
+  opBadgeText: {
+    fontSize: 9,
+    fontWeight: '900',
+    color: '#ffffff',
+    letterSpacing: 0.4,
   },
   textLight: {
     color: '#f8fafc',

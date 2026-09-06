@@ -165,22 +165,22 @@ const PersonPage = ({
             {/* Main content */}
             <div className={`flex-1 flex flex-col min-w-0 overflow-y-auto overflow-x-hidden ${isSupplier ? 'p-4 md:p-6' : 'p-4 md:p-10'}`}>
                 {/* Header */}
-                <div className={isSupplier ? "flex flex-col gap-3 border-b border-slate-100 pb-4 dark:border-slate-800 sm:flex-row sm:items-center sm:justify-between" : "flex flex-col xl:flex-row justify-between xl:items-center mb-6 md:mb-10 gap-4 xl:gap-0"}>
+                <div className={isSupplier || collectionName === 'customers' ? "flex flex-col gap-3 border-b border-slate-100 pb-4 dark:border-slate-800 sm:flex-row sm:items-center sm:justify-between" : "flex flex-col xl:flex-row justify-between xl:items-center mb-6 md:mb-10 gap-4 xl:gap-0"}>
                     <div>
                         <h1 className="text-2xl xl:text-4xl font-black text-slate-800 dark:text-slate-100 tracking-tight transition-colors">
                             {title}
                         </h1>
-                        {Boolean(subtitle) && (
+                        {Boolean(subtitle) && collectionName !== 'customers' && (
                             <p className="text-slate-500 dark:text-slate-400 font-medium text-sm xl:text-lg hidden sm:block">
                                 {subtitle}
                             </p>
                         )}
                     </div>
-                    <div className={isSupplier ? "flex flex-row gap-2" : "flex flex-col sm:flex-row gap-3"}>
-                        {!isSupplier && (
+                    <div className={isSupplier || collectionName === 'customers' ? "flex flex-row gap-2" : "flex flex-col sm:flex-row gap-3"}>
+                        {!isSupplier && collectionName !== 'customers' && (
                             <button
                                 onClick={() => navigate('/app/configuracoes')}
-                                className={isSupplier ? "flex items-center justify-center rounded-xl bg-slate-100 p-3 text-slate-600 transition-all hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700" : "flex items-center justify-center p-3 xl:p-4 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-xl transition-all w-full sm:w-auto mt-2 xl:mt-0"}
+                                className="flex items-center justify-center p-3 xl:p-4 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-xl transition-all w-full sm:w-auto mt-2 xl:mt-0"
                                 title="Configurar Campos Obrigatórios"
                             >
                                 <i className="bi bi-gear-fill text-lg xl:text-xl" />
@@ -189,7 +189,7 @@ const PersonPage = ({
                         {canImport && (
                             <button
                                 onClick={() => setIsImportModalOpen(true)}
-                                className={isSupplier ? "flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-3 text-xs font-black uppercase tracking-widest text-slate-600 shadow-sm transition-all active:scale-95 hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300" : "flex items-center justify-center gap-2 xl:gap-3 bg-white hover:bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-300 px-4 py-3 xl:px-8 xl:py-4 rounded-xl font-black uppercase tracking-widest text-xs shadow-sm shadow-slate-200 dark:shadow-none transition-all active:scale-95 w-full sm:w-auto mt-2 xl:mt-0"}
+                                className={isSupplier || collectionName === 'customers' ? "flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-3 text-xs font-black uppercase tracking-widest text-slate-600 shadow-sm transition-all active:scale-95 hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300" : "flex items-center justify-center gap-2 xl:gap-3 bg-white hover:bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-300 px-4 py-3 xl:px-8 xl:py-4 rounded-xl font-black uppercase tracking-widest text-xs shadow-sm shadow-slate-200 dark:shadow-none transition-all active:scale-95 w-full sm:w-auto mt-2 xl:mt-0"}
                             >
                                 <i className="bi bi-cloud-arrow-up-fill text-lg xl:text-xl" />
                                 Importar
@@ -198,7 +198,7 @@ const PersonPage = ({
                         {!isEmployee && (
                             <button
                                 onClick={openAdd}
-                                className={isSupplier ? "flex items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-3 text-xs font-black uppercase tracking-widest text-white shadow-xl shadow-blue-200 transition-all active:scale-95 hover:bg-blue-700 dark:shadow-none" : "flex items-center justify-center gap-2 xl:gap-3 bg-blue-600 hover:bg-blue-700 text-white px-4 py-3 xl:px-8 xl:py-4 rounded-xl xl:rounded-xl font-black uppercase tracking-widest text-xs shadow-xl shadow-blue-200 dark:shadow-none transition-all active:scale-95 w-full sm:w-auto mt-2 xl:mt-0"}
+                                className={isSupplier || collectionName === 'customers' ? "flex items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-3 text-xs font-black uppercase tracking-widest text-white shadow-xl shadow-blue-200 transition-all active:scale-95 hover:bg-blue-700 dark:shadow-none" : "flex items-center justify-center gap-2 xl:gap-3 bg-blue-600 hover:bg-blue-700 text-white px-4 py-3 xl:px-8 xl:py-4 rounded-xl xl:rounded-xl font-black uppercase tracking-widest text-xs shadow-xl shadow-blue-200 dark:shadow-none transition-all active:scale-95 w-full sm:w-auto mt-2 xl:mt-0"}
                             >
                                 <i className={`${newIcon} text-lg xl:text-xl`} />
                                 {newLabel}
@@ -209,7 +209,7 @@ const PersonPage = ({
 
                 {/* Toolbar e Tabela */}
                 <div className="flex flex-col gap-6 mt-4">
-                    {!isEmployee && !isSupplier && (
+                    {!isEmployee && !isSupplier && collectionName !== 'customers' && (
                         <div className="flex justify-between items-center px-2">
                             <div className="flex gap-3">
                                 <button

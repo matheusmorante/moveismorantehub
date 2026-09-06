@@ -301,7 +301,7 @@ const migrateSettings = (settings: any): AppSettings => {
     }
 
     if (!settings.googleMapsApiKey || !settings.googleMapsApiKey.trim()) {
-        settings.googleMapsApiKey = (import.meta.env.VITE_GOOGLE_MAPS_API_KEY as string)?.trim() || 'AIzaSyCROtDtnGmCBnzSiTA2sJTmoEnTsGMf6Qk';
+        settings.googleMapsApiKey = (import.meta.env.VITE_GOOGLE_MAPS_API_KEY as string)?.trim() || '__REDACTED_GCP_API_KEY__';
     }
 
     return settings as AppSettings;
@@ -355,7 +355,7 @@ export const getDefaultSettings = (): AppSettings => ({
     ],
     freightPerKm: 0,
     openRouteServiceApiKey: '',
-    googleMapsApiKey: 'AIzaSyCROtDtnGmCBnzSiTA2sJTmoEnTsGMf6Qk',
+    googleMapsApiKey: '__REDACTED_GCP_API_KEY__',
     storeOriginCoords: [-49.16928181659719, -25.352030536045138],
     companyName: 'Móveis Morante',
     companyAddress: 'R. Cascavel, 306 - Guaraituba, Colombo - PR, 83410-270',

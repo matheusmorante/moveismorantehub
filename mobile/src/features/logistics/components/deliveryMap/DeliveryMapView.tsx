@@ -13,7 +13,6 @@ interface Props {
   polylineCoords?: { latitude: number; longitude: number }[];
   selectedItem: DeliveryRouteItem | null;
   onSelectMarker: (item: DeliveryRouteItem) => void;
-  onDeselectMarker?: () => void;
   isDarkMode?: boolean;
 }
 
@@ -24,7 +23,6 @@ export const DeliveryMapView: React.FC<Props> = ({
   polylineCoords,
   selectedItem,
   onSelectMarker,
-  onDeselectMarker,
   isDarkMode = false,
 }) => {
   const mapRef = useRef<MapView | null>(null);
@@ -92,10 +90,12 @@ export const DeliveryMapView: React.FC<Props> = ({
         showsCompass={false}
         toolbarEnabled={false}
         loadingEnabled={true}
-        onPress={() => {
-          onDeselectMarker?.();
-        }}
       >
+        {/* Marcador da Posição do Motorista / Entregador (🚚) */}
+        {driverCoords && (
+          <DeliveryMarker isDriver driverCoords={driverCoords} />
+        )}
+
         {/* Marcador do Depósito / Loja */}
         {storeCoords && (
           <DeliveryMarker isStore storeCoords={storeCoords} />
@@ -106,18 +106,17 @@ export const DeliveryMapView: React.FC<Props> = ({
           <DeliveryMarker
             key={item.id}
             item={item}
-            isSelected={selectedItem?.id === item.id}
             onPress={() => onSelectMarker(item)}
           />
         ))}
 
-        {/* Linha do Trajeto (Routes API) */}
-        {polylineCoords && polylineCoords.length > 1 && (selectedItem || items.some((i) => i.isCurrent)) && (
+        {/* Linha do Trajeto Recomendado (Routes API) */}
+        {polylineCoords && polylineCoords.length > 1 && (
           <Polyline
             coordinates={polylineCoords}
             strokeWidth={4.5}
             strokeColor="#2563eb"
-            lineDashPattern={[0]}
+            lineDashPattern={[8, 8]}
           />
         )}
       </MapView>
@@ -129,6 +128,8 @@ export const DeliveryMapView: React.FC<Props> = ({
             style={[styles.controlBtn, isDarkMode && styles.controlBtnDark]}
             onPress={centerOnDriver}
             activeOpacity={0.85}
+            accessibilityLabel="Minha localização"
+            accessibilityHint="Centraliza o mapa na sua posição atual em rota"
           >
             <Crosshair size={20} color="#2563eb" />
           </TouchableOpacity>
@@ -138,6 +139,8 @@ export const DeliveryMapView: React.FC<Props> = ({
           style={[styles.controlBtn, isDarkMode && styles.controlBtnDark]}
           onPress={fitAllPoints}
           activeOpacity={0.85}
+          accessibilityLabel="Enquadrar roteiro"
+          accessibilityHint="Enquadra todas as paradas do roteiro no mapa"
         >
           <Maximize2 size={18} color="#475569" />
         </TouchableOpacity>
@@ -156,14 +159,14 @@ const styles = StyleSheet.create({
   },
   controlsContainer: {
     position: 'absolute',
-    right: 16,
-    top: 16,
-    gap: 10,
+    right: 12,
+    top: 12,
+    gap: 8,
   },
   controlBtn: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     backgroundColor: '#ffffff',
     alignItems: 'center',
     justifyContent: 'center',

@@ -9,6 +9,7 @@ import {
   Truck,
   Hammer, 
   BarChart3, 
+  Wallet,
   MoreHorizontal, 
   X, 
   ChevronRight 
@@ -27,6 +28,7 @@ interface Props {
   currentTab: string;
   canSeeReports: boolean;
   canSeeProducts?: boolean;
+  canSeeFinance?: boolean;
   handleTabChange: (tab: string, url: string) => void;
   WEB_URL: string;
   customTabs?: NavItemConfig[];
@@ -37,6 +39,7 @@ export const NativeBottomNav: React.FC<Props> = ({
   currentTab,
   canSeeReports,
   canSeeProducts,
+  canSeeFinance = true,
   handleTabChange,
   WEB_URL,
   customTabs,
@@ -47,12 +50,26 @@ export const NativeBottomNav: React.FC<Props> = ({
   const totalNavHeight = 58 + bottomInset;
 
   // Lista base de todas as abas configuradas para o app
-  const allTabs: NavItemConfig[] = customTabs || [
+  const allTabs = [
     {
       key: 'home',
       label: 'Início',
       icon: LayoutDashboard,
       url: WEB_URL,
+      visible: true,
+    },
+    {
+      key: 'entregas',
+      label: 'Entregas',
+      icon: Truck,
+      url: `${WEB_URL}/schedule`,
+      visible: true,
+    },
+    {
+      key: 'agenda',
+      label: 'Agenda',
+      icon: Calendar,
+      url: `${WEB_URL}/schedule`,
       visible: true,
     },
     {
@@ -63,25 +80,25 @@ export const NativeBottomNav: React.FC<Props> = ({
       visible: true,
     },
     {
-      key: 'produtos',
-      label: 'Produtos',
-      icon: Package,
-      url: `${WEB_URL}/products`,
-      visible: Boolean(canSeeProducts),
-    },
-    {
-      key: 'entregas',
-      label: 'Entregas',
-      icon: Truck,
-      url: `${WEB_URL}/schedule`,
-      visible: true,
-    },
-    {
       key: 'montagens',
       label: 'Montagens',
       icon: Hammer,
       url: `${WEB_URL}/assembly-schedule`,
       visible: true,
+    },
+    {
+      key: 'financeiro',
+      label: 'Financeiro',
+      icon: Wallet,
+      url: `${WEB_URL}/mobile-finance`,
+      visible: canSeeFinance,
+    },
+    {
+      key: 'produtos',
+      label: 'Produtos',
+      icon: Package,
+      url: `${WEB_URL}/products`,
+      visible: Boolean(canSeeProducts),
     },
     {
       key: 'relatorios',
@@ -93,23 +110,23 @@ export const NativeBottomNav: React.FC<Props> = ({
   ];
 
   // Filtra apenas abas visíveis para o perfil do usuário
-  const visibleTabs = allTabs.filter(t => t.visible !== false);
+  const visibleTabs = (customTabs || allTabs).filter(t => t.visible !== false);
 
-  // REGRA: Máximo de 5 abas na barra inferior.
-  // Se passar de 5 abas (> 5):
-  // As primeiras 4 abas ficam fixas na barra, e a 5ª vaga é ocupada pelo botão de 3 pontinhos ('Mais'),
-  // que abre o Bottom Sheet com as opções restantes (a partir da 5ª em diante).
   const hasOverflow = visibleTabs.length > 5;
   const primaryTabs = hasOverflow ? visibleTabs.slice(0, 4) : visibleTabs;
   const overflowTabs = hasOverflow ? visibleTabs.slice(4) : [];
 
   const isOverflowTabActive = overflowTabs.some(t => {
-    if (t.key === 'logistica') return currentTab === 'logistica' || currentTab === 'entregas';
+    if (t.key === 'agenda' || t.key === 'logistica') {
+      return currentTab === 'agenda' || currentTab === 'logistica' || currentTab === 'cronograma';
+    }
     return currentTab === t.key;
   });
 
   const isTabActive = (key: string) => {
-    if (key === 'logistica') return currentTab === 'logistica' || currentTab === 'entregas';
+    if (key === 'agenda' || key === 'logistica') {
+      return currentTab === 'agenda' || currentTab === 'logistica' || currentTab === 'cronograma';
+    }
     return currentTab === key;
   };
 

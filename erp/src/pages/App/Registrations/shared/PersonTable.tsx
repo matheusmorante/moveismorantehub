@@ -28,6 +28,7 @@ interface PersonTableProps {
     onViewPurchaseHistory?: (person: Person) => void;
     collectionName: string;
     supplierProductCounts?: Record<string, number>;
+    customerOrderCounts?: Record<string, number>;
 }
 
 interface ColumnDef {
@@ -57,10 +58,10 @@ const PersonTable = ({
     visibilitySettings, onToggleColumn, showTrash, filters, onSort,
     selectedPeople, onToggleSelection, onSelectAll, onClearSelection,
     onBulkTrash, onBulkRestore, onBulkPermanentDelete, storageKey,
-    onViewPurchaseHistory, collectionName, supplierProductCounts
+    onViewPurchaseHistory, collectionName, supplierProductCounts, customerOrderCounts
 }: PersonTableProps) => {
     const columnsDef = getColumnsDef(collectionName);
-    const allowsSelection = collectionName !== 'employees' && collectionName !== 'suppliers';
+    const allowsSelection = collectionName !== 'employees' && collectionName !== 'suppliers' && collectionName !== 'customers';
     const containerRef = React.useRef<HTMLDivElement>(null);
     const settings = getSettings();
     
@@ -150,10 +151,10 @@ const PersonTable = ({
                                 <span className="sm:hidden">Lixeira</span>
                             </button>
                         ) : (
-                            <div className="flex gap-2">
+                            <>
                                 <button
                                     onClick={onBulkRestore}
-                                    className="bg-blue-600 hover:bg-blue-700 text-white text-[9px] md:text-[10px] font-black uppercase tracking-widest px-3 md:px-4 py-2 rounded-xl transition-all shadow-sm flex items-center gap-2"
+                                    className="bg-emerald-100 hover:bg-emerald-200 dark:bg-emerald-900/40 dark:hover:bg-emerald-900/60 text-emerald-700 dark:text-emerald-300 text-[9px] md:text-[10px] font-black uppercase tracking-widest px-3 md:px-4 py-2 rounded-xl transition-all shadow-sm flex items-center gap-2"
                                 >
                                     <i className="bi bi-arrow-counterclockwise" />
                                     <span className="hidden sm:inline">Restaurar</span>
@@ -163,115 +164,116 @@ const PersonTable = ({
                                     className="bg-red-600 hover:bg-red-700 text-white text-[9px] md:text-[10px] font-black uppercase tracking-widest px-3 md:px-4 py-2 rounded-xl transition-all shadow-sm flex items-center gap-2"
                                 >
                                     <i className="bi bi-trash3-fill" />
-                                    <span className="hidden sm:inline">Excluir</span>
+                                    <span className="hidden sm:inline">Excluir Permanente</span>
                                 </button>
-                            </div>
+                            </>
                         )}
                     </div>
                 </div>
             )}
 
-            {/* Desktop Table View */}
-            <div className="hidden lg:block">
-                <div ref={containerRef} className="overflow-x-auto custom-scrollbar rounded-xl border border-slate-100 dark:border-slate-800">
-                    <table className="w-full text-left border-collapse">
-                        <thead>
-                            <tr className="bg-slate-50 dark:bg-slate-900 border-b border-slate-100 dark:border-slate-800 transition-colors">
-                                {allowsSelection && (
-                                    <th className="px-2 py-2 w-12 text-center">
-                                        <label className="flex items-center cursor-pointer">
-                                            <input
-                                                type="checkbox"
-                                                checked={isAllSelected}
-                                                ref={input => {
-                                                    if (input) input.indeterminate = isIndeterminate;
-                                                }}
-                                                onChange={onSelectAll}
-                                                className="w-4 h-4 text-blue-600 bg-white border-slate-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-slate-900 focus:ring-2 dark:bg-slate-800 dark:border-slate-700 cursor-pointer"
-                                            />
-                                        </label>
-                                    </th>
-                                )}
-                                {orderedColumns.map((col) => {
-                                    const isVisible = visibilitySettings[col.key];
-                                    const sortableKeys = ['fullName', 'createdAt'];
-                                    const isSortable = sortableKeys.includes(col.key as string);
-                                    const isSorted = filters?.sortBy === col.key;
-                                    const sortOrder = filters?.sortOrder || 'asc';
+            <div
+                ref={containerRef}
+                className="w-full overflow-x-auto rounded-2xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm"
+            >
+                <table className="w-full text-left border-collapse min-w-[700px]">
+                    <thead>
+                        <tr className="border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50">
+                            {allowsSelection && (
+                                <th className="w-10 px-4 py-3 text-center">
+                                    <label className="flex items-center justify-center cursor-pointer">
+                                        <input
+                                            type="checkbox"
+                                            checked={isAllSelected}
+                                            ref={input => {
+                                                if (input) input.indeterminate = isIndeterminate;
+                                            }}
+                                            onChange={onSelectAll}
+                                            className="w-4 h-4 text-blue-600 bg-white border-slate-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-slate-900 focus:ring-2 dark:bg-slate-800 dark:border-slate-700 cursor-pointer"
+                                        />
+                                    </label>
+                                </th>
+                            )}
+                            {orderedColumns.map((col) => {
+                                const isVisible = visibilitySettings[col.key];
+                                const sortableKeys = ['fullName', 'createdAt'];
+                                const isSortable = sortableKeys.includes(col.key as string);
+                                const isSorted = filters?.sortBy === col.key;
+                                const sortOrder = filters?.sortOrder || 'asc';
 
-                                    if (!isVisible) return null;
+                                if (!isVisible) return null;
 
-                                    return (
-                                        <th
-                                            key={col.key as string}
-                                            draggable
-                                            onDragStart={(e) => handleDragStart(e, col.key as string)}
-                                            onDragOver={handleDragOver}
-                                            onDrop={(e) => handleDrop(e, col.key as string)}
-                                            onDragEnd={() => setDraggedColumn(null)}
-                                            className={`px-3 py-2 text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 transition-all ${col.align || ''} ${draggedColumn === col.key ? 'opacity-20' : 'opacity-100'}`}
-                                        >
-                                            <div className={`flex items-center gap-2 ${col.align === 'text-right' ? 'justify-end' : col.align === 'text-center' ? 'justify-center' : ''}`}>
-                                                <div className="flex items-center group/header w-fit cursor-grab active:cursor-grabbing">
-                                                    <i className="bi bi-grip-vertical text-slate-300 dark:text-slate-700 mr-1 opacity-0 group-hover/header:opacity-100 transition-opacity" />
-                                                    <span>{col.label}</span>
-                                                </div>
-
-                                                {isSortable && (
-                                                    <button
-                                                        onClick={(e) => {
-                                                            e.stopPropagation();
-                                                            const newOrder = isSorted && sortOrder === 'asc' ? 'desc' : 'asc';
-                                                            onSort?.(col.key as string, newOrder);
-                                                        }}
-                                                        className={`ml-2 flex items-center transition-all ${isSorted ? 'text-blue-600 dark:text-blue-400 scale-150' : 'text-slate-400 dark:text-slate-600 hover:text-slate-600 dark:hover:text-slate-400'}`}
-                                                        title={isSorted ? (sortOrder === 'asc' ? 'Ordenando: Crescente' : 'Ordenando: Decrescente') : `Clique para ordenar por ${col.label}`}
-                                                    >
-                                                        {isSorted ? (
-                                                            <i className={`bi ${sortOrder === 'asc' ? 'bi-sort-up' : 'bi-sort-down'} text-sm font-black`}></i>
-                                                        ) : (
-                                                            <i className="bi bi-arrow-down-up text-xs font-bold"></i>
-                                                        )}
-                                                    </button>
-                                                )}
-
-                                                {collectionName !== 'suppliers' && (
-                                                    <button
-                                                        onClick={(e) => { e.stopPropagation(); onToggleColumn(col.key); }}
-                                                        className="p-1 text-slate-400 dark:text-slate-600 hover:text-red-500 dark:hover:text-red-400 transition-colors rounded ml-1"
-                                                        title={`Ocultar ${col.label}`}
-                                                    >
-                                                        <i className="bi bi-eye-slash text-sm" />
-                                                    </button>
-                                                )}
+                                return (
+                                    <th
+                                        key={col.key as string}
+                                        draggable
+                                        onDragStart={(e) => handleDragStart(e, col.key as string)}
+                                        onDragOver={handleDragOver}
+                                        onDrop={(e) => handleDrop(e, col.key as string)}
+                                        onDragEnd={() => setDraggedColumn(null)}
+                                        className={`px-3 py-2 text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 transition-all ${col.align || ''} ${draggedColumn === col.key ? 'opacity-20' : 'opacity-100'}`}
+                                    >
+                                        <div className={`flex items-center gap-2 ${col.align === 'text-right' ? 'justify-end' : col.align === 'text-center' ? 'justify-center' : ''}`}>
+                                            <div className="flex items-center group/header w-fit cursor-grab active:cursor-grabbing">
+                                                <i className="bi bi-grip-vertical text-slate-300 dark:text-slate-700 mr-1 opacity-0 group-hover/header:opacity-100 transition-opacity" />
+                                                <span>{col.label}</span>
                                             </div>
-                                        </th>
-                                    );
-                                })}
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-50 dark:divide-slate-800">
-                            {people.map((person) => (
-                                <PersonRow
-                                    key={person.id}
-                                    person={person}
-                                    onEdit={onEdit}
-                                    onDelete={onDelete}
-                                    onRestore={onRestore}
-                                    onPermanentDelete={onPermanentDelete}
-                                    onToggleActive={onToggleActive}
-                                    visibilitySettings={visibilitySettings}
-                                    showTrash={showTrash}
-                                    orderedColumnKeys={orderedColumns.map(c => c.key as string)}
-                                    isSelected={selectedPeople.includes(person.id!)}
-                                    onToggleSelection={() => onToggleSelection(person.id!)}
-                                    onViewPurchaseHistory={onViewPurchaseHistory}
-                                    productCount={supplierProductCounts?.[person.id || ''] || 0}
-                                />
-                            ))}
-                        </tbody>
-                    </table>
-                </div>
+
+                                            {isSortable && (
+                                                <button
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        const newOrder = isSorted && sortOrder === 'asc' ? 'desc' : 'asc';
+                                                        onSort?.(col.key as string, newOrder);
+                                                    }}
+                                                    className={`ml-2 flex items-center transition-all ${isSorted ? 'text-blue-600 dark:text-blue-400 scale-150' : 'text-slate-400 dark:text-slate-600 hover:text-slate-600 dark:hover:text-slate-400'}`}
+                                                    title={isSorted ? (sortOrder === 'asc' ? 'Ordenando: Crescente' : 'Ordenando: Decrescente') : `Clique para ordenar por ${col.label}`}
+                                                >
+                                                    {isSorted ? (
+                                                        <i className={`bi ${sortOrder === 'asc' ? 'bi-sort-up' : 'bi-sort-down'} text-sm font-black`}></i>
+                                                    ) : (
+                                                        <i className="bi bi-arrow-down-up text-xs font-bold"></i>
+                                                    )}
+                                                </button>
+                                            )}
+
+                                            {collectionName !== 'suppliers' && collectionName !== 'customers' && (
+                                                <button
+                                                    onClick={(e) => { e.stopPropagation(); onToggleColumn(col.key); }}
+                                                    className="p-1 text-slate-400 dark:text-slate-600 hover:text-red-500 dark:hover:text-red-400 transition-colors rounded ml-1"
+                                                    title={`Ocultar ${col.label}`}
+                                                >
+                                                    <i className="bi bi-eye-slash text-sm" />
+                                                </button>
+                                            )}
+                                        </div>
+                                    </th>
+                                );
+                            })}
+                        </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-50 dark:divide-slate-800">
+                        {people.map((person) => (
+                            <PersonRow
+                                key={person.id}
+                                person={person}
+                                onEdit={onEdit}
+                                onDelete={onDelete}
+                                onRestore={onRestore}
+                                onPermanentDelete={onPermanentDelete}
+                                onToggleActive={onToggleActive}
+                                visibilitySettings={visibilitySettings}
+                                showTrash={showTrash}
+                                orderedColumnKeys={orderedColumns.map(c => c.key as string)}
+                                isSelected={selectedPeople.includes(person.id!)}
+                                onToggleSelection={() => onToggleSelection(person.id!)}
+                                onViewPurchaseHistory={onViewPurchaseHistory}
+                                productCount={supplierProductCounts?.[person.id || ''] || 0}
+                                orderCount={customerOrderCounts?.[person.id || ''] || 0}
+                            />
+                        ))}
+                    </tbody>
+                </table>
             </div>
 
             {/* Mobile Card View */}

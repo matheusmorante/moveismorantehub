@@ -1,8 +1,9 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
-import { Navigation, Play, Eye, Check, AlertTriangle, MapPin, Package, Clock } from 'lucide-react-native';
+import { Navigation, Play, Eye, Check, AlertTriangle, MapPin, Package, Clock, Truck, Wrench } from 'lucide-react-native';
 import { DeliveryRouteItem } from '../../hooks/useDeliveryRoute';
 import { openExternalNavigation } from '../../utils/externalMapsNavigation';
+import { MobileDrill } from '../../../../components/shared/MobileDrill';
 
 interface Props {
   item: DeliveryRouteItem;
@@ -22,7 +23,20 @@ export const RouteListItem: React.FC<Props> = ({
   const isCompleted = item.status === 'completed';
   const isUnattended = item.status === 'unattended';
   const isInProgress = item.status === 'in_progress' || item.status === 'in_service';
-  const isFixedTime = item.scheduleSlot?.isFixedTime;
+  const isNext = item.isNext && !isInProgress;
+
+  const isAssistance = item.order?.orderType === 'assistance' || item.order?.taskType === 'assistance';
+  const isPickup = item.order?.shipping?.deliveryMethod === 'pickup';
+
+  const allItems = [...(item.order?.items || []), ...(item.order?.assistanceItems || [])];
+  const hasOutsideAssembly = allItems.some(i => {
+    const h = String(i?.handlingType || i?.handling || '').toLowerCase();
+    return h.includes('fora') || h.includes('externa') || h.includes('cliente');
+  });
+  const hasInternalAssembly = allItems.some(i => {
+    const h = String(i?.handlingType || i?.handling || '').toLowerCase();
+    return (h.includes('loja') || h.includes('deposito') || h.includes('depósito') || h.includes('interna') || h.includes('montado')) && !h.includes('fora');
+  });
 
   const handleOpenNav = () => {
     openExternalNavigation({
@@ -38,13 +52,44 @@ export const RouteListItem: React.FC<Props> = ({
         styles.card,
         isDarkMode && styles.cardDark,
         isInProgress && styles.cardInProgress,
+        isNext && styles.cardNext,
       ]}
       onPress={() => onSelect(item)}
       activeOpacity={0.7}
     >
-      {/* Linha Superior: Código, Cliente e Restrição de Horário */}
+      {/* Linha Superior de Badges Operacionais */}
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 5, marginBottom: 8 }}>
+        <View style={[styles.hBadge, isAssistance ? styles.hBadgeAssis : isPickup ? styles.hBadgePick : styles.hBadgeDeliv]}>
+          {isAssistance ? <Wrench size={10} color="#fff" /> : isPickup ? <Package size={10} color="#fff" /> : <Truck size={10} color="#fff" />}
+          <Text style={styles.hBadgeText}>{isAssistance ? 'ASSISTÊNCIA' : isPickup ? 'RETIRADA' : 'ENTREGA'}</Text>
+        </View>
+        {hasInternalAssembly && (
+          <View style={[styles.hBadge, styles.hBadgeDepot]}>
+            <MobileDrill size={10} color="#fff" />
+            <Text style={styles.hBadgeText}>MONTAGEM DEPÓSITO</Text>
+          </View>
+        )}
+        {hasOutsideAssembly && (
+          <View style={[styles.hBadge, styles.hBadgeOutside]}>
+            <MobileDrill size={10} color="#fff" />
+            <Text style={styles.hBadgeText}>MONTAGEM FORA</Text>
+          </View>
+        )}
+      </View>
+
+      {/* Linha Principal: Ordem, Código e Status */}
       <View style={styles.topRow}>
-        <View style={{ flex: 1 }}>
+        <View style={styles.sequenceBadge}>
+          {isCompleted ? (
+            <Check size={13} color="#16a34a" strokeWidth={3} />
+          ) : isUnattended ? (
+            <AlertTriangle size={13} color="#dc2626" strokeWidth={3} />
+          ) : (
+            <Text style={styles.sequenceText}>{item.sequence}</Text>
+          )}
+        </View>
+
+        <View style={{ flex: 1, marginLeft: 8 }}>
           <Text style={[styles.customerName, isDarkMode && styles.textLight]} numberOfLines={1}>
             {item.customerName}
           </Text>
@@ -55,32 +100,24 @@ export const RouteListItem: React.FC<Props> = ({
           )}
         </View>
 
-        {/* Badge de Horário ou Status */}
-        {isFixedTime ? (
-          <View style={[styles.statusBadge, styles.statusFixed]}>
-            <Text style={[styles.statusText, { color: '#7c3aed' }]}>
-              {item.scheduleSlot.sublabel}
-            </Text>
-          </View>
-        ) : (
-          <View style={[
-            styles.statusBadge,
-            isCompleted && styles.statusCompleted,
-            isUnattended && styles.statusUnattended,
-            isInProgress && styles.statusProgress,
-            (!isCompleted && !isUnattended && !isInProgress) && styles.statusPending,
+        {/* Status Badge */}
+        <View style={[
+          styles.statusBadge,
+          isCompleted && styles.statusCompleted,
+          isUnattended && styles.statusUnattended,
+          isInProgress && styles.statusProgress,
+          (!isCompleted && !isUnattended && !isInProgress) && styles.statusPending,
+        ]}>
+          <Text style={[
+            styles.statusText,
+            isCompleted && { color: '#16a34a' },
+            isUnattended && { color: '#dc2626' },
+            isInProgress && { color: '#2563eb' },
+            (!isCompleted && !isUnattended && !isInProgress) && { color: '#64748b' },
           ]}>
-            <Text style={[
-              styles.statusText,
-              isCompleted && { color: '#16a34a' },
-              isUnattended && { color: '#dc2626' },
-              isInProgress && { color: '#2563eb' },
-              (!isCompleted && !isUnattended && !isInProgress) && { color: '#64748b' },
-            ]}>
-              {isCompleted ? 'ENTREGUE' : isUnattended ? 'NÃO ATENDIDO' : isInProgress ? 'EM ROTA' : item.scheduleSlot.displayBadge}
-            </Text>
-          </View>
-        )}
+            {isCompleted ? 'ENTREGUE' : isUnattended ? 'NÃO ATENDIDO' : isInProgress ? 'EM ROTA' : 'PENDENTE'}
+          </Text>
+        </View>
       </View>
 
       {/* Endereço */}
@@ -94,10 +131,18 @@ export const RouteListItem: React.FC<Props> = ({
       {/* Rodapé: Métricas e Ações Rápidas */}
       <View style={styles.footerRow}>
         <View style={styles.metricsGroup}>
-          <Text style={[styles.metricText, { color: '#64748b' }]}>📦 {item.itemsCount} vol</Text>
-          {item.distanceKm ? (
-            <Text style={[styles.metricText, { color: '#2563eb' }]}>• {item.distanceKm} km</Text>
+          {item.periodLabel ? (
+            <Text style={[styles.metricText, item.isFixedTime ? { color: '#d97706' } : { color: '#2563eb' }]}>
+              {item.periodLabel}
+            </Text>
           ) : null}
+          {item.distanceKm ? (
+            <Text style={[styles.metricText, { color: '#64748b' }]}>• {item.distanceKm} km</Text>
+          ) : null}
+          {item.durationMin ? (
+            <Text style={[styles.metricText, { color: '#64748b' }]}>• ~{item.durationMin} min</Text>
+          ) : null}
+          <Text style={[styles.metricText, { color: '#94a3b8' }]}>• {item.itemsCount} vol</Text>
         </View>
 
         <View style={styles.actionsGroup}>
@@ -114,18 +159,6 @@ export const RouteListItem: React.FC<Props> = ({
           >
             <Eye size={14} color={isDarkMode ? '#cbd5e1' : '#64748b'} />
           </TouchableOpacity>
-
-          {item.status === 'pending' && (
-            <TouchableOpacity
-              style={styles.startActionBtn}
-              onPress={() => {
-                onStartDelivery(item);
-                handleOpenNav();
-              }}
-            >
-              <Play size={12} color="#ffffff" fill="#ffffff" />
-            </TouchableOpacity>
-          )}
         </View>
       </View>
     </TouchableOpacity>
@@ -201,9 +234,6 @@ const styles = StyleSheet.create({
   statusProgress: {
     backgroundColor: '#eff6ff',
   },
-  statusFixed: {
-    backgroundColor: '#f3e8ff',
-  },
   statusPending: {
     backgroundColor: '#f1f5f9',
   },
@@ -266,10 +296,36 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  textLight: {
-    color: '#f8fafc',
-  },
   textMuted: {
     color: '#94a3b8',
+  },
+  hBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+    borderRadius: 12,
+  },
+  hBadgeDeliv: {
+    backgroundColor: '#16a34a',
+  },
+  hBadgePick: {
+    backgroundColor: '#9333ea',
+  },
+  hBadgeAssis: {
+    backgroundColor: '#ea580c',
+  },
+  hBadgeDepot: {
+    backgroundColor: '#f59e0b',
+  },
+  hBadgeOutside: {
+    backgroundColor: '#dc2626',
+  },
+  hBadgeText: {
+    fontSize: 9,
+    fontWeight: '900',
+    color: '#ffffff',
+    letterSpacing: 0.5,
   },
 });

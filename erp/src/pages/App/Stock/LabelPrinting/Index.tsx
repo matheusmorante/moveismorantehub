@@ -26,6 +26,8 @@ import {
     subscribeToPriceLabelTemplateUpdates,
 } from './priceLabelTemplateSync';
 import { useLabelPrintMode } from './useLabelPrintMode';
+import { LabelPrintingHeader } from './components/LabelPrintingHeader';
+import { LabelPrintingCategoryTabs, CategoryType } from './components/LabelPrintingCategoryTabs';
 
 const LabelPrinting: React.FC = () => {
     const printLabels = useLabelPrintMode();

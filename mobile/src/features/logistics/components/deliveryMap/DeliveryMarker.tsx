@@ -1,14 +1,15 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { Marker } from 'react-native-maps';
-import { Check, AlertTriangle, Store } from 'lucide-react-native';
+import { Check, AlertTriangle, Store, Truck } from 'lucide-react-native';
 import { DeliveryRouteItem } from '../../hooks/useDeliveryRoute';
 
 interface Props {
   item?: DeliveryRouteItem;
   isStore?: boolean;
   storeCoords?: { latitude: number; longitude: number };
-  isSelected?: boolean;
+  isDriver?: boolean;
+  driverCoords?: { latitude: number; longitude: number };
   onPress?: () => void;
 }
 
@@ -16,9 +17,25 @@ export const DeliveryMarker: React.FC<Props> = ({
   item,
   isStore = false,
   storeCoords,
-  isSelected = false,
+  isDriver = false,
+  driverCoords,
   onPress,
 }) => {
+  if (isDriver && driverCoords) {
+    return (
+      <Marker
+        coordinate={driverCoords}
+        title="Posição Atual"
+        description="Motorista / Entregador em Rota"
+        anchor={{ x: 0.5, y: 0.5 }}
+      >
+        <View style={styles.driverPin}>
+          <Truck size={16} color="#ffffff" />
+        </View>
+      </Marker>
+    );
+  }
+
   if (isStore && storeCoords) {
     return (
       <Marker
@@ -40,23 +57,23 @@ export const DeliveryMarker: React.FC<Props> = ({
   const isCompleted = item.status === 'completed';
   const isUnattended = item.status === 'unattended';
   const isCurrent = item.isCurrent;
-  const isFixedTime = item.scheduleSlot?.isFixedTime;
+  const isNext = item.isNext && !isCurrent;
 
-  let backgroundColor = '#2563eb'; // 🔵 Pendente padrão (Azul Morante)
-  let borderColor = isSelected ? '#fbbf24' : '#ffffff';
+  let backgroundColor = '#334155'; // Pendente
+  let borderColor = '#ffffff';
 
   if (isCurrent) {
-    backgroundColor = '#16a34a'; // 🚚 Em Rota / Em Atendimento (Verde Destaque)
-    borderColor = isSelected ? '#fbbf24' : '#dcfce7';
-  } else if (isFixedTime) {
-    backgroundColor = '#7c3aed'; // 🔒 Horário Fixo / Restrito (Roxo)
-    borderColor = isSelected ? '#fbbf24' : '#ede9fe';
+    backgroundColor = '#2563eb'; // Em Rota / Em Atendimento (Destaque)
+    borderColor = '#bfdbfe';
+  } else if (isNext) {
+    backgroundColor = '#0284c7'; // Próxima
+    borderColor = '#bae6fd';
   } else if (isCompleted) {
-    backgroundColor = '#10b981'; // 🟢 Concluída (Verde)
-    borderColor = isSelected ? '#fbbf24' : '#a7f3d0';
+    backgroundColor = '#10b981'; // Concluída
+    borderColor = '#a7f3d0';
   } else if (isUnattended) {
-    backgroundColor = '#ef4444'; // 🔴 Não Atendida
-    borderColor = isSelected ? '#fbbf24' : '#fecaca';
+    backgroundColor = '#ef4444'; // Não Atendida
+    borderColor = '#fecaca';
   }
 
   return (
@@ -65,24 +82,15 @@ export const DeliveryMarker: React.FC<Props> = ({
       anchor={{ x: 0.5, y: 1 }}
       onPress={onPress}
       tracksViewChanges={false}
-      zIndex={isSelected ? 60 : isCurrent ? 40 : 20}
     >
-      <View style={[styles.markerContainer, (isCurrent || isSelected) && styles.markerHighlight]}>
-        <View style={[
-          styles.markerBadge,
-          { backgroundColor, borderColor },
-          isSelected && styles.markerBadgeSelected
-        ]}>
+      <View style={[styles.markerContainer, (isCurrent || isNext) && styles.markerHighlight]}>
+        <View style={[styles.markerBadge, { backgroundColor, borderColor }]}>
           {isCompleted ? (
             <Check size={14} color="#ffffff" strokeWidth={3} />
           ) : isUnattended ? (
             <AlertTriangle size={12} color="#ffffff" strokeWidth={3} />
-          ) : isCurrent ? (
-            <View style={styles.currentDot} />
-          ) : isFixedTime ? (
-            <Text style={styles.fixedLockIcon}>🔒</Text>
           ) : (
-            <View style={styles.standardDot} />
+            <Text style={styles.sequenceText}>{item.sequence}</Text>
           )}
         </View>
         <View style={[styles.pinTip, { borderTopColor: backgroundColor }]} />
@@ -112,29 +120,10 @@ const styles = StyleSheet.create({
     shadowRadius: 3,
     elevation: 5,
   },
-  markerBadgeSelected: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    borderWidth: 3.5,
-    elevation: 8,
-    shadowOpacity: 0.4,
-    shadowRadius: 5,
-  },
-  standardDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    backgroundColor: '#ffffff',
-  },
-  currentDot: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    backgroundColor: '#ffffff',
-  },
-  fixedLockIcon: {
-    fontSize: 12,
+  sequenceText: {
+    color: '#ffffff',
+    fontSize: 13,
+    fontWeight: '900',
   },
   pinTip: {
     width: 0,
@@ -168,5 +157,20 @@ const styles = StyleSheet.create({
     borderTopColor: '#0f172a',
     marginTop: -1,
     alignSelf: 'center',
+  },
+  driverPin: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: '#2563eb',
+    borderWidth: 2.5,
+    borderColor: '#ffffff',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#2563eb',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.4,
+    shadowRadius: 6,
+    elevation: 6,
   },
 });

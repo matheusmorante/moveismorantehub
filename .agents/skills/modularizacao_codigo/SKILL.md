@@ -827,3 +827,22 @@ TOCOU → ENTENDEU → ALTEROU → MODULARIZOU → VALIDOU
 ```
 
 Sempre com prioridade absoluta para não perder código nem alterar silenciosamente regras existentes.
+
+---
+
+# 25. Protocolo de Chamada On-Demand (Roadmap & Lote de 3 Arquivos)
+
+Quando o usuário pedir explicitamente a limpeza, modularização ou refatoração do código:
+
+1. **Mapeamento e Roadmap de Prioridades**:
+   - O agente analisa o projeto e gera um **Roadmap de Prioridades** listando os arquivos que mais precisam de modularização (priorizando arquivos > 200 linhas ou com acúmulo de responsabilidades).
+
+2. **Execução em Lote de 3 Arquivos**:
+   - O agente seleciona e realiza a refatoração modular segura de **no máximo 3 arquivos por vez**.
+   - Aplica a estratégia estrita: `COPIAR → VALIDAR → CONECTAR → TESTAR → REMOVER`.
+
+3. **Pausa Interativa e Proteção de Contexto**:
+   - Ao concluir o lote de 3 arquivos, o agente faz uma pausa e pergunta ao usuário:
+     > *"Concluí a modularização de 3 arquivos do roadmap ([Arquivos refatorados]). Deseja que eu prossiga com os próximos 3 arquivos da lista?"*
+   - Isso evita o esgotamento da janela de contexto e mantém cada etapa 100% testada e auditável pelo usuário.
+

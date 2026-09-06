@@ -1,12 +1,8 @@
-import React, { useRef, useEffect, useState, useCallback } from 'react';
-import { View, StyleSheet, TouchableOpacity, ActivityIndicator, Text } from 'react-native';
-import { Crosshair, Maximize2, AlertCircle, RefreshCw } from 'lucide-react-native';
+import React, { useMemo, useRef, useEffect } from 'react';
+import { View, StyleSheet, TouchableOpacity } from 'react-native';
+import { Crosshair, Maximize2 } from 'lucide-react-native';
 import { DeliveryRouteItem } from '../../hooks/useDeliveryRoute';
 import { DriverCoordinates } from '../../../../services/locationService';
-import { getGoogleApiKey } from '../../services/googleRoutesService';
-import { isValidCoordinate } from '../../utils/externalMapsNavigation';
-import { loadGoogleMapsScript } from './googleMapsScriptLoader';
-import { createMarkerIconSvg, MapMarkerType } from './googleMapsMarkerIcons';
 
 interface Props {
   items: DeliveryRouteItem[];
@@ -15,7 +11,6 @@ interface Props {
   polylineCoords?: { latitude: number; longitude: number }[];
   selectedItem: DeliveryRouteItem | null;
   onSelectMarker: (item: DeliveryRouteItem) => void;
-  onDeselectMarker?: () => void;
   isDarkMode?: boolean;
 }
 
@@ -26,314 +21,234 @@ export const DeliveryMapView: React.FC<Props> = ({
   polylineCoords,
   selectedItem,
   onSelectMarker,
-  onDeselectMarker,
   isDarkMode = false,
 }) => {
-  const mapContainerRef = useRef<HTMLDivElement | null>(null);
-  const mapInstanceRef = useRef<any>(null);
-  const markersRef = useRef<any[]>([]);
-  const polylineRef = useRef<any>(null);
-  const driverMarkerRef = useRef<any>(null);
+  const iframeRef = useRef<HTMLIFrameElement | null>(null);
+  const defaultLat = storeCoords?.latitude || -25.352;
+  const defaultLng = storeCoords?.longitude || -49.169;
 
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  // Inicializa o Google Maps JavaScript API
-  const initMap = useCallback(async () => {
-    try {
-      setLoading(true);
-      setError(null);
-
-      const apiKey = await getGoogleApiKey();
-      if (!apiKey) {
-        throw new Error('Chave de API do Google Maps não configurada');
-      }
-
-      await loadGoogleMapsScript(apiKey);
-
-      if (!mapContainerRef.current || !window.google?.maps) return;
-
-      const centerLat = storeCoords?.latitude || -25.352;
-      const centerLng = storeCoords?.longitude || -49.169;
-
-      const map = new window.google.maps.Map(mapContainerRef.current, {
-        center: { lat: centerLat, lng: centerLng },
-        zoom: 12,
-        mapTypeControl: false,
-        streetViewControl: false,
-        fullscreenControl: false,
-        zoomControl: true,
-        zoomControlOptions: {
-          position: window.google.maps.ControlPosition.RIGHT_TOP,
-        },
-      });
-
-      // Clique em área livre do mapa limpa a seleção
-      map.addListener('click', () => {
-        onDeselectMarker?.();
-      });
-
-      mapInstanceRef.current = map;
-      setLoading(false);
-    } catch (err: any) {
-      setLoading(false);
-      setError('Não foi possível carregar o mapa. Verifique a conexão.');
-    }
-  }, [storeCoords?.latitude, storeCoords?.longitude, onDeselectMarker]);
-
+  // Escuta cliques nos marcadores enviados do iframe
   useEffect(() => {
-    void initMap();
-  }, [initMap]);
-
-  // Enquadra todos os pontos no mapa com padding adequado para não cobrir com o card flutuante
-  const fitAllPoints = useCallback(() => {
-    const map = mapInstanceRef.current;
-    if (!map || !window.google?.maps) return;
-
-    const bounds = new window.google.maps.LatLngBounds();
-    let hasPoints = false;
-
-    if (storeCoords && isValidCoordinate(storeCoords.latitude, storeCoords.longitude)) {
-      bounds.extend({ lat: storeCoords.latitude, lng: storeCoords.longitude });
-      hasPoints = true;
-    }
-
-    if (driverCoords && isValidCoordinate(driverCoords.latitude, driverCoords.longitude)) {
-      bounds.extend({ lat: driverCoords.latitude, lng: driverCoords.longitude });
-      hasPoints = true;
-    }
-
-    items.forEach((item) => {
-      if (item.coords && isValidCoordinate(item.coords.latitude, item.coords.longitude)) {
-        bounds.extend({ lat: item.coords.latitude, lng: item.coords.longitude });
-        hasPoints = true;
+    const handleMessage = (event: MessageEvent) => {
+      if (event.data && event.data.type === 'MARKER_CLICK') {
+        const found = items.find((i) => i.id === event.data.id);
+        if (found) {
+          onSelectMarker(found);
+        }
       }
-    });
+    };
+    window.addEventListener('message', handleMessage);
+    return () => window.removeEventListener('message', handleMessage);
+  }, [items, onSelectMarker]);
 
-    if (hasPoints) {
-      map.fitBounds(bounds, {
-        top: 60,
-        right: 50,
-        bottom: 240, // Padding inferior para o NextDeliveryCard flutuante
-        left: 50,
-      });
+  const fitAllBounds = () => {
+    if (iframeRef.current && iframeRef.current.contentWindow) {
+      iframeRef.current.contentWindow.postMessage({ type: 'FIT_BOUNDS' }, '*');
     }
-  }, [items, driverCoords, storeCoords]);
-
-  // Centraliza na posição do motorista
-  const centerOnDriver = () => {
-    const map = mapInstanceRef.current;
-    if (!map || !driverCoords) return;
-    map.panTo({ lat: driverCoords.latitude, lng: driverCoords.longitude });
-    map.setZoom(15);
   };
 
-  // Renderiza e atualiza marcadores e polyline
-  useEffect(() => {
-    const map = mapInstanceRef.current;
-    if (!map || !window.google?.maps || loading) return;
-
-    // Limpa marcadores anteriores
-    markersRef.current.forEach((m) => m.setMap(null));
-    markersRef.current = [];
-
-    // 1. Marcador do Depósito
-    if (storeCoords && isValidCoordinate(storeCoords.latitude, storeCoords.longitude)) {
-      const storeMarker = new window.google.maps.Marker({
-        position: { lat: storeCoords.latitude, lng: storeCoords.longitude },
-        map,
-        title: 'Depósito Móveis Morante',
-        icon: createMarkerIconSvg('#1e3a8a', 'dot', false, true),
-        zIndex: 10,
-      });
-
-      const storeInfoWindow = new window.google.maps.InfoWindow({
-        content: `
-          <div style="font-family: sans-serif; padding: 4px 6px; color: #1e293b;">
-            <div style="font-weight: 700; font-size: 13px; margin-bottom: 2px;">🏬 Depósito Móveis Morante</div>
-            <div style="font-size: 11px; color: #64748b;">Ponto de saída e retorno</div>
-          </div>
-        `,
-      });
-
-      storeMarker.addListener('click', () => {
-        storeInfoWindow.open({
-          anchor: storeMarker,
-          map,
-        });
-      });
-
-      markersRef.current.push(storeMarker);
+  const centerDriver = () => {
+    if (iframeRef.current && iframeRef.current.contentWindow) {
+      iframeRef.current.contentWindow.postMessage({ type: 'CENTER_DRIVER' }, '*');
     }
+  };
 
-    // 2. Marcador do Motorista
-    if (driverCoords && isValidCoordinate(driverCoords.latitude, driverCoords.longitude)) {
-      if (driverMarkerRef.current) {
-        driverMarkerRef.current.setMap(null);
-      }
-      driverMarkerRef.current = new window.google.maps.Marker({
-        position: { lat: driverCoords.latitude, lng: driverCoords.longitude },
-        map,
-        title: 'Sua Localização',
-        icon: {
-          path: window.google.maps.SymbolPath.CIRCLE,
-          scale: 8,
-          fillColor: '#2563eb',
-          fillOpacity: 1,
-          strokeColor: '#ffffff',
-          strokeWeight: 3,
-        },
-        zIndex: 100,
-      });
-    }
+  // Constrói o HTML com Leaflet inicializado com segurança via script onload/polling
+  const mapHtml = useMemo(() => {
+    const pointsData = items
+      .filter((i) => i.coords)
+      .map((i) => ({
+        id: i.id,
+        seq: i.sequence,
+        name: String(i.customerName || 'Consumidor').replace(/'/g, "\\'"),
+        address: String(i.fullAddress || '').replace(/'/g, "\\'"),
+        lat: i.coords!.latitude,
+        lng: i.coords!.longitude,
+        status: i.status,
+        isCurrent: i.isCurrent,
+        isNext: i.isNext,
+      }));
 
-    // 3. Marcadores das Entregas (Sem números de sequência ou ordem compulsória)
-    items.forEach((item) => {
-      if (!item.coords || !isValidCoordinate(item.coords.latitude, item.coords.longitude)) {
+    const polyData = (polylineCoords && polylineCoords.length > 0)
+      ? polylineCoords.map(p => [p.latitude, p.longitude])
+      : [];
+
+    return `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <style>
+    body, html, #map { margin: 0; padding: 0; width: 100%; height: 100%; background: ${isDarkMode ? '#0f172a' : '#f8fafc'}; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+    .leaflet-container { background: ${isDarkMode ? '#0f172a' : '#f1f5f9'}; }
+    .custom-pin { display: flex; align-items: center; justify-content: center; border-radius: 50%; color: #ffffff; font-weight: 900; font-size: 13px; box-shadow: 0 4px 10px rgba(0,0,0,0.3); cursor: pointer; }
+    .pin-store { background: #0f172a; border: 2.5px solid #38bdf8; width: 34px; height: 34px; font-size: 16px; }
+    .pin-driver { background: #2563eb; border: 2.5px solid #ffffff; width: 36px; height: 36px; font-size: 17px; animation: pulse 2s infinite; }
+    .pin-current { background: #2563eb; border: 3px solid #bfdbfe; width: 34px; height: 34px; font-size: 14px; transform: scale(1.1); }
+    .pin-next { background: #0284c7; border: 2.5px solid #ffffff; width: 30px; height: 30px; }
+    .pin-completed { background: #10b981; border: 2px solid #ffffff; width: 28px; height: 28px; }
+    .pin-unattended { background: #ef4444; border: 2px solid #ffffff; width: 28px; height: 28px; }
+    .pin-pending { background: #334155; border: 2px solid #ffffff; width: 28px; height: 28px; }
+    @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(37, 99, 235, 0.7); } 70% { box-shadow: 0 0 0 12px rgba(37, 99, 235, 0); } 100% { box-shadow: 0 0 0 0 rgba(37, 99, 235, 0); } }
+  </style>
+</head>
+<body>
+  <div id="map"></div>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script>
+    function initMap() {
+      if (typeof L === 'undefined') {
+        setTimeout(initMap, 100);
         return;
       }
+      
+      const isDark = ${isDarkMode};
+      const tileUrl = isDark 
+        ? 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png'
+        : 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png';
 
-      const isSelected = selectedItem?.id === item.id;
-      const isCompleted = item.status === 'completed';
-      const isUnattended = item.status === 'unattended';
-      const isCurrent = item.isCurrent;
-      const isFixed = item.scheduleSlot?.isFixedTime;
+      const map = L.map('map', { zoomControl: false }).setView([${defaultLat}, ${defaultLng}], 13);
+      L.tileLayer(tileUrl, { 
+        maxZoom: 19, 
+        subdomains: 'abcd',
+        attribution: '© CartoDB © OpenStreetMap' 
+      }).addTo(map);
 
-      let color = '#2563eb'; // azul padrão Morante
-      let markerType: 'dot' | 'lock' | 'play' | 'check' | 'alert' = 'dot';
+      const bounds = [];
 
-      if (isCompleted) {
-        color = '#059669'; // verde esmeralda
-        markerType = 'check';
-      } else if (isUnattended) {
-        color = '#dc2626'; // vermelho
-        markerType = 'alert';
-      } else if (isCurrent) {
-        color = '#16a34a'; // verde em andamento
-        markerType = 'play';
-      } else if (isFixed) {
-        color = '#7c3aed'; // roxo para horário combinado/fixo
-        markerType = 'lock';
-      } else {
-        // Entrega normal com período (09:00-12:00, 13:00-18:00): pin padrão limpo sem cadeado
-        color = '#2563eb';
-        markerType = 'dot';
-      }
-
-      const marker = new window.google.maps.Marker({
-        position: { lat: item.coords.latitude, lng: item.coords.longitude },
-        map,
-        title: item.customerName || `Pedido #${item.orderIndex || ''}`,
-        icon: createMarkerIconSvg(color, markerType, isSelected, false),
-        zIndex: isSelected ? 60 : isCurrent ? 40 : 20,
+      // Depósito Central (🏬)
+      const storeIcon = L.divIcon({
+        className: 'custom-pin pin-store',
+        html: '🏬',
+        iconSize: [34, 34],
+        iconAnchor: [17, 17]
       });
+      L.marker([${defaultLat}, ${defaultLng}], { icon: storeIcon })
+        .bindPopup('<div style="font-family:sans-serif;padding:4px;"><b>Móveis Morante — Depósito Central</b><br><span style="color:#64748b;font-size:12px;">Origem do Roteiro</span></div>')
+        .addTo(map);
+      bounds.push([${defaultLat}, ${defaultLng}]);
 
-      marker.addListener('click', () => {
-        onSelectMarker(item);
+      // Motorista (🚚 Posição Atual)
+      const driverLat = ${driverCoords ? driverCoords.latitude : defaultLat};
+      const driverLng = ${driverCoords ? driverCoords.longitude : defaultLng};
+      const driverIcon = L.divIcon({
+        className: 'custom-pin pin-driver',
+        html: '🚚',
+        iconSize: [38, 38],
+        iconAnchor: [19, 19]
       });
+      const driverMarker = L.marker([driverLat, driverLng], { icon: driverIcon })
+        .bindPopup('<div style="font-family:sans-serif;padding:4px;"><b>Motorista / Entregador</b><br><span style="color:#2563eb;font-weight:700;font-size:12px;">Posição Atual em Rota</span></div>')
+        .addTo(map);
+      bounds.push([driverLat, driverLng]);
 
-      markersRef.current.push(marker);
-    });
+      // Paradas do Roteiro
+      const points = ${JSON.stringify(pointsData)};
+      points.forEach(p => {
+        let cls = 'pin-pending';
+        let symbol = p.seq;
+        if (p.status === 'completed') { cls = 'pin-completed'; symbol = '✓'; }
+        else if (p.status === 'unattended') { cls = 'pin-unattended'; symbol = '!'; }
+        else if (p.isCurrent) { cls = 'pin-current'; symbol = p.seq; }
+        else if (p.isNext) { cls = 'pin-next'; symbol = p.seq; }
 
-    // 4. Polyline do Trajeto (Routes API) - Apenas se houver entrega selecionada ou em andamento
-    if (polylineRef.current) {
-      polylineRef.current.setMap(null);
-      polylineRef.current = null;
-    }
-
-    if (polylineCoords && polylineCoords.length > 1 && (selectedItem || items.some((i) => i.isCurrent))) {
-      const validPoints = polylineCoords.filter((p) => isValidCoordinate(p.latitude, p.longitude));
-      if (validPoints.length > 1) {
-        polylineRef.current = new window.google.maps.Polyline({
-          path: validPoints.map((p) => ({ lat: p.latitude, lng: p.longitude })),
-          strokeColor: '#2563eb',
-          strokeOpacity: 0.85,
-          strokeWeight: 4.5,
-          map,
+        const icon = L.divIcon({
+          className: 'custom-pin ' + cls,
+          html: symbol,
+          iconSize: [32, 32],
+          iconAnchor: [16, 16]
         });
+
+        const m = L.marker([p.lat, p.lng], { icon }).addTo(map);
+        m.bindPopup(
+          '<div style="font-family:sans-serif;padding:4px;min-width:180px;">' +
+            '<b style="color:#1e293b;font-size:13px;">Parada ' + p.seq + ' • ' + p.name + '</b><br>' +
+            '<span style="color:#64748b;font-size:11px;">' + p.address + '</span>' +
+          '</div>'
+        );
+        m.on('click', () => {
+          window.parent.postMessage({ type: 'MARKER_CLICK', id: p.id }, '*');
+        });
+        bounds.push([p.lat, p.lng]);
+      });
+
+      // Polyline da rota (linha tracejada com o trajeto recomendado)
+      const polyCoords = ${JSON.stringify(polyData)};
+      if (polyCoords.length > 1) {
+        L.polyline(polyCoords, { color: '#2563eb', weight: 4.5, dashArray: '7, 9', opacity: 0.85 }).addTo(map);
+      } else if (bounds.length > 1) {
+        L.polyline(bounds, { color: '#2563eb', weight: 3.5, dashArray: '7, 9', opacity: 0.65 }).addTo(map);
       }
+
+      if (bounds.length > 0) {
+        map.fitBounds(bounds, { paddingBottomRight: [50, 250], paddingTopLeft: [50, 60] });
+      }
+
+      // Comunicação por Mensagens com o Parent React Component
+      window.addEventListener('message', (e) => {
+        if (!e.data) return;
+        if (e.data.type === 'FIT_BOUNDS' && bounds.length > 0) {
+          map.fitBounds(bounds, { paddingBottomRight: [50, 250], paddingTopLeft: [50, 60], animate: true });
+        } else if (e.data.type === 'CENTER_DRIVER') {
+          if (driverMarker) {
+            map.setView(driverMarker.getLatLng(), 15, { animate: true });
+          } else {
+            map.setView([${defaultLat}, ${defaultLng}], 14, { animate: true });
+          }
+        }
+      });
     }
 
-    // Enquadra após criar os pontos
-    const timer = setTimeout(() => {
-      fitAllPoints();
-    }, 400);
-
-    return () => clearTimeout(timer);
-  }, [items, storeCoords, driverCoords, polylineCoords, selectedItem?.id, loading, fitAllPoints, onSelectMarker]);
-
-  // Redimensiona o mapa ao trocar de abas ou alterar o tamanho da janela
-  useEffect(() => {
-    const map = mapInstanceRef.current;
-    if (!map || !window.google?.maps) return;
-
-    const handleResize = () => {
-      window.google.maps.event.trigger(map, 'resize');
-    };
-
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
+    if (document.readyState === 'complete' || document.readyState === 'interactive') {
+      initMap();
+    } else {
+      document.addEventListener('DOMContentLoaded', initMap);
+    }
+  </script>
+</body>
+</html>
+    `;
+  }, [items, driverCoords, storeCoords, polylineCoords, isDarkMode, defaultLat, defaultLng]);
 
   return (
     <View style={[styles.container, isDarkMode && styles.containerDark]}>
-      {/* Container DOM real para a Google Maps JavaScript API */}
-      <div
-        ref={mapContainerRef}
-        style={{
-          position: 'absolute',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          width: '100%',
-          height: '100%',
-          backgroundColor: isDarkMode ? '#0f172a' : '#f8fafc',
-        }}
-      />
+      <View style={styles.mapCanvas}>
+        {/* @ts-ignore - Iframe HTML do mapa interativo na Web */}
+        <iframe
+          ref={iframeRef}
+          srcDoc={mapHtml}
+          style={{
+            width: '100%',
+            height: '100%',
+            border: 0,
+            backgroundColor: isDarkMode ? '#0f172a' : '#f8fafc',
+          }}
+          title="Mapa Real de Entregas"
+        />
 
-      {/* Estado de Carregamento */}
-      {loading && (
-        <View style={styles.loadingOverlay}>
-          <ActivityIndicator size="large" color="#2563eb" />
-          <Text style={styles.loadingText}>Carregando mapa interativo...</Text>
-        </View>
-      )}
-
-      {/* Estado de Erro */}
-      {error && !loading && (
-        <View style={styles.errorOverlay}>
-          <AlertCircle size={32} color="#ef4444" />
-          <Text style={styles.errorText}>{error}</Text>
-          <TouchableOpacity onPress={() => void initMap()} style={styles.retryBtn} activeOpacity={0.8}>
-            <RefreshCw size={15} color="#ffffff" />
-            <Text style={styles.retryBtnText}>Tentar Novamente</Text>
+        {/* Controles Flutuantes do Mapa: [◎] Minha Localização e [⊞] Enquadrar */}
+        <View style={styles.floatingControls}>
+          <TouchableOpacity
+            style={[styles.controlBtn, isDarkMode && styles.controlBtnDark]}
+            onPress={centerDriver}
+            activeOpacity={0.8}
+            accessibilityLabel="Minha localização"
+          >
+            <Crosshair size={18} color="#2563eb" />
           </TouchableOpacity>
-        </View>
-      )}
-
-      {/* Controles Flutuantes do Mapa */}
-      {!loading && !error && (
-        <View style={styles.controlsContainer}>
-          {driverCoords && (
-            <TouchableOpacity
-              style={[styles.controlBtn, isDarkMode && styles.controlBtnDark]}
-              onPress={centerOnDriver}
-              activeOpacity={0.85}
-            >
-              <Crosshair size={20} color="#2563eb" />
-            </TouchableOpacity>
-          )}
 
           <TouchableOpacity
             style={[styles.controlBtn, isDarkMode && styles.controlBtnDark]}
-            onPress={fitAllPoints}
-            activeOpacity={0.85}
+            onPress={fitAllBounds}
+            activeOpacity={0.8}
+            accessibilityLabel="Enquadrar roteiro"
           >
-            <Maximize2 size={18} color="#475569" />
+            <Maximize2 size={16} color="#475569" />
           </TouchableOpacity>
         </View>
-      )}
+      </View>
     </View>
   );
 };
@@ -341,79 +256,39 @@ export const DeliveryMapView: React.FC<Props> = ({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: '#f8fafc',
     position: 'relative',
-    overflow: 'hidden',
   },
   containerDark: {
     backgroundColor: '#0f172a',
   },
-  loadingOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(248, 250, 252, 0.85)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 12,
-    zIndex: 10,
+  mapCanvas: {
+    flex: 1,
+    position: 'relative',
+    overflow: 'hidden',
   },
-  loadingText: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#475569',
-  },
-  errorOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: '#ffffff',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 24,
-    gap: 12,
-    zIndex: 10,
-  },
-  errorText: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#64748b',
-    textAlign: 'center',
-  },
-  retryBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    backgroundColor: '#2563eb',
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 12,
-    marginTop: 6,
-  },
-  retryBtnText: {
-    fontSize: 13,
-    fontWeight: '800',
-    color: '#ffffff',
-  },
-  controlsContainer: {
+  floatingControls: {
     position: 'absolute',
-    right: 16,
-    top: 16,
-    gap: 10,
-    zIndex: 5,
+    right: 12,
+    top: 12,
+    gap: 8,
+    zIndex: 100,
   },
   controlBtn: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     backgroundColor: '#ffffff',
     alignItems: 'center',
     justifyContent: 'center',
     shadowColor: '#000000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.12,
+    shadowOpacity: 0.15,
     shadowRadius: 4,
-    elevation: 3,
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
+    elevation: 4,
   },
   controlBtnDark: {
     backgroundColor: '#1e293b',
-    borderColor: '#334155',
   },
 });
+

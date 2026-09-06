@@ -5,6 +5,7 @@ import { useTheme } from '../../context/ThemeContext';
 
 export default function FloatingActionsHub() {
   const [isOpen, setIsOpen] = useState(false);
+  const [isChatOpen, setIsChatOpen] = useState(false);
   const { theme } = useTheme();
 
   return (
@@ -12,9 +13,16 @@ export default function FloatingActionsHub() {
       {/* Expanded Menu */}
       <div className={`flex flex-col items-end gap-4 mb-2 transition-all duration-500 origin-bottom ${isOpen ? 'scale-100 opacity-100 translate-y-0' : 'scale-50 opacity-0 translate-y-10 pointer-events-none'}`}>
         
-        {/* Chat Assistant (Legacy position) */}
-        <div className="relative group">
-           <AIChatAssistant isFloating={false} />
+        {/* Chat Assistant */}
+        <div className="relative group" data-testid="assistant-container">
+           <button
+             onClick={() => setIsChatOpen(!isChatOpen)}
+             data-testid="assistant-toggle"
+             className="w-12 h-12 rounded-full bg-indigo-600 hover:bg-indigo-700 text-white flex items-center justify-center shadow-lg hover:scale-110 active:scale-95 transition-all"
+             title="Assistente IA"
+           >
+             <i className="bi bi-robot text-lg"></i>
+           </button>
            <span className="absolute right-full mr-4 top-1/2 -translate-y-1/2 px-3 py-1 bg-slate-900 text-white text-[9px] font-black uppercase rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap tracking-widest pointer-events-none shadow-xl">
              Assistente IA
            </span>
@@ -48,6 +56,8 @@ export default function FloatingActionsHub() {
       {/* Main Toggle Button (The Tools Icon) */}
       <button
         onClick={() => setIsOpen(!isOpen)}
+        data-testid="floating-hub-toggle"
+        data-testid-assistant-toggle="true"
         className={`w-16 h-16 rounded-[2rem] flex items-center justify-center transition-all duration-500 shadow-premium-lg border-2 ${
           isOpen 
             ? 'bg-rose-500 border-rose-400 rotate-90 text-white' 
@@ -56,6 +66,9 @@ export default function FloatingActionsHub() {
       >
         <i className={`bi ${isOpen ? 'bi-x-lg' : 'bi-tools'} text-2xl`}></i>
       </button>
+
+      {/* Chat Assistant Window */}
+      {isChatOpen && <AIChatAssistant isFloating={false} forceOpen={isChatOpen} />}
     </div>
   );
 }

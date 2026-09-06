@@ -38,7 +38,6 @@ export const AISummaryCard: React.FC<Props> = ({
           <View style={{ width: 32, height: 32, borderRadius: 12, backgroundColor: '#2563eb', alignItems: 'center', justifyContent: 'center' }}><Sparkles size={16} color="#ffffff" /></View>
           <View>
             <Text style={{ fontSize: 13, fontWeight: '900', color: isDarkMode ? '#f8fafc' : '#0f172a' }}>Resumo Inteligente das Entregas</Text>
-            <Text style={{ fontSize: 10, fontWeight: '700', color: '#64748b' }}>Narrativa IA para motoristas & montadores</Text>
           </View>
         </View>
         <TouchableOpacity onPress={onRefreshSummary} disabled={isGeneratingAISummary} style={{ padding: 6, opacity: isGeneratingAISummary ? 0.5 : 1 }}><RefreshCw size={16} color={isDarkMode ? '#94a3b8' : '#64748b'} /></TouchableOpacity>
@@ -63,9 +62,19 @@ export const AISummaryCard: React.FC<Props> = ({
       )}
 
       <AISummaryAudioPlayer
-        isDarkMode={isDarkMode} text={activeSummaryText} isSpeaking={isSpeakingSummary} isPaused={speechIsPaused}
-        currentTime={speechCurrentTime} totalDuration={speechTotalDuration} onToggle={handleToggleSpeech}
-        onSeekEnd={finishSeekToPosition} setCurrentTime={setSpeechCurrentTime} formatTime={formatAudioTime}
+        isDarkMode={isDarkMode}
+        title={aiSummaryTab === 'today' ? 'Ouvir resumo de hoje' : 'Ouvir resumo de amanhã'}
+        text={activeSummaryText}
+        isGenerating={isGeneratingAISummary}
+        isSpeaking={isSpeakingSummary}
+        isPaused={speechIsPaused}
+        currentTime={speechCurrentTime}
+        totalDuration={speechTotalDuration}
+        onToggle={handleToggleSpeech}
+        onRefresh={onRefreshSummary}
+        onSeekEnd={finishSeekToPosition}
+        setCurrentTime={setSpeechCurrentTime}
+        formatTime={formatAudioTime}
       />
     </View>
   );

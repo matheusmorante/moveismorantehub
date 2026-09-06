@@ -19,6 +19,7 @@ import BlingConfigSection from './components/BlingConfigSection';
 import FiscalSettingsSection from './components/FiscalSettingsSection';
 import ScannerConfigSection from './components/ScannerConfigSection';
 import CompanySettingsSection from './components/CompanySettingsSection';
+import { AiUsageDashboardPanel } from './components/AiUsageDashboardPanel';
 import { settingsCategories } from './components/settingsCategories';
 
 export default function Settings(): any {
@@ -156,6 +157,10 @@ export default function Settings(): any {
                     <SettingsSection id="empresa" title="Dados da Empresa" icon="bi-building-fill" isVisible={isVisible('empresa')} isSearching={!!search.trim()} isAdminOnly={isAdminGroup('empresa')}>
                         <CompanySettingsSection settings={settings} onChange={handleChange} />
                     </SettingsSection>
+
+                    <div className="my-4">
+                        <AiUsageDashboardPanel />
+                    </div>
 
                     <SettingsSection id="labels" title="Rótulos do Sistema" icon="bi-tags-fill" isVisible={isVisible('labels')} isSearching={!!search.trim()} isAdminOnly={isAdminGroup('labels')}>
                         <StatusLabelsSection settings={settings} onChange={handleChange} />

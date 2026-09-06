@@ -139,7 +139,7 @@ export class ApiUsageTracker {
         try {
             const { error } = await supabase.from('api_usage_logs').insert([log]);
             if (error) {
-                // Ignorar erro 404 / 42P01 (relação não existente) silenciosamente
+                // Ignorar erro silenciosamente
             }
         } catch {}
     }
@@ -166,8 +166,31 @@ export class ApiUsageTracker {
 
             const { data, error } = await query;
 
-            if (error || !data) return 0;
-            return data.reduce((acc, row) => acc + (row.total_requests || 0), 0);
+            let dailyCount = 0;
+            if (!error && data && data.length > 0) {
+                dailyCount = data.reduce((acc, row) => acc + (row.total_requests || 0), 0);
+            }
+
+            // Fallback: busca diretamente em api_usage_logs se daily estiver vazio
+            if (dailyCount === 0) {
+                let logsQuery = supabase
+                    .from('api_usage_logs')
+                    .select('units')
+                    .eq('service', serviceId)
+                    .gte('created_at', `${startOfMonth}T00:00:00.000Z`)
+                    .lte('created_at', `${endOfMonth}T23:59:59.999Z`);
+
+                if (environment !== 'all') {
+                    logsQuery = logsQuery.eq('environment', environment);
+                }
+
+                const { data: logsData } = await logsQuery;
+                if (logsData) {
+                    return logsData.reduce((acc, row) => acc + (row.units || 1), 0);
+                }
+            }
+
+            return dailyCount;
         } catch {
             return 0;
         }
@@ -202,6 +225,48 @@ export class ApiUsageTracker {
             }
         } catch (e) {
             console.warn("Erro ao buscar api_usage_daily:", e);
+        }
+
+        // Fallback: Se api_usage_daily estiver vazia, consulta a tabela bruta api_usage_logs
+        if (dailyRows.length === 0) {
+            try {
+                let logsQuery = supabase
+                    .from('api_usage_logs')
+                    .select('service, units, cost_estimated, cache_hit, created_at')
+                    .gte('created_at', `${startDate}T00:00:00.000Z`)
+                    .lte('created_at', `${endDate}T23:59:59.999Z`);
+
+                if (environment !== 'all') {
+                    logsQuery = logsQuery.eq('environment', environment);
+                }
+
+                const { data: rawLogs } = await logsQuery;
+
+                if (rawLogs && rawLogs.length > 0) {
+                    const aggregated: Record<string, { total_requests: number; estimated_cost: number; cache_hits: number }> = {};
+
+                    rawLogs.forEach((log) => {
+                        const s = log.service;
+                        if (!aggregated[s]) {
+                            aggregated[s] = { total_requests: 0, estimated_cost: 0, cache_hits: 0 };
+                        }
+                        aggregated[s].total_requests += Number(log.units || 1);
+                        aggregated[s].estimated_cost += Number(log.cost_estimated || 0);
+                        if (log.cache_hit) {
+                            aggregated[s].cache_hits += Number(log.units || 1);
+                        }
+                    });
+
+                    dailyRows = Object.entries(aggregated).map(([service, stats]) => ({
+                        service,
+                        total_requests: stats.total_requests,
+                        estimated_cost: stats.estimated_cost,
+                        cache_hits: stats.cache_hits,
+                    }));
+                }
+            } catch (err) {
+                console.warn("Erro no fallback de busca em api_usage_logs:", err);
+            }
         }
 
         const now = new Date();
@@ -320,3 +385,4 @@ export class ApiUsageTracker {
         };
     }
 }
+

@@ -39,6 +39,7 @@ export interface ApiConfiguration {
     price_per_unit: number;
     free_allowance: number;
     currency: 'BRL' | 'USD';
+    max_monthly_budget_brl?: number; // Teto máximo financeiro mensal em R$ (ex: 30.00)
     circuit_breaker_max_per_minute: number;
     enabled: boolean;
     updated_at?: string;
