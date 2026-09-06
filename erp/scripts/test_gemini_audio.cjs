@@ -1,4 +1,4 @@
-const API_KEY = 'AQ.__REDACTED_GCP_API_KEY__';
+const API_KEY = process.env.GEMINI_API_KEY || '';
 
 const ttsModels = [
   'gemini-3.1-flash-tts-preview',

@@ -1,4 +1,4 @@
-const API_KEY = 'AQ.__REDACTED_GCP_API_KEY__';
+const API_KEY = process.env.GEMINI_API_KEY || '';
 const fs = require('fs');
 
 function pcmToWavBuffer(pcmBase64, sampleRate = 24000, numChannels = 1, bitsPerSample = 16) {

@@ -12,7 +12,7 @@ export interface AudioPlaybackCallbacks {
   onError?: (err: any) => void;
 }
 
-const DEFAULT_FALLBACK_KEY = 'AQ.__REDACTED_GCP_API_KEY__';
+const DEFAULT_FALLBACK_KEY = process.env.EXPO_PUBLIC_GEMINI_API_KEY || '';
 
 export const fetchGeminiApiKey = async (): Promise<string> => {
   try {
