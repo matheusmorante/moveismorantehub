@@ -28,7 +28,10 @@ import {
   formatExtendDateLabel,
   generateLocalSmartText,
 } from './aiSummaryService';
-import { CanonicalSummaryPayload } from './canonicalSummaryInput';
+import {
+  buildCanonicalSummaryPayload,
+  CanonicalSummaryPayload,
+} from './canonicalSummaryInput';
 
 describe('aiSummaryService - Resumo Inteligente de Entregas', () => {
   describe('formatExtendDateLabel', () => {
@@ -228,6 +231,79 @@ describe('aiSummaryService - Resumo Inteligente de Entregas', () => {
 
       const text = generateLocalSmartText(payload);
       expect(text).toBe('Não há entregas agendadas para os próximos dias. Operação e frota disponíveis para novos lançamentos.');
+    });
+  });
+
+  describe('buildCanonicalSummaryPayload', () => {
+    it('constrói payload canônico para next_days sem erro de runtime (parseOrderDateStr)', () => {
+      const tomorrow = new Date();
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      const tomorrowStr = tomorrow.toISOString().split('T')[0];
+
+      const dayAfter = new Date();
+      dayAfter.setDate(dayAfter.getDate() + 2);
+      const dayAfterStr = dayAfter.toISOString().split('T')[0];
+
+      const mockOrders = [
+        {
+          id: 'ord-101',
+          status: 'scheduled',
+          customer_name: 'Vania Santos',
+          city: 'Colombo',
+          scheduled_date: tomorrowStr,
+          order_data: {
+            status: 'scheduled',
+            customerData: { fullName: 'Vania Santos', city: 'Colombo' },
+            shipping: {
+              deliveryMethod: 'delivery',
+              scheduledDate: tomorrowStr,
+              scheduling: {
+                date: tomorrowStr,
+                time: '09:00 às 12:00',
+                startTime: '09:00',
+                period: 'manhã',
+              },
+            },
+            items: [
+              { description: 'Guarda Roupa', quantity: 1, handlingType: 'montagem no local' },
+            ],
+          },
+        },
+        {
+          id: 'ord-102',
+          status: 'scheduled',
+          customer_name: 'Aryel Felipe',
+          city: 'Curitiba',
+          scheduled_date: dayAfterStr,
+          order_data: {
+            status: 'scheduled',
+            customerData: { fullName: 'Aryel Felipe', city: 'Curitiba' },
+            shipping: {
+              deliveryMethod: 'delivery',
+              scheduledDate: dayAfterStr,
+              scheduling: {
+                date: dayAfterStr,
+                time: '14:00',
+                period: 'tarde',
+              },
+            },
+            items: [
+              { description: 'Mesa de Jantar', quantity: 1, handlingType: 'depósito' },
+            ],
+          },
+        },
+      ];
+
+      const payload = buildCanonicalSummaryPayload(mockOrders, 'next_days', []);
+      expect(payload.scope).toBe('next_days');
+      expect(payload.orders.length).toBe(2);
+      expect(payload.orders[0].customerName).toBe('Vania Santos');
+      expect(payload.orders[1].customerName).toBe('Aryel Felipe');
+
+      // Testa a geração completa de texto combinando payload canônico
+      const text = generateLocalSmartText(payload);
+      expect(text).toContain('Vania Santos');
+      expect(text).toContain('Aryel Felipe');
     });
   });
 });

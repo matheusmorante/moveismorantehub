@@ -408,6 +408,7 @@ const LabelGridModelModal: React.FC<LabelGridModelModalProps> = ({ isOpen, onClo
         if (isOpen) {
             setIsDesignMode(false); 
             if (editingModel) {
+                setName(editingModel.name || '');
                 setLayoutType(editingModel.type || 'rect');
                 setPaperSize(editingModel.paperSize); setColumns(editingModel.columns); setRows(editingModel.rows);
                 setMarginT(editingModel.marginT); setMarginB(editingModel.marginB); setMarginL(editingModel.marginL); setMarginR(editingModel.marginR);
@@ -541,7 +542,7 @@ const LabelGridModelModal: React.FC<LabelGridModelModalProps> = ({ isOpen, onClo
         try {
             const newModel: GridModel = {
                 id: editingModel?.id || `custom_${Date.now()}`,
-                name: generatedName, 
+                name: name.trim() || generatedName, 
                 columns: columns, 
                 rows: rows, 
                 marginT: marginT, 
@@ -1112,7 +1113,7 @@ const LabelGridModelModal: React.FC<LabelGridModelModalProps> = ({ isOpen, onClo
                                     Margens: {marginT}|{marginB}|{marginL}|{marginR} - Gaps: {gapH}|{gapV} (mm)
                                 </p>
                             </div>
-                            <h3 className="text-2xl font-black text-slate-800 dark:text-white uppercase tracking-tighter leading-none">{name || 'Editar Modelo de Etiqueta'}</h3> 
+                            <h3 className="text-2xl font-black text-slate-800 dark:text-white uppercase tracking-tighter leading-none">{name.trim() || generatedName}</h3> 
                         </div>
                     </div>
                     <div className="flex items-center gap-4">
@@ -1327,6 +1328,24 @@ const LabelGridModelModal: React.FC<LabelGridModelModalProps> = ({ isOpen, onClo
                 ) : (
                     <div className="flex-1 overflow-y-auto p-6 md:p-8 bg-slate-50 dark:bg-slate-950 flex flex-col gap-8 items-center">
                         <div className="w-full max-w-4xl grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                            {/* Nome do Modelo */}
+                            <div className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-3xl p-6 shadow-sm space-y-3 lg:col-span-3">
+                                <div className="flex items-center justify-between">
+                                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Nome do Modelo</p>
+                                    <span className="text-[9px] text-slate-400 font-bold">Personalize o nome para identificar facilmente</span>
+                                </div>
+                                <input 
+                                    type="text" 
+                                    value={name} 
+                                    onChange={e => setName(e.target.value)} 
+                                    placeholder={generatedName}
+                                    className="w-full bg-slate-100 dark:bg-slate-800 border border-transparent focus:border-blue-500 rounded-2xl px-5 py-3.5 text-sm font-black text-slate-800 dark:text-white outline-none transition-all"
+                                />
+                                <p className="text-[9px] text-slate-400 italic">
+                                    Deixe em branco para usar o nome padrão gerado pela grade: <b>{generatedName}</b>
+                                </p>
+                            </div>
+
                             {/* Formato do Papel */}
                             <div className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-3xl p-8 shadow-sm space-y-4">
                                 <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Papel</p>

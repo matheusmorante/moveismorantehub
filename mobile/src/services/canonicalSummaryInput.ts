@@ -1,4 +1,4 @@
-import { getLocalDateString, isCancelledOrder, isDateInPeriod } from '../utils/orderUtils';
+import { getLocalDateString, isCancelledOrder, isDateInPeriod, parseOrderDateStr } from '../utils/orderUtils';
 import { getOperationalScheduleDate } from '../utils/operationalSchedule';
 
 export const SUMMARY_GENERATOR_VERSION = 'v1';
