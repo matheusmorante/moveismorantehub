@@ -122,7 +122,7 @@ export const crmIntelligenceService = {
         }));
 
         // 2. Chama a IA para detectar intenção e match
-        const prompt = `Você é o Lisandro, o cérebro do CRM da Móveis Morante.
+        const prompt = `Você é o Seu Lizandro, o cérebro do CRM da Móveis Morante.
         Analise a mensagem do cliente e o histórico de compras dele abaixo.
         
         MENSAGEM: "${message}"

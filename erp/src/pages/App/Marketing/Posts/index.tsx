@@ -1,329 +1,354 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { toast } from 'react-toastify';
-import { PostCanvas } from './components/Editor/PostCanvas';
+import { supabase } from '@/pages/utils/supabaseConfig';
 import { usePostEditor } from './components/Editor/usePostEditor';
-import { exportPostImage } from './services/exportPostImage';
-import { generateRoom } from './services/compositionAi';
-import { buildImagePrompt } from './services/postTemplatePrompt';
-import { postTemplateService } from './services/postTemplateService';
-import { PostTemplate } from './types/postTemplate';
-import { ModelFormModal } from './components/ModelFormModal';
-import { TemplateGrid } from './components/TemplateGrid';
-import { DeleteTemplateModal } from './components/DeleteTemplateModal';
-
-const ratio = (template: PostTemplate) => template.aspectRatio;
+import { CampaignElementsPanel } from './components/CampaignElementsPanel';
+import { CampaignManagerModal } from './components/CampaignManagerModal';
+import { GeneralCampaignRules } from './components/GeneralCampaignRules';
+import { ElementModelDetailsModal } from './components/ElementModelDetailsModal';
+import { PostCreatorModelModal } from './components/PostCreatorModelModal';
+import { PreviewProductPicker } from './components/PreviewProductPicker';
+import { PromptPreview } from './components/PromptPreview/PromptPreview';
+import { PostsLibraryPage } from './components/PostsLibrary/PostsLibraryPage';
+import { postCreatorService } from './services/postCreatorService';
+import { CampaignElementModel, ElementModel, ElementType, PostCampaign, PostFormat } from './types/postCreator';
 
 export default function MarketingPostsManager() {
   const editor = usePostEditor();
-  const [templates, setTemplates] = useState<PostTemplate[]>([]);
-  const [selectedId, setSelectedId] = useState('');
-  const [values, setValues] = useState<Record<string, string>>({});
-  const [generatedImage, setGeneratedImage] = useState<string>();
-  const [busy, setBusy] = useState('');
-  const [admin, setAdmin] = useState(true);
+  const [activeTab, setActiveTab] = useState<'generator' | 'library'>('generator');
+  const [editorTab, setEditorTab] = useState<'elements' | 'prompt_assets'>('elements');
+  const [isFocused, setIsFocused] = useState(false);
+  const [campaigns, setCampaigns] = useState<PostCampaign[]>([]);
+  const [campaignId, setCampaignId] = useState('');
+  const [models, setModels] = useState<ElementModel[]>([]);
+  const [links, setLinks] = useState<CampaignElementModel[]>([]);
+  const [format, setFormat] = useState<PostFormat>('4:5');
+  const [managerOpen, setManagerOpen] = useState(false);
+  const [savingChanges, setSavingChanges] = useState(false);
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  const [configurationRevision, setConfigurationRevision] = useState(0);
+  const [creating, setCreating] = useState<{ type: ElementType; opportunityId?: string }>();
+  const [editing, setEditing] = useState<ElementModel>();
+  const [viewing, setViewing] = useState<ElementModel>();
+  const [opportunities, setOpportunities] = useState<Array<{ id: string; name: string; image_url?: string }>>([]);
 
-  const [editingModel, setEditingModel] = useState<PostTemplate | undefined>();
-  const [modelFormOpen, setModelFormOpen] = useState(false);
-
-  const [templateToDelete, setTemplateToDelete] = useState<PostTemplate | null>(null);
-  const [isDeleting, setIsDeleting] = useState(false);
-
-  const selected = templates.find((template) => template.id === selectedId);
-
-  const loadTemplates = async () => {
-    const items = await postTemplateService.list();
-    setTemplates(items);
-    if (!selectedId && items[0]?.id) {
-      setSelectedId(items[0].id);
-    }
-    return items;
+  const loadGlobalRules = useCallback(() => postCreatorService.globalGuidelines(), []);
+  const saveGlobalRules = useCallback(async (value: string) => {
+    await postCreatorService.saveGlobalGuidelines(value);
+    setConfigurationRevision(revision => revision + 1);
+  }, []);
+  const handleSavingChange = (isSaving: boolean) => {
+    setSavingChanges(isSaving);
+    if (!isSaving) setLastUpdated(new Date());
   };
 
+  const campaign = campaigns.find(item => item.id === campaignId);
+
+  // Mapeamento resiliente da oportunidade do produto para garantir selo oficial no preview
+  const matchedOpportunity = useMemo(() => {
+    const p = editor.product;
+    if (!p) return null;
+    const oppId = p.opportunity_id || p.opportunityId || (typeof p.opportunity === 'object' ? p.opportunity?.id : null);
+    if (oppId) return opportunities.find(o => o.id === oppId) || null;
+    const oppName = p.opportunityName || (typeof p.opportunity === 'object' ? p.opportunity?.name : null) || (typeof p.opportunity === 'string' ? p.opportunity : '');
+    if (oppName) return opportunities.find(o => o.name?.toLowerCase() === oppName.toLowerCase() || (o as any).slug === oppName) || null;
+    return null;
+  }, [editor.product, opportunities]);
+
+  const productOpportunityId = matchedOpportunity?.id || editor.product?.opportunityId || editor.product?.opportunity_id || null;
+
+  const effectiveProductForPreview = useMemo(() => {
+    if (!editor.product) return null;
+    if (!matchedOpportunity) return editor.product;
+    return {
+      ...editor.product,
+      opportunity_id: matchedOpportunity.id,
+      opportunityId: matchedOpportunity.id,
+      opportunityName: matchedOpportunity.name,
+      opportunity: {
+        id: matchedOpportunity.id,
+        name: matchedOpportunity.name,
+        image_url: matchedOpportunity.image_url,
+      },
+    };
+  }, [editor.product, matchedOpportunity]);
+
+  const allCampaignModels = models.filter(model => links.some(link => link.elementModelId === model.id));
+  const activeIds = useMemo(
+    () => Object.fromEntries(links.filter(link => link.active).map(link => [`${link.elementType}:${link.opportunityId || ''}`, link.elementModelId])),
+    [links],
+  );
+  // Se o produto NÃO possui oportunidade, nenhum BADGE deve ser considerado ativo.
+  // Se possui oportunidade, apenas o BADGE daquela oportunidade específica pode ser ativo.
+  const activeModels = allCampaignModels
+    .filter(model => activeIds[`${model.elementType}:${model.opportunityId || ''}`] === model.id)
+    .filter(model => {
+      if (model.elementType === 'BADGE') {
+        if (!productOpportunityId) return false;
+        return model.opportunityId === productOpportunityId;
+      }
+      return true;
+    });
+
+  const reload = async (id = campaignId) => {
+    const [nextCampaigns, nextModels] = await Promise.all([postCreatorService.campaigns(), postCreatorService.models()]);
+    const nextId = id || nextCampaigns[0]?.id || '';
+    setCampaigns(nextCampaigns);
+    setModels(nextModels);
+    setCampaignId(nextId);
+    setLinks(nextId ? await postCreatorService.links(nextId) : []);
+  };
+
+  const [searchParams] = useSearchParams();
+
   useEffect(() => {
-    void loadTemplates();
+    void reload();
+    void supabase.from('opportunities').select('id, name, image_url').eq('active', true).order('name').then(({ data }) => setOpportunities(data || []));
   }, []);
 
+  // Abre direto na aba "Preview de Prompt + Assets" com o produto pré-selecionado
+  // quando a página é acessada com ?product=<id> (ex: via menu do produto)
   useEffect(() => {
-    if (!selected || !editor.data) return;
-    setValues((current) =>
-      Object.fromEntries(
-        selected.fields.map((field) => [
-          field.key,
-          current[field.key] ??
-            (field.source === 'name'
-              ? editor.data!.name
-              : field.source === 'price'
-              ? editor.data!.price
-              : field.source === 'oldPrice'
-              ? editor.data!.oldPrice || ''
-              : field.key === 'installment'
-              ? 'Em até 10x sem juros'
-              : ''),
-        ])
-      )
-    );
-  }, [selectedId, editor.data?.name]);
-
-  const preview = useMemo(
-    () =>
-      editor.data && selected
-        ? {
-            ...editor.data,
-            name: values.title || editor.data.name,
-            price: values.price || editor.data.price,
-            oldPrice: values.oldPrice || editor.data.oldPrice,
-            installmentValue: values.installment || 'Em até 10x sem juros',
-            mainImageUrl: generatedImage || editor.data.mainImageUrl,
-          }
-        : null,
-    [editor.data, selected, values, generatedImage]
-  );
-
-  const handleDuplicate = async (template: PostTemplate) => {
-    try {
-      const copy = await postTemplateService.save({
-        ...template,
-        id: undefined,
-        name: `${template.name} — Cópia`,
-        slug: `${template.slug}-copia`,
-      });
-      const items = await loadTemplates();
-      setSelectedId(copy.id);
-      toast.success('Modelo duplicado com sucesso!');
-    } catch {
-      toast.error('Erro ao duplicar modelo.');
+    const productId = searchParams.get('product');
+    if (productId) {
+      setActiveTab('generator');
+      setEditorTab('prompt_assets');
+      void editor.selectProduct(productId);
     }
+  }, [searchParams]);
+
+  const selectCampaign = async (id: string) => {
+    setCampaignId(id);
+    setLinks(await postCreatorService.links(id));
   };
 
-  const handleConfirmDelete = async () => {
-    if (!templateToDelete) return;
-    setIsDeleting(true);
-    try {
-      await postTemplateService.remove(templateToDelete.id);
-      const items = await postTemplateService.list();
-      setTemplates(items);
-      if (selectedId === templateToDelete.id) {
-        setSelectedId(items[0]?.id || '');
-      }
-      toast.success(`Modelo "${templateToDelete.name}" excluído com sucesso.`);
-      setTemplateToDelete(null);
-    } catch {
-      toast.error('Erro ao excluir modelo.');
-    } finally {
-      setIsDeleting(false);
-    }
+  const saveCampaign = async (value: Partial<PostCampaign>) => {
+    const saved = await postCreatorService.saveCampaign(value);
+    await reload(saved.id);
+    setConfigurationRevision(revision => revision + 1);
   };
 
-  const generate = async () => {
-    if (!selected || !preview || !editor.product) return;
-    setBusy('Gerando imagem visual…');
-    try {
-      const prompt = buildImagePrompt(selected, {
-        'product.name': editor.product.name || '',
-        'product.description': editor.product.description || '',
-        'product.category': editor.product.category || '',
-        'template.aspectRatio': selected.aspectRatio,
-      });
-      const image = selected.imageRules.generateEnvironment
-        ? await generateRoom(preview.mainImageUrl, preview.name, '#24170e', prompt, selected.aspectRatio)
-        : preview.mainImageUrl;
-      setGeneratedImage(image);
-    } finally {
-      setBusy('');
-    }
+  const removeCampaign = async (id: string) => {
+    await postCreatorService.removeCampaign(id);
+    await reload(id === campaignId ? '' : campaignId);
   };
 
-  if (admin) {
-    return (
-      <section className="min-h-screen bg-slate-950 p-6 text-white">
-        <header className="mb-6 flex flex-wrap items-center justify-between gap-4 border-b border-slate-800 pb-5">
-          <div>
-            <h1 className="text-xl font-bold text-white">Modelos para Posts</h1>
-            <p className="text-xs text-slate-400">
-              Crie modelos reutilizáveis com instruções, referências e arquivos para geração de posts.
-            </p>
-          </div>
-          <div className="flex gap-2">
-            <button
-              type="button"
-              onClick={() => {
-                setEditingModel(undefined);
-                setModelFormOpen(true);
-              }}
-              className="rounded-lg bg-indigo-600 px-3.5 py-2 text-xs font-semibold text-white hover:bg-indigo-500 transition-colors"
-            >
-              + Novo modelo
-            </button>
-            <button
-              type="button"
-              onClick={() => setAdmin(false)}
-              className="rounded-lg border border-slate-700 bg-slate-800 px-3.5 py-2 text-xs font-medium text-slate-200 hover:bg-slate-700 transition-colors"
-            >
-              Gerar post
-            </button>
-          </div>
-        </header>
+  const createModel = async (model: ElementModel) => {
+    if (!campaign || allCampaignModels.some(item => item.elementType === model.elementType && item.opportunityId === model.opportunityId)) return;
+    const saved = await postCreatorService.saveModel(model);
+    await postCreatorService.linkModel({ campaignId: campaign.id, elementModelId: saved.id, elementType: saved.elementType, opportunityId: saved.opportunityId, active: true, createdAt: new Date().toISOString() });
+    await reload(campaign.id);
+    setConfigurationRevision(revision => revision + 1);
+  };
 
-        <TemplateGrid
-          templates={templates}
-          onEdit={(template) => {
-            setEditingModel(template);
-            setModelFormOpen(true);
-          }}
-          onDuplicate={handleDuplicate}
-          onDeleteRequest={(template) => setTemplateToDelete(template)}
-        />
-
-        {modelFormOpen && (
-          <ModelFormModal
-            value={editingModel}
-            onClose={() => setModelFormOpen(false)}
-            onSave={async (model) => {
-              const saved = await postTemplateService.save(model);
-              await loadTemplates();
-              setSelectedId(saved.id);
-            }}
-          />
-        )}
-
-        {templateToDelete && (
-          <DeleteTemplateModal
-            template={templateToDelete}
-            isDeleting={isDeleting}
-            onClose={() => setTemplateToDelete(null)}
-            onConfirm={handleConfirmDelete}
-          />
-        )}
-      </section>
-    );
-  }
+  const updateModel = async (model: ElementModel) => {
+    await postCreatorService.saveModel(model);
+    await reload(campaignId);
+    setConfigurationRevision(revision => revision + 1);
+  };
 
   return (
-    <section className="min-h-screen bg-slate-950 text-white">
-      <header className="flex h-14 items-center justify-between border-b border-slate-800 px-4">
+    <section className="min-h-screen bg-slate-950 p-3 sm:p-5 lg:p-6 pb-24 sm:pb-20 text-white">
+      {/* Header Superior */}
+      <header className="mb-4 flex flex-col md:flex-row items-start md:items-center justify-between gap-3 border-b border-slate-800/80 pb-4">
         <div>
-          <b>Criar post</b>
-          <span className="ml-2 text-xs text-slate-400">Produto + modelo + campos</span>
+          <h1 className="text-lg sm:text-xl font-black flex items-center gap-2">
+            <span>✨ Gerador de Prompt para Posts</span>
+            <span className="text-[10px] sm:text-xs bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 px-2 py-0.5 rounded-full font-bold">
+              IA Externa
+            </span>
+          </h1>
+          <p className="text-xs text-slate-400 mt-0.5">
+            Geração de especificações estruturadas para ChatGPT/Gemini e Biblioteca de Artes.
+          </p>
         </div>
-        <button
-          type="button"
-          onClick={() => setAdmin(true)}
-          className="text-xs font-medium text-indigo-400 hover:text-indigo-300 transition-colors"
-        >
-          ← Administrar modelos
-        </button>
+
+        {/* Chaveador de Abas Principal */}
+        <div className="flex items-center gap-1.5 bg-slate-900 border border-slate-800 p-1 rounded-xl w-full md:w-auto">
+          <button
+            onClick={() => setActiveTab('generator')}
+            className={`flex-1 md:flex-initial px-3.5 py-1.5 text-xs font-bold rounded-lg transition-colors flex items-center justify-center gap-1.5 ${
+              activeTab === 'generator' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-400 hover:text-white'
+            }`}
+          >
+            <span>📝 Gerador de Prompt</span>
+          </button>
+          <button
+            onClick={() => setActiveTab('library')}
+            className={`flex-1 md:flex-initial px-3.5 py-1.5 text-xs font-bold rounded-lg transition-colors flex items-center justify-center gap-1.5 ${
+              activeTab === 'library' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-400 hover:text-white'
+            }`}
+          >
+            <span>🖼️ Biblioteca de Posts</span>
+          </button>
+        </div>
       </header>
 
-      <div className="grid min-h-[calc(100vh-56px)] grid-cols-1 lg:grid-cols-2">
-        <form
-          className="space-y-4 border-r border-slate-800 p-5 overflow-y-auto"
-          onSubmit={(e) => {
-            e.preventDefault();
-            void generate();
-          }}
-        >
-          <label className="block text-xs font-medium text-slate-300">
-            Produto
-            <input
-              className="mt-1 w-full rounded-lg bg-slate-900 border border-slate-800 p-2 text-sm text-white"
-              placeholder="Buscar produto"
-              value={editor.search}
-              onChange={(e) => editor.setSearch(e.target.value)}
-            />
-          </label>
+      {activeTab === 'library' ? (
+        <PostsLibraryPage campaigns={campaigns} />
+      ) : (
+        <>
+          {/* Barra de Configuração Responsiva */}
+          <div className="mb-4 grid gap-3 rounded-xl border border-slate-800/80 bg-slate-900/60 p-3.5 sm:p-4 md:grid-cols-2 xl:grid-cols-[minmax(240px,0.9fr)_minmax(320px,1.2fr)_auto] items-end">
+            {/* Campanha */}
+            <div className="text-xs font-semibold text-slate-300">
+              <label htmlFor="post-campaign-select" className="block mb-1">
+                Campanha
+              </label>
+              <div className="flex gap-2">
+                <select
+                  id="post-campaign-select"
+                  value={campaignId}
+                  onChange={event => void selectCampaign(event.target.value)}
+                  className="min-w-0 flex-1 rounded-lg bg-slate-950 px-3 py-2 text-xs text-slate-100 border border-slate-800 focus:outline-none focus:border-indigo-500"
+                >
+                  {campaigns.filter(item => item.active).map(item => (
+                    <option key={item.id} value={item.id}>
+                      {item.name}
+                    </option>
+                  ))}
+                </select>
+                <button
+                  onClick={() => setManagerOpen(true)}
+                  className="shrink-0 rounded-lg border border-indigo-400/40 bg-indigo-950/30 px-2.5 py-1.5 text-[11px] font-bold text-indigo-300 hover:bg-indigo-900/50 transition-colors"
+                  title="Gerenciar Campanhas"
+                >
+                  Gerenciar
+                </button>
+              </div>
+            </div>
 
-          <select
-            className="w-full rounded-lg bg-slate-900 border border-slate-800 p-2 text-sm text-white"
-            value={editor.product?.id || ''}
-            onChange={(e) => void editor.selectProduct(e.target.value)}
-          >
-            <option value="">Selecionar produto</option>
-            {editor.products
-              .filter((p) => p.id)
-              .map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.name || p.title}
-                </option>
-              ))}
-          </select>
+            {/* Produto para Preview */}
+            <div className="text-xs font-semibold text-slate-300">
+              <PreviewProductPicker
+                search={editor.search}
+                products={editor.products}
+                selected={editor.product}
+                loading={editor.loading}
+                onSearch={editor.setSearch}
+                onSelect={id => void editor.selectProduct(id)}
+              />
+            </div>
 
-          <label className="block text-xs font-medium text-slate-300">
-            Modelo
-            <select
-              className="mt-1 w-full rounded-lg bg-slate-900 border border-slate-800 p-2 text-sm text-white"
-              value={selectedId}
-              onChange={(e) => {
-                setSelectedId(e.target.value);
-                setGeneratedImage(undefined);
-              }}
+            {/* Formato Alvo Segmentado */}
+            <div className="text-xs font-semibold text-slate-300 md:col-span-2 xl:col-span-1">
+              <span className="block mb-1">Formato Alvo</span>
+              <div className="flex rounded-lg bg-slate-950 p-1 border border-slate-800 gap-1">
+                <button
+                  onClick={() => setFormat('4:5')}
+                  className={`flex-1 sm:flex-initial flex items-center justify-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-bold transition-all ${
+                    format === '4:5' ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-400 hover:text-slate-200'
+                  }`}
+                  aria-pressed={format === '4:5'}
+                >
+                  <span className="inline-block w-2.5 h-3.5 border border-current rounded-[2px] opacity-80" aria-hidden="true" />
+                  Feed 4:5
+                </button>
+                <button
+                  onClick={() => setFormat('9:16')}
+                  className={`flex-1 sm:flex-initial flex items-center justify-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-bold transition-all ${
+                    format === '9:16' ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-400 hover:text-slate-200'
+                  }`}
+                  aria-pressed={format === '9:16'}
+                >
+                  <span className="inline-block w-2 h-4 border border-current rounded-[2px] opacity-80" aria-hidden="true" />
+                  Story 9:16
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Abas do Editor de Posts (Universal para Desktop, Tablet e Mobile) */}
+          <div className="mb-4 flex flex-wrap sm:flex-nowrap rounded-xl bg-slate-900 border border-slate-800 p-1 gap-1">
+            <button
+              type="button"
+              onClick={() => setEditorTab('elements')}
+              className={`flex-1 py-2 px-3.5 text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-1.5 ${
+                editorTab === 'elements'
+                  ? 'bg-indigo-600 text-white shadow-md'
+                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'
+              }`}
             >
-              <option value="">Selecionar modelo</option>
-              {templates
-                .filter((t) => t.status === 'ACTIVE')
-                .map((t) => (
-                  <option key={t.id} value={t.id}>
-                    {t.name} · {t.aspectRatio}
-                  </option>
-                ))}
-            </select>
-          </label>
+              <span>📦 Elementos da Campanha</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setEditorTab('prompt_assets')}
+              className={`flex-1 py-2 px-3.5 text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-1.5 ${
+                editorTab === 'prompt_assets'
+                  ? 'bg-indigo-600 text-white shadow-md'
+                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'
+              }`}
+            >
+              <span>📋 Preview de Prompt + Assets</span>
+            </button>
+          </div>
 
-          {selected?.fields.map((field) => (
-            <label key={field.key} className="block text-xs font-medium text-slate-300">
-              {field.label}
-              {field.required && ' *'}
-              <input
-                required={field.required}
-                maxLength={field.maxLength}
-                className="mt-1 w-full rounded-lg bg-slate-900 border border-slate-800 p-2 text-sm text-white"
-                value={values[field.key] || ''}
-                onChange={(e) =>
-                  setValues((current) => ({ ...current, [field.key]: e.target.value }))
-                }
-              />
-            </label>
-          ))}
+          {/* Conteúdo Principal — Renderização Ampla e Focada por Aba */}
+          <div className="w-full min-w-0">
+            {editorTab === 'elements' && (
+              <div className="space-y-4 max-w-5xl mx-auto">
+                <CampaignElementsPanel
+                  campaignName={campaign?.name}
+                  models={allCampaignModels.filter(model => model.elementType === 'BADGE' || activeModels.some(active => active.id === model.id))}
+                  opportunities={opportunities}
+                  onCreate={(type, opportunityId) => setCreating({ type, opportunityId })}
+                  onEdit={setEditing}
+                  onView={setViewing}
+                />
+                <GeneralCampaignRules load={loadGlobalRules} save={saveGlobalRules} onSavingChange={handleSavingChange} />
+              </div>
+            )}
 
-          <button
-            type="submit"
-            disabled={!preview || !selected || !!busy}
-            className="w-full rounded-lg bg-indigo-600 p-3 text-sm font-semibold text-white hover:bg-indigo-500 disabled:opacity-50 transition-colors"
-          >
-            {busy || 'Gerar imagem'}
-          </button>
-        </form>
+            {editorTab === 'prompt_assets' && (
+              <main className="flex flex-col rounded-xl border border-slate-800/80 bg-slate-900/50 p-3.5 sm:p-5 min-w-0 w-full">
+                <PromptPreview
+                  campaign={campaign}
+                  product={effectiveProductForPreview}
+                  models={activeModels}
+                  elementModels={models}
+                  format={format}
+                  isFocused={isFocused}
+                  onToggleFocus={() => setIsFocused(prev => !prev)}
+                />
+              </main>
+            )}
 
-        <main className="flex min-h-0 flex-col items-center justify-center bg-slate-900/30 p-5">
-          {preview && selected ? (
-            <>
-              <PostCanvas
-                aspectRatio={ratio(selected)}
-                layers={selected.layout}
-                product={preview}
-                backgroundColor="#24170e"
-              />
-              <button
-                type="button"
-                onClick={async () => {
-                  const canvas = document.getElementById('marketing-post-canvas');
-                  if (canvas) {
-                    const image = await exportPostImage(canvas);
-                    const link = document.createElement('a');
-                    link.href = image.toDataURL('image/png');
-                    link.download = 'post.png';
-                    link.click();
-                  }
-                }}
-                className="mt-4 rounded-lg bg-slate-800 px-4 py-2 text-xs font-medium text-white hover:bg-slate-700 transition-colors"
-              >
-                Exportar PNG
-              </button>
-            </>
-          ) : (
-            <p className="text-sm text-slate-400">Selecione produto e modelo para visualizar.</p>
+          </div>
+
+          {managerOpen && (
+            <CampaignManagerModal
+              campaigns={campaigns}
+              onClose={() => setManagerOpen(false)}
+              onSave={saveCampaign}
+              onRemove={removeCampaign}
+              onSavingChange={handleSavingChange}
+            />
           )}
-        </main>
-      </div>
+          {creating && (
+            <PostCreatorModelModal
+              elementType={creating.type}
+              initialOpportunityId={creating.opportunityId}
+              opportunities={opportunities}
+              onClose={() => setCreating(undefined)}
+              onSave={createModel}
+              onSavingChange={handleSavingChange}
+            />
+          )}
+          {editing && (
+            <PostCreatorModelModal
+              elementType={editing.elementType}
+              value={editing}
+              opportunities={opportunities}
+              onClose={() => setEditing(undefined)}
+              onSave={updateModel}
+              onSavingChange={handleSavingChange}
+            />
+          )}
+          {viewing && <ElementModelDetailsModal model={viewing} onClose={() => setViewing(undefined)} />}
+        </>
+      )}
     </section>
   );
 }

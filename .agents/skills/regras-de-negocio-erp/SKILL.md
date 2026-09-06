@@ -70,4 +70,22 @@ Use esta skill antes de alterar comportamentos de domínio referentes a vendas, 
 
 ---
 
+---
+
+## 7. Assistente Financeiro de IA (Movimentação Única Realizada)
+
+- **Transações Apenas para Fatos Reais Ocorridos**: O Assistente Financeiro registra **apenas movimentações financeiras individuais que de fato já ocorreram** (*"paguei"*, *"recebi"*, *"transferi"*, *"quitei"*).
+- **Remoção de Geradores Automáticos**: O Assistente Financeiro não cria nem agenda parcelamentos futuros, planos de parcelas, transações recorrentes ou compromissos a pagar/receber no futuro.
+- **Declarações Futuras ou de Intenção**: Frases sobre futuro ou hábito (*"comprei em 10x"*, *"tenho 10 parcelas"*, *"pago todo mês"*, *"vou pagar amanhã"*) não geram saídas/entradas automáticas.
+- **Contexto de Parcela Paga**: O pagamento declarado de uma parcela (*"Paguei a 3ª parcela da Bechara R$ 1.000"*) cria apenas UMA transação pontual de R$ 1.000,00, usando "3ª parcela" unicamente como texto descritivo.
+
+---
+
+## 8. Assistente Financeiro — Invariante de Múltiplas Movimentações (`batchDraftsList`)
+
+- **Invariante Arquitetural Anti-Colapso**: Quando uma fala do usuário contém 2 ou mais movimentações financeiras realizadas (`batchDraftsList.length > 1`), **é expressamente proibido** que qualquer componente, serviço ou função futura reduza ou colapse silenciosamente o lote no primeiro rascunho (`const draft = batchDraftsList[0]`).
+- **Consciência de Lote Obrigatória (`batch-aware`)**: Todo o pipeline (perguntas agrupadas via `buildGroupedQuestion`, chips de análise em tempo real via `buildDraftAnalysisChips`, renderização de cards e aplicação de patches via `applyTurnPatchWithDraftList`) DEVE ser conscientemente **batch-aware** e operar sobre a totalidade dos rascunhos do lote.
+- **Rastreabilidade Histórica da Causa Raiz**: O bug histórico onde a segunda movimentação sumia ocorria por conta da atribuição precoce de `questionToUser` isolada do item `[0]` e descarte visual de `batchDraftsList` na UI. O relatório de causa raiz é mantido junto da bateria de testes de regressão (`multiFactPipelineGroupedQuestions.test.ts` e `financialInvariants.test.ts`) para documentar a causa estrutural do comportamento.
+
 > Para o detalhamento completo de 50 tópicos e fórmulas matemáticas da arquitetura, consulte a referência em [references/estoque-cmpm-cmv.md](file:///c:/Users/mathe/OneDrive/%C3%81rea%20de%20Trabalho/projetos/morantehub/.agents/skills/regras-de-negocio-erp/references/estoque-cmpm-cmv.md).
+

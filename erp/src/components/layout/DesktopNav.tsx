@@ -189,7 +189,7 @@ const DesktopNav = ({ activeMenu, setActiveMenu }: DesktopNavProps) => {
                 {activeMenu === 'marketing' && (
                     <div className={dropdownClass}>
                         <Link to="/marketing/posts" onClick={() => setActiveMenu(null)} className={dropdownItemClass}>
-                            <i className="bi bi-instagram mr-1 text-pink-500"></i> Posts Redes Sociais
+                            <i className="bi bi-instagram mr-1 text-pink-500"></i> Gerador de Prompt para Posts
                         </Link>
                         <Link to="/registrations/meta-catalog" onClick={() => setActiveMenu(null)} className={dropdownItemClass}>
                             <i className="bi bi-meta mr-1 text-blue-600"></i> Catálogo Meta

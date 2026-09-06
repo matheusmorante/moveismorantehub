@@ -9,6 +9,8 @@ import { templateService } from '../../services/templateService';
 import { postProduct } from '../../services/postProduct';
 import { detectImageSubjectBounds } from '../../services/imageSubjectBounds';
 
+const defaultPreviewProductKey = 'morante_post_creator_default_preview_product_id';
+
 export function usePostEditor() {
   const [products, setProducts] = useState<Product[]>([]), [product, setProduct] = useState<Product | null>(null);
   const [search, setSearch] = useState(''), [page, setPage] = useState(1), [total, setTotal] = useState(0);
@@ -26,6 +28,7 @@ export function usePostEditor() {
   }, [page, search]);
   useEffect(() => { supabase.from('opportunities').select('*').eq('active', true).then(({ data }) => setOpportunities(data || [])); }, []);
   useEffect(() => () => { revision.current++; }, []);
+  useEffect(() => { const savedProductId = localStorage.getItem(defaultPreviewProductKey); if (savedProductId) void selectProduct(savedProductId); }, []);
   const opportunity = opportunities.find(o => o.id === product?.opportunityId);
   const data = product ? postProduct(product, overrides) : null;
   useEffect(() => {
@@ -38,13 +41,13 @@ export function usePostEditor() {
   function resetContent() { revision.current++; setSlogan(''); setMessage(''); }
   async function selectProduct(id: string) {
     resetContent(); setProduct(null); setOverrides({});
-    if (!id) return;
+    if (!id) { localStorage.removeItem(defaultPreviewProductKey); return; }
     setLoading(true); const version = revision.current;
     let full: Product | null = null;
     try { full = await getFullProduct(id); } catch (error) { if (revision.current === version) setMessage((error as Error).message || 'Não foi possível carregar o produto.'); }
     if (revision.current !== version) return;
     if (!full) { setMessage('Não foi possível carregar o produto.'); setLoading(false); return; }
-    setProduct(full);
+    setProduct(full); localStorage.setItem(defaultPreviewProductKey, full.id || id);
     const subjectBounds = await detectImageSubjectBounds(postProduct(full).mainImageUrl);
     if (revision.current !== version) return;
     if (subjectBounds) setLayers(current => current.map(layer => layer.role === 'main' ? { ...layer, subjectBounds } : layer));

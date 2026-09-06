@@ -1,4 +1,21 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
+
+vi.mock('../../../pages/utils/supabaseConfig', () => ({
+  supabase: {
+    from: vi.fn(() => ({
+      select: vi.fn(() => ({
+        eq: vi.fn(() => ({
+          eq: vi.fn(() => ({
+            gte: vi.fn(() => Promise.resolve({ data: [], error: null }))
+          })),
+          gte: vi.fn(() => Promise.resolve({ data: [], error: null }))
+        }))
+      })),
+      insert: vi.fn(() => Promise.resolve({ data: null, error: null }))
+    }))
+  }
+}));
+
 import { AiGateway } from '../AiGateway';
 import { AiConcurrencyLimiter } from '../core/AiConcurrencyLimiter';
 import { AiCircuitBreaker } from '../core/AiCircuitBreaker';

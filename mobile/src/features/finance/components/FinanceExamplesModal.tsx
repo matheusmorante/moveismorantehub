@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Modal, ScrollView } from 'react-native';
-import { X, Sparkles, Fuel, ArrowDownLeft, Calendar, CreditCard, FileCheck } from 'lucide-react-native';
+import { X, Sparkles, Fuel, ArrowDownLeft, FileCheck, Layers } from 'lucide-react-native';
 
 interface Props {
   visible: boolean;
@@ -82,38 +82,33 @@ export const FinanceExamplesModal: React.FC<Props> = ({
               </View>
             </View>
 
-            {/* 3. Contas Recorrentes */}
+            {/* 3. Pagamento de Parcela */}
             <View style={[styles.categorySection, isDarkMode && styles.categorySectionDark]}>
               <View style={styles.categoryHeader}>
-                <Calendar size={16} color="#3b82f6" />
-                <Text style={styles.categoryTitle}>Contas Recorrentes</Text>
+                <FileCheck size={16} color="#3b82f6" />
+                <Text style={styles.categoryTitle}>Pagamento de Parcela (Fato Realizado)</Text>
               </View>
               <View style={styles.exampleItem}>
                 <Text style={[styles.exampleText, isDarkMode && styles.exampleTextDark]}>
-                  "A conta de internet é R$ 149,90 todo mês, dia 10"
+                  "Paguei a 1ª parcela do frete no valor de R$ 500 no PIX"
                 </Text>
               </View>
               <View style={styles.exampleItem}>
                 <Text style={[styles.exampleText, isDarkMode && styles.exampleTextDark]}>
-                  "Aluguel da loja R$ 2.500 mensal com vencimento dia 05"
+                  "Paguei a 3ª parcela da Bechara de R$ 1.000 no PIX hoje"
                 </Text>
               </View>
             </View>
 
-            {/* 4. Compras Parceladas */}
+            {/* 4. Múltiplas Saídas em uma Fala */}
             <View style={[styles.categorySection, isDarkMode && styles.categorySectionDark]}>
               <View style={styles.categoryHeader}>
-                <CreditCard size={16} color="#8b5cf6" />
-                <Text style={styles.categoryTitle}>Compras Parceladas</Text>
+                <Layers size={16} color="#8b5cf6" />
+                <Text style={styles.categoryTitle}>Múltiplas Saídas na Mesma Mensagem</Text>
               </View>
               <View style={styles.exampleItem}>
                 <Text style={[styles.exampleText, isDarkMode && styles.exampleTextDark]}>
-                  "Comprei um notebook de R$ 4.500 em 10x no cartão de crédito"
-                </Text>
-              </View>
-              <View style={styles.exampleItem}>
-                <Text style={[styles.exampleText, isDarkMode && styles.exampleTextDark]}>
-                  "Jogo de pneus R$ 1.200 parcelado em 4 vezes"
+                  "Paguei R$ 200 de luz e R$ 150 de internet no PIX"
                 </Text>
               </View>
             </View>

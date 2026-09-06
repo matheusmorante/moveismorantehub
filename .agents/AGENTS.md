@@ -42,7 +42,7 @@ Este documento registra as regras e comportamentos **implementados** no sistema,
 - **Buscas e Filtros Insensíveis a Acentos (Accent-Insensitive) em Todo o Sistema**:
   - Em todos os inputs de busca, autocompletes, modais e filtros de listagem (em especial **Itens do Pedido / `ProductAutocomplete`**, busca de clientes, vendedores, produtos, serviços, etiquetas, financeiro e logística), a digitação do operador é **100% insensível a acentuações**.
   - O usuário pode digitar letras com ou sem qualquer acento (ex: `sofa` acha `Sofá`, `comoda` acha `Cômoda`, `armario` acha `Armário`, `joao` acha `João`), devendo utilizar o utilitário `normalizeSearchTerm` (Unicode NFD + remoção de diacríticos `\u0300-\u036f`) em memória e/ou `buildAccentInsensitiveRegex` em consultas com suporte a regex (`imatch`).
-- **Mobile Offline-First Baseado em Eventos (`mobile-offline-first`)**: No aplicativo Mobile, o suporte offline-first é restrito ao **risco operacional de campo e depósito**: entregas, montagens, checklists, assinaturas, fotos, vistorias, **inventário físico e recebimento/conferência de mercadorias**. Operações administrativas (criação/edição de produtos, precificação, dashboard/métricas) são estritamente **Online-First**. O mobile nunca grava estados absolutos (como `stock = X`), mas registra **eventos de negócio com UUID idempotente, timestamp e ciclo de 4 estados: `PENDING` → `SYNCING` → `CONFIRMED` / `REJECTED`** (onde `REJECTED` interrompe retentativas e exige atenção do operador). O backend é a autoridade estrita para validar regras, encadeamentos e movimentações de estoque. Mídias possuem fila separada de upload. Avaliar automaticamente o escopo em novos recursos mobile sem perguntas repetitivas.
+- **Invariante Arquitetural do Assistente Financeiro para Múltiplas Movimentações (`batchDraftsList`)**: Quando uma fala do usuário contém 2 ou mais movimentações financeiras (`batchDraftsList.length > 1`), **é expressamente proibido** que qualquer componente, serviço ou função futura reduza ou colapse silenciosamente o lote no primeiro rascunho (`const draft = batchDraftsList[0]`). Todo o fluxo (formulação de perguntas via `buildGroupedQuestion`, exibição da "Análise em Tempo Real" via `buildDraftAnalysisChips`, renderização de cards e aplicação de patches via `applyTurnPatchWithDraftList`) DEVE ser conscientemente **batch-aware** e operar sobre a totalidade dos rascunhos.
 
 ---
 
@@ -584,3 +584,51 @@ Ao incrementar versao em `mobile/app.json`, sincronizar:
     - **`PersonAddressSection.tsx`**: Accordion de endereço com toggle "Não Informar", busca por CEP (`getAddressByCep`), autocomplete de logradouro (`AddressAutocompleteInput` com UF padrão PR), campos complementares, moradia, link Maps e validação com `AddressVerificationMap`.
     - **`PersonObservationsSection.tsx`**: Bloco de anotações e observações importantes.
     - **`PersonFormModal.tsx`**: Atua como orquestrador limpo (< 160 linhas) com `createPortal` e rodapé de ações com salvamento rápido.
+
+---
+
+## MODULO: ASSISTENTE FINANCEIRO DE IA (`financialAiAssistantService`)
+
+- **Princípio Central — Transação Única Realizada**:
+  - O Assistente Financeiro registra **exclusivamente fatos financeiros que realmente aconteceram** (ex: *"Paguei R$ 1.000 para a Bechara hoje"*, *"Recebi R$ 800 do João no Pix"*).
+  - O Assistente **NÃO deve criar, modelar ou manter**:
+    - Transação parcelada / plano de parcelas;
+    - Transação recorrente / recorrência mensal / agenda automática de movimentações;
+    - Ocorrências futuras / parcelas futuras / previsão baseada em recorrência;
+    - Geração automática de entradas/saídas futuras;
+    - Batch de parcelas.
+  - Frases sobre intenções, hábitos ou compromissos futuros (*"comprei em 10x"*, *"tenho 10 parcelas para pagar"*, *"pago R$ 2.000 todo mês"*, *"vou pagar R$ 1.000 amanhã"*) **NÃO geram nenhuma saída/entrada financeira automática** (`amount = null`, `isReadyForConfirmation = false`).
+  - Pagamentos ou recebimentos declarados de parcelas (*"Paguei a 3ª parcela da Bechara de R$ 1.000 no Pix"*) geram **apenas UMA saída/entrada pontual** de R$ 1.000,00, usando a menção de parcela apenas como contexto textual para a descrição (*"Pagamento da 3ª parcela — Bechara"*).
+  - O processamento de múltiplas movimentações reais em uma mesma mensagem (*"Paguei R$ 200 de luz e R$ 150 de internet"*) continua sendo suportado através de `batchDraftsList` como movimentações independentes reais, sem confundir com parcelamento.
+  - **Rótulos e Chips de Análise em Tempo Real**: Rótulos referentes a parcelamento/recorrência (*Parcelado*, *Parcelas*, *Valor/parcela*, *Recorrente*, *Frequência*, *Ocorrências*, *Primeiro vencimento*) foram totalmente removidos. Exibir apenas rótulos relevantes à transação única: Tipo (Entrada/Saída), Valor, Para/De, Categoria, Descrição, Forma de Pagamento, Conta, Data.
+- **Destino do Gasto (Empresarial vs Pessoal / Pró-labore)**:
+  - Compras de produtos/bens físicos ou equipamentos que podem ter uso empresarial ou pessoal (ex: *televisão, geladeira, freezer, micro-ondas, ar-condicionado, computador, notebook, celular, impressora, móveis, eletrodomésticos, eletrônicos, utensílios, etc.*) ou contas de consumo ambíguas (luz, água, internet) **devem obrigatoriamente identificar o destino do gasto** antes de confirmar uma categoria empresarial.
+  - Se o destino não for informado na mensagem: `businessPurpose = 'UNKNOWN'`, `categoryName = 'UNKNOWN'`, `isReadyForConfirmation = false`, e o assistente pergunta explicitamente: *"Essa [item/conta] é para a loja ou é uma compra pessoal?"*.
+  - Ao responder que é para a loja (`BUSINESS`): categorizado na categoria empresarial adequada (ex: *Equipamentos da Empresa* / *Contas de Consumo*).
+  - Ao responder que é pessoal (`PERSONAL`): categorizado em *Pró-labore*.
+- **Exceções Obrigatórias — Veículos (Categorias Separadas)**:
+  - **Combustível** (gasolina, etanol, diesel, abastecimento) e **Manutenção de Veículos** (oficina, troca de óleo, pneus, revisão, peças, mecânico, lavagem) são **SEMPRE considerados despesas da empresa** (`businessPurpose = 'BUSINESS'`). NUNCA perguntar se é da loja ou pessoal e NUNCA classificar como Pró-labore.
+  - **Categorias Estritamente Separadas**: Gasolina/Combustível e Manutenção de Veículos não são agrupadas em uma única categoria genérica. O ERP mantém 2 categorias separadas:
+    1. **`Combustível`**
+    2. **`Manutenção de Veículos`**
+
+---
+
+## MODULO: CRIADOR DE POSTS / PROMPT ESTRUTURADO DE IA
+
+- **Diferenciação Estrita: `REFERENCE` vs `OFFICIAL_ASSET`**:
+  - **`REFERENCE`**: Serve apenas para ensinar estilo, direção de arte, tipografia e hierarquia de composição visual à IA externa (ChatGPT / Gemini / Midjourney). Não deve ser reproduzida literalmente.
+  - **`OFFICIAL_ASSET`**: Arquivo gráfico oficial e pronto que **DEVE** ser incorporado de forma fiel e integral. É expressamente proibido redesenhar, recriar por aproximação, reinterpretar, trocar tipografia, alterar símbolos, proporções ou cores. Se a ferramenta de IA não conseguir inserir o asset com fidelidade, a diretriz mestra determina reservar o espaço em vez de inventar uma marca ou selo estilizado.
+- **Logo Oficial Móveis Morante**:
+  - Entregue via URL pública absoluta HTTPS ativa: `https://www.moveismorante.com.br/logo-morante.png` (HTTP 200). Nunca caminhos relativos como `/images/...` ou `/assets/...`.
+  - Instruções negativas explícitas no prompt impedem recriação, troca de tipografia, invenção de slogans ou substituição por versões estilizadas.
+- **Selo Oficial de Oportunidade (Badge)**:
+  - Entregue via URL pública absoluta HTTPS ativa (ex: Supabase storage público para Queima dos Salvados).
+  - **Regra de Omissão Estrita**: Se o produto NÃO possuir oportunidade (`product.opportunity_id == null`), nenhum asset, URL, referência ou menção de badge é incluído na especificação ou no prompt.
+- **Deduplicação de Assets**:
+  - Quando um elemento possui um `OFFICIAL_ASSET`, qualquer arquivo de referência que aponte para o mesmo arquivo é automaticamente excluído das referências (`REFERENCE`), evitando que o mesmo logo ou selo apareça duplicado.
+- **Visualização no Prompt Preview do ERP e na Página Pública de Compartilhamento**:
+  - O Preview exibe o card **"ASSETS OFICIAIS"** com thumbnails reais, nomes e URLs absolutas do Logo e do Selo (ou indicação clara de *"Nenhum (produto sem oportunidade)"*).
+  - A página pública `/share/post-instructions/[token]` e seu respectivo endpoint JSON contêm a mesma estrutura canônica com as regras de fidelidade absoluta e URLs públicas.
+
+

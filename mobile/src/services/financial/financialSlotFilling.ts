@@ -1,5 +1,6 @@
 import { ParsedFinancialIntent, parsePtBrNumber } from '../financialAiAssistantService';
 import { validateParsedIntent } from './financialIntentValidator';
+import { inferBusinessPurpose } from './financialPurposeReply';
 
 export const extractUnknownFieldsFromText = (
   text: string,
@@ -89,6 +90,82 @@ export const trySlotFillingFallback = (
     return validateParsedIntent(draft, todayStr);
   }
 
+  // 0.5. Slot filling para Credor de Empréstimo (ex: "Do banco", "Do Itaú", "Do Matheus", "Do João")
+  const isCreditorMissing = activeDraft.missingFields?.includes('creditor') || (activeDraft.questionToUser && activeDraft.questionToUser.includes('De quem foi'));
+  if (isCreditorMissing || (draft.isLoan && (!draft.creditor || draft.creditorType === 'UNKNOWN'))) {
+    const bankKeywords = ['banco', 'itaú', 'itau', 'bradesco', 'santander', 'nubank', 'caixa', 'inter', 'sicoob', 'sicredi', 'safra', 'btg', 'c6', 'financeira', 'cooperativa'];
+    const isBankAnswer = bankKeywords.some(b => text.includes(b));
+
+    let detectedCreditor: string | null = null;
+    let detectedType: 'FINANCIAL_INSTITUTION' | 'PERSON_OR_OTHER' = 'PERSON_OR_OTHER';
+
+    if (isBankAnswer) {
+      detectedType = 'FINANCIAL_INSTITUTION';
+      const match = text.match(/(?:do|da|no|na|pelo)?\s*(banco(?:\s+[a-z0-9]+)?|itaú|itau|bradesco|santander|nubank|caixa|inter|sicoob|sicredi|safra|btg|c6|financeira|cooperativa)/i);
+      detectedCreditor = match ? match[1].charAt(0).toUpperCase() + match[1].slice(1) : 'Banco';
+    } else {
+      const match = text.match(/(?:do|da|de|pelo|com|foi\s+o|foi\s+a|foi)?\s*([a-zA-ZáàâãéèêíïóôõöúçñA-ZÁÀÂÃÉÈÊÍÏÓÔÕÖÚÇÑ]+)/i);
+      if (match) {
+        let raw = match[1];
+        if (raw.toLowerCase() === 'foi' || raw.toLowerCase() === 'o' || raw.toLowerCase() === 'a') {
+          const secondMatch = text.match(/(?:foi\s+o|foi\s+a|foi|é\s+o|é\s+a|é)\s+([a-zA-ZáàâãéèêíïóôõöúçñA-ZÁÀÂÃÉÈÊÍÏÓÔÕÖÚÇÑ]+)/i);
+          if (secondMatch) raw = secondMatch[1];
+        }
+        const stopWords = ['uma', 'um', 'empréstimo', 'emprestimo', 'dinheiro', 'pix', 'banco', 'é', 'foi', 'o', 'a', 'categoria'];
+        if (!stopWords.includes(raw.toLowerCase())) {
+          detectedCreditor = raw.charAt(0).toUpperCase() + raw.slice(1);
+          detectedType = 'PERSON_OR_OTHER';
+        }
+      }
+    }
+
+    if (detectedCreditor) {
+      draft.creditor = detectedCreditor;
+      draft.supplier = detectedCreditor;
+      draft.counterparty = detectedCreditor;
+      draft.creditorType = detectedType;
+      draft.missingFields = (draft.missingFields || []).filter(f => f !== 'creditor');
+
+      if (detectedType === 'FINANCIAL_INSTITUTION' && (!draft.paymentMethod || draft.paymentMethod === 'UNKNOWN')) {
+        draft.paymentMethod = 'Transferência bancária';
+      }
+
+      return validateParsedIntent(draft, todayStr);
+    }
+  }
+
+  // 0.7. Slot filling para Finalidade da Despesa (Business vs Personal: "Da loja", "É para a loja", "Pessoal", "Minha casa")
+  const isPurposeMissing =
+    activeDraft.missingFields?.includes('businessPurpose') ||
+    (activeDraft.questionToUser && /loja ou é uma (?:compra|conta) pessoal/.test(activeDraft.questionToUser)) ||
+    activeDraft.businessPurpose === 'UNKNOWN' ||
+    /loja|empresa|comércio|comercio|escritório|escritorio|pessoal|casa/i.test(text);
+
+  if (isPurposeMissing) {
+    const purposeReply = inferBusinessPurpose(text);
+
+    if (purposeReply === 'BUSINESS') {
+      draft.businessPurpose = 'BUSINESS';
+      const descLower = (draft.description || '').toLowerCase();
+      const isDualItem = /\b(televisão|televisao|tv|geladeira|refrigerador|freezer|micro-ondas|microondas|ar-condicionado|ar\s+condicionado|computador|notebook|laptop|celular|smartphone|impressora|móveis|moveis|móvel|movel|eletrodoméstico|eletrodomesticos|eletrônico|eletronicos|equipamento|equipamentos|utensílio|utensilios|fogão|fogao|filtro)\b/i.test(descLower);
+
+      if (!draft.categoryName || draft.categoryName === 'UNKNOWN' || draft.categoryName === 'Despesa não classificada' || draft.categoryName === 'Pró-labore') {
+        draft.categoryName = isDualItem ? 'Equipamentos da Empresa' : 'Contas de Consumo';
+      }
+      draft.missingFields = (draft.missingFields || []).filter(f => f !== 'businessPurpose');
+      draft.questions = (draft.questions || []).filter(q => !/loja|pessoal|casa|businessPurpose/i.test(q));
+      draft.questionToUser = null;
+      return validateParsedIntent(draft, todayStr);
+    } else if (purposeReply === 'PERSONAL') {
+      draft.businessPurpose = 'PERSONAL';
+      draft.categoryName = 'Pró-labore';
+      draft.missingFields = (draft.missingFields || []).filter(f => f !== 'businessPurpose');
+      draft.questions = (draft.questions || []).filter(q => !/loja|pessoal|casa|businessPurpose/i.test(q));
+      draft.questionToUser = null;
+      return validateParsedIntent(draft, todayStr);
+    }
+  }
+
   // 1. Slot filling para Categoria (ex: "é compra, compra de estoque", "compra de estoque", "categoria estoque")
   const isCategoryFilling =
     text.includes('compra de estoque') ||
@@ -170,15 +247,17 @@ export const trySlotFillingFallback = (
     }
   }
 
-  // 1.5. Slot filling para troca de Fornecedor (ex: "na verdade o fornecedor é Bertolini", "fornecedor Bertolini")
-  const isSupplierChange = text.includes('fornecedor') || text.includes('fábrica') || text.includes('fabrica') || text.includes('na verdade é da') || text.includes('na verdade é do') || text.includes('na verdade o fornecedor');
+  // 1.5. Slot filling para troca de Fornecedor / Contraparte (ex: "na verdade o fornecedor é Bertolini", "foi para Lucas")
+  const isSupplierChange = text.includes('fornecedor') || text.includes('fábrica') || text.includes('fabrica') || text.includes('na verdade é da') || text.includes('na verdade é do') || text.includes('na verdade o fornecedor') || text.includes('foi para');
   if (isSupplierChange) {
-    const supplierMatch = text.match(/(?:fornecedor|fábrica|fabrica|na\s+verdade\s+é\s+d[ao]|é\s+d[ao]|na\s+verdade\s+o\s+fornecedor\s+é)\s+(?:é\s+)?([a-zA-ZáàâãéèêíïóôõöúçñA-ZÁÀÂÃÉÈÊÍÏÓÔÕÖÚÇÑ]+)/i);
+    const supplierMatch = text.match(/(?:fornecedor|fábrica|fabrica|na\s+verdade\s+é\s+d[ao]|é\s+d[ao]|na\s+verdade\s+o\s+fornecedor\s+é|foi\s+para)\s+(?:é\s+)?([a-zA-ZáàâãéèêíïóôõöúçñA-ZÁÀÂÃÉÈÊÍÏÓÔÕÖÚÇÑ]+)/i);
     if (supplierMatch) {
       const raw = supplierMatch[1];
       const stopWords = ['uma', 'um', 'compra', 'mercadoria', 'estoque', 'produtos', 'outro', 'outra'];
       if (!stopWords.includes(raw.toLowerCase())) {
-        draft.supplier = raw.charAt(0).toUpperCase() + raw.slice(1);
+        const formattedName = raw.charAt(0).toUpperCase() + raw.slice(1);
+        draft.supplier = formattedName;
+        draft.counterparty = formattedName;
         return validateParsedIntent(draft, todayStr);
       }
     }
@@ -250,17 +329,39 @@ export const trySlotFillingFallback = (
     }
   }
 
-  // 4. Slot filling para troca de Forma de Pagamento (ex: "na verdade é Pix", "forma de pagamento Pix")
-  const isPaymentChange = text.includes('forma de pagamento') || text.includes('pagamento') || text.includes('na verdade é pix') || text.includes('é pix') || text.includes('via pix') || text.includes('no pix') || text.includes('no boleto') || text.includes('em dinheiro') || text.includes('no cartão') || text.includes('no cartao');
-  if (isPaymentChange && !text.includes('boletos') && !text.includes('parcelas')) {
-    if (text.includes('pix')) draft.paymentMethod = 'Pix';
-    else if (text.includes('boleto')) draft.paymentMethod = 'Boleto';
-    else if (text.includes('cartão') || text.includes('cartao')) draft.paymentMethod = 'Cartão de Crédito';
-    else if (text.includes('dinheiro')) draft.paymentMethod = 'Dinheiro';
-    else if (text.includes('transferência') || text.includes('transferencia')) draft.paymentMethod = 'Transferência';
+  // 4. Slot filling para Forma de Pagamento / Recebimento (ex: "Pix", "no cartão", "dinheiro", "foi no pix")
+  const isPaymentMention =
+    text.includes('forma de pagamento') ||
+    text.includes('forma de recebimento') ||
+    text.includes('pagamento') ||
+    text.includes('recebimento') ||
+    text.includes('pix') ||
+    text.includes('boleto') ||
+    text.includes('cartão') ||
+    text.includes('cartao') ||
+    text.includes('dinheiro') ||
+    text.includes('transferência') ||
+    text.includes('transferencia');
 
-    if (!text.includes('dia') && !text.includes('categoria') && !text.includes('mil') && !text.includes('k')) {
-      return validateParsedIntent(draft, todayStr);
+  const isMissingPaymentMethod = !draft.paymentMethod || draft.paymentMethod === 'UNKNOWN' || draft.missingFields?.includes('paymentMethod');
+
+  if ((isPaymentMention || isMissingPaymentMethod) && !text.includes('boletos') && !text.includes('parcelas')) {
+    let capturedMethod: string | null = null;
+    if (text.includes('débito') || text.includes('debito')) capturedMethod = 'Cartão de Débito';
+    else if (text.includes('crédito') || text.includes('credito')) capturedMethod = 'Cartão de Crédito';
+    else if (text.includes('pix')) capturedMethod = 'Pix';
+    else if (text.includes('boleto')) capturedMethod = 'Boleto';
+    else if (text.includes('dinheiro')) capturedMethod = 'Dinheiro';
+    else if (text.includes('transferência') || text.includes('transferencia')) capturedMethod = 'Transferência';
+
+    if (capturedMethod) {
+      draft.paymentMethod = capturedMethod;
+      draft.missingFields = (draft.missingFields || []).filter(f => f !== 'paymentMethod');
+      draft.questions = (draft.questions || []).filter(q => !/pagamento|recebimento|forma|paymentMethod/i.test(q));
+      draft.questionToUser = null;
+      if (!text.includes('dia') && !text.includes('categoria') && !text.includes('mil') && !text.includes('k')) {
+        return validateParsedIntent(draft, todayStr);
+      }
     }
   }
 
@@ -281,7 +382,7 @@ export const trySlotFillingFallback = (
 
   // A) Patch de data de parcela específica por ordinal
   if (hasOrdinal && !isGlobalAll && draft.installmentList && draft.installmentList.length > 0) {
-    const specificPatchMatch = text.match(/(primeir[oa]|segund[oa]|terceir[oa]|quart[oa]|últim[oa]|ultim[oa]|\b1º|\b2º|\b3º|\b4º|\b1|\b2|\b3|\b4)\s*(?:boleto|parcela)?\s*(?:é|vence|ficou)?\s*(?:para\s*o\s*dia|dia)?\s*(\d{1,2})(?:\s*de\s*([a-z]+))?/i);
+    const specificPatchMatch = text.match(/(primeir[oa]|segund[oa]|terceir[oa]|quart[oa]|últim[oa]|ultim[oa]|\b1º|\b2º|\b3º|\b4º|\b1|\b2|\b3|\b4)\s*(?:boleto|parcela)?\s*(?:é|vence|ficou)?\s*(?:para\s*o\s*dia|dia)\s*(\d{1,2})(?:\s*de\s*([a-z]+))?/i);
     if (specificPatchMatch) {
       const ordinal = specificPatchMatch[1].toLowerCase();
       const day = parseInt(specificPatchMatch[2], 10);
@@ -294,7 +395,7 @@ export const trySlotFillingFallback = (
       else if (ordinal.includes('quart') || ordinal === '4' || ordinal === '4º') targetIdx = 3;
       else if (ordinal.includes('últim') || ordinal.includes('ultim')) targetIdx = draft.installmentList.length - 1;
 
-      if (targetIdx >= 0 && targetIdx < draft.installmentList.length) {
+      if (targetIdx >= 0 && targetIdx < draft.installmentList.length && day >= 1 && day <= 31) {
         const today = new Date(todayStr || Date.now());
         let targetYear = today.getFullYear();
         let targetMonth = today.getMonth();
@@ -357,6 +458,21 @@ export const trySlotFillingFallback = (
       draft.dueDay = day;
       const today = new Date(todayStr || Date.now());
 
+      if (!draft.installmentList || draft.installmentList.length === 0) {
+        let y = today.getFullYear();
+        let m = today.getMonth() + (isNextMonth ? 1 : 0);
+        if (text.includes('outubro')) m = 9;
+        else if (text.includes('novembro')) m = 10;
+        else if (text.includes('dezembro')) m = 11;
+        else if (text.includes('setembro')) m = 8;
+        const dateObj = new Date(y, m, day);
+        const isoDate = dateObj.toISOString().split('T')[0];
+        draft.date = isoDate;
+        draft.dueDate = isoDate;
+        draft.missingFields = (draft.missingFields || []).filter(f => f !== 'date' && f !== 'dueDate');
+        return validateParsedIntent(draft, todayStr);
+      }
+
       let existingMonthOffset = 0;
       const firstDueDate = draft.dueDate || draft.installmentList?.[0]?.dueDate;
       if (firstDueDate) {
@@ -395,6 +511,7 @@ export const trySlotFillingFallback = (
         };
       });
 
+      draft.missingFields = (draft.missingFields || []).filter(f => f !== 'installmentDueDates');
       return validateParsedIntent(draft, todayStr);
     }
   }
@@ -428,6 +545,79 @@ export const trySlotFillingFallback = (
       dueDate: draft.installmentList?.[idx]?.dueDate || null,
     }));
     return validateParsedIntent(draft, todayStr);
+  }
+
+  // 6. Single transaction Date Patch
+  const datePatchMatch = text.match(/(?:dia|no dia|para o dia)?\s*(\d{1,2})(?:\s*de\s*([a-z]+))?/i);
+  if (datePatchMatch && (text.includes('dia') || text.includes('outubro') || text.includes('setembro') || text.includes('novembro') || text.includes('dezembro') || text.includes('janeiro') || text.includes('fevereiro') || text.includes('março') || text.includes('abril') || text.includes('maio') || text.includes('junho') || text.includes('julho') || text.includes('agosto'))) {
+    const day = parseInt(datePatchMatch[1], 10);
+    if (day >= 1 && day <= 31) {
+      const today = new Date(todayStr || Date.now());
+      let y = today.getFullYear();
+      let m = today.getMonth() + 1;
+      if (text.includes('outubro')) m = 10;
+      else if (text.includes('novembro')) m = 11;
+      else if (text.includes('dezembro')) m = 12;
+      else if (text.includes('setembro')) m = 9;
+
+      const isoDate = `${y}-${String(m).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+      draft.date = isoDate;
+      draft.dueDate = isoDate;
+      draft.missingFields = (draft.missingFields || []).filter(f => f !== 'date' && f !== 'dueDate');
+      return validateParsedIntent(draft, todayStr);
+    }
+  }
+
+  // 7. Single transaction Amount Patch
+  const shortCentsRegexMatch = text.match(/(?:valor|na verdade é|na verdade e|paguei|recebi|é|e|de|total|foi)?\s*(?:r\$\s*)?(\d+)\s+e\s+(\d{1,2})\b/i);
+  const singleNumMatch = text.match(/(?:valor|na verdade é|na verdade e|paguei|recebi|é|e|de|total)?\s*(?:r\$\s*)?(\d+(?:\.\d{3})?(?:,\d{1,2})?)/i);
+
+  if (shortCentsRegexMatch && !text.includes('mil') && !text.includes('reais') && !text.includes('centavos')) {
+    const r = parseInt(shortCentsRegexMatch[1], 10);
+    const c = parseInt(shortCentsRegexMatch[2], 10);
+    if (r > 0 && c >= 0 && c <= 99) {
+      const patchVal = r + (c / 100);
+      draft.amount = patchVal;
+      draft.isEstimated = false;
+      draft.missingFields = (draft.missingFields || []).filter(f => f !== 'amount');
+      if (!draft.paymentMethod || draft.paymentMethod === 'UNKNOWN') {
+        draft.missingFields.push('paymentMethod');
+        draft.isReadyForConfirmation = false;
+        draft.questionToUser = 'Qual foi a forma de pagamento?';
+      } else {
+        draft.isReadyForConfirmation = true;
+        draft.questionToUser = null;
+      }
+      return validateParsedIntent(draft, todayStr);
+    }
+  }
+
+  if (singleNumMatch || text.includes('mil') || text.includes('k')) {
+    let patchVal: number | null = null;
+    if (singleNumMatch) {
+      patchVal = parsePtBrNumber(singleNumMatch[1], text.includes('mil') || text.includes('k'));
+    }
+    if (!patchVal) {
+      patchVal = parsePtBrWrittenNumbers(text);
+    }
+
+    if (patchVal && patchVal > 0) {
+      const isAdditive = text.includes('mais') || text.includes('adiciona') || text.includes('soma');
+      const baseAmount = isAdditive && draft.amount ? draft.amount : 0;
+      draft.amount = baseAmount + patchVal;
+      draft.description = msg;
+      draft.isEstimated = false;
+      draft.missingFields = (draft.missingFields || []).filter(f => f !== 'amount');
+      if (!draft.paymentMethod || draft.paymentMethod === 'UNKNOWN') {
+        draft.missingFields.push('paymentMethod');
+        draft.isReadyForConfirmation = false;
+        draft.questionToUser = 'Qual foi a forma de pagamento?';
+      } else {
+        draft.isReadyForConfirmation = true;
+        draft.questionToUser = null;
+      }
+      return validateParsedIntent(draft, todayStr);
+    }
   }
 
   return null;

@@ -488,7 +488,7 @@ Móveis Morante
 🕒 Aberto: Seg a Sex ( 9h às 18h ) e Sab ( 9h às 17h )
 🗺📍Rua Cascavel, 306, Guaraituba, Colombo - PR
 ____________________________________`,
-        generalChat: `Você é Lisandro, um assistente virtual de ALTA PERFORMANCE exclusivo para os vendedores da Móveis Morante.
+        generalChat: `Você é Seu Lizandro, um assistente virtual de ALTA PERFORMANCE exclusivo para os vendedores da Móveis Morante.
 Seu objetivo é ser o braço direito do VENDEDOR, agilizando processos internos e organizando dados.
 
 DIRETRIZES PARA O VENDEDOR:
@@ -529,7 +529,7 @@ RESPOSTA NO FORMATO JSON:
   }
 }
 `,
-        aiName: 'Lisandro',
+        aiName: 'Seu Lizandro',
         aiAvatar: '',
         aiMascot: '/lizandro.png',
         aiMascotVariants: {

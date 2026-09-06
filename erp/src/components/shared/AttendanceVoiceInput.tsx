@@ -75,7 +75,7 @@ const AttendanceVoiceInput = ({ isFloating = true }: AttendanceVoiceInputProps) 
 
                         {suggestedAction && (
                             <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-2xl border border-blue-100 dark:border-blue-800 animate-bounce">
-                                <p className="text-[9px] font-black uppercase text-blue-600 dark:text-blue-400 mb-2 ml-1">Lisandro Sugere:</p>
+                                <p className="text-[9px] font-black uppercase text-blue-600 dark:text-blue-400 mb-2 ml-1">Seu Lizandro Sugere:</p>
                                 <button
                                     onClick={async () => {
                                         if (suggestedAction.type === 'ASSISTANCE') {

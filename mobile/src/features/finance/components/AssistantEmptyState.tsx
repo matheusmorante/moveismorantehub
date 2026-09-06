@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
-import { Sparkles, Fuel, ArrowDownLeft, Calendar, CreditCard, ChevronRight } from 'lucide-react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Image } from 'react-native';
+import { Fuel, ArrowDownLeft, FileCheck, Layers, ChevronRight } from 'lucide-react-native';
 import { FinanceExamplesModal } from './FinanceExamplesModal';
+
+const SEU_LIZANDRO_IMG = require('../../../../assets/lizandro.png');
 
 interface Props {
   isDarkMode?: boolean;
@@ -15,11 +17,15 @@ export const AssistantEmptyState: React.FC<Props> = ({
   return (
     <View style={styles.container}>
       <View style={styles.iconCircle}>
-        <Sparkles size={28} color="#7c3aed" />
+        <Image
+          source={SEU_LIZANDRO_IMG}
+          style={{ width: '100%', height: '100%', borderRadius: 26 }}
+          resizeMode="cover"
+        />
       </View>
 
       <Text style={[styles.title, isDarkMode && styles.textDark]}>
-        Assistente Financeiro IA
+        Seu Lizandro - IA Financeira
       </Text>
 
       <Text style={[styles.subtitle, isDarkMode && styles.subtitleDark]}>
@@ -54,25 +60,25 @@ export const AssistantEmptyState: React.FC<Props> = ({
           </Text>
         </View>
 
-        {/* 3. Recorrente */}
+        {/* 3. Pagamento de Parcela */}
         <View style={[styles.exampleRow, isDarkMode && styles.exampleRowDark]}>
           <View style={styles.badgeLabel}>
-            <Calendar size={12} color="#3b82f6" />
-            <Text style={styles.badgeLabelTextRecurrent}>Recorrente</Text>
+            <FileCheck size={12} color="#3b82f6" />
+            <Text style={styles.badgeLabelTextInstallment}>Pagamento de Parcela</Text>
           </View>
           <Text style={[styles.exampleQuoteText, isDarkMode && styles.exampleQuoteTextDark]}>
-            "A conta de internet de R$ 149,90 vence todo dia 10"
+            "Paguei a 1ª parcela do frete de R$ 500 no PIX hoje"
           </Text>
         </View>
 
-        {/* 4. Parcelada */}
+        {/* 4. Múltiplas Saídas */}
         <View style={[styles.exampleRow, isDarkMode && styles.exampleRowDark]}>
           <View style={styles.badgeLabel}>
-            <CreditCard size={12} color="#8b5cf6" />
-            <Text style={styles.badgeLabelTextInstallment}>Parcelada</Text>
+            <Layers size={12} color="#8b5cf6" />
+            <Text style={styles.badgeLabelTextMultiple}>Múltiplas Saídas</Text>
           </View>
           <Text style={[styles.exampleQuoteText, isDarkMode && styles.exampleQuoteTextDark]}>
-            "Comprei um notebook de R$ 4.500 em 10x no cartão"
+            "Paguei R$ 200 de luz e R$ 150 de internet hoje"
           </Text>
         </View>
 
@@ -190,6 +196,11 @@ const styles = StyleSheet.create({
     color: '#3b82f6',
   },
   badgeLabelTextInstallment: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#3b82f6',
+  },
+  badgeLabelTextMultiple: {
     fontSize: 11,
     fontWeight: '700',
     color: '#8b5cf6',

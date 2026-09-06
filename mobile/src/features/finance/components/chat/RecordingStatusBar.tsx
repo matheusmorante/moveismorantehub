@@ -2,51 +2,67 @@ import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { Sparkles } from 'lucide-react-native';
 import { VoiceSessionState } from '../../types/VoiceSessionState';
-import { LocalSemanticDelta } from '../../../../services/financialAiAssistantService';
+import { LocalSemanticDelta, ParsedFinancialIntent } from '../../../../services/financialAiAssistantService';
+import { RealtimeDraftChips } from './RealtimeDraftChips';
 
 interface Props {
   voiceState: VoiceSessionState;
   livePill?: LocalSemanticDelta | null;
+  activeDraft?: ParsedFinancialIntent | null;
+  silenceCountdown?: number | null;
   isDarkMode?: boolean;
 }
 
-export const RecordingStatusBar: React.FC<Props> = ({ voiceState, livePill, isDarkMode = false }) => {
+export const RecordingStatusBar: React.FC<Props> = ({
+  voiceState,
+  livePill,
+  activeDraft,
+  silenceCountdown,
+  isDarkMode = false,
+}) => {
   const isRecordingActive =
     voiceState === 'LISTENING' ||
     voiceState === 'PRE_ANALYZING' ||
     voiceState === 'FINALIZING' ||
     voiceState === 'ANALYZING';
 
-  if (!isRecordingActive) return null;
+  if (!isRecordingActive && !activeDraft) return null;
+
+  const silenceText = silenceCountdown && silenceCountdown > 0 ? ` (Auto-envio em ${silenceCountdown}s)` : '';
 
   return (
     <View style={[styles.recordingBanner, isDarkMode && styles.recordingBannerDark]}>
-      <View style={styles.recordingHeaderRow}>
-        {(voiceState === 'LISTENING' || voiceState === 'PRE_ANALYZING') && (
-          <View style={styles.statusGroup}>
-            <View style={styles.recordingDot} />
-            <Text style={styles.recordingText}>● Ouvindo...</Text>
-          </View>
-        )}
+      {isRecordingActive && (
+        <View style={styles.recordingHeaderRow}>
+          {(voiceState === 'LISTENING' || voiceState === 'PRE_ANALYZING') && (
+            <View style={styles.statusGroup}>
+              <View style={styles.recordingDot} />
+              <Text style={styles.recordingText}>● Ouvindo...{silenceText}</Text>
+            </View>
+          )}
 
-        {voiceState === 'PRE_ANALYZING' && (
-          <View style={styles.statusGroup}>
-            <Text style={styles.statusDivider}>•</Text>
-            <Sparkles size={14} color="#a855f7" style={{ marginRight: 4 }} />
-            <Text style={styles.preAnalyzingText}>✦ Analisando...</Text>
-          </View>
-        )}
+          {voiceState === 'PRE_ANALYZING' && (
+            <View style={styles.statusGroup}>
+              <Text style={styles.statusDivider}>•</Text>
+              <Sparkles size={14} color="#a855f7" style={{ marginRight: 4 }} />
+              <Text style={styles.preAnalyzingText}>✦ Analisando fala...</Text>
+            </View>
+          )}
 
-        {(voiceState === 'FINALIZING' || voiceState === 'ANALYZING') && (
-          <View style={styles.statusGroup}>
-            <Sparkles size={14} color="#a855f7" style={{ marginRight: 4 }} />
-            <Text style={styles.preAnalyzingText}>✦ Analisando...</Text>
-          </View>
-        )}
-      </View>
+          {(voiceState === 'FINALIZING' || voiceState === 'ANALYZING') && (
+            <View style={styles.statusGroup}>
+              <Sparkles size={14} color="#a855f7" style={{ marginRight: 4 }} />
+              <Text style={styles.preAnalyzingText}>✦ Analisando fala...</Text>
+            </View>
+          )}
+        </View>
+      )}
 
-      {/* Pílula Semântica de Detecção Local */}
-      {livePill && (livePill.amountsFound.length > 0 || livePill.supplierFound || livePill.categoryFound) ? (
+      {/* Rótulos Estruturados de Análise em Tempo Real (Section 20) */}
+      <RealtimeDraftChips draft={activeDraft} isDarkMode={isDarkMode} />
+
+      {/* Pílula Semântica de Detecção Local Fallback se ainda não houver draft */}
+      {!activeDraft && livePill && (livePill.amountsFound.length > 0 || livePill.supplierFound || livePill.categoryFound) ? (
         <View style={styles.livePillContainer}>
           {livePill.supplierFound ? (
             <View style={styles.livePillTag}>

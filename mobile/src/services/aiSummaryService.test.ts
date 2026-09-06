@@ -110,12 +110,12 @@ describe('aiSummaryService - Resumo Inteligente de Entregas', () => {
       // Regra 1: Contagem geral
       expect(text).toContain('Para hoje, temos 2 entregas programadas.');
 
-      // Regra 2: Manhã com montagem no endereço, omitindo Colombo
-      expect(text).toContain('Pela manhã, temos uma entrega para Vania Santos, de um item, sendo guarda-roupa casal, com montagem no endereço.');
+      // Regra 2: Manhã com montagem no endereço, omitindo Colombo e indicando distPart (pertinho)
+      expect(text).toContain('Pela manhã, temos uma entrega para Vania Santos, pertinho, de um item, sendo um guarda roupa casal, com montagem no endereço.');
       expect(text).not.toContain('colombo');
 
-      // Regra 3: Tarde citando Curitiba, contagem masculina (2 itens), sem citar nome da cômoda nem "sem montagem", e com aviso
-      expect(text).toContain('À tarde, temos uma entrega para Aryel Felipe em curitiba, de 2 itens, com atenção para máquina de cartão.');
+      // Regra 3: Tarde citando Curitiba, distância km (a cerca de doze quilômetros), contagem masculina (2 itens), sem citar nome da cômoda nem "sem montagem", e com aviso
+      expect(text).toContain('À tarde, temos uma entrega para Aryel Felipe em curitiba, a cerca de doze quilômetros, de 2 itens, com atenção para máquina de cartão.');
       expect(text).not.toContain('cômoda');
       expect(text).not.toContain('sem montagem');
       expect(text).not.toContain('não precisa de montagem');
@@ -204,13 +204,13 @@ describe('aiSummaryService - Resumo Inteligente de Entregas', () => {
       // Total de entregas anunciado por dia
       // Dia 1 (amanhã): Fala a data antes das entregas
       expect(text).toMatch(/Para amanhã, segunda-feira, dia 7 de setembro, temos 2 entregas programadas\./);
-      expect(text).toContain('Pela manhã, temos uma entrega para Vania Santos, de um item, sendo guarda-roupa casal, com montagem no endereço.');
-      expect(text).toContain('À tarde, temos uma entrega para Cauã Murilo, de um item.');
+      expect(text).toContain('Pela manhã, temos uma entrega para Vania Santos, pertinho, de um item, sendo um guarda roupa casal, com montagem no endereço.');
+      expect(text).toContain('À tarde, temos uma entrega para Cauã Murilo, pertinho, de um item.');
       expect(text).not.toContain('mesa de jantar'); // Sem montagem no endereço -> não fala produto
 
       // Dia 2: Fala a data de terça-feira antes das entregas daquele dia
       expect(text).toMatch(/Para terça-feira, dia 8 de setembro, temos 1 entrega programada\./);
-      expect(text).toContain('Pela manhã, temos uma entrega para Aryel Felipe em curitiba, de um item, sendo painel tv, com montagem no endereço, com atenção para máquina de cartão.');
+      expect(text).toContain('Pela manhã, temos uma entrega para Aryel Felipe em curitiba, a cerca de quinze quilômetros, de um item, sendo um painel tv, com montagem no endereço, com atenção para máquina de cartão.');
 
       // Colombo nunca é falado
       expect(text).not.toContain(' em colombo');

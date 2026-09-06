@@ -1,7 +1,9 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, TextInput, StyleSheet } from 'react-native';
-import { Bot, Check, Copy, Edit2 } from 'lucide-react-native';
+import { View, Text, TouchableOpacity, TextInput, StyleSheet, Image } from 'react-native';
+import { Check, Copy, Edit2 } from 'lucide-react-native';
 import { ChatMessage } from '../../../../services/financialAiAssistantService';
+
+const SEU_LIZANDRO_IMG = require('../../../../../assets/lizandro.png');
 
 interface Props {
   msg: ChatMessage;
@@ -35,7 +37,11 @@ export const ChatMessageItem: React.FC<Props> = ({
     <View style={[styles.messageRow, isUser ? styles.userRow : styles.assistantRow]}>
       {!isUser ? (
         <View style={styles.avatarBot}>
-          <Bot size={14} color="#7c3aed" />
+          <Image
+            source={SEU_LIZANDRO_IMG}
+            style={{ width: '100%', height: '100%', borderRadius: 14 }}
+            resizeMode="cover"
+          />
         </View>
       ) : null}
 

@@ -899,11 +899,18 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
         }
         setIsGeneratingNCM(true);
         try {
-            const { ncm } = await aiService.findNCM(title, formData.material || '');
+            const category = availableCategories.find(c => formData.categoryIds?.includes(c.id))?.name || formData.category || '';
+            const description = formData.description || formData.ecommerceDescription || '';
+            const { ncm, description: ncmDescription } = await aiService.findNCM(
+                title,
+                formData.material || '',
+                description,
+                category
+            );
             if (ncm) {
                 setFormData(prev => ({
                     ...prev,
-                    fiscal: { ...prev.fiscal!, ncm }
+                    fiscal: { ...prev.fiscal!, ncm, ncmDescription }
                 }));
                 if (!isAutoTrigger) {
                     toast.success(`NCM Encontrado: ${ncm}`);

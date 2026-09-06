@@ -125,7 +125,7 @@ export const StructuredConfirmationCard: React.FC<Props> = ({
           <>
             <Row label="Data" value={intent.date || 'Hoje'} />
             <Row label="Categoria" value={intent.categoryName || 'Geral'} />
-            <Row label="Tipo" value="Única" />
+            <Row label={isIncome ? "Recebimento" : "Pagamento"} value={intent.paymentMethod && intent.paymentMethod !== 'UNKNOWN' ? intent.paymentMethod : '???'} />
           </>
         )}
       </View>

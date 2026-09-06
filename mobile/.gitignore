@@ -3,3 +3,6 @@ node_modules/
 google-services-key.json
 *.key
 
+# Pastas de build/export de teste (podem conter chaves nos bundles gerados)
+.codex-finance-export-test/
+

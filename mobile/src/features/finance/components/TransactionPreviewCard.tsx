@@ -25,6 +25,7 @@ interface Props {
   onSelectCandidate?: (candidate: any) => void;
   categories?: FinancialCategory[];
   isDarkMode?: boolean;
+  readOnly?: boolean;
 }
 
 export const TransactionPreviewCard: React.FC<Props> = ({
@@ -35,6 +36,7 @@ export const TransactionPreviewCard: React.FC<Props> = ({
   onDiscard,
   onSelectCandidate,
   isDarkMode = false,
+  readOnly = false,
 }) => {
   if (cardState === 'DISCARDED') {
     return (
@@ -105,7 +107,7 @@ export const TransactionPreviewCard: React.FC<Props> = ({
         cardTitleType={cardTitleType}
         badgeBg={badgeBg}
         badgeColor={badgeColor}
-        onDiscard={cardState === 'SAVED' ? undefined : onDiscard}
+        onDiscard={cardState === 'SAVED' || readOnly ? undefined : onDiscard}
         isDarkMode={isDarkMode}
       />
 
@@ -142,7 +144,8 @@ export const TransactionPreviewCard: React.FC<Props> = ({
                     borderColor: '#cbd5e1',
                   },
                 ]}
-                onPress={() => onSelectCandidate && onSelectCandidate(cand)}
+                onPress={() => !readOnly && onSelectCandidate && onSelectCandidate(cand)}
+                disabled={readOnly}
                 activeOpacity={0.7}
               >
                 <View style={{ flex: 1 }}>
@@ -206,16 +209,16 @@ export const TransactionPreviewCard: React.FC<Props> = ({
 
           {/* FORMA DE PAGAMENTO */}
           <View style={styles.fieldRow}>
-            <Text style={styles.fieldLabel}>Pagamento</Text>
+            <Text style={styles.fieldLabel}>{isIncome ? 'Recebimento' : 'Pagamento'}</Text>
             <Text style={[styles.fieldValue, isDarkMode && styles.textDark]}>
-              {intent.paymentMethod || (isPayable ? 'Boleto' : 'PIX')}
+              {intent.paymentMethod && intent.paymentMethod !== 'UNKNOWN' ? intent.paymentMethod : '??? (Não informada)'}
             </Text>
           </View>
         </View>
       )}
 
       {/* Ações do Card */}
-      <View style={styles.actionsRow}>
+      {!readOnly && <View style={styles.actionsRow}>
         {cardState === 'SAVING' ? (
           <View style={styles.loadingContainer}>
             <ActivityIndicator color="#3b82f6" size="small" />
@@ -250,7 +253,7 @@ export const TransactionPreviewCard: React.FC<Props> = ({
               <Text style={styles.confirmBtnText}>Tentar novamente</Text>
             </TouchableOpacity>
           </View>
-        ) : (
+        ) : cardState === 'NEEDS_INPUT' ? null : (
           <>
             <TouchableOpacity
               style={[styles.editBtn, isDarkMode && styles.editBtnDark]}
@@ -273,7 +276,7 @@ export const TransactionPreviewCard: React.FC<Props> = ({
             ) : null}
           </>
         )}
-      </View>
+      </View>}
     </View>
   );
 };

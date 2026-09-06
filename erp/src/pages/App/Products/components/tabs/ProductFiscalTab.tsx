@@ -170,7 +170,7 @@ const ProductFiscalTab: React.FC<ProductFiscalTabProps> = ({
                                             title="Usar IA para auto-preencher o NCM"
                                         >
                                             {isGeneratingNCM ? <i className="bi bi-arrow-repeat animate-spin text-amber-500" /> : <i className="bi bi-stars text-amber-500 text-xs font-bold" />}
-                                            Auto-preencher com IA
+                                            {isGeneratingNCM ? 'Gerando NCM...' : 'Auto-preencher com IA'}
                                         </button>
 
                                         <button
@@ -183,7 +183,14 @@ const ProductFiscalTab: React.FC<ProductFiscalTabProps> = ({
                                         </button>
                                     </div>
                                 </div>
-                                <div className="relative">
+                                <div
+                                    className={`relative overflow-hidden rounded-2xl transition-all ${
+                                        isGeneratingNCM
+                                            ? 'ring-2 ring-amber-400/70 shadow-[0_0_18px_rgba(251,191,36,0.32)]'
+                                            : ''
+                                    }`}
+                                    aria-busy={isGeneratingNCM}
+                                >
                                     <input
                                         type="text"
                                         value={searchQuery}
@@ -201,9 +208,27 @@ const ProductFiscalTab: React.FC<ProductFiscalTabProps> = ({
                                         }}
                                         onFocus={() => setIsDropdownOpen(true)}
                                         placeholder="Digite ou pesquise o NCM..."
-                                        className="w-full pl-4 pr-10 py-4 bg-white dark:bg-slate-955 border border-slate-200 dark:border-slate-800 rounded-2xl outline-none text-xs font-bold dark:text-slate-200 tracking-wider font-mono"
+                                        className={`w-full pl-4 py-4 bg-white dark:bg-slate-955 border rounded-2xl outline-none text-xs font-bold dark:text-slate-200 tracking-wider font-mono transition-colors ${
+                                            isGeneratingNCM
+                                                ? 'pr-24 border-amber-400/80 dark:border-amber-400/70'
+                                                : 'pr-10 border-slate-200 dark:border-slate-800'
+                                        }`}
                                     />
-                                    <i className={`bi bi-chevron-down absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 transition-transform pointer-events-none ${isDropdownOpen ? 'rotate-180' : ''}`} />
+                                    {isGeneratingNCM ? (
+                                        <>
+                                            <span className="pointer-events-none absolute inset-0 overflow-hidden rounded-2xl" aria-hidden="true">
+                                                <span className="ncm-input-shimmer absolute inset-y-0 left-0 w-1/3" />
+                                            </span>
+                                            <span
+                                                role="status"
+                                                className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[9px] font-black uppercase tracking-wider text-amber-600 dark:text-amber-300"
+                                            >
+                                                Gerando...
+                                            </span>
+                                        </>
+                                    ) : (
+                                        <i className={`bi bi-chevron-down absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 transition-transform pointer-events-none ${isDropdownOpen ? 'rotate-180' : ''}`} />
+                                    )}
                                 </div>
 
                                 {isDropdownOpen && (

@@ -73,7 +73,7 @@ const AIChatAssistant = ({ isFloating = true, forceOpen }: AIChatAssistantProps)
         return () => unsubscribe();
     }, []);
 
-    const aiName = settings.aiPrompts.aiName || 'Lisandro';
+    const aiName = settings.aiPrompts.aiName || 'Seu Lizandro';
     const aiAvatar = settings.aiPrompts.aiAvatar || '';
 
     const STORAGE_KEY = 'lisandro_chat_history';
@@ -433,11 +433,7 @@ const AIChatAssistant = ({ isFloating = true, forceOpen }: AIChatAssistantProps)
                         <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16 blur-3xl"></div>
                         <div className="flex items-center gap-4 relative z-10">
                             <div className="w-16 h-16 rounded-[1.5rem] bg-white/20 backdrop-blur-md border border-white/30 flex items-center justify-center overflow-hidden shadow-lg group-hover:scale-105 transition-transform">
-                                {aiAvatar ? (
-                                    <img src={aiAvatar} alt={aiName} className="w-full h-full object-cover" />
-                                ) : (
-                                    <i className="bi bi-robot text-3xl"></i>
-                                )}
+                                <img src={aiAvatar} alt={aiName} className="w-full h-full object-cover" />
                             </div>
                             <div>
                                 <h4 className="font-black text-xl tracking-tighter leading-none mb-1">{aiName}</h4>
@@ -470,11 +466,7 @@ const AIChatAssistant = ({ isFloating = true, forceOpen }: AIChatAssistantProps)
                                 <div className={`flex gap-3 max-w-[90%] ${msg.role === 'user' ? 'flex-row-reverse' : 'flex-row'}`}>
                                     {msg.role === 'assistant' && (
                                         <div className="w-8 h-8 rounded-lg bg-indigo-100 dark:bg-indigo-900/50 flex flex-shrink-0 items-center justify-center overflow-hidden mt-1">
-                                            {aiAvatar ? (
-                                                <img src={aiAvatar} alt={aiName} className="w-full h-full object-cover" />
-                                            ) : (
-                                                <i className="bi bi-robot text-indigo-600 dark:text-indigo-400"></i>
-                                            )}
+                                            <img src={aiAvatar} alt={aiName} className="w-full h-full object-cover" />
                                         </div>
                                     )}
                                     <div

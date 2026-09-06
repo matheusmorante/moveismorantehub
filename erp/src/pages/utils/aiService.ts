@@ -2,6 +2,7 @@ import { toast } from "react-toastify";
 import { ApiUsageGuard } from "@/services/apiMonitoring/apiUsageGuard";
 import { ApiUsageTracker } from "@/services/apiMonitoring/apiUsageTracker";
 import { AiGateway } from "../../services/aiGateway/AiGateway";
+import { buildNcmClassificationPrompt, NCM_PRODUCT_CLASSIFICATION_RULES } from "./ncmClassificationPrompt";
 
 export interface AIIntentResponse {
     intent: 'create_product' | 'create_service' | 'create_order' | 'chat';
@@ -242,52 +243,13 @@ Retorne APENAS o JSON: {"name": "NOME DO COMBO"}`;
         }
     },
 
-    async findNCM(productName: string, material: string): Promise<{ ncm: string, description: string }> {
-        const result = await this.generateNCM(productName, material);
+    async findNCM(productName: string, material: string, description = '', category = ''): Promise<{ ncm: string, description: string }> {
+        const result = await this.generateNCM(productName, material, description, category);
         return { ncm: result.ncm, description: result.desc };
     },
 
-    async generateNCM(productName: string, material: string): Promise<{ ncm: string, desc: string }> {
-        const prompt = `CLASSIFICADOR FISCAL DE PRODUTOS — NCM
-
-Você é um especialista em classificação fiscal de mercadorias brasileiras, especializado principalmente em móveis, colchões, estofados, utilidades e produtos relacionados ao varejo de móveis.
-
-Sua função é analisar os dados fornecidos de um produto e determinar a classificação NCM mais adequada.
-
-Você NÃO deve classificar o produto apenas por palavras-chave isoladas. Primeiro determine o que o produto realmente é, sua função, seu material e sua utilização. Depois faça a classificação.
-
-PROCESSO OBRIGATÓRIO DE ANÁLISE:
-1. O que é o produto?
-2. Qual é sua função principal?
-3. Qual é o material relevante para sua classificação?
-4. Qual é sua finalidade de uso?
-5. Existe um ambiente específico ao qual esse tipo de produto se destina? (ex: quarto -> dormitório)
-6. MDP/MDF são derivados de madeira.
-7. Cômodas, Guarda-roupas, Criados-mudos, Camas em madeira/MDP/MDF para quarto pertencem estritamente ao NCM 94035000 (Móveis de madeira do tipo dos utilizados em quartos de dormir). NUNCA os classifique como 94036000.
-8. Móveis genuinamente multiuso (ex: Armário Multiuso) não devem ser forçados para dormitório apenas pelo ambiente Quarto.
-9. NÃO INVENTE NCM. Se não houver informações suficientes para determinar o NCM com segurança ou se a confiança for baixa (<0.50), retorne suggestedNcm: null e needsReview: true.
-
-DADOS DO PRODUTO:
-- Nome/Título: ${productName}
-- Material: ${material || "Não informado"}
-
-FORMATO OBRIGATÓRIO DA RESPOSTA:
-Retorne SOMENTE JSON válido no formato exato abaixo, sem markdown:
-{
-  "productType": "string",
-  "fiscalProductType": "string",
-  "detectedMaterials": ["string"],
-  "normalizedMaterial": "string | null",
-  "catalogEnvironment": "string | null",
-  "normalizedFiscalEnvironment": "string | null",
-  "intendedUse": "string",
-  "suggestedNcm": "8 dígitos apenas números (ex: 94035000) ou null",
-  "ncmDescription": "descrição oficial do NCM na TIPI ou null",
-  "confidence": 0.95,
-  "needsReview": false,
-  "missingInformation": [],
-  "reasoningSummary": "justificativa técnica curta"
-}`;
+    async generateNCM(productName: string, material: string, description = '', category = ''): Promise<{ ncm: string, desc: string }> {
+        const prompt = buildNcmClassificationPrompt({ title: productName, material, description, category });
 
         try {
             const textResponse = await callGeminiDirect(prompt);
@@ -366,14 +328,7 @@ Sua função é analisar os dados fornecidos de um produto e determinar a classi
 
 Você NÃO deve classificar o produto apenas por palavras-chave isoladas. Primeiro determine o que o produto realmente é, sua função, seu material e sua utilização. Depois faça a classificação.
 
-PROCESSO OBRIGATÓRIO DE ANÁLISE:
-1. O que é o produto?
-2. Qual é sua função principal?
-3. Qual é o material relevante para sua classificação? (MDP/MDF = derivado de madeira)
-4. Qual é sua finalidade de uso? (quarto = dormitório, cozinha planejada = cozinha)
-5. Cômodas, Guarda-roupas, Criados-mudos, Camas em madeira/MDP/MDF para quarto pertencem estritamente ao NCM 94035000 (Móveis de madeira do tipo dos utilizados em quartos de dormir). NUNCA os classifique como 94036000.
-6. Armários Multiuso genuínos não devem ser forçados para dormitório apenas pelo ambiente Quarto.
-7. NÃO INVENTE NCM. Se não houver informações suficientes para determinar o NCM com segurança ou se a confiança for baixa (<0.50), retorne suggestedNcm: null e needsReview: true.
+${NCM_PRODUCT_CLASSIFICATION_RULES}
 
 DADOS DO PRODUTO:
 - Nome/Título: ${productData.title}

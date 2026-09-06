@@ -399,7 +399,11 @@ export const fetchTransactionsForMonth = async (
 export const createFinancialTransaction = async (
   payload: Partial<FinancialTransaction>
 ): Promise<{ success: boolean; data?: FinancialTransaction; error?: string }> => {
-  if (!payload.amount || payload.amount <= 0) {
+  // DIV-006: amount null não pode virar zero silenciosamente
+  if (payload.amount === null || payload.amount === undefined) {
+    return { success: false, error: 'O valor da movimentação não foi informado.' };
+  }
+  if (payload.amount <= 0) {
     return { success: false, error: 'O valor da movimentação deve ser maior que zero.' };
   }
   if (!payload.type || (payload.type !== 'income' && payload.type !== 'expense')) {
@@ -416,20 +420,24 @@ export const createFinancialTransaction = async (
     amount: payload.amount,
     date: payload.date || new Date().toISOString().split('T')[0],
     description: payload.description.trim(),
-    payment_method: payload.payment_method || 'PIX',
+    payment_method: payload.payment_method || null,
     category_id: payload.category_id || null,
-    category_name: payload.category_name || 'Despesa não classificada',
+    // DIV-008: category_name null é válido — operador classifica depois; não criar fallback silencioso
+    category_name: payload.category_name || null,
     result_nature: resultNature,
     account_id: 'Caixa Geral',
     counterparty: payload.counterparty || null,
     collaborator_id: payload.collaborator_id || null,
     collaborator_name: payload.collaborator_name || null,
-    purpose: payload.purpose || 'BUSINESS',
+    // DIV-008: purpose null permanece null — não assumir BUSINESS silenciosamente
+    purpose: payload.purpose || null,
     vehicle_id: payload.vehicle_id || null,
     due_date: payload.due_date || null,
     due_day: payload.due_day || null,
     is_recurring: payload.is_recurring || false,
     installments_total: payload.installments_total || null,
+    // DIV-003: idempotency_key passada diretamente no payload quando disponível
+    idempotency_key: (payload as any).idempotency_key || null,
     origin: payload.origin || 'MANUAL',
     created_by: payload.created_by || 'Operador',
     status: payload.status || 'ACTIVE',
@@ -490,30 +498,57 @@ export const confirmFinancialDraft = async (
 ): Promise<ConfirmDraftResult> => {
   try {
     const todayStr = new Date().toISOString().split('T')[0];
-    const supplierName = draft.supplier || draft.counterparty || 'Fornecedor';
 
-    // 1. Idempotência: Se houver chave de idempotência, verificar se o registro já existe
-    if (idempotencyKey) {
-      const { data: existing } = await supabase
-        .from('financial_transactions')
-        .select('id')
-        .eq('notes', `IDEMPOTENCY_${idempotencyKey}`)
-        .limit(1);
+    // DIV-005: Bloquear tipos legados que a camada superior proíbe via Assistente Financeiro.
+    // O Assistente registra EXCLUSIVAMENTE fatos financeiros já realizados.
+    const blockedIntentTypes = ['INSTALLMENT', 'PAYABLE_BILL', 'RECURRING'];
+    if (draft.intentType && blockedIntentTypes.includes(draft.intentType)) {
+      return {
+        success: false,
+        error: 'O Assistente Financeiro registra apenas fatos realizados. Parcelamentos, boletos futuros e recorrências não são suportados.',
+      };
+    }
+    /* LEGADO COMENTADO — não remover (retrocompatibilidade futura caso re-habilite):
+    // Caminhos: INSTALLMENT (batch de parcelas), PAYABLE_BILL (status PENDING), RECURRING (is_recurring: true)
+    // Estão bloqueados via guard acima enquanto o Assistente operar somente com fatos realizados.
+    */
 
-      if (existing && existing.length > 0) {
-        return {
-          success: true,
-          recordId: existing[0].id,
-          transactionIds: existing.map(e => e.id),
-        };
-      }
+    // 0. Validação estrita de domínio: Forma de pagamento/recebimento é obrigatória!
+    const rawPaymentMethod = String(draft.paymentMethod || draft.payment_method || '').trim();
+    if (!rawPaymentMethod || rawPaymentMethod === 'UNKNOWN' || rawPaymentMethod === 'UNKNOWN_BY_USER') {
+      const isIncome = draft.type === 'income';
+      return {
+        success: false,
+        error: isIncome
+          ? 'Forma de recebimento é obrigatória para registrar a movimentação.'
+          : 'Forma de pagamento é obrigatória para registrar a movimentação.',
+      };
     }
 
-    // 2. Operação com Conta a Pagar Pendente Já Existente (Baixa / Pagamento)
+    // DIV-008: Validação de finalidade (purpose) — não assumir BUSINESS silenciosamente.
+    // Se businessPurpose for UNKNOWN ou null, bloquear antes de persistir.
+    const rawPurpose = draft.businessPurpose ?? draft.purpose ?? null;
+    if (!rawPurpose || rawPurpose === 'UNKNOWN' || rawPurpose === 'UNKNOWN_BY_USER') {
+      return {
+        success: false,
+        error: 'Para qual finalidade foi essa despesa? (Empresa ou pessoal)',
+      };
+    }
+
+    // DIV-006: Validar amount antes de qualquer operação — null jamais vira zero silenciosamente.
+    const rawAmount = draft.amount ?? draft.totalAmount ?? null;
+    if (rawAmount === null || rawAmount === undefined) {
+      return { success: false, error: 'O valor da movimentação não foi informado.' };
+    }
+    if (rawAmount <= 0) {
+      return { success: false, error: 'O valor da movimentação deve ser maior que zero.' };
+    }
+
+    // 1. Operação com Conta a Pagar Pendente Já Existente (Baixa / Pagamento)
     if ((draft.intentType === 'QUERY_OR_UPDATE' || draft.intentType === 'MATCH_EXISTING') && draft.matchedAccount) {
       const res = await payPayableAccount(
         draft.matchedAccount.id,
-        draft.paymentMethod || 'PIX',
+        rawPaymentMethod,
         draft.date || todayStr
       );
       if (!res.success) return { success: false, error: res.error };
@@ -524,81 +559,57 @@ export const confirmFinancialDraft = async (
       };
     }
 
-    // 3. Operação de Parcelamento (Atomic Batch Insert)
-    if (draft.intentType === 'INSTALLMENT' && draft.installmentList && draft.installmentList.length > 0) {
-      const totalCount = draft.installmentList.length;
-      const recordsToInsert = draft.installmentList.map((item: any) => {
-        const resultNature = determineResultNature(draft.categoryName || 'Compra de estoque', 'expense');
-        return {
-          type: 'expense',
-          amount: item.amount,
-          date: draft.date || todayStr,
-          description: `Compra • ${supplierName} (${item.number}/${totalCount})`,
-          payment_method: draft.paymentMethod || 'Boleto',
-          category_id: draft.categoryId || null,
-          category_name: draft.categoryName || 'Compra de estoque',
-          result_nature: resultNature,
-          account_id: 'Caixa Geral',
-          counterparty: supplierName,
-          purpose: draft.purpose || 'BUSINESS',
-          vehicle_id: draft.vehicleId || null,
-          due_date: item.dueDate || null,
-          due_day: draft.dueDay || null,
-          is_recurring: false,
-          installment_number: item.number,
-          installments_total: totalCount,
-          origin: 'AI_ASSISTANT',
-          created_by: userName,
-          status: 'PENDING',
-          notes: idempotencyKey ? `IDEMPOTENCY_${idempotencyKey}` : null,
-        };
-      });
-
-      const batchRes = await supabase
-        .from('financial_transactions')
-        .insert(recordsToInsert)
-        .select();
-
-      if (batchRes.error) {
-        return { success: false, error: batchRes.error.message };
-      }
-
-      const inserted = batchRes.data || [];
-      const ids = inserted.map((r: any) => r.id);
-      return {
-        success: true,
-        recordId: ids[0] || undefined,
-        transactionIds: ids,
-        payableIds: ids,
-      };
-    }
-
-    // 4. Lançamento Único (Entrada, Saída, Boleto a Pagar ou Recorrente)
-    const isPayable = draft.intentType === 'PAYABLE_BILL';
-    const isRecurring = draft.intentType === 'RECURRING';
-
-    const res = await createFinancialTransaction({
+    // 2. Lançamento Único (único caminho não-bloqueado para o Assistente Financeiro)
+    // DIV-003: idempotency_key é passada diretamente no INSERT via createFinancialTransaction.
+    // O banco garante UNIQUE (índice parcial WHERE NOT NULL), eliminando a race condition
+    // do padrão anterior SELECT + INSERT.
+    const insertPayload: Partial<FinancialTransaction> & { idempotency_key?: string | null } = {
       type: draft.type || 'expense',
-      amount: draft.amount || draft.totalAmount || 0,
-      description: draft.supplier || draft.description || 'Lançamento via IA',
+      amount: rawAmount,
+      description: (draft.description || draft.supplier || 'Lançamento via IA').trim(),
       category_id: draft.categoryId || null,
-      category_name: draft.categoryName || (draft.type === 'income' ? 'Outras receitas' : 'Despesa não classificada'),
-      payment_method: draft.paymentMethod || (isPayable ? 'Boleto' : 'PIX'),
-      purpose: draft.purpose || 'BUSINESS',
+      // DIV-008: category_name null é válido — não criar fallback 'Despesa não classificada'
+      category_name: draft.categoryName || null,
+      payment_method: rawPaymentMethod,
+      // DIV-008: purpose já validado acima — nunca chega como UNKNOWN aqui
+      purpose: rawPurpose,
       vehicle_id: draft.vehicleId || null,
       counterparty: draft.supplier || draft.counterparty || null,
-      due_date: draft.dueDate || draft.date || null,
-      due_day: draft.dueDay || null,
-      is_recurring: isRecurring,
-      installments_total: draft.installmentsCount || null,
+      due_date: null,
+      due_day: null,
+      is_recurring: false,
+      installments_total: null,
       origin: 'AI_ASSISTANT',
       created_by: userName,
       date: draft.date || todayStr,
-      status: isPayable ? 'PENDING' : 'ACTIVE',
+      status: 'ACTIVE',
+      // Legado: manter notes para registros históricos sem idempotency_key
       notes: idempotencyKey ? `IDEMPOTENCY_${idempotencyKey}` : null,
-    });
+      // DIV-003: chave real no banco para idempotência via constraint UNIQUE
+      idempotency_key: idempotencyKey || null,
+    };
 
-    if (!res.success) return { success: false, error: res.error };
+    const res = await createFinancialTransaction(insertPayload);
+
+    if (!res.success) {
+      // DIV-003: tratar erro de constraint duplicada como operação já realizada (idempotente)
+      if ((res as any).pgCode === '23505' || (res.error || '').includes('duplicate key') || (res.error || '').includes('unique')) {
+        // Buscar o registro existente pelo legado (notes) como fallback
+        if (idempotencyKey) {
+          const { data: existing } = await supabase
+            .from('financial_transactions')
+            .select('id')
+            .eq('idempotency_key', idempotencyKey)
+            .limit(1);
+          if (existing && existing.length > 0) {
+            return { success: true, recordId: existing[0].id, transactionIds: [existing[0].id] };
+          }
+        }
+        return { success: true, recordId: undefined, transactionIds: [] };
+      }
+      return { success: false, error: res.error };
+    }
+
     return {
       success: true,
       recordId: res.data?.id,

@@ -154,6 +154,27 @@ export const ProductRowActionsCell: React.FC<ProductRowActionsCellProps> = ({
                                                 <span className="text-[10px] font-black uppercase tracking-widest text-slate-700 dark:text-slate-200">Histórico de Vendas</span>
                                             </button>
 
+                                            <button
+                                                onClick={async (e) => {
+                                                    e.stopPropagation();
+                                                    setIsMenuOpen(false);
+                                                    try {
+                                                        const { postShareService } = await import('../../Marketing/Posts/services/postShareService');
+                                                        const url = await postShareService.getOrCreateShareUrl(product.id!);
+                                                        await navigator.clipboard.writeText(url);
+                                                        const { toast } = await import('react-toastify');
+                                                        toast.success('Link de instruções para IA copiado com sucesso!');
+                                                    } catch (err: any) {
+                                                        const { toast } = await import('react-toastify');
+                                                        toast.error('Não foi possível gerar o link para IA.');
+                                                    }
+                                                }}
+                                                className="flex items-center gap-3 px-4 py-2.5 hover:bg-indigo-50 dark:hover:bg-indigo-950/30 transition-colors text-left group cursor-pointer"
+                                            >
+                                                <i className="bi bi-robot text-indigo-500" />
+                                                <span className="text-[10px] font-black uppercase tracking-widest text-indigo-600 dark:text-indigo-300">Copiar Instruções IA</span>
+                                            </button>
+
                                             <div className="border-t border-slate-50 dark:border-slate-800/50 my-1">
                                                 <button
                                                     onClick={(e) => {

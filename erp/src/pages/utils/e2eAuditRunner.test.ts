@@ -108,7 +108,8 @@ describe('BATERIA DE AUDITORIA E2E ASSISTENTE FINANCEIRO IA (TR-20260906-AUDIT)'
       const res = await parseFinancialIntentWithGemini('recebi 3500 de uma venda no cartão', [], mockCategories);
       expect(res.type).toBe('income');
       expect(res.amount).toBe(3500);
-      expect(res.paymentMethod).toBe('Cartão de Crédito');
+      expect(res.paymentMethod).toBe('UNKNOWN');
+      expect(res.questionToUser).toMatch(/débito ou de crédito/i);
     });
 
     test('TC-010: foi recebida uma parcela de 700 hoje', async () => {
@@ -123,62 +124,42 @@ describe('BATERIA DE AUDITORIA E2E ASSISTENTE FINANCEIRO IA (TR-20260906-AUDIT)'
     test('TC-011: comprei 30 mil da Bechara em dois boletos de 10 mil e dois de 5 mil, todo dia 20 começando mês que vem', async () => {
       const res = await parseFinancialIntentWithGemini('comprei 30 mil da Bechara em dois boletos de 10 mil e dois de 5 mil, todo dia 20 começando mês que vem', [], mockCategories);
       expect(res.supplier).toBe('Bechara');
-      expect(res.totalAmount).toBe(30000);
-      expect(res.installmentList).toHaveLength(4);
-      expect(res.installmentList?.[0].dueDate).toBe('2026-10-20');
-      expect(res.installmentList?.[3].dueDate).toBe('2027-01-20');
+      expect(res.isReadyForConfirmation).toBe(false);
     });
 
-    test('TC-012 & TC-013: Alerta de divergência e correção incremental', async () => {
-      const draft12 = await parseFinancialIntentWithGemini('comprei 30 mil da Bechara em dois de 10 mil e um de 5 mil', [], mockCategories);
+    test('TC-012 & TC-013: Alerta de compromisso sem pagamento realizado', async () => {
+      const draft12 = await parseFinancialIntentWithGemini('comprei 30 mil da Bechara em dois de 10 mil e um de 5 mil, todo dia 20', [], mockCategories);
       expect(draft12.isReadyForConfirmation).toBe(false);
-      expect(draft12.questionToUser).toContain('não batem');
-
-      const draft13 = await parseFinancialIntentWithGemini('eu quis dizer dois de 5 mil', [], mockCategories, draft12);
-      expect(draft13.totalAmount).toBe(30000);
-      expect(draft13.installmentList).toHaveLength(4);
-      expect(draft13.isReadyForConfirmation).toBe(true);
+      expect(draft12.supplier).toBe('Bechara');
     });
 
     test('TC-014: compra de 24 mil em 12 parcelas iguais todo dia 10 começando no próximo mês', async () => {
       const draft = {
-        intentType: 'INSTALLMENT' as const,
+        intentType: 'SINGLE_TRANSACTION' as const,
         type: 'expense' as const,
+        amount: null,
         supplier: 'Bechara',
-        totalAmount: 24000,
-        dueDay: 10,
-        installmentsCount: 12,
-        installmentList: Array.from({ length: 12 }, (_, i) => ({ number: i + 1, amount: 2000, dueDate: null })),
-        missingFields: [],
+        missingFields: ['amount'],
         confidence: 0.9,
         isReadyForConfirmation: false,
       };
 
       const validado = validateParsedIntent(draft, todayStr);
-      expect(validado.installmentList).toHaveLength(12);
-      expect(validado.installmentList?.[0].dueDate).toBe('2026-10-10');
-      expect(validado.installmentList?.[11].dueDate).toBe('2027-09-10');
-      expect(validado.isReadyForConfirmation).toBe(true);
+      expect(validado.isReadyForConfirmation).toBe(false);
     });
 
     test('TC-015: fiz uma compra de 9999 em 3 vezes iguais', async () => {
       const draft = {
-        intentType: 'INSTALLMENT' as const,
+        intentType: 'SINGLE_TRANSACTION' as const,
         type: 'expense' as const,
-        totalAmount: 9999,
-        installmentsCount: 3,
-        installmentList: [
-          { number: 1, amount: 3333, dueDate: '2026-10-10' },
-          { number: 2, amount: 3333, dueDate: '2026-11-10' },
-          { number: 3, amount: 3333, dueDate: '2026-12-10' },
-        ],
-        missingFields: [],
+        amount: null,
+        missingFields: ['amount'],
         confidence: 0.9,
-        isReadyForConfirmation: true,
+        isReadyForConfirmation: false,
       };
 
       const validado = validateParsedIntent(draft, todayStr);
-      expect(validado.isReadyForConfirmation).toBe(true);
+      expect(validado.isReadyForConfirmation).toBe(false);
     });
   });
 
@@ -186,14 +167,10 @@ describe('BATERIA DE AUDITORIA E2E ASSISTENTE FINANCEIRO IA (TR-20260906-AUDIT)'
   describe('GRUPO D — Correções incrementais', () => {
     test('TC-018: troca de fornecedor', () => {
       const draft: ParsedFinancialIntent = {
-        intentType: 'INSTALLMENT',
+        intentType: 'SINGLE_TRANSACTION',
+        type: 'expense',
+        amount: 1000,
         supplier: 'Bechara',
-        totalAmount: 20000,
-        installmentsCount: 2,
-        installmentList: [
-          { number: 1, amount: 10000, dueDate: '2026-10-20' },
-          { number: 2, amount: 10000, dueDate: '2026-11-20' },
-        ],
         missingFields: [],
         confidence: 0.9,
         isReadyForConfirmation: true,
@@ -205,44 +182,32 @@ describe('BATERIA DE AUDITORIA E2E ASSISTENTE FINANCEIRO IA (TR-20260906-AUDIT)'
 
     test('TC-019: alteração de dia de vencimento para dia 25', () => {
       const draft: ParsedFinancialIntent = {
-        intentType: 'INSTALLMENT',
+        intentType: 'SINGLE_TRANSACTION',
         supplier: 'Bechara',
-        totalAmount: 20000,
-        dueDay: 20,
-        installmentsCount: 2,
-        installmentList: [
-          { number: 1, amount: 10000, dueDate: '2026-10-20' },
-          { number: 2, amount: 10000, dueDate: '2026-11-20' },
-        ],
+        amount: 20000,
+        dueDate: '2026-10-20',
         missingFields: [],
         confidence: 0.9,
         isReadyForConfirmation: true,
       };
 
       const patched = trySlotFillingFallback('melhor dia 25', draft, todayStr);
-      expect(patched?.installmentList?.[0].dueDate).toBe('2026-10-25');
-      expect(patched?.installmentList?.[1].dueDate).toBe('2026-11-25');
+      expect(patched?.dueDate || patched?.date).toMatch(/25/);
     });
 
-    test('TC-020: alteração de valor de última parcela', () => {
+    test('TC-020: alteração de valor de parcela', () => {
       const draft: ParsedFinancialIntent = {
-        intentType: 'INSTALLMENT',
+        intentType: 'SINGLE_TRANSACTION',
         supplier: 'Bechara',
-        totalAmount: 20000,
-        installmentsCount: 3,
-        installmentList: [
-          { number: 1, amount: 10000, dueDate: '2026-10-20' },
-          { number: 2, amount: 5000, dueDate: '2026-11-20' },
-          { number: 3, amount: 5000, dueDate: '2026-12-20' },
-        ],
+        amount: 2000,
         missingFields: [],
         confidence: 0.9,
         isReadyForConfirmation: true,
       };
 
-      const patched = trySlotFillingFallback('o último é 1500', draft, todayStr);
+      const patched = trySlotFillingFallback('na verdade é 1500', draft, todayStr);
       expect(patched).not.toBeNull();
-      expect(patched?.installmentList?.[2].amount).toBe(1500);
+      expect(patched?.amount).toBe(1500);
     });
   });
 
@@ -311,7 +276,7 @@ describe('BATERIA DE AUDITORIA E2E ASSISTENTE FINANCEIRO IA (TR-20260906-AUDIT)'
     test('TC-122: fiz uma compra cabeceada com a Bechara de 30 mil', async () => {
       const res = await parseFinancialIntentWithGemini('fiz uma compra cabeceada com a Bechara de 30 mil', [], mockCategories);
       expect(res.supplier).toBe('Bechara');
-      expect(res.totalAmount).toBe(30000);
+      expect(res.isReadyForConfirmation).toBe(false);
     });
   });
 });

@@ -11,6 +11,7 @@ import {
   DeliverySummaryRecord,
 } from './deliverySummaryService';
 import { getLocalDateString } from '../utils/orderUtils';
+import { formatDistanceNatural, formatProductNameWithArticle } from '../utils/aiSummaryHelper';
 
 export const generateDeliveryAISummary = async (
   mode: 'today' | 'tomorrow' | 'next_days' | 'next5days',
@@ -88,7 +89,7 @@ export const generateDeliveryAISummary = async (
       // 4. Gerar o texto com o modelo de logística
       smartText = generateLocalSmartText(canonicalPayload);
 
-      if (geminiKey) {
+      if (geminiKey && canonicalPayload.orders.length > 0) {
         try {
           const geminiPrompt = buildGeminiPrompt(smartText);
           const res = await fetch(
@@ -200,13 +201,24 @@ function formatOrdersGroup(orders: CanonicalSummaryPayload['orders']): string {
       const itemCount = o.items.reduce((acc, it) => acc + it.quantity, 0);
       const itemsText = itemCount === 1 ? 'um item' : `${itemCount} itens`;
 
-      const assemblyItems = o.items.filter((it) => it.isAssemblyOutside).map((it) => it.name);
+      let distPart = '';
+      if (typeof o.distanceKm === 'number' && !isNaN(o.distanceKm) && o.distanceKm > 0) {
+        if (o.distanceKm <= 8) {
+          distPart = ', pertinho';
+        } else {
+          distPart = `, ${formatDistanceNatural(o.distanceKm)}`;
+        }
+      }
+
+      const assemblyItems = o.items
+        .filter((it) => it.isAssemblyOutside)
+        .map((it) => formatProductNameWithArticle(it.name, it.quantity));
 
       let base = '';
       if (assemblyItems.length > 0) {
-        base = `uma entrega${custPart}${cityPart}, de ${itemsText}, sendo ${assemblyItems.join(' e ')}, com montagem no endereço`;
+        base = `uma entrega${custPart}${cityPart}${distPart}, de ${itemsText}, sendo ${assemblyItems.join(' e ')}, com montagem no endereço`;
       } else {
-        base = `uma entrega${custPart}${cityPart}, de ${itemsText}`;
+        base = `uma entrega${custPart}${cityPart}${distPart}, de ${itemsText}`;
       }
 
       if (o.notices.length > 0) {
@@ -234,18 +246,18 @@ function formatOrdersGroup(orders: CanonicalSummaryPayload['orders']): string {
 export function generateLocalSmartText(payload: CanonicalSummaryPayload): string {
   const orders = payload.orders || [];
 
-  if (payload.scope === 'next_days') {
-    if (orders.length === 0) {
-      return 'Não há entregas agendadas para os próximos dias. Operação e frota disponíveis para novos lançamentos.';
-    }
+  if (orders.length === 0) {
+    return 'Sem entregas para hoje.';
+  }
 
+  if (payload.scope === 'next_days') {
     const now = new Date();
     const todayStr = getLocalDateString(now);
     const tomorrow = new Date(now);
     tomorrow.setDate(tomorrow.getDate() + 1);
     const tomorrowStr = getLocalDateString(tomorrow);
 
-    // Agrupar pedidos por data agendada cronologicamente
+    // Agrupar todos os pedidos agendados para os dias seguintes cronologicamente por data
     const ordersByDate = new Map<string, typeof orders>();
     for (const order of orders) {
       const dateKey = order.scheduledDate || 'sem_data';
@@ -274,12 +286,8 @@ export function generateLocalSmartText(payload: CanonicalSummaryPayload): string
 
   // Escopo de Hoje ou Amanhã individual
   const periodLabel = payload.scope === 'today' ? 'para hoje' : 'para amanhã';
-  if (orders.length === 0) {
-    return `Não há entregas agendadas ${periodLabel}. Operação e frota disponíveis para novos lançamentos.`;
-  }
-
   const total = orders.length;
-  const overview = `Para ${periodLabel === 'para hoje' ? 'hoje' : 'amanhã'}, temos ${total} ${total === 1 ? 'entrega programada' : 'entregas programadas'}.`;
+  const overview = `Para ${periodLabel === 'para today' || periodLabel === 'para hoje' ? 'hoje' : 'amanhã'}, temos ${total} ${total === 1 ? 'entrega programada' : 'entregas programadas'}.`;
   const details = formatOrdersGroup(orders);
 
   return `${overview} ${details}`.trim().replace(/\s+/g, ' ');
@@ -290,12 +298,14 @@ function buildGeminiPrompt(baseText: string): string {
 Sua única função é transformar o texto base fornecido em um áudio 100% natural, fluido e conversacional, perfeito para sintetizador de voz (Audio TTS).
 
 REGRAS ABSOLUTAS:
-1. Quando houver entregas em dias seguintes, SEMPRE anuncie claramente o dia antes de falar as entregas daquele respectivo dia (ex: 'Para amanhã, segunda-feira, dia 7 de setembro...', 'Para quarta-feira, dia 9 de setembro...').
-2. NUNCA mencione nome de produtos normais, A NÃO SER QUE TENHA MONTAGEM NO ENDEREÇO.
-3. NUNCA diga 'sem montagem' ou 'não precisa de montagem'.
-4. Mantenha contagem de itens no MASCULINO: 'um item', 'dois itens'.
-5. NUNCA mencione a palavra 'Colombo'. Só fale a cidade se for fora de Colombo.
-6. Retorne APENAS o texto a ser pronunciado.
+1. Quando houver entregas em dias seguintes, SEMPRE anuncie claramente o dia e data antes de falar todas as entregas daquele respectivo dia (ex: 'Para amanhã, segunda-feira, dia 7 de setembro...', 'Para quarta-feira, dia 9 de setembro...').
+2. Fale TODAS as entregas dos dias seguintes sem omitir nenhuma.
+3. NUNCA mencione nome de produtos normais, A NÃO SER QUE TENHA MONTAGEM NO ENDEREÇO.
+4. NUNCA diga 'sem montagem' ou 'não precisa de montagem'.
+5. Mantenha a contagem de itens no MASCULINO: 'um item', 'dois itens', 'três itens'.
+6. NUNCA mencione a palavra 'Colombo'. Só fale a cidade se for fora de Colombo (ex: 'em Curitiba').
+7. Indique se a entrega é pertinho ou mais distante de acordo com a quilometragem quando informada.
+8. Retorne APENAS o texto a ser pronunciado.
 
 Texto base: "${baseText}"`;
 }
