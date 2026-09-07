@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, ScrollView, RefreshControl } from 'react-native';
-import { Plus, SlidersHorizontal, Bot, Receipt, CalendarClock } from 'lucide-react-native';
+import { Plus, SlidersHorizontal, Bot, Receipt } from 'lucide-react-native';
 import { MonthCarouselSelector } from '../components/MonthCarouselSelector';
 import { MonthSummaryCard } from '../components/MonthSummaryCard';
 import { TransactionFilterBar } from '../components/TransactionFilterBar';
@@ -8,8 +8,8 @@ import { TransactionFilterModal } from '../components/TransactionFilterModal';
 import { TransactionListGrouped } from '../components/TransactionListGrouped';
 import { NewTransactionModal } from '../components/NewTransactionModal';
 import { TransactionDetailsModal } from '../components/TransactionDetailsModal';
+import { TransactionActionsModal } from '../components/TransactionActionsModal';
 import { FinancialAiChatView } from '../components/FinancialAiChatView';
-import { PayableAccountsView } from '../components/PayableAccountsView';
 import {
   FinancialCategory,
   FinancialTransaction,
@@ -33,7 +33,7 @@ export const FinanceHubScreen: React.FC<Props> = ({
   const [selectedYear, setSelectedYear] = useState(now.getFullYear());
   const [selectedMonth, setSelectedMonth] = useState(now.getMonth() + 1); // 1-12
 
-  const [activeTab, setActiveTab] = useState<'transactions' | 'payable' | 'assistant'>('transactions');
+  const [activeTab, setActiveTab] = useState<'transactions' | 'assistant'>('transactions');
 
   const [categories, setCategories] = useState<FinancialCategory[]>([]);
   const [summary, setSummary] = useState<MonthlySummary>({ income: 0, expense: 0, balance: 0 });
@@ -47,6 +47,8 @@ export const FinanceHubScreen: React.FC<Props> = ({
 
   const [showNewModal, setShowNewModal] = useState(false);
   const [selectedTransaction, setSelectedTransaction] = useState<FinancialTransaction | null>(null);
+  const [actionsTransaction, setActionsTransaction] = useState<FinancialTransaction | null>(null);
+  const [editingTransaction, setEditingTransaction] = useState<FinancialTransaction | null>(null);
 
   const userName = userProfile?.full_name || userProfile?.name || 'Operador';
   const profileRoles = [
@@ -101,7 +103,7 @@ export const FinanceHubScreen: React.FC<Props> = ({
 
   return (
     <View style={[styles.container, isDarkMode && styles.containerDark]}>
-      {/* Navegação por Abas Principais: [ Transações ] [ A pagar ] [ Assistente ] */}
+      {/* Navegação por Abas Principais: [ Transações ] [ Assistente ] */}
       <View style={[styles.topTabsBar, isDarkMode && styles.topTabsBarDark]}>
         <TouchableOpacity
           style={[styles.topTabBtn, activeTab === 'transactions' && styles.activeTopTabBtn]}
@@ -117,23 +119,6 @@ export const FinanceHubScreen: React.FC<Props> = ({
             ]}
           >
             Transações
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[styles.topTabBtn, activeTab === 'payable' && styles.activeTopTabBtn]}
-          onPress={() => setActiveTab('payable')}
-          activeOpacity={0.7}
-        >
-          <CalendarClock size={15} color={activeTab === 'payable' ? '#d97706' : isDarkMode ? '#94a3b8' : '#64748b'} />
-          <Text
-            style={[
-              styles.topTabText,
-              activeTab === 'payable' && styles.activeTopTabTextPayable,
-              isDarkMode && activeTab !== 'payable' && styles.topTabTextDark,
-            ]}
-          >
-            A pagar
           </Text>
         </TouchableOpacity>
 
@@ -207,6 +192,7 @@ export const FinanceHubScreen: React.FC<Props> = ({
               <TransactionListGrouped
                 transactions={transactions}
                 onSelectTransaction={setSelectedTransaction}
+                onOpenTransactionMenu={setActionsTransaction}
                 isDarkMode={isDarkMode}
               />
             )}
@@ -215,19 +201,16 @@ export const FinanceHubScreen: React.FC<Props> = ({
           {/* Botão Flutuante + Nova Transação */}
           <TouchableOpacity
             style={styles.fabBtn}
-            onPress={() => setShowNewModal(true)}
+            onPress={() => {
+              setEditingTransaction(null);
+              setShowNewModal(true);
+            }}
             activeOpacity={0.85}
           >
             <Plus size={20} color="#ffffff" />
             <Text style={styles.fabText}>Nova Transação</Text>
           </TouchableOpacity>
         </View>
-      ) : activeTab === 'payable' ? (
-        /* CONTEÚDO DA ABA A PAGAR */
-        <PayableAccountsView
-          onAccountPaid={() => loadData(false)}
-          isDarkMode={isDarkMode}
-        />
       ) : activeTab === 'assistant' && isAdmin ? (
         /* CONTEÚDO DA ABA ASSISTENTE */
         <FinancialAiChatView
@@ -250,11 +233,31 @@ export const FinanceHubScreen: React.FC<Props> = ({
 
       <NewTransactionModal
         visible={showNewModal}
-        onClose={() => setShowNewModal(false)}
+        onClose={() => {
+          setShowNewModal(false);
+          setEditingTransaction(null);
+        }}
         categories={categories}
-        onSuccess={() => loadData(false)}
+        transaction={editingTransaction}
+        onSuccess={() => {
+          setEditingTransaction(null);
+          loadData(false);
+        }}
         userName={userName}
         isDarkMode={isDarkMode}
+      />
+
+      <TransactionActionsModal
+        visible={Boolean(actionsTransaction)}
+        transaction={actionsTransaction}
+        isDarkMode={isDarkMode}
+        onClose={() => setActionsTransaction(null)}
+        onEdit={(tx) => {
+          setActionsTransaction(null);
+          setEditingTransaction(tx);
+          setShowNewModal(true);
+        }}
+        onDeleted={() => loadData(false)}
       />
 
       <TransactionDetailsModal

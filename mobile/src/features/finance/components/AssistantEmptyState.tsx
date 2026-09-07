@@ -38,22 +38,22 @@ export const AssistantEmptyState: React.FC<Props> = ({
           EXEMPLOS PRÁTICOS DE COMO FALAR:
         </Text>
 
-        {/* 1. Despesa */}
+        {/* 1. Saída */}
         <View style={[styles.exampleRow, isDarkMode && styles.exampleRowDark]}>
           <View style={styles.badgeLabel}>
             <Fuel size={12} color="#ef4444" />
-            <Text style={styles.badgeLabelTextExpense}>Despesa</Text>
+            <Text style={styles.badgeLabelTextExpense}>Saída</Text>
           </View>
           <Text style={[styles.exampleQuoteText, isDarkMode && styles.exampleQuoteTextDark]}>
             "Paguei R$ 180 de combustível no Posto Shell em PIX hoje"
           </Text>
         </View>
 
-        {/* 2. Receita */}
+        {/* 2. Entrada */}
         <View style={[styles.exampleRow, isDarkMode && styles.exampleRowDark]}>
           <View style={styles.badgeLabel}>
             <ArrowDownLeft size={12} color="#10b981" />
-            <Text style={styles.badgeLabelTextIncome}>Outras Receitas</Text>
+            <Text style={styles.badgeLabelTextIncome}>Entrada</Text>
           </View>
           <Text style={[styles.exampleQuoteText, isDarkMode && styles.exampleQuoteTextDark]}>
             "Recebi R$ 1.500 de reembolso do fornecedor em PIX"

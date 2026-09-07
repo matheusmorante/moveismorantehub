@@ -1,7 +1,12 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { View, Text, TouchableOpacity, Modal, StyleSheet, ScrollView, TextInput, Alert, ActivityIndicator } from 'react-native';
 import { X, Search, ChevronRight, Check, CalendarDays } from 'lucide-react-native';
-import { FinancialCategory, createFinancialTransaction } from '../../../services/mobileFinanceService';
+import {
+  FinancialCategory,
+  FinancialTransaction,
+  createFinancialTransaction,
+  updateFinancialTransaction,
+} from '../../../services/mobileFinanceService';
 import { supabase } from '../../../services/supabaseClient';
 import { CategorySelectModal } from './CategorySelectModal';
 import { TransactionDatePickerModal } from './TransactionDatePickerModal';
@@ -10,6 +15,7 @@ interface Props {
   visible: boolean;
   onClose: () => void;
   categories: FinancialCategory[];
+  transaction?: FinancialTransaction | null;
   onSuccess: () => void;
   userName?: string;
   isDarkMode?: boolean;
@@ -42,10 +48,29 @@ const isProLaboreCat = (name: string): boolean => {
   );
 };
 
+const normalizeCategoryName = (name: string) =>
+  name.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+
+const buildIncomeCategories = (categories: FinancialCategory[]): FinancialCategory[] => {
+  const incomeCategories = categories.filter(category => category.type === 'income');
+  const other = incomeCategories.find(category => normalizeCategoryName(category.name).includes('outra'));
+  const loan = incomeCategories.find(category => normalizeCategoryName(category.name).includes('emprestimo'));
+
+  return [
+    other
+      ? { ...other, name: 'Outras' }
+      : { id: 'cat_income_other_default', name: 'Outras', type: 'income', result_nature: 'RECEITA' },
+    loan
+      ? { ...loan, name: 'Empréstimos' }
+      : { id: 'cat_income_loan_default', name: 'Empréstimos', type: 'income', result_nature: 'NAO_AFETA_RESULTADO' },
+  ];
+};
+
 export const NewTransactionModal: React.FC<Props> = ({
   visible,
   onClose,
   categories,
+  transaction = null,
   onSuccess,
   userName = 'Operador',
   isDarkMode = false,
@@ -75,14 +100,58 @@ export const NewTransactionModal: React.FC<Props> = ({
   const isExpense = type === 'expense';
 
   useEffect(() => {
+    if (!visible) return;
+
+    if (transaction) {
+      const editingIncomeCategories = buildIncomeCategories(categories);
+      const isLoan = normalizeCategoryName(transaction.category_name || '').includes('emprestimo');
+      const isPersonalExpense = transaction.type === 'expense' && transaction.purpose === 'PERSONAL_PARTNER';
+      const incomeCategory = editingIncomeCategories.find(category =>
+        isLoan
+          ? normalizeCategoryName(category.name).includes('emprestimo')
+          : normalizeCategoryName(category.name).includes('outra')
+      );
+
+      setType(transaction.type);
+      setPurpose(transaction.purpose === 'PERSONAL_PARTNER' ? 'PERSONAL_PARTNER' : 'BUSINESS');
+      setTransactionDate(transaction.date || toLocalIsoDate(new Date()));
+      setAmountStr(String(transaction.amount).replace('.', ','));
+      setDescription(transaction.description || '');
+      setSelectedCatId(
+        transaction.type === 'income'
+          ? (incomeCategory?.id || '')
+          : isPersonalExpense
+            ? (transaction.category_id || categories.find(category => category.type === 'expense' && isProLaboreCat(category.name))?.id || 'cat_pro_labore_default')
+            : (transaction.category_id || '')
+      );
+      setPaymentMethod(transaction.payment_method || 'PIX');
+      setVehicleId(transaction.vehicle_id || '');
+      setCollaboratorId(transaction.collaborator_id || '');
+      setCollaboratorName(transaction.collaborator_name || '');
+      return;
+    }
+
+    setType('expense');
+    setPurpose('BUSINESS');
+    setTransactionDate(toLocalIsoDate(new Date()));
+    setAmountStr('');
+    setDescription('');
+    setSelectedCatId('');
+    setPaymentMethod('PIX');
+    setVehicleId('');
+    setCollaboratorId('');
+    setCollaboratorName('');
+  }, [visible, transaction, categories]);
+
+  useEffect(() => {
     const loadCollaborators = async () => {
       try {
-        const { data } = await supabase.from('profiles').select('id, name, full_name, role').limit(50);
+        const { data } = await supabase.from('profiles').select('id, full_name, role').limit(50);
         if (data && data.length > 0) {
           setCollaboratorsList(
             data.map(p => ({
               id: p.id,
-              name: p.full_name || p.name || 'Colaborador',
+              name: p.full_name || 'Colaborador',
             }))
           );
         }
@@ -96,6 +165,10 @@ export const NewTransactionModal: React.FC<Props> = ({
   // Filtragem dinâmica das categorias baseada no Tipo e na Finalidade
   const filteredCategories = useMemo(() => {
     const byType = categories.filter(c => c.type === type);
+
+    if (type === 'income') {
+      return buildIncomeCategories(categories);
+    }
 
     if (isExpense && purpose === 'PERSONAL_PARTNER') {
       const proLaboreCats = byType.filter(c => isProLaboreCat(c.name));
@@ -186,10 +259,14 @@ export const NewTransactionModal: React.FC<Props> = ({
 
     setSaving(true);
     const catName = selectedCategory?.name || (isExpense && purpose === 'PERSONAL_PARTNER' ? 'Pró-labore' : (type === 'income' ? 'Outras entradas' : 'Despesa não classificada'));
-    const realCatId = selectedCatId === 'cat_pro_labore_default' ? null : (selectedCatId || null);
+    const isVirtualCategory = [
+      'cat_pro_labore_default',
+      'cat_income_other_default',
+      'cat_income_loan_default',
+    ].includes(selectedCatId);
+    const realCatId = isVirtualCategory ? null : (selectedCatId || null);
 
-    // Toda transação manual criada é única
-    await createFinancialTransaction({
+    const editablePayload: Partial<FinancialTransaction> = {
       type,
       amount: val,
       description: description.trim(),
@@ -200,16 +277,30 @@ export const NewTransactionModal: React.FC<Props> = ({
       vehicle_id: isVehicleCategory ? vehicleId || null : null,
       collaborator_id: isPersonnelCategory ? collaboratorId || null : null,
       collaborator_name: isPersonnelCategory ? collaboratorName || null : null,
-      notes: null,
-      origin: 'MANUAL',
-      created_by: userName,
       date: transactionDate,
-      due_date: null,
-      is_recurring: false,
-      status: 'ACTIVE',
-    });
+      result_nature: selectedCategory?.result_nature || undefined,
+    };
+
+    const result = transaction
+      ? await updateFinancialTransaction(transaction.id, editablePayload)
+      : await createFinancialTransaction({
+          ...editablePayload,
+          notes: null,
+          origin: 'MANUAL',
+          created_by: userName,
+          due_date: null,
+          is_recurring: false,
+          status: 'ACTIVE',
+        });
 
     setSaving(false);
+    if (!result.success) {
+      Alert.alert(
+        transaction ? 'Erro ao editar' : 'Erro ao criar',
+        result.error || 'Não foi possível concluir a operação.'
+      );
+      return;
+    }
 
     // Reset form
     setAmountStr('');
@@ -234,7 +325,9 @@ export const NewTransactionModal: React.FC<Props> = ({
         <View style={styles.overlay}>
           <View style={[styles.modalContent, isDarkMode && styles.modalContentDark]}>
             <View style={styles.header}>
-              <Text style={[styles.title, isDarkMode && styles.titleDark]}>+ Nova Transação</Text>
+              <Text style={[styles.title, isDarkMode && styles.titleDark]}>
+                {transaction ? 'Editar Transação' : '+ Nova Transação'}
+              </Text>
               <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
                 <X size={20} color={isDarkMode ? '#94a3b8' : '#64748b'} />
               </TouchableOpacity>
@@ -245,16 +338,16 @@ export const NewTransactionModal: React.FC<Props> = ({
               <Text style={[styles.label, isDarkMode && styles.labelDark]}>Data da transação</Text>
               <View style={styles.dateOptionsRow}>
                 <TouchableOpacity
-                  style={[styles.dateOption, transactionDate === todayStr && styles.dateOptionActive]}
-                  onPress={() => setTransactionDate(todayStr)}
-                >
-                  <Text style={[styles.dateOptionText, transactionDate === todayStr && styles.dateOptionTextActive]}>Hoje</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
                   style={[styles.dateOption, transactionDate === yesterdayStr && styles.dateOptionActive]}
                   onPress={() => setTransactionDate(yesterdayStr)}
                 >
                   <Text style={[styles.dateOptionText, transactionDate === yesterdayStr && styles.dateOptionTextActive]}>Ontem</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.dateOption, transactionDate === todayStr && styles.dateOptionActive]}
+                  onPress={() => setTransactionDate(todayStr)}
+                >
+                  <Text style={[styles.dateOptionText, transactionDate === todayStr && styles.dateOptionTextActive]}>Hoje</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
                   style={[
@@ -460,7 +553,7 @@ export const NewTransactionModal: React.FC<Props> = ({
                 {saving ? (
                   <ActivityIndicator color="#ffffff" size="small" />
                 ) : (
-                  <Text style={styles.saveBtnText}>Finalizar</Text>
+                  <Text style={styles.saveBtnText}>{transaction ? 'Salvar alterações' : 'Finalizar'}</Text>
                 )}
               </TouchableOpacity>
             </View>
@@ -588,9 +681,13 @@ const styles = StyleSheet.create({
   },
   typeBtnIncome: {
     backgroundColor: '#dcfce7',
+    borderWidth: 2,
+    borderColor: '#16a34a',
   },
   typeBtnExpense: {
     backgroundColor: '#fee2e2',
+    borderWidth: 2,
+    borderColor: '#dc2626',
   },
   typeBtnActive: {
     backgroundColor: '#eff6ff',

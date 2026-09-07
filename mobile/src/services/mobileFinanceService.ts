@@ -163,11 +163,21 @@ export const fetchMonthlySummary = async (year: number, month: number): Promise<
   const nextYear = month === 12 ? year + 1 : year;
   const endDate = `${nextYear}-${String(nextMonth).padStart(2, '0')}-01`;
 
-  const { data, error } = await supabase
+  let queryRes = await supabase
     .from('financial_transactions')
     .select('type, amount, status')
     .gte('date', startDate)
     .lt('date', endDate);
+
+  if (queryRes.error && queryRes.error.message?.includes('status')) {
+    queryRes = await supabase
+      .from('financial_transactions')
+      .select('type, amount')
+      .gte('date', startDate)
+      .lt('date', endDate);
+  }
+
+  const { data, error } = queryRes;
 
   if (error) {
     console.warn('Erro ao consultar resumo mensal:', error.message);
@@ -203,14 +213,24 @@ export const fetchCashFlowReport = async (year: number, month: number): Promise<
   const nextYear = month === 12 ? year + 1 : year;
   const endDate = `${nextYear}-${String(nextMonth).padStart(2, '0')}-01`;
 
-  // Buscar saldo anterior a esta data
-  const [{ data: priorData }, { data: currentData }] = await Promise.all([
+  // Buscar saldo anterior a esta data com fallback resiliente para coluna status
+  let [priorRes, currentRes] = await Promise.all([
     supabase.from('financial_transactions').select('type, amount, status').lt('date', startDate),
     supabase.from('financial_transactions').select('type, amount, status').gte('date', startDate).lt('date', endDate),
   ]);
 
+  if (priorRes.error && priorRes.error.message?.includes('status')) {
+    [priorRes, currentRes] = await Promise.all([
+      supabase.from('financial_transactions').select('type, amount').lt('date', startDate),
+      supabase.from('financial_transactions').select('type, amount').gte('date', startDate).lt('date', endDate),
+    ]);
+  }
+
+  const priorData = priorRes.data || [];
+  const currentData = currentRes.data || [];
+
   let initialBalance = 0;
-  (priorData || []).forEach((row: any) => {
+  priorData.forEach((row: any) => {
     if (row.status === 'REVERSED' || row.status === 'CANCELLED' || row.status === 'PENDING') return;
     const val = Number(row.amount) || 0;
     if (row.type === 'income') initialBalance += val;
@@ -219,7 +239,7 @@ export const fetchCashFlowReport = async (year: number, month: number): Promise<
 
   let totalInflow = 0;
   let totalOutflow = 0;
-  (currentData || []).forEach((row: any) => {
+  currentData.forEach((row: any) => {
     if (row.status === 'REVERSED' || row.status === 'CANCELLED' || row.status === 'PENDING') return;
     const val = Number(row.amount) || 0;
     if (row.type === 'income') totalInflow += val;
@@ -442,11 +462,33 @@ export const createFinancialTransaction = async (
     status: payload.status || 'ACTIVE',
   };
 
-  const insertRes = await supabase
+  let insertRes = await supabase
     .from('financial_transactions')
     .insert([fullRecord])
     .select()
     .single();
+
+  if (insertRes.error && insertRes.error.message?.includes('column')) {
+    // Fallback defensivo para tabela legada com apenas colunas essenciais
+    const basicRecord: any = {
+      type: fullRecord.type,
+      amount: fullRecord.amount,
+      date: fullRecord.date,
+      description: fullRecord.description,
+      payment_method: fullRecord.payment_method,
+      category_id: fullRecord.category_id,
+      notes: fullRecord.notes || (fullRecord.category_name ? `[${fullRecord.category_name}]` : null),
+    };
+    if (fullRecord.idempotency_key) {
+      basicRecord.idempotency_key = fullRecord.idempotency_key;
+    }
+
+    insertRes = await supabase
+      .from('financial_transactions')
+      .insert([basicRecord])
+      .select()
+      .single();
+  }
 
   if (insertRes.error) {
     console.error('Erro ao salvar movimentação financeira:', insertRes.error);
@@ -631,6 +673,61 @@ export const reverseFinancialTransaction = async (
     return { success: false, error: error.message };
   }
   return { success: true };
+};
+
+export const updateFinancialTransaction = async (
+  id: string,
+  payload: Partial<FinancialTransaction>
+): Promise<{ success: boolean; error?: string }> => {
+  // Construir payload limpo e compatível com as colunas reais
+  const updatePayload: any = {
+    updated_at: new Date().toISOString(),
+  };
+
+  if (payload.type !== undefined) updatePayload.type = payload.type;
+  if (payload.amount !== undefined) updatePayload.amount = payload.amount;
+  if (payload.date !== undefined) updatePayload.date = payload.date;
+  if (payload.description !== undefined) updatePayload.description = payload.description.trim();
+  if (payload.payment_method !== undefined) updatePayload.payment_method = payload.payment_method;
+  if (payload.category_id !== undefined) updatePayload.category_id = payload.category_id || null;
+  if (payload.notes !== undefined) updatePayload.notes = payload.notes || null;
+
+  // Tentar primeiro com os campos estendidos
+  const fullUpdate = {
+    ...updatePayload,
+    category_name: payload.category_name || null,
+    result_nature: payload.result_nature || null,
+    purpose: payload.purpose || null,
+    vehicle_id: payload.vehicle_id || null,
+    collaborator_id: payload.collaborator_id || null,
+    collaborator_name: payload.collaborator_name || null,
+  };
+
+  let updateRes = await supabase
+    .from('financial_transactions')
+    .update(fullUpdate)
+    .eq('id', id);
+
+  if (updateRes.error && updateRes.error.message?.includes('column')) {
+    // Fallback defensivo para colunas básicas caso a migration ainda não tenha rodado
+    updateRes = await supabase
+      .from('financial_transactions')
+      .update(updatePayload)
+      .eq('id', id);
+  }
+
+  return updateRes.error ? { success: false, error: updateRes.error.message } : { success: true };
+};
+
+export const deleteFinancialTransaction = async (
+  id: string
+): Promise<{ success: boolean; error?: string }> => {
+  const { error } = await supabase
+    .from('financial_transactions')
+    .delete()
+    .eq('id', id);
+
+  return error ? { success: false, error: error.message } : { success: true };
 };
 
 export const fetchPayableAccounts = async (): Promise<FinancialTransaction[]> => {

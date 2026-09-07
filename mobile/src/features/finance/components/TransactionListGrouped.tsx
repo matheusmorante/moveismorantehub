@@ -6,6 +6,7 @@ import { TransactionItemCard } from './TransactionItemCard';
 interface Props {
   transactions: FinancialTransaction[];
   onSelectTransaction: (transaction: FinancialTransaction) => void;
+  onOpenTransactionMenu: (transaction: FinancialTransaction) => void;
   isDarkMode?: boolean;
 }
 
@@ -18,6 +19,7 @@ interface GroupedByDate {
 export const TransactionListGrouped: React.FC<Props> = ({
   transactions,
   onSelectTransaction,
+  onOpenTransactionMenu,
   isDarkMode = false,
 }) => {
   const formatGroupHeader = (dateStr: string) => {
@@ -83,6 +85,7 @@ export const TransactionListGrouped: React.FC<Props> = ({
               key={item.id}
               transaction={item}
               onPress={onSelectTransaction}
+              onOpenMenu={onOpenTransactionMenu}
               isDarkMode={isDarkMode}
             />
           ))}

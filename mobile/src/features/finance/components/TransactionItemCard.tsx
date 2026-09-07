@@ -1,17 +1,19 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
-import { ArrowUpRight, ArrowDownLeft, Bot, User } from 'lucide-react-native';
+import { ArrowUpRight, ArrowDownLeft, Bot, MoreVertical } from 'lucide-react-native';
 import { FinancialTransaction } from '../../../services/mobileFinanceService';
 
 interface Props {
   transaction: FinancialTransaction;
   onPress: (transaction: FinancialTransaction) => void;
+  onOpenMenu: (transaction: FinancialTransaction) => void;
   isDarkMode?: boolean;
 }
 
 export const TransactionItemCard: React.FC<Props> = ({
   transaction,
   onPress,
+  onOpenMenu,
   isDarkMode = false,
 }) => {
   const isIncome = transaction.type === 'income';
@@ -46,9 +48,21 @@ export const TransactionItemCard: React.FC<Props> = ({
       </View>
 
       <View style={styles.rightCol}>
-        <Text style={[styles.amount, isIncome ? styles.incomeText : styles.expenseText]}>
-          {isIncome ? '+' : '-'} {formatCurrency(transaction.amount)}
-        </Text>
+        <View style={styles.amountRow}>
+          <Text style={[styles.amount, isIncome ? styles.incomeText : styles.expenseText]}>
+            {isIncome ? '+' : '-'} {formatCurrency(transaction.amount)}
+          </Text>
+          <TouchableOpacity
+            accessibilityLabel={`Ações de ${transaction.description}`}
+            style={styles.menuButton}
+            onPress={(event) => {
+              event.stopPropagation?.();
+              onOpenMenu(transaction);
+            }}
+          >
+            <MoreVertical size={19} color={isDarkMode ? '#cbd5e1' : '#64748b'} />
+          </TouchableOpacity>
+        </View>
         <View style={styles.badgeRow}>
           {transaction.origin === 'AI_ASSISTANT' ? (
             <View style={styles.aiBadge}>
@@ -126,6 +140,16 @@ const styles = StyleSheet.create({
   },
   rightCol: {
     alignItems: 'flex-end',
+  },
+  amountRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  menuButton: {
+    padding: 6,
+    marginRight: -6,
+    marginTop: -6,
   },
   amount: {
     fontSize: 14,

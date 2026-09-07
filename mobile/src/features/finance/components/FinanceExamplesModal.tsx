@@ -41,11 +41,11 @@ export const FinanceExamplesModal: React.FC<Props> = ({
 
           {/* Lista em Scroll de Exemplos para Leitura */}
           <ScrollView style={styles.scrollList} showsVerticalScrollIndicator={true}>
-            {/* 1. Despesa à Vista */}
+            {/* 1. Saída à Vista */}
             <View style={[styles.categorySection, isDarkMode && styles.categorySectionDark]}>
               <View style={styles.categoryHeader}>
                 <Fuel size={16} color="#ef4444" />
-                <Text style={styles.categoryTitle}>Despesas à Vista</Text>
+                <Text style={styles.categoryTitle}>Saídas à Vista</Text>
               </View>
               <View style={styles.exampleItem}>
                 <Text style={[styles.exampleText, isDarkMode && styles.exampleTextDark]}>
@@ -59,11 +59,11 @@ export const FinanceExamplesModal: React.FC<Props> = ({
               </View>
             </View>
 
-            {/* 2. Outras Receitas (Exclui Vendas do ERP) */}
+            {/* 2. Entradas (Exclui Vendas do ERP) */}
             <View style={[styles.categorySection, isDarkMode && styles.categorySectionDark]}>
               <View style={styles.categoryHeader}>
                 <ArrowDownLeft size={16} color="#10b981" />
-                <Text style={styles.categoryTitle}>Outras Receitas (Aporte, Reembolso, Empréstimos)</Text>
+                <Text style={styles.categoryTitle}>Entradas (Outras e Empréstimos)</Text>
               </View>
               <View style={styles.exampleItem}>
                 <Text style={[styles.exampleText, isDarkMode && styles.exampleTextDark]}>
