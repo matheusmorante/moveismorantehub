@@ -71,8 +71,8 @@ function extractPemFromPfx(pfxBase64: string, password: string): { certPem: stri
     throw new Error("Não foi possível extrair o certificado e/ou a chave privada do arquivo .pfx com a senha fornecida.");
   }
 
-  const fullCertChain = `${leafCertPem}\n${caChainPem}`.trim();
-  return { certPem: fullCertChain, keyPem: keyPem.trim() };
+  // Enviar apenas o certificado folha (como no Node.js que conectou perfeitamente)
+  return { certPem: leafCertPem.trim(), keyPem: keyPem.trim() };
 }
 
 // Descompactar GZip Base64 usando a API de streams nativa do Deno
