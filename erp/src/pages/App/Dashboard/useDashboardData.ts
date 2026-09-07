@@ -2,6 +2,7 @@
 import { subscribeToOrders } from '../../utils/orderHistoryService';
 import Order from '../../types/order.type';
 import { isSameDay, subDays, differenceInCalendarDays, startOfDay, endOfDay, subMonths, isWithinInterval } from 'date-fns';
+import { dashboardRevenueFactor, getDashboardRevenueImpact, getDefinitiveOrderValue, isDashboardSaleOrder } from './dashboardRevenue';
 
 export type Period = 'custom' | 'today' | 'yesterday' | 'week' | 'month' | 'last_30_days' | 'last_month' | 'last_semester' | 'year';
 
@@ -161,12 +162,10 @@ export const useDashboardData = (period: Period, customStartDate?: string, custo
     }, [period, customStartDate, customEndDate]);
 
     const calculateStats = (filteredOrdersList: Order[]): DashboardStats => {
-        const recognizedStatuses = ['scheduled', 'fulfilled'];
-        const saleOrders = filteredOrdersList.filter(o =>
-            o && recognizedStatuses.includes(o.status || '') && o.orderType !== 'return'
-        );
+        const saleOrders = filteredOrdersList.filter(isDashboardSaleOrder);
+        const revenueOrders = filteredOrdersList.filter(o => dashboardRevenueFactor(o) !== 0);
 
-        const totalSales = saleOrders.reduce((acc, curr) => acc + (curr?.paymentsSummary?.totalOrderValue || 0), 0);
+        const totalSales = revenueOrders.reduce((acc, curr) => acc + getDashboardRevenueImpact(curr), 0);
         const saleCount = saleOrders.length;
         const avgTicket = saleCount > 0 ? totalSales / saleCount : 0;
         const totalOrdersCount = filteredOrdersList.length;
@@ -175,9 +174,9 @@ export const useDashboardData = (period: Period, customStartDate?: string, custo
         let cmvPartial = false;
         let itemsWithoutCost = 0;
 
-        for (const order of saleOrders) {
+        for (const order of revenueOrders) {
             const { cmv, partial, itemsWithout } = calcOrderCmv(order);
-            totalCmv += cmv;
+            totalCmv += cmv * dashboardRevenueFactor(order);
             if (partial) cmvPartial = true;
             itemsWithoutCost += itemsWithout;
         }
@@ -210,7 +209,7 @@ export const useDashboardData = (period: Period, customStartDate?: string, custo
             }
             return false;
         };
-        const paidTrafficSalesValue = saleOrders.filter(isPaidTraffic).reduce((acc, curr) => acc + (curr?.paymentsSummary?.totalOrderValue || 0), 0);
+        const paidTrafficSalesValue = revenueOrders.filter(isPaidTraffic).reduce((acc, curr) => acc + getDashboardRevenueImpact(curr), 0);
 
         return { totalSales, saleCount, totalOrdersCount, totalProfit, grossMargin, totalCmv, cmvPartial, itemsWithoutCost, avgTicket, pendingOrders, activeSchedules, totalKmDriven, paidTrafficSalesValue };
     };
@@ -259,12 +258,13 @@ export const useDashboardData = (period: Period, customStartDate?: string, custo
                 if (isHourlyChart) return oDate.getHours() === d.getHours() && isSameDay(oDate, d);
                 if (isMonthlyChart) return oDate.getMonth() === d.getMonth() && oDate.getFullYear() === d.getFullYear();
                 return isSameDay(oDate, d);
-            }).filter(o => ['scheduled', 'fulfilled'].includes(o.status || '') && o.orderType !== 'return');
+            }).filter(o => dashboardRevenueFactor(o) !== 0);
 
-            const total = dayOrders.reduce((acc, curr) => acc + (curr?.paymentsSummary?.totalOrderValue || 0), 0);
+            const total = dayOrders.reduce((acc, curr) => acc + getDashboardRevenueImpact(curr), 0);
             const lucro = dayOrders.reduce((acc, o) => {
                 const { cmv } = calcOrderCmv(o);
-                return acc + ((o?.paymentsSummary?.totalOrderValue || 0) - cmv);
+                const factor = dashboardRevenueFactor(o);
+                return acc + factor * (getDefinitiveOrderValue(o) - cmv);
             }, 0);
 
             let label = '';
@@ -277,7 +277,7 @@ export const useDashboardData = (period: Period, customStartDate?: string, custo
             else if (period === 'custom') label = `${dd}/${mm}/${aa}`;
             else label = `${dd}/${mm}`;
 
-            return { name: label, valor: total, lucro, orders: dayOrders.length };
+            return { name: label, valor: total, lucro, orders: dayOrders.filter(isDashboardSaleOrder).length };
         });
     }, [filteredOrders, intervals, period]);
 

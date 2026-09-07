@@ -14,8 +14,7 @@ import {
   MAX_VOICE_INACTIVITY_MS,
   classifyMultiTurnIntent,
   applyTurnPatch,
-  applyTurnPatchWithDraftList,
-  buildGroupedQuestion,
+  validateParsedIntent,
 } from '../../../services/financialAiAssistantService';
 import { VoiceSessionState } from '../types/VoiceSessionState';
 import { AssistantEmptyState } from './AssistantEmptyState';
@@ -31,7 +30,7 @@ import {
 import type { FinancialCardTimelineEntry } from './chat/financialCardTimeline';
 import { RecordingStatusBar } from './chat/RecordingStatusBar';
 import { startVoiceRecording, stopVoiceRecording } from '../../../services/voiceRecorderService';
-import { advanceFinancialBatch } from '../../../services/financial/financialBatchQueue';
+import { advanceFinancialBatch, rebuildFinancialBatch } from '../../../services/financial/financialBatchQueue';
 
 interface Props {
   categories: FinancialCategory[];
@@ -195,7 +194,15 @@ export const FinancialAiChatView: React.FC<Props> = ({
 
       setLoading(false);
 
-      if (intent.supplier || intent.totalAmount || intent.amount || intent.installmentsCount) {
+      if (
+        intent.description ||
+        intent.supplier ||
+        intent.totalAmount ||
+        intent.amount ||
+        intent.installmentsCount ||
+        intent.questionToUser ||
+        intent.missingFields?.length
+      ) {
         setActiveDraft(intent);
       }
 
@@ -241,63 +248,112 @@ export const FinancialAiChatView: React.FC<Props> = ({
     setLoading(true);
     scrollToBottom();
 
-    const currentDraft = activeDraftRef.current || activeDraft;
-    const turnIntentType = classifyMultiTurnIntent(messageText, currentDraft, messages);
+    const currentDraft = activeDraftRef.current || activeDraft || pendingIntent;
+    const queuedDrafts = currentDraft?.batchDraftsList?.length
+      ? currentDraft.batchDraftsList
+      : (currentDraft ? [currentDraft] : []);
+    const currentItem = queuedDrafts[0] || null;
+    const classifiedTurn = classifyMultiTurnIntent(messageText, currentItem, messages);
+    const explicitlyRequestsNewTransaction = /\b(?:nova|novo|outra|outro)\b[\s\S]{0,35}\b(?:atualização|atualizacao|movimentação|movimentacao|lançamento|lancamento|entrada|saída|saida)\b|\b(?:cadastrar|registrar|lançar|lancar|criar|adicionar)\b[\s\S]{0,35}\b(?:uma|um)\s+(?:nova|novo|outra|outro)\b/i.test(messageText);
+    const newRequestHasTransactionDetails = /r\$|\d|conta\s+de|\b(?:luz|energia|internet|água|agua|aluguel|compra|venda|paguei|recebi|gastei|abasteci)\b/i.test(messageText);
+    const startsBlankTransaction = explicitlyRequestsNewTransaction && !newRequestHasTransactionDetails;
+    const triesToStartAnotherTransaction = Boolean(
+      currentItem &&
+      classifiedTurn !== 'CORRECTION' &&
+      !explicitlyRequestsNewTransaction &&
+      /\b(?:quero|gostaria|preciso|vou)\b[\s\S]{0,40}\b(?:cadastrar|registrar|lançar|lancar|adicionar|criar)\b|\b(?:cadastrar|registrar|lançar|lancar|adicionar|criar)\b[\s\S]{0,40}\b(?:conta|movimentação|movimentacao|entrada|saída|saida)\b/i.test(messageText)
+    );
+    const mustKeepCurrentTransaction = Boolean(
+      currentItem &&
+      !explicitlyRequestsNewTransaction &&
+      (classifiedTurn === 'NEW_TRANSACTION' || triesToStartAnotherTransaction)
+    );
+    // Uma nova movimentação só substitui a atual quando o usuário pedir isso
+    // explicitamente. Respostas, repetições e tentativas novamente continuam no
+    // rascunho atual.
+    const turnIntentType = explicitlyRequestsNewTransaction
+      ? 'NEW_TRANSACTION'
+      : (currentItem && classifiedTurn === 'NEW_TRANSACTION' ? 'CONTINUATION' : classifiedTurn);
     const todayStr = new Date().toISOString().split('T')[0];
 
-    const batchPatch = currentDraft?.batchDraftsList?.length
-      ? applyTurnPatchWithDraftList(currentDraft.batchDraftsList, messageText, turnIntentType, categories, todayStr)
-      : null;
-    const singlePatch = batchPatch ? null : applyTurnPatch(currentDraft, messageText, turnIntentType, categories, todayStr);
-    const isNewTransaction = batchPatch?.isNewTransaction ?? singlePatch!.isNewTransaction;
-    const patchedBatch = batchPatch?.updatedDrafts;
-    const batchReady = Boolean(patchedBatch?.length && patchedBatch.every(item => item.isReadyForConfirmation || item.validationStatus === 'ready'));
-    const updatedDraft: ParsedFinancialIntent = patchedBatch && currentDraft ? {
-      ...currentDraft,
-      batchDraftsList: patchedBatch,
-      questionToUser: buildGroupedQuestion(patchedBatch),
-      missingFields: patchedBatch.flatMap(item => item.missingFields || []),
-      isReadyForConfirmation: batchReady,
-      validationStatus: batchReady ? 'ready' : 'needs_input',
-    } : singlePatch!.updatedDraft;
+    const singlePatch = startsBlankTransaction
+      ? {
+          updatedDraft: {
+            intentType: 'SINGLE_TRANSACTION' as const,
+            type: /\bentrada\b/i.test(messageText) ? 'income' as const : 'expense' as const,
+            description: null,
+            amount: null,
+            paymentMethod: null,
+            businessPurpose: /\bentrada\b/i.test(messageText) ? null : 'UNKNOWN' as const,
+            missingFields: ['description', 'amount', 'paymentMethod'],
+            questionToUser: /\bentrada\b/i.test(messageText)
+              ? 'Qual entrada você quer cadastrar?'
+              : 'Qual saída você quer cadastrar?',
+            confidence: 1,
+            isReadyForConfirmation: false,
+            validationStatus: 'needs_input' as const,
+          },
+          isNewTransaction: true,
+        }
+      : mustKeepCurrentTransaction
+      ? {
+          updatedDraft: validateParsedIntent(currentItem!, todayStr),
+          isNewTransaction: false,
+        }
+      : applyTurnPatch(currentItem, messageText, turnIntentType, categories, todayStr);
+    const isNewTransaction = singlePatch.isNewTransaction;
+    const patchedItem = singlePatch.updatedDraft;
+    const updatedDraft = !explicitlyRequestsNewTransaction && currentDraft?.batchDraftsList?.length
+      ? rebuildFinancialBatch(currentDraft, [patchedItem, ...queuedDrafts.slice(1)])!
+      : patchedItem;
 
     let finalIntent = updatedDraft;
 
     try {
-      const draftToPass = isNewTransaction ? null : currentDraft;
-      const geminiParsed = await parseFinancialIntentWithGemini(messageText, messages, categories, draftToPass);
+      const draftToPass = isNewTransaction ? null : currentItem;
+      const geminiParsed = mustKeepCurrentTransaction || startsBlankTransaction
+        ? null
+        : await parseFinancialIntentWithGemini(messageText, messages, categories, draftToPass);
 
-      if (geminiParsed && !isNewTransaction && currentDraft) {
-        const purposeWasPatched = updatedDraft.businessPurpose !== currentDraft.businessPurpose;
-        const paymentWasPatched = updatedDraft.paymentMethod !== currentDraft.paymentMethod;
-        finalIntent = {
-          ...updatedDraft,
+      if (geminiParsed && !isNewTransaction && currentItem) {
+        const purposeWasPatched = patchedItem.businessPurpose !== currentItem.businessPurpose;
+        const paymentWasPatched = patchedItem.paymentMethod !== currentItem.paymentMethod;
+        const mergedItem = validateParsedIntent({
+          ...patchedItem,
           ...geminiParsed,
-          // DIV-002 — INVARIANTE: batchDraftsList é a fonte de verdade para N fatos.
-          // Se o draft existente já possui batch e o Gemini retornou resposta parcial
-          // (ex: questionToUser sem batchDraftsList), preservar o batch original.
-          // Nunca deixar uma resposta parcial do Gemini colapsar o lote silenciosamente.
-          batchDraftsList: patchedBatch ?? geminiParsed.batchDraftsList ?? currentDraft.batchDraftsList,
-          amount: geminiParsed.amount || updatedDraft.amount,
-          categoryName: geminiParsed.categoryName || updatedDraft.categoryName,
-          businessPurpose: purposeWasPatched ? updatedDraft.businessPurpose : ((geminiParsed.businessPurpose && geminiParsed.businessPurpose !== 'UNKNOWN') ? geminiParsed.businessPurpose : updatedDraft.businessPurpose),
-          paymentMethod: paymentWasPatched ? updatedDraft.paymentMethod : ((geminiParsed.paymentMethod && geminiParsed.paymentMethod !== 'UNKNOWN') ? geminiParsed.paymentMethod : updatedDraft.paymentMethod),
-        };
+          // Uma resposta nunca pode transformar o item ativo em outro lote.
+          batchDraftsList: null,
+          // Fora de uma correção explícita, a identidade da movimentação em
+          // andamento permanece travada. Assim, repetir ou citar outro lançamento
+          // não troca silenciosamente o rascunho atual.
+          intentType: classifiedTurn === 'CORRECTION' ? geminiParsed.intentType : currentItem.intentType,
+          type: classifiedTurn === 'CORRECTION' ? (geminiParsed.type || patchedItem.type) : currentItem.type,
+          description: classifiedTurn === 'CORRECTION'
+            ? (geminiParsed.description || patchedItem.description)
+            : (currentItem.description || geminiParsed.description || patchedItem.description),
+          supplier: classifiedTurn === 'CORRECTION'
+            ? (geminiParsed.supplier || patchedItem.supplier)
+            : (currentItem.supplier || geminiParsed.supplier || patchedItem.supplier),
+          counterparty: classifiedTurn === 'CORRECTION'
+            ? (geminiParsed.counterparty || patchedItem.counterparty)
+            : (currentItem.counterparty || geminiParsed.counterparty || patchedItem.counterparty),
+          amount: geminiParsed.amount || patchedItem.amount,
+          categoryName: geminiParsed.categoryName || patchedItem.categoryName,
+          businessPurpose: purposeWasPatched ? patchedItem.businessPurpose : ((geminiParsed.businessPurpose && geminiParsed.businessPurpose !== 'UNKNOWN') ? geminiParsed.businessPurpose : patchedItem.businessPurpose),
+          paymentMethod: paymentWasPatched ? patchedItem.paymentMethod : ((geminiParsed.paymentMethod && geminiParsed.paymentMethod !== 'UNKNOWN') ? geminiParsed.paymentMethod : patchedItem.paymentMethod),
+        }, todayStr);
+        finalIntent = currentDraft.batchDraftsList?.length
+          ? rebuildFinancialBatch(currentDraft, [mergedItem, ...queuedDrafts.slice(1)])!
+          : mergedItem;
       } else if (geminiParsed) {
         finalIntent = geminiParsed;
       }
-      if (patchedBatch) {
-        finalIntent = {
-          ...finalIntent,
-          batchDraftsList: patchedBatch,
-          questionToUser: buildGroupedQuestion(patchedBatch),
-          missingFields: patchedBatch.flatMap(item => item.missingFields || []),
-          isReadyForConfirmation: batchReady,
-          validationStatus: batchReady ? 'ready' : 'needs_input',
-        };
-      }
     } catch (e) {
       // Fallback para finalIntent determinístico
+    }
+
+    if (finalIntent.batchDraftsList?.length) {
+      finalIntent = rebuildFinancialBatch(finalIntent, finalIntent.batchDraftsList)!;
     }
 
     setLoading(false);
@@ -315,7 +371,15 @@ export const FinancialAiChatView: React.FC<Props> = ({
       finalIntent.isReadyForConfirmation = true;
     }
 
-    if (finalIntent.supplier || finalIntent.totalAmount || finalIntent.amount || finalIntent.installmentsCount) {
+    if (
+      finalIntent.description ||
+      finalIntent.supplier ||
+      finalIntent.totalAmount ||
+      finalIntent.amount ||
+      finalIntent.installmentsCount ||
+      finalIntent.questionToUser ||
+      finalIntent.missingFields?.length
+    ) {
       setActiveDraft(finalIntent);
     }
 
@@ -464,6 +528,8 @@ export const FinancialAiChatView: React.FC<Props> = ({
 
     if (res.success) {
       finishActiveTimelineCard('SAVED');
+      setPendingIntent(null);
+      setActiveDraft(null);
       onTransactionRegistered();
     } else {
       markActiveTimelineCard('ERROR');
@@ -486,14 +552,6 @@ export const FinancialAiChatView: React.FC<Props> = ({
     setPendingIntent(updated);
     const anchor = latestTimelineAnchor();
     if (anchor) publishTimelineCard(updated, 'READY_TO_CONFIRM', anchor);
-  };
-
-  const handleDiscardProposal = () => {
-    finishActiveTimelineCard('DISCARDED');
-    setTimeout(() => {
-      setPendingIntent(null);
-      setActiveDraft(null);
-    }, 2000);
   };
 
   const publishTimelineCard = (intent: ParsedFinancialIntent, cardState: CardVisualState, afterMessageId: string) => {
@@ -571,23 +629,6 @@ export const FinancialAiChatView: React.FC<Props> = ({
     }
   };
 
-  const handleDiscardSubIntent = (index: number) => {
-    if (pendingIntent && pendingIntent.batchDraftsList) {
-      finishActiveTimelineCard('DISCARDED');
-      const nextIntent = advanceFinancialBatch(pendingIntent, index);
-      if (!nextIntent) {
-        setPendingIntent(null);
-        setActiveDraft(null);
-      } else {
-        setPendingIntent(nextIntent);
-        setActiveDraft(nextIntent);
-        const nextState = nextIntent.batchDraftsList?.[0]?.isReadyForConfirmation ? 'READY_TO_CONFIRM' : 'NEEDS_INPUT';
-        const anchor = latestTimelineAnchor();
-        if (anchor) publishTimelineCard(nextIntent, nextState, anchor);
-      }
-    }
-  };
-
   return (
     <View style={[styles.container, isDarkMode && styles.containerDark]}>
       {/* Barra de Ferramentas com Botão Limpar Chat */}
@@ -629,7 +670,6 @@ export const FinancialAiChatView: React.FC<Props> = ({
                     isDarkMode={isDarkMode}
                     onConfirm={intent => card.intent.batchDraftsList?.length ? void handleConfirmRegisterSingle(intent, 0) : void handleConfirmRegister()}
                     onEdit={() => setEditModalVisible(true)}
-                    onDiscard={() => card.intent.batchDraftsList?.length ? handleDiscardSubIntent(0) : handleDiscardProposal()}
                     onSelectCandidate={handleSelectCandidate}
                   />
                 ))}

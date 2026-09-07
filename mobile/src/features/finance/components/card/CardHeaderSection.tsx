@@ -1,6 +1,6 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
-import { AlertTriangle, X } from 'lucide-react-native';
+import { View, Text, StyleSheet } from 'react-native';
+import { AlertTriangle } from 'lucide-react-native';
 import { CardVisualState } from '../TransactionPreviewCard';
 
 interface Props {
@@ -8,7 +8,6 @@ interface Props {
   cardTitleType: string;
   badgeBg: string;
   badgeColor: string;
-  onDiscard: () => void;
   isDarkMode?: boolean;
 }
 
@@ -17,8 +16,6 @@ export const CardHeaderSection: React.FC<Props> = ({
   cardTitleType,
   badgeBg,
   badgeColor,
-  onDiscard,
-  isDarkMode = false,
 }) => {
   return (
     <View style={styles.headerRow}>
@@ -29,18 +26,6 @@ export const CardHeaderSection: React.FC<Props> = ({
         </View>
         <Text style={styles.subtleCheckHint}>Confira antes de registrar</Text>
       </View>
-
-      {cardState !== 'SAVING' ? (
-        <TouchableOpacity
-          style={styles.discardBtn}
-          onPress={onDiscard}
-          activeOpacity={0.7}
-          accessibilityLabel="Descartar sugestão"
-          accessibilityRole="button"
-        >
-          <X size={18} color={isDarkMode ? '#94a3b8' : '#64748b'} />
-        </TouchableOpacity>
-      ) : null}
     </View>
   );
 };
@@ -73,8 +58,5 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '700',
     textTransform: 'uppercase',
-  },
-  discardBtn: {
-    padding: 4,
   },
 });

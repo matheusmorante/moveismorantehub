@@ -94,6 +94,76 @@ export const trySlotFillingFallback = (
     return validateParsedIntent(draft, todayStr);
   }
 
+  // Uma resposta pode preencher vários campos de uma vez (ex.: "R$ 500, da
+  // loja, pago no Pix"). Esses campos precisam ser acumulados antes da primeira
+  // validação; caso contrário, um retorno antecipado ao reconhecer a finalidade
+  // faz o valor e a forma de pagamento serem ignorados.
+  let commonFieldsPatched = 0;
+
+  if (
+    !draft.description &&
+    /\b(?:conta|compra|venda|recebimento|pagamento|aluguel|energia|luz|internet|água|agua|combustível|combustivel|gasolina|frete|salário|salario|manutenção|manutencao)\b/i.test(text)
+  ) {
+    draft.description = msg.trim();
+    commonFieldsPatched += 1;
+  }
+
+  if (!draft.amount && !draft.totalAmount) {
+    const explicitAmountMatch = text.match(
+      /(?:r\$\s*|\b(?:valor|total|foi|paguei|recebi)\s*(?:foi|de|era|\u00e9|e)?\s*)(\d+(?:\.\d{3})*(?:,\d{1,2})?)/i
+    );
+    if (explicitAmountMatch) {
+      const parsedAmount = parsePtBrNumber(
+        explicitAmountMatch[1],
+        /\b(?:mil|k)\b/i.test(text),
+      );
+      if (parsedAmount > 0) {
+        draft.amount = parsedAmount;
+        draft.isEstimated = false;
+        draft.missingFields = (draft.missingFields || []).filter(field => field !== 'amount' && field !== 'totalAmount');
+        commonFieldsPatched += 1;
+      }
+    }
+  }
+
+  if (!draft.paymentMethod || draft.paymentMethod === 'UNKNOWN' || draft.missingFields?.includes('paymentMethod')) {
+    let paymentMethod: string | null = null;
+    if (/débito|debito/i.test(text)) paymentMethod = 'Cartão de Débito';
+    else if (/crédito|credito/i.test(text)) paymentMethod = 'Cartão de Crédito';
+    else if (/\bpix\b/i.test(text)) paymentMethod = 'Pix';
+    else if (/\bboleto\b/i.test(text)) paymentMethod = 'Boleto';
+    else if (/\bdinheiro\b/i.test(text)) paymentMethod = 'Dinheiro';
+    else if (/transferência|transferencia/i.test(text)) paymentMethod = 'Transferência';
+
+    if (paymentMethod) {
+      draft.paymentMethod = paymentMethod;
+      draft.missingFields = (draft.missingFields || []).filter(field => field !== 'paymentMethod');
+      commonFieldsPatched += 1;
+    }
+  }
+
+  if (
+    draft.type === 'expense' &&
+    (!draft.businessPurpose || draft.businessPurpose === 'UNKNOWN' || draft.missingFields?.includes('businessPurpose'))
+  ) {
+    const purposeReply = inferBusinessPurpose(text);
+    if (purposeReply === 'BUSINESS' || purposeReply === 'PERSONAL') {
+      draft.businessPurpose = purposeReply;
+      const description = (draft.description || '').toLowerCase();
+      const isEquipment = /\b(televisão|televisao|tv|geladeira|refrigerador|freezer|micro-ondas|microondas|ar-condicionado|computador|notebook|celular|smartphone|impressora|móveis|moveis|equipamento)\b/i.test(description);
+      draft.categoryName = purposeReply === 'PERSONAL'
+        ? 'Pró-labore'
+        : (isEquipment ? 'Equipamentos da Empresa' : 'Contas de Consumo');
+      draft.missingFields = (draft.missingFields || []).filter(field => field !== 'businessPurpose');
+      commonFieldsPatched += 1;
+    }
+  }
+
+  if (commonFieldsPatched >= 2) {
+    draft.questionToUser = null;
+    return validateParsedIntent(draft, todayStr);
+  }
+
   // 0.5. Slot filling para Credor de Empréstimo (ex: "Do banco", "Do Itaú", "Do Matheus", "Do João")
   const isCreditorMissing = activeDraft.missingFields?.includes('creditor') || (activeDraft.questionToUser && activeDraft.questionToUser.includes('De quem foi'));
   if (isCreditorMissing || (draft.isLoan && (!draft.creditor || draft.creditorType === 'UNKNOWN'))) {
@@ -611,7 +681,6 @@ export const trySlotFillingFallback = (
       const isAdditive = text.includes('mais') || text.includes('adiciona') || text.includes('soma');
       const baseAmount = isAdditive && draft.amount ? draft.amount : 0;
       draft.amount = baseAmount + patchVal;
-      draft.description = msg;
       draft.isEstimated = false;
       draft.missingFields = (draft.missingFields || []).filter(f => f !== 'amount');
       if (!draft.paymentMethod || draft.paymentMethod === 'UNKNOWN') {

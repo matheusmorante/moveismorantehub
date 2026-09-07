@@ -6,6 +6,19 @@ import path from 'path';
 
 // https://vitejs.dev/config/
 export default defineConfig({
+  // O ERP reutiliza validadores financeiros determinísticos do workspace mobile.
+  // No build serverless apenas as dependências do ERP são instaladas; portanto,
+  // arquivos importados de `mobile/` também precisam ser transformados com as
+  // opções TypeScript do ERP, sem tentar resolver `expo/tsconfig.base`.
+  esbuild: {
+    // Nesta versão do Vite, somente a forma serializada evita que o transformador
+    // procure o tsconfig mais próximo de cada arquivo importado.
+    tsconfigRaw: JSON.stringify({
+      compilerOptions: {
+        useDefineForClassFields: true,
+      },
+    }),
+  },
   plugins: [
     react(), 
     tsconfigPaths(),

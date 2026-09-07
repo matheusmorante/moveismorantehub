@@ -71,7 +71,20 @@ npx tsx src/mcp/index.ts --stdio
 
 ---
 
-## 5. Como Conectar o ChatGPT (Custom GPT / Actions)
+## 5. Como Conectar o ChatGPT
+
+### Conector MCP nativo
+
+Use a URL pública do ERP terminada em `/api/mcp` e configure a autenticação por
+Bearer Token com o valor de `MCP_CHATGPT_TOKEN`. Esse endpoint implementa MCP
+Streamable HTTP em modo stateless, apropriado para a execução serverless da
+Vercel.
+
+> Não use a página principal do ERP nem a URL do schema OpenAPI como URL do
+> conector MCP. O endpoint precisa responder ao handshake `initialize` em
+> JSON-RPC.
+
+### Custom GPT / Actions (integração REST legada)
 
 1. No **ChatGPT** > **Explore GPTs** > **Create a GPT** > aba **Configure**.
 2. Em **Instructions**, adicione o briefing:
@@ -86,7 +99,7 @@ npx tsx src/mcp/index.ts --stdio
 3. Em **Actions** > **Create new action**:
    - **Authentication**: Selecione `API Key` > `Bearer`.
    - Cole o token configurado em `MCP_CHATGPT_TOKEN`.
-   - **Schema**: Importe a URL `https://seu-dominio-mcp/openapi.json` ou cole o conteúdo retornado por `/openapi.json`.
+   - **Schema**: Importe `https://seu-dominio/api/mcp?spec=true` ou cole o conteúdo retornado por essa URL.
 
 ---
 

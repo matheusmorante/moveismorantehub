@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import Order from '../../../types/order.type';
+import { dashboardRevenueFactor, isDashboardSaleOrder } from '../dashboardRevenue';
 
 export interface ProductStat {
     productId: string;
@@ -32,7 +33,8 @@ export const useDashboardProducts = (
         const map = new Map<string, ProductStat>();
 
         for (const order of filteredOrders) {
-            if (!['scheduled', 'fulfilled'].includes(order.status || '') || order.orderType === 'return') continue;
+            const factor = dashboardRevenueFactor(order);
+            if (factor === 0) continue;
             for (const item of (order.items || [])) {
                 if (!item.productId || item.isTemporaryProduct) continue;
                 const key = item.variationId ? item.variationId : item.productId;
@@ -48,9 +50,9 @@ export const useDashboardProducts = (
                 const revenue = (item.unitPrice - item.unitDiscount) * item.quantity;
                 const unitCost = item.unitCost ?? item.costPrice ?? 0;
                 const cost = unitCost * item.quantity;
-                existing.quantity += item.quantity;
-                existing.revenue += revenue;
-                existing.profit += revenue - cost;
+                existing.quantity += factor * item.quantity;
+                existing.revenue += factor * revenue;
+                existing.profit += factor * (revenue - cost);
                 map.set(key, existing);
             }
         }
@@ -71,7 +73,7 @@ export const useDashboardProducts = (
         for (const order of allActiveOrders) {
             const orderDate = order.date ? new Date(order.date) : null;
             if (!orderDate || orderDate < cutoff) continue;
-            if (!['scheduled', 'fulfilled'].includes(order.status || '') || order.orderType === 'return') continue;
+            if (!isDashboardSaleOrder(order)) continue;
             for (const item of (order.items || [])) {
                 if (item.productId) activeInPeriod.add(item.variationId || item.productId);
             }

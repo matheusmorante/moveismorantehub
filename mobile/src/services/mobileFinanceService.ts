@@ -425,7 +425,6 @@ export const createFinancialTransaction = async (
     // DIV-008: category_name null é válido — operador classifica depois; não criar fallback silencioso
     category_name: payload.category_name || null,
     result_nature: resultNature,
-    account_id: 'Caixa Geral',
     counterparty: payload.counterparty || null,
     collaborator_id: payload.collaborator_id || null,
     collaborator_name: payload.collaborator_name || null,

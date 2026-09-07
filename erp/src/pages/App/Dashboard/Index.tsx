@@ -18,6 +18,7 @@ import AlertsPanel from './components/AlertsPanel';
 import { ChartContainer } from './components/DashboardCharts';
 import ApiUsageSummaryCard from './components/ApiUsageSummaryCard';
 import { runDraftCleanup } from '../../utils/draftCleanupService';
+import { isDashboardSaleOrder } from './dashboardRevenue';
 
 const PERIODS: { label: string; value: Period }[] = [
     { label: 'Hoje', value: 'today' },
@@ -134,7 +135,7 @@ export default function Dashboard() {
             {/* ── Mapa + Logística + Consumo de APIs ── */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 pb-16">
                 <div className="lg:col-span-2">
-                    <GeoMapPanel orders={filteredOrders} />
+                    <GeoMapPanel orders={filteredOrders.filter(isDashboardSaleOrder)} />
                 </div>
                 <div className="space-y-6">
                     {loading ? <PanelSkeleton rows={4} /> : (

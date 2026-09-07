@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import { MoranteHubMcpServer } from './server.js';
 
 const isStdio = process.argv.includes('--stdio');

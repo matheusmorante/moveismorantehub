@@ -70,26 +70,87 @@ export function parseImagesList(rawImages: any, rawImageUrl?: any): string[] {
 
 export class McpProductService {
   /**
-   * Busca produtos reais no ERP por termo aproximado, nome, slug, código ou ID.
+   * Extrai o identificador ou slug caso a entrada seja uma URL do catálogo digital.
+   */
+  private extractQuery(raw: string): string {
+    let q = raw.trim();
+    if (q.includes('/') && (q.startsWith('http://') || q.startsWith('https://') || q.includes('/produto/'))) {
+      const parts = q.split('/').filter(Boolean);
+      const last = parts[parts.length - 1];
+      if (last) {
+        q = last.split('?')[0].split('#')[0];
+      }
+    }
+    return q.trim();
+  }
+
+  /**
+   * Busca produtos reais no ERP por termo aproximado, nome, slug, código, ID ou link do catálogo.
    */
   async searchProducts(query: string, limit = 10): Promise<McpProductSummary[]> {
-    const cleanQuery = query.trim();
-    if (!cleanQuery) return [];
+    const rawClean = query.trim();
+    if (!rawClean) return [];
 
     const effectiveLimit = Math.min(Math.max(limit, 1), 20);
+    const q = this.extractQuery(rawClean);
 
-    const { data, error } = await mcpSupabase
+    // 1. Se for UUID exato
+    if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(q)) {
+      const { data } = await mcpSupabase
+        .from('products')
+        .select('id, name, slug, code, sale_price, price, promo_price, original_price, is_draft, active, deleted, deleted_at, category, opportunities(id, name)')
+        .eq('id', q)
+        .limit(1);
+
+      if (data && data.length > 0) {
+        return this.mapProductsList(data);
+      }
+    }
+
+    // 2. Tenta busca por slug ou código exato
+    const { data: exactMatch } = await mcpSupabase
       .from('products')
       .select('id, name, slug, code, sale_price, price, promo_price, original_price, is_draft, active, deleted, deleted_at, category, opportunities(id, name)')
-      .or(`name.ilike.%${cleanQuery}%,slug.ilike.%${cleanQuery}%,code.ilike.%${cleanQuery}%,id.eq.${cleanQuery}`)
+      .or(`slug.eq.${q},code.eq.${q}`)
       .is('deleted_at', null)
       .eq('deleted', false)
       .limit(effectiveLimit);
+
+    if (exactMatch && exactMatch.length > 0) {
+      return this.mapProductsList(exactMatch);
+    }
+
+    // 3. Busca tolerante a hífens e variações de palavras (ex.: "Guarda-Roupa Monza")
+    const words = q
+      .replace(/[^\w\s\u00C0-\u00FF]/gi, ' ')
+      .split(/\s+/)
+      .map(w => w.trim())
+      .filter(w => w.length >= 2);
+
+    let queryBuilder = mcpSupabase
+      .from('products')
+      .select('id, name, slug, code, sale_price, price, promo_price, original_price, is_draft, active, deleted, deleted_at, category, opportunities(id, name)')
+      .is('deleted_at', null)
+      .eq('deleted', false);
+
+    if (words.length > 0) {
+      for (const word of words) {
+        queryBuilder = queryBuilder.or(`name.ilike.%${word}%,slug.ilike.%${word}%`);
+      }
+    } else {
+      queryBuilder = queryBuilder.ilike('name', `%${q}%`);
+    }
+
+    const { data, error } = await queryBuilder.limit(effectiveLimit);
 
     if (error || !data) {
       return [];
     }
 
+    return this.mapProductsList(data);
+  }
+
+  private mapProductsList(data: any[]): McpProductSummary[] {
     return data.map((row: any) => {
       const price = Number(row.sale_price ?? row.price ?? row.promo_price ?? 0);
       const oldPrice = row.original_price ? Number(row.original_price) : null;

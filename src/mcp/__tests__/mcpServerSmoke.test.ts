@@ -1,6 +1,8 @@
 import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest';
 import { MoranteHubMcpServer } from '../server.js';
 import { mcpProductService } from '../services/mcpProductService.js';
+import { Client } from '@modelcontextprotocol/sdk/client/index.js';
+import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
 
 describe('MCP Server Smoke Test (HTTP & Protocol)', () => {
   let server: MoranteHubMcpServer;
@@ -72,5 +74,39 @@ describe('MCP Server Smoke Test (HTTP & Protocol)', () => {
     const body = await res.json();
     expect(body.products).toHaveLength(1);
     expect(body.products[0].name).toBe('Guarda-Roupa Monza');
+  });
+
+  it('5. ChatGPT consegue inicializar o protocolo MCP e listar as 9 tools', async () => {
+    const client = new Client({ name: 'chatgpt-smoke-test', version: '1.0.0' });
+    const transport = new StreamableHTTPClientTransport(new URL(`http://127.0.0.1:${port}/mcp`), {
+      requestInit: {
+        headers: {
+          Authorization: `Bearer ${TEST_TOKEN}`,
+          'X-MCP-Client-Id': 'internal',
+        },
+      },
+    });
+
+    try {
+      await client.connect(transport);
+      const result = await client.listTools();
+      expect(result.tools).toHaveLength(9);
+      expect(result.tools.some(tool => tool.name === 'get_post_generation_context')).toBe(true);
+
+      vi.spyOn(mcpProductService, 'searchProducts').mockResolvedValueOnce([
+        {
+          id: 'mcp-protocol-1',
+          name: 'Sofá de teste',
+          slug: 'sofa-de-teste',
+          price: 1500,
+          active: true,
+        },
+      ]);
+      const call = await client.callTool({ name: 'search_products', arguments: { query: 'Sofá' } });
+      expect(call.isError).not.toBe(true);
+      expect(JSON.stringify(call.content)).toContain('Sofá de teste');
+    } finally {
+      await client.close();
+    }
   });
 });

@@ -2,6 +2,7 @@ import React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import Order from '../../../types/order.type';
 import { formatCurrency } from '@/pages/utils/formatters';
+import { isDashboardSaleOrder } from '../dashboardRevenue';
 
 interface RecentOrdersProps {
     orders: Order[];
@@ -24,7 +25,7 @@ const STATUS_LABELS: Record<string, string> = {
 const RecentOrders: React.FC<RecentOrdersProps> = ({ orders }) => {
     const navigate = useNavigate();
     const recent = [...orders]
-        .filter(o => !o.deleted && o.orderType !== 'return' && o.status !== 'cancelled')
+        .filter(isDashboardSaleOrder)
         .sort((a, b) => {
             const da = new Date(a.date || 0).getTime();
             const db = new Date(b.date || 0).getTime();

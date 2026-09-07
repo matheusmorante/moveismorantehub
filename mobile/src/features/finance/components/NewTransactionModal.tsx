@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { View, Text, TouchableOpacity, Modal, StyleSheet, ScrollView, TextInput, Alert, ActivityIndicator } from 'react-native';
-import { X, Search, ChevronRight, Check } from 'lucide-react-native';
+import { X, Search, ChevronRight, Check, CalendarDays } from 'lucide-react-native';
 import { FinancialCategory, createFinancialTransaction } from '../../../services/mobileFinanceService';
 import { supabase } from '../../../services/supabaseClient';
 import { CategorySelectModal } from './CategorySelectModal';
+import { TransactionDatePickerModal } from './TransactionDatePickerModal';
 
 interface Props {
   visible: boolean;
@@ -16,6 +17,18 @@ interface Props {
 
 const PAYMENT_METHODS = ['PIX', 'Cartão de Crédito', 'Cartão de Débito', 'Boleto', 'Dinheiro', 'TED'];
 const VEHICLES = ['Strada', 'HR', 'Outro', 'Não informado'];
+
+const toLocalIsoDate = (date: Date) => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+const formatDateBr = (isoDate: string) => {
+  const [year, month, day] = isoDate.split('-');
+  return `${day}/${month}/${year}`;
+};
 
 const isProLaboreCat = (name: string): boolean => {
   const norm = name.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
@@ -37,12 +50,15 @@ export const NewTransactionModal: React.FC<Props> = ({
   userName = 'Operador',
   isDarkMode = false,
 }) => {
-  const todayStr = new Date().toISOString().split('T')[0];
+  const todayStr = toLocalIsoDate(new Date());
+  const yesterday = new Date();
+  yesterday.setDate(yesterday.getDate() - 1);
+  const yesterdayStr = toLocalIsoDate(yesterday);
 
   const [type, setType] = useState<'income' | 'expense'>('expense');
-  const [statusMode, setStatusMode] = useState<'PAID' | 'PENDING'>('PAID');
   const [purpose, setPurpose] = useState<'BUSINESS' | 'PERSONAL_PARTNER'>('BUSINESS');
-  const [dueDateStr, setDueDateStr] = useState<string>(todayStr);
+  const [transactionDate, setTransactionDate] = useState(todayStr);
+  const [datePickerVisible, setDatePickerVisible] = useState(false);
 
   const [amountStr, setAmountStr] = useState('');
   const [description, setDescription] = useState('');
@@ -55,8 +71,8 @@ export const NewTransactionModal: React.FC<Props> = ({
   const [collaboratorId, setCollaboratorId] = useState('');
   const [collaboratorName, setCollaboratorName] = useState('');
   const [collaboratorsList, setCollaboratorsList] = useState<{ id: string; name: string }[]>([]);
-  const [notes, setNotes] = useState('');
   const [saving, setSaving] = useState(false);
+  const isExpense = type === 'expense';
 
   useEffect(() => {
     const loadCollaborators = async () => {
@@ -81,7 +97,7 @@ export const NewTransactionModal: React.FC<Props> = ({
   const filteredCategories = useMemo(() => {
     const byType = categories.filter(c => c.type === type);
 
-    if (purpose === 'PERSONAL_PARTNER') {
+    if (isExpense && purpose === 'PERSONAL_PARTNER') {
       const proLaboreCats = byType.filter(c => isProLaboreCat(c.name));
       if (proLaboreCats.length > 0) {
         return proLaboreCats;
@@ -96,9 +112,9 @@ export const NewTransactionModal: React.FC<Props> = ({
       ];
     }
 
-    // Operação da Empresa: exibe as categorias da empresa
-    return byType;
-  }, [categories, type, purpose]);
+    // Operação da Empresa nunca oferece Pró-labore, reservado ao uso particular.
+    return byType.filter(c => !isProLaboreCat(c.name));
+  }, [categories, type, purpose, isExpense]);
 
   // Obter categoria selecionada (inclusive caso seja o fallback virtual)
   const selectedCategory = useMemo(() => {
@@ -107,6 +123,7 @@ export const NewTransactionModal: React.FC<Props> = ({
 
   // Ajuste automático ao alternar a finalidade
   const handlePurposeChange = (newPurpose: 'BUSINESS' | 'PERSONAL_PARTNER') => {
+    setCategoryModalVisible(false);
     setPurpose(newPurpose);
     if (newPurpose === 'PERSONAL_PARTNER') {
       // Procura categoria de Pró-labore e pré-seleciona
@@ -122,6 +139,24 @@ export const NewTransactionModal: React.FC<Props> = ({
         setSelectedCatId('');
       }
     }
+  };
+
+  const handleTypeChange = (newType: 'income' | 'expense') => {
+    setType(newType);
+    if (newType === 'income') {
+      // Entradas não possuem finalidade. Remove qualquer estado de uso particular
+      // para que Pró-labore/finalidade não sejam enviados de forma invisível.
+      setPurpose('BUSINESS');
+      setSelectedCatId('');
+      setCategoryModalVisible(false);
+      return;
+    }
+    if (purpose === 'PERSONAL_PARTNER') {
+      const proLaboreCat = categories.find(c => c.type === newType && isProLaboreCat(c.name));
+      setSelectedCatId(proLaboreCat?.id || 'cat_pro_labore_default');
+      return;
+    }
+    setSelectedCatId('');
   };
 
   // Verificar se a categoria é de Pessoal/Colaborador
@@ -150,7 +185,7 @@ export const NewTransactionModal: React.FC<Props> = ({
     }
 
     setSaving(true);
-    const catName = selectedCategory?.name || (purpose === 'PERSONAL_PARTNER' ? 'Pró-labore' : (type === 'income' ? 'Outras entradas' : 'Despesa não classificada'));
+    const catName = selectedCategory?.name || (isExpense && purpose === 'PERSONAL_PARTNER' ? 'Pró-labore' : (type === 'income' ? 'Outras entradas' : 'Despesa não classificada'));
     const realCatId = selectedCatId === 'cat_pro_labore_default' ? null : (selectedCatId || null);
 
     // Toda transação manual criada é única
@@ -161,17 +196,17 @@ export const NewTransactionModal: React.FC<Props> = ({
       category_id: realCatId,
       category_name: catName,
       payment_method: paymentMethod,
-      purpose,
+      purpose: isExpense ? purpose : null,
       vehicle_id: isVehicleCategory ? vehicleId || null : null,
       collaborator_id: isPersonnelCategory ? collaboratorId || null : null,
       collaborator_name: isPersonnelCategory ? collaboratorName || null : null,
-      notes: notes.trim() || null,
+      notes: null,
       origin: 'MANUAL',
       created_by: userName,
-      date: statusMode === 'PAID' ? todayStr : dueDateStr || todayStr,
-      due_date: statusMode === 'PENDING' ? dueDateStr || todayStr : null,
+      date: transactionDate,
+      due_date: null,
       is_recurring: false,
-      status: statusMode === 'PAID' ? 'ACTIVE' : 'PENDING',
+      status: 'ACTIVE',
     });
 
     setSaving(false);
@@ -179,9 +214,9 @@ export const NewTransactionModal: React.FC<Props> = ({
     // Reset form
     setAmountStr('');
     setDescription('');
+    setTransactionDate(toLocalIsoDate(new Date()));
     setSelectedCatId('');
     setCategorySearchQuery('');
-    setNotes('');
     setCollaboratorId('');
     setCollaboratorName('');
     onSuccess();
@@ -206,15 +241,47 @@ export const NewTransactionModal: React.FC<Props> = ({
             </View>
 
             <ScrollView style={styles.body} showsVerticalScrollIndicator={false}>
+              {/* Data: primeiro campo do formulário. */}
+              <Text style={[styles.label, isDarkMode && styles.labelDark]}>Data da transação</Text>
+              <View style={styles.dateOptionsRow}>
+                <TouchableOpacity
+                  style={[styles.dateOption, transactionDate === todayStr && styles.dateOptionActive]}
+                  onPress={() => setTransactionDate(todayStr)}
+                >
+                  <Text style={[styles.dateOptionText, transactionDate === todayStr && styles.dateOptionTextActive]}>Hoje</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.dateOption, transactionDate === yesterdayStr && styles.dateOptionActive]}
+                  onPress={() => setTransactionDate(yesterdayStr)}
+                >
+                  <Text style={[styles.dateOptionText, transactionDate === yesterdayStr && styles.dateOptionTextActive]}>Ontem</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[
+                    styles.dateOption,
+                    transactionDate !== todayStr && transactionDate !== yesterdayStr && styles.dateOptionActive,
+                  ]}
+                  onPress={() => setDatePickerVisible(true)}
+                >
+                  <CalendarDays size={15} color={transactionDate !== todayStr && transactionDate !== yesterdayStr ? '#ffffff' : '#64748b'} />
+                  <Text style={[
+                    styles.dateOptionText,
+                    transactionDate !== todayStr && transactionDate !== yesterdayStr && styles.dateOptionTextActive,
+                  ]}>
+                    Personalizado
+                  </Text>
+                </TouchableOpacity>
+              </View>
+              <Text style={[styles.selectedDateText, isDarkMode && styles.labelDark]}>
+                Data selecionada: {formatDateBr(transactionDate)}
+              </Text>
+
               {/* Tipo */}
               <Text style={[styles.label, isDarkMode && styles.labelDark]}>Tipo de Movimentação</Text>
               <View style={styles.typeRow}>
                 <TouchableOpacity
                   style={[styles.typeBtn, type === 'income' && styles.typeBtnIncome]}
-                  onPress={() => {
-                    setType('income');
-                    setSelectedCatId('');
-                  }}
+                  onPress={() => handleTypeChange('income')}
                 >
                   <Text style={[styles.typeBtnText, type === 'income' && styles.typeBtnTextIncome]}>
                     + Entrada
@@ -223,10 +290,7 @@ export const NewTransactionModal: React.FC<Props> = ({
 
                 <TouchableOpacity
                   style={[styles.typeBtn, type === 'expense' && styles.typeBtnExpense]}
-                  onPress={() => {
-                    setType('expense');
-                    setSelectedCatId('');
-                  }}
+                  onPress={() => handleTypeChange('expense')}
                 >
                   <Text style={[styles.typeBtnText, type === 'expense' && styles.typeBtnTextExpense]}>
                     - Saída
@@ -234,63 +298,31 @@ export const NewTransactionModal: React.FC<Props> = ({
                 </TouchableOpacity>
               </View>
 
-              {/* Situação */}
-              <Text style={[styles.label, isDarkMode && styles.labelDark]}>Situação Financeira</Text>
-              <View style={styles.typeRow}>
-                <TouchableOpacity
-                  style={[styles.typeBtn, statusMode === 'PAID' && styles.typeBtnIncome]}
-                  onPress={() => setStatusMode('PAID')}
-                >
-                  <Text style={[styles.typeBtnText, statusMode === 'PAID' && styles.typeBtnTextIncome]}>
-                    ✓ Efetivada / Já Paga
-                  </Text>
-                </TouchableOpacity>
+              {/* Finalidade se aplica exclusivamente às transações de saída. */}
+              {isExpense && (
+                <>
+                  <Text style={[styles.label, isDarkMode && styles.labelDark]}>Finalidade</Text>
+                  <View style={styles.typeRow}>
+                    <TouchableOpacity
+                      style={[styles.typeBtn, purpose === 'BUSINESS' && styles.typeBtnActive]}
+                      onPress={() => handlePurposeChange('BUSINESS')}
+                    >
+                      <Text style={[styles.typeBtnText, purpose === 'BUSINESS' && styles.typeBtnTextActive]}>
+                        🏢 Operação da Empresa
+                      </Text>
+                    </TouchableOpacity>
 
-                <TouchableOpacity
-                  style={[styles.typeBtn, statusMode === 'PENDING' && { backgroundColor: '#fef3c7' }]}
-                  onPress={() => setStatusMode('PENDING')}
-                >
-                  <Text style={[styles.typeBtnText, statusMode === 'PENDING' && { color: '#d97706' }]}>
-                    ⏳ A Pagar (Obrigação)
-                  </Text>
-                </TouchableOpacity>
-              </View>
-
-              {/* Vencimento (se A Pagar) */}
-              {statusMode === 'PENDING' && (
-                <View>
-                  <Text style={[styles.label, isDarkMode && styles.labelDark]}>Data de Vencimento (AAAA-MM-DD)</Text>
-                  <TextInput
-                    style={[styles.input, isDarkMode && styles.inputDark]}
-                    placeholder="YYYY-MM-DD"
-                    placeholderTextColor={isDarkMode ? '#64748b' : '#94a3b8'}
-                    value={dueDateStr}
-                    onChangeText={setDueDateStr}
-                  />
-                </View>
+                    <TouchableOpacity
+                      style={[styles.typeBtn, purpose === 'PERSONAL_PARTNER' && styles.typeBtnActive]}
+                      onPress={() => handlePurposeChange('PERSONAL_PARTNER')}
+                    >
+                      <Text style={[styles.typeBtnText, purpose === 'PERSONAL_PARTNER' && styles.typeBtnTextActive]}>
+                        👤 Uso Particular
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                </>
               )}
-
-              {/* Finalidade: Posicionado logo acima do campo de Valor */}
-              <Text style={[styles.label, isDarkMode && styles.labelDark]}>Finalidade</Text>
-              <View style={styles.typeRow}>
-                <TouchableOpacity
-                  style={[styles.typeBtn, purpose === 'BUSINESS' && styles.typeBtnActive]}
-                  onPress={() => handlePurposeChange('BUSINESS')}
-                >
-                  <Text style={[styles.typeBtnText, purpose === 'BUSINESS' && styles.typeBtnTextActive]}>
-                    🏢 Operação da Empresa
-                  </Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={[styles.typeBtn, purpose === 'PERSONAL_PARTNER' && styles.typeBtnActive]}
-                  onPress={() => handlePurposeChange('PERSONAL_PARTNER')}
-                >
-                  <Text style={[styles.typeBtnText, purpose === 'PERSONAL_PARTNER' && styles.typeBtnTextActive]}>
-                    👤 Uso Particular
-                  </Text>
-                </TouchableOpacity>
-              </View>
 
               {/* Valor */}
               <Text style={[styles.label, isDarkMode && styles.labelDark]}>Valor (R$)</Text>
@@ -319,18 +351,25 @@ export const NewTransactionModal: React.FC<Props> = ({
                 <View style={[styles.selectedCategoryCard, isDarkMode && styles.selectedCategoryCardDark]}>
                   <View style={styles.selectedCategoryInfo}>
                     <Text style={[styles.selectedCategoryLabel, isDarkMode && styles.selectedCategoryLabelDark]}>
-                      Categoria Selecionada {purpose === 'PERSONAL_PARTNER' ? '(Uso Particular)' : ''}
+                      Categoria Selecionada {isExpense && purpose === 'PERSONAL_PARTNER' ? '(Uso Particular)' : ''}
                     </Text>
                     <Text style={[styles.selectedCategoryName, isDarkMode && styles.selectedCategoryNameDark]}>
                       {selectedCategory.name}
                     </Text>
                   </View>
-                  <TouchableOpacity
-                    style={styles.changeCategoryBtn}
-                    onPress={() => handleOpenCategoryModal('')}
-                  >
-                    <Text style={styles.changeCategoryBtnText}>Trocar</Text>
-                  </TouchableOpacity>
+                  {isExpense && purpose === 'PERSONAL_PARTNER' ? (
+                    <View style={styles.automaticCategoryBadge}>
+                      <Check size={14} color="#16a34a" />
+                      <Text style={styles.automaticCategoryText}>Automática</Text>
+                    </View>
+                  ) : (
+                    <TouchableOpacity
+                      style={styles.changeCategoryBtn}
+                      onPress={() => handleOpenCategoryModal('')}
+                    >
+                      <Text style={styles.changeCategoryBtnText}>Trocar</Text>
+                    </TouchableOpacity>
+                  )}
                 </View>
               ) : (
                 <TouchableOpacity
@@ -340,7 +379,7 @@ export const NewTransactionModal: React.FC<Props> = ({
                 >
                   <Search size={16} color={isDarkMode ? '#94a3b8' : '#64748b'} />
                   <Text style={[styles.categorySearchTriggerPlaceholder, isDarkMode && styles.categorySearchTriggerPlaceholderDark]}>
-                    {purpose === 'PERSONAL_PARTNER' ? 'Selecionar Pró-labore...' : 'Pesquisar ou selecionar categoria...'}
+                    {isExpense && purpose === 'PERSONAL_PARTNER' ? 'Selecionar Pró-labore...' : 'Pesquisar ou selecionar categoria...'}
                   </Text>
                   <ChevronRight size={16} color={isDarkMode ? '#64748b' : '#94a3b8'} />
                 </TouchableOpacity>
@@ -410,17 +449,6 @@ export const NewTransactionModal: React.FC<Props> = ({
                 </View>
               )}
 
-              {/* Observação */}
-              <Text style={[styles.label, isDarkMode && styles.labelDark]}>Observação (Opcional)</Text>
-              <TextInput
-                style={[styles.input, styles.textArea, isDarkMode && styles.inputDark]}
-                placeholder="Detalhes adicionais..."
-                placeholderTextColor={isDarkMode ? '#64748b' : '#94a3b8'}
-                multiline={true}
-                numberOfLines={3}
-                value={notes}
-                onChangeText={setNotes}
-              />
             </ScrollView>
 
             <View style={styles.footer}>
@@ -432,7 +460,7 @@ export const NewTransactionModal: React.FC<Props> = ({
                 {saving ? (
                   <ActivityIndicator color="#ffffff" size="small" />
                 ) : (
-                  <Text style={styles.saveBtnText}>Salvar Movimentação</Text>
+                  <Text style={styles.saveBtnText}>Finalizar</Text>
                 )}
               </TouchableOpacity>
             </View>
@@ -452,6 +480,13 @@ export const NewTransactionModal: React.FC<Props> = ({
         }}
         initialSearchText={categorySearchQuery}
         isDarkMode={isDarkMode}
+      />
+      <TransactionDatePickerModal
+        visible={datePickerVisible}
+        selectedDate={transactionDate}
+        isDarkMode={isDarkMode}
+        onClose={() => setDatePickerVisible(false)}
+        onSelect={setTransactionDate}
       />
     </>
   );
@@ -511,6 +546,38 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 12,
     marginBottom: 6,
+  },
+  dateOptionsRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  dateOption: {
+    flex: 1,
+    minHeight: 40,
+    paddingHorizontal: 8,
+    borderRadius: 10,
+    backgroundColor: '#f1f5f9',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 5,
+  },
+  dateOptionActive: {
+    backgroundColor: '#2563eb',
+  },
+  dateOptionText: {
+    color: '#64748b',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  dateOptionTextActive: {
+    color: '#ffffff',
+  },
+  selectedDateText: {
+    color: '#64748b',
+    fontSize: 12,
+    marginTop: 7,
+    marginBottom: 3,
   },
   typeBtn: {
     flex: 1,
@@ -628,9 +695,19 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#ffffff',
   },
-  textArea: {
-    minHeight: 60,
-    textAlignVertical: 'top',
+  automaticCategoryBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 999,
+    backgroundColor: '#dcfce7',
+  },
+  automaticCategoryText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#15803d',
   },
   chipsRow: {
     flexDirection: 'row',

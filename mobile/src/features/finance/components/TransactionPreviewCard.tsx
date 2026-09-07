@@ -21,7 +21,6 @@ interface Props {
   cardState: CardVisualState;
   onConfirm: () => void;
   onEdit: () => void;
-  onDiscard: () => void;
   onSelectCandidate?: (candidate: any) => void;
   categories?: FinancialCategory[];
   isDarkMode?: boolean;
@@ -33,7 +32,6 @@ export const TransactionPreviewCard: React.FC<Props> = ({
   cardState,
   onConfirm,
   onEdit,
-  onDiscard,
   onSelectCandidate,
   isDarkMode = false,
   readOnly = false,
@@ -107,7 +105,6 @@ export const TransactionPreviewCard: React.FC<Props> = ({
         cardTitleType={cardTitleType}
         badgeBg={badgeBg}
         badgeColor={badgeColor}
-        onDiscard={cardState === 'SAVED' || readOnly ? undefined : onDiscard}
         isDarkMode={isDarkMode}
       />
 

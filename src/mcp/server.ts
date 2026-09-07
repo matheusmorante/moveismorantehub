@@ -1,6 +1,7 @@
 import http from 'node:http';
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
+import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import {
   CallToolRequestSchema,
   ListToolsRequestSchema,
@@ -14,6 +15,7 @@ import { McpClientAuth } from './types/mcp.js';
 export class MoranteHubMcpServer {
   private readonly server: Server;
   private httpServer: http.Server | null = null;
+  private remoteAuthContext: { authHeader?: string; requestedClient?: string } | null = null;
 
   constructor() {
     this.server = new Server(
@@ -70,7 +72,16 @@ export class MoranteHubMcpServer {
 
       const start = Date.now();
       try {
-        const result = await tool.handler(request.params.arguments || {});
+        const result = this.remoteAuthContext
+          ? (
+              await this.executeToolWithAuth(
+                toolName,
+                request.params.arguments || {},
+                this.remoteAuthContext.authHeader,
+                this.remoteAuthContext.requestedClient,
+              )
+            ).data
+          : await tool.handler(request.params.arguments || {});
         return {
           content: [
             {
@@ -92,6 +103,37 @@ export class MoranteHubMcpServer {
     const transport = new StdioServerTransport();
     await this.server.connect(transport);
     console.error('Servidor MCP MoranteHub iniciado via Stdio (Read-Only).');
+  }
+
+  /**
+   * Processa uma requisição MCP Streamable HTTP real.
+   *
+   * O modo stateless é intencional para ambientes serverless como a Vercel:
+   * cada POST carrega todo o contexto necessário e não depende da afinidade
+   * entre instâncias. A autenticação é validada também no handshake initialize.
+   */
+  async handleStreamableHttpRequest(
+    req: http.IncomingMessage,
+    res: http.ServerResponse,
+    parsedBody: unknown,
+    authHeader?: string,
+    requestedClient?: string,
+  ): Promise<void> {
+    validateMcpAuth(authHeader, requestedClient);
+    this.remoteAuthContext = { authHeader, requestedClient };
+
+    const transport = new StreamableHTTPServerTransport({
+      sessionIdGenerator: undefined,
+      enableJsonResponse: true,
+    });
+
+    try {
+      await this.server.connect(transport);
+      await transport.handleRequest(req, res, parsedBody);
+    } finally {
+      this.remoteAuthContext = null;
+      await transport.close();
+    }
   }
 
   /**
@@ -250,7 +292,7 @@ export class MoranteHubMcpServer {
           return;
         }
 
-        // 4. Endpoint JSON-RPC MCP genérico
+        // 4. Endpoint MCP Streamable HTTP (ChatGPT e demais clientes remotos)
         if (pathname === '/mcp' && req.method === 'POST') {
           const authHeader = req.headers.authorization;
           const requestedClient = (req.headers['x-mcp-client-id'] as string) || undefined;
@@ -262,42 +304,28 @@ export class MoranteHubMcpServer {
 
           req.on('end', async () => {
             try {
-              validateMcpAuth(authHeader, requestedClient);
-              const rpcRequest = JSON.parse(body);
-
-              if (rpcRequest.method === 'tools/list') {
-                const tools = ALL_MCP_TOOLS.map(t => ({
-                  name: t.name,
-                  description: t.description,
-                  readOnlyHint: true,
-                }));
-                res.writeHead(200, { 'Content-Type': 'application/json' });
-                res.end(JSON.stringify({ jsonrpc: '2.0', id: rpcRequest.id, result: { tools } }));
-                return;
-              }
-
-              if (rpcRequest.method === 'tools/call') {
-                const { name: toolName, arguments: args } = rpcRequest.params || {};
-                const execution = await this.executeToolWithAuth(toolName, args, authHeader, requestedClient);
-                res.writeHead(200, { 'Content-Type': 'application/json' });
-                res.end(
-                  JSON.stringify({
-                    jsonrpc: '2.0',
-                    id: rpcRequest.id,
-                    result: {
-                      content: [{ type: 'text', text: JSON.stringify(execution.data, null, 2) }],
-                    },
-                  }),
-                );
-                return;
-              }
-
-              res.writeHead(400, { 'Content-Type': 'application/json' });
-              res.end(JSON.stringify({ error: 'METHOD_NOT_SUPPORTED' }));
+              const rpcRequest = body ? JSON.parse(body) : {};
+              const requestServer = new MoranteHubMcpServer();
+              await requestServer.handleStreamableHttpRequest(
+                req,
+                res,
+                rpcRequest,
+                authHeader,
+                requestedClient,
+              );
             } catch (err: any) {
-              const status = err.statusCode || 401;
-              res.writeHead(status, { 'Content-Type': 'application/json' });
-              res.end(JSON.stringify({ error: err.code || 'UNAUTHORIZED', message: err.message }));
+              if (!res.headersSent) {
+                const status = err.statusCode || (err instanceof SyntaxError ? 400 : 500);
+                res.writeHead(status, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({
+                  jsonrpc: '2.0',
+                  id: null,
+                  error: {
+                    code: status === 401 ? -32001 : -32603,
+                    message: err.message || 'Erro ao processar requisição MCP.',
+                  },
+                }));
+              }
             }
           });
           return;

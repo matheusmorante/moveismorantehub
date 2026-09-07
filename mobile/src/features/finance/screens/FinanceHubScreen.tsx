@@ -49,7 +49,13 @@ export const FinanceHubScreen: React.FC<Props> = ({
   const [selectedTransaction, setSelectedTransaction] = useState<FinancialTransaction | null>(null);
 
   const userName = userProfile?.full_name || userProfile?.name || 'Operador';
-  const isAdmin = userProfile?.role === 'admin' || userProfile?.role === 'master';
+  const profileRoles = [
+    ...(Array.isArray(userProfile?.roles) ? userProfile.roles : []),
+    userProfile?.role,
+  ]
+    .filter(Boolean)
+    .map(role => String(role).trim().toLowerCase());
+  const isAdmin = profileRoles.some(role => ['admin', 'administrator', 'master'].includes(role));
 
   const loadData = async (showLoading = true) => {
     if (showLoading) setLoadingData(true);
@@ -76,6 +82,12 @@ export const FinanceHubScreen: React.FC<Props> = ({
   useEffect(() => {
     loadData(true);
   }, [selectedYear, selectedMonth, typeFilter, advancedFilters]);
+
+  useEffect(() => {
+    if (!isAdmin && activeTab === 'assistant') {
+      setActiveTab('transactions');
+    }
+  }, [activeTab, isAdmin]);
 
   const handleMonthChange = (year: number, month: number) => {
     setSelectedYear(year);
@@ -125,22 +137,27 @@ export const FinanceHubScreen: React.FC<Props> = ({
           </Text>
         </TouchableOpacity>
 
-        <TouchableOpacity
-          style={[styles.topTabBtn, activeTab === 'assistant' && styles.activeTopTabBtn]}
-          onPress={() => setActiveTab('assistant')}
-          activeOpacity={0.7}
-        >
-          <Bot size={15} color={activeTab === 'assistant' ? '#7c3aed' : isDarkMode ? '#94a3b8' : '#64748b'} />
-          <Text
-            style={[
-              styles.topTabText,
-              activeTab === 'assistant' && styles.activeTopTabTextAssistant,
-              isDarkMode && activeTab !== 'assistant' && styles.topTabTextDark,
-            ]}
+        {isAdmin ? (
+          <TouchableOpacity
+            style={[styles.topTabBtn, activeTab === 'assistant' && styles.activeTopTabBtn]}
+            onPress={() => setActiveTab('assistant')}
+            activeOpacity={0.7}
           >
-            Assistente
-          </Text>
-        </TouchableOpacity>
+            <Bot size={15} color={activeTab === 'assistant' ? '#7c3aed' : isDarkMode ? '#94a3b8' : '#64748b'} />
+            <Text
+              style={[
+                styles.topTabText,
+                activeTab === 'assistant' && styles.activeTopTabTextAssistant,
+                isDarkMode && activeTab !== 'assistant' && styles.topTabTextDark,
+              ]}
+            >
+              Assistente
+            </Text>
+            <View style={styles.betaBadge}>
+              <Text style={styles.betaBadgeText}>BETA</Text>
+            </View>
+          </TouchableOpacity>
+        ) : null}
       </View>
 
       {/* CONTEÚDO DAS ABAS */}
@@ -211,7 +228,7 @@ export const FinanceHubScreen: React.FC<Props> = ({
           onAccountPaid={() => loadData(false)}
           isDarkMode={isDarkMode}
         />
-      ) : (
+      ) : activeTab === 'assistant' && isAdmin ? (
         /* CONTEÚDO DA ABA ASSISTENTE */
         <FinancialAiChatView
           categories={categories}
@@ -219,7 +236,7 @@ export const FinanceHubScreen: React.FC<Props> = ({
           userName={userName}
           isDarkMode={isDarkMode}
         />
-      )}
+      ) : null}
 
       {/* Modais Auxiliares */}
       <TransactionFilterModal
@@ -307,6 +324,18 @@ const styles = StyleSheet.create({
   activeTopTabTextAssistant: {
     color: '#7c3aed',
     fontWeight: '700',
+  },
+  betaBadge: {
+    paddingHorizontal: 5,
+    paddingVertical: 2,
+    borderRadius: 6,
+    backgroundColor: '#ede9fe',
+  },
+  betaBadgeText: {
+    color: '#6d28d9',
+    fontSize: 8,
+    fontWeight: '900',
+    letterSpacing: 0.4,
   },
   scrollArea: {
     flex: 1,
