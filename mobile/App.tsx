@@ -53,7 +53,14 @@ export default function App() {
   const mandatoryUpdate = useMandatoryAppUpdate();
   const [userProfile, setUserProfile] = useState<any>(null);
   const [loadingProfile, setLoadingProfile] = useState(true);
-  const [currentTab, setCurrentTab] = useState('home');
+  const [currentTab, setCurrentTab] = useState(() => {
+    if (Platform.OS === 'web' && typeof window !== 'undefined') {
+      const p = new URLSearchParams(window.location.search);
+      const tab = p.get('tab');
+      if (tab) return tab;
+    }
+    return 'home';
+  });
   const [notifications, setNotifications] = useState<any[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
 
@@ -499,6 +506,25 @@ export default function App() {
     const authTimeout = setTimeout(() => {
       setLoadingProfile(false);
     }, 3500);
+
+    // Suporte a autenticação direta no Web (E2E / Dev) via auth_email (mesmo padrão do ERP)
+    if (Platform.OS === 'web' && typeof window !== 'undefined') {
+      const searchParams = new URLSearchParams(window.location.search);
+      const authEmail = searchParams.get('auth_email');
+      if (authEmail && (authEmail.toLowerCase() === MASTER_DEFAULT_PROFILE.email.toLowerCase() || __DEV__)) {
+        clearTimeout(authTimeout);
+        setUserProfile({
+          ...MASTER_DEFAULT_PROFILE,
+          email: authEmail,
+          fullName: 'Matheus Morante',
+          role: 'admin',
+        });
+        setLoadingProfile(false);
+        fetchDashboardStats();
+        fetchNotifications();
+        return;
+      }
+    }
 
     supabase.auth.getSession()
       .then(({ data: { session } }) => {

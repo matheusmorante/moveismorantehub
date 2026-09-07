@@ -19,4 +19,5 @@ export const settingsCategories: SettingsCategory[] = [
     { id: 'bandeiras', label: 'Bandeiras e Juros de Cartão', icon: 'bi-credit-card-2-front', group: 'system', keywords: ['cartão', 'bandeira', 'juros', 'parcela', 'visa', 'mastercard', 'senff'] },
     { id: 'scanner', label: 'Leitor de Barras / Scanner', icon: 'bi-qr-code-scan', group: 'system', keywords: ['scanner', 'bip', 'pibe', 'barras', 'código', 'delay', 'atraso', 'vibração'] },
     { id: 'bling', label: 'Integração Bling (API v3)', icon: 'bi-clouds-fill', group: 'system', keywords: ['bling', 'api', 'v3', 'integração', 'estoque', 'sincronização', 'token', 'key'] },
+    { id: 'ai-quality', label: 'Qualidade da IA & Feedbacks', icon: 'bi-robot', group: 'system', keywords: ['ia', 'qualidade', 'feedback', 'reclamação', 'erros', 'assistente', 'gemini', 'divergência'] },
 ];

@@ -44,6 +44,8 @@
     "preview": "vite preview",
     "test": "vitest",
     "test:unit": "vitest run --config vitest.config.ts",
+    "test:agent": "vitest run src/services/aiAgent/__tests__/evaluation/agentDeterministic.test.ts",
+    "test:agent:live": "vitest run src/services/aiAgent/__tests__/evaluation/agentLiveAi.test.ts",
     "test:e2e": "playwright test",
     "storybook": "storybook dev -p 6006",
     "build-storybook": "storybook build"

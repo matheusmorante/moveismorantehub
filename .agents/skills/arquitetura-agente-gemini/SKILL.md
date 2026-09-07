@@ -700,3 +700,22 @@ Antes de declarar a tarefa concluída, verificar:
 * Há logs suficientes para investigar erros?
 
 Se qualquer resposta indicar problema arquitetural, corrigir antes de concluir.
+
+---
+
+## 29. TELEMETRIA DE FEEDBACK, AUDITORIA E CICLO FECHADO DE REGRESSÃO
+
+Quando houver uma reclamação explícita ou retificação do operador relacionada ao comportamento do agente (*"Você entendeu errado"*, *"Era saída, não entrada"*, *"Colocou a categoria errada"*, *"Eu disse ontem"*, *"Por que você está perguntando isso de novo?"*):
+
+1. **Tool de Registro de Feedback (`registrarFeedbackAgente`)**:
+   - O Gemini invoca a ferramenta passando: `conversationId`, `userMessage`, `agentResponse`, `category`, `userComplaint`, `toolCalls` recentes e `severity`.
+   - O ERP persiste o incidente de forma estruturada para auditoria.
+
+2. **Proibição Absoluta de Auto-Modificação**:
+   - **NUNCA alterar automaticamente prompts, código, tools ou regras com base apenas na reclamação**.
+   - A queixa do usuário é evidência investigativa, não prova cega de bug (o agente pode estar correto e o usuário pode não possuir permissão ou violar uma regra legítima).
+
+3. **Ciclo Fechado com Teste de Regressão Obrigatório**:
+   - Todo feedback analisado e confirmado como bug pela auditoria humana DEVE obrigatoriamente gerar um novo caso de teste no Golden Dataset (`goldenDataset.ts`) ANTES que a correção seja dada como concluída.
+   - O fluxo permanente é: **Usuário aponta divergência → ERP registra telemetria → Desenvolvedor/Auditor analisa → Teste de regressão é adicionado → Correção é aplicada e validada → Erro nunca mais regride.**
+

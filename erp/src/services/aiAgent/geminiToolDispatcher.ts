@@ -9,6 +9,7 @@ const toolLabels: Record<string, string> = {
   obterResumoFinanceiro: 'Calculando resumo financeiro',
   criarMovimentacaoFinanceira: 'Registrando movimentação financeira',
   cancelarOuExcluirMovimentacaoFinanceira: 'Removendo lançamento financeiro',
+  registrarFeedbackAgente: 'Registrando feedback do assistente de IA',
 };
 
 export class GeminiToolDispatcher {
@@ -36,6 +37,9 @@ export class GeminiToolDispatcher {
           break;
         case 'cancelarOuExcluirMovimentacaoFinanceira':
           result = await financialAgentTools.cancelarOuExcluirMovimentacaoFinanceira(args as any);
+          break;
+        case 'registrarFeedbackAgente':
+          result = await financialAgentTools.registrarFeedbackAgente(args as any);
           break;
         default:
           result = {

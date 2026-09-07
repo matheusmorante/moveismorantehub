@@ -1,6 +1,8 @@
 import { financeService } from '../../pages/services/financeService';
 import { normalizeSearchTerm } from '../../pages/utils/textUtils';
 
+import { saveAgentFeedback } from './aiFeedbackService';
+
 // Handlers de execução das tools do módulo financeiro
 
 export interface ToolExecutionResponse {
@@ -181,6 +183,40 @@ export const financialAgentTools = {
         success: false,
         code: 'TRANSACTION_DELETE_ERROR',
         error: err?.message || 'Erro ao remover movimentação financeira.',
+      };
+    }
+  },
+
+  async registrarFeedbackAgente(args: {
+    categoria: string;
+    queixaUsuario: string;
+    campoDivergente?: string;
+    severidade?: 'low' | 'medium' | 'high' | 'critical';
+    conversaId?: string;
+    mensagemUsuario?: string;
+    respostaAgente?: string;
+  }): Promise<ToolExecutionResponse> {
+    try {
+      const result = await saveAgentFeedback({
+        conversationId: args.conversaId || 'erp-agent-session',
+        userMessage: args.mensagemUsuario || args.queixaUsuario,
+        agentResponse: args.respostaAgente,
+        category: (args.categoria as any) || 'misunderstanding',
+        userComplaint: args.queixaUsuario,
+        divergentField: args.campoDivergente,
+        severity: args.severidade || 'medium',
+        sourceApp: 'ERP',
+      });
+      return {
+        success: true,
+        data: result,
+        message: 'Feedback registrado com sucesso para auditoria e regressão da equipe.',
+      };
+    } catch (err: any) {
+      return {
+        success: false,
+        code: 'FEEDBACK_RECORD_ERROR',
+        error: err?.message || 'Erro ao registrar feedback da IA.',
       };
     }
   },

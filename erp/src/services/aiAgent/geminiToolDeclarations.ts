@@ -134,6 +134,44 @@ export const financialToolDeclarations: GeminiFunctionDeclaration[] = [
       required: ['movimentacaoId'],
     },
   },
+  {
+    name: 'registrarFeedbackAgente',
+    description:
+      'Registra uma retificação, divergência, reclamação ou correção apontada pelo usuário sobre o comportamento anterior do assistente de IA (ex: "Você entendeu errado", "Eu disse ontem", "Era dinheiro e não Pix", "Categoria errada", "Por que está perguntando de novo?"). Use esta ferramenta IMEDIATAMENTE sempre que o usuário indicar que o agente cometeu um engano ou entendeu algo incorreto.',
+    parameters: {
+      type: 'OBJECT',
+      properties: {
+        categoria: {
+          type: 'STRING',
+          enum: [
+            'misunderstanding',
+            'wrong_tool',
+            'wrong_arguments',
+            'wrong_result',
+            'unnecessary_question',
+            'missing_context',
+            'permission_disagreement',
+            'other',
+          ],
+          description: 'Categoria do problema apontado pelo operador.',
+        },
+        queixaUsuario: {
+          type: 'STRING',
+          description: 'Resumo conciso da reclamação ou correção expressa pelo usuário.',
+        },
+        campoDivergente: {
+          type: 'STRING',
+          description: 'Nome do campo ou dado que gerou a divergência (ex: "data", "formaPagamento", "categoria", "valor", "tipo").',
+        },
+        severidade: {
+          type: 'STRING',
+          enum: ['low', 'medium', 'high', 'critical'],
+          description: 'Nível de impacto percebido (padrão "medium").',
+        },
+      },
+      required: ['categoria', 'queixaUsuario'],
+    },
+  },
 ];
 
 export const erpAgentTools: GeminiTool[] = [

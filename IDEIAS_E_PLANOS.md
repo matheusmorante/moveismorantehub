@@ -88,6 +88,19 @@ Este documento unifica todo o planejamento estratégico, ideias futuras, tarefas
   - Criada a camada modular `mobile/src/services/aiAgent/` com tipagem formal (`mobileAgentTypes.ts`), declaração JSON Schema de 6 tools oficiais (`mobileToolDeclarations.ts`), executores diretos (`mobileAgentTools.ts`), despachante isolado (`mobileToolDispatcher.ts`), cliente HTTP oficial v1beta (`mobileAgentClient.ts`) e orquestrador (`mobileAgentService.ts`).
   - Refatorado `useFinancialAiChat.ts` reduzindo de ~715 linhas para ~350 linhas orquestradoras, eliminando a dependência de parsers manuais/regex e operando sobre histórico conversacional real (`GeminiContent[]`) com Function Calling nativo.
   - Criados testes unitários de integração determinísticos em `mobileAiAgent.test.ts` (4 testes passando, totalizando 24 testes verdes na suíte de IA).
+- [ ] **Sistema de Feedback e Telemetria de Qualidade da IA (Auditoria de Erros & Pipeline de Regressão)**:
+  - **Tool Específica de Feedback (`registrarFeedbackAgente` / `reportAgentIssue`)**:
+    - Disparada nativamente pelo Gemini quando o operador faz uma reclamação, retificação ou correção de comportamento ("Você entendeu errado", "Falei que era saída", "Colocou a categoria errada", "Eu disse ontem", "Não foi isso que eu falei", "Por que está perguntando de novo?").
+    - Parâmetros estruturados: `conversationId`, `userMessage`, `agentResponse`, `category` (misunderstanding, wrong_tool, wrong_arguments, wrong_result, unnecessary_question, missing_context, permission_disagreement, other), `userComplaint`, `toolCalls`, `severity`.
+  - **Persistência no Supabase (`ai_agent_feedback`)**:
+    - Tabela dedicada com carimbo de data/hora, módulo (ERP/Mobile), operador, transcrição dos turnos recentes e status (`pending_review`, `confirmed_bug`, `expected_behavior`, `fixed`, `ignored`).
+  - **Painel no ERP: "Qualidade da IA" / "Auditoria do Assistente"**:
+    - Listagem com filtros de status e severidade.
+    - Card de diagnóstico detalhado mostrando: fala do usuário, resposta da IA, tools chamadas, argumentos, campo divergente e status de revisão.
+  - **Regra de Ouro Arquitetural**:
+    - *Nunca alterar prompts, código ou regras automaticamente com base apenas na reclamação* (a reclamação é evidência investigativa, não prova automática de bug).
+    - Todo feedback confirmado como bug deve gerar obrigatoriamente um caso de teste no Golden Dataset (`goldenDataset.ts`) antes de considerar a correção concluída.
+
 
 ### 🧹 Refatoração, Código Limpo, Engenharia de Software e Modularização (`modularizacao_codigo`)
 - [x] **Consolidação Mestre de Engenharia de Software e Boas Práticas Operacionais**:

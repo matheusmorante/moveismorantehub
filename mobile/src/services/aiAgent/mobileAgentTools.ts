@@ -303,4 +303,51 @@ export const mobileAgentTools = {
       };
     }
   },
+
+  async registrarFeedbackAgente(args: {
+    categoria: string;
+    queixaUsuario: string;
+    campoDivergente?: string;
+    severidade?: 'low' | 'medium' | 'high' | 'critical';
+    conversaId?: string;
+    mensagemUsuario?: string;
+    respostaAgente?: string;
+  }): Promise<ToolExecutionResponse> {
+    try {
+      const generatedId = `fb-mob-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
+      const nowIso = new Date().toISOString();
+
+      try {
+        await supabase.from('ai_agent_feedback').insert([
+          {
+            conversation_id: args.conversaId || 'mobile-session',
+            user_message: args.mensagemUsuario || args.queixaUsuario,
+            agent_response: args.respostaAgente || null,
+            category: args.categoria || 'misunderstanding',
+            user_complaint: args.queixaUsuario,
+            divergent_field: args.campoDivergente || null,
+            tool_calls: [],
+            severity: args.severidade || 'medium',
+            status: 'pending_review',
+            source_app: 'MOBILE',
+            created_at: nowIso,
+          },
+        ]);
+      } catch (dbErr) {
+        console.warn('[mobileAgentTools] Falha silenciosa ao gravar feedback no Supabase:', dbErr);
+      }
+
+      return {
+        success: true,
+        data: { id: generatedId },
+        message: 'Feedback registrado com sucesso no aplicativo móvel.',
+      };
+    } catch (err: any) {
+      return {
+        success: false,
+        code: 'FEEDBACK_ERROR',
+        error: err?.message || 'Erro ao registrar feedback da IA no Mobile.',
+      };
+    }
+  },
 };

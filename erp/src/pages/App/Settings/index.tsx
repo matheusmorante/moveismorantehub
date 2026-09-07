@@ -20,6 +20,7 @@ import FiscalSettingsSection from './components/FiscalSettingsSection';
 import ScannerConfigSection from './components/ScannerConfigSection';
 import CompanySettingsSection from './components/CompanySettingsSection';
 import { AiUsageDashboardPanel } from './components/AiUsageDashboardPanel';
+import AiQualityFeedbackSection from './components/AiQualityFeedbackSection';
 import { settingsCategories } from './components/settingsCategories';
 
 export default function Settings(): any {
@@ -200,6 +201,10 @@ export default function Settings(): any {
 
                     <SettingsSection id="bling" title="Integração Bling (API v3)" icon="bi-clouds-fill" isVisible={isVisible('bling')} isSearching={!!search.trim()} isAdminOnly={isAdminGroup('bling')}>
                         <BlingConfigSection settings={settings} onChange={handleChange} />
+                    </SettingsSection>
+
+                    <SettingsSection id="ai-quality" title="Qualidade da IA & Auditoria de Feedbacks" icon="bi-robot" isVisible={isVisible('ai-quality')} isSearching={!!search.trim()} isAdminOnly={isAdminGroup('ai-quality')}>
+                        <AiQualityFeedbackSection />
                     </SettingsSection>
                 </div>
             </div>

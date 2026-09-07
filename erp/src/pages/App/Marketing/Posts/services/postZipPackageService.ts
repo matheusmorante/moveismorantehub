@@ -68,7 +68,7 @@ async function fetchFileArrayBuffer(rawUrl: string): Promise<ArrayBuffer | null>
     }
   }
 
-  // 4. Fallback no browser: carregar via elemento Image e converter em canvas
+  // Fallback no browser: carregar via elemento Image e converter em canvas
   if (typeof window !== 'undefined' && typeof document !== 'undefined') {
     const candidatesForCanvas = [
       `https://images.weserv.nl/?url=${encodeURIComponent(rawUrl)}`,
@@ -110,232 +110,168 @@ async function fetchFileArrayBuffer(rawUrl: string): Promise<ArrayBuffer | null>
   return null;
 }
 
+function buildInstrucoesMd(spec: PostCreationSpecification): string {
+  const productName = spec.product?.name || 'Produto';
+  const price = spec.product?.price ? `R$ ${spec.product.price.toFixed(2).replace('.', ',')}` : 'Não informado';
+  const catalogUrl = spec.product?.catalogUrl || '';
+
+  return `# INSTRUÇÕES DO PACOTE DE CRIAÇÃO — MÓVEIS MORANTE
+
+Este pacote ZIP contém todos os materiais e diretrizes para a geração dos criativos publicitários da **Móveis Morante**.
+
+## 📄 ARQUIVOS PRINCIPAIS
+
+1. **\`prompt.txt\`**:
+   - Contém o **PROMPT COMPLETO E DETALHADO** pronto para uso da IA.
+   - Todo o direcionamento criativo, copy, regras de composição, precificação e formatos estão centralizados exclusivamente neste arquivo.
+
+2. **\`specification.json\`**:
+   - Especificação técnica estruturada (JSON) com metadados canônicos, URLs públicas e o mapeamento dos arquivos locais.
+
+## 📁 PASTAS DE RECURSOS VISUAIS (Incluídas apenas quando houver arquivos reais)
+
+- **\`product/\`**:
+  - Fotos oficiais em alta definição do móvel (**${productName}**), como \`product/primary\` e variações.
+  - **REGRA CRÍTICA**: O móvel é real e comercializado pela Móveis Morante. Utilize as imagens reais e preserve rigorosamente o design, puxadores, proporções, textura e cor exata. **NÃO REDESENHE O PRODUTO**.
+
+- **\`official-assets/\`**:
+  - Logotipos e selos institucionais oficiais da Móveis Morante (ex: \`official-assets/logo\`).
+  - São arquivos gráficos oficiais prontos para aplicação direta. Não redesenhe nem recrie por aproximação.
+
+- **\`references/\`**:
+  - Imagens de referência estética e direção de arte selecionadas.
+  - Servem como inspiração para iluminação, tipografia e diagramação.
+
+---
+
+## ℹ️ RESUMO DO PRODUTO
+- **Produto**: ${productName}
+- **Preço**: ${price}
+${catalogUrl ? `- **Catálogo Digital**: ${catalogUrl}\n` : ''}
+Consulte o arquivo **\`prompt.txt\`** para o prompt completo a ser enviado para a IA!
+`;
+}
+
 export interface GenerateZipOptions {
   specification: PostCreationSpecification;
   activeModels?: ElementModel[];
-  onProgress?: (percent: number, message: string) => void;
+  onProgress?: (percent: number, status: string) => void;
 }
 
+/**
+ * Gera o arquivo ZIP contendo as fotos baixadas, assets, prompt.txt e instruções.
+ * Não cria pastas vazias: qualquer pasta só existe se contiver arquivos reais baixados.
+ */
 export async function generatePostContextZip(options: GenerateZipOptions): Promise<Blob> {
-  const { specification: spec, activeModels = [], onProgress } = options;
+  const { specification, activeModels = [], onProgress } = options;
   const zip = new JSZip();
 
-  onProgress?.(5, 'Criando arquivos de instruções...');
+  // Clone estrutural para injetar os nomes de arquivos locais baixados
+  const specClone: PostCreationSpecification = JSON.parse(JSON.stringify(specification));
 
-  // 1. INSTRUCOES.md
-  const promptBody = renderSpecificationAsPrompt(spec);
-  const instrucoesMd = `# INSTRUÇÕES DE CRIAÇÃO DE POST PUBLICITÁRIO — MÓVEIS MORANTE
+  onProgress?.(5, 'Iniciando preparação do pacote...');
 
-Este pacote ZIP contém a especificação oficial e os arquivos de mídia reais para a criação do post publicitário.
+  // 1. Baixar imagem principal do produto
+  if (specClone.productImages?.primary?.url) {
+    onProgress?.(15, 'Baixando foto principal do produto...');
+    const url = specClone.productImages.primary.url;
+    const ext = getFileExtension(url, 'jpg');
+    const buffer = await fetchFileArrayBuffer(url);
+    if (buffer) {
+      const filename = `primary.${ext}`;
+      const relativePath = `product/${filename}`;
+      zip.file(relativePath, buffer);
+      specClone.productImages.primary.file = relativePath;
+    }
+  }
 
-==================================================
-ESTRUTURA DOS ARQUIVOS NESTE PACOTE
-==================================================
-- product/primary.*: FOTOGRAFIA REAL PRINCIPAL DO PRODUTO (FONTE VISUAL DE VERDADE).
-- product/open-view.*: FOTOGRAFIA DO MÓVEL ABERTO / INTERNO (quando aplicável).
-- product/variations/*: FOTOGRAFIAS REAIS DAS DEMAIS CORES E VARIAÇÕES.
-- official-assets/logo.*: ARQUIVO DO LOGO OFICIAL DA MÓVEIS MORANTE (usar fielmente).
-- official-assets/badge.*: SELO OFICIAL DE OPORTUNIDADE (se houver oportunidade ativa).
-- references/*: IMAGENS DE REFERÊNCIA VISUAL DE ELEMENTOS (apenas direção estética).
-- specification.json: ESPECIFICAÇÃO COMPLETA EM JSON ESTRUTURADO (com identificadores "file" e "url").
+  // 2. Baixar imagem de visão aberta/interna
+  if (specClone.productImages?.openView?.url) {
+    onProgress?.(30, 'Baixando foto de visão aberta...');
+    const url = specClone.productImages.openView.url;
+    const ext = getFileExtension(url, 'jpg');
+    const buffer = await fetchFileArrayBuffer(url);
+    if (buffer) {
+      const filename = `open-view.${ext}`;
+      const relativePath = `product/${filename}`;
+      zip.file(relativePath, buffer);
+      specClone.productImages.openView.file = relativePath;
+    }
+  }
 
-==================================================
-REGRA CRÍTICA — REFERÊNCIAS VISUAIS OBRIGATÓRIAS (GROUNDING)
-==================================================
-1. EXTRAÇÃO E IDENTIFICAÇÃO PRELIMINAR:
-Ao receber este pacote ZIP, extraia e identifique explicitamente os arquivos das fotos do produto ("product/primary.*", "product/open-view.*", "product/variations/*") e do logo oficial ("official-assets/logo.*") antes de qualquer tentativa de geração.
+  // 3. Baixar imagens das variações
+  if (specClone.productImages?.variations && specClone.productImages.variations.length > 0) {
+    onProgress?.(45, 'Baixando fotos das variações...');
+    for (let i = 0; i < specClone.productImages.variations.length; i++) {
+      const v = specClone.productImages.variations[i];
+      if (!v.url) continue;
+      const ext = getFileExtension(v.url, 'jpg');
+      const buffer = await fetchFileArrayBuffer(v.url);
+      if (buffer) {
+        const slug = sanitizeFilename(v.variationName || `variacao-${i + 1}`);
+        const filename = `${slug}.${ext}`;
+        const relativePath = `product/variations/${filename}`;
+        zip.file(relativePath, buffer);
+        v.file = relativePath;
+      }
+    }
+  }
 
-2. ANCORAGEM COMO REFERÊNCIA VISUAL DIRETA:
-As imagens identificadas DEVEM ser efetivamente anexadas e utilizadas como REFERÊNCIAS VISUAIS DIRETAS na chamada de geração da imagem. NÃO basta apenas ler, descrever ou compreender as imagens textualmente.
-É terminantemente PROIBIDO gerar a arte apenas a partir de uma descrição textual do produto quando existem fotografias reais no pacote.
+  // 4. Baixar assets oficiais (logo e badge)
+  if (specClone.officialAssets?.logo?.url) {
+    onProgress?.(60, 'Baixando logotipo oficial...');
+    const url = specClone.officialAssets.logo.url;
+    const ext = getFileExtension(url, 'png');
+    const buffer = await fetchFileArrayBuffer(url);
+    if (buffer) {
+      const filename = `logo.${ext}`;
+      const relativePath = `official-assets/${filename}`;
+      zip.file(relativePath, buffer);
+      specClone.officialAssets.logo.file = relativePath;
+    }
+  }
 
-3. CONFIRMAÇÃO INTERNA OBRIGATÓRIA:
-Antes de chamar o gerador de imagem, confirme internamente:
-- Qual é o produto exato do pacote?
-- Quais arquivos locais são suas fotografias?
-- Essas fotografias estão efetivamente vinculadas como referências para a geração?
-Se as fotografias não puderem ser fornecidas ao gerador como referência visual, NÃO GERE A IMAGEM. Informe que não foi possível utilizar as referências do pacote.
-Nunca substitua uma referência ausente por conhecimento próprio, produto semelhante ou objeto aleatório (como relógios, carteiras ou outro produto diferente).
+  if (specClone.officialAssets?.badge?.url) {
+    onProgress?.(70, 'Baixando selo oficial...');
+    const url = specClone.officialAssets.badge.url;
+    const ext = getFileExtension(url, 'png');
+    const buffer = await fetchFileArrayBuffer(url);
+    if (buffer) {
+      const filename = `badge.${ext}`;
+      const relativePath = `official-assets/${filename}`;
+      zip.file(relativePath, buffer);
+      specClone.officialAssets.badge.file = relativePath;
+    }
+  }
 
-4. FLUXO CONTÍNUO EM SEQUÊNCIA ÚNICA (FORMATO FEED 4:5):
-O formato padrão solicitado é FEED (4:5 — 1080 × 1350).
-NÃO pare para perguntar qual formato deseja.
-Execute em sequência única: Extração do ZIP → Ancoragem das Fotos → Geração Imediata da Arte no formato Feed 4:5.
-Se o usuário responder com uma mensagem contendo apenas "4:5", isso NÃO inicia uma nova interpretação: reutilize obrigatoriamente as mesmas imagens do produto identificadas na etapa anterior.
+  // 5. Baixar referências visuais de modelos ativos (APENAS se houver arquivo com buffer válido)
+  if (activeModels.length > 0) {
+    onProgress?.(80, 'Processando referências visuais...');
+    for (const model of activeModels) {
+      if (!model.imageUrl) continue;
+      const buffer = await fetchFileArrayBuffer(model.imageUrl);
+      if (buffer) {
+        const catSlug = sanitizeFilename(model.category || 'geral');
+        const modelSlug = sanitizeFilename(model.name || 'modelo');
+        const ext = getFileExtension(model.imageUrl, 'jpg');
+        const relativePath = `references/${catSlug}/${modelSlug}.${ext}`;
+        zip.file(relativePath, buffer);
+      }
+    }
+  }
 
-==================================================
-REGRA CENTRAL: FIDELIDADE DO PRODUTO VS. DIREÇÃO DE ARTE
-==================================================
-1. FIDELIDADE DO PRODUTO É ABSOLUTA: NÃO REDESENHE O PRODUTO. Não altere portas, gavetas, pés, puxadores, espelhos ou acabamentos. Utilize as fotos reais de "product/primary.*" e "product/variations/*" como representação factual do móvel.
-2. DIREÇÃO DE ARTE PROFISSIONAL AO REDOR DO PRODUTO: A fidelidade do móvel NÃO autoriza uma arte simplista, vazia ou chapada. Crie uma peça publicitária sofisticada de varejo de móveis, com ambientação comercial realista (quarto, sala, cozinha conforme a categoria), iluminação de estúdio com sombras reais projetadas, bloco de preço destacado nas cores da marca (azul escuro e amarelo), hierarquia tipográfica comercial forte e acabamento gráfico premium.
-3. O logo em "official-assets/logo.*" é um arquivo pronto: insira-o com fidelidade sem redesenhar.
-
-==================================================
-PROMPT ESTRUTURADO
-==================================================
-${promptBody}
-`;
-
-  zip.file('INSTRUCOES.md', instrucoesMd);
+  // 6. Gerar prompt.txt com o prompt completo e estruturado
+  onProgress?.(85, 'Gerando prompt completo...');
+  const promptBody = renderSpecificationAsPrompt(specClone);
   zip.file('prompt.txt', promptBody);
 
-  // 2. specification.json com caminhos relativos "file", URLs de origem e roles semânticas
-  const enrichedSpec: any = JSON.parse(JSON.stringify(spec));
+  // 7. Gerar INSTRUCOES.md orientativo
+  onProgress?.(90, 'Gerando arquivo de instruções...');
+  const instrucoesContent = buildInstrucoesMd(specClone);
+  zip.file('INSTRUCOES.md', instrucoesContent);
 
-  if (enrichedSpec.productImages?.primary) {
-    const ext = getFileExtension(enrichedSpec.productImages.primary.url, 'jpg');
-    enrichedSpec.productImages.primary.file = `product/primary.${ext}`;
-    enrichedSpec.productImages.primary.role = 'PRIMARY';
-  }
-
-  if (enrichedSpec.productImages?.openView) {
-    const ext = getFileExtension(enrichedSpec.productImages.openView.url, 'jpg');
-    enrichedSpec.productImages.openView.file = `product/open-view.${ext}`;
-    enrichedSpec.productImages.openView.role = 'OPEN_VIEW';
-  }
-
-  if (Array.isArray(enrichedSpec.productImages?.variations)) {
-    enrichedSpec.productImages.variations = enrichedSpec.productImages.variations.map(
-      (v: any, i: number) => {
-        const safeName = sanitizeFilename(v.variationName || `variacao-${i + 1}`);
-        const ext = getFileExtension(v.url, 'jpg');
-        return {
-          ...v,
-          file: `product/variations/${safeName}.${ext}`,
-          role: 'VARIATION',
-        };
-      },
-    );
-  }
-
-  if (enrichedSpec.officialAssets?.logo) {
-    const ext = getFileExtension(enrichedSpec.officialAssets.logo.url, 'png');
-    enrichedSpec.officialAssets.logo.file = `official-assets/logo.${ext}`;
-    enrichedSpec.officialAssets.logo.role = 'OFFICIAL_ASSET';
-  }
-
-  if (enrichedSpec.officialAssets?.badge) {
-    const ext = getFileExtension(enrichedSpec.officialAssets.badge.url, 'png');
-    enrichedSpec.officialAssets.badge.file = `official-assets/badge.${ext}`;
-    enrichedSpec.officialAssets.badge.role = 'OFFICIAL_ASSET';
-  }
-
-  zip.file('specification.json', JSON.stringify(enrichedSpec, null, 2));
-
-  onProgress?.(15, 'Baixando fotos do produto...');
-
-  let downloadedProductPhotos = 0;
-  let totalProductPhotos = 0;
-
-  // 3. Pasta product/
-  const productFolder = zip.folder('product');
-  const variationsFolder = productFolder?.folder('variations');
-
-  // Foto Principal
-  if (spec.productImages?.primary?.url && productFolder) {
-    totalProductPhotos++;
-    onProgress?.(25, 'Baixando foto principal...');
-    const buffer = await fetchFileArrayBuffer(spec.productImages.primary.url);
-    if (buffer) {
-      downloadedProductPhotos++;
-      const ext = getFileExtension(spec.productImages.primary.url, 'jpg');
-      productFolder.file(`primary.${ext}`, buffer);
-    }
-  }
-
-  // Foto Visão Interna / Aberta
-  if (spec.productImages?.openView?.url && productFolder) {
-    totalProductPhotos++;
-    onProgress?.(40, 'Baixando foto aberta...');
-    const buffer = await fetchFileArrayBuffer(spec.productImages.openView.url);
-    if (buffer) {
-      downloadedProductPhotos++;
-      const ext = getFileExtension(spec.productImages.openView.url, 'jpg');
-      productFolder.file(`open-view.${ext}`, buffer);
-    }
-  }
-
-  // Variações
-  if (spec.productImages?.variations && variationsFolder) {
-    onProgress?.(55, 'Baixando fotos das variações...');
-    for (let i = 0; i < spec.productImages.variations.length; i++) {
-      const v = spec.productImages.variations[i];
-      if (v.url) {
-        totalProductPhotos++;
-        const buffer = await fetchFileArrayBuffer(v.url);
-        if (buffer) {
-          downloadedProductPhotos++;
-          const safeName = sanitizeFilename(v.variationName || `variacao-${i + 1}`);
-          const ext = getFileExtension(v.url, 'jpg');
-          variationsFolder.file(`${safeName}.${ext}`, buffer);
-        }
-      }
-    }
-  }
-
-  onProgress?.(70, 'Baixando assets oficiais...');
-
-  // 4. Pasta official-assets/
-  const officialFolder = zip.folder('official-assets');
-  if (officialFolder) {
-    // Logo oficial
-    if (spec.officialAssets?.logo?.url) {
-      const buffer = await fetchFileArrayBuffer(spec.officialAssets.logo.url);
-      if (buffer) {
-        const ext = getFileExtension(spec.officialAssets.logo.url, 'png');
-        officialFolder.file(`logo.${ext}`, buffer);
-      }
-    }
-
-    // Selo de Oportunidade
-    if (spec.officialAssets?.badge?.url) {
-      const buffer = await fetchFileArrayBuffer(spec.officialAssets.badge.url);
-      if (buffer) {
-        const ext = getFileExtension(spec.officialAssets.badge.url, 'png');
-        officialFolder.file(`badge.${ext}`, buffer);
-      }
-    }
-  }
-
-  onProgress?.(85, 'Baixando referências visuais...');
-
-  // 5. Pasta references/
-  const referencesFolder = zip.folder('references');
-  if (referencesFolder) {
-    for (const model of activeModels) {
-      const typeName = sanitizeFilename(model.elementType || 'elemento');
-      const isPostReference = model.elementType === 'POST_REFERENCE';
-      const typeFolder = isPostReference
-        ? referencesFolder.folder('posts')
-        : referencesFolder.folder(typeName);
-
-      // 5.1 Arquivos anexados diretamente no modelo (referenceFiles)
-      if (Array.isArray(model.referenceFiles) && model.referenceFiles.length > 0) {
-        for (let i = 0; i < model.referenceFiles.length; i++) {
-          const fileRef = model.referenceFiles[i];
-          if (fileRef.fileUrl) {
-            const buffer = await fetchFileArrayBuffer(fileRef.fileUrl);
-            if (buffer) {
-              const safeName = sanitizeFilename(fileRef.name || `${model.name || 'post'}-${i + 1}`);
-              const ext = getFileExtension(fileRef.name || fileRef.fileUrl, 'png');
-              typeFolder?.file(`${safeName}.${ext}`, buffer);
-            }
-          }
-        }
-      }
-
-      // 5.2 Asset gerado ou URL de referência direta
-      const refUrl = (model.content as any)?.referenceUrl || (model.content as any)?.assetUrl || (model as any).generatedAssetUrl;
-      if (refUrl && typeof refUrl === 'string' && (refUrl.startsWith('http') || refUrl.startsWith('data:'))) {
-        const buffer = await fetchFileArrayBuffer(refUrl);
-        if (buffer) {
-          const safeName = sanitizeFilename(model.name || 'referencia');
-          const ext = getFileExtension(refUrl, 'png');
-          typeFolder?.file(`${safeName}.${ext}`, buffer);
-        }
-      }
-    }
-  }
+  // 8. Gerar specification.json canônico com os caminhos dos arquivos
+  zip.file('specification.json', JSON.stringify(specClone, null, 2));
 
   onProgress?.(95, 'Gerando arquivo ZIP compactado...');
 

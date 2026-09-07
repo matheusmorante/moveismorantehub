@@ -54,6 +54,12 @@ Este documento registra as regras e comportamentos **implementados** no sistema,
   - O assistente **NUNCA deve perguntar** se essas despesas operacionais são pessoais ou da empresa. A única pergunta pendente permitida para esses casos é a forma de pagamento (se ainda não informada pelo usuário).
   - A pergunta sobre finalidade (se é da empresa ou pessoal) é reservada **estritamente para contas de consumo genéricas e ambíguas** (conta de luz, água, internet sem especificação, compras de mercado gerais).
   - **Proibição de Jargões Técnicos ao Usuário**: O assistente é terminantemente proibido de exibir termos de banco de dados ou enums em inglês na conversa com o operador, tais como `(BUSINESS)` ou `(PERSONAL_PARTNER - Pró-labore)`. Deve formular perguntas com elegância em português natural: *"Essa conta de luz é da loja ou particular de casa?"*.
+- **Suíte Profissional de Testes e Regressão Contínua do Agente IA (`goldenDataset.ts` / `evaluatorEngine.ts`)**:
+  - **Princípio Operacional Permanente**: `BUG DE COMPREENSÃO CORRIGIDO = NOVO CASO DE REGRESSÃO NO GOLDEN DATASET`. Sempre que um comportamento incorreto for identificado no chat ou em homologação, ele deve ser cadastrado como um caso de teste estável em [`goldenDataset.ts`](file:///c:/Users/Rosilene/Desktop/morantehub/erp/src/services/aiAgent/__tests__/evaluation/goldenDataset.ts).
+  - **Dois Níveis de Testes**:
+    1. **Nível A — Determinístico (`npm run test:agent`)**: Execução instantânea (milissegundos), sem dependência de rede, 100% gratuita e reprodutível. Valida intenções, extrações, ausência de alucinação, bloqueio de ações incompletas, segurança operacional, multi-turn e prevenção contra contaminação de contexto.
+    2. **Nível B — Avaliação com IA Real (`npm run test:agent:live`)**: Execução controlada com o modelo `gemini-2.5-flash` sob demanda (opt-in com `RUN_LIVE_AI_EVAL=1`), avaliando compreensão semântica real sem exigir igualdade textual mecânica, respeitando estritamente o `cloud-free-tier-guard`.
+  - **Diagnóstico Estruturado**: Em caso de falha, o motor exibe no console o formato padrão: `CASO: (mensagem)` → `ESPERADO: (intent/tool/args)` → `RECEBIDO: (intent/tool/args)` → `DIFERENÇA: (causa raiz da divergência)`.
 
 ---
 
@@ -641,6 +647,11 @@ Ao incrementar versao em `mobile/app.json`, sincronizar:
 - **Visualização no Prompt Preview do ERP e na Página Pública de Compartilhamento**:
   - O Preview exibe o card **"ASSETS OFICIAIS"** com thumbnails reais, nomes e URLs absolutas do Logo e do Selo (ou indicação clara de *"Nenhum (produto sem oportunidade)"*).
   - A página pública `/share/post-instructions/[token]` e seu respectivo endpoint JSON contêm a mesma estrutura canônica com as regras de fidelidade absoluta e URLs públicas.
+- **Pacote ZIP de Criação (`post-context.zip` / `postZipPackageService.ts`)**:
+  - **Prompt Completo Centralizado**: O prompt detalhado e estruturado para uso direto da IA fica **exclusivamente no arquivo `prompt.txt`** na raiz do arquivo compactado.
+  - **Instruções ao Designer / IA**: O arquivo **`INSTRUCOES.md`** guia o uso dos materiais, destaca o resumo do produto e as regras de fidelidade inegociável ao móvel real e marcas oficiais, orientando a IA a seguir o `prompt.txt`.
+  - **Metadados Canônicos**: O arquivo **`specification.json`** preserva o JSON completo com os caminhos relativos dos arquivos baixados.
+  - **Proibição Absoluta de Pastas Vazias**: As pastas do pacote (`product/`, `official-assets/`, `references/`) **só existem se contiverem arquivos ou imagens reais baixados**. É terminantemente proibido criar pastas ou subpastas vazias (ex: `references/` sem imagens) no arquivo compactado.
 
 ---
 
@@ -660,5 +671,10 @@ Ao incrementar versao em `mobile/app.json`, sincronizar:
   - O Gemini **NUNCA** pode inventar `clienteId`, `fornecedorId`, `categoriaId`, `produtoId`, `contaId` ou `movimentacaoId`. Para operar sobre registros existentes, deve obrigatoriamente realizar busca prévia via tool.
 - **Contexto Conversacional Nativo**:
   - O histórico de mensagens (turnos `user`, `model` e `functionResponse`) deve ser mantido de forma contínua, permitindo correções naturais (*"Não, foi 350"*, *"Na verdade foi ontem"*), sem dezenas de flags manuais de estado no frontend.
+- **Telemetria de Feedback, Auditoria de Comportamento e Ciclo de Regressão**:
+  - **Captura Estruturada de Feedback**: Quando houver reclamação explícita ou retificação do operador relacionada ao comportamento do agente (*"Você entendeu errado"*, *"Era dinheiro, não Pix"*, *"Eu disse ontem"*, *"Categoria errada"*), o agente deve invocar a tool `registrarFeedbackAgente` para registrar o caso com contexto mínimo reprodutível (conversa, última resposta, tools chamadas, argumentos, categoria do erro e queixa do usuário).
+  - **Proibição Absoluta de Auto-Modificação**: É expressamente proibido que o próprio agente ou qualquer automação altere prompts, código, tools ou regras de negócio silenciosamente apenas com base na reclamação. A reclamação do usuário é evidência investigativa, não prova cega de bug (o agente pode estar correto e o usuário pode não ter permissão ou ter violado uma regra legítima).
+  - **Ciclo Fechado com Teste de Regressão Obrigatório**: Todo feedback confirmado como bug pela equipe/auditoria DEVE obrigatoriamente gerar um novo caso de teste determinístico no Golden Dataset ([`goldenDataset.ts`](file:///c:/Users/Rosilene/Desktop/morantehub/erp/src/services/aiAgent/__tests__/evaluation/goldenDataset.ts)) ANTES da correção ser considerada concluída, impedindo que o mesmo erro volte a ocorrer no futuro.
+
 
 

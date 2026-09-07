@@ -13,6 +13,10 @@ vi.mock('../../../pages/services/financeService', () => ({
   },
 }));
 
+vi.mock('../aiFeedbackService', () => ({
+  saveAgentFeedback: vi.fn().mockResolvedValue({ success: true, id: 'fb-123' }),
+}));
+
 describe('financialAgentTools - Handlers das Ferramentas Financeiras', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -134,5 +138,17 @@ describe('financialAgentTools - Handlers das Ferramentas Financeiras', () => {
 
     expect(result.success).toBe(true);
     expect(financeService.deleteTransaction).toHaveBeenCalledWith('tx-123');
+  });
+
+  it('deve registrar feedback do agente chamando saveAgentFeedback', async () => {
+    const result = await financialAgentTools.registrarFeedbackAgente({
+      categoria: 'wrong_arguments',
+      queixaUsuario: 'Falei que era saída e não entrada',
+      campoDivergente: 'tipo',
+      severidade: 'high',
+    });
+
+    expect(result.success).toBe(true);
+    expect(result.message).toContain('Feedback registrado com sucesso');
   });
 });

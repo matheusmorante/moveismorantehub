@@ -35,7 +35,7 @@ export class GeminiClient {
       return customTransport(payload);
     }
 
-    const settings = getSettings();
+    const settings = typeof localStorage !== 'undefined' ? getSettings() : ({} as any);
     const envKey = import.meta.env.VITE_GEMINI_API_KEY || (typeof process !== 'undefined' ? process.env?.VITE_GEMINI_API_KEY || process.env?.GEMINI_API_KEY : '');
     const apiKey = (envKey || (settings as any)?.geminiApiKey || '').trim();
 
