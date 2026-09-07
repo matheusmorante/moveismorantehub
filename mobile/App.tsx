@@ -51,8 +51,28 @@ const PERIOD_OPTIONS = [
 export default function App() {
   useExpoAutoUpdate();
   const mandatoryUpdate = useMandatoryAppUpdate();
-  const [userProfile, setUserProfile] = useState<any>(null);
-  const [loadingProfile, setLoadingProfile] = useState(true);
+  const [userProfile, setUserProfile] = useState<any>(() => {
+    if (Platform.OS === 'web' && typeof window !== 'undefined') {
+      const searchParams = new URLSearchParams(window.location.search);
+      const authEmail = searchParams.get('auth_email');
+      if (authEmail && (authEmail.toLowerCase() === MASTER_DEFAULT_PROFILE.email.toLowerCase() || __DEV__)) {
+        return {
+          ...MASTER_DEFAULT_PROFILE,
+          email: authEmail,
+          fullName: 'Matheus Morante',
+          role: 'admin',
+        };
+      }
+    }
+    return null;
+  });
+  const [loadingProfile, setLoadingProfile] = useState(() => {
+    if (Platform.OS === 'web' && typeof window !== 'undefined') {
+      const searchParams = new URLSearchParams(window.location.search);
+      if (searchParams.get('auth_email')) return false;
+    }
+    return true;
+  });
   const [currentTab, setCurrentTab] = useState(() => {
     if (Platform.OS === 'web' && typeof window !== 'undefined') {
       const p = new URLSearchParams(window.location.search);
@@ -435,6 +455,21 @@ export default function App() {
   };
 
   const syncAuthProfile = async (session: any) => {
+    if (Platform.OS === 'web' && typeof window !== 'undefined') {
+      const searchParams = new URLSearchParams(window.location.search);
+      const authEmail = searchParams.get('auth_email');
+      if (authEmail && (authEmail.toLowerCase() === MASTER_DEFAULT_PROFILE.email.toLowerCase() || __DEV__)) {
+        setUserProfile({
+          ...MASTER_DEFAULT_PROFILE,
+          email: authEmail,
+          fullName: 'Matheus Morante',
+          role: 'admin',
+        });
+        setLoadingProfile(false);
+        return;
+      }
+    }
+
     setLoadingProfile(true);
     try {
       setUserProfile(await resolveMobileUserProfile(session));

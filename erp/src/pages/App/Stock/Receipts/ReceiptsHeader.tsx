@@ -8,7 +8,7 @@ interface ReceiptsHeaderProps {
     selectedSupplierId: string;
     onSelectSupplier: (id: string) => void;
     onSelectInboundNfe: () => void;
-    onSelectPurchaseOrOrder: () => void;
+    onSelectPurchase: () => void;
     onSelectManual: () => void;
 }
 
@@ -17,7 +17,7 @@ export const ReceiptsHeader: React.FC<ReceiptsHeaderProps> = ({
     selectedSupplierId,
     onSelectSupplier,
     onSelectInboundNfe,
-    onSelectPurchaseOrOrder,
+    onSelectPurchase,
     onSelectManual
 }) => {
     return (
@@ -35,7 +35,7 @@ export const ReceiptsHeader: React.FC<ReceiptsHeaderProps> = ({
 
                 <ReceiptActionButtons
                     onSelectInboundNfe={onSelectInboundNfe}
-                    onSelectPurchaseOrOrder={onSelectPurchaseOrOrder}
+                    onSelectPurchase={onSelectPurchase}
                     onSelectManual={onSelectManual}
                 />
             </header>

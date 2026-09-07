@@ -10,16 +10,15 @@ export function determineResultNature(categoryName?: string | null, type?: 'inco
 
   if (
     nameLower.includes('aporte') ||
-    nameLower.includes('empréstimo recebido') ||
-    nameLower.includes('emprestimo recebido') ||
+    nameLower.includes('empréstimo') ||
+    nameLower.includes('emprestimo') ||
+    nameLower.includes('financiamento') ||
     nameLower.includes('saldo inicial') ||
     nameLower.includes('devolução') ||
     nameLower.includes('devolucao') ||
     nameLower.includes('retirada de sócio') ||
     nameLower.includes('distribuição de lucros') ||
     nameLower.includes('distribuicao de lucros') ||
-    nameLower.includes('pagamento de empréstimo') ||
-    nameLower.includes('pagamento de emprestimo') ||
     nameLower.includes('amortização') ||
     nameLower.includes('amortizacao') ||
     nameLower.includes('compra de estoque') ||
@@ -41,10 +40,18 @@ export const financeService = {
     if (type) query = query.eq('type', type);
     const { data, error } = await query;
     if (error) throw error;
-    return (data || []).map((c: any) => ({
+    const list = (data || []).map((c: any) => ({
       ...c,
       result_nature: c.result_nature || determineResultNature(c.name, c.type),
     })) as FinancialCategory[];
+
+    return list.sort((a, b) => {
+      const isAOther = a.name.trim().toLowerCase().startsWith('outra');
+      const isBOther = b.name.trim().toLowerCase().startsWith('outra');
+      if (isAOther && !isBOther) return 1;
+      if (!isAOther && isBOther) return -1;
+      return a.name.localeCompare(b.name, 'pt-BR');
+    });
   },
 
   // --- Contas a Pagar ---

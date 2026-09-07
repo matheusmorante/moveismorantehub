@@ -2,6 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { View, Text, TouchableOpacity, Modal, StyleSheet, TextInput, FlatList } from 'react-native';
 import { X, Search, Check, Folder } from 'lucide-react-native';
 import type { FinancialCategory } from '../../../services/mobileFinanceService';
+import { sortCategoriesWithOthersAtEnd } from '../../../services/financial/mobileCategoryService';
 
 interface Props {
   visible: boolean;
@@ -39,9 +40,12 @@ export const CategorySelectModal: React.FC<Props> = ({
   }, [visible, initialSearchText]);
 
   const filteredCategories = useMemo(() => {
-    if (!searchText.trim()) return categories;
-    const term = normalize(searchText);
-    return categories.filter(c => normalize(c.name).includes(term));
+    let result = categories;
+    if (searchText.trim()) {
+      const term = normalize(searchText);
+      result = categories.filter(c => normalize(c.name).includes(term));
+    }
+    return sortCategoriesWithOthersAtEnd(result);
   }, [categories, searchText]);
 
   return (
@@ -95,6 +99,9 @@ export const CategorySelectModal: React.FC<Props> = ({
               const isSelected = item.id === selectedCategoryId;
               return (
                 <TouchableOpacity
+                  testID={`cat-item-${item.name}`}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Categoria ${item.name}`}
                   style={[
                     styles.itemRow,
                     isDarkMode && styles.itemRowDark,
@@ -104,6 +111,12 @@ export const CategorySelectModal: React.FC<Props> = ({
                     onSelectCategory(item);
                     onClose();
                   }}
+                  {...({
+                    onClick: () => {
+                      onSelectCategory(item);
+                      onClose();
+                    },
+                  } as any)}
                 >
                   <Text
                     style={[

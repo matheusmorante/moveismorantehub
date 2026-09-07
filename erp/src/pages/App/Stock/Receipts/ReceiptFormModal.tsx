@@ -8,43 +8,43 @@ import { PurchaseItem } from '../../../types/purchase.type';
 import { formatCurrency } from '../../../utils/formatters';
 import { subscribeToPeople } from '../../../utils/personService';
 import { GoodsReceipt, finalizeGoodsReceipt, saveGoodsReceiptDraft } from '../../../utils/goodsReceiptService';
-import ReceiptAIFillModal from './ReceiptAIFillModal';
-import { ReceiptAIResult } from '../../../utils/receiptAiService';
-import { fetchProductsPage } from '../../../utils/productService';
-import PurchaseReceiptPickerModal from './PurchaseReceiptPickerModal';
-import InboundInvoiceReceiptPickerModal from './InboundInvoiceReceiptPickerModal';
 import { InboundInvoice } from '../../../utils/inboundNfe/inboundNfeTypes';
 import { markInvoiceAsReceived } from '../../../utils/inboundNfe/inboundInvoicesService';
 import Purchase from '../../../types/purchase.type';
+import Product from '../../../types/product.type';
 import ReceiptFiscalDocumentsSection from './ReceiptFiscalDocumentsSection';
-import { getSelectedProductDisplayName } from '../../../utils/productVariationDefaults';
+import InboundNfeItemsSection, { InboundReceiptItem } from './InboundNfeItemsSection';
+import { findProductSupplierCodes, saveProductSupplierCode } from '../../../utils/productSupplierCodesService';
+import { getProductsByIds } from '../../../utils/productService';
 
 type Props = {
     isOpen: boolean;
     onClose: () => void;
     initialReceipt?: GoodsReceipt | null;
     initialInboundInvoice?: InboundInvoice | null;
+    initialPurchase?: Purchase | null;
     preselectedSupplierId?: string;
 };
 
 const calculateItems = (items: PurchaseItem[], ipi: number, freight: number) => items.map((item) => {
     const baseCost = item.baseCost || item.unitCost;
-    const unitCost = baseCost * (1 + ipi / 100 + freight / 100);
+    const quantity = Math.max(1, item.quantity);
+    const unitIpi = typeof item.ipiValue === 'number' ? item.ipiValue / quantity : baseCost * ipi / 100;
+    const unitFreight = typeof item.freightValue === 'number' ? item.freightValue / quantity : baseCost * freight / 100;
+    const unitCost = baseCost + unitIpi + unitFreight;
     return { ...item, baseCost, unitCost: Number(unitCost.toFixed(2)), totalCost: Number((item.quantity * unitCost).toFixed(2)) };
 });
 
-export default function ReceiptFormModal({ isOpen, onClose, initialReceipt, initialInboundInvoice, preselectedSupplierId }: Props) {
+export default function ReceiptFormModal({ isOpen, onClose, initialReceipt, initialInboundInvoice, initialPurchase, preselectedSupplierId }: Props) {
     const [suppliers, setSuppliers] = useState<Person[]>([]);
     const [draftId, setDraftId] = useState<string>('');
     const [supplierId, setSupplierId] = useState('');
     const [items, setItems] = useState<PurchaseItem[]>([]);
+    const [inboundItems, setInboundItems] = useState<InboundReceiptItem[] | null>(null);
     const [ipiPercent, setIpiPercent] = useState(0);
     const [freightPercent, setFreightPercent] = useState(0);
     const [receiptDate, setReceiptDate] = useState(new Date().toISOString().slice(0, 10));
     const [isSaving, setIsSaving] = useState(false);
-    const [isAIFillOpen, setIsAIFillOpen] = useState(false);
-    const [isPurchasePickerOpen, setIsPurchasePickerOpen] = useState(false);
-    const [isInboundPickerOpen, setIsInboundPickerOpen] = useState(false);
     const [fiscalKey, setFiscalKey] = useState('');
     const [attachments, setAttachments] = useState<string[]>([]);
     const [isDraftSaved, setIsDraftSaved] = useState(false);
@@ -56,22 +56,30 @@ export default function ReceiptFormModal({ isOpen, onClose, initialReceipt, init
             setDraftId(initialReceipt.id);
             setSupplierId(initialReceipt.supplierId || '');
             setItems(initialReceipt.items || []);
+            setInboundItems(null);
             setIpiPercent(initialReceipt.ipiPercent || 0);
             setFreightPercent(initialReceipt.freightPercent || 0);
             setReceiptDate(initialReceipt.receivedAt ? initialReceipt.receivedAt.slice(0, 10) : new Date().toISOString().slice(0, 10));
             setFiscalKey(initialReceipt.fiscalKey || '');
             setAttachments(initialReceipt.attachments || []);
             setIsDraftSaved(initialReceipt.isDraft);
+        } else if (initialPurchase) {
+            setDraftId('');
+            applyPurchase(initialPurchase);
+            setInboundItems(null);
+            setReceiptDate(new Date().toISOString().slice(0, 10));
+            setFiscalKey(''); setAttachments([]); setIsDraftSaved(false);
         } else if (initialInboundInvoice) {
             setDraftId('');
             setSupplierId(preselectedSupplierId || '');
-            applyInboundInvoice(initialInboundInvoice);
+            void applyInboundInvoice(initialInboundInvoice);
         } else {
             setDraftId(''); setSupplierId(preselectedSupplierId || ''); setItems([]); setIpiPercent(0); setFreightPercent(0);
+            setInboundItems(null);
             setReceiptDate(new Date().toISOString().slice(0, 10)); setFiscalKey(''); setAttachments([]); setIsDraftSaved(false);
         }
         return subscribeToPeople('suppliers', (data) => setSuppliers(data.filter((person) => !person.deleted && person.type === 'suppliers')));
-    }, [isOpen, initialReceipt, initialInboundInvoice, preselectedSupplierId]);
+    }, [isOpen, initialReceipt, initialInboundInvoice, initialPurchase, preselectedSupplierId]);
 
     const processedItems = calculateItems(items, ipiPercent, freightPercent);
     const totalValue = processedItems.reduce((sum, item) => sum + item.totalCost, 0);
@@ -115,10 +123,20 @@ export default function ReceiptFormModal({ isOpen, onClose, initialReceipt, init
     const handleFinalize = async () => {
         if (!supplier) return toast.error('Selecione o fornecedor para continuar.');
         if (!items.length) return toast.error('Adicione pelo menos um item para confirmar o recebimento.');
+        if (inboundItems?.some((item) => !item.linkedProductId)) return toast.error('Vincule todos os itens da NF-e a um produto do ERP antes de confirmar.');
         if (fiscalKey && fiscalKey.length !== 44) return toast.error('A chave de acesso da nota fiscal deve conter exatamente 44 dígitos.');
         setIsSaving(true);
         try {
             const receiptId = draftId || `rcpt_${Date.now()}`;
+            if (inboundItems) {
+                await Promise.all(inboundItems.map((item) => saveProductSupplierCode({
+                    supplierId,
+                    productId: item.linkedProductId!,
+                    productVariationId: item.linkedVariationId,
+                    supplierProductCode: item.productCode,
+                    supplierDescription: item.productDescription,
+                })));
+            }
             await finalizeGoodsReceipt({
                 id: receiptId,
                 supplierId,
@@ -144,7 +162,7 @@ export default function ReceiptFormModal({ isOpen, onClose, initialReceipt, init
         } finally { setIsSaving(false); }
     };
 
-    const applyInboundInvoice = (invoice: InboundInvoice) => {
+    const applyInboundInvoice = async (invoice: InboundInvoice) => {
         const cleanCnpj = (cnpj = '') => cnpj.replace(/\D/g, '');
         const normalize = (val = '') => val.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
 
@@ -164,9 +182,8 @@ export default function ReceiptFormModal({ isOpen, onClose, initialReceipt, init
             });
         }
 
-        if (matchedSupplier?.id) {
-            setSupplierId(matchedSupplier.id);
-        }
+        const resolvedSupplierId = matchedSupplier?.id || preselectedSupplierId || '';
+        if (resolvedSupplierId) setSupplierId(resolvedSupplierId);
 
         setFiscalKey(invoice.nfeKey);
         if (invoice.issuedAt) {
@@ -179,50 +196,53 @@ export default function ReceiptFormModal({ isOpen, onClose, initialReceipt, init
         setIpiPercent(calcIpi);
         setFreightPercent(calcFreight);
 
-        const convertedItems: PurchaseItem[] = invoice.items.map((item) => ({
-            productId: item.matchedProductId || '',
-            variationId: item.matchedVariationId || '',
-            description: item.productDescription,
-            quantity: item.quantity,
-            baseCost: item.unitCost,
-            unitCost: item.unitCost,
-            totalCost: item.totalCost
+        let references = new Map();
+        try {
+            references = resolvedSupplierId ? await findProductSupplierCodes(resolvedSupplierId, invoice.items.map((item) => item.productCode)) : new Map();
+        } catch (error) {
+            console.warn('Não foi possível consultar referências de produtos do fornecedor.', error);
+        }
+        let products: Product[] = [];
+        try {
+            products = await getProductsByIds([...new Set([...references.values()].map((reference) => reference.productId))]);
+        } catch (error) {
+            console.warn('Não foi possível carregar os produtos vinculados à NF-e.', error);
+        }
+        const linkedItems: InboundReceiptItem[] = invoice.items.map((item) => {
+            const reference = references.get(item.productCode.trim().toLocaleUpperCase('pt-BR'));
+            const product = products.find((candidate) => candidate.id === reference?.productId);
+            const variation = product?.variations?.find((candidate) => candidate.id === reference?.productVariationId);
+            return {
+                ...item,
+                linkedProductId: reference?.productId || item.matchedProductId,
+                linkedVariationId: reference?.productVariationId || item.matchedVariationId,
+                linkedProductCode: variation?.sku || product?.code || '',
+                linkedProductName: variation?.name || product?.name || product?.title || '',
+                linkStatus: reference || item.matchedProductId ? 'automatic' : 'pending',
+            };
+        });
+        const convertedItems: PurchaseItem[] = linkedItems.map((item) => ({
+            productId: item.linkedProductId || '', variationId: item.linkedVariationId || '', description: item.productDescription,
+            quantity: item.quantity, baseCost: item.unitCost, unitCost: item.unitCost, totalCost: item.totalCost,
+            ipiValue: item.ipiValue, freightValue: item.freightValue,
         }));
 
+        setInboundItems(linkedItems);
         setItems(convertedItems);
         toast.success(`NF-e #${invoice.nfeNumber} carregada com ${convertedItems.length} item(ns)!`);
     };
 
-    const applyAIFill = async (result: ReceiptAIResult) => {
-        const normalize = (value = '') => value.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
-        if (!result.supplierName) throw new Error('Informe o fornecedor/fábrica no áudio ou texto antes de preencher.');
-        const supplierTerm = normalize(result.supplierName);
-        const matchedSupplier = suppliers.find((person) => [person.fullName, person.tradeName].filter(Boolean).some((name) => {
-            const candidate = normalize(name!); return candidate.includes(supplierTerm) || supplierTerm.includes(candidate);
-        }));
-        if (!matchedSupplier?.id) throw new Error(`Fornecedor/fábrica "${result.supplierName}" não encontrado. Informe o nome cadastrado.`);
-        const { data: supplierProducts } = await fetchProductsPage(1, 500, { activeOnly: true, supplierId: matchedSupplier.id });
-        const resolvedItems = (await Promise.all(result.items.map(async (item) => {
-            const terms = normalize([item.productType, item.model, item.variation].filter(Boolean).join(' ')).split(/\s+/).filter(Boolean);
-            let best: any = null;
-            (supplierProducts || []).forEach((product: any) => (product.variations || []).forEach((variation: any) => {
-                const searchable = normalize(`${product.name || product.title || product.description || ''} ${variation.name || ''} ${(variation.attributes || []).map((attr: any) => attr.value).join(' ')}`);
-                const score = terms.reduce((total, term) => total + (searchable.includes(term) ? 1 : 0), 0);
-                if (!best || score > best.score) best = { product, variation, score };
-            }));
-            if (!best || best.score < Math.max(1, Math.min(2, terms.length))) return null;
-            const { product, variation } = best;
-            const variationLabel = getSelectedProductDisplayName(product, variation);
-            return { productId: product.id!, variationId: variation.id, description: variationLabel, quantity: item.quantity, baseCost: item.baseCost, unitCost: item.baseCost, totalCost: item.quantity * item.baseCost } as PurchaseItem;
-        }))).filter(Boolean) as PurchaseItem[];
-        if (!resolvedItems.length) throw new Error('Nenhum item foi encontrado para esse fornecedor. Confira tipo, modelo e variação.');
-        const baseSubtotal = resolvedItems.reduce((sum, item) => sum + item.quantity * item.baseCost!, 0);
-        const asPercent = (charge?: ReceiptAIResult['ipi']) => !charge ? 0 : charge.unit === 'currency' && baseSubtotal > 0 ? (charge.value / baseSubtotal) * 100 : charge.value;
-        setSupplierId(matchedSupplier.id); setItems(resolvedItems); setIpiPercent(asPercent(result.ipi)); setFreightPercent(asPercent(result.freight));
-        const missing = result.items.length - resolvedItems.length;
-        if (missing) toast.warn(`${missing} item(ns) não foram preenchidos porque não houve correspondência segura.`);
-        if (result.warnings.length) toast.warn(result.warnings.join(' '));
-        toast.success(`${resolvedItems.length} item(ns) preenchido(s) pela IA.`);
+    const handleInboundItemChange = (itemNumber: number, update: Partial<InboundReceiptItem>) => {
+        setInboundItems((current) => {
+            if (!current) return current;
+            const updated = current.map((item) => item.itemNumber === itemNumber ? { ...item, ...update } : item);
+            setItems(updated.map((item) => ({
+                productId: item.linkedProductId || '', variationId: item.linkedVariationId || '', description: item.productDescription,
+                quantity: item.quantity, baseCost: item.unitCost, unitCost: item.unitCost, totalCost: item.unitCost * item.quantity,
+                ipiValue: item.ipiValue, freightValue: item.freightValue,
+            })));
+            return updated;
+        });
     };
 
     const applyPurchase = (purchase: Purchase) => {
@@ -243,9 +263,6 @@ export default function ReceiptFormModal({ isOpen, onClose, initialReceipt, init
                             <i className="bi bi-cloud-check-fill text-emerald-300" /> Rascunho salvo
                         </span>
                     )}
-                    <button type="button" onClick={() => setIsInboundPickerOpen(true)} className="rounded-xl bg-white/15 px-3 py-2 text-[10px] font-black uppercase tracking-wider hover:bg-white/25"><i className="bi bi-file-earmark-arrow-down-fill mr-2" />Usar NF-e</button>
-                    <button type="button" onClick={() => setIsPurchasePickerOpen(true)} className="rounded-xl bg-white/15 px-3 py-2 text-[10px] font-black uppercase tracking-wider hover:bg-white/25"><i className="bi bi-cart-check mr-2" />Utilizar pedido de compra</button>
-                    <button type="button" onClick={() => setIsAIFillOpen(true)} className="rounded-xl bg-white/15 px-3 py-2 text-[10px] font-black uppercase tracking-wider hover:bg-white/25"><i className="bi bi-stars mr-2" />Preencher com IA <span className="ml-2 rounded-full bg-white/25 px-1.5 py-0.5 text-[8px] font-black">Beta</span></button>
                 </div>
                 <button type="button" onClick={onClose} className="rounded-xl p-2 hover:bg-white/10"><i className="bi bi-x-lg text-lg" /></button>
             </header>
@@ -281,7 +298,7 @@ export default function ReceiptFormModal({ isOpen, onClose, initialReceipt, init
                     <NumberField label="Frete (%)" value={freightPercent} onChange={setFreightPercent} />
                 </div>
                 <ReceiptFiscalDocumentsSection attachments={attachments} fiscalKey={fiscalKey} onAttachmentsChange={setAttachments} onFiscalKeyChange={setFiscalKey} />
-                <PurchaseItemsSection
+                {inboundItems ? <InboundNfeItemsSection items={inboundItems} supplierId={supplierId} onChange={handleInboundItemChange} formatCurrency={formatCurrency} /> : <PurchaseItemsSection
                     items={items}
                     onAddItem={(item) => setItems((current) => [...current, item])}
                     onRemoveItem={(index) => setItems((current) => current.filter((_, itemIndex) => itemIndex !== index))}
@@ -292,12 +309,12 @@ export default function ReceiptFormModal({ isOpen, onClose, initialReceipt, init
                     supplierId={supplierId}
                     onSupplierAutoSelect={setSupplierId}
                     isReceiptMode={true}
-                />
+                />}
             </div>
             <footer className="flex shrink-0 flex-col items-center justify-between gap-3 border-t border-slate-100 bg-slate-50 p-5 dark:border-slate-800 dark:bg-slate-955/40 sm:flex-row xl:px-8"><p className="text-sm font-black text-slate-700 dark:text-slate-100">Total final: <span className="text-emerald-600">{formatCurrency(totalValue)}</span></p><div className="flex w-full gap-3 sm:w-auto"><button type="button" onClick={onClose} className="flex-1 rounded-2xl px-5 py-3 text-xs font-black uppercase text-slate-500">Cancelar</button><button type="button" disabled={isSaving} onClick={handleFinalize} className="flex-1 rounded-2xl bg-emerald-600 px-6 py-3 text-xs font-black uppercase text-white hover:bg-emerald-700 disabled:opacity-50 transition-all shadow-md">{isSaving ? 'Confirmando...' : 'Confirmar recebimento'}</button></div></footer>
         </section>
     </div>;
-    return typeof document === 'undefined' ? content : createPortal(<>{content}<ReceiptAIFillModal isOpen={isAIFillOpen} onClose={() => setIsAIFillOpen(false)} onApply={applyAIFill} /><PurchaseReceiptPickerModal isOpen={isPurchasePickerOpen} onClose={() => setIsPurchasePickerOpen(false)} onSelect={applyPurchase} supplierId={supplierId} supplierName={supplier?.fullName} /><InboundInvoiceReceiptPickerModal isOpen={isInboundPickerOpen} onClose={() => setIsInboundPickerOpen(false)} onSelect={applyInboundInvoice} supplierId={supplierId} supplierName={supplier?.fullName} /></>, document.body);
+    return typeof document === 'undefined' ? content : createPortal(content, document.body);
 }
 
 function NumberField({ label, value, onChange }: { label: string; value: number; onChange: (value: number) => void }) {

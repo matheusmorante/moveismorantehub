@@ -13,6 +13,7 @@ import {
   normalizeCategoryName,
   buildIncomeCategories,
 } from '../components/transactionModalUtils';
+import { sortCategoriesWithOthersAtEnd } from '../../../services/financial/mobileCategoryService';
 
 interface UseTransactionFormProps {
   visible: boolean;
@@ -142,7 +143,8 @@ export function useTransactionForm({
       ];
     }
 
-    return byType.filter(c => !isProLaboreCat(c.name));
+    const expenses = byType.filter(c => !isProLaboreCat(c.name));
+    return sortCategoriesWithOthersAtEnd(expenses);
   }, [categories, type, purpose, isExpense]);
 
   const selectedCategory = useMemo(() => {
@@ -192,7 +194,7 @@ export function useTransactionForm({
 
   const isVehicleCategory = Boolean(
     selectedCategory?.name &&
-      ['combustível', 'gasolina', 'veículo', 'veiculo', 'pedágio', 'pedagio', 'manutenção de veículos'].some(term =>
+      ['combustível', 'gasolina', 'veículo', 'veiculo', 'pedágio', 'pedagio', 'manutenção de veículos', 'manutenção do carro'].some(term =>
         selectedCategory.name.toLowerCase().includes(term)
       )
   );

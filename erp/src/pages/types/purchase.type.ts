@@ -8,6 +8,8 @@ export type PurchaseItem = {
     totalCost: number;
     baseCost?: number;
     ipiPercent?: number;
+    ipiValue?: number;
+    freightValue?: number;
 };
 
 export type Purchase = {

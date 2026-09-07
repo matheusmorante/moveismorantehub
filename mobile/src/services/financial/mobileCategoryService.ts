@@ -1,34 +1,52 @@
 import { supabase } from '../supabaseClient';
 import { FinancialCategory, ResultNature } from './mobileFinanceTypes';
 
+/**
+ * Ordena categorias alfabeticamente garantindo que qualquer categoria
+ * de fallback genérico (ex: "Outras", "Outras Despesas", "Outras Receitas")
+ * fique posicionada estritamente no final da lista.
+ */
+export const sortCategoriesWithOthersAtEnd = (categories: FinancialCategory[]): FinancialCategory[] => {
+  return [...categories].sort((a, b) => {
+    const isAOther = a.name.trim().toLowerCase().startsWith('outra');
+    const isBOther = b.name.trim().toLowerCase().startsWith('outra');
+    if (isAOther && !isBOther) return 1;
+    if (!isAOther && isBOther) return -1;
+    return a.name.localeCompare(b.name, 'pt-BR');
+  });
+};
+
 export const DEFAULT_FINANCIAL_CATEGORIES: FinancialCategory[] = [
   // ENTRADAS
+  { id: 'cat_vendas', name: 'Vendas de Produtos', type: 'income', result_nature: 'RECEITA' },
+  { id: 'cat_servicos', name: 'Serviços e Montagem', type: 'income', result_nature: 'RECEITA' },
   { id: 'cat_juros_rec', name: 'Juros e Rendimentos Recebidos', type: 'income', result_nature: 'RECEITA' },
   { id: 'cat_restituicao', name: 'Restituição / Recuperação Tributária', type: 'income', result_nature: 'RECEITA' },
   { id: 'cat_aluguel_rec', name: 'Aluguel Recebido', type: 'income', result_nature: 'RECEITA' },
-  { id: 'cat_outras_rec', name: 'Outras Receitas', type: 'income', result_nature: 'RECEITA' },
   { id: 'cat_aporte', name: 'Aporte de Sócio', type: 'income', result_nature: 'NAO_AFETA_RESULTADO' },
   { id: 'cat_emprestimo_rec', name: 'Empréstimo Recebido', type: 'income', result_nature: 'NAO_AFETA_RESULTADO' },
   { id: 'cat_devolucao_rec', name: 'Devolução / Recuperação de Valor', type: 'income', result_nature: 'NAO_AFETA_RESULTADO' },
   { id: 'cat_saldo_inicial', name: 'Saldo Inicial de Implantação', type: 'income', result_nature: 'NAO_AFETA_RESULTADO' },
+  { id: 'cat_outras_rec', name: 'Outras Receitas', type: 'income', result_nature: 'RECEITA' },
 
   // SAÍDAS
+  { id: 'cat_aluguel_pag', name: 'Aluguel', type: 'expense', result_nature: 'DESPESA' },
   { id: 'cat_combustivel', name: 'Combustível', type: 'expense', result_nature: 'DESPESA' },
-  { id: 'cat_veiculo_manut', name: 'Manutenção de Veículos', type: 'expense', result_nature: 'DESPESA' },
-  { id: 'cat_salarios', name: 'Salários', type: 'expense', result_nature: 'DESPESA' },
-  { id: 'cat_comissao', name: 'Comissão', type: 'expense', result_nature: 'DESPESA' },
-  { id: 'cat_adiantamento', name: 'Adiantamento Salarial', type: 'expense', result_nature: 'DESPESA' },
-  { id: 'cat_beneficios', name: 'Benefícios / VR / VT', type: 'expense', result_nature: 'DESPESA' },
-  { id: 'cat_aluguel_pag', name: 'Aluguel do Galpão / Loja', type: 'expense', result_nature: 'DESPESA' },
-  { id: 'cat_energia', name: 'Energia Elétrica', type: 'expense', result_nature: 'DESPESA' },
-  { id: 'cat_agua_internet', name: 'Água e Internet', type: 'expense', result_nature: 'DESPESA' },
-  { id: 'cat_impostos', name: 'Impostos e Tributos', type: 'expense', result_nature: 'DESPESA' },
-  { id: 'cat_tarifas', name: 'Tarifas Bancárias e Taxas de Cartão', type: 'expense', result_nature: 'DESPESA' },
-  { id: 'cat_juros_pag', name: 'Juros e Multas Pagos', type: 'expense', result_nature: 'DESPESA' },
-  { id: 'cat_despesa_geral', name: 'Despesa não classificada', type: 'expense', result_nature: 'DESPESA' },
-  { id: 'cat_emprestimo_pag', name: 'Pagamento de Empréstimo (Amortização de Principal)', type: 'expense', result_nature: 'NAO_AFETA_RESULTADO' },
-  { id: 'cat_prolabore_retirada', name: 'Retirada de Sócio / Distribuição de Lucros', type: 'expense', result_nature: 'NAO_AFETA_RESULTADO' },
-  { id: 'cat_estoque_compra', name: 'Compra de Estoque / Mercadorias', type: 'expense', result_nature: 'NAO_AFETA_RESULTADO' },
+  { id: 'cat_compra_merc', name: 'Compra de Mercadorias (Boletos, PIXs de compra de móveis e frete de fornecedores)', type: 'expense', result_nature: 'DESPESA' },
+  { id: 'cat_energia', name: 'Energia', type: 'expense', result_nature: 'DESPESA' },
+  { id: 'cat_impostos', name: 'Impostos e Taxas', type: 'expense', result_nature: 'DESPESA' },
+  { id: 'cat_internet', name: 'Internet e Telefone', type: 'expense', result_nature: 'DESPESA' },
+  { id: 'cat_limpeza', name: 'Materiais de Limpeza', type: 'expense', result_nature: 'DESPESA' },
+  { id: 'cat_carro_manut', name: 'Manutenção do Carro', type: 'expense', result_nature: 'DESPESA' },
+  { id: 'cat_imovel_manut', name: 'Manutenção do Imóvel', type: 'expense', result_nature: 'DESPESA' },
+  { id: 'cat_marketing', name: 'Marketing e Publicidade', type: 'expense', result_nature: 'DESPESA' },
+  { id: 'cat_escritorio', name: 'Materiais de Escritório', type: 'expense', result_nature: 'DESPESA' },
+  { id: 'cat_prolabore', name: 'Pró-labore', type: 'expense', result_nature: 'DESPESA' },
+  { id: 'cat_salarios', name: 'Salários e Encargos', type: 'expense', result_nature: 'DESPESA' },
+  { id: 'cat_seguros', name: 'Seguros', type: 'expense', result_nature: 'DESPESA' },
+  { id: 'cat_tarifas', name: 'Taxas Bancárias', type: 'expense', result_nature: 'DESPESA' },
+  { id: 'cat_emprestimos_financ', name: 'Empréstimos e Financiamentos', type: 'expense', result_nature: 'NAO_AFETA_RESULTADO' },
+  { id: 'cat_outras', name: 'Outras', type: 'expense', result_nature: 'DESPESA' },
 ];
 
 export const determineResultNature = (categoryName?: string | null, type?: 'income' | 'expense'): ResultNature => {
@@ -37,8 +55,9 @@ export const determineResultNature = (categoryName?: string | null, type?: 'inco
 
   if (
     nameLower.includes('aporte') ||
-    nameLower.includes('empréstimo recebido') ||
-    nameLower.includes('emprestimo recebido') ||
+    nameLower.includes('empréstimo') ||
+    nameLower.includes('emprestimo') ||
+    nameLower.includes('financiamento') ||
     nameLower.includes('saldo inicial') ||
     nameLower.includes('devolução') ||
     nameLower.includes('devolucao') ||
@@ -62,12 +81,13 @@ export const fetchFinancialCategories = async (): Promise<FinancialCategory[]> =
       .order('name', { ascending: true });
 
     if (!error && data && data.length > 0) {
-      return data.map(c => ({
+      const mapped = data.map(c => ({
         ...c,
         result_nature: c.result_nature || determineResultNature(c.name, c.type),
       }));
+      return sortCategoriesWithOthersAtEnd(mapped);
     }
   } catch {}
 
-  return DEFAULT_FINANCIAL_CATEGORIES;
+  return sortCategoriesWithOthersAtEnd(DEFAULT_FINANCIAL_CATEGORIES);
 };

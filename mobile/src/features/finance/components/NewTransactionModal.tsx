@@ -104,6 +104,7 @@ export const NewTransactionModal: React.FC<Props> = ({
                     Valor (R$) <Text style={styles.requiredAsterisk}>*</Text>
                   </Text>
                   <TextInput
+                    testID="input-amount"
                     style={[
                       styles.input,
                       styles.amountInput,
@@ -127,6 +128,7 @@ export const NewTransactionModal: React.FC<Props> = ({
                     Descrição <Text style={styles.requiredAsterisk}>*</Text>
                   </Text>
                   <TextInput
+                    testID="input-description"
                     style={[
                       styles.input,
                       isDarkMode && styles.inputDark,

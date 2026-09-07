@@ -1,11 +1,12 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import { InboundInvoicesHeader } from './InboundInvoicesHeader';
 import { InboundInvoicesTable } from './InboundInvoicesTable';
 import { InboundInvoiceDetailsModal } from './InboundInvoiceDetailsModal';
 import { InboundXmlImportModal } from './InboundXmlImportModal';
-import { fetchInboundInvoices, syncSefazDfe } from '@/pages/utils/inboundNfe/inboundInvoicesService';
+import { InboundAccessKeyModal } from './InboundAccessKeyModal';
+import { fetchInboundInvoices, getLastInboundInvoiceSyncAt, syncSefazDfe } from '@/pages/utils/inboundNfe/inboundInvoicesService';
 import { InboundInvoice } from '@/pages/utils/inboundNfe/inboundNfeTypes';
 
 export default function InboundInvoicesPage() {
@@ -15,6 +16,9 @@ export default function InboundInvoicesPage() {
     const [isSyncing, setIsSyncing] = useState(false);
     const [selectedInvoice, setSelectedInvoice] = useState<InboundInvoice | null>(null);
     const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+    const [isAccessKeyModalOpen, setIsAccessKeyModalOpen] = useState(false);
+    const [lastSyncAt, setLastSyncAt] = useState<string | null>(getLastInboundInvoiceSyncAt);
+    const isSyncInProgressRef = useRef(false);
 
     const loadInvoices = async () => {
         try {
@@ -25,8 +29,27 @@ export default function InboundInvoicesPage() {
         }
     };
 
+    const synchronizeInvoices = async () => {
+        if (isSyncInProgressRef.current) return;
+        isSyncInProgressRef.current = true;
+        setIsSyncing(true);
+        try {
+            await syncSefazDfe();
+            setLastSyncAt(getLastInboundInvoiceSyncAt());
+            await loadInvoices();
+        } catch (error) {
+            console.error('Erro na atualização automática das NF-e:', error);
+        } finally {
+            setIsSyncing(false);
+            isSyncInProgressRef.current = false;
+        }
+    };
+
     useEffect(() => {
-        loadInvoices();
+        void loadInvoices();
+        void synchronizeInvoices();
+        const intervalId = window.setInterval(() => void synchronizeInvoices(), 60 * 60 * 1000);
+        return () => window.clearInterval(intervalId);
     }, []);
 
     const filteredInvoices = useMemo(() => {
@@ -41,22 +64,22 @@ export default function InboundInvoicesPage() {
         });
     }, [invoices, searchTerm]);
 
-    const handleSyncSefaz = async () => {
-        setIsSyncing(true);
-        try {
-            const result = await syncSefazDfe();
-            toast.info(result.message);
-            await loadInvoices();
-        } catch (err: any) {
-            toast.error(err.message || 'Erro ao sincronizar notas com a SEFAZ.');
-        } finally {
-            setIsSyncing(false);
-        }
-    };
-
     const handleReceiveGoods = (invoice: InboundInvoice) => {
         // Redireciona para recebimentos passando a chave da nota para pré-carregamento imediato
         navigate(`/stock/receipts?inboundKey=${invoice.nfeKey}`);
+    };
+
+    const handleAccessKeyLookup = async (accessKey: string) => {
+        await synchronizeInvoices();
+        const updatedInvoices = await fetchInboundInvoices();
+        const invoice = updatedInvoices.find((candidate) => candidate.nfeKey === accessKey);
+        if (!invoice) {
+            toast.info('A chave ainda não foi disponibilizada na distribuição DF-e. Tente novamente após a próxima atualização.');
+            return;
+        }
+        setInvoices(updatedInvoices);
+        setSelectedInvoice(invoice);
+        setIsAccessKeyModalOpen(false);
     };
 
     const handleDownloadXml = (invoice: InboundInvoice) => {
@@ -75,9 +98,10 @@ export default function InboundInvoicesPage() {
             <InboundInvoicesHeader
                 searchTerm={searchTerm}
                 onSearchChange={setSearchTerm}
-                onSyncSefaz={handleSyncSefaz}
                 onOpenImportXml={() => setIsImportModalOpen(true)}
+                onOpenAccessKey={() => setIsAccessKeyModalOpen(true)}
                 isSyncing={isSyncing}
+                lastSyncAt={lastSyncAt}
             />
 
             <InboundInvoicesTable
@@ -97,6 +121,12 @@ export default function InboundInvoicesPage() {
                 isOpen={isImportModalOpen}
                 onClose={() => setIsImportModalOpen(false)}
                 onImportSuccess={() => loadInvoices()}
+            />
+            <InboundAccessKeyModal
+                isOpen={isAccessKeyModalOpen}
+                isLoading={isSyncing}
+                onClose={() => setIsAccessKeyModalOpen(false)}
+                onSubmit={handleAccessKeyLookup}
             />
         </div>
     );

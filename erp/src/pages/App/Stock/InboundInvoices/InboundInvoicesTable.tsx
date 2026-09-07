@@ -20,7 +20,7 @@ export const InboundInvoicesTable: React.FC<InboundInvoicesTableProps> = ({
             <div className="rounded-[2rem] border border-slate-100 bg-white p-12 text-center shadow-xl dark:border-slate-800 dark:bg-slate-900">
                 <i className="bi bi-file-earmark-check text-4xl text-slate-300 dark:text-slate-700" />
                 <p className="mt-3 text-sm font-bold text-slate-500 dark:text-slate-400">Nenhuma nota fiscal de entrada encontrada</p>
-                <p className="mt-1 text-xs text-slate-400">Clique em "Consultar SEFAZ" ou "Importar XML" para sincronizar notas de fornecedores.</p>
+                <p className="mt-1 text-xs text-slate-400">As notas são consultadas automaticamente a cada hora. Você também pode importar um XML recebido do fornecedor.</p>
             </div>
         );
     }

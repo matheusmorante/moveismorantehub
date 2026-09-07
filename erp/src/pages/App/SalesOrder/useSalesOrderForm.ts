@@ -41,6 +41,7 @@ export const useSalesOrderForm = (initialDeliveryMethod?: 'delivery' | 'pickup',
     const [assistanceServiceValue, setAssistanceServiceValue] = useState(0);
     const [assistanceCost, setAssistanceCost] = useState(0);
     const [linkedOrderId, setLinkedOrderId] = useState("");
+    const [isButtonsClicked, setIsButtonsClicked] = useState<Order['isButtonsClicked']>(undefined);
     const [currentStep, setCurrentStep] = useState(1);
 
     const prevDeliveryMethodRef = useRef(shipping.deliveryMethod);
@@ -55,7 +56,7 @@ export const useSalesOrderForm = (initialDeliveryMethod?: 'delivery' | 'pickup',
     useEffect(() => {
         latestState.current = {
             currentOrderId, orderIndex: null, isGeneratingCode: false, status, items, itemsSummary, shipping, payments, paymentsSummary, customerData, observation, seller, sellerId, marketingOrigin, orderDate, isSaving, isSavingDraft: false,
-            orderType, assistanceItems, assistanceServiceValue, assistanceCost, linkedOrderId, currentStep
+            orderType, assistanceItems, assistanceServiceValue, assistanceCost, linkedOrderId, isButtonsClicked, currentStep
         };
     });
 
@@ -103,6 +104,7 @@ export const useSalesOrderForm = (initialDeliveryMethod?: 'delivery' | 'pickup',
             assistanceServiceValue: s.assistanceServiceValue,
             assistanceCost: s.assistanceCost,
             linkedOrderId: s.linkedOrderId || undefined,
+            isButtonsClicked: s.isButtonsClicked,
         };
     }, [orderIndex]);
 
@@ -196,6 +198,7 @@ export const useSalesOrderForm = (initialDeliveryMethod?: 'delivery' | 'pickup',
         setAssistanceServiceValue(order.assistanceServiceValue || 0);
         setAssistanceCost(order.assistanceCost || 0);
         setLinkedOrderId(order.linkedOrderId || "");
+        setIsButtonsClicked(order.isButtonsClicked);
         
         if (order.date) {
             setOrderDate(parseStorageDateToLocal(order.date));
@@ -343,7 +346,8 @@ export const useSalesOrderForm = (initialDeliveryMethod?: 'delivery' | 'pickup',
         assistanceServiceValue,
         assistanceCost,
         linkedOrderId,
-    }), [currentOrderId, orderIndex, items, itemsSummary, shipping, payments, paymentsSummary, customerData, observation, seller, marketingOrigin, status, orderDate, assistanceItems, assistanceServiceValue, assistanceCost, linkedOrderId, orderType]);
+        isButtonsClicked,
+    }), [currentOrderId, orderIndex, items, itemsSummary, shipping, payments, paymentsSummary, customerData, observation, seller, marketingOrigin, status, orderDate, assistanceItems, assistanceServiceValue, assistanceCost, linkedOrderId, isButtonsClicked, orderType]);
 
     const isValidForCompletion = useMemo(() => validateBase(getOrderData('scheduled')), [getOrderData]);
 

@@ -3,6 +3,8 @@
  *
  * Estrutura gerada:
  * post-context.zip
+ * ├── prompt.txt
+ * ├── INSTRUCOES.txt
  * ├── INSTRUCOES.md
  * ├── specification.json
  * ├── product/
@@ -265,9 +267,10 @@ export async function generatePostContextZip(options: GenerateZipOptions): Promi
   const promptBody = renderSpecificationAsPrompt(specClone);
   zip.file('prompt.txt', promptBody);
 
-  // 7. Gerar INSTRUCOES.md orientativo
+  // 7. Gerar INSTRUCOES.txt e INSTRUCOES.md (garante leitura no ChatGPT e outras LLMs sem restrição a .md)
   onProgress?.(90, 'Gerando arquivo de instruções...');
   const instrucoesContent = buildInstrucoesMd(specClone);
+  zip.file('INSTRUCOES.txt', instrucoesContent);
   zip.file('INSTRUCOES.md', instrucoesContent);
 
   // 8. Gerar specification.json canônico com os caminhos dos arquivos

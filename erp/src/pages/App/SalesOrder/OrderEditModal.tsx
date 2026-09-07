@@ -223,7 +223,11 @@ const OrderEditModal = ({ order, orderId, onClose: propOnClose, onSaveSuccess: p
     const handleUpdate = useCallback(async (e?: React.MouseEvent) => {
         e?.preventDefault();
         if (!effectiveOrder) return false;
-        const updatedOrder = { ...form.state.currentOrder, id: effectiveOrder.id } as Order;
+        const updatedOrder = {
+            ...form.state.currentOrder,
+            id: effectiveOrder.id,
+            isButtonsClicked: effectiveOrder.isButtonsClicked || form.state.currentOrder.isButtonsClicked
+        } as Order;
         const validationErrors = form.actions.validateOrder(updatedOrder);
         if (Object.keys(validationErrors).length > 0) {
             form.actions.setErrors(validationErrors);

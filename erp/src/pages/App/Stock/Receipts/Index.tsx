@@ -20,6 +20,7 @@ export default function ReceiptsPage() {
     const [isInboundPickerOpen, setIsInboundPickerOpen] = useState(false);
     const [isPurchasePickerOpen, setIsPurchasePickerOpen] = useState(false);
     const [selectedInboundInvoice, setSelectedInboundInvoice] = useState<InboundInvoice | null>(null);
+    const [selectedPurchase, setSelectedPurchase] = useState<Purchase | null>(null);
 
     const {
         suppliers,
@@ -57,6 +58,7 @@ export default function ReceiptsPage() {
                 const matched = list.find((inv) => inv.nfeKey === inboundKeyParam);
                 if (matched) {
                     setSelectedInboundInvoice(matched);
+                    setSelectedPurchase(null);
                     setIsFormOpen(true);
                 }
             } catch (e) {
@@ -68,6 +70,7 @@ export default function ReceiptsPage() {
 
     const handleSelectInboundInvoice = (invoice: InboundInvoice) => {
         setSelectedInboundInvoice(invoice);
+        setSelectedPurchase(null);
         setSelectedReceipt(null);
         setIsFormOpen(true);
     };
@@ -77,6 +80,7 @@ export default function ReceiptsPage() {
             setSelectedSupplierId(purchase.supplierId);
         }
         setSelectedInboundInvoice(null);
+        setSelectedPurchase(purchase);
         setSelectedReceipt(null);
         setIsFormOpen(true);
     };
@@ -90,8 +94,12 @@ export default function ReceiptsPage() {
                 selectedSupplierId={selectedSupplierId}
                 onSelectSupplier={setSelectedSupplierId}
                 onSelectInboundNfe={() => setIsInboundPickerOpen(true)}
-                onSelectPurchaseOrOrder={() => setIsPurchasePickerOpen(true)}
-                onSelectManual={handleOpenNew}
+                onSelectPurchase={() => setIsPurchasePickerOpen(true)}
+                onSelectManual={() => {
+                    setSelectedInboundInvoice(null);
+                    setSelectedPurchase(null);
+                    handleOpenNew();
+                }}
             />
 
             <section className="overflow-hidden">
@@ -147,9 +155,11 @@ export default function ReceiptsPage() {
                     setIsFormOpen(false);
                     setSelectedReceipt(null);
                     setSelectedInboundInvoice(null);
+                    setSelectedPurchase(null);
                 }}
                 initialReceipt={selectedReceipt}
                 initialInboundInvoice={selectedInboundInvoice}
+                initialPurchase={selectedPurchase}
                 preselectedSupplierId={selectedSupplierId}
             />
 

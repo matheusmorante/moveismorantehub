@@ -36,11 +36,12 @@ export const buildIncomeCategories = (categories: FinancialCategory[]): Financia
   const loan = incomeCategories.find(category => normalizeCategoryName(category.name).includes('emprestimo'));
 
   return [
-    other
-      ? { ...other, name: 'Outras' }
-      : { id: 'cat_income_other_default', name: 'Outras', type: 'income', result_nature: 'RECEITA' },
     loan
       ? { ...loan, name: 'Empréstimos' }
       : { id: 'cat_income_loan_default', name: 'Empréstimos', type: 'income', result_nature: 'NAO_AFETA_RESULTADO' },
+    other
+      ? { ...other, name: 'Outras' }
+      : { id: 'cat_income_other_default', name: 'Outras', type: 'income', result_nature: 'RECEITA' },
   ];
 };
+

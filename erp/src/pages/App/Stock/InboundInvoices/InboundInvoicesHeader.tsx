@@ -3,18 +3,21 @@ import React from 'react';
 interface InboundInvoicesHeaderProps {
     searchTerm: string;
     onSearchChange: (value: string) => void;
-    onSyncSefaz: () => void;
     onOpenImportXml: () => void;
+    onOpenAccessKey: () => void;
     isSyncing: boolean;
+    lastSyncAt: string | null;
 }
 
 export const InboundInvoicesHeader: React.FC<InboundInvoicesHeaderProps> = ({
     searchTerm,
     onSearchChange,
-    onSyncSefaz,
     onOpenImportXml,
-    isSyncing
-}) => {
+    onOpenAccessKey,
+    isSyncing,
+    lastSyncAt,
+    onSyncNow,
+}: InboundInvoicesHeaderProps & { onSyncNow?: () => void }) => {
     return (
         <header className="mb-6 flex flex-col gap-4">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -35,23 +38,28 @@ export const InboundInvoicesHeader: React.FC<InboundInvoicesHeaderProps> = ({
                 <div className="flex flex-wrap items-center gap-2.5">
                     <button
                         type="button"
+                        onClick={onOpenAccessKey}
+                        className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-3.5 py-2 text-xs font-black uppercase tracking-wider text-white shadow-sm transition-all hover:bg-blue-700"
+                    >
+                        <i className="bi bi-key-fill text-sm" />
+                        Adicionar NF-e por chave
+                    </button>
+                    <button
+                        type="button"
                         onClick={onOpenImportXml}
                         className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-black uppercase tracking-wider text-slate-700 shadow-sm hover:bg-slate-50 transition-all dark:border-slate-800 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
                     >
                         <i className="bi bi-filetype-xml text-emerald-600 text-sm" />
                         Importar XML
                     </button>
-
-                    <button
-                        type="button"
-                        onClick={onSyncSefaz}
-                        disabled={isSyncing}
-                        className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2 text-xs font-black uppercase tracking-wider text-white shadow-md shadow-blue-600/20 hover:bg-blue-700 active:scale-95 disabled:opacity-50 transition-all"
-                    >
-                        <i className={`bi bi-cloud-arrow-down-fill text-sm ${isSyncing ? 'animate-bounce' : ''}`} />
-                        {isSyncing ? 'Consultando SEFAZ...' : 'Consultar SEFAZ'}
-                    </button>
                 </div>
+            </div>
+
+            <div className="flex items-center gap-2 rounded-xl border border-blue-100 bg-blue-50 px-3.5 py-2 text-xs font-medium text-blue-700 dark:border-blue-900/50 dark:bg-blue-950/30 dark:text-blue-300">
+                <i className="bi bi-clock-history" />
+                {lastSyncAt
+                    ? `Sincronização automática em background ativa. Última consulta SEFAZ: ${new Date(lastSyncAt).toLocaleString('pt-BR')}. Próxima execução automática em 1 hora.`
+                    : 'Sincronização automática em background ativa no servidor (ciclo de 1 hora).'}
             </div>
 
             <div className="relative">

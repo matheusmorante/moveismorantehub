@@ -87,6 +87,7 @@ describe('postZipPackageService — Pacote post-context.zip para IA', () => {
 
       // 1. Arquivos raiz obrigatórios
       expect(fileNames).toContain('prompt.txt');
+      expect(fileNames).toContain('INSTRUCOES.txt');
       expect(fileNames).toContain('INSTRUCOES.md');
       expect(fileNames).toContain('specification.json');
 

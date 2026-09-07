@@ -21,8 +21,12 @@ export const TransactionTypeSelector: React.FC<Props> = ({
       </Text>
       <View style={[styles.typeRow, hasError && styles.rowError]}>
         <TouchableOpacity
+          testID="type-btn-income"
+          accessibilityRole="button"
+          accessibilityLabel="Selecionar Entrada"
           style={[styles.typeBtn, type === 'income' && styles.typeBtnIncome]}
           onPress={() => onTypeChange('income')}
+          {...({ onClick: () => onTypeChange('income') } as any)}
           activeOpacity={0.7}
         >
           <Text style={[styles.typeBtnText, type === 'income' && styles.typeBtnTextIncome]}>
@@ -31,8 +35,12 @@ export const TransactionTypeSelector: React.FC<Props> = ({
         </TouchableOpacity>
 
         <TouchableOpacity
+          testID="type-btn-expense"
+          accessibilityRole="button"
+          accessibilityLabel="Selecionar Saída"
           style={[styles.typeBtn, type === 'expense' && styles.typeBtnExpense]}
           onPress={() => onTypeChange('expense')}
+          {...({ onClick: () => onTypeChange('expense') } as any)}
           activeOpacity={0.7}
         >
           <Text style={[styles.typeBtnText, type === 'expense' && styles.typeBtnTextExpense]}>
