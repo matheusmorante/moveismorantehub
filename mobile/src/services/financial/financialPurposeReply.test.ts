@@ -26,4 +26,25 @@ describe('resposta sobre conta pessoal ou da loja', () => {
     expect(inferBusinessPurpose('casa')).toBe('PERSONAL');
     expect(inferBusinessPurpose('particular')).toBe('PERSONAL');
   });
+
+  it('classifica salário automaticamente como BUSINESS sem ambiguidade', async () => {
+    const { validateParsedIntent } = await import('./financialIntentValidator');
+    const result = validateParsedIntent({
+      description: 'Salário do Matheus Morante',
+      amount: 5000,
+      movementType: 'expense',
+    });
+    expect(result.businessPurpose).toBe('BUSINESS');
+    expect(result.categoryName).toBe('Salários');
+    expect(result.missingFields).not.toContain('businessPurpose');
+  });
+
+  it('processFinancialInput classifica salário como BUSINESS e não pergunta finalidade', async () => {
+    const { processFinancialInput } = await import('./financialIntentValidator');
+    const { draft: result } = processFinancialInput('SALARIO DO MATHEUS MORANTE 5000');
+    expect(result.businessPurpose).toBe('BUSINESS');
+    expect(result.categoryName).toBe('Salários');
+    expect(result.missingFields).not.toContain('businessPurpose');
+    expect(result.missingFields).toContain('paymentMethod');
+  });
 });

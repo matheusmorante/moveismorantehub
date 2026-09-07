@@ -7,12 +7,17 @@ import { fallbackHeuristicParser, parsePtBrNumber } from './financialTextParser'
  */
 export function validateParsedIntent(
   draft: ParsedFinancialIntent,
-  todayStr: string
+  todayStr: string = new Date().toISOString().split('T')[0]
 ): ParsedFinancialIntent {
   const result: ParsedFinancialIntent = JSON.parse(JSON.stringify(draft));
 
+  if (!result.type && (result as any).movementType) {
+    result.type = (result as any).movementType;
+  }
   if (result.type) {
     result.type = (result.type.toLowerCase() === 'income' || result.type.toLowerCase() === 'in') ? 'income' : 'expense';
+  } else {
+    result.type = 'expense';
   }
 
   if (!result.intentType || result.intentType === 'INSTALLMENT' || result.intentType === 'RECURRING' || result.intentType === 'PAYABLE_BILL') {
@@ -178,12 +183,28 @@ export function validateParsedIntent(
 
     const isFuel = /combustível|combustivel|gasolina|etanol|diesel|abasteci|abastecimento|abastecendo|posto/i.test(combinedText);
     const isVehicleMaintenance = /manutenção|manutencao|oficina|óleo|oleo|pneu|pneus|peças|pecas|revisão|revisao|reparos|mecanico|mecânico|bateria|alinhamento|balanceamento|lavagem|conserto|reparo/i.test(combinedText);
+    const isPayroll = /salário|salario|folha de pagamento|adiantamento salarial|comissão|comissao|vale transporte|férias|ferias|décimo terceiro|decimo terceiro|13º/i.test(combinedText);
+    const isTax = /imposto|tributo|\bdas\b|simples nacional|icms|darf|fgts|inss|\bgps\b/i.test(combinedText);
+    const isFreight = /frete|carreto/i.test(combinedText);
+    const isStock = /estoque|mercadoria|fornecedor|matéria-prima|materia-prima/i.test(combinedText);
 
     if (isFuel) {
       result.categoryName = 'Combustível';
       result.businessPurpose = 'BUSINESS';
     } else if (isVehicleMaintenance) {
       result.categoryName = 'Manutenção de Veículos';
+      result.businessPurpose = 'BUSINESS';
+    } else if (isPayroll) {
+      result.categoryName = 'Salários';
+      result.businessPurpose = 'BUSINESS';
+    } else if (isTax) {
+      result.categoryName = 'Impostos e Tributos';
+      result.businessPurpose = 'BUSINESS';
+    } else if (isFreight) {
+      result.categoryName = 'Frete';
+      result.businessPurpose = 'BUSINESS';
+    } else if (isStock) {
+      result.categoryName = 'Compra de estoque';
       result.businessPurpose = 'BUSINESS';
     } else {
       const isElectricity = /luz|energia|eletricidade/i.test(combinedText);

@@ -309,6 +309,12 @@ export const fallbackHeuristicParser = (
     } else if (text.includes('manutenção') || text.includes('manutencao') || text.includes('oficina') || text.includes('troca de óleo') || text.includes('troca de oleo') || text.includes('pneus') || text.includes('peças') || text.includes('pecas') || text.includes('revisão') || text.includes('revisao') || text.includes('mecânico') || text.includes('mecanico') || text.includes('bateria') || text.includes('alinhamento') || text.includes('balanceamento')) {
       catName = 'Manutenção de Veículos';
       businessPurpose = 'BUSINESS';
+    } else if (text.includes('salário') || text.includes('salario') || text.includes('folha de pagamento') || text.includes('adiantamento') || text.includes('comissão') || text.includes('comissao') || text.includes('13º') || text.includes('férias') || text.includes('ferias')) {
+      catName = 'Salários';
+      businessPurpose = 'BUSINESS';
+    } else if (text.includes('imposto') || text.includes('tributo') || text.includes('das') || text.includes('simples nacional') || text.includes('fgts') || text.includes('inss') || text.includes('darf')) {
+      catName = 'Impostos e Tributos';
+      businessPurpose = 'BUSINESS';
     } else if (text.includes('frete')) {
       catName = 'Frete';
       businessPurpose = 'BUSINESS';

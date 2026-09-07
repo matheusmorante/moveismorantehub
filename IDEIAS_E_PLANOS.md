@@ -66,6 +66,11 @@ Este documento unifica todo o planejamento estratégico, ideias futuras, tarefas
 - [x] **Confirmação Estritamente Manual Pré-Lançamento no Card do Assistente Mobile**:
   - Removido qualquer timer ou contagem regressiva de auto-confirmação (`setInterval`). O lançamento financeiro só é gravado após o operador clicar expressamente no botão `"Sim"`.
   - **Forma de Pagamento Obrigatória e Inicialmente Vazia**: O assistente financeiro é proibido de assumir PIX ou qualquer forma de pagamento por padrão. A forma de pagamento permanece vazia (`Não informada`) até o usuário informar explicitamente qual será. Se o usuário não informar, o assistente pergunta antes de preparar/gravar o registro.
+- [x] **Reconhecimento Automático de Finalidade Operacional (`BUSINESS`) para Salários e Despesas da Empresa**:
+  - Despesas genuinamente operacionais como **Salários**, folha de pagamento, adiantamento salarial, comissões, combustível, veículos da empresa, compras de estoque, fornecedores, fretes, impostos (DAS, Simples, FGTS) e aluguel comercial têm finalidade `BUSINESS` (Operação da Empresa) identificada automaticamente.
+  - O assistente não faz perguntas desnecessárias sobre se o salário é da empresa ou pessoal.
+  - O assistente foi instruído a jamais expor nomes técnicos de enum como `(BUSINESS)` ou `(PERSONAL_PARTNER)` na conversa com o operador, utilizando linguagem 100% natural em português.
+  - Para entradas como `"SALARIO DO MATHEUS MORANTE 5000"`, o assistente agora pergunta **exclusivamente a forma de pagamento** pendente de forma natural.
 - [x] **Submenu "Notas Fiscais de Entrada" no Estoque do ERP (`/stock/inbound-invoices`)**:
   - Puxa notas fiscais emitidas por fornecedores via webservice SEFAZ DF-e (`NFeDistribuicaoDFe`) ou através de upload e leitura determinística de arquivos XML (Layout 4.00 da SEFAZ).
   - Tabela e cards responsivos exibindo chave de acesso (44 dígitos), número da NF-e, emitente (razão social e CNPJ), total da nota e lista de itens detalhados com NCM, CFOP, quantidade e custos unitários.
