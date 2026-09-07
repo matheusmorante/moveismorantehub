@@ -12,7 +12,6 @@ import {
   renderSpecificationAsPrompt,
 } from '../../services/postSpecificationBuilder';
 import { resolveProductImages } from '../../services/postProductImageResolver';
-import { postShareService } from '../../services/postShareService';
 import {
   getProductImageSelection,
   saveProductImageSelection,
@@ -58,12 +57,14 @@ export function PromptPreview({
   const [resolvedImages, setResolvedImages] = useState<PostProductImagesSpec | null>(null);
   const [officialAssets, setOfficialAssets] = useState<PostOfficialAssetsSpec | null>(null);
   const [imagesValidation, setImagesValidation] = useState<PostProductImagesValidation | null>(null);
-  const [copyingLink, setCopyingLink] = useState(false);
   const [manualSelection, setManualSelection] = useState<ProductImageSelectionState | null>(null);
+  const [downloadingZip, setDownloadingZip] = useState(false);
 
   const effectiveModels = useMemo(() => activeModels || models || [], [activeModels, models]);
   const effectiveProductId = product?.id || propProductId;
   const effectiveProductSlug = product?.slug || product?.id || propProductSlug;
+  const isEmpty = !campaign || !effectiveProductSlug;
+  const oppName = product?.opportunity_name || product?.opportunityName || null;
 
   // Carregar seleção manual persistida quando mudar de produto
   useEffect(() => {
@@ -169,8 +170,6 @@ export function PromptPreview({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [specKey, globalRules]);
 
-  const [downloadingZip, setDownloadingZip] = useState(false);
-
   const handleDownloadZip = async () => {
     if (!currentSpec || !campaign) {
       toast.warn('Nenhuma especificação disponível para download.');
@@ -195,7 +194,7 @@ export function PromptPreview({
     }
   };
 
-  const oppBadgeUrl = spec?.officialAssets?.badge?.url || null;
+  const oppBadgeUrl = currentSpec?.officialAssets?.badge?.url || null;
 
   return (
     <div className="flex h-full flex-col gap-3 min-w-0">

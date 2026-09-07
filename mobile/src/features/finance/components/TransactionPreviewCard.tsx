@@ -173,10 +173,30 @@ export const TransactionPreviewCard: React.FC<Props> = ({
 
           <View style={styles.fieldRow}>
             <Text style={styles.fieldLabel}>{isIncome ? 'Recebimento' : 'Pagamento'}</Text>
-            <Text style={[styles.fieldValue, isDarkMode && styles.textDark]}>
-              {intent.paymentMethod && intent.paymentMethod !== 'UNKNOWN' ? intent.paymentMethod : '??? (Não informada)'}
+            <Text style={[styles.fieldValue, isDarkMode && styles.textDark, (!intent.paymentMethod || intent.paymentMethod === 'UNKNOWN') && { color: '#94a3b8', fontStyle: 'italic' }]}>
+              {intent.paymentMethod && intent.paymentMethod !== 'UNKNOWN' ? intent.paymentMethod : 'Não informada'}
             </Text>
           </View>
+
+          {!isIncome && intent.businessPurpose && intent.businessPurpose !== 'UNKNOWN' && (
+            <View style={styles.fieldRow}>
+              <Text style={styles.fieldLabel}>Finalidade</Text>
+              <Text style={[styles.fieldValue, isDarkMode && styles.textDark]}>
+                {intent.businessPurpose === 'PERSONAL_PARTNER' || intent.businessPurpose === 'PERSONAL'
+                  ? '👤 Uso Particular'
+                  : '🏢 Operação da Empresa'}
+              </Text>
+            </View>
+          )}
+
+          {intent.vehicle && intent.vehicle !== 'Não informado' ? (
+            <View style={styles.fieldRow}>
+              <Text style={styles.fieldLabel}>Veículo</Text>
+              <Text style={[styles.fieldValue, isDarkMode && styles.textDark]}>
+                🚗 {intent.vehicle}
+              </Text>
+            </View>
+          ) : null}
         </View>
       )}
 

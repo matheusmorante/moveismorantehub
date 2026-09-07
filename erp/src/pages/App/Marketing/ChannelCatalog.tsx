@@ -4,11 +4,11 @@ import { toast } from 'react-toastify';
 import { whatsappGraphService } from '@/pages/utils/whatsappGraphService';
 import { updateProduct } from '@/pages/utils/productService';
 import { getSettings } from '@/pages/utils/settingsService';
+import { buildChannelCatalogCollections, buildChannelCatalogSyncPayload, filterChannelCatalogRows, type ChannelCatalogVariationRow } from './channelCatalogRows';
 import { pluralizeProductType } from '@/pages/utils/pluralize';
-import { normalizeSearchTerm } from '@/pages/utils/textUtils';
 
 // ── Tipos ─────────────────────────────────────────────────────────────────
-interface VariationRow {
+interface VariationRow extends ChannelCatalogVariationRow {
     varId: string;
     varName: string;
     varSku: string;
@@ -28,61 +28,9 @@ interface VariationRow {
     parentLine: string;
     parentCode: string;
     // Raw para o syncProductToCatalog
-    rawParent: any;
-    rawVariation: any;
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────
-function buildCollections(rows: VariationRow[]): { label: string; key: string }[] {
-    const seen = new Set<string>();
-    const list: { label: string; key: string }[] = [];
-
-    rows.forEach(r => {
-        const env = r.parentEnvironment.trim();
-        if (env && !seen.has('env__' + env)) {
-            seen.add('env__' + env);
-            list.push({ label: env.toUpperCase(), key: 'env__' + env });
-        }
-    });
-
-    rows.forEach(r => {
-        const type = r.parentTypeName.trim();
-        if (type) {
-            const key = 'type__' + type;
-            if (!seen.has(key)) {
-                seen.add(key);
-                list.push({ label: pluralizeProductType(type).toUpperCase(), key });
-            }
-        }
-    });
-
-    return list.sort((a, b) => a.label.localeCompare(b.label));
-}
-
-function rowMatchesCollection(row: VariationRow, key: string): boolean {
-    if (!key || key === 'all') return true;
-    if (key.startsWith('env__')) return row.parentEnvironment.trim() === key.replace('env__', '');
-    if (key.startsWith('type__')) return row.parentTypeName.trim() === key.replace('type__', '');
-    return true;
-}
-
-/** Transforma produto + variação em um objeto para a API do WhatsApp */
-function buildSyncPayload(row: VariationRow): any {
-    const price = row.varPrice > 0 ? row.varPrice : Number(row.rawParent.unit_price ?? 0);
-    return {
-        ...row.rawParent,
-        id: row.varId,
-        retailer_id: row.varSku || row.varId,
-        description: `${row.parentDescription} - ${row.varName}`,
-        // Sempre enviar nos dois formatos para garantir que o serviço leia corretamente
-        unitPrice: price,
-        unit_price: price,
-        price,
-        images: row.varImage ? [row.varImage] : (row.rawParent.images || []),
-        stock: row.varStock,
-        active: row.varActive && row.varStock > 0,
-    };
-}
 
 // ── Component ─────────────────────────────────────────────────────────────
 function ChannelCatalog() {
@@ -217,21 +165,9 @@ function ChannelCatalog() {
 
     useEffect(() => { fetchData(); }, []);
 
-    const collections = useMemo(() => buildCollections(rows), [rows]);
+    const collections = useMemo(() => buildChannelCatalogCollections(rows), [rows]);
 
-    const filteredRows = useMemo(() => rows.filter(r => {
-        const q = normalizeSearchTerm(search);
-        const matchesSearch =
-            normalizeSearchTerm(r.varName).includes(q) ||
-            normalizeSearchTerm(r.varSku).includes(q) ||
-            normalizeSearchTerm(r.parentDescription).includes(q);
-        const matchesChannel =
-            filterChannel === 'all' ? true :
-            filterChannel === 'whatsapp' ? r.varWhatsappSync :
-            false; // ecommerce: futuro
-        const matchesCollection = rowMatchesCollection(r, filterCollection);
-        return matchesSearch && matchesChannel && matchesCollection;
-    }), [rows, search, filterChannel, filterCollection]);
+    const filteredRows = useMemo(() => filterChannelCatalogRows(rows, search, filterChannel, filterCollection), [rows, search, filterChannel, filterCollection]);
 
     /** Atualiza um campo de variação no array local de rows */
     const updateRowLocal = (varId: string, patch: Partial<VariationRow>) => {
@@ -296,7 +232,7 @@ function ChannelCatalog() {
         setIsActionLoading(row.varId + '_wa');
         try {
             if (newValue) {
-                await whatsappGraphService.syncProductToCatalog(buildSyncPayload(row), 'UPDATE');
+                await whatsappGraphService.syncProductToCatalog(buildChannelCatalogSyncPayload(row), 'UPDATE');
             } else {
                 await whatsappGraphService.deleteProductFromCatalog(row.varSku || row.varId);
             }
@@ -335,7 +271,7 @@ function ChannelCatalog() {
         let count = 0, errors = 0;
         for (const r of toSync) {
             try {
-                await whatsappGraphService.syncProductToCatalog(buildSyncPayload(r), 'UPDATE');
+                await whatsappGraphService.syncProductToCatalog(buildChannelCatalogSyncPayload(r), 'UPDATE');
                 await persistVariationSync(r, 'whatsappSync', true);
                 updateRowLocal(r.varId, { varLastSync: new Date().toISOString() });
                 count++;

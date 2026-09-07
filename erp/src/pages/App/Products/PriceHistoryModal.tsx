@@ -1,34 +1,10 @@
 import React, { useState, useEffect } from "react";
-import { supabase } from '@/pages/utils/supabaseConfig';
 import { formatCurrency, formatDateTime } from "../../utils/formatters";
 import Product from "../../types/product.type";
 import { updateInventoryMove } from "../../utils/inventoryService";
 import { toast } from "react-toastify";
-
-interface PriceHistoryEntry {
-    id: string;
-    product_id: string;
-    old_unit_price: number;
-    new_unit_price: number;
-    old_cost_price: number;
-    new_cost_price: number;
-    change_type: string;
-    changed_at: string;
-    changed_by: string;
-    product_description?: string;
-}
-
-interface InventoryMoveEntry {
-    id: string;
-    product_id: string;
-    type: string;
-    quantity: number;
-    unit_cost: number;
-    date: string;
-    label: string;
-    observation: string;
-    balance?: number; // Calculated field
-}
+import { InventoryMoveEntry, PriceHistoryEntry } from './priceHistory.types';
+import { loadBatchHistory, loadPriceHistory } from './priceHistoryService';
 
 interface Props {
     product?: Product | null;
@@ -53,61 +29,9 @@ const PriceHistoryModal = ({ product, isOpen, onClose }: Props) => {
             setLoading(true);
             try {
                 if (activeTab === 'prices') {
-                    let query = supabase
-                        .from('product_price_history')
-                        .select('*, products(description)')
-                        .order('changed_at', { ascending: false });
-
-                    if (product?.id) {
-                        query = query.eq('product_id', product.id);
-                    }
-
-                    const { data, error } = await query;
-                    if (error) throw error;
-
-                    setPriceHistory(data.map((item: any) => ({
-                        ...item,
-                        product_description: item.products?.description
-                    })));
+                    setPriceHistory(await loadPriceHistory(product?.id));
                 } else {
-                    // Fetch entries
-                    let entryQuery = supabase
-                        .from('inventory_moves')
-                        .select('*')
-                        .eq('type', 'entry')
-                        .order('date', { ascending: false });
-
-                    if (product?.id) {
-                        entryQuery = entryQuery.eq('product_id', product.id);
-                    }
-
-                    const { data: entries, error: entryError } = await entryQuery;
-                    if (entryError) throw entryError;
-
-                    // Fetch withdrawals linked to these entries to calculate balance
-                    const entryIds = entries?.map(e => e.id) || [];
-                    let wData: any[] = [];
-                    
-                    if (entryIds.length > 0) {
-                        const { data: withdrawals, error: wError } = await supabase
-                            .from('inventory_moves')
-                            .select('parent_move_id, quantity')
-                            .eq('type', 'withdrawal')
-                            .in('parent_move_id', entryIds);
-                        
-                        if (wError) throw wError;
-                        wData = withdrawals || [];
-                    }
-
-                    const usedByLot: Record<string, number> = {};
-                    wData.forEach(w => {
-                        usedByLot[w.parent_move_id] = (usedByLot[w.parent_move_id] || 0) + Number(w.quantity);
-                    });
-
-                    setBatchHistory((entries || []).map(e => ({
-                        ...e,
-                        balance: Number(e.quantity) - (usedByLot[e.id] || 0)
-                    })));
+                    setBatchHistory(await loadBatchHistory(product?.id));
                 }
             } catch (err) {
                 console.error("Erro ao buscar históricos:", err);

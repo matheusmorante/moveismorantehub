@@ -41,7 +41,56 @@ Este documento unifica todo o planejamento estratégico, ideias futuras, tarefas
 
 ## 📌 2. Próximos Passos e Pendências Imediatas
 
-### 🧹 Refatoração, Código Limpo e Modularização (`modularizacao_codigo`)
+### 🤖 Nova Arquitetura do Assistente de IA (Gemini Function Calling & Financeiro Conversacional)
+- [x] **Auditoria Completa Concluída**: Identificada dependência de parsers manuais, JSON textual, regex de markdown, ausência de tools nativas e isolamento completo do módulo financeiro.
+- [x] **Camada de Tools do ERP**:
+  - [x] `buscarCategoriasFinanceiras`: Consulta categorias ativas de receitas e despesas no Supabase.
+  - [x] `buscarMovimentacoesFinanceiras`: Extrato e fluxo de caixa filtrado por período, tipo e termo.
+  - [x] `obterResumoFinanceiro`: Entradas, saídas e saldo por período consolidado.
+  - [x] `criarMovimentacaoFinanceira`: Lançamento validado de receitas/despesas com categoria real.
+  - [x] `cancelarOuExcluirMovimentacaoFinanceira`: Remoção de transação incorreta com validação e segurança.
+- [x] **Gemini Agent Orchestrator (`geminiAgentService`)**:
+  - [x] Protocolo nativo da API Gemini v1beta (Function Declarations + loop de tool calls com proteção anti-loop).
+  - [x] Manutenção de contexto conversacional real (turnos `user` e `model`, respostas de tools com `functionResponse`).
+  - [x] Suporte a linguagem natural, gírias, datas relativas e correções fluidas ("não, foi 250").
+  - [x] Respeito estrito às cotas e circuit breaker do `ApiUsageGuard` / `ApiUsageTracker`.
+- [x] **Refatoração do `AIChatAssistant.tsx`**: Interface conversacional limpa, sem parsers manuais, com badges visuais de tools executadas.
+- [x] **Paridade Estrita 1:1 de Campos, Opções e Categorias com o Formulário de Nova Transação**:
+  - O agente Gemini agora considera e preenche estritamente os mesmos campos e opções oficiais do formulário de transações (`NewTransactionModal.tsx` / `useTransactionForm.ts`), sem inventar enums arbitrários.
+  - **Tipo**: `income` ou `expense`.
+  - **Finalidade (apenas despesas)**: `BUSINESS` (🏢 Operação da Empresa) ou `PERSONAL_PARTNER` (👤 Uso Particular / Pró-labore).
+  - **Formas de Pagamento oficiais**: `PAYMENT_METHODS` (`['PIX', 'Cartão de Crédito', 'Cartão de Débito', 'Boleto', 'Dinheiro', 'TED']`).
+  - **Veículos oficiais**: `VEHICLES` (`['Strada', 'HR', 'Outro', 'Não informado']`).
+  - **Categorias oficiais**: Respeita categorias cadastradas no ERP, categorização de Pró-labore e categorias de receita (`buildIncomeCategories`).
+  - **Visualização no Card**: O card de confirmação pré-registro (`TransactionPreviewCard.tsx`) exibe exatamente o espelho dos campos do formulário (Valor, Data, Forma de Pagamento, Finalidade e Veículo).
+- [x] **Confirmação Estritamente Manual Pré-Lançamento no Card do Assistente Mobile**:
+  - Removido qualquer timer ou contagem regressiva de auto-confirmação (`setInterval`). O lançamento financeiro só é gravado após o operador clicar expressamente no botão `"Sim"`.
+  - **Forma de Pagamento Obrigatória e Inicialmente Vazia**: O assistente financeiro é proibido de assumir PIX ou qualquer forma de pagamento por padrão. A forma de pagamento permanece vazia (`Não informada`) até o usuário informar explicitamente qual será. Se o usuário não informar, o assistente pergunta antes de preparar/gravar o registro.
+- [x] **Submenu "Notas Fiscais de Entrada" no Estoque do ERP (`/stock/inbound-invoices`)**:
+  - Puxa notas fiscais emitidas por fornecedores via webservice SEFAZ DF-e (`NFeDistribuicaoDFe`) ou através de upload e leitura determinística de arquivos XML (Layout 4.00 da SEFAZ).
+  - Tabela e cards responsivos exibindo chave de acesso (44 dígitos), número da NF-e, emitente (razão social e CNPJ), total da nota e lista de itens detalhados com NCM, CFOP, quantidade e custos unitários.
+  - Ação direta "Receber no Estoque" vinculada ao recebimento de mercadorias.
+- [x] **Botão Triplo no Recebimento de Mercadorias (`/stock/receipts`)**:
+  - O botão de criar novo recebimento foi transformado em um botão triplo com 3 opções claras e destacadas:
+    1. **Nota Fiscal de Entrada** (ícone `bi-file-earmark-arrow-down-fill`): seleciona uma NF-e de fornecedor disponível ou importa XML na hora, pré-carregando fornecedor, chave de 44 dígitos, frete, IPI e itens no recebimento.
+    2. **Pedido de Venda / Compra** (ícone `bi-cart-check`): carrega itens de pedidos de compra ou pedidos de venda.
+    3. **Recebimento Manual** (ícone `bi-pencil-square`): abre o formulário limpo para inclusão e conferência manual dos itens.
+- [x] **Reconhecimento Resiliente de Respostas Monossilábicas (`inferBusinessPurpose`)**:
+  - Respostas diretas como `"loja"`, `"empresa"`, `"pessoal"`, `"casa"`, `"particular"` agora são reconhecidas imediatamente, eliminando loops onde o assistente repetia a pergunta ("Essa conta de luz é da loja ou pessoal?") mesmo após o usuário responder `"loja"`.
+- [x] **Formalização da Skill Oficial de Arquitetura do Agente Gemini**:
+  - Criada a skill [.agents/skills/arquitetura-agente-gemini/SKILL.md](file:///c:/Users/Rosilene/Desktop/morantehub/.agents/skills/arquitetura-agente-gemini/SKILL.md) e integrada no Pre-Flight de Skills do [AGENTS.md](file:///c:/Users/Rosilene/Desktop/morantehub/.agents/AGENTS.md), estabelecendo os 28 princípios obrigatórios para impedir regressões para parsers manuais e garantir integridade total do agente conversacional.
+- [x] **Modernização do Assistente de IA no App Mobile (100% de Conformidade com a Skill)**:
+  - Criada a camada modular `mobile/src/services/aiAgent/` com tipagem formal (`mobileAgentTypes.ts`), declaração JSON Schema de 6 tools oficiais (`mobileToolDeclarations.ts`), executores diretos (`mobileAgentTools.ts`), despachante isolado (`mobileToolDispatcher.ts`), cliente HTTP oficial v1beta (`mobileAgentClient.ts`) e orquestrador (`mobileAgentService.ts`).
+  - Refatorado `useFinancialAiChat.ts` reduzindo de ~715 linhas para ~350 linhas orquestradoras, eliminando a dependência de parsers manuais/regex e operando sobre histórico conversacional real (`GeminiContent[]`) com Function Calling nativo.
+  - Criados testes unitários de integração determinísticos em `mobileAiAgent.test.ts` (4 testes passando, totalizando 24 testes verdes na suíte de IA).
+
+### 🧹 Refatoração, Código Limpo, Engenharia de Software e Modularização (`modularizacao_codigo`)
+- [x] **Consolidação Mestre de Engenharia de Software e Boas Práticas Operacionais**:
+  - Auditadas todas as 11 skills do projeto e integrados os 30 princípios de engenharia de software na skill mestre `modularizacao_codigo` (SOLID, KISS, DRY moderado, YAGNI, SSOT, Imutabilidade, Zero Trust em entradas, Concorrência/Idempotência, Separação de Camadas UI → Application → Domain → Infrastructure).
+  - Integrado o lema permanente no topo de `AGENTS.md`: *"ANTES DE CRIAR, PROCURE. ANTES DE ALTERAR, ENTENDA. ANTES DE ABSTRAIR, JUSTIFIQUE. ANTES DE CONCLUIR, TESTE. ANTES DE DIZER QUE RESOLVEU, VERIFIQUE REGRESSÕES."*
+  - Formalizado o Fluxo de 9 Etapas de Desenvolvimento (Investigar → Entender → Identificar Causa → Planejar → Implementar → Validar → Testar → Revisar Regressões → Concluir).
+  - Formalizada a Hierarquia Universal de Decisão (10 prioridades lideradas por Correção, Segurança e Integridade de Dados).
+  - Formalizado o Checklist Pré-Conclusão de 17 itens obrigatórios e regras de Causa Raiz na skill `testes-seguros-erp`.
 - [ ] **Diretriz Contínua do Usuário**: Em cada arquivo tocado ou analisado (especialmente > 150 linhas), perguntar explicitamente ao usuário no final se deseja modularizá-lo em conformidade com a skill `modularizacao_codigo`.
 - [ ] **Meta de Arquitetura**: 30–100 linhas (aceitável até 150). Responsabilidade única estrita. Estratégia segura: COPIAR → VALIDAR → CONECTAR → TESTAR → SÓ DEPOIS REMOVER.
 - [ ] **Backlog de Arquivos Extensos a Modularizar Sob Demanda**:

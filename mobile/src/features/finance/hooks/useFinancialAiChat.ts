@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { ScrollView, Alert } from 'react-native';
 import {
   FinancialCategory,
@@ -8,15 +8,13 @@ import {
 import {
   ChatMessage,
   ParsedFinancialIntent,
-  parseFinancialIntentWithGemini,
   extractLocalSemanticDelta,
   LocalSemanticDelta,
   PRE_ANALYSIS_DEBOUNCE_MS,
   MAX_VOICE_INACTIVITY_MS,
-  classifyMultiTurnIntent,
-  applyTurnPatch,
-  validateParsedIntent,
 } from '../../../services/financialAiAssistantService';
+import { MobileAgentService } from '../../../services/aiAgent/mobileAgentService';
+import { GeminiContent } from '../../../services/aiAgent/mobileAgentTypes';
 import { VoiceSessionState } from '../types/VoiceSessionState';
 import { CardVisualState } from '../components/TransactionPreviewCard';
 import {
@@ -25,7 +23,6 @@ import {
 } from '../components/chat/financialCardTimeline';
 import type { FinancialCardTimelineEntry } from '../components/chat/financialCardTimeline';
 import { startVoiceRecording, stopVoiceRecording } from '../../../services/voiceRecorderService';
-import { advanceFinancialBatch, rebuildFinancialBatch } from '../../../services/financial/financialBatchQueue';
 
 interface UseFinancialAiChatProps {
   categories: FinancialCategory[];
@@ -48,12 +45,12 @@ export function useFinancialAiChat({
   const [activeTimelineCardId, setActiveTimelineCardId] = useState<string | null>(null);
   const [editModalVisible, setEditModalVisible] = useState(false);
 
-  // Estados de Edição e Cópia de Mensagens
+  // Estados de Edicao e Copia de Mensagens
   const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
   const [editText, setEditText] = useState('');
   const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null);
 
-  // Estados da Sessão de Voz (Máquina de Estados Explícita)
+  // Estados da Sessao de Voz
   const [voiceState, setVoiceState] = useState<VoiceSessionState>('IDLE');
   const [livePill, setLivePill] = useState<LocalSemanticDelta | null>(null);
 
@@ -64,12 +61,10 @@ export function useFinancialAiChat({
   const debounceTimerRef = useRef<any>(null);
   const silenceTimerRef = useRef<any>(null);
   const inactivityTimerRef = useRef<any>(null);
-  const activeDraftRef = useRef<ParsedFinancialIntent | null>(null);
+  const geminiHistoryRef = useRef<GeminiContent[]>([]);
 
   const voiceSessionIdRef = useRef<number>(0);
   const abortControllerRef = useRef<AbortController | null>(null);
-
-  activeDraftRef.current = activeDraft;
 
   useEffect(() => {
     return () => {
@@ -133,6 +128,7 @@ export function useFinancialAiChat({
     setVoiceState('IDLE');
     speechSessionTextRef.current = '';
     lastProcessedTextRef.current = '';
+    geminiHistoryRef.current = [];
     if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
   };
 
@@ -158,6 +154,30 @@ export function useFinancialAiChat({
     setEditText('');
   };
 
+  const publishPreparedTransactionCard = (createdTx: any, asstMsgId: string) => {
+    if (!createdTx || !createdTx.result?.success) return;
+    const txData = createdTx.result?.data || createdTx.args;
+    if (!txData) return;
+
+    const matchedCat = categories.find(c => c.id === txData.categoriaId);
+    const catName = matchedCat?.name || txData.descricao;
+    const intent: ParsedFinancialIntent = {
+      type: txData.tipo,
+      amount: txData.valor,
+      totalAmount: txData.valor,
+      description: txData.descricao,
+      categoryName: catName,
+      categoryId: txData.categoriaId || undefined,
+      businessPurpose: txData.finalidade || 'BUSINESS',
+      paymentMethod: txData.formaPagamento || '',
+      vehicle: txData.veiculo || undefined,
+      date: txData.data || new Date().toISOString().split('T')[0],
+      isReadyForConfirmation: true,
+    };
+    setPendingIntent(intent);
+    publishTimelineCard(intent, 'READY_TO_CONFIRM', asstMsgId);
+  };
+
   const handleSaveAndResend = async (targetMsg: ChatMessage) => {
     const newContent = editText.trim();
     if (!newContent || loading) return;
@@ -165,24 +185,13 @@ export function useFinancialAiChat({
     setEditingMessageId(null);
     setEditText('');
 
-    if (abortControllerRef.current) abortControllerRef.current.abort();
-    const controller = new AbortController();
-    abortControllerRef.current = controller;
-
     const targetIndex = messages.findIndex(m => m.id === targetMsg.id);
     if (targetIndex === -1) return;
 
-    const oldVersion = targetMsg.version || 1;
-    const newVersion = oldVersion + 1;
     const timeStr = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
-
     const updatedMessages = messages.map((m, idx) => {
-      if (m.id === targetMsg.id) {
-        return { ...m, status: 'SUPERSEDED' as const };
-      }
-      if (idx > targetIndex) {
-        return { ...m, status: 'BRANCH_INACTIVE' as const };
-      }
+      if (m.id === targetMsg.id) return { ...m, status: 'SUPERSEDED' as const };
+      if (idx > targetIndex) return { ...m, status: 'BRANCH_INACTIVE' as const };
       return m;
     });
 
@@ -192,62 +201,40 @@ export function useFinancialAiChat({
       text: newContent,
       timestamp: timeStr,
       parentMessageId: targetMsg.id,
-      version: newVersion,
+      version: (targetMsg.version || 1) + 1,
       status: 'ACTIVE',
       editedAt: timeStr,
     };
 
-    const nextMessages = [...updatedMessages, editedMsg];
-    setMessages(nextMessages);
-    setPendingIntent(null);
-    setActiveDraft(null);
+    setMessages([...updatedMessages, editedMsg]);
     setLoading(true);
     scrollToBottom();
 
-    const activeHistory = nextMessages.filter(m => (!m.status || m.status === 'ACTIVE') && m.id !== editedMsg.id);
-
     try {
-      const intent = await parseFinancialIntentWithGemini(
+      const { result, updatedHistory } = await MobileAgentService.sendMessage(
         newContent,
-        activeHistory,
-        categories,
-        null,
-        controller.signal
+        geminiHistoryRef.current
       );
+      geminiHistoryRef.current = updatedHistory;
 
-      setLoading(false);
+      const asstMsg: ChatMessage = {
+        id: `asst_${Date.now()}`,
+        sender: 'assistant',
+        text: result.answer,
+        timestamp: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
+      };
 
-      if (
-        intent.description ||
-        intent.supplier ||
-        intent.totalAmount ||
-        intent.amount ||
-        intent.installmentsCount ||
-        intent.questionToUser ||
-        intent.missingFields?.length
-      ) {
-        setActiveDraft(intent);
+      setMessages(prev => [...prev, asstMsg]);
+
+      const createdTx = result.executedTools.find(t => t.name === 'criarMovimentacaoFinanceira');
+      if (createdTx && createdTx.result?.success) {
+        publishPreparedTransactionCard(createdTx, asstMsg.id);
       }
-
-      if (intent.validationStatus === 'needs_input') {
-        setPendingIntent(intent);
-        publishTimelineCard(intent, 'NEEDS_INPUT', editedMsg.id);
-      } else if (intent.isReadyForConfirmation || intent.validationStatus === 'ready') {
-        setPendingIntent(intent);
-        publishTimelineCard(intent, 'READY_TO_CONFIRM', editedMsg.id);
-      } else if (intent.questionToUser) {
-        setPendingIntent(intent);
-        publishTimelineCard(intent, 'NEEDS_INPUT', editedMsg.id);
-      } else {
-        setPendingIntent(null);
-        setActiveTimelineCardId(null);
-      }
-
-      scrollToBottom();
     } catch (err: any) {
-      if (err.name !== 'AbortError') {
-        setLoading(false);
-      }
+      console.warn('Erro ao reenviar mensagem editada no mobile:', err);
+    } finally {
+      setLoading(false);
+      scrollToBottom();
     }
   };
 
@@ -270,209 +257,62 @@ export function useFinancialAiChat({
     setLoading(true);
     scrollToBottom();
 
-    const currentDraft = activeDraftRef.current || activeDraft || pendingIntent;
-    const queuedDrafts = currentDraft?.batchDraftsList?.length
-      ? currentDraft.batchDraftsList
-      : currentDraft
-        ? [currentDraft]
-        : [];
-    const currentItem = queuedDrafts[0] || null;
-    const classifiedTurn = classifyMultiTurnIntent(messageText, currentItem, messages);
-    const explicitlyRequestsNewTransaction =
-      /\b(?:nova|novo|outra|outro)\b[\s\S]{0,35}\b(?:atualização|atualizacao|movimentação|movimentacao|lançamento|lancamento|entrada|saída|saida)\b|\b(?:cadastrar|registrar|lançar|lancar|criar|adicionar)\b[\s\S]{0,35}\b(?:uma|um)\s+(?:nova|novo|outra|outro)\b/i.test(
-        messageText
-      );
-    const newRequestHasTransactionDetails =
-      /r\$|\d|conta\s+de|\b(?:luz|energia|internet|água|agua|aluguel|compra|venda|paguei|recebi|gastei|abasteci)\b/i.test(
-        messageText
-      );
-    const startsBlankTransaction = explicitlyRequestsNewTransaction && !newRequestHasTransactionDetails;
-    const triesToStartAnotherTransaction = Boolean(
-      currentItem &&
-        classifiedTurn !== 'CORRECTION' &&
-        !explicitlyRequestsNewTransaction &&
-        (/\b(?:quero|gostaria|preciso|vou)\b[\s\S]{0,40}\b(?:cadastrar|registrar|lançar|lancar|adicionar|criar)\b|\b(?:cadastrar|registrar|lançar|lancar|adicionar|criar)\b[\s\S]{0,40}\b(?:conta|movimentação|movimentacao|entrada|saída|saida)\b/i.test(
-          messageText
-        ))
-    );
-    const mustKeepCurrentTransaction = Boolean(
-      currentItem &&
-        !explicitlyRequestsNewTransaction &&
-        (classifiedTurn === 'NEW_TRANSACTION' || triesToStartAnotherTransaction)
-    );
-    const turnIntentType = explicitlyRequestsNewTransaction
-      ? 'NEW_TRANSACTION'
-      : currentItem && classifiedTurn === 'NEW_TRANSACTION'
-        ? 'CONTINUATION'
-        : classifiedTurn;
-    const todayStr = new Date().toISOString().split('T')[0];
-
-    const singlePatch = startsBlankTransaction
-      ? {
-          updatedDraft: {
-            intentType: 'SINGLE_TRANSACTION' as const,
-            type: /\bentrada\b/i.test(messageText) ? ('income' as const) : ('expense' as const),
-            description: null,
-            amount: null,
-            paymentMethod: null,
-            businessPurpose: /\bentrada\b/i.test(messageText) ? null : ('UNKNOWN' as const),
-            missingFields: ['description', 'amount', 'paymentMethod'],
-            questionToUser: /\bentrada\b/i.test(messageText)
-              ? 'Qual entrada você quer cadastrar?'
-              : 'Qual saída você quer cadastrar?',
-            confidence: 1,
-            isReadyForConfirmation: false,
-            validationStatus: 'needs_input' as const,
-          },
-          isNewTransaction: true,
-        }
-      : mustKeepCurrentTransaction
-        ? {
-            updatedDraft: validateParsedIntent(currentItem!, todayStr),
-            isNewTransaction: false,
-          }
-        : applyTurnPatch(currentItem, messageText, turnIntentType, categories, todayStr);
-    const isNewTransaction = singlePatch.isNewTransaction;
-    const patchedItem = singlePatch.updatedDraft;
-    const updatedDraft =
-      !explicitlyRequestsNewTransaction && currentDraft?.batchDraftsList?.length
-        ? rebuildFinancialBatch(currentDraft, [patchedItem, ...queuedDrafts.slice(1)])!
-        : patchedItem;
-
-    let finalIntent = updatedDraft;
-
     try {
-      const draftToPass = isNewTransaction ? null : currentItem;
-      const geminiParsed =
-        mustKeepCurrentTransaction || startsBlankTransaction
-          ? null
-          : await parseFinancialIntentWithGemini(messageText, messages, categories, draftToPass);
-
-      if (geminiParsed && !isNewTransaction && currentItem) {
-        const purposeWasPatched = patchedItem.businessPurpose !== currentItem.businessPurpose;
-        const paymentWasPatched = patchedItem.paymentMethod !== currentItem.paymentMethod;
-        const mergedItem = validateParsedIntent(
-          {
-            ...patchedItem,
-            ...geminiParsed,
-            batchDraftsList: null,
-            intentType: classifiedTurn === 'CORRECTION' ? geminiParsed.intentType : currentItem.intentType,
-            type: classifiedTurn === 'CORRECTION' ? geminiParsed.type || patchedItem.type : currentItem.type,
-            description:
-              classifiedTurn === 'CORRECTION'
-                ? geminiParsed.description || patchedItem.description
-                : currentItem.description || geminiParsed.description || patchedItem.description,
-            supplier:
-              classifiedTurn === 'CORRECTION'
-                ? geminiParsed.supplier || patchedItem.supplier
-                : currentItem.supplier || geminiParsed.supplier || patchedItem.supplier,
-            counterparty:
-              classifiedTurn === 'CORRECTION'
-                ? geminiParsed.counterparty || patchedItem.counterparty
-                : currentItem.counterparty || geminiParsed.counterparty || patchedItem.counterparty,
-            amount: geminiParsed.amount || patchedItem.amount,
-            categoryName: geminiParsed.categoryName || patchedItem.categoryName,
-            businessPurpose: purposeWasPatched
-              ? patchedItem.businessPurpose
-              : geminiParsed.businessPurpose && geminiParsed.businessPurpose !== 'UNKNOWN'
-                ? geminiParsed.businessPurpose
-                : patchedItem.businessPurpose,
-            paymentMethod: paymentWasPatched
-              ? patchedItem.paymentMethod
-              : geminiParsed.paymentMethod && geminiParsed.paymentMethod !== 'UNKNOWN'
-                ? geminiParsed.paymentMethod
-                : patchedItem.paymentMethod,
-          },
-          todayStr
-        );
-        finalIntent = currentDraft.batchDraftsList?.length
-          ? rebuildFinancialBatch(currentDraft, [mergedItem, ...queuedDrafts.slice(1)])!
-          : mergedItem;
-      } else if (geminiParsed) {
-        finalIntent = geminiParsed;
-      }
-    } catch (e) {}
-
-    if (finalIntent.batchDraftsList?.length) {
-      finalIntent = rebuildFinancialBatch(finalIntent, finalIntent.batchDraftsList)!;
-    }
-
-    setLoading(false);
-
-    if (
-      finalIntent.paymentMethod &&
-      finalIntent.paymentMethod !== 'UNKNOWN' &&
-      finalIntent.businessPurpose &&
-      finalIntent.businessPurpose !== 'UNKNOWN' &&
-      (finalIntent.amount || finalIntent.totalAmount)
-    ) {
-      finalIntent.missingFields = [];
-      finalIntent.questionToUser = null;
-      finalIntent.isReadyForConfirmation = true;
-    }
-
-    if (
-      finalIntent.description ||
-      finalIntent.supplier ||
-      finalIntent.totalAmount ||
-      finalIntent.amount ||
-      finalIntent.installmentsCount ||
-      finalIntent.questionToUser ||
-      finalIntent.missingFields?.length
-    ) {
-      setActiveDraft(finalIntent);
-    }
-
-    const isComplete =
-      finalIntent.isReadyForConfirmation ||
-      finalIntent.validationStatus === 'ready' ||
-      !finalIntent.missingFields ||
-      finalIntent.missingFields.length === 0;
-
-    if (isComplete) {
-      setPendingIntent(finalIntent);
-      publishTimelineCard(finalIntent, 'READY_TO_CONFIRM', userMsg.id);
-      setMessages(prev =>
-        prev.map(m =>
-          m.sender === 'assistant' && (m.text.includes('?') || m.parsedIntent?.missingFields?.length) && !m.text.includes('Confere')
-            ? { ...m, status: 'RESOLVED' }
-            : m
-        )
+      const { result, updatedHistory } = await MobileAgentService.sendMessage(
+        messageText,
+        geminiHistoryRef.current
       );
-    } else if (
-      finalIntent.validationStatus === 'needs_input' ||
-      (finalIntent.missingFields && finalIntent.missingFields.length > 0) ||
-      finalIntent.questionToUser
-    ) {
-      setPendingIntent(finalIntent);
-      publishTimelineCard(finalIntent, 'NEEDS_INPUT', userMsg.id);
-    } else {
-      setPendingIntent(null);
-      setActiveTimelineCardId(null);
-    }
+      geminiHistoryRef.current = updatedHistory;
 
-    scrollToBottom();
+      const asstMsg: ChatMessage = {
+        id: `asst_${Date.now()}`,
+        sender: 'assistant',
+        text: result.answer,
+        timestamp: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
+      };
+
+      setMessages(prev => [...prev, asstMsg]);
+
+      const createdTx = result.executedTools.find(t => t.name === 'criarMovimentacaoFinanceira');
+      if (createdTx && createdTx.result?.success) {
+        publishPreparedTransactionCard(createdTx, asstMsg.id);
+      }
+    } catch (err: any) {
+      console.warn('Erro ao processar mensagem com o agente Gemini no mobile:', err);
+      const asstMsg: ChatMessage = {
+        id: `asst_${Date.now()}`,
+        sender: 'assistant',
+        text: 'Desculpe, ocorreu uma falha ao consultar o assistente. Por favor, tente novamente.',
+        timestamp: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
+        isAlert: true,
+      };
+      setMessages(prev => [...prev, asstMsg]);
+    } finally {
+      setLoading(false);
+      scrollToBottom();
+    }
+  };
+
+  const resetInactivityTimer = () => {
+    if (inactivityTimerRef.current) clearTimeout(inactivityTimerRef.current);
+    inactivityTimerRef.current = setTimeout(async () => {
+      await handleStopVoice();
+    }, MAX_VOICE_INACTIVITY_MS);
   };
 
   const handleStartVoice = async () => {
-    voiceSessionIdRef.current += 1;
-    const currentSessionId = voiceSessionIdRef.current;
+    if (isRecordingActive) {
+      await handleStopVoice();
+      return;
+    }
 
     baseInputTextRef.current = inputText.trim();
     speechSessionTextRef.current = '';
     lastProcessedTextRef.current = '';
-    setVoiceState('STARTING');
+    voiceSessionIdRef.current += 1;
+    const currentSessionId = voiceSessionIdRef.current;
 
-    const resetInactivityTimer = () => {
-      if (inactivityTimerRef.current) clearTimeout(inactivityTimerRef.current);
-      inactivityTimerRef.current = setTimeout(async () => {
-        if (voiceSessionIdRef.current === currentSessionId) {
-          console.log('[VoiceRecorder] Inatividade atingida. Parando microfone (texto preservado no input).');
-          await handleStopVoice();
-        }
-      }, MAX_VOICE_INACTIVITY_MS);
-    };
-
+    setVoiceState('INITIALIZING');
     resetInactivityTimer();
 
     const started = await startVoiceRecording({
@@ -560,7 +400,6 @@ export function useFinancialAiChat({
     markActiveTimelineCard('SAVING');
 
     const draftIdKey = `${pendingIntent.supplier || pendingIntent.description}_${pendingIntent.totalAmount || pendingIntent.amount}_${pendingIntent.installmentList?.length || 1}`;
-
     const res = await confirmFinancialDraft(pendingIntent, draftIdKey, userName);
 
     setRegistering(false);
@@ -572,32 +411,32 @@ export function useFinancialAiChat({
       onTransactionRegistered();
     } else {
       markActiveTimelineCard('ERROR');
-      Alert.alert('Erro ao Salvar', res.error || 'Não foi possível registrar a movimentação.');
+      Alert.alert('Erro ao Salvar', res.error || 'Nao foi possivel registrar a movimentacao.');
     }
   };
 
   const handleSelectCandidate = (candidate: any) => {
     if (!pendingIntent) return;
-    const updated: ParsedFinancialIntent = {
+    const updated = {
       ...pendingIntent,
       matchedAccount: candidate,
       supplier: candidate.counterparty || candidate.description,
       amount: candidate.amount,
       dueDate: candidate.due_date,
-      candidateAccounts: null,
       isReadyForConfirmation: true,
-      questionToUser: `Selecionado: ${candidate.counterparty || candidate.description} - R$ ${candidate.amount.toFixed(2)} (vencimento em ${candidate.due_date}).`,
+      candidateAccounts: undefined,
+      questionToUser: `Conta selecionada: ${candidate.counterparty || candidate.description} no valor de R$ ${Number(candidate.amount).toFixed(2)}.`,
     };
     setPendingIntent(updated);
-    const anchor = latestTimelineAnchor();
-    if (anchor) publishTimelineCard(updated, 'READY_TO_CONFIRM', anchor);
   };
 
-  const handleConfirmRegisterSingle = async (draftToRegister: ParsedFinancialIntent, index: number) => {
+  const handleConfirmRegisterSingle = async (intent: ParsedFinancialIntent, index: number) => {
     try {
-      const amountValue = draftToRegister.amount ?? null;
-      if (amountValue === null || amountValue === undefined || amountValue <= 0) {
-        Alert.alert('Valor Inválido', 'Esta movimentação não possui valor informado e não pode ser registrada.');
+      const draftToRegister = intent.batchDraftsList?.[index] || intent;
+      const amountValue = draftToRegister.amount || draftToRegister.totalAmount || 0;
+
+      if (amountValue <= 0) {
+        Alert.alert('Valor Invalido', 'Esta movimentacao nao possui valor informado e nao pode ser registrada.');
         return;
       }
 
@@ -617,24 +456,10 @@ export function useFinancialAiChat({
       setRegistering(false);
       onTransactionRegistered();
       finishActiveTimelineCard('SAVED');
-
-      if (pendingIntent && pendingIntent.batchDraftsList) {
-        const nextIntent = advanceFinancialBatch(pendingIntent, index);
-        if (!nextIntent) {
-          setPendingIntent(null);
-          setActiveDraft(null);
-        } else {
-          setPendingIntent(nextIntent);
-          setActiveDraft(nextIntent);
-          const nextState = nextIntent.batchDraftsList?.[0]?.isReadyForConfirmation ? 'READY_TO_CONFIRM' : 'NEEDS_INPUT';
-          const anchor = latestTimelineAnchor();
-          if (anchor) publishTimelineCard(nextIntent, nextState, anchor);
-        }
-      }
     } catch (err) {
       setRegistering(false);
       markActiveTimelineCard('ERROR');
-      Alert.alert('Erro', 'Não foi possível registrar a transação.');
+      Alert.alert('Erro', 'Nao foi possivel registrar a transacao.');
     }
   };
 

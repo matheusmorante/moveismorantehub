@@ -1,29 +1,24 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/pages/utils/supabaseConfig';
-import { normalizeSearchTerm } from '@/pages/utils/textUtils';
+import {
+    createInitialLabelPrintSelection,
+    orderLabelPrintProducts,
+    setLabelPrintQuantity,
+    toggleLabelPrintProduct,
+    type LabelPrintProduct,
+    type SelectedLabelPrintProduct,
+} from './labelPrintSelection';
 
 export type LabelPrintType = 'identification' | 'price';
 
-interface ProductItem {
-    id: string;
-    description: string;
-    code?: string;
-    sku?: string;
-    unitPrice?: number;
-    images?: string[];
-}
+type ProductItem = LabelPrintProduct;
 
 interface LabelPrintSelectionModalProps {
     isOpen: boolean;
     onClose: () => void;
     initialProduct: ProductItem;
     labelType: LabelPrintType;
-}
-
-interface SelectedProduct {
-    product: ProductItem;
-    qty: number;
 }
 
 const LabelPrintSelectionModal: React.FC<LabelPrintSelectionModalProps> = ({
@@ -33,7 +28,7 @@ const LabelPrintSelectionModal: React.FC<LabelPrintSelectionModalProps> = ({
     const [allProducts, setAllProducts] = useState<ProductItem[]>([]);
     const [search, setSearch] = useState('');
     const [loading, setLoading] = useState(false);
-    const [selected, setSelected] = useState<Map<string, SelectedProduct>>(new Map());
+    const [selected, setSelected] = useState<Map<string, SelectedLabelPrintProduct>>(new Map());
     const searchInputRef = useRef<HTMLInputElement>(null);
 
     // Load all products on open
@@ -43,9 +38,7 @@ const LabelPrintSelectionModal: React.FC<LabelPrintSelectionModalProps> = ({
         setSearch('');
 
         // Pre-select initial product with qty 1
-        const init = new Map<string, SelectedProduct>();
-        init.set(initialProduct.id, { product: initialProduct, qty: 1 });
-        setSelected(init);
+        setSelected(createInitialLabelPrintSelection(initialProduct));
 
         supabase
             .from('products')
@@ -72,42 +65,17 @@ const LabelPrintSelectionModal: React.FC<LabelPrintSelectionModalProps> = ({
 
     const toggleProduct = useCallback((product: ProductItem) => {
         setSelected(prev => {
-            const next = new Map(prev);
-            if (next.has(product.id)) {
-                next.delete(product.id);
-            } else {
-                next.set(product.id, { product, qty: 1 });
-            }
-            return next;
+            return toggleLabelPrintProduct(prev, product);
         });
     }, []);
 
     const setQty = useCallback((id: string, qty: number) => {
         setSelected(prev => {
-            const next = new Map(prev);
-            const item = next.get(id);
-            if (item) {
-                next.set(id, { ...item, qty: Math.max(1, qty) });
-            }
-            return next;
+            return setLabelPrintQuantity(prev, id, qty);
         });
     }, []);
 
-    const filteredProducts = allProducts.filter(p => {
-        const q = normalizeSearchTerm(search);
-        return (
-            normalizeSearchTerm(p.description || '').includes(q) ||
-            normalizeSearchTerm(p.code || '').includes(q) ||
-            normalizeSearchTerm(p.sku || '').includes(q)
-        );
-    });
-
-    // Selected items first, then remaining
-    const selectedIds = new Set(selected.keys());
-    const orderedProducts = [
-        ...filteredProducts.filter(p => selectedIds.has(p.id)),
-        ...filteredProducts.filter(p => !selectedIds.has(p.id)),
-    ];
+    const orderedProducts = orderLabelPrintProducts(allProducts, search, selected);
 
     const handleConfirm = () => {
         if (selected.size === 0) return;

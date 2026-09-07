@@ -63,7 +63,7 @@ export const FinancialAiChatView: React.FC<Props> = ({
                 isDarkMode={isDarkMode}
               />
               {chat.timelineCards
-                .filter(card => card.afterMessageId === msg.id)
+                .filter(card => card.afterMessageId === msg.id && card.cardState !== 'NEEDS_INPUT')
                 .map(card => (
                   <FinancialTimelineCard
                     key={card.id}

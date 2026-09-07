@@ -23,6 +23,7 @@
 
 import JSZip from 'jszip';
 import { toast } from 'react-toastify';
+import { buildImageFetchCandidates } from '@/pages/utils/imageFetchCandidates';
 import { PostCreationSpecification } from '../types/postSpecification';
 import { ElementModel } from '../types/postCreator';
 import { renderSpecificationAsPrompt } from './postSpecificationBuilder';
@@ -51,29 +52,7 @@ function getFileExtension(url: string, defaultExt = 'png'): string {
 async function fetchFileArrayBuffer(rawUrl: string): Promise<ArrayBuffer | null> {
   if (!rawUrl || typeof rawUrl !== 'string') return null;
 
-  const urlsToTry: string[] = [];
-
-  // 1. Se for URL do Cloudflare R2 (.r2.dev), tenta via proxy Vite local (/r2-proxy) se disponível
-  if (rawUrl.includes('.r2.dev')) {
-    try {
-      const pathname = new URL(rawUrl).pathname;
-      urlsToTry.push(`/r2-proxy${pathname}`);
-    } catch {
-      const idx = rawUrl.indexOf('.r2.dev');
-      if (idx !== -1) {
-        urlsToTry.push(`/r2-proxy${rawUrl.substring(idx + 7)}`);
-      }
-    }
-  }
-
-  // 2. Tenta fetch direto
-  urlsToTry.push(rawUrl);
-
-  // 3. Fallbacks de proxies públicos universais com CORS liberado (weserv e allorigins)
-  if (rawUrl.startsWith('http://') || rawUrl.startsWith('https://')) {
-    urlsToTry.push(`https://images.weserv.nl/?url=${encodeURIComponent(rawUrl)}`);
-    urlsToTry.push(`https://api.allorigins.win/raw?url=${encodeURIComponent(rawUrl)}`);
-  }
+  const urlsToTry = buildImageFetchCandidates(rawUrl);
 
   for (const url of urlsToTry) {
     try {

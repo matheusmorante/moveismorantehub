@@ -5,6 +5,11 @@ import { useVariations } from "../../Variations/useVariations";
 import { saveVariation, updateVariation, checkVariationUsage } from "../../../utils/variationService";
 import { toast } from "react-toastify";
 import { normalizeSearchTerm } from "../../../utils/textUtils";
+import {
+    appendAttributeDraftValue,
+    finalizeAttributeDraftValues,
+    normalizeAttributeDraftValue,
+} from './attributeValueDraft';
 
 interface ManageAttributesModalProps {
     isOpen: boolean;
@@ -26,13 +31,13 @@ export const ManageAttributesModal: React.FC<ManageAttributesModalProps> = ({ is
     const handleKeyDownTagInput = (e: React.KeyboardEvent<HTMLInputElement>) => {
         if (e.key === "Enter" || e.key === ",") {
             e.preventDefault();
-            const val = currentValInput.trim().replace(/,/g, "");
+            const val = normalizeAttributeDraftValue(currentValInput);
             if (val) {
                 if (tempValues.includes(val)) {
                     toast.error("Este valor já foi adicionado!");
                     return;
                 }
-                setTempValues((prev) => [...prev, val]);
+                setTempValues((prev) => appendAttributeDraftValue(prev, currentValInput));
             }
             setCurrentValInput("");
         } else if (e.key === "Backspace" && !currentValInput) {
@@ -47,11 +52,7 @@ export const ManageAttributesModal: React.FC<ManageAttributesModalProps> = ({ is
             return;
         }
 
-        let finalValues = [...tempValues];
-        const pendingVal = currentValInput.trim().replace(/,/g, "");
-        if (pendingVal && !finalValues.includes(pendingVal)) {
-            finalValues.push(pendingVal);
-        }
+        const finalValues = finalizeAttributeDraftValues(tempValues, currentValInput);
 
         if (finalValues.length === 0) {
             toast.error("Adicione pelo menos um valor/rótulo!");

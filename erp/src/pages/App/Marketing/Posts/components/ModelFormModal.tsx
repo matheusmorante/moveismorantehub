@@ -11,6 +11,8 @@ import {
   assemblePreviewPrompt,
 } from '../services/postModelPreviewGenerator';
 import { postGenerationGuidelines } from '../services/postGenerationGuidelines';
+import { buildPostTemplateDraft } from '../services/postTemplateDraft';
+import { getPostModelPreviewCacheKey, readPostModelPreviewCache, writePostModelPreviewCache } from '../services/postModelPreviewCache';
 import {
   GenerationContextData,
   GenerationContextModal,
@@ -59,29 +61,7 @@ export function ModelFormModal({ value, onClose, onSave }: Props) {
   }, [value?.id]);
 
   const draft: PostTemplate = useMemo(
-    () => ({
-      ...(value || {}),
-      id: value?.id || 'new',
-      name,
-      description,
-      imagePrompt: prompt,
-      formats: [format],
-      aspectRatio: format,
-      assets,
-      extras,
-      version: value?.version || 1,
-      status: value?.status || 'ACTIVE',
-      category: value?.category || 'Promoção',
-      width: 1080,
-      height: format === '9:16' ? 1920 : 1350,
-      fields: value?.fields || [],
-      layout: value?.layout || [],
-      reservedAreas: value?.reservedAreas || [],
-      imageRules: value?.imageRules || { preserveProduct: true, generateEnvironment: true, fit: 'contain' },
-      generationConfig: value?.generationConfig || { provider: 'gemini', model: 'gemini-2.5-flash-image', referenceImageRequired: true },
-      createdAt: value?.createdAt || new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    } as PostTemplate),
+    () => buildPostTemplateDraft({ value, name, description, prompt, format, assets, extras, now: new Date().toISOString() }),
     [value, name, description, prompt, format, assets, extras]
   );
 
@@ -116,10 +96,10 @@ export function ModelFormModal({ value, onClose, onSave }: Props) {
 
   // Recupera preview salvo no localStorage
   useEffect(() => {
-    const key = `morante_post_model_preview:${draft.id}:${editor.product?.id || ''}:${format}`;
-    try {
-      const cached = JSON.parse(localStorage.getItem(key) || 'null');
-      if (cached?.image) {
+    const key = getPostModelPreviewCacheKey(draft.id, editor.product?.id || '', format);
+    {
+      const cached = readPostModelPreviewCache(key);
+      if (cached) {
         setPreviewImage(cached.image);
         setPreviewHash(cached.hash || '');
         setPreviewStatus(cached.hash === currentHash ? 'updated' : 'stale');
@@ -128,10 +108,6 @@ export function ModelFormModal({ value, onClose, onSave }: Props) {
         setPreviewHash('');
         setPreviewStatus('none');
       }
-    } catch {
-      setPreviewImage(undefined);
-      setPreviewHash('');
-      setPreviewStatus('none');
     }
   }, [editor.product?.id, draft.id, format, currentHash]);
 
@@ -219,16 +195,13 @@ export function ModelFormModal({ value, onClose, onSave }: Props) {
         images: productImages,
       });
 
-      const key = `morante_post_model_preview:${draft.id}:${editor.product?.id || ''}:${format}`;
-      localStorage.setItem(
-        key,
-        JSON.stringify({
+      const key = getPostModelPreviewCacheKey(draft.id, editor.product?.id || '', format);
+      writePostModelPreviewCache(key, {
           image: result.imageUrl,
           hash: currentHash,
           generatedAt: new Date().toISOString(),
           provider: 'gemini',
-        })
-      );
+      });
 
       setPreviewImage(result.imageUrl);
       setPreviewHash(currentHash);

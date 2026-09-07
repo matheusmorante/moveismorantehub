@@ -5,6 +5,7 @@ import { uploadFile } from '@/pages/utils/storageService';
 import { parseVariationImages } from '@/pages/utils/productService';
 import { toast } from 'react-toastify';
 import { SquareImageCropper } from './SquareImageCropper';
+import { moveProductImage, replaceProductImage, setProductCoverImage } from './productImageOrdering';
 interface ProductEcommerceTabProps {
     formData: Partial<Product>;
     setFormData: React.Dispatch<React.SetStateAction<Partial<Product>>>;
@@ -42,8 +43,7 @@ const ProductEcommerceTab: React.FC<ProductEcommerceTabProps> = ({
             const path = `products/${fileName}`;
             const newUrl = await uploadFile(compressed, path);
 
-            const updatedImages = [...(formData.images || [])];
-            updatedImages[index] = newUrl;
+            const updatedImages = replaceProductImage(formData.images || [], index, newUrl);
             setFormData(prev => ({ ...prev, images: updatedImages }));
             toast.success("Foto substituída com sucesso!");
             return true;
@@ -103,9 +103,7 @@ const ProductEcommerceTab: React.FC<ProductEcommerceTabProps> = ({
                                     onDragOver={(e) => {
                                         e.preventDefault();
                                         if (draggedIndex === null || draggedIndex === index) return;
-                                        const newImages = [...(formData.images || [])];
-                                        const item = newImages.splice(draggedIndex, 1)[0];
-                                        newImages.splice(index, 0, item);
+                                        const newImages = moveProductImage(formData.images || [], draggedIndex, index);
                                         setDraggedIndex(index);
                                         setFormData({ ...formData, images: newImages });
                                     }}
@@ -177,9 +175,7 @@ const ProductEcommerceTab: React.FC<ProductEcommerceTabProps> = ({
                                                 type="button" 
                                                 onClick={(event) => {
                                                     event.stopPropagation();
-                                                    const updated = [...(formData.images || [])];
-                                                    const item = updated.splice(index, 1)[0];
-                                                    setFormData({ ...formData, images: [item, ...updated] });
+                                                    setFormData({ ...formData, images: setProductCoverImage(formData.images || [], index) });
                                                 }} 
                                                 className="bg-white text-[9px] text-slate-900 font-black uppercase tracking-widest px-2 py-1 rounded-lg hover:bg-slate-100 transition-colors shadow-md"
                                             >

@@ -146,6 +146,35 @@ export const financeService = {
     return data as FinancialTransaction;
   },
 
+  async updateTransaction(id: string, updates: Partial<FinancialTransaction>) {
+    const { data, error } = await supabase.from('financial_transactions').update(updates).eq('id', id).select().single();
+    if (error) throw error;
+    return data as FinancialTransaction;
+  },
+
+  async deleteTransaction(id: string) {
+    const { data, error } = await supabase.from('financial_transactions').delete().eq('id', id).select().single();
+    if (error) throw error;
+    return data as FinancialTransaction;
+  },
+
+  async getFinancialSummary(startDate?: string, endDate?: string) {
+    const txs = await this.getTransactions(startDate, endDate);
+    let totalIncome = 0;
+    let totalExpense = 0;
+    (txs || []).forEach((t: any) => {
+      const val = Number(t.amount) || 0;
+      if (t.type === 'income') totalIncome += val;
+      else if (t.type === 'expense') totalExpense += val;
+    });
+    return {
+      totalIncome,
+      totalExpense,
+      balance: totalIncome - totalExpense,
+      count: (txs || []).length
+    };
+  },
+
   // --- Integração Rede ---
   async getRedeConfig() {
     const { data, error } = await supabase.from('rede_config').select('*').single();

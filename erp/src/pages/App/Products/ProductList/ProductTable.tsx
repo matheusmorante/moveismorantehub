@@ -5,6 +5,13 @@ import Product, { ProductVisibilitySettings } from "../../../types/product.type"
 import { useAutoScroll } from "../../../utils/useAutoScroll";
 import { getSettings } from '@/pages/utils/settingsService';
 import { useWindowSize } from "../../../../hooks/useWindowSize";
+import {
+    moveProductTableColumn,
+    normalizeProductTableColumns,
+    PRODUCT_TABLE_COLUMNS,
+    type ProductTableColumn,
+} from './productTableColumns';
+import { ProductBulkActionsToolbar } from './ProductBulkActionsToolbar';
 
 interface ProductTableProps {
     products: Product[];
@@ -34,22 +41,6 @@ interface ProductTableProps {
     exitedVariationIds?: Set<string>;
 }
 
-interface ColumnDef {
-    key: keyof ProductVisibilitySettings;
-    label: string;
-    align?: string;
-}
-
-const COLUMNS_DEF: ColumnDef[] = [
-    { key: 'description', label: 'Produto/Variação' },
-    { key: 'code', label: 'SKU' },
-    { key: 'category', label: 'Categoria' },
-    { key: 'unitPrice', label: 'Preço Venda', align: 'text-right' },
-    { key: 'stock', label: 'Estoque', align: 'text-center' },
-    { key: 'status', label: 'Status de Canais', align: 'text-center' },
-    { key: 'actions', label: 'Ações', align: 'text-center' },
-];
-
 const ProductTable = ({
     products, onEdit, onShowHistory, onLaunchStock, onDelete, onRestore, onPermanentDelete, onToggleActive, onDeactivateCatalog,
     visibilitySettings, onToggleColumn, showTrash, filters, onSort,
@@ -78,27 +69,16 @@ const ProductTable = ({
         enabled: settings.autoScroll.orderTable // Reusing orderTable setting for now
     });
 
-    const [orderedColumns, setOrderedColumns] = React.useState<ColumnDef[]>(() => {
+    const [orderedColumns, setOrderedColumns] = React.useState<ProductTableColumn[]>(() => {
         const savedOrder = localStorage.getItem('product_table_column_order');
         if (savedOrder) {
             try {
-                let keys = JSON.parse(savedOrder) as string[];
-                // Migração: se 'code' estiver antes de 'description', ajusta para 'description' vir primeiro
-                const codeIdx = keys.indexOf('code');
-                const descIdx = keys.indexOf('description');
-                if (codeIdx !== -1 && descIdx !== -1 && codeIdx < descIdx) {
-                    keys.splice(codeIdx, 1);
-                    const newDescIdx = keys.indexOf('description');
-                    keys.splice(newDescIdx + 1, 0, 'code');
-                }
-                const existingColumns = keys.map(key => COLUMNS_DEF.find(c => c.key === key)!).filter(Boolean);
-                const missingColumns = COLUMNS_DEF.filter(c => !keys.includes(c.key));
-                return [...existingColumns, ...missingColumns];
+                return normalizeProductTableColumns(JSON.parse(savedOrder) as string[]);
             } catch (e) {
-                return COLUMNS_DEF;
+                return PRODUCT_TABLE_COLUMNS;
             }
         }
-        return COLUMNS_DEF;
+        return PRODUCT_TABLE_COLUMNS;
     });
 
     const [draggedColumn, setDraggedColumn] = React.useState<string | null>(null);
@@ -123,14 +103,7 @@ const ProductTable = ({
         const draggedKey = e.dataTransfer.getData('columnKey');
         if (draggedKey === targetKey) return;
 
-        const newOrder = [...orderedColumns];
-        const draggedIdx = newOrder.findIndex(c => c.key === draggedKey);
-        const targetIdx = newOrder.findIndex(c => c.key === targetKey);
-
-        const [removed] = newOrder.splice(draggedIdx, 1);
-        newOrder.splice(targetIdx, 0, removed);
-
-        setOrderedColumns(newOrder);
+        setOrderedColumns(moveProductTableColumn(orderedColumns, draggedKey, targetKey));
         setDraggedColumn(null);
     };
 
@@ -172,38 +145,12 @@ const ProductTable = ({
     return (
         <div className="flex flex-col gap-4">
             {/* Bulk Actions Toolbar */}
-            {selectedProducts.length > 0 && (
-                <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-900/30 rounded-xl p-4 flex items-center justify-between shadow-sm animate-slide-up sticky top-2 z-10">
-                    <span className="text-[10px] md:text-xs font-black uppercase tracking-widest text-blue-600 dark:text-blue-400">
-                        {selectedProducts.length} <span className="hidden sm:inline">selecionado(s)</span>
-                    </span>
-                    <div className="flex items-center gap-2 md:gap-3">
-                        <button
-                            onClick={onClearSelection}
-                            className="bg-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 text-[10px] md:text-xs font-bold px-2 md:px-3 py-1.5 rounded-lg transition-colors"
-                        >
-                            Sair
-                        </button>
-
-                        <button
-                            onClick={onBulkTrash}
-                            className="bg-amber-100 hover:bg-amber-200 dark:bg-amber-900/40 dark:hover:bg-amber-900/60 text-amber-700 dark:text-amber-300 text-[9px] md:text-[10px] font-black uppercase tracking-widest px-3 md:px-4 py-2 rounded-xl transition-all shadow-sm flex items-center gap-2"
-                        >
-                            <i className="bi bi-power" />
-                            <span className="hidden sm:inline">Desativar Selecionados</span>
-                            <span className="sm:hidden">Desativar</span>
-                        </button>
-                        <button
-                            onClick={onBulkRestore}
-                            className="bg-emerald-600 hover:bg-emerald-700 text-white text-[9px] md:text-[10px] font-black uppercase tracking-widest px-3 md:px-4 py-2 rounded-xl transition-all shadow-sm flex items-center gap-2 font-bold"
-                        >
-                            <i className="bi bi-check-circle-fill" />
-                            <span className="hidden sm:inline">Ativar Selecionados</span>
-                            <span className="sm:hidden">Ativar</span>
-                        </button>
-                    </div>
-                </div>
-            )}
+            {selectedProducts.length > 0 && <ProductBulkActionsToolbar
+                selectedCount={selectedProducts.length}
+                onClearSelection={onClearSelection}
+                onBulkTrash={onBulkTrash}
+                onBulkRestore={onBulkRestore}
+            />}
 
             {/* Visualização em Tabela: exibida EXCLUSIVAMENTE a partir de XL (>= 1280px) */}
             <div ref={containerRef} className={`${isMobile ? 'hidden' : 'hidden xl:block'} overflow-x-auto rounded-xl border border-slate-100 dark:border-slate-800`}>

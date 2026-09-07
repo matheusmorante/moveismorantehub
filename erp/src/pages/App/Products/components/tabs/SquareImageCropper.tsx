@@ -1,10 +1,16 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { compressImageToFile } from '@/pages/utils/imageUtils';
 import { toast } from 'react-toastify';
+import { buildImageFetchCandidates } from '@/pages/utils/imageFetchCandidates';
+import {
+    createCenteredSquareSelection,
+    moveSquareSelection,
+    resizeSquareSelection,
+    type CropCorner,
+    type SquareSelection,
+} from './squareCropSelection';
 
-type Selection = { x: number; y: number; size: number };
-type Corner = 'nw' | 'ne' | 'sw' | 'se';
-type Drag = { mode: 'move'; x: number; y: number; selection: Selection } | { mode: 'resize'; x: number; corner: Corner; selection: Selection };
+type Drag = { mode: 'move'; x: number; y: number; selection: SquareSelection } | { mode: 'resize'; x: number; corner: CropCorner; selection: SquareSelection };
 
 interface SquareImageCropperProps {
     imageUrl: string;
@@ -13,7 +19,7 @@ interface SquareImageCropperProps {
 }
 
 export function SquareImageCropper({ imageUrl, onCancel, onConfirm }: SquareImageCropperProps) {
-    const [selection, setSelection] = useState<Selection | null>(null);
+    const [selection, setSelection] = useState<SquareSelection | null>(null);
     const [imageSrc, setImageSrc] = useState<string>('');
     const [loading, setLoading] = useState<boolean>(true);
     const [loadError, setLoadError] = useState<boolean>(false);
@@ -47,27 +53,7 @@ export function SquareImageCropper({ imageUrl, onCancel, onConfirm }: SquareImag
                 return;
             }
 
-            const urlsToTry: string[] = [];
-
-            // 1. Se for URL do R2 (.r2.dev), tenta via proxy Vite local (/r2-proxy)
-            if (imageUrl.includes('.r2.dev')) {
-                try {
-                    const pathname = new URL(imageUrl).pathname;
-                    urlsToTry.push(`/r2-proxy${pathname}`);
-                } catch {
-                    const idx = imageUrl.indexOf('.r2.dev');
-                    if (idx !== -1) {
-                        urlsToTry.push(`/r2-proxy${imageUrl.substring(idx + 7)}`);
-                    }
-                }
-            }
-
-            // 2. Tenta fetch direto
-            urlsToTry.push(imageUrl);
-
-            // 3. Fallbacks de proxies públicos com CORS liberado
-            urlsToTry.push(`https://images.weserv.nl/?url=${encodeURIComponent(imageUrl)}`);
-            urlsToTry.push(`https://api.allorigins.win/raw?url=${encodeURIComponent(imageUrl)}`);
+            const urlsToTry = buildImageFetchCandidates(imageUrl, true);
 
             for (const url of urlsToTry) {
                 try {
@@ -103,13 +89,8 @@ export function SquareImageCropper({ imageUrl, onCancel, onConfirm }: SquareImag
 
     const initializeSelection = () => {
         const container = containerRef.current;
-        if (!container || container.clientWidth === 0 || container.clientHeight === 0) return;
-        const size = Math.min(container.clientWidth, container.clientHeight);
-        setSelection({
-            x: (container.clientWidth - size) / 2,
-            y: (container.clientHeight - size) / 2,
-            size
-        });
+        if (!container) return;
+        setSelection(createCenteredSquareSelection(container.clientWidth, container.clientHeight));
     };
 
     // Atualiza/reajusta a seleção quando a margem de moldura muda ou na carga
@@ -123,26 +104,15 @@ export function SquareImageCropper({ imageUrl, onCancel, onConfirm }: SquareImag
         }
     }, [loading, loadError, imageSrc, paddingPercent]);
 
-    const resize = (pointerX: number, drag: Extract<Drag, { mode: 'resize' }>, container: HTMLDivElement) => {
-        const east = drag.corner.endsWith('e');
-        const south = drag.corner.startsWith('s');
-        const anchorX = east ? drag.selection.x : drag.selection.x + drag.selection.size;
-        const anchorY = south ? drag.selection.y : drag.selection.y + drag.selection.size;
-        const requested = drag.selection.size + (pointerX - drag.x) * (east ? 1 : -1);
-        const maxX = east ? container.clientWidth - anchorX : anchorX;
-        const maxY = south ? container.clientHeight - anchorY : anchorY;
-        const size = Math.max(60, Math.min(requested, maxX, maxY));
-        setSelection({ x: east ? anchorX : anchorX - size, y: south ? anchorY : anchorY - size, size });
-    };
-
     const move = (event: React.PointerEvent<HTMLElement>) => {
         const container = containerRef.current;
         const drag = dragRef.current;
         if (!container || !drag || !selection) return;
-        if (drag.mode === 'resize') return resize(event.clientX, drag, container);
-        const x = Math.min(Math.max(0, drag.selection.x + event.clientX - drag.x), container.clientWidth - selection.size);
-        const y = Math.min(Math.max(0, drag.selection.y + event.clientY - drag.y), container.clientHeight - selection.size);
-        setSelection({ ...selection, x, y });
+        if (drag.mode === 'resize') {
+            setSelection(resizeSquareSelection(event.clientX, drag.x, drag.corner, drag.selection, container.clientWidth, container.clientHeight));
+            return;
+        }
+        setSelection(moveSquareSelection(event.clientX, event.clientY, drag.x, drag.y, drag.selection, container.clientWidth, container.clientHeight));
     };
 
     const finish = async () => {
@@ -207,7 +177,7 @@ export function SquareImageCropper({ imageUrl, onCancel, onConfirm }: SquareImag
                 const compressed = await compressImageToFile(file, { maxMB: 0.3, maxWidth: 1080 });
                 onConfirm(compressed);
             }
-        } catch (err: any) {
+        } catch (err: unknown) {
             console.error("Erro ao aplicar recorte/moldura:", err);
             toast.error("Erro ao processar imagem. Tente novamente.");
         } finally {
@@ -215,7 +185,7 @@ export function SquareImageCropper({ imageUrl, onCancel, onConfirm }: SquareImag
         }
     };
 
-    const startResize = (event: React.PointerEvent<HTMLSpanElement>, corner: Corner) => {
+    const startResize = (event: React.PointerEvent<HTMLSpanElement>, corner: CropCorner) => {
         if (!selection) return;
         event.stopPropagation();
         event.currentTarget.setPointerCapture(event.pointerId);
@@ -225,12 +195,7 @@ export function SquareImageCropper({ imageUrl, onCancel, onConfirm }: SquareImag
     const resetToFull = () => {
         const container = containerRef.current;
         if (!container) return;
-        const size = Math.min(container.clientWidth, container.clientHeight);
-        setSelection({
-            x: (container.clientWidth - size) / 2,
-            y: (container.clientHeight - size) / 2,
-            size
-        });
+        setSelection(createCenteredSquareSelection(container.clientWidth, container.clientHeight));
     };
 
     return (

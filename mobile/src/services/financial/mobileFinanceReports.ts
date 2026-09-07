@@ -65,7 +65,7 @@ export const fetchCashFlowReport = async (year: number, month: number): Promise<
     supabase.from('financial_transactions').select('type, amount, status').gte('date', startDate).lt('date', endDate),
   ]);
 
-  if (priorRes.error && priorRes.error.message?.includes('status')) {
+  if (priorRes.error || currentRes.error) {
     [priorRes, currentRes] = await Promise.all([
       supabase.from('financial_transactions').select('type, amount').lt('date', startDate),
       supabase.from('financial_transactions').select('type, amount').gte('date', startDate).lt('date', endDate),

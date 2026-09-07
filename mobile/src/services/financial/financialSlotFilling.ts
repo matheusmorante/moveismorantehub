@@ -159,7 +159,11 @@ export const trySlotFillingFallback = (
     }
   }
 
-  if (commonFieldsPatched >= 2) {
+  const hasInstallmentOrDateOrOrdinal =
+    /(primeir|segund|terceir|quart|últim|ultim|\b1º|\b2º|\b3º|\b4º)/i.test(text) ||
+    /\b(?:dia|vence|vencimento|para o dia)\b/i.test(text);
+
+  if (commonFieldsPatched >= 2 || (commonFieldsPatched >= 1 && !hasInstallmentOrDateOrOrdinal)) {
     draft.questionToUser = null;
     return validateParsedIntent(draft, todayStr);
   }
@@ -411,6 +415,10 @@ export const trySlotFillingFallback = (
     text.includes('forma de recebimento') ||
     text.includes('pagamento') ||
     text.includes('recebimento') ||
+    text.includes('débito') ||
+    text.includes('debito') ||
+    text.includes('crédito') ||
+    text.includes('credito') ||
     text.includes('pix') ||
     text.includes('boleto') ||
     text.includes('cartão') ||

@@ -2,8 +2,9 @@ import React, { useState, useEffect } from "react";
 import { toast } from "react-toastify";
 import { fetchGroupsAndCategories, createCategory, updateCategory, deleteCategory, updateCategoryChildren, generateSlug } from '@/pages/utils/categoryService';
 import { ecommerceSupabase as supabase } from '@/pages/utils/supabaseConfig';
+import { PRODUCT_ENVIRONMENT_OPTIONS } from '../productEnvironmentOptions';
 
-const FIXED_ENVIRONMENTS = ["SALA DE JANTAR", "SALA DE ESTAR", "COZINHA", "QUARTO", "LAVANDERIA", "BANHEIRO", "LAVANDEIRA", "ESCRITORIO", "ESCRITÓRIO", "VARANDA", "ÁREA GOURMET", "GARAGEM"];
+const FIXED_ENVIRONMENTS = PRODUCT_ENVIRONMENT_OPTIONS;
 
 const Categories = () => {
     const [categories, setCategories] = useState<any[]>([]);

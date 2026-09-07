@@ -80,6 +80,9 @@ const DesktopNav = ({ activeMenu, setActiveMenu }: DesktopNavProps) => {
                         <Link to="/stock/purchases" onClick={() => setActiveMenu(null)} className={dropdownItemClass}>
                             <i className="bi bi-cart-fill mr-1 text-blue-500"></i> Pedidos de Compra
                         </Link>
+                        <Link to="/stock/inbound-invoices" onClick={() => setActiveMenu(null)} className={dropdownItemClass}>
+                            <i className="bi bi-receipt-cutoff mr-1 text-indigo-500"></i> Notas Fiscais de Entrada
+                        </Link>
                         <Link to="/stock/receipts" onClick={() => setActiveMenu(null)} className={dropdownItemClass}>
                             <i className="bi bi-clipboard-check mr-1 text-emerald-500"></i> Recebimentos de Mercadorias
                         </Link>

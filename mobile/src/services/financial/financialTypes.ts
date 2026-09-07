@@ -80,4 +80,5 @@ export interface ChatMessage {
   version?: number;
   status?: 'ACTIVE' | 'SUPERSEDED' | 'BRANCH_INACTIVE' | 'RESOLVED';
   editedAt?: string | null;
+  isAlert?: boolean;
 }

@@ -49,7 +49,8 @@ export const ChatMessageItem: React.FC<Props> = ({
         style={[
           styles.messageBubble,
           isUser ? styles.userBubble : styles.assistantBubble,
-          isDarkMode && !isUser && styles.assistantBubbleDark,
+          !isUser && msg.isAlert && (isDarkMode ? styles.alertBubbleDark : styles.alertBubble),
+          isDarkMode && !isUser && !msg.isAlert && styles.assistantBubbleDark,
           isEditingThis && styles.editingMessageBubble,
         ]}
       >
@@ -88,14 +89,15 @@ export const ChatMessageItem: React.FC<Props> = ({
               style={[
                 styles.messageText,
                 isUser ? styles.userText : styles.assistantText,
-                isDarkMode && !isUser && styles.assistantTextDark,
+                !isUser && msg.isAlert && (isDarkMode ? styles.alertTextDark : styles.alertText),
+                isDarkMode && !isUser && !msg.isAlert && styles.assistantTextDark,
               ]}
             >
               {msg.text}
             </Text>
 
             <View style={styles.bubbleFooter}>
-              <Text style={styles.timeText}>
+              <Text style={[styles.timeText, !isUser && msg.isAlert && (isDarkMode ? styles.alertTimeDark : styles.alertTime)]}>
                 {msg.timestamp}
                 {msg.version && msg.version > 1 ? ' (editado)' : ''}
               </Text>
@@ -176,6 +178,18 @@ const styles = StyleSheet.create({
   assistantBubbleDark: {
     backgroundColor: '#1e293b',
   },
+  alertBubble: {
+    backgroundColor: '#fef3c7',
+    borderColor: '#fde68a',
+    borderWidth: 1,
+    borderBottomLeftRadius: 4,
+  },
+  alertBubbleDark: {
+    backgroundColor: 'rgba(120, 53, 15, 0.25)',
+    borderColor: 'rgba(245, 158, 11, 0.4)',
+    borderWidth: 1,
+    borderBottomLeftRadius: 4,
+  },
   editingMessageBubble: {
     borderWidth: 1.5,
     borderColor: '#3b82f6',
@@ -193,6 +207,20 @@ const styles = StyleSheet.create({
   },
   assistantTextDark: {
     color: '#f8fafc',
+  },
+  alertText: {
+    color: '#92400e',
+    fontWeight: '500',
+  },
+  alertTextDark: {
+    color: '#fef08a',
+    fontWeight: '500',
+  },
+  alertTime: {
+    color: '#b45309',
+  },
+  alertTimeDark: {
+    color: '#fbbf24',
   },
   bubbleFooter: {
     flexDirection: 'row',

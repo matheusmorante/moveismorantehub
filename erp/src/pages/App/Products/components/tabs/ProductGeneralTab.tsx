@@ -2,16 +2,18 @@ import React from 'react';
 import { Product } from '@/pages/types/product.type';
 import { supabase } from '@/pages/utils/supabaseConfig';
 import { toTitleCase } from '@/pages/utils/textUtils';
+import {
+    filterProductSelectableCategories,
+    getProductCategoryRootNames,
+    type ProductCategoryOption,
+} from './productCategoryEnvironment';
 
 interface ProductGeneralTabProps {
     onOpenCategorySearch: () => void;
-    suppliers: any[];
     isService: boolean;
     formData: Partial<Product>;
     setFormData: React.Dispatch<React.SetStateAction<Partial<Product>>>;
-    availableCategories: any[];
-    handleGenerateComboName: () => void;
-    isGeneratingComboName: boolean;
+    availableCategories: ProductCategoryOption[];
     validationErrors?: Record<string, boolean>;
     setValidationErrors?: React.Dispatch<React.SetStateAction<Record<string, boolean>>>;
 }
@@ -25,16 +27,10 @@ const ProductGeneralTab: React.FC<ProductGeneralTabProps> = ({
     validationErrors = {},
     setValidationErrors
 }) => {
-    const [availableMaterials, setAvailableMaterials] = React.useState<{id: string, name: string}[]>([]);
     const [opportunities, setOpportunities] = React.useState<{id: string, name: string}[]>([]);
     const [diferenciarTitulo, setDiferenciarTitulo] = React.useState<boolean>(
         Boolean(formData.title && formData.title !== formData.name) || Boolean(formData.marketplaceTitle && formData.marketplaceTitle !== formData.name)
     );
-
-    const fetchMaterials = async () => {
-        const { data } = await supabase.from('product_materials').select('*').order('name');
-        if (data) setAvailableMaterials(data);
-    };
 
     const fetchOpportunities = async () => {
         const { data } = await supabase.from('opportunities').select('id, name').eq('active', true).order('name');
@@ -42,11 +38,9 @@ const ProductGeneralTab: React.FC<ProductGeneralTabProps> = ({
     };
 
     React.useEffect(() => {
-        fetchMaterials();
         fetchOpportunities();
         
         const onFocus = () => {
-            fetchMaterials();
             fetchOpportunities();
         };
         window.addEventListener('focus', onFocus);
@@ -230,15 +224,7 @@ const ProductGeneralTab: React.FC<ProductGeneralTabProps> = ({
                                 ? 'border-red-500 bg-red-50/10 dark:bg-red-950/5' 
                                 : 'border-transparent'
                         }`}>
-                            {availableCategories
-                                .filter(cat => {
-                                    const FIXED_ENVIRONMENTS = ["SALA DE JANTAR", "SALA DE ESTAR", "COZINHA", "QUARTO", "LAVANDERIA", "BANHEIRO", "LAVANDEIRA", "ESCRITORIO", "ESCRITÓRIO", "VARANDA", "ÁREA GOURMET", "GARAGEM"];
-                                    const name = cat.name?.trim().toUpperCase();
-                                    const isFixed = FIXED_ENVIRONMENTS.includes(name);
-                                    const hasChildren = availableCategories.some(other => other.parents?.includes(cat.id));
-                                    const isEnvironment = isFixed || (hasChildren && (!cat.parents || cat.parents.length === 0)) || (!cat.parents || cat.parents.length === 0);
-                                    return !isEnvironment;
-                                })
+                            {filterProductSelectableCategories(availableCategories)
                                 .map((cat) => {
                                     const isChecked = (formData.categoryIds || []).includes(cat.id);
                                     
@@ -275,25 +261,7 @@ const ProductGeneralTab: React.FC<ProductGeneralTabProps> = ({
                                                         
                                                         const next = { ...prev, categoryIds: nextIds };
                                                         
-                                                        const getAllRoots = (catIds: string[]): string[] => {
-                                                            const roots = new Set<string>();
-                                                            const visited = new Set<string>();
-                                                            const find = (catId: string) => {
-                                                                    if (visited.has(catId)) return;
-                                                                    visited.add(catId);
-                                                                    const c = availableCategories.find(item => item.id === catId);
-                                                                    if (!c) return;
-                                                                    if (!c.parents || c.parents.length === 0) {
-                                                                        roots.add(c.name);
-                                                                    } else {
-                                                                        c.parents.forEach((pid: string) => find(pid));
-                                                                    }
-                                                            };
-                                                            catIds.forEach(find);
-                                                            return Array.from(roots);
-                                                        };
-
-                                                        const allEnvs = getAllRoots(nextIds);
+                                                        const allEnvs = getProductCategoryRootNames(nextIds, availableCategories);
                                                         let detectedEnv = prev.environment;
                                                         if (!detectedEnv || !allEnvs.includes(detectedEnv)) {
                                                             detectedEnv = allEnvs[0] || '';

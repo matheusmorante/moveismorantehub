@@ -288,6 +288,29 @@ describe('Conversational Assistant Context & Slot Filling Tests', () => {
     expect(draft3.paymentMethod).toBe('Pix');
     expect(draft3.isReadyForConfirmation).toBe(true);
   });
+
+  test('TESTE 17: Resposta direta "loja" para pergunta sobre conta de luz pessoal ou da loja', () => {
+    const draftContaDeLuz: ParsedFinancialIntent = {
+      intentType: 'SINGLE_TRANSACTION',
+      type: 'expense',
+      description: 'conta de luz',
+      amount: 400,
+      paymentMethod: undefined,
+      businessPurpose: 'UNKNOWN',
+      missingFields: ['businessPurpose', 'paymentMethod'],
+      questionToUser: 'Essa conta de luz é da loja ou é uma conta pessoal?',
+      confidence: 0.9,
+      isReadyForConfirmation: false,
+    };
+
+    const resultado = trySlotFillingFallback('loja', draftContaDeLuz, '2026-09-07');
+
+    expect(resultado).not.toBeNull();
+    expect(resultado?.businessPurpose).toBe('BUSINESS');
+    expect(resultado?.categoryName).toBe('Contas de Consumo');
+    expect(resultado?.questionToUser).not.toMatch(/loja ou é uma conta pessoal/i);
+    expect(resultado?.questionToUser).toMatch(/forma de pagamento/i);
+  });
 });
 
 

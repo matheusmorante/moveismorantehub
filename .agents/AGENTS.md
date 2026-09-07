@@ -8,13 +8,19 @@ Este documento registra as regras e comportamentos **implementados** no sistema,
 
 ## REGRAS GERAIS DO AGENTE
 
+- **Princípio Operacional Permanente do Agente**:
+  > *"ANTES DE CRIAR, PROCURE. ANTES DE ALTERAR, ENTENDA. ANTES DE ABSTRAIR, JUSTIFIQUE. ANTES DE CONCLUIR, TESTE. ANTES DE DIZER QUE RESOLVEU, VERIFIQUE REGRESSÕES."*
+  Nenhum agente deve iniciar implementação sem primeiro investigar a arquitetura existente no projeto. É expressamente proibido criar implementações paralelas por comodidade sem reaproveitar schemas, hooks, services e componentes existentes.
+
 - **Gatilho Obrigatório Pré-Edição de Arquivo (Pre-Flight de Skills)**: Antes de propor ou realizar qualquer edição (`replace_file_content` / `write_to_file`) em QUALQUER arquivo, o agente DEVE obrigatoriamente executar a verificação prévia de conformidade com as skills do projeto:
-  1. **Tamanho e Coesão (`modularizacao_codigo`)**: Quantas linhas tem o arquivo? Possui responsabilidade única clara? Se ultrapassar 150–200 linhas ou misturar múltiplos domínios, o agente é OBRIGADO a apontar a infração ao usuário e propor/consultar a modularização segura.
+  1. **Engenharia de Software, Coesão e Limite de Linhas (`modularizacao_codigo`)**: O arquivo respeita SOLID, KISS, DRY moderado, YAGNI, separação de camadas (UI → Application → Domain → Infrastructure) e fonte única da verdade (SSOT)? Quantas linhas tem o arquivo? Se ultrapassar 150–200 linhas ou misturar múltiplos domínios, o agente é OBRIGADO a apontar a infração ao usuário e propor/consultar a modularização segura.
   2. **Regras de Negócio (`regras-de-negocio-erp`)**: O arquivo toca pedidos, estoque, custos, devoluções, recebimentos ou fiscal? As regras oficiais de negócio estão sendo estritamente preservadas sem alterações silenciosas?
   3. **Retrocompatibilidade e Histórico (`analise-compatibilidade-mudancas`)**: A alteração afeta snapshots, formatos de dados legados ou estruturas persistidas? Garantir fallbacks resilientes.
   4. **Proteção Contra Custos Cloud (`cloud-free-tier-guard`)**: Se a alteração tocar APIs externas, Cloud, Google Maps, Gemini ou requisições faturáveis, respeita estritamente o teto de R$ 0,00, margem de segurança de 70% do Free Tier, cota diária conservadora, debounce, cache e circuit breaker contra loops?
   5. **Mobile Offline-First (`mobile-offline-first`)**: Se for código do App Mobile em contexto operacional, respeita o ciclo de 4 estados de eventos e autoridade do backend?
-  6. **Testes e Validação (`testes-seguros-erp`)**: Validar com testes automatizados antes de concluir a resposta.
+  6. **Arquitetura do Agente Gemini (`arquitetura-agente-gemini`)**: Se o arquivo tocar o assistente de IA, obedece estritamente às diretrizes de Function Calling nativo, contexto conversacional real, autoridade estrita do ERP/backend, proibição de inventar IDs e proibição expressa de usar regex/parsers como cérebro?
+  7. **Testes Seguros e Causa Raiz (`testes-seguros-erp`)**: Proibição de mascarar testes (remover assertions, sleeps artificiais, timeouts arbitrários). Validar com testes automatizados investigando sintoma → causa imediata → causa raiz antes de concluir a resposta.
+  8. **Checklist Pré-Conclusão (`modularizacao_codigo` Seção 37)**: Validar os 17 itens de conformidade (TypeScript rigoroso, Zero Trust em entradas, concorrência/idempotência, sem catches vazios).
 - **Git Push**: Nao executar `git push` automaticamente. Aguardar solicitacao explicita do usuario.
 - **Modularização Segura e Código Limpo (`modularizacao_codigo`)**: Cada arquivo deve possuir uma única responsabilidade clara. Alvo recomendado de 30–100 linhas (aceitável até aproximadamente 150 linhas; acima de 200 linhas ou infração real analisar divisão). Estratégia conservadora sem perda de código: **COPIAR → VALIDAR → CONECTAR → TESTAR → SÓ DEPOIS REMOVER**. Nunca alterar regras de negócio silenciosamente durante refatorações. Quando o usuário autorizar modularização contínua/ilimitada, o agente deve executar a refatoração progressiva em profundidade sem interrupções artificiais, preservando total fidelidade funcional e cobertura de testes.
 - **Idioma dos termos no ERP**: Produtos **Ativos** / **Desativados** (nunca publicados/despublicados). No catalogo digital: **Publicado no Catalogo** / **Ocultado do Catalogo**.
@@ -630,5 +636,24 @@ Ao incrementar versao em `mobile/app.json`, sincronizar:
 - **Visualização no Prompt Preview do ERP e na Página Pública de Compartilhamento**:
   - O Preview exibe o card **"ASSETS OFICIAIS"** com thumbnails reais, nomes e URLs absolutas do Logo e do Selo (ou indicação clara de *"Nenhum (produto sem oportunidade)"*).
   - A página pública `/share/post-instructions/[token]` e seu respectivo endpoint JSON contêm a mesma estrutura canônica com as regras de fidelidade absoluta e URLs públicas.
+
+---
+
+## MÓDULO: ARQUITETURA DO AGENTE GEMINI (ERP & MOBILE)
+
+- **Skill Oficial do Agente**: Consulte sempre [.agents/skills/arquitetura-agente-gemini/SKILL.md](file:///c:/Users/Rosilene/Desktop/morantehub/.agents/skills/arquitetura-agente-gemini/SKILL.md).
+- **Divisão Estrita de Responsabilidades**:
+  - **Gemini**: Compreensão de linguagem natural, intenção, contexto, diálogo multi-turno, correções fluidas, seleção de tools, preenchimento de argumentos e formulação de respostas naturais.
+  - **ERP / Backend**: Fonte da verdade, banco de dados, regras de negócio, cálculo de estoque/CMV/custos, permissões, integridade e execução das operações através dos services existentes.
+- **Proibição Absoluta de Parser / Regex como Cérebro**:
+  - É expressamente proibido usar `regex`, listas de sinônimos ou árvores de `if/else` manuais para simular inteligência artificial ou mapear palavras para categorias/intenções. O Gemini deve interpretar o texto, invocar tools para consultar os dados reais e selecionar a opção correta.
+  - Parsers técnicos legítimos (validação de schemas, formatação monetária de saída, sanitização de requisições HTTP) continuam permitidos exclusivamente para funções técnicas.
+- **Function Calling / Tool Calling Nativo**:
+  - Toda interação do agente com o sistema deve ocorrer via Function Calling nativo com JSON Schema rigoroso e descrições ricas, sem depender de prompts que pedem JSON textual livre via `JSON.parse`.
+  - As tools são camadas finas entre o Gemini e os services do ERP. Nenhuma regra de negócio, permissão ou cálculo fiscal/financeiro deve ser duplicada dentro de uma tool.
+- **Proibição de Invenção de IDs**:
+  - O Gemini **NUNCA** pode inventar `clienteId`, `fornecedorId`, `categoriaId`, `produtoId`, `contaId` ou `movimentacaoId`. Para operar sobre registros existentes, deve obrigatoriamente realizar busca prévia via tool.
+- **Contexto Conversacional Nativo**:
+  - O histórico de mensagens (turnos `user`, `model` e `functionResponse`) deve ser mantido de forma contínua, permitindo correções naturais (*"Não, foi 350"*, *"Na verdade foi ontem"*), sem dezenas de flags manuais de estado no frontend.
 
 

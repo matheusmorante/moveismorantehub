@@ -1,17 +1,115 @@
 ---
 name: modularizacao_codigo
-description: Responsabilidade Única, Código Limpo e Modularização Segura. Mantém arquivos coesos, pequenos (alvo de 30-100 linhas, aceitável até 150), desacoplados e sem perda de regras ou código durante refatorações.
+description: Engenharia de Software, SOLID, Código Limpo, Arquitetura e Modularização Segura. Garante que qualquer alteração siga princípios rigorosos de engenharia (investigação prévia, Single Source of Truth, separação de camadas, contratos TypeScript estritos, Zero Trust em dados externos, idempotência, ausência de abstrações prematuras e arquivos coesos de 30-100 linhas).
 ---
 
-# Skill: Responsabilidade Única, Código Limpo e Modularização Segura
+# Skill: Engenharia de Software, Código Limpo, Arquitetura e Modularização Segura
 
-## Objetivo
+## Princípio Permanente Inviolável
 
-Manter todo o projeto organizado com arquivos pequenos, coesos, fáceis de localizar, entender, testar e depurar por humanos e agentes de IA.
+> [!IMPORTANT]
+> **"ANTES DE CRIAR, PROCURE.  
+> ANTES DE ALTERAR, ENTENDA.  
+> ANTES DE ABSTRAIR, JUSTIFIQUE.  
+> ANTES DE CONCLUIR, TESTE.  
+> ANTES DE DIZER QUE RESOLVEU, VERIFIQUE REGRESSÕES."**
+>
+> O objetivo principal NÃO é produzir mais código nem criar abstrações mecanicamente.  
+> O objetivo é manter um sistema cada vez mais simples de entender, testar, modificar e evoluir com segurança.
 
-Esta skill deve ser aplicada continuamente durante qualquer tarefa realizada no projeto.
+---
 
-Sempre que um arquivo existente for aberto, analisado ou alterado durante uma tarefa, verificar também se ele respeita os princípios desta skill. Se não respeitar, aproveitar a própria tarefa para modularizá-lo de forma segura, desde que isso possa ser feito sem alterar o comportamento funcional esperado.
+## Objetivo da Skill
+
+Manter todo o ecossistema Morante Hub (ERP, Mobile e integrações) operando sob padrões rigorosos de engenharia de software.  
+Esta skill deve ser aplicada de forma contínua e automática durante **qualquer** tarefa de leitura, correção, refatoração ou criação de funcionalidades no projeto.
+
+---
+
+# 0. A Regra Mais Importante para Agentes: Investigação Prévia Obrigatória
+
+**ANTES DE ESCREVER UMA ÚNICA LINHA DE CÓDIGO, INVESTIGUE O PROJETO.**
+
+Nenhum agente deve iniciar uma implementação relevante sem primeiro mapear e entender profundamente como aquela área já funciona.
+
+Antes de propor ou alterar algo, você DEVE obrigatoriamente procurar:
+* Implementações existentes e fluxos correlatos;
+* Componentes, hooks, contexts e stores relacionados;
+* Services, domain functions, repositories e clients;
+* Schemas de validação, types TypeScript e interfaces;
+* Endpoints de API, migrations, constraints de banco de dados;
+* Testes automatizados existentes e fixtures;
+* Regras de negócio vigentes no módulo.
+
+### O agente deve responder internamente antes de agir:
+1. **Onde essa responsabilidade já está implementada?**
+2. **Existe código equivalente ou reaproveitável?**
+3. **Qual é a Fonte Única de Verdade (Single Source of Truth)?**
+4. **Qual camada arquitetural deve receber a mudança?**
+5. **O que depende dessa estrutura e o que pode quebrar?**
+
+> [!CAUTION]
+> **É EXPRESSAMENTE PROIBIDO** criar uma implementação paralela ou duplicada simplesmente porque foi mais fácil ou rápido do que localizar a implementação existente no projeto.
+
+---
+
+# 0.1. Fluxo Obrigatório de Desenvolvimento (Ciclo de 9 Etapas)
+
+Toda tarefa de engenharia no Morante Hub segue obrigatoriamente o ciclo disciplinado:
+
+```text
+1. INVESTIGAR           (Localizar código, dependências e fontes da verdade)
+       ↓
+2. ENTENDER             (Compreender o fluxo atual e regras de domínio)
+       ↓
+3. IDENTIFICAR CAUSA    (Separar Sintoma → Causa Imediata → Causa Raiz)
+       ↓
+4. PLANEJAR             (Definir a menor alteração arquiteturalmente correta)
+       ↓
+5. IMPLEMENTAR          (Escrever código limpo, tipado e com alta coesão)
+       ↓
+6. VALIDAR              (Verificar contratos, tipagem TypeScript e lints)
+       ↓
+7. TESTAR               (Executar testes unitários, integração e E2E)
+       ↓
+8. REVISAR REGRESSÕES   (Auditar impactos colaterais nos fluxos vizinhos)
+       ↓
+9. CONCLUIR             (Atender aos 17 itens do Checklist Operacional)
+```
+
+> [!WARNING]
+> Uma tarefa **NUNCA** deve ser considerada concluída apenas porque:
+> - O código compilou;
+> - Não apareceu erro visível de TypeScript;
+> - Apenas um teste isolado passou;
+> - A tela abriu sem crash;
+> - A API retornou status HTTP 200.
+> 
+> **Conclusão real significa**: O comportamento solicitado funciona perfeitamente E todos os comportamentos e integrações relacionados continuam funcionando com integridade.
+
+---
+
+# 0.2. Princípios de Engenharia de Software
+
+Aplique estes princípios com discernimento e bom senso prático (sem dogmatismo mecânico):
+
+* **SOLID**:
+  - *Single Responsibility*: Uma única razão para mudar por arquivo/função.
+  - *Open/Closed*: Extensível sem alterar contratos consolidados.
+  - *Liskov Substitution*: Subtipos respeitam contratos dos tipos base.
+  - *Interface Segregation*: Interfaces pequenas e específicas; clientes não dependem do que não usam.
+  - *Dependency Inversion*: Módulos de alto nível dependem de abstrações/contratos, não de detalhes voláteis de infraestrutura.
+* **KISS (Keep It Simple, Stupid)**: A solução mais simples que resolve o problema com robustez é sempre superior a uma arquitetura engenhosa e complexa.
+* **DRY com Moderação (Don't Repeat Yourself)**: Evite duplicação de regras de negócio essenciais, mas prefira pequena duplicação temporária a uma abstração prematura acoplada e incorreta.
+* **YAGNI (You Aren't Gonna Need It)**: Não implemente recursos para "casos futuros hipotéticos" que não foram solicitados.
+* **Separation of Concerns & Camadas Claras**: Separação nítida entre UI, Use Cases, Domínio e Infraestrutura.
+* **Single Source of Truth (SSOT)**: Cada dado ou regra crítica de negócio possui um único local canônico de cálculo e armazenamento.
+* **Composition over Inheritance**: Componha pequenas funções e componentes em vez de criar hierarquias profundas de herança ou classes base infladas.
+* **Explicit over Implicit**: Fluxos de dados, parâmetros e retornos devem ser transparentes e rastreáveis; sem variáveis mágicas ou mutações invisíveis.
+* **Fail Fast & Defensive Programming**: Valide argumentos nas fronteiras imediatamente; impeça dados corrompidos de trafegarem pelo sistema.
+* **Imutabilidade**: Trate snapshots, históricos e estados de UI como imutáveis, evitando mutações diretas que causam bugs de concorrência ou re-render fantasma.
+
+---
 
 ---
 
@@ -845,4 +943,165 @@ Quando o usuário pedir explicitamente a limpeza, modularização ou refatoraç�
    - Ao concluir o lote de 3 arquivos, o agente faz uma pausa e pergunta ao usuário:
      > *"Concluí a modularização de 3 arquivos do roadmap ([Arquivos refatorados]). Deseja que eu prossiga com os próximos 3 arquivos da lista?"*
    - Isso evita o esgotamento da janela de contexto e mantém cada etapa 100% testada e auditável pelo usuário.
+
+---
+
+# 26. Camadas Arquiteturais e Separação de Responsabilidades
+
+O Morante Hub segue a separação canônica de quatro camadas:
+
+```text
+1. Interface com Usuário (UI)
+   └── Componentes React, telas, páginas, modais, formulários, formatação de apresentação.
+       ↓
+2. Aplicação / Casos de Uso (Application / Use Cases)
+   └── Hooks orquestradores, fluxos de checkout, coordenação de etapas, mutações compostas.
+       ↓
+3. Domínio e Regras de Negócio (Domain / Business Rules)
+   └── Funções puras de cálculo (CMPM, CMV, frete, descontos, regras fiscais, validadores).
+       ↓
+4. Infraestrutura (Infrastructure)
+   └── Supabase, clientes de banco, Gemini API, Google Maps, storage, WhatsApp API, Webhooks.
+```
+
+- **Isolamento de Infraestrutura**: Frameworks e bibliotecas externas de infraestrutura NUNCA devem ditar ou se misturar diretamente com as regras centrais de negócio.
+- **Direção de Dependência**: A UI depende de Use Cases e Domínio; o Domínio NUNCA depende da UI.
+
+---
+
+# 27. Fonte Única da Verdade (Single Source of Truth - SSOT)
+
+Regras vitais e cálculos críticos NUNCA devem existir duplicados em múltiplos pontos do sistema.
+Especialmente:
+* **Estoque e Movimentações**: O estoque é apurado pelo saldo de movimentações atômicas no banco de dados.
+* **Custos, CMPM e CMV**: O cálculo do CMPM vigente e a materialização do CMV em vendas possuem regra única centralizada em [regras-de-negocio-erp](file:///c:/Users/Rosilene/Desktop/morantehub/.agents/skills/regras-de-negocio-erp/SKILL.md).
+* **Preços, Descontos e Condições Comerciais**: Devem ser validados por serviços centrais, nunca recalculados informalmente na interface.
+* **Status de Pedidos e Entregas**: Transições de status são governadas por máquinas de estado no backend/services.
+
+> [!IMPORTANT]
+> Antes de implementar qualquer regra ou cálculo, procure a Fonte da Verdade existente. Se encontrar duplicação histórica, planeje a convergência segura sem quebra de compatibilidade.
+
+---
+
+# 28. TypeScript Rigoroso e Contratos de Dados
+
+O TypeScript deve ser utilizado como ferramenta de garantia de segurança em tempo de compilação, e não como obstáculo a ser burlado:
+
+- **Proibido `any` e `as any`**: O uso de `any` ou type assertion cego (`as any`) para silenciar o compilador é expressamente vetado. Use tipos explícitos ou `unknown` com asserção/type guard seguro.
+- **Proibido `@ts-ignore` Leviano**: `@ts-ignore` ou `@ts-expect-error` só é admissível em situações extremas de incompatibilidade de bibliotecas de terceiros, obrigatoriamente acompanhado de comentário explicando o porquê.
+- **Proibido Tornar Campos Opcionais sem Razão**: Nunca adicione `?` a propriedades essenciais apenas para fazer a chamada compilar; trate o valor ausente explicitamente.
+- **Preferir Unions Discriminadas**: Use propriedades discriminadoras (ex: `type: 'EXPENSE' | 'INCOME'` ou `status: 'ready' | 'needs_input'`) para tornar estados inválidos impossíveis de serem representados.
+
+---
+
+# 29. Princípio de Zero Trust para Dados Externos
+
+Nunca confie cegamente em dados provenientes de:
+* Entradas do usuário (formulários, inputs, cliques);
+* Parâmetros de URL, query strings ou rotas;
+* `localStorage` ou `sessionStorage`;
+* Respostas de APIs externas ou webhooks;
+* Retornos de modelos de IA (Gemini, ChatGPT);
+* Arquivos enviados para upload.
+
+**Regra Operacional**: Todos os dados externos devem ser validados e sanitizados nas fronteiras antes de serem propagados para os serviços internos e o banco de dados.
+
+---
+
+# 30. Operações Críticas, Concorrência e Idempotência
+
+Para operações que alteram saldo, geram débitos/créditos, movimentam estoque ou emitem notas fiscais:
+- **Idempotência Obrigatória**: O reenvio de uma mesma requisição (por retry de rede, clique duplo do usuário ou instabilidade de sinal no app mobile) NUNCA pode duplicar uma venda, transação financeira ou baixa de estoque. Utilize identificadores de idempotência (`clientTransactionId`, `testRunId`, etc.).
+- **Atomicidade e Transações**: Operações compostas (ex: concluir pedido + movimentar estoque + gerar contas a receber) devem executar em transação atômica (`db.transaction`). Se uma etapa falhar, o estado anterior deve ser preservado integralmente.
+- **Proteção contra Duplo Clique**: Interfaces de confirmação devem desabilitar botões imediatamente ao primeiro clique (`submitting: true`) até a conclusão ou erro da operação.
+
+---
+
+# 31. Engenharia de Frontend
+
+* **Componentes Focados**: Cada componente deve possuir uma responsabilidade visual e interativa clara.
+* **Regra de Negócio Fora do JSX**: O JSX deve ser expressivo e declarativo, evitando cálculos pesados de CMV, formatações complexas ou filtros em linha dentro do `return`.
+* **Estado Derivado Prioritário**: Antes de declarar um novo `useState`, pergunte: *"Esse valor pode ser derivado diretamente de props ou de outro estado existente?"*. Evite sincronização de estados redundantes.
+* **Uso Criterioso de `useEffect`**: Evite usar `useEffect` para transformar dados ou reagir a ações do usuário. Prefira handlers orientados a eventos (`onClick`, `onChange`) ou valores derivados com `useMemo`.
+* **Estados de Interface Completos**: Toda tela ou lista assíncrona deve prever de forma elegante: *Loading State* (esqueleto/spinner), *Error State* (aviso recuperável com botão de tentar novamente) e *Empty State* (ilustração e mensagem instrutiva quando não houver dados).
+
+---
+
+# 32. Engenharia de Backend e Banco de Dados
+
+* **Autoridade Estrita no Backend**: Validações de permissão, cálculos de preço final, saldos e regras fiscais NUNCA devem confiar no frontend. A segurança reside no servidor.
+* **Integridade Referencial no Banco**: Modificações em tabelas devem respeitar PKs, FKs, constraints de unicidade (`UNIQUE`), defaults consistentes e índices adequados para consultas de alta frequência.
+* **Migrações Compatíveis**: Alterações de schema devem ser aditivas e compatíveis com a versão anterior do código em produção, garantindo zero downtime.
+
+---
+
+# 33. Segurança, Performance e Observabilidade
+
+* **Segurança Contínua**: Validação contra injeções SQL, XSS, vazamento de credenciais e exposição indevida de dados sensíveis em logs ou clientes web. Secrets e chaves privadas pertencem exclusivamente ao ambiente seguro do servidor.
+* **Performance Consciente**: Evite consultas N+1, polling agressivo sem debounce, re-renders desnecessários de componentes de listas e transporte de payloads gigantes de dados não consumidos pela interface.
+* **Cache com Invalidação Deliberada**: Nunca adicione cache em memória ou storage sem ter uma estratégia clara e testada de invalidação e atualização.
+* **Observabilidade Útil**: Emita logs estruturados com contexto suficiente (IDs de correlação, duração e códigos de erro) para facilitar diagnósticos em produção, sem jamais logar senhas, tokens ou dados pessoais sensíveis.
+
+---
+
+# 34. Tratamento Deliberado de Erros
+
+> [!CAUTION]
+> **É PROIBIDO O USO DE `try { ... } catch {}` VAZIO OU SILENCIOSO.**
+> Todo bloco de captura de erro DEVE:
+> 1. Tratar o erro de forma deliberada e recuperável;
+> 2. Fornecer feedback claro e acionável ao operador;
+> 3. Ou registrar o erro estruturado para observabilidade quando for uma falha inesperada.
+
+---
+
+# 35. Escopo Controlado, Nomenclatura e Dependências
+
+* **Menor Alteração Arquiteturalmente Correta**: Não use tarefas pequenas como pretexto para reescrever áreas não relacionadas, mas nunca use "escopo mínimo" como desculpa para introduzir gambiarras técnicas.
+* **Nomenclatura que Revela Intenção**: Nomes de variáveis, funções e componentes devem refletir a linguagem ubíqua do negócio (ex: `calculateMovingAverageCost`, `reverseStockMovement`). Evite nomes vagos como `data`, `info`, `obj`, `temp`, `item2`, `doStuff`, `handleThing`.
+* **Cuidado com Dependências**: Antes de instalar qualquer biblioteca externa via `npm`, verifique se o projeto já possui utilitário nativo equivalente. Evite inchar o bundle com pacotes desnecessários.
+
+---
+
+# 36. Hierarquia Universal de Decisão
+
+Quando houver múltiplos caminhos de implementação possíveis para uma mesma funcionalidade, utilize rigorosamente a seguinte escala de prioridade:
+
+```text
+1.  CORREÇÃO                  (O comportamento solicitado deve funcionar perfeitamente)
+2.  SEGURANÇA                  (Sem brechas, vazamento de dados ou permissões burláveis)
+3.  INTEGRIDADE DOS DADOS      (Sem corrupção de estoque, financeiro ou histórico)
+4.  CLAREZA                    (Código autoexplicativo, legível para outros desenvolvedores)
+5.  SIMPLICIDADE               (KISS — a solução mais simples que resolve com robustez)
+6.  MANUTENIBILIDADE           (Fácil de evoluir, modular e desacoplado)
+7.  CONSISTÊNCIA ARQUITETURAL  (Alinhado aos padrões e convenções já adotados no projeto)
+8.  TESTABILIDADE              (Fácil de cobrir por testes unitários e de integração)
+9.  PERFORMANCE                (Rápido e eficiente, sem otimização prematura)
+10. CONVENIÊNCIA DO AGENTE     (A última consideração — NUNCA escolha uma solução frágil só porque foi mais rápida de codificar)
+```
+
+---
+
+# 37. Checklist Operacional Pré-Conclusão (17 Itens)
+
+Antes de declarar qualquer tarefa como concluída, o agente DEVE responder internamente:
+
+- [ ] 1. **Investigação**: Entendi profundamente a implementação e o fluxo existente antes de editar?
+- [ ] 2. **Anti-Duplicação**: Procurei código existente antes de criar um novo arquivo ou função?
+- [ ] 3. **SSOT**: A Fonte Única da Verdade foi respeitada sem duplicar regras de negócio?
+- [ ] 4. **Camadas**: A responsabilidade foi alocada na camada correta (UI vs Caso de Uso vs Domínio vs Infra)?
+- [ ] 5. **Anti-Complexidade**: Não introduzi abstração desnecessária (KISS/YAGNI)?
+- [ ] 6. **TypeScript Seguro**: Não usei `any`, `as any`, casts cegos nem `@ts-ignore` leviano?
+- [ ] 7. **Zero Trust**: Entradas de formulário, APIs externas e retornos de IA foram validados nas fronteiras?
+- [ ] 8. **Segurança**: Permissões e regras críticas estão validadas no backend/services?
+- [ ] 9. **Idempotência**: Operações de mutação crítica estão protegidas contra duplo clique e reenvios?
+- [ ] 10. **Erros**: Não deixei blocos de `catch` vazios e garanti feedback útil ao operador?
+- [ ] 11. **Performance**: Não introduzi renderizações redundantes, loops caros ou chamadas de API duplicadas?
+- [ ] 12. **Causa Raiz**: O problema foi corrigido na causa raiz e não apenas no sintoma com um patch local?
+- [ ] 13. **Testes Unitários**: O comportamento alterado está coberto por testes automatizados?
+- [ ] 14. **Casos de Borda**: Cenários de valor nulo, vazio, cancelado e limites numéricos foram verificados?
+- [ ] 15. **Anti-Regressão**: Os fluxos correlatos e as suítes de testes vizinhas continuam passando 100% verdes?
+- [ ] 16. **Retrocompatibilidade**: A alteração respeita dados e históricos legados sem quebrar exibições?
+- [ ] 17. **Simplicidade Final**: O código ficou limpo, compreensível e natural para outro desenvolvedor ler?
+
 

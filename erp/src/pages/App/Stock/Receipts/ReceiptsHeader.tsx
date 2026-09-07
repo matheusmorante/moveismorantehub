@@ -1,19 +1,24 @@
 import React from 'react';
 import SupplierAutocomplete from '@/components/SupplierAutocomplete';
 import Person from '@/pages/types/person.type';
+import { ReceiptActionButtons } from './ReceiptActionButtons';
 
 interface ReceiptsHeaderProps {
     suppliers: Person[];
     selectedSupplierId: string;
     onSelectSupplier: (id: string) => void;
-    onOpenNew: () => void;
+    onSelectInboundNfe: () => void;
+    onSelectPurchaseOrOrder: () => void;
+    onSelectManual: () => void;
 }
 
 export const ReceiptsHeader: React.FC<ReceiptsHeaderProps> = ({
     suppliers,
     selectedSupplierId,
     onSelectSupplier,
-    onOpenNew
+    onSelectInboundNfe,
+    onSelectPurchaseOrOrder,
+    onSelectManual
 }) => {
     return (
         <>
@@ -27,16 +32,12 @@ export const ReceiptsHeader: React.FC<ReceiptsHeaderProps> = ({
                         <p className="text-xs text-slate-400">Selecione um fornecedor para visualizar o histórico ou registrar recebimentos</p>
                     </div>
                 </div>
-                {selectedSupplierId && (
-                    <button 
-                        type="button" 
-                        onClick={onOpenNew} 
-                        className="rounded-xl bg-emerald-600 px-4 py-2 text-xs font-black uppercase tracking-wider text-white hover:bg-emerald-700 transition-all shadow-md animate-in fade-in zoom-in-95 flex items-center justify-center"
-                    >
-                        <i className="bi bi-plus-lg mr-2" />
-                        Registrar recebimento
-                    </button>
-                )}
+
+                <ReceiptActionButtons
+                    onSelectInboundNfe={onSelectInboundNfe}
+                    onSelectPurchaseOrOrder={onSelectPurchaseOrOrder}
+                    onSelectManual={onSelectManual}
+                />
             </header>
 
             {/* Campo de Seleção de Fornecedor em destaque acima da tabela */}
@@ -54,7 +55,7 @@ export const ReceiptsHeader: React.FC<ReceiptsHeaderProps> = ({
                 {!selectedSupplierId && (
                     <p className="mt-2 text-[11px] font-medium text-slate-400 flex items-center gap-1.5">
                         <i className="bi bi-info-circle text-emerald-600 dark:text-emerald-400" />
-                        Selecione o fornecedor acima para liberar o botão de <strong className="text-slate-600 dark:text-slate-300 font-bold">"Registrar recebimento"</strong> e listar as entradas.
+                        Dica: Você pode selecionar um fornecedor acima ou clicar em <strong className="text-indigo-600 dark:text-indigo-400 font-bold">"Nota Fiscal de Entrada"</strong> para preenchimento automático.
                     </p>
                 )}
             </div>

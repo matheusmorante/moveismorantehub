@@ -4,6 +4,7 @@ import {
   ProductImageReference,
   ProductVariationImageReference,
 } from '../types/postSpecification';
+import { extractPostProductImageUrls } from './postProductImageUrls';
 
 const DEFAULT_BASE_URL = 'https://www.moveismorante.com.br';
 
@@ -107,44 +108,14 @@ export function resolveProductImages(
 
   const variationsList: Array<{ id: string; name: string; images: string[] }> = [];
 
-  const extractImageUrls = (raw: any): string[] => {
-    if (!raw) return [];
-    if (typeof raw === 'string') {
-      const trimmed = raw.trim();
-      if (trimmed.startsWith('[') && trimmed.endsWith(']')) {
-        try {
-          const parsed = JSON.parse(trimmed);
-          if (Array.isArray(parsed)) return extractImageUrls(parsed);
-        } catch {}
-      }
-      return trimmed.split(',').map(s => s.trim()).filter(Boolean);
-    }
-    if (Array.isArray(raw)) {
-      const list: string[] = [];
-      raw.forEach(item => {
-        if (!item) return;
-        if (typeof item === 'string') list.push(item);
-        else if (Array.isArray(item) && item[1]) list.push(String(item[1]));
-        else if (item?.url) list.push(String(item.url));
-        else if (item?.image_url) list.push(String(item.image_url));
-      });
-      return list;
-    }
-    if (typeof raw === 'object') {
-      if (raw.url) return [String(raw.url)];
-      if (raw.image_url) return [String(raw.image_url)];
-    }
-    return [];
-  };
-
   if (rawVariations.length > 0) {
     rawVariations.forEach((v: any, idx: number) => {
       const id = v.id || `var-${idx}`;
       const name = extractVariationName(v, idx);
       const rawImgs = [
-        ...extractImageUrls(v.images),
-        ...extractImageUrls(v.image_url),
-        ...extractImageUrls(v.photos),
+        ...extractPostProductImageUrls(v.images),
+        ...extractPostProductImageUrls(v.image_url),
+        ...extractPostProductImageUrls(v.photos),
       ];
       const validUrls = rawImgs
         .map(u => toAbsoluteHttpsUrl(u, baseUrl))
@@ -156,10 +127,10 @@ export function resolveProductImages(
     const id = product.id || 'main';
     const name = product.name?.trim() || 'Principal';
     const rawImgs = [
-      ...extractImageUrls(product.images),
-      ...extractImageUrls((product as any).image_url),
-      ...extractImageUrls(product.photos),
-      ...extractImageUrls((product as any).product_images),
+      ...extractPostProductImageUrls(product.images),
+      ...extractPostProductImageUrls((product as any).image_url),
+      ...extractPostProductImageUrls(product.photos),
+      ...extractPostProductImageUrls((product as any).product_images),
     ];
     const validUrls = rawImgs
       .map(u => toAbsoluteHttpsUrl(u, baseUrl))

@@ -20,22 +20,14 @@ import {
 import { ElementModel, PostCampaign } from '../types/postCreator';
 import {
   resolveProductImages,
-  renderProductImagesPromptSection,
-  ABSOLUTE_FIDELITY_RULE,
 } from './postProductImageResolver';
 import {
   resolveOfficialAssets,
-  renderOfficialAssetsPromptSection,
 } from './postOfficialAssetResolver';
 import {
-  OFFICIAL_ASSET_MASTER_RULE,
   normalizeOfficialAssetUrl,
 } from './postOfficialAssetConstants';
-import {
-  GLOBAL_ART_DIRECTION_SECTION,
-  VISUAL_GROUNDING_MANDATORY_RULE,
-  DIRECT_WORKFLOW_FORMAT_INSTRUCTION,
-} from './postArtDirectionGuidelines';
+export { renderShareSpecificationAsPrompt, renderSpecificationAsPrompt } from './postSpecificationPromptRenderer';
 
 // ---------------------------------------------------------------------------
 // Constantes de marca
@@ -49,7 +41,6 @@ export function buildProductCatalogUrl(slug: string, variationId?: string | null
   const base = `${CATALOG_BASE_URL}/produto/${slug}`;
   return variationId ? `${base}?var=${variationId}` : base;
 }
-
 // ---------------------------------------------------------------------------
 // Instrução mestre (prompt de abertura do link público)
 // ---------------------------------------------------------------------------
@@ -264,7 +255,6 @@ export async function buildSingleSpecification(params: {
     configurationVersion: configHash,
   };
 }
-
 // ---------------------------------------------------------------------------
 // buildShareSpecification — todas as campanhas (link público)
 // ---------------------------------------------------------------------------
@@ -337,184 +327,3 @@ export async function buildShareSpecification(params: {
   };
 }
 
-// ---------------------------------------------------------------------------
-// renderSpecificationAsPrompt — texto legível para a IA
-// ---------------------------------------------------------------------------
-
-const SEP = '='.repeat(50);
-
-function renderResources(resources: PostFileResource[]): string {
-  if (!resources.length) return '';
-  return resources.map(r => {
-    const tag = r.role === 'OFFICIAL_ASSET' ? '[ASSET OFICIAL]' : '[REFERÊNCIA VISUAL]';
-    return `${tag} ${r.name}\n  URL: ${r.url}${r.description ? `\n  Descrição: ${r.description}` : ''}`;
-  }).join('\n');
-}
-
-function renderCampaignSection(campaign: PostCampaignSpec): string {
-  const lines: string[] = [
-    SEP,
-    `CAMPANHA: ${campaign.name}`,
-    SEP,
-  ];
-  if (campaign.description) lines.push(`Descrição: ${campaign.description}`);
-  if (campaign.instructions) lines.push(`\nInstruções gerais:\n${campaign.instructions}`);
-
-  for (const el of campaign.elements) {
-    lines.push('');
-    if (el.elementType === 'POST_REFERENCE') {
-      lines.push(`--- ELEMENTO: POST_REFERENCE (POST DE EXEMPLO / REFERÊNCIA VISUAL DE SUCESSO) ---`);
-      lines.push(
-        'INSTRUÇÃO OBRIGATÓRIA DE COMPOSIÇÃO: O arquivo de referência anexado representa a estrutura e o padrão visual oficial aprovado da Móveis Morante. ' +
-        'Siga estritamente as mesmas posições, proporções e formato dos containers da imagem de exemplo: ' +
-        '1. Topo esquerdo com título e especificações; ' +
-        '2. Topo direito com slogan caligráfico sublinhado em amarelo; ' +
-        '3. Meio esquerdo com card flutuante de visão interna limpo; ' +
-        '4. Inferior esquerdo com o container de preço em degradê azul marinho e borda dourada destacada; ' +
-        '5. Inferior direito com a galeria de outras cores; ' +
-        '6. Rodapé em faixa azul contínua na base contendo o logo oficial à direita e EXCLUSIVAMENTE os 3 selos comerciais à esquerda/centro ("Entrega Rápida" [1 a 4 dias], "Montagem Inclusa" e "Compra Segura" [Pague na Entrega]). ' +
-        'Não copie selos legados da imagem de exemplo como "Qualidade e Confiança" ou "Frete Grátis".'
-      );
-    } else {
-      lines.push(`--- ELEMENTO: ${el.elementType} ---`);
-    }
-    if (el.prompt) lines.push(`Prompt:\n${el.prompt}`);
-    if (el.instructions) lines.push(`Instruções adicionais:\n${el.instructions}`);
-    const res = renderResources(el.resources);
-    if (res) lines.push(`Recursos:\n${res}`);
-  }
-
-  return lines.join('\n');
-}
-
-/** Renderiza uma especificação de campanha única como texto para o Prompt Preview. */
-export function renderSpecificationAsPrompt(spec: PostCreationSpecification): string {
-  const lines: string[] = [
-    SEP,
-    `MÓVEIS MORANTE — INSTRUÇÕES DE CRIAÇÃO DE POST`,
-    SEP,
-    '',
-    VISUAL_GROUNDING_MANDATORY_RULE,
-    '',
-    ABSOLUTE_FIDELITY_RULE,
-    '',
-    `PRODUTO`,
-    '',
-    `Página oficial do produto:`,
-    spec.product.catalogUrl,
-    '',
-    `Consulte esta página para obter as informações públicas reais do produto.`,
-    `Ela é a fonte factual de verdade para: nome, variação, características,`,
-    `fotos, preço, condições comerciais e oportunidade disponíveis publicamente.`,
-    `Não invente informações ausentes.`,
-    '',
-  ];
-
-  if (spec.productImages) {
-    lines.push(renderProductImagesPromptSection(spec.productImages));
-    lines.push('');
-  }
-
-  if (spec.officialAssets) {
-    lines.push(renderOfficialAssetsPromptSection(spec.officialAssets));
-    lines.push('');
-  }
-
-  lines.push(GLOBAL_ART_DIRECTION_SECTION);
-  lines.push('');
-
-  lines.push(renderCampaignSection(spec.campaign));
-  lines.push('');
-  lines.push(SEP);
-  lines.push('FORMATOS');
-  lines.push(SEP);
-  lines.push(...spec.formats.map(f => `${f.name.toUpperCase()}\n${f.aspectRatio}\n${f.referenceSize}\n`));
-  lines.push(DIRECT_WORKFLOW_FORMAT_INSTRUCTION);
-  lines.push('');
-  lines.push(SEP);
-  lines.push('REGRAS FINAIS');
-  lines.push(SEP);
-  lines.push(`- Preserve fielmente o produto e sua variação;`);
-  lines.push(`- As fotos oficiais fornecidas em IMAGENS OFICIAIS DO PRODUTO são a fonte visual de verdade;`);
-  lines.push(`- Use somente fatos verificáveis na página do produto;`);
-  lines.push(`- Não invente preço, desconto, parcelamento, oportunidade ou características;`);
-  lines.push(`- Referências visuais definem direção visual — não copie literalmente;`);
-  lines.push(`- Assets oficiais (logo, selos) são arquivos gráficos prontos: NUNCA redesenhe, recrie ou estilize;`);
-  lines.push(`- Se a IA não puder inserir o asset fielmente, deixe o espaço reservado em vez de inventar uma marca;`);
-  lines.push(`- Direção de arte profissional ao redor do móvel: crie ambientação comercial elegante, iluminação publicitária com sombras reais e bloco de preço destacado;`);
-  lines.push(`- Separar conceitos: Fidelidade do Produto (estritamente fiel às fotos reais) vs. Direção de Arte (rica, sofisticada e profissional, sem aspecto de catálogo simplista ou fundo chapado);`);
-  lines.push(`- Galeria secundária de cores: apresente EXCLUSIVAMENTE as DEMAIS variações/cores, NUNCA duplicando a Variação 1 (a cor principal já é o móvel em destaque no post);`);
-  lines.push(`- Slogans e rótulos proibidos: NUNCA invente slogans da empresa/loja (a logo da Móveis Morante já carrega a identidade oficial) nem insira slogans no canto inferior direito. NUNCA insira rótulos ou tags na foto de visão interna como "material de qualidade", "amplo espaço interno" ou "design moderno";`);
-  lines.push(`- Slogans autorizados: permitidos apenas 2 destaques do produto (um abaixo do título do produto e outro ao lado do móvel em estilo caligráfico com traçado amarelo);`);
-  lines.push(`- Proibição de elementos extras: NUNCA adicione caixas, selos, textos ou elementos gráficos adicionais que não tenham sido solicitados;`);
-  lines.push(`- Respeite o formato solicitado (aspecto e dimensões);`);
-  lines.push(`- Componha todos os elementos como uma única peça coerente;`);
-  lines.push(`- Não trate cada elemento como arte independente.`);
-  lines.push('');
-  lines.push(`Versão da configuração: ${spec.configurationVersion}`);
-  lines.push(`Gerado em: ${spec.generatedAt}`);
-
-  return lines.join('\n');
-}
-
-/** Renderiza especificação de compartilhamento (todas as campanhas) como texto. */
-export function renderShareSpecificationAsPrompt(spec: PostShareSpecification): string {
-  const lines: string[] = [
-    SEP,
-    `MÓVEIS MORANTE — INSTRUÇÕES DE CRIAÇÃO DE POSTS (TODAS AS CAMPANHAS)`,
-    SEP,
-    '',
-    VISUAL_GROUNDING_MANDATORY_RULE,
-    '',
-    ABSOLUTE_FIDELITY_RULE,
-    '',
-    spec.masterInstruction,
-    '',
-    `PRODUTO`,
-    '',
-    `Página oficial do produto:`,
-    spec.product.catalogUrl,
-    '',
-  ];
-
-  if (spec.productImages) {
-    lines.push(renderProductImagesPromptSection(spec.productImages));
-    lines.push('');
-  }
-
-  if (spec.officialAssets) {
-    lines.push(renderOfficialAssetsPromptSection(spec.officialAssets));
-    lines.push('');
-  }
-
-  lines.push(GLOBAL_ART_DIRECTION_SECTION);
-  lines.push('');
-
-  lines.push(...spec.campaigns.map(renderCampaignSection));
-  lines.push('');
-  lines.push(SEP);
-  lines.push('FORMATOS');
-  lines.push(SEP);
-  lines.push(...spec.formats.map(f => `${f.name.toUpperCase()}\n${f.aspectRatio}\n${f.referenceSize}\n`));
-  lines.push(DIRECT_WORKFLOW_FORMAT_INSTRUCTION);
-  lines.push('');
-  lines.push(SEP);
-  lines.push('REGRAS FINAIS');
-  lines.push(SEP);
-  lines.push(`- Preserve fielmente o produto e sua variação;`);
-  lines.push(`- As fotos oficiais fornecidas em IMAGENS OFICIAIS DO PRODUTO são a fonte visual de verdade;`);
-  lines.push(`- Use somente fatos verificáveis na página do produto;`);
-  lines.push(`- Não invente preço, desconto, parcelamento, oportunidade ou características;`);
-  lines.push(`- Referências visuais definem direção visual — não copie literalmente;`);
-  lines.push(`- Assets oficiais (logo, selos) são arquivos gráficos prontos: NUNCA redesenhe, recrie ou estilize;`);
-  lines.push(`- Se a IA não puder inserir o asset fielmente, deixe o espaço reservado em vez de inventar uma marca;`);
-  lines.push(`- Direção de arte profissional ao redor do móvel: crie ambientação comercial elegante, iluminação publicitária com sombras reais e bloco de preço destacado;`);
-  lines.push(`- Separar conceitos: Fidelidade do Produto (estritamente fiel às fotos reais) vs. Direção de Arte (rica, sofisticada e profissional, sem aspecto de catálogo simplista ou fundo chapado);`);
-  lines.push(`- Respeite o formato solicitado (aspecto e dimensões);`);
-  lines.push(`- Componha todos os elementos como uma única peça coerente.`);
-  lines.push('');
-  lines.push(`Versão da configuração: ${spec.configurationVersion}`);
-  lines.push(`Gerado em: ${spec.generatedAt}`);
-
-  return lines.join('\n');
-}

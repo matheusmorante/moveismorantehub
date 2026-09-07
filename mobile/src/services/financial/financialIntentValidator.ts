@@ -278,7 +278,7 @@ export function validateParsedIntent(
 
   // 7. DECISION-003: Incerteza / Estimativa do Usuário
   const hasUncertainty = /\b(uns|pouco|acho\s+que|não\s+tenho\s+certeza|nao\s+tenho\s+certeza|talvez)\b/i.test(lowerDesc);
-  if (hasUncertainty) {
+  if (hasUncertainty && result.isEstimated !== false) {
     result.isEstimated = true;
     result.isReadyForConfirmation = false;
 
@@ -289,7 +289,7 @@ export function validateParsedIntent(
       result.questionToUser = `Identifiquei uma estimativa no lançamento. Deseja confirmar este valor aproximado ou informar o valor exato?`;
     }
     return result;
-  } else {
+  } else if (!hasUncertainty) {
     result.isEstimated = false;
   }
 

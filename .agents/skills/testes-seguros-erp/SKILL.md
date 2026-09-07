@@ -172,11 +172,30 @@ Os testes devem seguir rigorosamente a **ordem de criticidade do negócio**:
 
 ---
 
-## 7. Encerramento de Ciclo e Reinício
+## 8. Proibição Absoluta de Mascarar Problemas & Diagnóstico de Causa Raiz
 
-Ao concluir o Módulo 9:
-1. Registre o fechamento do ciclo atual em `docs/ROTEIRO_TESTES_CICLICOS.md`.
-2. Incremente o contador de ciclo: `Ciclo 1 → Ciclo 2`.
-3. Aponte o cursor de execução de volta para `Módulo 1 (Vendas & Pedidos)`.
-4. Comunique o sucesso da rodada ao usuário, indicando eventuais pontos de atenção e deixando o próximo ciclo pronto para ser continuado sob demanda.
+### Regra de Ouro dos Testes:
+> [!CAUTION]
+> **É EXPRESSAMENTE PROIBIDO MASCARAR PROBLEMAS PARA FAZER TESTE PASSAR.**
+> Nunca tente fazer uma suíte passar por meio de:
+> - Remoção ou enfraquecimento de `expect` / assertions;
+> - Aumento arbitrário de timeouts sem prova cabal de lentidão ambiental;
+> - Inserção de `sleep`, `setTimeout` ou atrasos artificiais;
+> - Ignorar exceções com blocos vazios (`try { ... } catch {}`);
+> - Desabilitar ou comentar testes (`.skip`, `xit`);
+> - Alterar a expectativa do teste para aceitar um bug ou comportamento incorreto;
+> - Inserir valores fixos (hardcodes) específicos apenas para agradar o teste.
+
+### Investigação da Causa Raiz:
+Ao encontrar um teste quebrado ou bug em tempo de execução, o agente DEVE seguir obrigatoriamente a cadeia de diagnóstico:
+```text
+SINTOMA (onde o erro se manifestou)
+   ↓
+CAUSA IMEDIATA (qual variável, retorno ou chamada quebrou a asserção)
+   ↓
+CAUSA RAIZ (qual regra, contrato, fluxo ou fonte da verdade originou a inconsistência)
+```
+- **Correção no Nível Correto**: Se o defeito pertence a uma regra compartilhada ou entidade central, é proibido aplicar patches locais na tela ou no teste. A correção deve ser efetuada na fonte da verdade (service/entidade/validador).
+- **Testes de Regressão Obrigatórios**: Toda correção de bug deve ser acompanhada do teste automatizado específico que reproduza o cenário problemático antes da correção e comprove a estabilidade contínua após a correção.
+
 

@@ -76,7 +76,7 @@ export const CardActionsSection: React.FC<Props> = ({
               activeOpacity={0.8}
             >
               <Check size={16} color="#ffffff" style={{ marginRight: 4 }} />
-              <Text style={styles.confirmBtnText}>Confirmar</Text>
+              <Text style={styles.confirmBtnText}>Sim</Text>
             </TouchableOpacity>
           ) : null}
         </>

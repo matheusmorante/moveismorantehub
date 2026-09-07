@@ -17,4 +17,13 @@ describe('resposta sobre conta pessoal ou da loja', () => {
   it('considera a última correção explícita quando a frase menciona loja e pessoal', () => {
     expect(inferBusinessPurpose('não é da loja, essa conta é pessoal')).toBe('PERSONAL');
   });
+
+  it('entende respostas monossilábicas ou diretas como "loja", "empresa", "pessoal", "casa"', () => {
+    expect(inferBusinessPurpose('loja')).toBe('BUSINESS');
+    expect(inferBusinessPurpose('empresa')).toBe('BUSINESS');
+    expect(inferBusinessPurpose('da loja')).toBe('BUSINESS');
+    expect(inferBusinessPurpose('pessoal')).toBe('PERSONAL');
+    expect(inferBusinessPurpose('casa')).toBe('PERSONAL');
+    expect(inferBusinessPurpose('particular')).toBe('PERSONAL');
+  });
 });

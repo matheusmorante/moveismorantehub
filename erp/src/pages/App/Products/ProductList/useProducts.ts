@@ -10,13 +10,16 @@ import {
     updateProduct,
     bulkMoveToTrash,
     bulkRestoreProducts,
-    bulkPermanentDeleteProducts,
-    parseVariationImages
+    bulkPermanentDeleteProducts
 } from '@/pages/utils/productService';
 import { normalizeVariationSku } from '@/pages/utils/productVariationDefaults';
-import { normalizeSearchTerm } from '@/pages/utils/textUtils';
 import { toast } from "react-toastify";
 import { supabase } from '@/pages/utils/supabaseConfig';
+import { flattenProductsForList } from './productListTransformers';
+import { filterAndSortProducts } from './productListFiltering';
+import { toggleProductSelection } from './productSelection';
+import { updateProductActivationState } from './productActivationState';
+import { updateProductCatalogState } from './productCatalogState';
 
 export const useProducts = (filters?: any) => {
     // ═══════════════════════════════════════════════
@@ -88,152 +91,10 @@ export const useProducts = (filters?: any) => {
         setSelectedProducts([]);
     }, [filters]);
 
-    const filteredProducts = useMemo(() => {
-        return products
-            .filter(product => {
-                const isDraft = Boolean(product.isDraft) || product.status === 'draft';
-                const isActive = !isDraft && product.active !== false && !product.deleted;
-                const isDeactivated = !isDraft && (product.active === false || product.deleted);
-
-                if (filters?.isDraft === true) {
-                    if (!isDraft) return false;
-                } else if (filters?.isDraft === false) {
-                    if (isDraft) return false;
-                } else if (filters?.showTrash || filters?.activeOnly === false) {
-                    if (!isDeactivated) return false;
-                } else if (filters?.activeOnly === true) {
-                    if (!isActive) return false;
-                }
-
-                const searchTerm = normalizeSearchTerm(filters.search || "");
-                if (!searchTerm) {
-                    const categoryMatch = !filters.category ||
-                        product.category === filters.category ||
-                        (filters.category === "Serviços" && product.itemType === "service") ||
-                        (filters.category === "Produtos" && product.itemType === "product");
-                    const activeMatch = filters.activeOnly === undefined || product.active === filters.activeOnly;
-                    return categoryMatch && activeMatch;
-                }
-
-                // BUSCA DINÂMICA: Filtra EXCLUSIVAMENTE pelo campo de nome ('name') do produto ou variação (insensível a acentos)
-                const checkStringMatch = (str?: string) => normalizeSearchTerm(str || "").includes(searchTerm);
-
-                const matchesSelf = checkStringMatch(product.name);
-                
-                let matchesChildren = false;
-                if (!product.parentId) {
-                    // Match no nome das variações
-                    matchesChildren = product.variations?.some((v: any) => checkStringMatch(v.name)) || false;
-                    
-                    // Match em variações independentes
-                    if (!matchesChildren) {
-                        matchesChildren = products.some(p => p.parentId === product.id && checkStringMatch(p.name));
-                    }
-                } else {
-                    // Se for filho, verifica se o nome do pai bate
-                    const parent = products.find(p => p.id === product.parentId);
-                    if (parent) {
-                        matchesChildren = checkStringMatch(parent.name);
-                    }
-                }
-
-                const searchMatch = matchesSelf || matchesChildren;
-
-                const categoryMatch = !filters.category ||
-                    product.category === filters.category ||
-                    (filters.category === "Serviços" && product.itemType === "service") ||
-                    (filters.category === "Produtos" && product.itemType === "product");
-
-                const activeMatch = searchTerm ? true : (filters.activeOnly === undefined || product.active === filters.activeOnly);
-
-                return searchMatch && categoryMatch && activeMatch;
-            })
-            .sort((a, b) => {
-                let comparison = 0;
-                const sortBy = filters?.sortBy || 'createdAt';
-
-                if (sortBy === "description") {
-                    comparison = (a.description || "").localeCompare(b.description || "");
-                } else if (sortBy === "unitPrice") {
-                    comparison = (a.unitPrice || 0) - (b.unitPrice || 0);
-                } else if (sortBy === "stock") {
-                    comparison = (a.stock || 0) - (b.stock || 0);
-                } else if (sortBy === "code") {
-                    comparison = (a.code || "").localeCompare(b.code || "");
-                } else if (sortBy === "createdAt") {
-                    comparison = new Date(a.createdAt || 0).getTime() - new Date(b.createdAt || 0).getTime();
-                } else if (sortBy === "category") {
-                    comparison = (a.category || "").localeCompare(b.category || "");
-                }
-
-                const sortOrder = filters?.sortOrder || 'desc';
-                return sortOrder === "asc" ? comparison : -comparison;
-            });
-    }, [products, filters]);
+    const filteredProducts = useMemo(() => filterAndSortProducts(products, filters), [products, filters]);
 
     // Modos paralelos: servidor usa serverProducts, local usa transformedProducts
-    const serverTransformed = useMemo(() => {
-        // Para server pagination, os produtos já vêm da página correta
-        // mas ainda precisamos fazer o flatten de variações JSON
-        const flattened: any[] = [];
-        serverProducts.forEach((product, pIdx) => {
-            const parentSku = product.sku || product.code || String(pIdx + 1).padStart(6, '0');
-            const hasJsonVariations = Array.isArray(product.variations) && product.variations.length > 0;
-            const isParent = Boolean(product.hasVariations) || hasJsonVariations;
-
-            const allVars: any[] = [];
-            if (hasJsonVariations) {
-                product.variations!.forEach((v: any, index: number) => {
-                    const varSku = (v.sku && String(v.sku).trim()) ? normalizeVariationSku(String(v.sku).trim()) : `${parentSku}-${String(index + 1).padStart(2, '0')}`;
-                    allVars.push({
-                        ...product,
-                        id: `${product.id}_${varSku || index}`,
-                        variationId: v.id, // ID real da variação no banco (usado para inventory_moves)
-                        sku: varSku,
-                        code: varSku,
-                        description: v.name,
-                        unitPrice: (v.syncUnitPrice || typeof v.unitPrice === 'undefined' || v.unitPrice === null || v.unitPrice === 0) ? product.unitPrice : v.unitPrice,
-                        costPrice: (v.syncCostPrice || typeof v.costPrice === 'undefined' || v.costPrice === null || v.costPrice === 0) ? product.costPrice : v.costPrice,
-                        stock: (typeof v.stock !== 'undefined' && v.stock !== null) ? v.stock : 0,
-                        active: v.active,
-                        status: v.status || product.status,
-                        images: parseVariationImages(v.image_url, v.images),
-                        parentImages: product.images || [],
-                        isVariation: true,
-                        parentId: product.id,
-                        displayName: v.name,
-                    });
-                });
-            }
-
-            flattened.push({ ...product, sku: parentSku, code: parentSku, isParent, allVariations: allVars });
-
-            if (hasJsonVariations) {
-                product.variations!.forEach((v: any, index: number) => {
-                    const varSku = (v.sku && String(v.sku).trim()) ? normalizeVariationSku(String(v.sku).trim()) : `${parentSku}-${String(index + 1).padStart(2, '0')}`;
-                    flattened.push({
-                        ...product,
-                        id: `${product.id}_${varSku || index}`,
-                        variationId: v.id, // ID real da variação no banco (usado para inventory_moves)
-                        sku: varSku,
-                        code: varSku,
-                        description: v.name,
-                        displayName: v.name,
-                        unitPrice: (v.syncUnitPrice || typeof v.unitPrice === 'undefined' || v.unitPrice === null || v.unitPrice === 0) ? product.unitPrice : v.unitPrice,
-                        costPrice: (v.syncCostPrice || typeof v.costPrice === 'undefined' || v.costPrice === null || v.costPrice === 0) ? product.costPrice : v.costPrice,
-                        stock: (typeof v.stock !== 'undefined' && v.stock !== null) ? v.stock : 0,
-                        active: v.active,
-                        status: v.status || product.status,
-                        images: parseVariationImages(v.image_url, v.images),
-                        parentImages: product.images || [],
-                        isVariation: true,
-                        parentId: product.id,
-                    });
-                });
-            }
-        });
-        return flattened;
-    }, [serverProducts]);
+    const serverTransformed = useMemo(() => flattenProductsForList(serverProducts), [serverProducts]);
 
     // Totais e páginas dependem do modo backend
     const totalItems = serverTotal;
@@ -400,45 +261,7 @@ export const useProducts = (filters?: any) => {
     };
 
     const toggleSelection = (id: string) => {
-        const product = serverTransformed.find(p => p.id === id);
-
-        setSelectedProducts(prev => {
-            let next = [...prev];
-            const isSelected = prev.includes(id);
-
-            if (product?.isParent) {
-                // Cascading selection for parent
-                const childIds = serverTransformed.filter(p => p.parentId === id).map(p => p.id!);
-                if (isSelected) {
-                    next = next.filter(sid => sid !== id && !childIds.includes(sid));
-                } else {
-                    next = [...new Set([...next, id, ...childIds])];
-                }
-            } else if (product?.isVariation) {
-                // Logic for variation
-                if (isSelected) {
-                    next = next.filter(sid => sid !== id);
-                    // Unselect parent if child is unselected
-                    next = next.filter(sid => sid !== product.parentId);
-                } else {
-                    next.push(id);
-                    // Select parent if ALL children are selected
-                    const siblingIds = serverTransformed.filter(p => p.parentId === product.parentId).map(p => p.id!);
-                    const allSiblingsSelected = siblingIds.every(sid => next.includes(sid));
-                    if (allSiblingsSelected) {
-                        next.push(product.parentId);
-                    }
-                }
-            } else {
-                // Normal product
-                if (isSelected) {
-                    next = next.filter(sid => sid !== id);
-                } else {
-                    next.push(id);
-                }
-            }
-            return next;
-        });
+        setSelectedProducts(previous => toggleProductSelection(previous, id, serverTransformed));
     };
 
     const selectAll = () => {
@@ -537,36 +360,7 @@ export const useProducts = (filters?: any) => {
             }
 
         // ⚡ Atualização Otimista Imediata no estado local (sem recarregar a tela nem flicker)
-        setServerProducts(previous => previous.map(p => {
-            if (String(p.id) === String(id)) {
-                const updatedVars = p.variations?.map((v: any) => ({ ...v, active: newActive }));
-                return { ...p, active: newActive, variations: updatedVars || p.variations };
-            }
-            if (id.includes('_')) {
-                const [parentId, ...skuParts] = id.split('_');
-                const targetSku = skuParts.join('_');
-                if (String(p.id) === String(parentId) && p.variations) {
-                    const updatedVars = p.variations.map((v: any, index: number) => {
-                        const vSku = v.sku || index;
-                        if (String(vSku) === String(targetSku) || String(v.id) === String(targetSku)) {
-                            return { ...v, active: newActive };
-                        }
-                        return v;
-                    });
-                    return { ...p, variations: updatedVars };
-                }
-            }
-            if (p.variations?.some((v: any) => String(v.id) === String(id))) {
-                const updatedVars = p.variations.map((v: any) =>
-                    String(v.id) === String(id) ? { ...v, active: newActive } : v
-                );
-                return { ...p, variations: updatedVars };
-            }
-            if (String(p.parentId) === String(id)) {
-                return { ...p, active: newActive };
-            }
-            return p;
-        }));
+        setServerProducts(previous => updateProductActivationState(previous, id, newActive));
 
         toast.success(`Produto ${newActive ? 'ativado' : 'desativado'} com sucesso!`);
 
@@ -777,40 +571,7 @@ export const useProducts = (filters?: any) => {
             }
 
             // ⚡ Atualização Otimista Imediata no estado local (sem recarregar a tela nem flicker)
-            setServerProducts(previous => previous.map(p => {
-                if (isCompoundId && String(p.id) === String(possibleParentId) && p.variations) {
-                    const updatedVars = p.variations.map((item: any, index: number) => {
-                        const rawSku = item.sku || '';
-                        const genSku = `${p.sku || p.code || ''}-${String(index + 1).padStart(2, '0')}`;
-                        if (
-                            String(item.id) === targetSku ||
-                            String(index) === targetSku ||
-                            (rawSku && String(rawSku) === targetSku) ||
-                            genSku === targetSku ||
-                            normalizeVariationSku(rawSku) === normalizeVariationSku(targetSku) ||
-                            normalizeVariationSku(genSku) === normalizeVariationSku(targetSku)
-                        ) {
-                            return { ...item, status: newStatus };
-                        }
-                        return item;
-                    });
-                    return { ...p, variations: updatedVars };
-                }
-                if (p.variations?.some((v: any) => String(v.id) === String(id) || String(v.sku) === String(id))) {
-                    const updatedVars = p.variations.map((v: any) =>
-                        (String(v.id) === String(id) || String(v.sku) === String(id)) ? { ...v, status: newStatus } : v
-                    );
-                    return { ...p, variations: updatedVars };
-                }
-                if (String(p.id) === String(id)) {
-                    const updatedVars = p.variations?.map((v: any) => ({ ...v, status: newStatus }));
-                    return { ...p, status: newStatus, variations: updatedVars || p.variations };
-                }
-                if (String(p.parentId) === String(id)) {
-                    return { ...p, status: newStatus };
-                }
-                return p;
-            }));
+            setServerProducts(previous => updateProductCatalogState(previous, id, newStatus));
 
             if (isVariation) {
                 toast.success(`Variação ${newStatus === 'published' ? 'publicada! Adicionada ao Feed Meta CSV.' : 'ocultada! Removida do Feed Meta CSV.'}`);
