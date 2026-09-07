@@ -1,15 +1,28 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { View, Text, TouchableOpacity, Modal, StyleSheet, ScrollView, TextInput, Alert, ActivityIndicator } from 'react-native';
-import { X, Search, ChevronRight, Check, CalendarDays } from 'lucide-react-native';
+import React from 'react';
 import {
-  FinancialCategory,
-  FinancialTransaction,
-  createFinancialTransaction,
-  updateFinancialTransaction,
-} from '../../../services/mobileFinanceService';
-import { supabase } from '../../../services/supabaseClient';
+  View,
+  Text,
+  TouchableOpacity,
+  Modal,
+  StyleSheet,
+  ScrollView,
+  TextInput,
+  ActivityIndicator,
+} from 'react-native';
+import { X } from 'lucide-react-native';
+import { FinancialCategory, FinancialTransaction } from '../../../services/mobileFinanceService';
 import { CategorySelectModal } from './CategorySelectModal';
 import { TransactionDatePickerModal } from './TransactionDatePickerModal';
+import { TransactionTypeSelector } from './TransactionTypeSelector';
+import { TransactionDateSelector } from './TransactionDateSelector';
+import { TransactionPurposeSelector } from './TransactionPurposeSelector';
+import { TransactionCategoryField } from './TransactionCategoryField';
+import { PaymentMethodChips } from './PaymentMethodChips';
+import { TransactionVehicleSelector } from './TransactionVehicleSelector';
+import { TransactionCollaboratorSelector } from './TransactionCollaboratorSelector';
+import { UnselectedTypePrompt } from './UnselectedTypePrompt';
+import { useTransactionForm } from '../hooks/useTransactionForm';
+import { PAYMENT_METHODS, VEHICLES } from './transactionModalUtils';
 
 interface Props {
   visible: boolean;
@@ -21,51 +34,6 @@ interface Props {
   isDarkMode?: boolean;
 }
 
-const PAYMENT_METHODS = ['PIX', 'Cartão de Crédito', 'Cartão de Débito', 'Boleto', 'Dinheiro', 'TED'];
-const VEHICLES = ['Strada', 'HR', 'Outro', 'Não informado'];
-
-const toLocalIsoDate = (date: Date) => {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
-};
-
-const formatDateBr = (isoDate: string) => {
-  const [year, month, day] = isoDate.split('-');
-  return `${day}/${month}/${year}`;
-};
-
-const isProLaboreCat = (name: string): boolean => {
-  const norm = name.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
-  return (
-    norm.includes('pro-labore') ||
-    norm.includes('prolabore') ||
-    norm.includes('pro labore') ||
-    norm.includes('retirada') ||
-    norm.includes('socio') ||
-    norm.includes('particular')
-  );
-};
-
-const normalizeCategoryName = (name: string) =>
-  name.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
-
-const buildIncomeCategories = (categories: FinancialCategory[]): FinancialCategory[] => {
-  const incomeCategories = categories.filter(category => category.type === 'income');
-  const other = incomeCategories.find(category => normalizeCategoryName(category.name).includes('outra'));
-  const loan = incomeCategories.find(category => normalizeCategoryName(category.name).includes('emprestimo'));
-
-  return [
-    other
-      ? { ...other, name: 'Outras' }
-      : { id: 'cat_income_other_default', name: 'Outras', type: 'income', result_nature: 'RECEITA' },
-    loan
-      ? { ...loan, name: 'Empréstimos' }
-      : { id: 'cat_income_loan_default', name: 'Empréstimos', type: 'income', result_nature: 'NAO_AFETA_RESULTADO' },
-  ];
-};
-
 export const NewTransactionModal: React.FC<Props> = ({
   visible,
   onClose,
@@ -75,255 +43,21 @@ export const NewTransactionModal: React.FC<Props> = ({
   userName = 'Operador',
   isDarkMode = false,
 }) => {
-  const todayStr = toLocalIsoDate(new Date());
-  const yesterday = new Date();
-  yesterday.setDate(yesterday.getDate() - 1);
-  const yesterdayStr = toLocalIsoDate(yesterday);
-
-  const [type, setType] = useState<'income' | 'expense'>('expense');
-  const [purpose, setPurpose] = useState<'BUSINESS' | 'PERSONAL_PARTNER'>('BUSINESS');
-  const [transactionDate, setTransactionDate] = useState(todayStr);
-  const [datePickerVisible, setDatePickerVisible] = useState(false);
-
-  const [amountStr, setAmountStr] = useState('');
-  const [description, setDescription] = useState('');
-  const [selectedCatId, setSelectedCatId] = useState('');
-  const [categorySearchQuery, setCategorySearchQuery] = useState('');
-  const [categoryModalVisible, setCategoryModalVisible] = useState(false);
-
-  const [paymentMethod, setPaymentMethod] = useState('PIX');
-  const [vehicleId, setVehicleId] = useState('');
-  const [collaboratorId, setCollaboratorId] = useState('');
-  const [collaboratorName, setCollaboratorName] = useState('');
-  const [collaboratorsList, setCollaboratorsList] = useState<{ id: string; name: string }[]>([]);
-  const [saving, setSaving] = useState(false);
-  const isExpense = type === 'expense';
-
-  useEffect(() => {
-    if (!visible) return;
-
-    if (transaction) {
-      const editingIncomeCategories = buildIncomeCategories(categories);
-      const isLoan = normalizeCategoryName(transaction.category_name || '').includes('emprestimo');
-      const isPersonalExpense = transaction.type === 'expense' && transaction.purpose === 'PERSONAL_PARTNER';
-      const incomeCategory = editingIncomeCategories.find(category =>
-        isLoan
-          ? normalizeCategoryName(category.name).includes('emprestimo')
-          : normalizeCategoryName(category.name).includes('outra')
-      );
-
-      setType(transaction.type);
-      setPurpose(transaction.purpose === 'PERSONAL_PARTNER' ? 'PERSONAL_PARTNER' : 'BUSINESS');
-      setTransactionDate(transaction.date || toLocalIsoDate(new Date()));
-      setAmountStr(String(transaction.amount).replace('.', ','));
-      setDescription(transaction.description || '');
-      setSelectedCatId(
-        transaction.type === 'income'
-          ? (incomeCategory?.id || '')
-          : isPersonalExpense
-            ? (transaction.category_id || categories.find(category => category.type === 'expense' && isProLaboreCat(category.name))?.id || 'cat_pro_labore_default')
-            : (transaction.category_id || '')
-      );
-      setPaymentMethod(transaction.payment_method || 'PIX');
-      setVehicleId(transaction.vehicle_id || '');
-      setCollaboratorId(transaction.collaborator_id || '');
-      setCollaboratorName(transaction.collaborator_name || '');
-      return;
-    }
-
-    setType('expense');
-    setPurpose('BUSINESS');
-    setTransactionDate(toLocalIsoDate(new Date()));
-    setAmountStr('');
-    setDescription('');
-    setSelectedCatId('');
-    setPaymentMethod('PIX');
-    setVehicleId('');
-    setCollaboratorId('');
-    setCollaboratorName('');
-  }, [visible, transaction, categories]);
-
-  useEffect(() => {
-    const loadCollaborators = async () => {
-      try {
-        const { data } = await supabase.from('profiles').select('id, full_name, role').limit(50);
-        if (data && data.length > 0) {
-          setCollaboratorsList(
-            data.map(p => ({
-              id: p.id,
-              name: p.full_name || 'Colaborador',
-            }))
-          );
-        }
-      } catch (err) {
-        console.warn('Erro ao carregar colaboradores no mobile finance modal:', err);
-      }
-    };
-    loadCollaborators();
-  }, []);
-
-  // Filtragem dinâmica das categorias baseada no Tipo e na Finalidade
-  const filteredCategories = useMemo(() => {
-    const byType = categories.filter(c => c.type === type);
-
-    if (type === 'income') {
-      return buildIncomeCategories(categories);
-    }
-
-    if (isExpense && purpose === 'PERSONAL_PARTNER') {
-      const proLaboreCats = byType.filter(c => isProLaboreCat(c.name));
-      if (proLaboreCats.length > 0) {
-        return proLaboreCats;
-      }
-      // Fallback padrão se não houver categoria cadastrada com nome de Pró-labore
-      return [
-        {
-          id: 'cat_pro_labore_default',
-          name: 'Pró-labore',
-          type: type,
-        },
-      ];
-    }
-
-    // Operação da Empresa nunca oferece Pró-labore, reservado ao uso particular.
-    return byType.filter(c => !isProLaboreCat(c.name));
-  }, [categories, type, purpose, isExpense]);
-
-  // Obter categoria selecionada (inclusive caso seja o fallback virtual)
-  const selectedCategory = useMemo(() => {
-    return filteredCategories.find(c => c.id === selectedCatId) || categories.find(c => c.id === selectedCatId);
-  }, [filteredCategories, categories, selectedCatId]);
-
-  // Ajuste automático ao alternar a finalidade
-  const handlePurposeChange = (newPurpose: 'BUSINESS' | 'PERSONAL_PARTNER') => {
-    setCategoryModalVisible(false);
-    setPurpose(newPurpose);
-    if (newPurpose === 'PERSONAL_PARTNER') {
-      // Procura categoria de Pró-labore e pré-seleciona
-      const proLaboreCat = categories.find(c => c.type === type && isProLaboreCat(c.name));
-      if (proLaboreCat) {
-        setSelectedCatId(proLaboreCat.id);
-      } else {
-        setSelectedCatId('cat_pro_labore_default');
-      }
-    } else {
-      // Se estava com Pró-labore selecionado, reseta para seleção aberta
-      if (selectedCategory && isProLaboreCat(selectedCategory.name)) {
-        setSelectedCatId('');
-      }
-    }
-  };
-
-  const handleTypeChange = (newType: 'income' | 'expense') => {
-    setType(newType);
-    if (newType === 'income') {
-      // Entradas não possuem finalidade. Remove qualquer estado de uso particular
-      // para que Pró-labore/finalidade não sejam enviados de forma invisível.
-      setPurpose('BUSINESS');
-      setSelectedCatId('');
-      setCategoryModalVisible(false);
-      return;
-    }
-    if (purpose === 'PERSONAL_PARTNER') {
-      const proLaboreCat = categories.find(c => c.type === newType && isProLaboreCat(c.name));
-      setSelectedCatId(proLaboreCat?.id || 'cat_pro_labore_default');
-      return;
-    }
-    setSelectedCatId('');
-  };
-
-  // Verificar se a categoria é de Pessoal/Colaborador
-  const isPersonnelCategory = selectedCategory?.name
-    ? ['salário', 'salários', 'adiantamento', 'comissão', 'comissao', 'benefício', 'beneficio', 'reembolso'].some(term =>
-        selectedCategory.name.toLowerCase().includes(term)
-      )
-    : false;
-
-  // Verificar se a categoria é de Transporte/Combustível
-  const isVehicleCategory = selectedCategory?.name
-    ? ['combustível', 'gasolina', 'veículo', 'veiculo', 'pedágio', 'pedagio', 'manutenção de veículos'].some(term =>
-        selectedCategory.name.toLowerCase().includes(term)
-      )
-    : false;
-
-  const handleSave = async () => {
-    const val = parseFloat(amountStr.replace(',', '.'));
-    if (!val || val <= 0) {
-      Alert.alert('Valor Inválido', 'Por favor informe um valor maior que zero.');
-      return;
-    }
-    if (!description.trim()) {
-      Alert.alert('Descrição Obrigatória', 'Por favor insira a descrição da movimentação.');
-      return;
-    }
-
-    setSaving(true);
-    const catName = selectedCategory?.name || (isExpense && purpose === 'PERSONAL_PARTNER' ? 'Pró-labore' : (type === 'income' ? 'Outras entradas' : 'Despesa não classificada'));
-    const isVirtualCategory = [
-      'cat_pro_labore_default',
-      'cat_income_other_default',
-      'cat_income_loan_default',
-    ].includes(selectedCatId);
-    const realCatId = isVirtualCategory ? null : (selectedCatId || null);
-
-    const editablePayload: Partial<FinancialTransaction> = {
-      type,
-      amount: val,
-      description: description.trim(),
-      category_id: realCatId,
-      category_name: catName,
-      payment_method: paymentMethod,
-      purpose: isExpense ? purpose : null,
-      vehicle_id: isVehicleCategory ? vehicleId || null : null,
-      collaborator_id: isPersonnelCategory ? collaboratorId || null : null,
-      collaborator_name: isPersonnelCategory ? collaboratorName || null : null,
-      date: transactionDate,
-      result_nature: selectedCategory?.result_nature || undefined,
-    };
-
-    const result = transaction
-      ? await updateFinancialTransaction(transaction.id, editablePayload)
-      : await createFinancialTransaction({
-          ...editablePayload,
-          notes: null,
-          origin: 'MANUAL',
-          created_by: userName,
-          due_date: null,
-          is_recurring: false,
-          status: 'ACTIVE',
-        });
-
-    setSaving(false);
-    if (!result.success) {
-      Alert.alert(
-        transaction ? 'Erro ao editar' : 'Erro ao criar',
-        result.error || 'Não foi possível concluir a operação.'
-      );
-      return;
-    }
-
-    // Reset form
-    setAmountStr('');
-    setDescription('');
-    setTransactionDate(toLocalIsoDate(new Date()));
-    setSelectedCatId('');
-    setCategorySearchQuery('');
-    setCollaboratorId('');
-    setCollaboratorName('');
-    onSuccess();
-    onClose();
-  };
-
-  const handleOpenCategoryModal = (initialQuery = '') => {
-    setCategorySearchQuery(initialQuery);
-    setCategoryModalVisible(true);
-  };
+  const form = useTransactionForm({
+    visible,
+    transaction,
+    categories,
+    userName,
+    onSuccess,
+    onClose,
+  });
 
   return (
     <>
       <Modal visible={visible} animationType="slide" transparent={true} onRequestClose={onClose}>
         <View style={styles.overlay}>
           <View style={[styles.modalContent, isDarkMode && styles.modalContentDark]}>
+            {/* Cabeçalho */}
             <View style={styles.header}>
               <Text style={[styles.title, isDarkMode && styles.titleDark]}>
                 {transaction ? 'Editar Transação' : '+ Nova Transação'}
@@ -334,223 +68,144 @@ export const NewTransactionModal: React.FC<Props> = ({
             </View>
 
             <ScrollView style={styles.body} showsVerticalScrollIndicator={false}>
-              {/* Data: primeiro campo do formulário. */}
-              <Text style={[styles.label, isDarkMode && styles.labelDark]}>Data da transação</Text>
-              <View style={styles.dateOptionsRow}>
-                <TouchableOpacity
-                  style={[styles.dateOption, transactionDate === yesterdayStr && styles.dateOptionActive]}
-                  onPress={() => setTransactionDate(yesterdayStr)}
-                >
-                  <Text style={[styles.dateOptionText, transactionDate === yesterdayStr && styles.dateOptionTextActive]}>Ontem</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[styles.dateOption, transactionDate === todayStr && styles.dateOptionActive]}
-                  onPress={() => setTransactionDate(todayStr)}
-                >
-                  <Text style={[styles.dateOptionText, transactionDate === todayStr && styles.dateOptionTextActive]}>Hoje</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[
-                    styles.dateOption,
-                    transactionDate !== todayStr && transactionDate !== yesterdayStr && styles.dateOptionActive,
-                  ]}
-                  onPress={() => setDatePickerVisible(true)}
-                >
-                  <CalendarDays size={15} color={transactionDate !== todayStr && transactionDate !== yesterdayStr ? '#ffffff' : '#64748b'} />
-                  <Text style={[
-                    styles.dateOptionText,
-                    transactionDate !== todayStr && transactionDate !== yesterdayStr && styles.dateOptionTextActive,
-                  ]}>
-                    Personalizado
-                  </Text>
-                </TouchableOpacity>
-              </View>
-              <Text style={[styles.selectedDateText, isDarkMode && styles.labelDark]}>
-                Data selecionada: {formatDateBr(transactionDate)}
-              </Text>
+              {/* Tipo de Movimentação: Primeiro campo absoluto */}
+              <TransactionTypeSelector
+                type={form.type}
+                onTypeChange={form.handleTypeChange}
+                hasError={form.fieldErrors.type}
+                isDarkMode={isDarkMode}
+              />
 
-              {/* Tipo */}
-              <Text style={[styles.label, isDarkMode && styles.labelDark]}>Tipo de Movimentação</Text>
-              <View style={styles.typeRow}>
-                <TouchableOpacity
-                  style={[styles.typeBtn, type === 'income' && styles.typeBtnIncome]}
-                  onPress={() => handleTypeChange('income')}
-                >
-                  <Text style={[styles.typeBtnText, type === 'income' && styles.typeBtnTextIncome]}>
-                    + Entrada
-                  </Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={[styles.typeBtn, type === 'expense' && styles.typeBtnExpense]}
-                  onPress={() => handleTypeChange('expense')}
-                >
-                  <Text style={[styles.typeBtnText, type === 'expense' && styles.typeBtnTextExpense]}>
-                    - Saída
-                  </Text>
-                </TouchableOpacity>
-              </View>
-
-              {/* Finalidade se aplica exclusivamente às transações de saída. */}
-              {isExpense && (
+              {!form.type ? (
+                <UnselectedTypePrompt isDarkMode={isDarkMode} />
+              ) : (
                 <>
-                  <Text style={[styles.label, isDarkMode && styles.labelDark]}>Finalidade</Text>
-                  <View style={styles.typeRow}>
-                    <TouchableOpacity
-                      style={[styles.typeBtn, purpose === 'BUSINESS' && styles.typeBtnActive]}
-                      onPress={() => handlePurposeChange('BUSINESS')}
-                    >
-                      <Text style={[styles.typeBtnText, purpose === 'BUSINESS' && styles.typeBtnTextActive]}>
-                        🏢 Operação da Empresa
-                      </Text>
-                    </TouchableOpacity>
+                  {/* Data da Transação */}
+                  <TransactionDateSelector
+                    transactionDate={form.transactionDate}
+                    todayStr={form.todayStr}
+                    yesterdayStr={form.yesterdayStr}
+                    onSelectDate={form.setTransactionDate}
+                    onOpenDatePicker={() => form.setDatePickerVisible(true)}
+                    isDarkMode={isDarkMode}
+                  />
 
-                    <TouchableOpacity
-                      style={[styles.typeBtn, purpose === 'PERSONAL_PARTNER' && styles.typeBtnActive]}
-                      onPress={() => handlePurposeChange('PERSONAL_PARTNER')}
-                    >
-                      <Text style={[styles.typeBtnText, purpose === 'PERSONAL_PARTNER' && styles.typeBtnTextActive]}>
-                        👤 Uso Particular
-                      </Text>
-                    </TouchableOpacity>
-                  </View>
+                  {/* Finalidade para Saídas */}
+                  {form.isExpense && (
+                    <TransactionPurposeSelector
+                      purpose={form.purpose}
+                      onPurposeChange={form.handlePurposeChange}
+                      isDarkMode={isDarkMode}
+                    />
+                  )}
+
+                  {/* Valor */}
+                  <Text style={[styles.label, isDarkMode && styles.labelDark]}>
+                    Valor (R$) <Text style={styles.requiredAsterisk}>*</Text>
+                  </Text>
+                  <TextInput
+                    style={[
+                      styles.input,
+                      styles.amountInput,
+                      isDarkMode && styles.inputDark,
+                      form.fieldErrors.amount && styles.inputError,
+                    ]}
+                    placeholder="0,00"
+                    placeholderTextColor={isDarkMode ? '#64748b' : '#94a3b8'}
+                    keyboardType="numeric"
+                    value={form.amountStr}
+                    onChangeText={text => {
+                      form.setAmountStr(text);
+                      if (form.fieldErrors.amount) {
+                        form.setFieldErrors(prev => ({ ...prev, amount: false }));
+                      }
+                    }}
+                  />
+
+                  {/* Descrição */}
+                  <Text style={[styles.label, isDarkMode && styles.labelDark]}>
+                    Descrição <Text style={styles.requiredAsterisk}>*</Text>
+                  </Text>
+                  <TextInput
+                    style={[
+                      styles.input,
+                      isDarkMode && styles.inputDark,
+                      form.fieldErrors.description && styles.inputError,
+                    ]}
+                    placeholder="Ex: Abastecimento da Strada, Conta de Luz, Retirada..."
+                    placeholderTextColor={isDarkMode ? '#64748b' : '#94a3b8'}
+                    value={form.description}
+                    onChangeText={text => {
+                      form.setDescription(text);
+                      if (form.fieldErrors.description) {
+                        form.setFieldErrors(prev => ({ ...prev, description: false }));
+                      }
+                    }}
+                  />
+
+                  {/* Categoria */}
+                  <TransactionCategoryField
+                    selectedCategory={form.selectedCategory}
+                    isExpense={form.isExpense}
+                    purpose={form.purpose}
+                    hasError={form.fieldErrors.category}
+                    onOpenCategoryModal={() => {
+                      form.handleOpenCategoryModal('');
+                      if (form.fieldErrors.category) {
+                        form.setFieldErrors(prev => ({ ...prev, category: false }));
+                      }
+                    }}
+                    isDarkMode={isDarkMode}
+                  />
+
+                  {/* Colaborador / Funcionário */}
+                  {form.isPersonnelCategory && (
+                    <TransactionCollaboratorSelector
+                      collaborators={form.collaboratorsList}
+                      selectedCollaboratorId={form.collaboratorId}
+                      onSelectCollaborator={(id, name) => {
+                        form.setCollaboratorId(id);
+                        form.setCollaboratorName(name);
+                      }}
+                      isDarkMode={isDarkMode}
+                    />
+                  )}
+
+                  {/* Forma de Pagamento */}
+                  <PaymentMethodChips
+                    options={PAYMENT_METHODS}
+                    selectedMethod={form.paymentMethod}
+                    onSelectMethod={m => {
+                      form.setPaymentMethod(m);
+                      if (form.fieldErrors.paymentMethod) {
+                        form.setFieldErrors(prev => ({ ...prev, paymentMethod: false }));
+                      }
+                    }}
+                    hasError={form.fieldErrors.paymentMethod}
+                    isDarkMode={isDarkMode}
+                  />
+
+                  {/* Veículo */}
+                  {form.isVehicleCategory && (
+                    <TransactionVehicleSelector
+                      vehicles={VEHICLES}
+                      selectedVehicleId={form.vehicleId}
+                      onSelectVehicle={form.setVehicleId}
+                      isDarkMode={isDarkMode}
+                    />
+                  )}
                 </>
               )}
-
-              {/* Valor */}
-              <Text style={[styles.label, isDarkMode && styles.labelDark]}>Valor (R$)</Text>
-              <TextInput
-                style={[styles.input, styles.amountInput, isDarkMode && styles.inputDark]}
-                placeholder="0,00"
-                placeholderTextColor={isDarkMode ? '#64748b' : '#94a3b8'}
-                keyboardType="numeric"
-                value={amountStr}
-                onChangeText={setAmountStr}
-              />
-
-              {/* Descrição */}
-              <Text style={[styles.label, isDarkMode && styles.labelDark]}>Descrição</Text>
-              <TextInput
-                style={[styles.input, isDarkMode && styles.inputDark]}
-                placeholder="Ex: Abastecimento da Strada, Conta de Luz, Retirada..."
-                placeholderTextColor={isDarkMode ? '#64748b' : '#94a3b8'}
-                value={description}
-                onChangeText={setDescription}
-              />
-
-              {/* Categoria: Input de Pesquisa + Modal de Seleção */}
-              <Text style={[styles.label, isDarkMode && styles.labelDark]}>Categoria</Text>
-              {selectedCategory ? (
-                <View style={[styles.selectedCategoryCard, isDarkMode && styles.selectedCategoryCardDark]}>
-                  <View style={styles.selectedCategoryInfo}>
-                    <Text style={[styles.selectedCategoryLabel, isDarkMode && styles.selectedCategoryLabelDark]}>
-                      Categoria Selecionada {isExpense && purpose === 'PERSONAL_PARTNER' ? '(Uso Particular)' : ''}
-                    </Text>
-                    <Text style={[styles.selectedCategoryName, isDarkMode && styles.selectedCategoryNameDark]}>
-                      {selectedCategory.name}
-                    </Text>
-                  </View>
-                  {isExpense && purpose === 'PERSONAL_PARTNER' ? (
-                    <View style={styles.automaticCategoryBadge}>
-                      <Check size={14} color="#16a34a" />
-                      <Text style={styles.automaticCategoryText}>Automática</Text>
-                    </View>
-                  ) : (
-                    <TouchableOpacity
-                      style={styles.changeCategoryBtn}
-                      onPress={() => handleOpenCategoryModal('')}
-                    >
-                      <Text style={styles.changeCategoryBtnText}>Trocar</Text>
-                    </TouchableOpacity>
-                  )}
-                </View>
-              ) : (
-                <TouchableOpacity
-                  style={[styles.categorySearchTrigger, isDarkMode && styles.categorySearchTriggerDark]}
-                  onPress={() => handleOpenCategoryModal('')}
-                  activeOpacity={0.7}
-                >
-                  <Search size={16} color={isDarkMode ? '#94a3b8' : '#64748b'} />
-                  <Text style={[styles.categorySearchTriggerPlaceholder, isDarkMode && styles.categorySearchTriggerPlaceholderDark]}>
-                    {isExpense && purpose === 'PERSONAL_PARTNER' ? 'Selecionar Pró-labore...' : 'Pesquisar ou selecionar categoria...'}
-                  </Text>
-                  <ChevronRight size={16} color={isDarkMode ? '#64748b' : '#94a3b8'} />
-                </TouchableOpacity>
-              )}
-
-              {/* Colaborador / Funcionário (Condicional para Pessoal) */}
-              {isPersonnelCategory && (
-                <View>
-                  <Text style={[styles.label, isDarkMode && styles.labelDark]}>Colaborador / Funcionário</Text>
-                  <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipsRow}>
-                    {collaboratorsList.map(collab => (
-                      <TouchableOpacity
-                        key={collab.id}
-                        style={[styles.chip, collaboratorId === collab.id && styles.chipActive]}
-                        onPress={() => {
-                          if (collaboratorId === collab.id) {
-                            setCollaboratorId('');
-                            setCollaboratorName('');
-                          } else {
-                            setCollaboratorId(collab.id);
-                            setCollaboratorName(collab.name);
-                          }
-                        }}
-                      >
-                        <Text style={[styles.chipText, collaboratorId === collab.id && styles.chipTextActive]}>
-                          {collab.name}
-                        </Text>
-                      </TouchableOpacity>
-                    ))}
-                  </ScrollView>
-                </View>
-              )}
-
-              {/* Forma de Pagamento */}
-              <Text style={[styles.label, isDarkMode && styles.labelDark]}>Forma de Pagamento</Text>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipsRow}>
-                {PAYMENT_METHODS.map(m => (
-                  <TouchableOpacity
-                    key={m}
-                    style={[styles.chip, paymentMethod === m && styles.chipActive]}
-                    onPress={() => setPaymentMethod(m)}
-                  >
-                    <Text style={[styles.chipText, paymentMethod === m && styles.chipTextActive]}>
-                      {m}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </ScrollView>
-
-              {/* Veículo (Condicional para Transporte) */}
-              {isVehicleCategory && (
-                <View>
-                  <Text style={[styles.label, isDarkMode && styles.labelDark]}>Veículo</Text>
-                  <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipsRow}>
-                    {VEHICLES.map(v => (
-                      <TouchableOpacity
-                        key={v}
-                        style={[styles.chip, vehicleId === v && styles.chipActive]}
-                        onPress={() => setVehicleId(vehicleId === v ? '' : v)}
-                      >
-                        <Text style={[styles.chipText, vehicleId === v && styles.chipTextActive]}>
-                          {v}
-                        </Text>
-                      </TouchableOpacity>
-                    ))}
-                  </ScrollView>
-                </View>
-              )}
-
             </ScrollView>
 
+            {/* Rodapé de Ações */}
             <View style={styles.footer}>
-              <TouchableOpacity style={styles.cancelBtn} onPress={onClose} disabled={saving}>
+              <TouchableOpacity style={styles.cancelBtn} onPress={onClose} disabled={form.saving}>
                 <Text style={styles.cancelBtnText}>Cancelar</Text>
               </TouchableOpacity>
 
-              <TouchableOpacity style={styles.saveBtn} onPress={handleSave} disabled={saving}>
-                {saving ? (
+              <TouchableOpacity style={styles.saveBtn} onPress={form.handleSave} disabled={form.saving}>
+                {form.saving ? (
                   <ActivityIndicator color="#ffffff" size="small" />
                 ) : (
                   <Text style={styles.saveBtnText}>{transaction ? 'Salvar alterações' : 'Finalizar'}</Text>
@@ -563,23 +218,24 @@ export const NewTransactionModal: React.FC<Props> = ({
 
       {/* Modal de Seleção de Categorias com Busca */}
       <CategorySelectModal
-        visible={categoryModalVisible}
-        onClose={() => setCategoryModalVisible(false)}
-        categories={filteredCategories}
-        selectedCategoryId={selectedCatId}
-        onSelectCategory={(cat) => {
-          setSelectedCatId(cat.id);
-          setCategorySearchQuery('');
+        visible={form.categoryModalVisible}
+        onClose={() => form.setCategoryModalVisible(false)}
+        categories={form.filteredCategories}
+        selectedCategoryId={form.selectedCatId}
+        onSelectCategory={cat => {
+          form.setSelectedCatId(cat.id);
         }}
-        initialSearchText={categorySearchQuery}
+        initialSearchText={form.categorySearchQuery}
         isDarkMode={isDarkMode}
       />
+
+      {/* Modal de Calendário */}
       <TransactionDatePickerModal
-        visible={datePickerVisible}
-        selectedDate={transactionDate}
+        visible={form.datePickerVisible}
+        selectedDate={form.transactionDate}
         isDarkMode={isDarkMode}
-        onClose={() => setDatePickerVisible(false)}
-        onSelect={setTransactionDate}
+        onClose={() => form.setDatePickerVisible(false)}
+        onSelect={form.setTransactionDate}
       />
     </>
   );
@@ -635,78 +291,9 @@ const styles = StyleSheet.create({
   labelDark: {
     color: '#cbd5e1',
   },
-  typeRow: {
-    flexDirection: 'row',
-    gap: 12,
-    marginBottom: 6,
-  },
-  dateOptionsRow: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  dateOption: {
-    flex: 1,
-    minHeight: 40,
-    paddingHorizontal: 8,
-    borderRadius: 10,
-    backgroundColor: '#f1f5f9',
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 5,
-  },
-  dateOptionActive: {
-    backgroundColor: '#2563eb',
-  },
-  dateOptionText: {
-    color: '#64748b',
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  dateOptionTextActive: {
-    color: '#ffffff',
-  },
-  selectedDateText: {
-    color: '#64748b',
-    fontSize: 12,
-    marginTop: 7,
-    marginBottom: 3,
-  },
-  typeBtn: {
-    flex: 1,
-    paddingVertical: 10,
-    borderRadius: 10,
-    backgroundColor: '#f1f5f9',
-    alignItems: 'center',
-  },
-  typeBtnIncome: {
-    backgroundColor: '#dcfce7',
-    borderWidth: 2,
-    borderColor: '#16a34a',
-  },
-  typeBtnExpense: {
-    backgroundColor: '#fee2e2',
-    borderWidth: 2,
-    borderColor: '#dc2626',
-  },
-  typeBtnActive: {
-    backgroundColor: '#eff6ff',
-    borderWidth: 1.5,
-    borderColor: '#3b82f6',
-  },
-  typeBtnText: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#64748b',
-  },
-  typeBtnTextIncome: {
-    color: '#16a34a',
-  },
-  typeBtnTextExpense: {
+  requiredAsterisk: {
     color: '#dc2626',
-  },
-  typeBtnTextActive: {
-    color: '#2563eb',
+    fontWeight: '700',
   },
   input: {
     backgroundColor: '#f1f5f9',
@@ -725,108 +312,9 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#0f172a',
   },
-  categorySearchTrigger: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#f1f5f9',
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 12,
-    gap: 8,
-  },
-  categorySearchTriggerDark: {
-    backgroundColor: '#1e293b',
-  },
-  categorySearchTriggerPlaceholder: {
-    flex: 1,
-    fontSize: 14,
-    color: '#64748b',
-  },
-  categorySearchTriggerPlaceholderDark: {
-    color: '#94a3b8',
-  },
-  selectedCategoryCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: '#eff6ff',
-    borderWidth: 1,
-    borderColor: '#bfdbfe',
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-  },
-  selectedCategoryCardDark: {
-    backgroundColor: '#1e3a8a33',
-    borderColor: '#1e40af',
-  },
-  selectedCategoryInfo: {
-    flex: 1,
-  },
-  selectedCategoryLabel: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: '#64748b',
-    textTransform: 'uppercase',
-  },
-  selectedCategoryLabelDark: {
-    color: '#94a3b8',
-  },
-  selectedCategoryName: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#1d4ed8',
-    marginTop: 2,
-  },
-  selectedCategoryNameDark: {
-    color: '#60a5fa',
-  },
-  changeCategoryBtn: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 6,
-    backgroundColor: '#3b82f6',
-  },
-  changeCategoryBtnText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#ffffff',
-  },
-  automaticCategoryBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 999,
-    backgroundColor: '#dcfce7',
-  },
-  automaticCategoryText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#15803d',
-  },
-  chipsRow: {
-    flexDirection: 'row',
-    marginBottom: 4,
-  },
-  chip: {
-    backgroundColor: '#f1f5f9',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 16,
-    marginRight: 8,
-  },
-  chipActive: {
-    backgroundColor: '#3b82f6',
-  },
-  chipText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#475569',
-  },
-  chipTextActive: {
-    color: '#ffffff',
+  inputError: {
+    borderWidth: 1.5,
+    borderColor: '#dc2626',
   },
   footer: {
     flexDirection: 'row',

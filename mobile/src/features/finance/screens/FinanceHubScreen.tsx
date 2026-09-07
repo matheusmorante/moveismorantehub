@@ -1,24 +1,13 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, ScrollView, RefreshControl } from 'react-native';
-import { Plus, SlidersHorizontal, Bot, Receipt } from 'lucide-react-native';
-import { MonthCarouselSelector } from '../components/MonthCarouselSelector';
-import { MonthSummaryCard } from '../components/MonthSummaryCard';
-import { TransactionFilterBar } from '../components/TransactionFilterBar';
-import { TransactionFilterModal } from '../components/TransactionFilterModal';
-import { TransactionListGrouped } from '../components/TransactionListGrouped';
-import { NewTransactionModal } from '../components/NewTransactionModal';
-import { TransactionDetailsModal } from '../components/TransactionDetailsModal';
-import { TransactionActionsModal } from '../components/TransactionActionsModal';
+import React from 'react';
+import { View, StyleSheet } from 'react-native';
+import { FinanceTopTabsBar } from '../components/FinanceTopTabsBar';
+import { TransactionsTabContent } from '../components/TransactionsTabContent';
 import { FinancialAiChatView } from '../components/FinancialAiChatView';
-import {
-  FinancialCategory,
-  FinancialTransaction,
-  MonthlySummary,
-  TransactionFilterOptions,
-  fetchFinancialCategories,
-  fetchMonthlySummary,
-  fetchTransactionsForMonth,
-} from '../../../services/mobileFinanceService';
+import { TransactionFilterModal } from '../components/TransactionFilterModal';
+import { NewTransactionModal } from '../components/NewTransactionModal';
+import { TransactionActionsModal } from '../components/TransactionActionsModal';
+import { TransactionDetailsModal } from '../components/TransactionDetailsModal';
+import { useFinanceHubData } from '../hooks/useFinanceHubData';
 
 interface Props {
   userProfile?: any;
@@ -29,243 +18,95 @@ export const FinanceHubScreen: React.FC<Props> = ({
   userProfile,
   isDarkMode = false,
 }) => {
-  const now = new Date();
-  const [selectedYear, setSelectedYear] = useState(now.getFullYear());
-  const [selectedMonth, setSelectedMonth] = useState(now.getMonth() + 1); // 1-12
-
-  const [activeTab, setActiveTab] = useState<'transactions' | 'assistant'>('transactions');
-
-  const [categories, setCategories] = useState<FinancialCategory[]>([]);
-  const [summary, setSummary] = useState<MonthlySummary>({ income: 0, expense: 0, balance: 0 });
-  const [transactions, setTransactions] = useState<FinancialTransaction[]>([]);
-  const [loadingData, setLoadingData] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-
-  const [typeFilter, setTypeFilter] = useState<'all' | 'income' | 'expense'>('all');
-  const [advancedFilters, setAdvancedFilters] = useState<TransactionFilterOptions>({});
-  const [showFilterModal, setShowFilterModal] = useState(false);
-
-  const [showNewModal, setShowNewModal] = useState(false);
-  const [selectedTransaction, setSelectedTransaction] = useState<FinancialTransaction | null>(null);
-  const [actionsTransaction, setActionsTransaction] = useState<FinancialTransaction | null>(null);
-  const [editingTransaction, setEditingTransaction] = useState<FinancialTransaction | null>(null);
-
-  const userName = userProfile?.full_name || userProfile?.name || 'Operador';
-  const profileRoles = [
-    ...(Array.isArray(userProfile?.roles) ? userProfile.roles : []),
-    userProfile?.role,
-  ]
-    .filter(Boolean)
-    .map(role => String(role).trim().toLowerCase());
-  const isAdmin = profileRoles.some(role => ['admin', 'administrator', 'master'].includes(role));
-
-  const loadData = async (showLoading = true) => {
-    if (showLoading) setLoadingData(true);
-    try {
-      const [cats, sum, list] = await Promise.all([
-        fetchFinancialCategories(),
-        fetchMonthlySummary(selectedYear, selectedMonth),
-        fetchTransactionsForMonth(selectedYear, selectedMonth, {
-          type: typeFilter,
-          ...advancedFilters,
-        }),
-      ]);
-      setCategories(cats);
-      setSummary(sum);
-      setTransactions(list);
-    } catch (e) {
-      console.warn('Erro ao carregar dados do módulo financeiro:', e);
-    } finally {
-      setLoadingData(false);
-      setRefreshing(false);
-    }
-  };
-
-  useEffect(() => {
-    loadData(true);
-  }, [selectedYear, selectedMonth, typeFilter, advancedFilters]);
-
-  useEffect(() => {
-    if (!isAdmin && activeTab === 'assistant') {
-      setActiveTab('transactions');
-    }
-  }, [activeTab, isAdmin]);
-
-  const handleMonthChange = (year: number, month: number) => {
-    setSelectedYear(year);
-    setSelectedMonth(month);
-  };
-
-  const handleRefresh = () => {
-    setRefreshing(true);
-    loadData(false);
-  };
+  const hub = useFinanceHubData({ userProfile });
 
   return (
     <View style={[styles.container, isDarkMode && styles.containerDark]}>
-      {/* Navegação por Abas Principais: [ Transações ] [ Assistente ] */}
-      <View style={[styles.topTabsBar, isDarkMode && styles.topTabsBarDark]}>
-        <TouchableOpacity
-          style={[styles.topTabBtn, activeTab === 'transactions' && styles.activeTopTabBtn]}
-          onPress={() => setActiveTab('transactions')}
-          activeOpacity={0.7}
-        >
-          <Receipt size={15} color={activeTab === 'transactions' ? '#3b82f6' : isDarkMode ? '#94a3b8' : '#64748b'} />
-          <Text
-            style={[
-              styles.topTabText,
-              activeTab === 'transactions' && styles.activeTopTabText,
-              isDarkMode && activeTab !== 'transactions' && styles.topTabTextDark,
-            ]}
-          >
-            Transações
-          </Text>
-        </TouchableOpacity>
+      {/* Barra de Abas Superiores: Transações | Assistente */}
+      <FinanceTopTabsBar
+        activeTab={hub.activeTab}
+        onSelectTab={hub.setActiveTab}
+        isAdmin={hub.isAdmin}
+        isDarkMode={isDarkMode}
+      />
 
-        {isAdmin ? (
-          <TouchableOpacity
-            style={[styles.topTabBtn, activeTab === 'assistant' && styles.activeTopTabBtn]}
-            onPress={() => setActiveTab('assistant')}
-            activeOpacity={0.7}
-          >
-            <Bot size={15} color={activeTab === 'assistant' ? '#7c3aed' : isDarkMode ? '#94a3b8' : '#64748b'} />
-            <Text
-              style={[
-                styles.topTabText,
-                activeTab === 'assistant' && styles.activeTopTabTextAssistant,
-                isDarkMode && activeTab !== 'assistant' && styles.topTabTextDark,
-              ]}
-            >
-              Assistente
-            </Text>
-            <View style={styles.betaBadge}>
-              <Text style={styles.betaBadgeText}>BETA</Text>
-            </View>
-          </TouchableOpacity>
-        ) : null}
-      </View>
-
-      {/* CONTEÚDO DAS ABAS */}
-      {activeTab === 'transactions' ? (
-        <View style={{ flex: 1 }}>
-          {/* Seletor de Mês Horizontal */}
-          <MonthCarouselSelector
-            selectedYear={selectedYear}
-            selectedMonth={selectedMonth}
-            onMonthChange={handleMonthChange}
-            isDarkMode={isDarkMode}
-          />
-
-          <ScrollView
-            style={styles.scrollArea}
-            refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />}
-            showsVerticalScrollIndicator={false}
-          >
-            {/* Resumo do Mês */}
-            <MonthSummaryCard
-              income={summary.income}
-              expense={summary.expense}
-              balance={summary.balance}
-              isDarkMode={isDarkMode}
-            />
-
-            {/* Barra de Filtros */}
-            <TransactionFilterBar
-              activeTypeFilter={typeFilter}
-              onSelectTypeFilter={setTypeFilter}
-              onOpenAdvancedFilters={() => setShowFilterModal(true)}
-              hasActiveAdvancedFilters={Boolean(
-                advancedFilters.categoryId ||
-                advancedFilters.paymentMethod ||
-                advancedFilters.accountId ||
-                advancedFilters.searchQuery
-              )}
-              isDarkMode={isDarkMode}
-            />
-
-            {/* Lista de Transações Agrupadas por Data */}
-            {loadingData ? (
-              <View style={styles.loadingBox}>
-                <ActivityIndicator color="#3b82f6" size="large" />
-              </View>
-            ) : (
-              <TransactionListGrouped
-                transactions={transactions}
-                onSelectTransaction={setSelectedTransaction}
-                onOpenTransactionMenu={setActionsTransaction}
-                isDarkMode={isDarkMode}
-              />
-            )}
-          </ScrollView>
-
-          {/* Botão Flutuante + Nova Transação */}
-          <TouchableOpacity
-            style={styles.fabBtn}
-            onPress={() => {
-              setEditingTransaction(null);
-              setShowNewModal(true);
-            }}
-            activeOpacity={0.85}
-          >
-            <Plus size={20} color="#ffffff" />
-            <Text style={styles.fabText}>Nova Transação</Text>
-          </TouchableOpacity>
-        </View>
-      ) : activeTab === 'assistant' && isAdmin ? (
-        /* CONTEÚDO DA ABA ASSISTENTE */
+      {/* Conteúdo da Aba Ativa */}
+      {hub.activeTab === 'transactions' ? (
+        <TransactionsTabContent
+          selectedYear={hub.selectedYear}
+          selectedMonth={hub.selectedMonth}
+          summary={hub.summary}
+          transactions={hub.transactions}
+          loadingData={hub.loadingData}
+          refreshing={hub.refreshing}
+          typeFilter={hub.typeFilter}
+          advancedFilters={hub.advancedFilters}
+          isDarkMode={isDarkMode}
+          onMonthChange={hub.handleMonthChange}
+          onRefresh={hub.handleRefresh}
+          onSelectTypeFilter={hub.setTypeFilter}
+          onOpenFilterModal={() => hub.setShowFilterModal(true)}
+          onSelectTransaction={hub.setSelectedTransaction}
+          onOpenTransactionMenu={hub.setActionsTransaction}
+          onOpenNewModal={() => {
+            hub.setEditingTransaction(null);
+            hub.setShowNewModal(true);
+          }}
+        />
+      ) : hub.activeTab === 'assistant' && hub.isAdmin ? (
         <FinancialAiChatView
-          categories={categories}
-          onTransactionRegistered={() => loadData(false)}
-          userName={userName}
+          categories={hub.categories}
+          onTransactionRegistered={() => hub.loadData(false)}
+          userName={hub.userName}
           isDarkMode={isDarkMode}
         />
       ) : null}
 
-      {/* Modais Auxiliares */}
+      {/* Modais de Filtro, Cadastro, Ações e Detalhes */}
       <TransactionFilterModal
-        visible={showFilterModal}
-        onClose={() => setShowFilterModal(false)}
-        categories={categories}
-        currentFilters={advancedFilters}
-        onApplyFilters={setAdvancedFilters}
+        visible={hub.showFilterModal}
+        onClose={() => hub.setShowFilterModal(false)}
+        categories={hub.categories}
+        currentFilters={hub.advancedFilters}
+        onApplyFilters={hub.setAdvancedFilters}
         isDarkMode={isDarkMode}
       />
 
       <NewTransactionModal
-        visible={showNewModal}
+        visible={hub.showNewModal}
         onClose={() => {
-          setShowNewModal(false);
-          setEditingTransaction(null);
+          hub.setShowNewModal(false);
+          hub.setEditingTransaction(null);
         }}
-        categories={categories}
-        transaction={editingTransaction}
+        categories={hub.categories}
+        transaction={hub.editingTransaction}
         onSuccess={() => {
-          setEditingTransaction(null);
-          loadData(false);
+          hub.setEditingTransaction(null);
+          hub.loadData(false);
         }}
-        userName={userName}
+        userName={hub.userName}
         isDarkMode={isDarkMode}
       />
 
       <TransactionActionsModal
-        visible={Boolean(actionsTransaction)}
-        transaction={actionsTransaction}
+        visible={Boolean(hub.actionsTransaction)}
+        transaction={hub.actionsTransaction}
         isDarkMode={isDarkMode}
-        onClose={() => setActionsTransaction(null)}
-        onEdit={(tx) => {
-          setActionsTransaction(null);
-          setEditingTransaction(tx);
-          setShowNewModal(true);
+        onClose={() => hub.setActionsTransaction(null)}
+        onEdit={tx => {
+          hub.setActionsTransaction(null);
+          hub.setEditingTransaction(tx);
+          hub.setShowNewModal(true);
         }}
-        onDeleted={() => loadData(false)}
+        onDeleted={() => hub.loadData(false)}
       />
 
       <TransactionDetailsModal
-        visible={Boolean(selectedTransaction)}
-        transaction={selectedTransaction}
-        onClose={() => setSelectedTransaction(null)}
-        onSuccess={() => loadData(false)}
-        canReverse={isAdmin}
+        visible={Boolean(hub.selectedTransaction)}
+        transaction={hub.selectedTransaction}
+        onClose={() => hub.setSelectedTransaction(null)}
+        onSuccess={() => hub.loadData(false)}
+        canReverse={hub.isAdmin}
         isDarkMode={isDarkMode}
       />
     </View>
@@ -279,95 +120,5 @@ const styles = StyleSheet.create({
   },
   containerDark: {
     backgroundColor: '#0f172a',
-  },
-  topTabsBar: {
-    flexDirection: 'row',
-    backgroundColor: '#ffffff',
-    paddingHorizontal: 12,
-    paddingTop: 8,
-    paddingBottom: 4,
-    borderBottomWidth: 1,
-    borderBottomColor: '#e2e8f0',
-    gap: 8,
-  },
-  topTabsBarDark: {
-    backgroundColor: '#1e293b',
-    borderBottomColor: '#334155',
-  },
-  topTabBtn: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 10,
-    borderRadius: 10,
-    gap: 6,
-    backgroundColor: '#f1f5f9',
-  },
-  activeTopTabBtn: {
-    backgroundColor: '#ffffff',
-    elevation: 1,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-  },
-  topTabText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#64748b',
-  },
-  topTabTextDark: {
-    color: '#94a3b8',
-  },
-  activeTopTabText: {
-    color: '#3b82f6',
-    fontWeight: '700',
-  },
-  activeTopTabTextAssistant: {
-    color: '#7c3aed',
-    fontWeight: '700',
-  },
-  betaBadge: {
-    paddingHorizontal: 5,
-    paddingVertical: 2,
-    borderRadius: 6,
-    backgroundColor: '#ede9fe',
-  },
-  betaBadgeText: {
-    color: '#6d28d9',
-    fontSize: 8,
-    fontWeight: '900',
-    letterSpacing: 0.4,
-  },
-  scrollArea: {
-    flex: 1,
-  },
-  loadingBox: {
-    padding: 32,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  fabBtn: {
-    position: 'absolute',
-    bottom: 16,
-    right: 16,
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#3b82f6',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderRadius: 24,
-    elevation: 4,
-    shadowColor: '#3b82f6',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.3,
-    shadowRadius: 6,
-    gap: 6,
-  },
-  fabText: {
-    color: '#ffffff',
-    fontSize: 13,
-    fontWeight: '700',
   },
 });
