@@ -7,6 +7,8 @@ import { AiQuotaManager } from './core/AiQuotaManager';
 import { supabase } from '../../pages/utils/supabaseConfig';
 import { parseGeminiResponse } from './core/parseGeminiResponse';
 
+import { AiLatencyTracker } from './core/AiLatencyTracker';
+
 export class AiGateway {
   /**
    * Ponto de entrada ÚNICO e OBRIGATÓRIO para requisições de Texto (Gemini 2.5 Flash)
@@ -117,7 +119,7 @@ export class AiGateway {
         }
 
         // 5. Chamada de Produção Proxied ao Gemini HTTP Backend
-        const rawResult = await this.callGeminiApiProxied<T>(category, categoryConfig.model, payload);
+        const rawResult = await this.callGeminiApiProxied<T>(category, categoryConfig.model, payload, operation);
 
         AiCircuitBreaker.recordSuccess(category);
         return {
@@ -149,7 +151,8 @@ export class AiGateway {
     return executionPromise;
   }
 
-  private static async callGeminiApiProxied<T>(category: AiCategory, model: string, payload: any): Promise<T> {
+  private static async callGeminiApiProxied<T>(category: AiCategory, model: string, payload: any, operation = 'unknown_ai_op'): Promise<T> {
+    const callId = AiLatencyTracker.startCall(operation, model, category);
     let apiKey = import.meta.env.VITE_GEMINI_API_KEY || (typeof process !== 'undefined' ? process.env?.VITE_GEMINI_API_KEY : '');
     if (!apiKey) {
       try {
@@ -159,32 +162,47 @@ export class AiGateway {
         // Fallback silencioso se der erro no supabase
       }
     }
+    if (!apiKey && typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')) {
+      apiKey = 'mock-key-for-e2e-and-local-development';
+    }
     if (!apiKey) {
+      AiLatencyTracker.endCall(callId, false, 0, 'Chave de API Gemini não configurada.');
       throw new Error('Chave de API Gemini não configurada.');
     }
 
     if (category === 'TTS') {
       this.speakWithNativeFallback(payload?.text || '');
+      AiLatencyTracker.endCall(callId, true, (payload?.text || '').length);
       return { speechContent: payload?.text } as any;
     }
 
     const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(apiKey)}`;
     const contents = typeof payload === 'string' ? [{ parts: [{ text: payload }] }] : payload;
 
-    const res = await fetch(endpoint, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ contents, ...(category === 'IMAGE' ? {
-        generationConfig: { responseModalities: ['TEXT', 'IMAGE'] }
-      } : {}) })
-    });
+    try {
+      const res = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ contents, ...(category === 'IMAGE' ? {
+          generationConfig: { responseModalities: ['TEXT', 'IMAGE'] }
+        } : {}) })
+      });
 
-    if (!res.ok) {
-      throw new Error(`Erro na API Gemini (${res.status}): ${await res.text()}`);
+      if (!res.ok) {
+        const errText = await res.text();
+        AiLatencyTracker.endCall(callId, false, 0, `HTTP ${res.status}: ${errText}`);
+        throw new Error(`Erro na API Gemini (${res.status}): ${errText}`);
+      }
+
+      const json = await res.json();
+      const parsed = parseGeminiResponse(json, category) as T;
+      const respSize = typeof parsed === 'string' ? parsed.length : JSON.stringify(parsed || {}).length;
+      AiLatencyTracker.endCall(callId, true, respSize);
+      return parsed;
+    } catch (fetchErr: any) {
+      AiLatencyTracker.endCall(callId, false, 0, fetchErr?.message || 'Network fetch failure');
+      throw fetchErr;
     }
-
-    const json = await res.json();
-    return parseGeminiResponse(json, category) as T;
   }
 
   private static speakWithNativeFallback(text: string) {

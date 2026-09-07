@@ -34,7 +34,6 @@ interface PromptPreviewProps {
   productName?: string | undefined;
   variationId?: string | null;
   productId?: string | undefined;
-  format?: string;
   isFocused?: boolean;
   onToggleFocus?: () => void;
 }
@@ -49,7 +48,6 @@ export function PromptPreview({
   productName: propProductName,
   variationId,
   productId: propProductId,
-  format,
   isFocused,
   onToggleFocus,
 }: PromptPreviewProps) {
@@ -197,9 +195,7 @@ export function PromptPreview({
     }
   };
 
-  const isEmpty = !campaign || !effectiveProductSlug;
-  const oppName = product?.opportunityName || product?.opportunity?.name || null;
-  const oppBadgeUrl = product?.opportunity?.image_url || null;
+  const oppBadgeUrl = spec?.officialAssets?.badge?.url || null;
 
   return (
     <div className="flex h-full flex-col gap-3 min-w-0">
@@ -302,15 +298,6 @@ export function PromptPreview({
             </div>
 
             <div className="flex items-center gap-3">
-              <div className="text-right">
-                <span className="text-[10px] uppercase tracking-wider text-slate-400 font-bold block">
-                  Formato Alvo
-                </span>
-                <span className="text-xs font-bold text-slate-200">
-                  {format === '9:16' ? 'Story / Status 9:16' : 'Feed 4:5'}
-                </span>
-              </div>
-              <div className="h-6 w-px bg-slate-800" />
               <div className="text-right">
                 <span className="text-[10px] uppercase tracking-wider text-slate-400 font-bold block">
                   Campanha

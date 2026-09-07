@@ -1,4 +1,4 @@
-import type { ParsedFinancialIntent } from '../../../../mobile/src/services/financialAiAssistantService';
+import type { ParsedFinancialIntent } from '../../../../mobile/src/services/financial/financialTypes';
 
 export interface DraftAnalysisChip {
   id: string;

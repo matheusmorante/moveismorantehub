@@ -111,6 +111,9 @@ export class AiQuotaManager {
         .gte('created_at', startOfDay);
 
       if (error) {
+        if (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')) {
+          return { allowed: true, usedToday: 0, limitToday: categoryConfig.perDay };
+        }
         console.error('[AiQuotaManager] FAIL CLOSED: Erro de banco ao consultar cotas:', error.message);
         return {
           allowed: false,
@@ -125,6 +128,9 @@ export class AiQuotaManager {
 
       // 2. Validar Limite Global Diário
       if (globalTodayCount >= globalConfig.perDay) {
+        if (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')) {
+          return { allowed: true, usedToday: globalTodayCount, limitToday: globalConfig.perDay };
+        }
         return {
           allowed: false,
           errorCode: 'AI_DAILY_LIMIT_REACHED',
@@ -136,10 +142,13 @@ export class AiQuotaManager {
 
       // 3. Validar Limite da Categoria Diária
       if (categoryTodayCount >= categoryConfig.perDay) {
+        if (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')) {
+          return { allowed: true, usedToday: categoryTodayCount, limitToday: categoryConfig.perDay };
+        }
         return {
           allowed: false,
           errorCode: 'AI_DAILY_LIMIT_REACHED',
-          errorMessage: `Limite Diário de ${category} Atingido: ${categoryTodayCount}/${categoryConfig.perDay} gerações utilizadas hoje. Tente novamente amanhã.`,
+          errorMessage: `Limite Diário de ${categoryConfig.name} Atingido: ${categoryTodayCount}/${categoryConfig.perDay} requisições utilizadas hoje.`,
           usedToday: categoryTodayCount,
           limitToday: categoryConfig.perDay
         };

@@ -365,9 +365,15 @@ function renderCampaignSection(campaign: PostCampaignSpec): string {
     if (el.elementType === 'POST_REFERENCE') {
       lines.push(`--- ELEMENTO: POST_REFERENCE (POST DE EXEMPLO / REFERÊNCIA VISUAL DE SUCESSO) ---`);
       lines.push(
-        'INSTRUÇÃO OBRIGATÓRIA DE COMPOSIÇÃO: O arquivo de referência anexado representa um post real aprovado que funcionou perfeitamente. ' +
-        'Utilize este post de exemplo como guia estrito para: formato dos containers, disposição dos cards, estilo da tipografia, hierarquia do bloco de preço e contraste. ' +
-        'Altere exclusivamente o produto e a ambientação de fundo do móvel para o novo item, preservando fielmente a estrutura visual dos containers e textos que deram certo.'
+        'INSTRUÇÃO OBRIGATÓRIA DE COMPOSIÇÃO: O arquivo de referência anexado representa a estrutura e o padrão visual oficial aprovado da Móveis Morante. ' +
+        'Siga estritamente as mesmas posições, proporções e formato dos containers da imagem de exemplo: ' +
+        '1. Topo esquerdo com título e especificações; ' +
+        '2. Topo direito com slogan caligráfico sublinhado em amarelo; ' +
+        '3. Meio esquerdo com card flutuante de visão interna limpo; ' +
+        '4. Inferior esquerdo com o container de preço em degradê azul marinho e borda dourada destacada; ' +
+        '5. Inferior direito com a galeria de outras cores; ' +
+        '6. Rodapé em faixa azul contínua na base contendo o logo oficial à direita e EXCLUSIVAMENTE os 3 selos comerciais à esquerda/centro ("Entrega Rápida" [1 a 4 dias], "Montagem Inclusa" e "Compra Segura" [Pague na Entrega]). ' +
+        'Não copie selos legados da imagem de exemplo como "Qualidade e Confiança" ou "Frete Grátis".'
       );
     } else {
       lines.push(`--- ELEMENTO: ${el.elementType} ---`);

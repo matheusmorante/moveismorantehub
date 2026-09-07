@@ -2,8 +2,10 @@
  * Configurações e Tipos para a Sessão Contínua de Voz do Assistente Financeiro.
  */
 
-/** Tempo de silêncio contínuo em milissegundos para autoenvio (3000ms = 3 segundos) */
-export const AUTO_SEND_SILENCE_MS = 3000;
+/** Tempo de silêncio contínuo em milissegundos para disparar pré-análise silenciosa (3000ms = 3 segundos) */
+export const PRE_ANALYSIS_DEBOUNCE_MS = 3000;
+/** @deprecated Usar PRE_ANALYSIS_DEBOUNCE_MS */
+export const AUTO_SEND_SILENCE_MS = PRE_ANALYSIS_DEBOUNCE_MS;
 
 /** Tempo limite de inatividade total sem nenhuma fala para desligar o microfone (15000ms = 15 segundos) */
 export const MAX_VOICE_INACTIVITY_MS = 15000;

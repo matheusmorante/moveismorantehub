@@ -31,19 +31,25 @@ vi.mock('../../../../mobile/src/services/supabaseClient', () => ({
 import { processFinancialInput, extractMultipleFinancialFacts } from '../../../../mobile/src/services/financialAiAssistantService';
 
 describe('Bateria de Regressão — Distinção Fato Financeiro vs Movimentação Realizada (unrealizedFactsAndBinding.test.ts)', () => {
-  it('TESTE A — "Tenho uma conta de luz de 200 e uma conta de internet de 100." -> ZERO movimentações realizadas', () => {
+  it('TESTE A — "Tenho uma conta de luz de 200 e uma conta de internet de 100." -> Rascunhos preservados, isRealized: false', () => {
     const res = processFinancialInput('Tenho uma conta de luz de 200 e uma conta de internet de 100.', '2026-09-06');
 
     expect(res.isRealized).toBe(false);
-    expect(res.draft?.batchDraftsList).toBeNull();
-    expect(res.draft?.questionToUser).toContain('luz de R$ 200,00 e internet de R$ 100,00');
+    expect(res.draft?.batchDraftsList).toBeDefined();
+    expect(res.draft?.batchDraftsList?.length).toBe(2);
+    expect(res.draft?.batchDraftsList?.[0].amount).toBe(200);
+    expect(res.draft?.batchDraftsList?.[1].amount).toBe(100);
+    expect(res.draft?.questionToUser).toMatch(/luz e internet/i);
   });
 
-  it('TESTE B — "Tenho que pagar luz de 200 e internet de 100." -> ZERO movimentações realizadas', () => {
+  it('TESTE B — "Tenho que pagar luz de 200 e internet de 100." -> Rascunhos preservados, isRealized: false', () => {
     const res = processFinancialInput('Tenho que pagar luz de 200 e internet de 100.', '2026-09-06');
 
     expect(res.isRealized).toBe(false);
-    expect(res.draft?.batchDraftsList).toBeNull();
+    expect(res.draft?.batchDraftsList).toBeDefined();
+    expect(res.draft?.batchDraftsList?.length).toBe(2);
+    expect(res.draft?.batchDraftsList?.[0].amount).toBe(200);
+    expect(res.draft?.batchDraftsList?.[1].amount).toBe(100);
   });
 
   it('TESTE C — "Paguei luz de 200 e internet de 100." -> 2 saídas realizadas', () => {
@@ -113,12 +119,12 @@ describe('Bateria de Regressão — Distinção Fato Financeiro vs Movimentaçã
     expect(facts[1].amount).toBe(100);
   });
 
-  it('TESTE I — "Tenho uma conta de luz de 200 e quanto de internet de 100." -> ASR noise tolerada, ZERO saídas', () => {
+  it('TESTE I — "Tenho uma conta de luz de 200 e quanto de internet de 100." -> ASR noise tolerada, rascunhos preservados', () => {
     const res = processFinancialInput('Tenho uma conta de luz de 200 e quanto de internet de 100.', '2026-09-06');
 
     expect(res.isRealized).toBe(false);
-    expect(res.draft?.batchDraftsList).toBeNull();
+    expect(res.draft?.batchDraftsList).toBeDefined();
     expect(res.draft?.questionToUser).not.toContain('Qual foi o valor');
-    expect(res.draft?.questionToUser).toContain('luz de R$ 200,00 e internet de R$ 100,00');
+    expect(res.draft?.questionToUser).toMatch(/luz e internet/i);
   });
 });

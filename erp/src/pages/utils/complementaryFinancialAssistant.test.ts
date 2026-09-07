@@ -48,7 +48,7 @@ const mockCategories: FinancialCategory[] = [
 ];
 
 describe('BATERIA COMPLEMENTAR DO ASSISTENTE FINANCEIRO (GRUPOS 1 A 45)', () => {
-  const todayStr = '2026-09-06';
+  const todayStr = new Date().toISOString().split('T')[0];
 
   beforeEach(() => {
     vi.clearAllMocks();

@@ -36,7 +36,11 @@ HIERARQUIA VISUAL COMERCIAL (ORDEM DE ATENÇÃO):
 1. PRODUTO (Protagonista absoluto da peça);
 2. OFERTA / PREÇO (Bloco de preço publicitário destacado, com card/faixa contrastante, detalhes da marca e separação elegante de valor e moeda);
 3. NOME DO PRODUTO (Com alta legibilidade e peso tipográfico equilibrado);
-4. DIFERENCIAIS COMERCIAIS AUTORIZADOS (Mantenha APENAS os benefícios comerciais reais da loja: "Entrega rápida em até 5 dias úteis", "Montagem inclusa com equipe especializada" e "Frete grátis até 100km". Não invente outros);
+4. DIFERENCIAIS E SELOS COMERCIAIS AUTORIZADOS (Mantenha EXCLUSIVAMENTE estes 3 selos/benefícios comerciais reais da loja:
+   1. "Entrega Rápida" (subtítulo obrigatório: "1 a 4 dias");
+   2. "Montagem Inclusa";
+   3. "Compra Segura" (subtítulo obrigatório: "Pague na Entrega").
+   É expressamente PROIBIDO inventar outros selos, prazos ou benefícios comerciais adicionais);
 5. CONDIÇÃO DE PAGAMENTO (Parcelamento claro e atraente);
 6. INFORMAÇÕES SECUNDÁRIAS (Foto do móvel aberto/interno em card discreto, miniaturas reais de outras cores — NUNCA duplicar a cor principal na galeria de cores);
 7. MARCA (Logo oficial da Móveis Morante posicionado com nobreza e fidelidade).
@@ -45,6 +49,18 @@ IDENTIDADE VISUAL DA MÓVEIS MORANTE:
 - Cores de identidade: azul escuro institucional, amarelo/dourado vibrante de destaque, branco e tons neutros contemporâneos (cinzas elegantes, amadeirados suaves). Paleta oficial da peça: fundo azul marinho institucional (#002B49), tipografia e elementos em branco puro e amarelo ouro vibrante (#F7B731 / #FFC107).
 - Aplique essas cores estrategicamente no bloco de preço, faixas, molduras, ícones, traçados e destaques tipográficos.
 - O logo da Móveis Morante e os selos oficiais são ASSETS PRONTOS: nunca redesenhe ou recrie por aproximação.
+
+LAYOUT E CONTAINERS DE REFERÊNCIA OFICIAL (SEGUIR POSIÇÕES E FORMATOS DA IMAGEM DE EXEMPLO):
+- Siga estritamente a mesma organização espacial e os containers da imagem de referência oficial:
+  * TOPO ESQUERDO: Título do produto com categoria em branco e nome em amarelo ouro vibrante (#F7B731), seguido de especificações técnicas (portas, gavetas, medidas) e Slogan 1 do produto;
+  * TOPO DIREITO: Slogan 2 do produto em tipografia caligráfica/brush com traço amarelo sublinhado;
+  * CENTRO / CENTRO-DIREITA: Móvel principal em destaque no ambiente residencial;
+  * MEIO ESQUERDO: Card flutuante com foto da visão interna (móvel aberto), com cantos arredondados e moldura sutil;
+  * INFERIOR ESQUERDO: Container de Preço em azul marinho degradê (#002B49) com borda/moldura dourada/amarela destacada, tag "APENAS", valor em amarelo ouro vibrante e cápsula branca de parcelamento ("EM ATÉ 10X SEM JUROS");
+  * INFERIOR DIREITO (abaixo do produto): Galeria de cores com título "DISPONÍVEL NAS CORES" entre traços amarelos, miniaturas em cards claros e tags azuis com os nomes das outras cores;
+  * RODAPÉ CONTÍNUO NA BASE: Faixa horizontal em azul marinho institucional (#002B49) de ponta a ponta:
+    - À esquerda/centro: Os 3 SELOS COMERCIAIS OFICIAIS com ícones lineares brancos e textos em branco/amarelo ("Entrega Rápida" [1 a 4 dias], "Montagem Inclusa" e "Compra Segura" [Pague na Entrega]). REGRA ESTRITA: Não copie os selos legados da foto de exemplo como "Qualidade e Confiança" ou "Frete Grátis" — use exclusivamente os 3 selos oficiais;
+    - À direita: Logo oficial da Móveis Morante posicionado sobre o fundo azul do rodapé.
 
 SLOGANS AUTORIZADOS DO PRODUTO (REGRAS ESTRITAS):
 - São permitidos EXCLUSIVAMENTE 2 slogans/destaques específicos do produto (móvel):

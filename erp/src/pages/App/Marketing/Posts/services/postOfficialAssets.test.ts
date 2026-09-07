@@ -200,4 +200,35 @@ describe('Assets Oficiais Móveis Morante & Selos de Oportunidade', () => {
     expect(resolved.logo.url).toBe(OFFICIAL_MORANTE_LOGO_URL);
     expect(resolved.badge).toBeNull();
   });
+
+  it('8. Selo de oportunidade NÃO deve usar o selo/badge da lista de produtos do ERP e SIM o do elemento BADGE da campanha', () => {
+    const productWithErpListBadge = {
+      ...productWithQueimaOpp,
+      opportunity: {
+        id: 'opp-queima-id',
+        name: 'Queima dos Salvados',
+        image_url: 'https://hkoxhourxwlddgsfdgws.supabase.co/storage/v1/object/public/products/erp-list-badge-small.png', // Selo pequeno da tabela do ERP
+      },
+    };
+
+    const campaignElementBadgeModel: ElementModel = {
+      id: 'model-custom-campaign-badge',
+      campaignId: 'camp-1',
+      elementType: 'BADGE',
+      name: 'Selo Queima Oficial da Campanha',
+      prompt: 'Posicione no topo direito',
+      status: 'UPDATED',
+      opportunityId: 'opp-queima-id',
+      generatedAssetUrl: 'https://hkoxhourxwlddgsfdgws.supabase.co/storage/v1/object/public/products/marketing/seals/campaign-badge-hd.png',
+    };
+
+    const resolved = resolveOfficialAssets({
+      product: productWithErpListBadge,
+      activeModels: [campaignElementBadgeModel],
+    });
+
+    // Deve usar o do elemento da campanha e NUNCA o da lista do ERP
+    expect(resolved.badge?.url).toBe('https://hkoxhourxwlddgsfdgws.supabase.co/storage/v1/object/public/products/marketing/seals/campaign-badge-hd.png');
+    expect(resolved.badge?.url).not.toContain('erp-list-badge-small.png');
+  });
 });

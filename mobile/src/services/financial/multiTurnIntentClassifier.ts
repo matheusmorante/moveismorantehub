@@ -1,4 +1,4 @@
-import type { ParsedFinancialIntent, ChatMessage } from '../financialAiAssistantService';
+import type { ParsedFinancialIntent, ChatMessage } from './financialTypes';
 import { FinancialCategory } from '../mobileFinanceService';
 import { trySlotFillingFallback } from './financialSlotFilling';
 import { validateParsedIntent } from './financialIntentValidator';
@@ -25,7 +25,7 @@ export function classifyMultiTurnIntent(
   const isExplicitNewTx = newTransactionPattern.test(text);
 
   // 3. Verificar a última mensagem do robô no histórico
-  const botMessages = conversationHistory.filter(m => m.sender === 'assistant' || m.sender === 'bot');
+  const botMessages = conversationHistory.filter(m => m.sender === 'assistant' || (m.sender as string) === 'bot');
   const lastBotMsg = botMessages.length > 0 ? botMessages[botMessages.length - 1].text.toLowerCase() : '';
   const isBotAskingQuestion = Boolean(
     lastBotMsg && (
@@ -251,13 +251,21 @@ export function applyTurnPatchWithDraftList(
       const purposeIdx = findPurposeDraftTarget(activeDrafts, lowerText);
       if (purposeIdx !== -1) targetIndex = purposeIdx;
     } else if (isPaymentAnswer) {
-      let paymentIdx = activeDrafts.findLastIndex ? activeDrafts.findLastIndex(d =>
-        d.missingFields?.includes('paymentMethod') ||
-        d.paymentMethod === 'UNKNOWN' ||
-        !d.paymentMethod ||
-        (d.questions && d.questions.some(q => q === 'paymentMethod' || /paymentMethod|forma de pagamento|pagamento|recebimento|como/i.test(q))) ||
-        (d.questionToUser && /forma de pagamento|pagamento|recebimento|como/i.test(d.questionToUser))
-      ) : -1;
+      let paymentIdx = -1;
+      for (let i = activeDrafts.length - 1; i >= 0; i--) {
+        const d = activeDrafts[i];
+        const questionsList = (d as any).questions || [];
+        if (
+          d.missingFields?.includes('paymentMethod') ||
+          d.paymentMethod === 'UNKNOWN' ||
+          !d.paymentMethod ||
+          questionsList.some((q: string) => q === 'paymentMethod' || /paymentMethod|forma de pagamento|pagamento|recebimento|como/i.test(q)) ||
+          (d.questionToUser && /forma de pagamento|pagamento|recebimento|como/i.test(d.questionToUser))
+        ) {
+          paymentIdx = i;
+          break;
+        }
+      }
 
       if (paymentIdx === -1) {
         const lastDraft = activeDrafts[activeDrafts.length - 1];
@@ -271,7 +279,7 @@ export function applyTurnPatchWithDraftList(
     }
 
     if (targetIndex === -1) {
-      const incompleteIdx = activeDrafts.findIndex(d => (d.missingFields && d.missingFields.length > 0) || (d.questions && d.questions.length > 0));
+      const incompleteIdx = activeDrafts.findIndex(d => (d.missingFields && d.missingFields.length > 0) || ((d as any).questions && (d as any).questions.length > 0));
       targetIndex = incompleteIdx !== -1 ? incompleteIdx : activeDrafts.length - 1;
     }
   }

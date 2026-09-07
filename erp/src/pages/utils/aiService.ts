@@ -5,7 +5,7 @@ import { AiGateway } from "../../services/aiGateway/AiGateway";
 import { buildNcmClassificationPrompt, NCM_PRODUCT_CLASSIFICATION_RULES } from "./ncmClassificationPrompt";
 
 export interface AIIntentResponse {
-    intent: 'create_product' | 'create_service' | 'create_order' | 'chat';
+    intent: 'create_product' | 'create_service' | 'create_order' | 'create_transaction' | 'chat';
     status?: 'ready' | 'incomplete';
     summary?: string;
     data: any;
@@ -46,10 +46,6 @@ async function callAIBackend(endpoint: string, body: any) {
     }
 }
 
-/**
- * Chama diretamente a API Gemini (sem backend intermediário).
- * Lê o body de erro para expor o motivo real da falha (quota, chave inválida, etc.)
- */
 async function callGeminiDirect(prompt: string, isJsonMode: boolean = true): Promise<string> {
     const res = await AiGateway.requestText({
         operation: 'ai_service_call',
@@ -63,34 +59,59 @@ async function callGeminiDirect(prompt: string, isJsonMode: boolean = true): Pro
     return res.data || '';
 }
 
+import { AiHybridDispatcher } from "../../services/aiGateway/core/AiHybridDispatcher";
+
 export const aiService = {
     async detectIntent(message: string, detectionPrompt: string, context?: any): Promise<AIIntentResponse> {
         try {
-            const finalPrompt = detectionPrompt.replace('{{context}}', JSON.stringify(context || {}));
-            const systemPrompt = `Você é um assistente de inteligência artificial de ERP e PDV comercial.
+            // 1. Arquitetura Híbrida: Fast-Path Local (< 10ms) com fallback para o Gemini
+            const hybridResult = await AiHybridDispatcher.dispatchIntent(
+                message,
+                context,
+                async (msg) => {
+                    const finalPrompt = detectionPrompt.replace('{{context}}', JSON.stringify(context || {}));
+                    const systemPrompt = `Você é um assistente de inteligência artificial de ERP, PDV comercial e gestão financeira.
 Analise a mensagem do usuário e responda EXCLUSIVAMENTE em formato JSON com a seguinte estrutura:
 {
-  "intent": "create_product" | "create_service" | "create_order" | "chat",
+  "intent": "create_product" | "create_service" | "create_order" | "create_transaction" | "chat",
   "status": "ready" | "incomplete",
   "summary": "resumo amigável em português",
   "data": { ... }
 }
+Regras de Classificação:
+- Se o usuário mencionar despesa, pagamento, almoço, gasolina, combustível, mercado, transporte, recebimento ou movimentação financeira, use "intent": "create_transaction".
+  "data" deve conter:
+  - "type": "expense" | "income"
+  - "amount": número (ex: 45)
+  - "description": texto descritivo (ex: "Almoço")
+  - "category": nome da categoria (ex: "Alimentação", "Transporte")
+  - "payment_method": "Dinheiro" | "Pix" | "Cartão de Crédito" | "Cartão de Débito" | "Boleto"
+  - "date": data no formato YYYY-MM-DD
 Sem blocos markdown (\`\`\`json), sem saudações antes ou depois.
 
 Instruções da Tarefa:
 ${finalPrompt}
 
 Mensagem do Usuário:
-${message}`;
+${msg}`;
 
-            const textResponse = await callGeminiDirect(systemPrompt);
-            let cleanJson = textResponse.trim();
-            if (cleanJson.startsWith('```json')) {
-                cleanJson = cleanJson.replace(/^```json/, '').replace(/```$/, '').trim();
-            } else if (cleanJson.startsWith('```')) {
-                cleanJson = cleanJson.replace(/^```/, '').replace(/```$/, '').trim();
-            }
-            return JSON.parse(cleanJson);
+                    const textResponse = await callGeminiDirect(systemPrompt);
+                    let cleanJson = textResponse.trim();
+                    if (cleanJson.startsWith('```json')) {
+                        cleanJson = cleanJson.replace(/^```json/, '').replace(/```$/, '').trim();
+                    } else if (cleanJson.startsWith('```')) {
+                        cleanJson = cleanJson.replace(/^```/, '').replace(/```$/, '').trim();
+                    }
+                    return JSON.parse(cleanJson);
+                }
+            );
+
+            return {
+                intent: hybridResult.intent,
+                status: hybridResult.status,
+                summary: hybridResult.summary,
+                data: hybridResult.data
+            };
         } catch (error) {
             console.warn("Falha no detectIntent direto via Gemini, tentando backend local ou fallback:", error);
             try {
@@ -175,7 +196,7 @@ Nenhum texto fora do JSON.`;
         title: string; 
         material?: string; 
         dimensions?: string; 
-        brand?: string;
+        brand?: string; 
         line?: string;
         mainDifferential?: string;
         colors?: string;
@@ -270,7 +291,6 @@ Retorne APENAS o JSON: {"name": "NOME DO COMBO"}`;
             };
         } catch (error) {
             console.error("Erro na classificação NCM por IA:", error);
-            // NCM NÃO DEVE TER FALLBACK DUMMY / PADRÃO
             return { ncm: '', desc: '' };
         }
     },
@@ -388,7 +408,6 @@ Retorne SOMENTE JSON válido no formato exato abaixo, sem markdown:
             };
         } catch (error: any) {
             console.error("Erro na classificação tributária automática:", error);
-            // NCM NÃO DEVE TER FALLBACK DUMMY / PADRÃO
             return {
                 ncm: '',
                 cest: '',
@@ -621,9 +640,7 @@ ${freeText}
         const parsed = JSON.parse(jsonStr);
         const rawJSON = parsed.rawJSON || parsed;
 
-        // SANITIZAÇÃO RIGOROSA PÓS-IA (Garantia de 100% de conformidade com os selects)
         if (rawJSON?.order) {
-            // 1. Sanitizar Vendedor
             if (sellerList && sellerList.length > 0 && rawJSON.order.seller) {
                 const foundSeller = sellerList.find(s => 
                     s.toLowerCase().trim() === String(rawJSON.order.seller).toLowerCase().trim() ||
@@ -635,14 +652,12 @@ ${freeText}
                 }
             }
 
-            // 2. Sanitizar Método de Envio
             if (rawJSON.order.shipping?.deliveryMethod) {
                 if (!validDeliveryMethods.includes(rawJSON.order.shipping.deliveryMethod)) {
                     rawJSON.order.shipping.deliveryMethod = "delivery";
                 }
             }
 
-            // 3. Sanitizar Itens (HandlingType e Condition)
             if (Array.isArray(rawJSON.order.items)) {
                 rawJSON.order.items = rawJSON.order.items.map((item: any) => {
                     let hType = item.handlingType;
@@ -671,7 +686,6 @@ ${freeText}
                 });
             }
 
-            // 4. Sanitizar Pagamentos (Method)
             if (Array.isArray(rawJSON.order.payments)) {
                 rawJSON.order.payments = rawJSON.order.payments.map((pay: any) => {
                     let method = pay.method || "Pix";
@@ -684,7 +698,6 @@ ${freeText}
             }
         }
 
-        // Sanitizar Origem do Cliente
         if (rawJSON?.client?.marketingOrigin) {
             if (!validMarketingOrigins.includes(rawJSON.client.marketingOrigin)) {
                 rawJSON.client.marketingOrigin = "organic";
@@ -700,4 +713,3 @@ ${freeText}
         };
     }
 };
-

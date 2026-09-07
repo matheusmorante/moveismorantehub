@@ -1,4 +1,4 @@
-import type { ParsedFinancialIntent } from '../financialAiAssistantService';
+import type { ParsedFinancialIntent } from './financialTypes';
 
 export function rebuildFinancialBatch(
   parent: ParsedFinancialIntent,

@@ -10,7 +10,7 @@ import {
   hasSignificantSemanticChange,
   parseIncrementalDraftDelta,
   LocalSemanticDelta,
-  AUTO_SEND_SILENCE_MS,
+  PRE_ANALYSIS_DEBOUNCE_MS,
   MAX_VOICE_INACTIVITY_MS,
   classifyMultiTurnIntent,
   applyTurnPatch,
@@ -360,13 +360,8 @@ export const FinancialAiChatView: React.FC<Props> = ({
       if (inactivityTimerRef.current) clearTimeout(inactivityTimerRef.current);
       inactivityTimerRef.current = setTimeout(async () => {
         if (voiceSessionIdRef.current === currentSessionId) {
-          console.log('[VoiceRecorder] Inatividade de 15s atingida. Encerrando ditado/microfone.');
-          const remainingText = (speechSessionTextRef.current || inputText).trim();
-          if (remainingText) {
-            await handleFinishVoice();
-          } else {
-            await handleCancelVoice();
-          }
+          console.log('[VoiceRecorder] Inatividade atingida. Parando microfone (texto preservado no input).');
+          await handleStopVoice();
         }
       }, MAX_VOICE_INACTIVITY_MS);
     };
@@ -380,7 +375,10 @@ export const FinancialAiChatView: React.FC<Props> = ({
         }
       },
       onRecordingEnd: () => {
-        // Na escuta contínua, o término espontâneo de um trecho não encerra a sessão
+        // Término espontâneo apenas para o microfone sem enviar a mensagem
+        if (voiceSessionIdRef.current === currentSessionId) {
+          setVoiceState('IDLE');
+        }
       },
       onSpeechResult: (transcript) => {
         if (voiceSessionIdRef.current !== currentSessionId) return;
@@ -395,22 +393,20 @@ export const FinancialAiChatView: React.FC<Props> = ({
         // Reinicia o Timer de Inatividade de 15s a cada fala
         resetInactivityTimer();
 
-        // Reinicia o Timer de Silêncio de 3.0s (AUTO_SEND_SILENCE_MS = 3000)
+        // Reinicia o Timer de Pré-Análise de 3.0s (PRE_ANALYSIS_DEBOUNCE_MS = 3000)
         if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
 
         silenceTimerRef.current = setTimeout(async () => {
           if (voiceSessionIdRef.current !== currentSessionId) return;
-          const textToAutoSend = speechSessionTextRef.current.trim();
-          if (textToAutoSend) {
-            speechSessionTextRef.current = '';
-            baseInputTextRef.current = '';
-            setInputText('');
-            setLivePill(null);
-            // O MICROFONE CONTINUA ATIVO (LISTENING), e o timer de inatividade de 15s reinicia
+          const currentFullText = (baseInputTextRef.current ? `${baseInputTextRef.current} ${speechSessionTextRef.current}` : speechSessionTextRef.current).trim();
+          if (currentFullText) {
+            // Executa pré-análise silenciosa em background SEM enviar ao chat e SEM limpar o input
+            const semanticDelta = extractLocalSemanticDelta(currentFullText);
+            setLivePill(semanticDelta);
+            // O MICROFONE CONTINUA ATIVO (LISTENING), permitindo ao usuário continuar falando
             resetInactivityTimer();
-            await handleSendMessage(textToAutoSend);
           }
-        }, AUTO_SEND_SILENCE_MS);
+        }, PRE_ANALYSIS_DEBOUNCE_MS);
       },
       onError: (err) => {
         if (voiceSessionIdRef.current === currentSessionId) {
@@ -428,6 +424,17 @@ export const FinancialAiChatView: React.FC<Props> = ({
     }
   };
 
+  const handleStopVoice = async () => {
+    voiceSessionIdRef.current += 1;
+    if (inactivityTimerRef.current) clearTimeout(inactivityTimerRef.current);
+    if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
+    if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
+
+    await stopVoiceRecording();
+    setVoiceState('IDLE');
+    // Texto gravado permanece no input para o usuário enviar manualmente
+  };
+
   const handleCancelVoice = async () => {
     voiceSessionIdRef.current += 1;
     if (inactivityTimerRef.current) clearTimeout(inactivityTimerRef.current);
@@ -441,26 +448,6 @@ export const FinancialAiChatView: React.FC<Props> = ({
     lastProcessedTextRef.current = '';
     setInputText('');
     setLivePill(null);
-  };
-
-  const handleFinishVoice = async () => {
-    voiceSessionIdRef.current += 1;
-    if (inactivityTimerRef.current) clearTimeout(inactivityTimerRef.current);
-    if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
-    if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
-    if (abortControllerRef.current) abortControllerRef.current.abort();
-
-    const textToSend = (inputText || speechSessionTextRef.current).trim();
-    speechSessionTextRef.current = '';
-    lastProcessedTextRef.current = '';
-    setInputText('');
-
-    await stopVoiceRecording();
-    setVoiceState('IDLE');
-
-    if (textToSend) {
-      await handleSendMessage(textToSend);
-    }
   };
 
   const handleConfirmRegister = async () => {
@@ -531,9 +518,12 @@ export const FinancialAiChatView: React.FC<Props> = ({
     setActiveTimelineCardId(null);
   };
 
-  const latestTimelineAnchor = () => messages.filter(message => !message.status || message.status === 'ACTIVE').at(-1)?.id
-    || timelineCards.at(-1)?.afterMessageId
-    || '';
+  const latestTimelineAnchor = () => {
+    const activeMsgs = messages.filter(message => !message.status || message.status === 'ACTIVE');
+    return (activeMsgs.length ? activeMsgs[activeMsgs.length - 1]?.id : null)
+      || (timelineCards.length ? timelineCards[timelineCards.length - 1]?.afterMessageId : '')
+      || '';
+  };
 
   const handleConfirmRegisterSingle = async (draftToRegister: ParsedFinancialIntent, index: number) => {
     try {
@@ -707,8 +697,8 @@ export const FinancialAiChatView: React.FC<Props> = ({
 
             <TouchableOpacity
               style={styles.stopRecordingBtn}
-              onPress={handleFinishVoice}
-              accessibilityLabel="Concluir fala"
+              onPress={handleStopVoice}
+              accessibilityLabel="Parar gravação"
               activeOpacity={0.8}
             >
               <Square size={14} color="#ffffff" />
@@ -730,7 +720,12 @@ export const FinancialAiChatView: React.FC<Props> = ({
             styles.sendBtn,
             !inputText.trim() || loading ? styles.sendBtnDisabled : null,
           ]}
-          onPress={() => (isRecordingActive ? handleFinishVoice() : handleSendMessage())}
+          onPress={async () => {
+            if (isRecordingActive) {
+              await handleStopVoice();
+            }
+            handleSendMessage();
+          }}
           disabled={!inputText.trim() || loading}
           activeOpacity={0.8}
           accessibilityLabel="Enviar mensagem"

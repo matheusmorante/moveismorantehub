@@ -21,10 +21,10 @@ const subjects = [
 export function inferBusinessPurpose(text: string): BusinessPurposeReply | null {
   const personal = /da minha casa|minha casa|da casa|minha|pessoal|é pessoal|uso pessoal|pra casa|para minha casa|da casa da gerente|gerente|sócio|socio|casa/i;
   const business = /da loja|do depósito|do deposito|da fábrica|da fabrica|da empresa|do comércio|do comercio|escritório|escritorio|é da loja|para a loja|pra loja|é pra loja|é para a loja/i;
-  const personalMatches = [...text.matchAll(new RegExp(personal.source, 'gi'))];
-  const businessMatches = [...text.matchAll(new RegExp(business.source, 'gi'))];
-  const personalIndex = personalMatches.at(-1)?.index ?? -1;
-  const businessIndex = businessMatches.at(-1)?.index ?? -1;
+  const personalMatches = Array.from(text.matchAll(new RegExp(personal.source, 'gi')));
+  const businessMatches = Array.from(text.matchAll(new RegExp(business.source, 'gi')));
+  const personalIndex = personalMatches.length ? (personalMatches[personalMatches.length - 1]?.index ?? -1) : -1;
+  const businessIndex = businessMatches.length ? (businessMatches[businessMatches.length - 1]?.index ?? -1) : -1;
   if (personalIndex === -1 && businessIndex === -1) return null;
   return personalIndex > businessIndex ? 'PERSONAL' : 'BUSINESS';
 }

@@ -9,7 +9,11 @@ export default defineConfig({
   },
   test: {
     environment: 'node',
-    include: ['src/**/*.test.{ts,tsx}', '../mobile/src/**/*.test.{ts,tsx}'],
+    include: [
+      'src/**/*.test.{ts,tsx}',
+      '../mobile/src/**/*.test.{ts,tsx}',
+      '../src/mcp/**/*.test.{ts,tsx}',
+    ],
     exclude: ['src/**/*.integration.test.{ts,tsx}', 'src/**/*.e2e.test.{ts,tsx}'],
     passWithNoTests: true,
     clearMocks: true,

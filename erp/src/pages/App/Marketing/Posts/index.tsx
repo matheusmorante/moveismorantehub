@@ -12,7 +12,7 @@ import { PreviewProductPicker } from './components/PreviewProductPicker';
 import { PromptPreview } from './components/PromptPreview/PromptPreview';
 import { PostsLibraryPage } from './components/PostsLibrary/PostsLibraryPage';
 import { postCreatorService } from './services/postCreatorService';
-import { CampaignElementModel, ElementModel, ElementType, PostCampaign, PostFormat } from './types/postCreator';
+import { CampaignElementModel, ElementModel, ElementType, PostCampaign } from './types/postCreator';
 
 export default function MarketingPostsManager() {
   const editor = usePostEditor();
@@ -23,7 +23,6 @@ export default function MarketingPostsManager() {
   const [campaignId, setCampaignId] = useState('');
   const [models, setModels] = useState<ElementModel[]>([]);
   const [links, setLinks] = useState<CampaignElementModel[]>([]);
-  const [format, setFormat] = useState<PostFormat>('4:5');
   const [managerOpen, setManagerOpen] = useState(false);
   const [savingChanges, setSavingChanges] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
@@ -190,7 +189,7 @@ export default function MarketingPostsManager() {
       ) : (
         <>
           {/* Barra de Configuração Responsiva */}
-          <div className="mb-4 grid gap-3 rounded-xl border border-slate-800/80 bg-slate-900/60 p-3.5 sm:p-4 md:grid-cols-2 xl:grid-cols-[minmax(240px,0.9fr)_minmax(320px,1.2fr)_auto] items-end">
+          <div className="mb-4 grid gap-3 rounded-xl border border-slate-800/80 bg-slate-900/60 p-3.5 sm:p-4 md:grid-cols-2 items-end">
             {/* Campanha */}
             <div className="text-xs font-semibold text-slate-300">
               <label htmlFor="post-campaign-select" className="block mb-1">
@@ -229,33 +228,6 @@ export default function MarketingPostsManager() {
                 onSearch={editor.setSearch}
                 onSelect={id => void editor.selectProduct(id)}
               />
-            </div>
-
-            {/* Formato Alvo Segmentado */}
-            <div className="text-xs font-semibold text-slate-300 md:col-span-2 xl:col-span-1">
-              <span className="block mb-1">Formato Alvo</span>
-              <div className="flex rounded-lg bg-slate-950 p-1 border border-slate-800 gap-1">
-                <button
-                  onClick={() => setFormat('4:5')}
-                  className={`flex-1 sm:flex-initial flex items-center justify-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-bold transition-all ${
-                    format === '4:5' ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-400 hover:text-slate-200'
-                  }`}
-                  aria-pressed={format === '4:5'}
-                >
-                  <span className="inline-block w-2.5 h-3.5 border border-current rounded-[2px] opacity-80" aria-hidden="true" />
-                  Feed 4:5
-                </button>
-                <button
-                  onClick={() => setFormat('9:16')}
-                  className={`flex-1 sm:flex-initial flex items-center justify-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-bold transition-all ${
-                    format === '9:16' ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-400 hover:text-slate-200'
-                  }`}
-                  aria-pressed={format === '9:16'}
-                >
-                  <span className="inline-block w-2 h-4 border border-current rounded-[2px] opacity-80" aria-hidden="true" />
-                  Story 9:16
-                </button>
-              </div>
             </div>
           </div>
 
@@ -308,7 +280,6 @@ export default function MarketingPostsManager() {
                   product={effectiveProductForPreview}
                   models={activeModels}
                   elementModels={models}
-                  format={format}
                   isFocused={isFocused}
                   onToggleFocus={() => setIsFocused(prev => !prev)}
                 />

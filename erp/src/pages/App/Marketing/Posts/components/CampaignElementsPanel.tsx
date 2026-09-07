@@ -209,7 +209,7 @@ export function CampaignElementsPanel({
               </span>
             ) : (
               <span className="text-[10px] text-slate-500 bg-slate-800/30 px-2 py-0.5 rounded">
-                Sem modelo
+                Não preenchido
               </span>
             )}
           </div>
@@ -240,7 +240,7 @@ export function CampaignElementsPanel({
                             onClick={() => onCreate('BADGE', opportunity.id)}
                             className="mt-2 rounded border border-indigo-400 px-2 py-1 text-[10px] font-bold text-indigo-300 hover:bg-indigo-950/60"
                           >
-                            + Criar selo
+                            + Configurar selo
                           </button>
                         </div>
                       )}
@@ -255,13 +255,13 @@ export function CampaignElementsPanel({
               card(items[0], onEdit, onView)
             ) : (
               <div className="space-y-2 py-1">
-                <p className="text-xs text-slate-500">Nenhum modelo configurado para este elemento nesta campanha.</p>
+                <p className="text-xs text-slate-500">Nenhum prompt configurado para este elemento nesta campanha.</p>
                 <button
                   type="button"
                   onClick={() => onCreate(type)}
                   className="rounded border border-indigo-400 px-3 py-1.5 text-xs font-bold text-indigo-300 hover:bg-indigo-950/60 transition"
                 >
-                  + Criar modelo
+                  + Configurar prompt
                 </button>
               </div>
             )}

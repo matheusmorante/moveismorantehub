@@ -65,21 +65,27 @@ export function resolveOfficialAssets(params: {
       (typeof product?.opportunity === 'string' ? product.opportunity : null) ||
       'Oportunidade';
 
-    let badgeUrl =
-      product?.opportunity?.image_url ||
-      product?.opportunityImageUrl ||
-      product?.opportunityBadgeUrl ||
-      null;
+    // REGRA DE NEGÓCIO ESTRITA:
+    // O selo do post NUNCA deve utilizar a miniatura/selo da listagem de produtos do ERP (product.opportunity.image_url).
+    // O selo deve vir EXCLUSIVAMENTE do modelo/elemento BADGE cadastrado na campanha ou do asset oficial de marketing.
+    let badgeUrl: string | null = null;
 
-    // Buscar no modelo ativo de badge (por ID ou por tipo se houver apenas 1)
+    // Buscar no modelo ativo de badge (por ID da oportunidade ou por tipo BADGE)
     const badgeModel = activeModels.find(
       (m: any) =>
         (m.elementType === 'BADGE' || m.element_type === 'BADGE') &&
         (!oppId || m.opportunityId === oppId || m.opportunity_id === oppId)
     ) || activeModels.find((m: any) => m.elementType === 'BADGE' || m.element_type === 'BADGE');
 
-    if (badgeModel?.generatedAssetUrl || badgeModel?.generated_asset_url) {
-      badgeUrl = badgeModel.generatedAssetUrl || badgeModel.generated_asset_url;
+    if (badgeModel) {
+      badgeUrl =
+        badgeModel.generatedAssetUrl ||
+        badgeModel.generated_asset_url ||
+        badgeModel.fileUrl ||
+        badgeModel.file_url ||
+        badgeModel.resources?.find((r: any) => r.role === 'OFFICIAL_ASSET' || r.role === 'REQUIRED_ASSET')?.url ||
+        badgeModel.resources?.[0]?.url ||
+        null;
     }
 
     if (!badgeUrl && /queima|salvados/i.test(oppName)) {

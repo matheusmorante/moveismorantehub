@@ -1,5 +1,5 @@
-import type { ParsedFinancialIntent } from '../financialAiAssistantService';
-import { fallbackHeuristicParser } from '../financialAiAssistantService';
+import type { ParsedFinancialIntent } from './financialTypes';
+import { fallbackHeuristicParser, parsePtBrNumber } from './financialTextParser';
 
 /**
  * Validador determinístico do Backend para Intenções Financeiras.
@@ -40,69 +40,6 @@ export function validateParsedIntent(
     return result;
   }
 
-  // 5. REGRA DE NEGÓCIO — DESPESA EMPRESARIAL x GASTO PESSOAL / PRÓ-LABORE
-  if (result.type === 'expense') {
-    const descLower = (result.description || '').toLowerCase();
-    const catLower = (result.categoryName || '').toLowerCase();
-    const combinedText = `${descLower} ${catLower}`;
-
-    const isFuel = /combustível|combustivel|gasolina|etanol|diesel|abasteci|abastecimento|abastecendo|posto/i.test(combinedText);
-    const isVehicleMaintenance = /manutenção|manutencao|oficina|óleo|oleo|pneu|pneus|peças|pecas|revisão|revisao|reparos|mecanico|mecânico|bateria|alinhamento|balanceamento|lavagem|conserto|reparo/i.test(combinedText);
-
-    if (isFuel) {
-      result.categoryName = 'Combustível';
-      result.businessPurpose = 'BUSINESS';
-    } else if (isVehicleMaintenance) {
-      result.categoryName = 'Manutenção de Veículos';
-      result.businessPurpose = 'BUSINESS';
-    } else {
-      const isElectricity = /luz|energia|eletricidade/i.test(combinedText);
-      const isWater = /água|agua|sanepar/i.test(combinedText);
-      const isInternetPhone = /internet|telefone|telefonia/i.test(combinedText);
-      const isRentCondo = /aluguel|condomínio|condominio/i.test(combinedText);
-      const isDomesticService = /compras domésticas|compras domesticas|serviços residenciais|servicos residenciais|assinatura/i.test(combinedText);
-      const dualItemMatch = combinedText.match(/\b(televisão|televisao|tv|geladeira|refrigerador|freezer|micro-ondas|microondas|ar-condicionado|ar\s+condicionado|computador|notebook|laptop|celular|smartphone|impressora|móveis|moveis|móvel|movel|eletrodoméstico|eletrodomesticos|eletrônico|eletronicos|equipamento|equipamentos|utensílio|utensilios|fogão|fogao|filtro|mesa|cadeira)\b/i);
-
-      const isDualItem = Boolean(dualItemMatch);
-      const isOtherAmbiguous = /material|materiais|compras|despesas/i.test(combinedText);
-      const isUtilityBill = isElectricity || isWater || isInternetPhone || isRentCondo || isDomesticService;
-      const isAmbiguousExpense = isUtilityBill || isDualItem || isOtherAmbiguous;
-
-      if (isAmbiguousExpense) {
-        const isExplicitStore = /da loja|do depósito|do deposito|da fábrica|da fabrica|da empresa|do comércio|do comercio|loja|escritório|escritorio|pra loja|para a loja|na loja|para o negócio|para o negocio/i.test(combinedText);
-        const isExplicitPersonal = /da minha casa|para minha casa|pra casa|minha casa|da casa|minha|pessoal|uso pessoal|para mim|pra mim|pra minha mãe|pra minha mae|minha mãe|minha mae|para o gerente|do sócio|do socio|casa/i.test(combinedText);
-        const isResale = /para revender|para revenda|para vender|revenda|revender/i.test(combinedText);
-
-        const hasKnownCategory = Boolean(
-          result.categoryName &&
-          result.categoryName !== 'UNKNOWN' &&
-          result.categoryName !== 'Despesa não classificada' &&
-          result.categoryName !== 'Pró-labore'
-        );
-
-        if (isResale && (!result.categoryName || result.categoryName === 'UNKNOWN' || result.categoryName === 'Despesa não classificada')) {
-          result.businessPurpose = 'BUSINESS';
-          result.categoryName = 'Compra de estoque';
-        } else if (isExplicitStore || result.businessPurpose === 'BUSINESS' || hasKnownCategory) {
-          result.businessPurpose = 'BUSINESS';
-          if (!result.categoryName || result.categoryName === 'UNKNOWN' || result.categoryName === 'Despesa não classificada') {
-            result.categoryName = isDualItem ? 'Equipamentos da Empresa' : 'Contas de Consumo';
-          }
-        } else if (isExplicitPersonal || result.businessPurpose === 'PERSONAL') {
-          result.businessPurpose = 'PERSONAL';
-          result.categoryName = 'Pró-labore';
-        } else if (!result.businessPurpose || result.businessPurpose === 'UNKNOWN') {
-          result.businessPurpose = 'UNKNOWN';
-          result.categoryName = 'UNKNOWN';
-          if (!result.missingFields) result.missingFields = [];
-          if (!result.missingFields.includes('businessPurpose')) {
-            result.missingFields.push('businessPurpose');
-          }
-        }
-      }
-    }
-  }
-
   if (!result.amount && !result.totalAmount && !result.matchedAccount) {
     if (result.unknownByUser?.includes('amount')) {
       result.missingFields = [];
@@ -119,7 +56,7 @@ export function validateParsedIntent(
     return result;
   }
 
-  if (result.intentType === 'PAYABLE_BILL' && !result.dueDate && !result.date) {
+  if ((result.intentType as string) === 'PAYABLE_BILL' && !result.dueDate && !result.date) {
     if (result.unknownByUser?.includes('dueDate') || result.unknownByUser?.includes('date')) {
       result.missingFields = [];
       result.isReadyForConfirmation = false;
@@ -239,9 +176,6 @@ export function validateParsedIntent(
     const catLower = (result.categoryName || '').toLowerCase();
     const combinedText = `${descLower} ${catLower}`;
 
-    // A) EXCEÇÃO IMPORTANTE — COMBUSTÍVEL E MANUTENÇÃO DE VEÍCULO
-    // NÃO transformar em Pró-labore nem perguntar se é pessoal/loja para transformar em Pró-labore.
-    // Categorias estritamente separadas: "Combustível" e "Manutenção de Veículos".
     const isFuel = /combustível|combustivel|gasolina|etanol|diesel|abasteci|abastecimento|abastecendo|posto/i.test(combinedText);
     const isVehicleMaintenance = /manutenção|manutencao|oficina|óleo|oleo|pneu|pneus|peças|pecas|revisão|revisao|reparos|mecanico|mecânico|bateria|alinhamento|balanceamento|lavagem|conserto|reparo/i.test(combinedText);
 
@@ -252,14 +186,11 @@ export function validateParsedIntent(
       result.categoryName = 'Manutenção de Veículos';
       result.businessPurpose = 'BUSINESS';
     } else {
-      // B) Identificar despesas ambíguas (Luz, Água, Internet, Aluguel, Condomínio, etc.)
       const isElectricity = /luz|energia|eletricidade/i.test(combinedText);
       const isWater = /água|agua|sanepar/i.test(combinedText);
       const isInternetPhone = /internet|telefone|telefonia/i.test(combinedText);
       const isRentCondo = /aluguel|condomínio|condominio/i.test(combinedText);
       const isDomesticService = /compras domésticas|compras domesticas|serviços residenciais|servicos residenciais|assinatura/i.test(combinedText);
-
-      // C) Bens e produtos físicos de uso dual (geladeira, televisão, freezer, micro-ondas, ar-condicionado, computador, notebook, celular, impressora, móveis, eletrodomésticos, eletrônicos, equipamentos, utensílios, etc.)
       const dualItemMatch = combinedText.match(/\b(televisão|televisao|tv|geladeira|refrigerador|freezer|micro-ondas|microondas|ar-condicionado|ar\s+condicionado|computador|notebook|laptop|celular|smartphone|impressora|móveis|moveis|móvel|movel|eletrodoméstico|eletrodomesticos|eletrônico|eletronicos|equipamento|equipamentos|utensílio|utensilios|fogão|fogao|filtro|mesa|cadeira)\b/i);
 
       const isDualItem = Boolean(dualItemMatch);
@@ -276,6 +207,8 @@ export function validateParsedIntent(
           result.categoryName &&
           result.categoryName !== 'UNKNOWN' &&
           result.categoryName !== 'Despesa não classificada' &&
+          result.categoryName !== 'Contas de Consumo' &&
+          result.categoryName !== 'Equipamentos da Empresa' &&
           result.categoryName !== 'Pró-labore'
         );
 
@@ -378,7 +311,7 @@ export function validateParsedIntent(
     result.paymentMethod !== 'UNKNOWN' &&
     result.paymentMethod !== 'UNKNOWN_BY_USER' &&
     result.paymentMethod.trim() !== '') ||
-    result.intentType === 'INSTALLMENT' ||
+    (result.intentType as string) === 'INSTALLMENT' ||
     Boolean(result.installmentList?.length)
   );
 
@@ -446,6 +379,17 @@ export function extractMultipleFinancialFacts(
     { key: 'televisão', label: 'Compra de televisão', cat: 'Equipamentos da Empresa', isDual: true },
     { key: 'televisao', label: 'Compra de televisão', cat: 'Equipamentos da Empresa', isDual: true },
     { key: 'tv', label: 'Compra de televisão', cat: 'Equipamentos da Empresa', isDual: true },
+    { key: 'almoço', label: 'Alimentação / Almoço', cat: 'Alimentação' },
+    { key: 'almoco', label: 'Alimentação / Almoço', cat: 'Alimentação' },
+    { key: 'refeição', label: 'Alimentação', cat: 'Alimentação' },
+    { key: 'refeicao', label: 'Alimentação', cat: 'Alimentação' },
+    { key: 'café', label: 'Café e Lanches', cat: 'Alimentação' },
+    { key: 'cafe', label: 'Café e Lanches', cat: 'Alimentação' },
+    { key: 'estacionamento', label: 'Estacionamento', cat: 'Transporte e Estacionamento' },
+    { key: 'montagem', label: 'Serviço de montagem', cat: 'Serviços Terceirizados' },
+    { key: 'limpeza', label: 'Material de limpeza', cat: 'Material de Consumo' },
+    { key: 'venda', label: 'Recebimento de venda', cat: 'Receitas Operacionais', type: 'income' },
+    { key: 'recebi', label: 'Recebimento de venda', cat: 'Receitas Operacionais', type: 'income' },
     { key: 'joão', label: 'Recebimento de João', cat: 'Outras receitas', type: 'income' },
     { key: 'joao', label: 'Recebimento de João', cat: 'Outras receitas', type: 'income' },
   ];
@@ -527,7 +471,8 @@ export function extractMultipleFinancialFacts(
 
       // 2. Um mesmo valor monetário não pode ser consumido por dois fatos independentes
       const allocatedAmountIndexes = new Set<number>();
-      const numbersComeAfterAllItems = availableNumbers.length >= presentKeywords.length &&
+      const numbersComeAfterAllItems = presentKeywords.length > 0 &&
+        availableNumbers.length >= presentKeywords.length &&
         availableNumbers[0].pos > presentKeywords[presentKeywords.length - 1].pos;
 
       if (presentKeywords.length >= 2 && availableNumbers.length >= 2) {
@@ -553,7 +498,6 @@ export function extractMultipleFinancialFacts(
             allocatedAmountIndexes.add(bestNumIdx);
             const matchedNum = availableNumbers[bestNumIdx];
             matchedNum.used = true;
-
             let pm = globalPayment;
             const nextKeywordPosition = presentKeywords[keywordIndex + 1]?.pos ?? Math.min(lower.length, availableNumbers[0]?.pos ?? lower.length);
             const kwSub = lower.substring(pk.pos, Math.max(pk.pos + pk.fk.key.length, nextKeywordPosition));
@@ -581,7 +525,13 @@ export function extractMultipleFinancialFacts(
   if (foundItems.length >= 2) {
     return foundItems.map(item => {
       const isStoreExplicit = /loja|empresa|depósito|deposito|escritório|escritorio/i.test(lower);
-      let busPurpose: 'BUSINESS' | 'PERSONAL' | 'UNKNOWN' = item.isVehicle ? 'BUSINESS' : (item.isDual ? (isStoreExplicit ? 'BUSINESS' : 'UNKNOWN') : 'UNKNOWN');
+      const isPersonalExplicit = /pessoal|minha casa|minha família|minha familia/i.test(lower);
+      let busPurpose: 'BUSINESS' | 'PERSONAL' | 'UNKNOWN' = 'UNKNOWN';
+      if (isPersonalExplicit) {
+        busPurpose = 'PERSONAL';
+      } else if (isStoreExplicit || item.isVehicle) {
+        busPurpose = 'BUSINESS';
+      }
 
       const rawDraft: ParsedFinancialIntent = {
         intentType: 'SINGLE_TRANSACTION',
@@ -672,18 +622,60 @@ export function processFinancialInput(
 
   const activeContext = options?.rememberedUnrealizedFacts || globalUnrealizedFactsContext;
 
-  // 1. Resposta de pagamento a fatos não realizados prévios
+  // 1. Múltiplos Fatos novos na mesma mensagem (tem prioridade absoluta sobre contexto residual)
+  const multipleFacts = extractMultipleFinancialFacts(text, todayStr);
+  if (multipleFacts.length >= 2) {
+    if (!isRealizedPayment) {
+      globalUnrealizedFactsContext = multipleFacts;
+    } else {
+      globalUnrealizedFactsContext = [];
+    }
+    const groupedQuestion = buildGroupedQuestion(multipleFacts);
+    const allMissing = Array.from(new Set(multipleFacts.flatMap(d => d.missingFields || [])));
+    const mainDraft: ParsedFinancialIntent = {
+      intentType: 'SINGLE_TRANSACTION',
+      type: multipleFacts[0].type,
+      amount: multipleFacts[0].amount,
+      description: multipleFacts[0].description,
+      categoryName: multipleFacts[0].categoryName,
+      paymentMethod: multipleFacts[0].paymentMethod,
+      businessPurpose: multipleFacts[0].businessPurpose,
+      missingFields: allMissing,
+      batchDraftsList: multipleFacts,
+      isReadyForConfirmation: false,
+      isRealized: isRealizedPayment,
+      questionToUser: groupedQuestion || `Identifiquei ${multipleFacts.length} movimentações nesta mensagem. Qual foi a forma de pagamento?`,
+    };
+
+    return { draft: mainDraft, isRealized: isRealizedPayment, rememberedFacts: multipleFacts };
+  }
+
+  // 2. Resposta de pagamento a fatos não realizados prévios
   if (isRealizedPayment && activeContext.length >= 1) {
-    let targetFacts = activeContext;
-    if (lower.includes('luz') && !lower.includes('internet') && !lower.includes('as duas') && !lower.includes('os dois') && !lower.includes('tudo')) {
+    let targetFacts: ParsedFinancialIntent[] = [];
+    const isGenericPaymentRef = /\b(as\s+duas|os\s+dois|tudo|ambas|ambos|paguei\s+no|paguei\s+na|foi\s+no|foi\s+na|no\s+pix|no\s+debito|no\s+débito|no\s+credito|no\s+crédito|em\s+dinheiro)\b/i.test(lower);
+
+    if (lower.includes('luz') && !lower.includes('internet')) {
       targetFacts = activeContext.filter(f => (f.description || '').toLowerCase().includes('luz'));
-    } else if (lower.includes('internet') && !lower.includes('luz') && !lower.includes('as duas') && !lower.includes('os dois') && !lower.includes('tudo')) {
+    } else if (lower.includes('internet') && !lower.includes('luz')) {
       targetFacts = activeContext.filter(f => (f.description || '').toLowerCase().includes('internet'));
+    } else if (isGenericPaymentRef) {
+      targetFacts = activeContext;
+    } else {
+      // Verifica se a mensagem casa com a descrição de algum fato pendente
+      targetFacts = activeContext.filter(f => f.description && lower.includes(f.description.toLowerCase()));
     }
 
     if (targetFacts.length > 0) {
+      let turnPaymentMethod: string | undefined = undefined;
+      if (/\b(?:pix|pics)\b/i.test(lower)) turnPaymentMethod = 'Pix';
+      else if (/débito|debito/i.test(lower)) turnPaymentMethod = 'Cartão de Débito';
+      else if (/crédito|credito/i.test(lower)) turnPaymentMethod = 'Cartão de Crédito';
+      else if (/dinheiro/i.test(lower)) turnPaymentMethod = 'Dinheiro';
+
       const realizedBatch = targetFacts.map(f => validateParsedIntent({
         ...f,
+        paymentMethod: turnPaymentMethod || f.paymentMethod || 'UNKNOWN',
         isRealized: true,
         isReadyForConfirmation: false,
       }, todayStr));
@@ -709,97 +701,9 @@ export function processFinancialInput(
     }
   }
 
-  // 2. Múltiplos Fatos na mesma mensagem
-  const multipleFacts = extractMultipleFinancialFacts(text, todayStr);
-
-  if (multipleFacts.length >= 2) {
-    if (!isRealizedPayment) {
-      // "Tenho uma conta de luz de 200 e internet de 100" -> Unrealized Informational Fact
-      globalUnrealizedFactsContext = multipleFacts;
-
-      const summaryParts = multipleFacts.map(f => {
-        const desc = (f.description || '').toLowerCase();
-        let name = 'conta';
-        if (desc.includes('luz')) name = 'luz';
-        else if (desc.includes('internet')) name = 'internet';
-        else if (desc.includes('água')) name = 'água';
-        const amtStr = `R$ ${(f.amount || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
-        return `${name} de ${amtStr}`;
-      }).join(' e ');
-
-      const infoDraft: ParsedFinancialIntent = {
-        intentType: 'SINGLE_TRANSACTION',
-        type: 'expense',
-        amount: null,
-        description: text,
-        categoryName: 'UNKNOWN',
-        missingFields: [],
-        confidence: 0.9,
-        isReadyForConfirmation: false,
-        isRealized: false,
-        batchDraftsList: null,
-        rememberedUnrealizedFacts: multipleFacts,
-        questionToUser: `Entendi: ${summaryParts}. Você está informando essas contas ou quer registrar algum pagamento que já foi realizado?`,
-      };
-
-      return { draft: infoDraft, isRealized: false, rememberedFacts: multipleFacts };
-    } else {
-      // "Paguei 200 de luz e 100 de internet" -> Realized Batch
-      globalUnrealizedFactsContext = [];
-      const groupedQuestion = buildGroupedQuestion(multipleFacts);
-      const allMissing = Array.from(new Set(multipleFacts.flatMap(d => d.missingFields || [])));
-      const mainDraft: ParsedFinancialIntent = {
-        intentType: 'SINGLE_TRANSACTION',
-        type: multipleFacts[0].type,
-        amount: multipleFacts[0].amount,
-        description: multipleFacts[0].description,
-        categoryName: multipleFacts[0].categoryName,
-        paymentMethod: multipleFacts[0].paymentMethod,
-        businessPurpose: multipleFacts[0].businessPurpose,
-        missingFields: allMissing,
-        batchDraftsList: multipleFacts,
-        isReadyForConfirmation: false,
-        isRealized: true,
-        questionToUser: groupedQuestion || `Identifiquei ${multipleFacts.length} movimentações nesta mensagem. Deseja confirmar todas?`,
-      };
-
-      return { draft: mainDraft, isRealized: true };
-    }
-  }
-
   // 3. Fato Único
   const numMatch = text.match(/(?:r\$\s*)?(\d+(?:\.\d{3})?(?:,\d{1,2})?)/i);
   const amt = numMatch ? parseFloat(numMatch[1].replace(/\./g, '').replace(',', '.')) : null;
-
-  const isExplicitUnrealized = /\b(tenho|tenho\s+uma|tenho\s+que\s+pagar|veio|fatura|minha\s+conta)\b/i.test(lower) && !isRealizedPayment;
-
-  if (isExplicitUnrealized && amt) {
-    let itemName = 'conta';
-    if (lower.includes('luz')) itemName = 'conta de luz';
-    else if (lower.includes('internet')) itemName = 'internet';
-    else if (lower.includes('água') || lower.includes('agua')) itemName = 'conta de água';
-
-    const amtStr = `R$ ${amt.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
-    const infoFact: ParsedFinancialIntent = { intentType: 'SINGLE_TRANSACTION', type: 'expense', description: itemName, amount: amt, missingFields: [], confidence: 0.9, isReadyForConfirmation: false, isRealized: false };
-    globalUnrealizedFactsContext = [infoFact];
-
-    const infoDraft: ParsedFinancialIntent = {
-      intentType: 'SINGLE_TRANSACTION',
-      type: 'expense',
-      amount: amt,
-      description: text,
-      categoryName: 'UNKNOWN',
-      missingFields: [],
-      confidence: 0.9,
-      isReadyForConfirmation: false,
-      isRealized: false,
-      batchDraftsList: null,
-      rememberedUnrealizedFacts: [infoFact],
-      questionToUser: `Entendi: ${itemName} de ${amtStr}. Você está apenas informando essa conta ou deseja registrar o pagamento que já foi realizado?`,
-    };
-
-    return { draft: infoDraft, isRealized: false, rememberedFacts: [infoFact] };
-  }
 
   const rawHeuristic = fallbackHeuristicParser(text, [], todayStr);
   rawHeuristic.isRealized = isRealizedPayment;

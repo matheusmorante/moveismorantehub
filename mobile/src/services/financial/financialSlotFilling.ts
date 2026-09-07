@@ -1,4 +1,6 @@
-import { ParsedFinancialIntent, parsePtBrNumber } from '../financialAiAssistantService';
+import type { ParsedFinancialIntent } from './financialTypes';
+import { parsePtBrNumber } from './financialTextParser';
+import { parsePtBrWrittenNumbers } from './wordToNumberPtBr';
 import { validateParsedIntent } from './financialIntentValidator';
 import { inferBusinessPurpose } from './financialPurposeReply';
 
@@ -12,6 +14,7 @@ export const extractUnknownFieldsFromText = (
   const isGeneralUnknown =
     lower.includes('não lembro') ||
     lower.includes('nao lembro') ||
+    lower.includes('sem lembrar') ||
     lower.includes('não sei') ||
     lower.includes('nao sei') ||
     lower.includes('não tenho certeza') ||
@@ -28,7 +31,7 @@ export const extractUnknownFieldsFromText = (
       unknownSet.add('date');
       unknownSet.add('dueDate');
     }
-    if (lower.includes('forma de pagamento') || lower.includes('como paguei') || lower.includes('pagamento') || lower.includes('paguei')) {
+    if (lower.includes('forma') || lower.includes('como paguei') || lower.includes('pagamento') || lower.includes('paguei')) {
       unknownSet.add('paymentMethod');
     }
     if (lower.includes('quantia') || lower.includes('valor') || lower.includes('quanto') || lower.includes('preço') || lower.includes('preco')) {
@@ -68,6 +71,7 @@ export const trySlotFillingFallback = (
   const isUnknown =
     text.includes('não lembro') ||
     text.includes('nao lembro') ||
+    text.includes('sem lembrar') ||
     text.includes('não sei') ||
     text.includes('nao sei') ||
     text.includes('consulta aí') ||
@@ -153,14 +157,14 @@ export const trySlotFillingFallback = (
         draft.categoryName = isDualItem ? 'Equipamentos da Empresa' : 'Contas de Consumo';
       }
       draft.missingFields = (draft.missingFields || []).filter(f => f !== 'businessPurpose');
-      draft.questions = (draft.questions || []).filter(q => !/loja|pessoal|casa|businessPurpose/i.test(q));
+      (draft as any).questions = ((draft as any).questions || []).filter((q: string) => !/loja|pessoal|casa|businessPurpose/i.test(q));
       draft.questionToUser = null;
       return validateParsedIntent(draft, todayStr);
     } else if (purposeReply === 'PERSONAL') {
       draft.businessPurpose = 'PERSONAL';
       draft.categoryName = 'Pró-labore';
       draft.missingFields = (draft.missingFields || []).filter(f => f !== 'businessPurpose');
-      draft.questions = (draft.questions || []).filter(q => !/loja|pessoal|casa|businessPurpose/i.test(q));
+      (draft as any).questions = ((draft as any).questions || []).filter((q: string) => !/loja|pessoal|casa|businessPurpose/i.test(q));
       draft.questionToUser = null;
       return validateParsedIntent(draft, todayStr);
     }
@@ -223,6 +227,8 @@ export const trySlotFillingFallback = (
       return validateParsedIntent(draft, todayStr);
     }
   }
+
+  // 1.2. Slot filling para complemento de boletos faltantes (ex: "e outro de 4 mil", "e mais um de 3000")
   const isComplementingBill =
     (text.includes('outro') || text.includes('mais') || text.includes('faltou')) &&
     !text.includes('para o dia') &&
@@ -357,7 +363,7 @@ export const trySlotFillingFallback = (
     if (capturedMethod) {
       draft.paymentMethod = capturedMethod;
       draft.missingFields = (draft.missingFields || []).filter(f => f !== 'paymentMethod');
-      draft.questions = (draft.questions || []).filter(q => !/pagamento|recebimento|forma|paymentMethod/i.test(q));
+      (draft as any).questions = ((draft as any).questions || []).filter((q: string) => !/pagamento|recebimento|forma|paymentMethod/i.test(q));
       draft.questionToUser = null;
       if (!text.includes('dia') && !text.includes('categoria') && !text.includes('mil') && !text.includes('k')) {
         return validateParsedIntent(draft, todayStr);

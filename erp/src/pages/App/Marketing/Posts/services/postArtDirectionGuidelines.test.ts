@@ -89,10 +89,12 @@ describe('postArtDirectionGuidelines — Direção de Arte Global e Anti-Simplic
     const prompt = renderSpecificationAsPrompt(spec);
 
     // 1. Benefícios comerciais reais autorizados
-    expect(prompt).toContain('DIFERENCIAIS COMERCIAIS AUTORIZADOS');
-    expect(prompt).toContain('Entrega rápida em até 5 dias úteis');
-    expect(prompt).toContain('Montagem inclusa com equipe especializada');
-    expect(prompt).toContain('Frete grátis até 100km');
+    expect(prompt).toContain('DIFERENCIAIS E SELOS COMERCIAIS AUTORIZADOS');
+    expect(prompt).toContain('Entrega Rápida');
+    expect(prompt).toContain('1 a 4 dias');
+    expect(prompt).toContain('Montagem Inclusa');
+    expect(prompt).toContain('Compra Segura');
+    expect(prompt).toContain('Pague na Entrega');
 
     // 2. Proibição expressa de clichês e slogans vazios
     expect(prompt).toContain('TEXTOS, SLOGANS E RÓTULOS GENÉRICOS EXPRESSAMENTE PROIBIDOS:');

@@ -339,9 +339,9 @@ export const GeneratedPostCanvas = forwardRef<HTMLDivElement, GeneratedPostCanva
             className="hidden sm:flex flex-col items-end text-[8px] font-bold drop-shadow leading-tight"
             style={{ color: themeStyle.benefitsTextColor }}
           >
-            <span>✓ Entrega Rápida</span>
+            <span>✓ Entrega Rápida (1 a 4 dias)</span>
             <span>✓ Montagem Inclusa</span>
-            <span>✓ Frete Grátis até 100km</span>
+            <span>✓ Compra Segura (Pague na Entrega)</span>
           </div>
         </div>
       </div>

@@ -87,14 +87,7 @@ export const PromptCopyableImagesList: React.FC<PromptCopyableImagesListProps> =
     product?.opportunity?.name ||
     (typeof product?.opportunity === 'string' ? product.opportunity : '');
 
-  const badgeUrl =
-    officialAssets?.badge?.url ||
-    product?.opportunity?.image_url ||
-    product?.opportunityImageUrl ||
-    product?.opportunityBadgeUrl ||
-    (/queima|salvados/i.test(oppNameRaw)
-      ? 'https://hkoxhourxwlddgsfdgws.supabase.co/storage/v1/object/public/products/marketing/seals/9d8bedae-b366-4f8c-ac49-74b85b882bde-1787790409290.png'
-      : null);
+  const badgeUrl = officialAssets?.badge?.url || null;
 
   if (badgeUrl) {
     const titleText = oppNameRaw

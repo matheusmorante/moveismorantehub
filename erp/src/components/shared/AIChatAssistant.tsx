@@ -6,13 +6,14 @@ import { saveOrder } from '../../pages/utils/orderHistoryService';
 import Product from '../../pages/types/product.type';
 import Order from '../../pages/types/order.type';
 import { aiService } from '@/pages/utils/aiService';
+import { AiPreAnalysisManager } from '@/services/aiGateway/core/AiPreAnalysisManager';
 
 interface Message {
     role: 'user' | 'assistant';
     content: string;
     timestamp: Date;
     isAction?: boolean;
-    actionType?: 'create_product' | 'create_order' | 'create_service';
+    actionType?: 'create_product' | 'create_order' | 'create_service' | 'create_transaction';
     actionData?: any;
     actionStatus?: 'pending' | 'success' | 'error';
     summary?: string;
@@ -149,12 +150,14 @@ const AIChatAssistant = ({ isFloating = true, forceOpen }: AIChatAssistantProps)
                         const transcript = event.results[i][0].transcript;
                         setInput(prev => {
                             const newText = (prev + ' ' + transcript).trim();
-                            if (isCallMode) {
-                                if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
-                                silenceTimerRef.current = setTimeout(() => {
-                                    handleSendRequest(newText);
-                                }, 1200);
-                            }
+                            const version = AiPreAnalysisManager.onTextChange(newText);
+
+                            // Debounce silencioso de 3 segundos para pré-análise (NÃO envia a mensagem)
+                            if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
+                            silenceTimerRef.current = setTimeout(() => {
+                                AiPreAnalysisManager.executePreAnalysis(newText, version);
+                            }, 3000);
+
                             return newText;
                         });
                     } else {
@@ -415,9 +418,11 @@ const AIChatAssistant = ({ isFloating = true, forceOpen }: AIChatAssistantProps)
                 };
                 await saveOrder(orderData as Order);
                 toast.success("Pedido rascunho criado!");
+            } else if (msg.actionType === 'create_transaction') {
+                toast.success("Movimentação financeira registrada com sucesso!");
             }
 
-            setMessages(prev => prev.map((m, i) => i === msgIndex ? { ...m, actionStatus: 'success', content: 'Salvo com sucesso! ✨' } : m));
+            setMessages(prev => prev.map((m, i) => i === msgIndex ? { ...m, actionStatus: 'success', content: 'Movimentação registrada com sucesso! ✨' } : m));
             setShowPreviewModal(false);
         } catch (error) {
             toast.error("Erro ao salvar.");
@@ -626,13 +631,16 @@ const AIChatAssistant = ({ isFloating = true, forceOpen }: AIChatAssistantProps)
                             </div>
                         ))}
                         {isLoading && (
-                            <div className="flex items-start gap-2 animate-pulse">
-                                <div className="bg-white dark:bg-slate-800 px-5 py-3 rounded-2xl rounded-tl-none border border-slate-100 dark:border-slate-700 shadow-sm">
+                            <div className="flex items-start gap-2 animate-fadeIn" data-testid="assistant-analyzing-state">
+                                <div className="bg-gradient-to-r from-indigo-50 to-slate-50 dark:from-slate-800 dark:to-slate-800/60 px-4 py-3 rounded-2xl rounded-tl-none border border-indigo-100 dark:border-indigo-900/40 shadow-sm flex items-center gap-3">
                                     <div className="flex gap-1">
-                                        <div className="w-1.5 h-1.5 bg-slate-400 rounded-full animate-bounce"></div>
-                                        <div className="w-1.5 h-1.5 bg-slate-400 rounded-full animate-bounce [animation-delay:-0.15s]"></div>
-                                        <div className="w-1.5 h-1.5 bg-slate-400 rounded-full animate-bounce [animation-delay:-0.3s]"></div>
+                                        <div className="w-2 h-2 bg-indigo-600 rounded-full animate-bounce"></div>
+                                        <div className="w-2 h-2 bg-indigo-500 rounded-full animate-bounce [animation-delay:-0.15s]"></div>
+                                        <div className="w-2 h-2 bg-indigo-400 rounded-full animate-bounce [animation-delay:-0.3s]"></div>
                                     </div>
+                                    <span className="text-xs font-semibold text-indigo-700 dark:text-indigo-300">
+                                        Analisando mensagem...
+                                    </span>
                                 </div>
                             </div>
                         )}
@@ -703,7 +711,7 @@ const AIChatAssistant = ({ isFloating = true, forceOpen }: AIChatAssistantProps)
                 const previewType = pendingActionIntent || latestPendingAction?.actionType;
                 const isPreviewComplete = !pendingActionData && !!latestPendingAction;
 
-                if (!showPreviewModal || !previewData) return null;
+                if (isLoading || !showPreviewModal || !previewData) return null;
 
                 return (
                     <div className="absolute bottom-20 right-[400px] w-80 max-h-[500px] bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-slate-100 dark:border-slate-800 flex flex-col animate-slide-in-right custom-scrollbar z-[10000] overflow-hidden">

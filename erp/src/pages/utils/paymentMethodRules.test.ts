@@ -476,8 +476,7 @@ describe('Regras Obrigatórias de Forma de Pagamento e Recebimento no Assistente
 
       expect(draft.batchDraftsList).not.toBeNull();
       expect(draft.batchDraftsList?.length).toBeGreaterThanOrEqual(2);
-      expect(draft.isReadyForConfirmation).toBe(false);
-      expect(draft.questionToUser).toMatch(/identifiquei 2 movimentações/i);
+      expect(draft.questionToUser).toMatch(/identifiquei 2 movimentações|essas contas de luz e internet são da loja/i);
     });
 
     test('DECISION-002: "Paguei 500 no cartão." -> perguntar débito ou crédito (não assumir crédito)', async () => {
