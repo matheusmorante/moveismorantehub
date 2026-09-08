@@ -78,8 +78,18 @@ export default function InboundInvoicesPage() {
 
             if (result.newInvoicesCount > 0) {
                 toast.success(`${result.newInvoicesCount} nova(s) NF-e importada(s) com sucesso da SEFAZ!`);
-            } else if (result.message && (result.message.toLowerCase().includes('error') || result.message.toLowerCase().includes('falha') || result.message.toLowerCase().includes('indispon'))) {
-                toast.warning(`Retorno da SEFAZ: ${result.message}`);
+            } else if (result.message && (
+                result.message.toLowerCase().includes('error') ||
+                result.message.toLowerCase().includes('erro') ||
+                result.message.toLowerCase().includes('falha') ||
+                result.message.toLowerCase().includes('indispon') ||
+                result.message.toLowerCase().includes('http') ||
+                result.message.toLowerCase().includes('ponte') ||
+                result.message.toLowerCase().includes('404') ||
+                result.message.toLowerCase().includes('500') ||
+                result.message.toLowerCase().includes('502')
+            )) {
+                toast.warning(`Aviso SEFAZ: ${result.message}`);
             } else {
                 toast.success(result.message || 'Consulta SEFAZ finalizada. Nenhuma nova nota fiscal disponível no momento.');
             }

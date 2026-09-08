@@ -338,7 +338,7 @@ serve(async (req) => {
 
     // 4. Parâmetros da consulta e URL da ponte Node.js mTLS
     const tpAmb = environment === "production" ? "1" : "2";
-    const nodeBridgeUrl = Deno.env.get("SEFAZ_NODE_BRIDGE_URL") || "https://moveismorante.com.br/api/nfe/dist-dfe";
+    const nodeBridgeUrl = Deno.env.get("SEFAZ_NODE_BRIDGE_URL") || "https://morantehub.vercel.app/api/dist-dfe";
     const bridgeToken = Deno.env.get("SEFAZ_BRIDGE_TOKEN") || Deno.env.get("MORANTEHUB_MCP_ACCESS_TOKEN") || "morante_mcp_master_8b4e2a9d6c1f3e5a7b0d2c4e";
 
     let totalPersisted = 0;
