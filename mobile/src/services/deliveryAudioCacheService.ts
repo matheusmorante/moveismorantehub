@@ -139,6 +139,18 @@ export async function getCachedAudioRecord(
   return null;
 }
 
+/** A URL assinada é descartável; o caminho no Storage é a referência persistente. */
+export async function getPlayableAudioUrl(record: AudioCacheRecord): Promise<string | null> {
+  if (record.audioStoragePath) {
+    const { data, error } = await supabase.storage
+      .from('delivery-summary-audio')
+      .createSignedUrl(record.audioStoragePath, 60 * 60);
+    if (!error && data?.signedUrl) return data.signedUrl;
+    return null;
+  }
+  return record.audioUrl || null;
+}
+
 /**
  * Salva novo registro de áudio no cache (Memória + AsyncStorage + Supabase DB).
  */

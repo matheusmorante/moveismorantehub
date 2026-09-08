@@ -13,6 +13,15 @@ import {
 import { getLocalDateString } from '../utils/orderUtils';
 import { formatDistanceNatural, formatProductNameWithArticle } from '../utils/aiSummaryHelper';
 import { buildDeliverySummaryPrompt } from './aiSummaryPrompt';
+import { ensureSharedSummaryAudio } from './deliverySummaryAudioGenerationService';
+
+// Camada quente da sessão: evita nova geração quando o operador alterna entre
+// Hoje e Dias seguintes antes mesmo da leitura persistida terminar.
+const summaryTextMemoryCache = new Map<string, string>();
+
+export function clearSummaryTextMemoryCache() {
+  summaryTextMemoryCache.clear();
+}
 
 export const generateDeliveryAISummary = async (
   mode: 'today' | 'tomorrow' | 'next_days' | 'next5days',
@@ -42,12 +51,21 @@ export const generateDeliveryAISummary = async (
       console.warn('Configurações de IA não carregadas:', e);
     }
 
-    const handlingOptions: any[] = settingsData?.handlingOptions || settingsData?.orderTypes || [];
-    const geminiKey = settingsData?.geminiApiKey || process.env.VITE_GEMINI_API_KEY || '';
+    const settings = settingsData?.data || settingsData || {};
+    const handlingOptions: any[] = settings.handlingOptions || settings.orderTypes || [];
+    const geminiKey = settings.geminiApiKey || process.env.VITE_GEMINI_API_KEY || '';
 
     // 1. Montar payload canônico e calcular a fingerprint determinística dos dados
     const canonicalPayload: CanonicalSummaryPayload = buildCanonicalSummaryPayload(rawOrders || [], mode, handlingOptions);
     const currentFingerprint = generateCanonicalFingerprint(canonicalPayload);
+    const memoryCacheKey = `${mode}:${currentFingerprint}`;
+    const memoryText = summaryTextMemoryCache.get(memoryCacheKey);
+
+    if (!forceRefresh && memoryText) {
+      if (mode === 'today' && setAiSummaryToday) setAiSummaryToday(memoryText);
+      else if ((mode === 'tomorrow' || mode === 'next_days') && setAiSummaryTomorrow) setAiSummaryTomorrow(memoryText);
+      return memoryText;
+    }
 
     // 2. Verificar se já existe um resumo persistido para a mesma fingerprint
     const savedRecord = await getSavedSummaryRecord(mode, currentFingerprint);
@@ -56,9 +74,14 @@ export const generateDeliveryAISummary = async (
       if (savedRecord.text_status === 'READY' && savedRecord.text) {
         // REUTILIZAÇÃO PERFEITA: Mesmos dados -> Mesmo Texto + Mesmo Áudio
         // ZERO chamadas adicionais de Gemini e ZERO chamadas de TTS!
+        summaryTextMemoryCache.set(memoryCacheKey, savedRecord.text);
         if (mode === 'today' && setAiSummaryToday) setAiSummaryToday(savedRecord.text);
         else if ((mode === 'tomorrow' || mode === 'next_days') && setAiSummaryTomorrow) setAiSummaryTomorrow(savedRecord.text);
-        if (setIsGeneratingAISummary) setIsGeneratingAISummary(false);
+        // Recuperação idempotente para versões persistidas antes de um erro ou
+        // interrupção. Se o áudio já estiver READY, esta chamada não acontece.
+        if (savedRecord.audio_status === 'MISSING' || savedRecord.audio_status === 'FAILED') {
+          void ensureSharedSummaryAudio(mode, savedRecord.text);
+        }
         return savedRecord.text;
       }
 
@@ -68,7 +91,6 @@ export const generateDeliveryAISummary = async (
           if (mode === 'today' && setAiSummaryToday) setAiSummaryToday(savedRecord.text);
           else if ((mode === 'tomorrow' || mode === 'next_days') && setAiSummaryTomorrow) setAiSummaryTomorrow(savedRecord.text);
         }
-        if (setIsGeneratingAISummary) setIsGeneratingAISummary(false);
         return savedRecord.text || '';
       }
     }
@@ -130,10 +152,18 @@ export const generateDeliveryAISummary = async (
       data_fingerprint: currentFingerprint,
       text: smartText,
       text_status: 'READY',
-      audio_status: 'READY',
+      // A síntese de voz é sob demanda. O player usa cache por texto e só
+      // muda de chave quando esta versão do resumo realmente mudar.
+      audio_status: 'MISSING',
       generation_started_at: null,
       error_message: null,
     });
+
+    // Só uma nova versão persistida pode pedir TTS. Montagem, refetch e troca
+    // de aba retornam antes deste ponto com o resumo já salvo.
+    void ensureSharedSummaryAudio(mode, smartText);
+
+    summaryTextMemoryCache.set(memoryCacheKey, smartText);
 
     if (mode === 'today' && setAiSummaryToday) setAiSummaryToday(smartText);
     else if ((mode === 'tomorrow' || mode === 'next_days') && setAiSummaryTomorrow) setAiSummaryTomorrow(smartText);
@@ -301,4 +331,3 @@ export function generateLocalSmartText(payload: CanonicalSummaryPayload): string
 
   return `${overview} ${details}`.trim().replace(/\s+/g, ' ');
 }
-

@@ -2,7 +2,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, ScrollView, RefreshControl } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { FileText, Map, CalendarClock } from 'lucide-react-native';
-import { useDeliveryRoute, DeliveryRouteItem } from '../hooks/useDeliveryRoute';
+import { useDeliveryRoute, DeliveryRouteDateScope, DeliveryRouteItem } from '../hooks/useDeliveryRoute';
 import { useDriverLocation } from '../hooks/useDriverLocation';
 import { useRoutesApi } from '../hooks/useRoutesApi';
 import { DeliveryMapView } from '../components/deliveryMap/DeliveryMapView';
@@ -30,13 +30,16 @@ export const DeliveriesHubScreen: React.FC<Props> = ({
   const insets = useSafeAreaInsets();
   const [activeTab, setActiveTab] = useState<DeliveriesSubTab>(initialTab);
   const [selectedMarkerItem, setSelectedMarkerItem] = useState<DeliveryRouteItem | null>(null);
+  const [scheduleDateScope, setScheduleDateScope] = useState<DeliveryRouteDateScope>('today');
 
   useEffect(() => {
     setActiveTab(initialTab);
   }, [initialTab]);
 
   // Hooks de Dados e Localização
-  const { orders, routeItems, currentDelivery, nextDelivery, stats, loading, refreshing, onRefresh } = useDeliveryRoute();
+  const { orders, routeItems, currentDelivery, nextDelivery, stats, loading, refreshing, onRefresh } = useDeliveryRoute(
+    activeTab === 'schedule' ? scheduleDateScope : 'today',
+  );
   const { coords: driverCoords } = useDriverLocation();
 
   // Coordenadas padrão do depósito Morante (Curitiba/Colombo - PR)
@@ -121,18 +124,11 @@ export const DeliveriesHubScreen: React.FC<Props> = ({
             <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#2563eb']} />
           }
         >
-          {loading ? (
-            <View style={styles.loadingCenter}>
-              <ActivityIndicator size="large" color="#2563eb" />
-              <Text style={[styles.loadingText, isDarkMode && styles.textMuted]}>Carregando resumo...</Text>
-            </View>
-          ) : (
-            <TodaySummaryCard
-              orders={orders && orders.length > 0 ? orders : routeItems.map(item => item.order)}
-              onSelectOrder={onSelectOrder}
-              isDarkMode={isDarkMode}
-            />
-          )}
+          <TodaySummaryCard
+            orders={orders && orders.length > 0 ? orders : routeItems.map(item => item.order)}
+            onSelectOrder={onSelectOrder}
+            isDarkMode={isDarkMode}
+          />
         </ScrollView>
       ) : activeTab === 'schedule' ? (
         /* Aba CRONOGRAMA: Timeline vertical enxuta e focada */
@@ -148,6 +144,8 @@ export const DeliveriesHubScreen: React.FC<Props> = ({
             onRefresh={onRefresh}
             onStartDelivery={handleStartDelivery}
             onViewOrder={handleViewOrder}
+            dateScope={scheduleDateScope}
+            onChangeDateScope={setScheduleDateScope}
             isDarkMode={isDarkMode}
           />
         )

@@ -4,11 +4,13 @@ import { ChevronDown, ChevronUp, MapPin, Clock, Play, ArrowRight, Truck } from '
 import { DeliveryRouteItem } from '../../hooks/useDeliveryRoute';
 import { analyzeOrderServiceHandlings } from '../../utils/scheduleServiceEstimator';
 import { MobileDrill } from '../../../../components/shared/MobileDrill';
+import { isAssemblyInternalType, isAssemblyOutsideType } from '../../../../utils/aiSummaryHelper';
 
 interface Props {
   item: DeliveryRouteItem;
   onStartDelivery: (item: DeliveryRouteItem) => void;
   onViewOrder: (item: DeliveryRouteItem) => void;
+  handlingOptions?: any[];
   isDarkMode?: boolean;
 }
 
@@ -16,6 +18,7 @@ export const ScheduleCard: React.FC<Props> = ({
   item,
   onStartDelivery,
   onViewOrder,
+  handlingOptions = [],
   isDarkMode = false,
 }) => {
   const [isExpanded, setIsExpanded] = useState(false);
@@ -24,6 +27,12 @@ export const ScheduleCard: React.FC<Props> = ({
   const items = oData.items || item.order?.items || oData.assistanceItems || [];
   const orderHandling = oData.handlingType || item.order?.handling_type || oData.handling;
   const serviceSummary = analyzeOrderServiceHandlings(items, orderHandling);
+  const hasOutsideAssembly = serviceSummary.hasOutsideAssembly ||
+    isAssemblyOutsideType(orderHandling, handlingOptions) ||
+    items.some((entry: any) => isAssemblyOutsideType(entry?.handlingType || entry?.handling, handlingOptions));
+  const hasDepotAssembly = serviceSummary.hasDepotAssembly ||
+    isAssemblyInternalType(orderHandling, handlingOptions) ||
+    items.some((entry: any) => isAssemblyInternalType(entry?.handlingType || entry?.handling, handlingOptions));
   const observationCount = item.observationCount ?? 0;
 
   // Informações de pagamento
@@ -58,14 +67,14 @@ export const ScheduleCard: React.FC<Props> = ({
       <View style={styles.cardHeader}>
         <View style={styles.headerLeft}>
           {/* Selo Parafusadeira Amarela - Montagem Depósito */}
-          {serviceSummary.hasDepotAssembly && (
+          {hasDepotAssembly && (
             <View style={[styles.drillBadge, styles.drillBadgeDepot]}>
               <MobileDrill size={11} color="#ffffff" />
             </View>
           )}
 
           {/* Selo Parafusadeira Vermelha - Montagem Fora */}
-          {serviceSummary.hasOutsideAssembly && (
+          {hasOutsideAssembly && (
             <View style={[styles.drillBadge, styles.drillBadgeOutside]}>
               <MobileDrill size={11} color="#ffffff" />
             </View>

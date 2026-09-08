@@ -1,9 +1,11 @@
-import React, { useState, useMemo } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ScrollView, RefreshControl } from 'react-native';
-import { ChevronLeft, ChevronRight, AlertTriangle, Clock } from 'lucide-react-native';
+import { AlertTriangle } from 'lucide-react-native';
 import { DeliveryRouteItem } from '../../hooks/useDeliveryRoute';
+import { DeliveryRouteDateScope } from '../../hooks/useDeliveryRoute';
 import { ScheduleCard } from './ScheduleCard';
 import { analyzeOrderServiceHandlings } from '../../utils/scheduleServiceEstimator';
+import { supabase } from '../../../../services/supabaseClient';
 
 interface Props {
   items: DeliveryRouteItem[];
@@ -11,6 +13,8 @@ interface Props {
   onRefresh: () => void;
   onStartDelivery: (item: DeliveryRouteItem) => void;
   onViewOrder: (item: DeliveryRouteItem) => void;
+  dateScope: DeliveryRouteDateScope;
+  onChangeDateScope: (scope: DeliveryRouteDateScope) => void;
   isDarkMode?: boolean;
 }
 
@@ -20,32 +24,30 @@ export const DeliveryTimelineView: React.FC<Props> = ({
   onRefresh,
   onStartDelivery,
   onViewOrder,
+  dateScope,
+  onChangeDateScope,
   isDarkMode = false,
 }) => {
   const [periodFilter, setPeriodFilter] = useState<'all' | 'morning' | 'afternoon'>('all');
-  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+  const [handlingOptions, setHandlingOptions] = useState<any[]>([]);
 
-  // Formatação do Topo: "Hoje · Seg, 07/09"
-  const formattedDateHeader = useMemo(() => {
-    const isToday = selectedDate.toDateString() === new Date().toDateString();
-    const weekday = selectedDate.toLocaleDateString('pt-BR', { weekday: 'short' });
-    const dayMonth = selectedDate.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
-    const capitalizedWeekday = weekday.charAt(0).toUpperCase() + weekday.slice(1).replace('.', '');
-    const prefix = isToday ? 'Hoje · ' : '';
-    return `${prefix}${capitalizedWeekday}, ${dayMonth}`;
-  }, [selectedDate]);
+  // Usa as mesmas modalidades configuradas no ERP para identificar os selos.
+  useEffect(() => {
+    let active = true;
 
-  const handlePrevDay = () => {
-    const d = new Date(selectedDate);
-    d.setDate(d.getDate() - 1);
-    setSelectedDate(d);
-  };
+    supabase.from('settings').select('*').limit(1).then(({ data }) => {
+      if (!active) return;
+      const settings = data?.[0]?.data || data?.[0] || {};
+      setHandlingOptions([
+        ...(settings.deliveryHandlingOptions || []),
+        ...(settings.pickupHandlingOptions || []),
+      ]);
+    });
 
-  const handleNextDay = () => {
-    const d = new Date(selectedDate);
-    d.setDate(d.getDate() + 1);
-    setSelectedDate(d);
-  };
+    return () => {
+      active = false;
+    };
+  }, []);
 
   // Filtro por Período (Todas, Manhã, Tarde)
   const filteredItems = useMemo(() => {
@@ -64,16 +66,21 @@ export const DeliveryTimelineView: React.FC<Props> = ({
 
   return (
     <View style={[styles.container, isDarkMode && styles.containerDark]}>
-      {/* Navegador de Dias Enxuto */}
-      <View style={styles.dateNavigatorRow}>
-        <TouchableOpacity style={styles.arrowBtn} onPress={handlePrevDay} activeOpacity={0.7}>
-          <ChevronLeft size={18} color={isDarkMode ? '#cbd5e1' : '#334155'} />
+      {/* Filtro de datas: hoje ou próximos dias */}
+      <View style={styles.dateScopeRow}>
+        <TouchableOpacity
+          style={[styles.dateScopeButton, dateScope === 'today' && styles.dateScopeButtonActive]}
+          onPress={() => onChangeDateScope('today')}
+          activeOpacity={0.8}
+        >
+          <Text style={[styles.dateScopeText, dateScope === 'today' && styles.dateScopeTextActive]}>Hoje</Text>
         </TouchableOpacity>
-        <Text style={[styles.dateHeaderText, isDarkMode && styles.textLight]}>
-          {formattedDateHeader}
-        </Text>
-        <TouchableOpacity style={styles.arrowBtn} onPress={handleNextDay} activeOpacity={0.7}>
-          <ChevronRight size={18} color={isDarkMode ? '#cbd5e1' : '#334155'} />
+        <TouchableOpacity
+          style={[styles.dateScopeButton, dateScope === 'next_days' && styles.dateScopeButtonActive]}
+          onPress={() => onChangeDateScope('next_days')}
+          activeOpacity={0.8}
+        >
+          <Text style={[styles.dateScopeText, dateScope === 'next_days' && styles.dateScopeTextActive]}>Dias seguintes</Text>
         </TouchableOpacity>
       </View>
 
@@ -120,7 +127,7 @@ export const DeliveryTimelineView: React.FC<Props> = ({
         {filteredItems.length === 0 ? (
           <View style={styles.emptyState}>
             <Text style={[styles.emptyText, isDarkMode && styles.textMuted]}>
-              Nenhuma entrega agendada para este período.
+              Nenhuma entrega agendada para {dateScope === 'today' ? 'hoje' : 'os próximos dias'}.
             </Text>
           </View>
         ) : (
@@ -154,6 +161,7 @@ export const DeliveryTimelineView: React.FC<Props> = ({
                     item={item}
                     onStartDelivery={onStartDelivery}
                     onViewOrder={onViewOrder}
+                    handlingOptions={handlingOptions}
                     isDarkMode={isDarkMode}
                   />
 
@@ -184,22 +192,29 @@ const styles = StyleSheet.create({
   containerDark: {
     backgroundColor: '#0f172a',
   },
-  dateNavigatorRow: {
+  dateScopeRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 12,
     paddingVertical: 10,
   },
-  arrowBtn: {
-    padding: 6,
-    borderRadius: 8,
+  dateScopeButton: {
+    paddingHorizontal: 18,
+    paddingVertical: 7,
+    borderRadius: 12,
+    backgroundColor: '#f1f5f9',
   },
-  dateHeaderText: {
-    fontSize: 14,
-    fontWeight: '900',
-    color: '#0f172a',
-    letterSpacing: 0.2,
+  dateScopeButtonActive: {
+    backgroundColor: '#2563eb',
+  },
+  dateScopeText: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#64748b',
+  },
+  dateScopeTextActive: {
+    color: '#ffffff',
   },
   periodFilterRow: {
     flexDirection: 'row',

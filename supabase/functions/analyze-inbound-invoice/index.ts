@@ -8,8 +8,13 @@ const digits = (value: unknown) => String(value || "").replace(/\D/g, "");
 const validateAccessKey = (value: unknown) => {
   const raw = String(value || "").trim();
   const normalized = digits(raw);
-  if (normalized.length !== 44) return { valid: false, normalized, reason: "access_key_incomplete" };
-  if (/[^\d\s.\-\/]/.test(raw)) return { valid: false, normalized, reason: "access_key_non_numeric" };
+  // A chave é uma sugestão da leitura visual, não uma condição para importar a NF.
+  // DANFEs normalmente a exibem em blocos de 4 dígitos separados por espaços.
+  // Mantemos somente os dígitos lidos para a pessoa revisar depois, mesmo se estiver
+  // incompleta ou com leitura imprecisa.
+  if (!normalized) return { valid: false, normalized, reason: "access_key_missing" };
+  if (normalized.length !== 44) return { valid: false, normalized, reason: "access_key_needs_review" };
+  if (/[^\d\s.\-\/]/.test(raw)) return { valid: false, normalized, reason: "access_key_needs_review" };
   if (normalized.slice(20, 22) !== "55") return { valid: false, normalized, reason: "access_key_model_invalid" };
   const weights = [4,3,2,9,8,7,6,5,4,3,2,9,8,7,6,5,4,3,2,9,8,7,6,5,4,3,2,9,8,7,6,5,4,3,2,9,8,7,6,5,4,3,2];
   const sum = weights.reduce((total, weight, index) => total + Number(normalized[index]) * weight, 0);
@@ -38,7 +43,7 @@ function validateExtraction(value: any) {
   const rawKey = invoice.accessKey || value.accessKey || "";
   const keyValidation = validateAccessKey(rawKey);
   const warnings = Array.isArray(value.warnings) ? value.warnings.map(String) : [];
-  if (rawKey && !keyValidation.valid) warnings.push(keyValidation.reason);
+  if (!keyValidation.valid) warnings.push(keyValidation.reason);
   const items = value.items.map((item: any, index: number) => ({
     itemNumber: Number(item.itemNumber) || index + 1,
     productCode: String(item.productCode || "").trim(), productDescription: String(item.productDescription || "").trim(),
@@ -49,7 +54,7 @@ function validateExtraction(value: any) {
   if (!items.length) throw new Error("Nenhum item foi identificado no documento.");
   const confidence = value.confidence && typeof value.confidence === "object" ? value.confidence : {};
   const accessKeyConfidence = keyValidation.valid ? 0.9 : 0;
-  return { invoice: { accessKey: keyValidation.valid ? keyValidation.normalized : "", accessKeyRaw: keyValidation.normalized || null, number: String(invoice.number || ""), series: String(invoice.series || ""), issuedAt: invoice.issuedAt || null, entryExitAt: invoice.entryExitAt || null, operationNature: String(invoice.operationNature || ""), model: String(invoice.model || ""), protocol: String(invoice.protocol || ""), totalProducts: numeric(invoice.totalProducts), totalInvoice: numeric(invoice.totalInvoice), freight: numeric(invoice.freight), discount: numeric(invoice.discount), insurance: numeric(invoice.insurance), otherExpenses: numeric(invoice.otherExpenses), ipi: numeric(invoice.ipi), icms: numeric(invoice.icms) }, issuer: { legalName: String(issuer.legalName || ""), tradeName: String(issuer.tradeName || ""), taxId: digits(issuer.taxId), stateRegistration: String(issuer.stateRegistration || ""), address: issuer.address && typeof issuer.address === "object" ? issuer.address : {} }, items, warnings: Array.from(new Set(warnings)), confidence: { ...confidence, accessKey: { value: keyValidation.valid ? keyValidation.normalized : null, rawValue: keyValidation.normalized || null, confidence: accessKeyConfidence, source: "gemini_vision", validated: keyValidation.valid } }, validation: { valid: keyValidation.valid, access_key_valid: keyValidation.valid, warnings: Array.from(new Set(warnings)) }, needs_review: !keyValidation.valid };
+  return { invoice: { accessKey: keyValidation.normalized, accessKeyRaw: keyValidation.normalized || null, number: String(invoice.number || ""), series: String(invoice.series || ""), issuedAt: invoice.issuedAt || null, entryExitAt: invoice.entryExitAt || null, operationNature: String(invoice.operationNature || ""), model: String(invoice.model || ""), protocol: String(invoice.protocol || ""), totalProducts: numeric(invoice.totalProducts), totalInvoice: numeric(invoice.totalInvoice), freight: numeric(invoice.freight), discount: numeric(invoice.discount), insurance: numeric(invoice.insurance), otherExpenses: numeric(invoice.otherExpenses), ipi: numeric(invoice.ipi), icms: numeric(invoice.icms) }, issuer: { legalName: String(issuer.legalName || ""), tradeName: String(issuer.tradeName || ""), taxId: digits(issuer.taxId), stateRegistration: String(issuer.stateRegistration || ""), address: issuer.address && typeof issuer.address === "object" ? issuer.address : {} }, items, warnings: Array.from(new Set(warnings)), confidence: { ...confidence, accessKey: { value: keyValidation.normalized || null, rawValue: keyValidation.normalized || null, confidence: accessKeyConfidence, source: "gemini_vision", validated: keyValidation.valid } }, validation: { valid: true, access_key_valid: keyValidation.valid, warnings: Array.from(new Set(warnings)) }, needs_review: false };
 }
 
 serve(async (req) => {
@@ -81,7 +86,7 @@ serve(async (req) => {
     if (!apiKey) throw new Error("Integração de análise de documentos não configurada.");
     const prompt = `Você é um sistema especializado em leitura de DANFE/NF-e brasileira. Analise a estrutura visual e os rótulos do documento; não faça OCR cego. Este fluxo aceita EXCLUSIVAMENTE NF-e de fornecedor, modelo 55. Rejeite NFC-e, cupom fiscal, DANFE NFC-e ou modelo 65: retorne documentKind:"NFC-E", isConsumerInvoice:true e items:[].
 
-REGRAS ABSOLUTAS: nunca invente, estime, complete ou corrija números. Se não puder ler um campo, retorne null. Preserve os dígitos observados. Diferencie chave de acesso, protocolo, número da NF e código de barras. Para a chave, procure o rótulo "CHAVE DE ACESSO" e a região associada; remova apenas separadores visuais, nunca complete dígitos ausentes. Para itens, respeite linhas e colunas da tabela.
+REGRAS ABSOLUTAS: nunca invente, estime, complete ou corrija números. Se não puder ler um campo, retorne null. Preserve os dígitos observados. Diferencie chave de acesso, protocolo, número da NF e código de barras. Para a chave, procure o rótulo "CHAVE DE ACESSO" e a região associada. Em DANFEs ela normalmente aparece em grupos de quatro dígitos separados por espaços; leia todos os grupos visíveis e retorne somente os dígitos, sem preencher ou adivinhar o que faltar. A chave é OPCIONAL: se estiver parcial, ilegível ou ausente, retorne o que foi possível (ou null), sem rejeitar o documento. Para itens, respeite linhas e colunas da tabela.
 
 Retorne SOMENTE JSON válido: {documentKind,isConsumerInvoice,invoice:{accessKey,number,series,issuedAt,entryExitAt,operationNature,model,protocol,totalProducts,totalInvoice,freight,discount,insurance,otherExpenses,ipi,icms},issuer:{legalName,tradeName,taxId,stateRegistration,address},items:[{itemNumber,productCode,productDescription,ncm,cfop,unit,quantity,unitCost,totalCost,discountValue,freightValue,ipiPercent,ipiValue,icmsValue}],warnings,confidence}.`;
     const response = await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=" + encodeURIComponent(apiKey), { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ contents: [{ parts: [{ text: prompt }, { inlineData: { mimeType, data: base64 } }] }], generationConfig: { responseMimeType: "application/json", temperature: 0 } }) });

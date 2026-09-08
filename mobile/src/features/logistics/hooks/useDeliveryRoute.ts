@@ -37,7 +37,9 @@ export interface DeliveryRouteItem {
   restrictionLevel?: 'free' | 'priority' | 'fixed';
 }
 
-export function useDeliveryRoute() {
+export type DeliveryRouteDateScope = 'today' | 'next_days';
+
+export function useDeliveryRoute(dateScope: DeliveryRouteDateScope = 'today') {
   const [orders, setOrders] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -77,23 +79,25 @@ export function useDeliveryRoute() {
     return () => unsub();
   }, [fetchOrders]);
 
-  // Filtra e normaliza os pedidos do roteiro de hoje
+  // Filtra e normaliza os pedidos do roteiro selecionado.
   const routeItems = useMemo<DeliveryRouteItem[]>(() => {
-    const todayOrders = orders.filter((o) => {
+    const scopedOrders = orders.filter((o) => {
       const oData = o.order_data || {};
       if (oData.deleted || o.deleted || isCancelledOrder(o)) return false;
       const orderStatus = (o.status || oData.status || '').toLowerCase();
       if (orderStatus === 'draft' || orderStatus === 'rascunho') return false;
 
       const rawSchedDate = getOperationalScheduleDate(o);
-      return rawSchedDate === todayStr;
+      return dateScope === 'today'
+        ? rawSchedDate === todayStr
+        : Boolean(rawSchedDate && rawSchedDate > todayStr);
     });
 
     // Ordenação do Roteiro:
     // 1º: routeSequence explícito do pedido se definido (ex: 1, 2, 3...)
     // 2º: Período/Janela de Atendimento (Manhã < Tarde < Noite, priorizando horários fixos)
     // 3º: Ordem de criação do registro
-    const sorted = [...todayOrders].sort((a, b) => {
+    const sorted = [...scopedOrders].sort((a, b) => {
       const seqA = a.order_data?.routeSequence ?? 9999;
       const seqB = b.order_data?.routeSequence ?? 9999;
       if (seqA !== seqB) return seqA - seqB;
@@ -226,7 +230,7 @@ export function useDeliveryRoute() {
         restrictionLevel,
       };
     });
-  }, [orders, todayStr]);
+  }, [dateScope, orders, todayStr]);
 
   // Entrega em andamento (se houver alguma em rota ou em atendimento)
   const currentDelivery = useMemo(() => {

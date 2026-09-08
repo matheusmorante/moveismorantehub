@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { Animated } from 'react-native';
 import {
   View,
   Text,
@@ -60,8 +61,22 @@ export const TodaySummaryCard: React.FC<TodaySummaryCardProps> = ({
   const [totalDuration, setTotalDuration] = useState(0);
 
   const [aiSummaryText, setAiSummaryText] = useState<string>('');
-  const [isGeneratingSummary, setIsGeneratingSummary] = useState<boolean>(false);
+  const [isGeneratingSummary, setIsGeneratingSummary] = useState<boolean>(true);
+  const [isGeneratingAudio, setIsGeneratingAudio] = useState<boolean>(false);
   const [fallbackOrders, setFallbackOrders] = useState<any[]>([]);
+
+  // Ref estável para effectiveOrders — evita re-trigger do effect de geração
+  const effectiveOrdersRef = useRef<any[]>([]);
+
+  // Fade-in suave ao montar o card — elimina a piscada visual na primeira carga
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    Animated.timing(fadeAnim, {
+      toValue: 1,
+      duration: 280,
+      useNativeDriver: true,
+    }).start();
+  }, [fadeAnim]);
 
   useEffect(() => {
     return () => {
@@ -114,6 +129,11 @@ export const TodaySummaryCard: React.FC<TodaySummaryCardProps> = ({
     return fallbackOrders.length > 0 ? fallbackOrders : (orders || []);
   }, [orders, fallbackOrders]);
 
+  // Mantém a ref sincronizada sem disparar re-renders
+  useEffect(() => {
+    effectiveOrdersRef.current = effectiveOrders;
+  });
+
   // Fingerprint estável baseado em data operacional e status
   const ordersFingerprint = useMemo(() => {
     return (effectiveOrders || [])
@@ -121,22 +141,14 @@ export const TodaySummaryCard: React.FC<TodaySummaryCardProps> = ({
       .join('|');
   }, [effectiveOrders]);
 
-  // Geração do Resumo Inteligente
+  // Para o áudio e reseta o player ao trocar de aba
   useEffect(() => {
-    let isMounted = true;
-    const mode = periodFilter === 'today' ? 'today' : 'next_days';
-
-    generateDeliveryAISummary(
-      mode,
-      false,
-      (text) => { if (isMounted && periodFilter === 'today') setAiSummaryText(text); },
-      (text) => { if (isMounted && periodFilter !== 'today') setAiSummaryText(text); },
-      (gen) => { if (isMounted) setIsGeneratingSummary(gen); },
-      effectiveOrders
-    );
-
-    return () => { isMounted = false; };
-  }, [periodFilter, ordersFingerprint, effectiveOrders]);
+    stopGeminiAudio();
+    setIsPlayingAudio(false);
+    setIsPaused(false);
+    setCurrentTime(0);
+    setTotalDuration(0);
+  }, [periodFilter]);
 
   const {
     totalCount,
@@ -152,6 +164,44 @@ export const TodaySummaryCard: React.FC<TodaySummaryCardProps> = ({
 
   // Texto final a ser exibido e sintetizado
   const activeSummaryText = aiSummaryText || defaultSummaryText;
+
+  // Geração do Resumo Inteligente
+  // Deps: apenas periodFilter e ordersFingerprint — effectiveOrders vem via ref
+  // para evitar re-trigger duplo quando o fallback carrega assincronamente.
+  useEffect(() => {
+    let isMounted = true;
+    const mode = periodFilter === 'today' ? 'today' : 'next_days';
+
+    setIsGeneratingSummary(true);
+
+    generateDeliveryAISummary(
+      mode,
+      false,
+      (text) => { if (isMounted && periodFilter === 'today') setAiSummaryText(text); },
+      (text) => { if (isMounted && periodFilter !== 'today') setAiSummaryText(text); },
+      (gen) => { if (isMounted) setIsGeneratingSummary(gen); },
+      effectiveOrdersRef.current
+    );
+
+    return () => { isMounted = false; };
+  }, [periodFilter, ordersFingerprint]);
+
+  // Reflete imediatamente para todos os aparelhos o texto e o progresso do áudio.
+  useEffect(() => {
+    const channel = supabase
+      .channel(`delivery-summary-${periodFilter}-${Date.now()}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'delivery_summaries' }, (payload) => {
+        const record = payload.new as any;
+        if (record?.scope !== periodFilter) return;
+        if (record.text_status === 'READY' && record.text) setAiSummaryText(record.text);
+        setIsGeneratingAudio(record.audio_status === 'GENERATING');
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [periodFilter]);
 
   const formatAudioTime = (secs: number) => {
     const s = Math.max(0, Math.floor(secs || 0));
@@ -223,7 +273,7 @@ export const TodaySummaryCard: React.FC<TodaySummaryCardProps> = ({
   };
 
   return (
-    <View style={styles.cardContainer}>
+    <Animated.View style={[styles.cardContainer, { opacity: fadeAnim }]}>
       {/* 1. Cabeçalho Principal do Card */}
       <View style={styles.headerRow}>
         <View style={styles.iconBadge}>
@@ -249,16 +299,16 @@ export const TodaySummaryCard: React.FC<TodaySummaryCardProps> = ({
             style={[
               styles.toggleSwitchOption,
               voiceEngine === 'gemini' && styles.toggleSwitchOptionActive,
-              (!aiSummaryText || isGeminiQuotaExceeded) && { opacity: 0.4, backgroundColor: 'rgba(255,255,255,0.1)' }
+              isGeminiQuotaExceeded && { opacity: 0.4, backgroundColor: 'rgba(255,255,255,0.1)' }
             ]}
             onPress={handleSelectGeminiVoice}
-            disabled={!aiSummaryText || isGeminiQuotaExceeded}
+            disabled={isGeminiQuotaExceeded}
             activeOpacity={0.85}
           >
             <Text style={[
               styles.toggleSwitchText,
               voiceEngine === 'gemini' ? styles.toggleSwitchTextActive : styles.toggleSwitchTextInactive,
-              (!aiSummaryText || isGeminiQuotaExceeded) && { color: '#94a3b8' }
+              isGeminiQuotaExceeded && { color: '#94a3b8' }
             ]}>
               Gemini IA
             </Text>
@@ -361,7 +411,7 @@ export const TodaySummaryCard: React.FC<TodaySummaryCardProps> = ({
             {periodFilter === 'today' ? 'Resumo do dia' : 'Resumo dos próximos dias'}
           </Text>
           <Text style={styles.resumoText} numberOfLines={4}>
-            {isGeneratingSummary ? 'Gerando resumo de inteligência operacional...' : activeSummaryText}
+            {activeSummaryText}
           </Text>
         </View>
 
@@ -373,7 +423,8 @@ export const TodaySummaryCard: React.FC<TodaySummaryCardProps> = ({
         isDarkMode={isDarkMode}
         title={periodFilter === 'today' ? 'Ouvir resumo de hoje' : 'Ouvir resumo dos próximos dias'}
         text={activeSummaryText}
-        isGenerating={isGeneratingSummary}
+        isLoadingText={isGeneratingSummary && !aiSummaryText}
+        isGenerating={isGeneratingAudio}
         isSpeaking={isPlayingAudio}
         isPaused={isPaused}
         currentTime={currentTime}
@@ -386,7 +437,7 @@ export const TodaySummaryCard: React.FC<TodaySummaryCardProps> = ({
         setCurrentTime={setCurrentTime}
         formatTime={formatAudioTime}
       />
-    </View>
+    </Animated.View>
   );
 };
 
@@ -511,7 +562,8 @@ const styles = StyleSheet.create({
     padding: 12,
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 10
+    marginBottom: 10,
+    minHeight: 76
   },
   resumoIconBox: {
     width: 36,
@@ -530,7 +582,8 @@ const styles = StyleSheet.create({
     color: '#475569',
     fontSize: 11,
     marginTop: 2,
-    lineHeight: 15
+    lineHeight: 15,
+    minHeight: 32
   },
   audioBox: {
     backgroundColor: '#eff6ff',

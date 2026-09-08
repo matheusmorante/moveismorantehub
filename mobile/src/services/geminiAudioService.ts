@@ -1,9 +1,18 @@
 import { Audio } from 'expo-av';
 import { supabase } from './supabaseClient';
 import { speakTextWithFallback, stopSpeech as stopNativeSpeech, pauseSpeech as pauseNativeSpeech, resumeSpeech as resumeNativeSpeech } from './navigationVoiceService';
+import {
+  DEFAULT_VOICE_CONFIG,
+  generateAudioCacheKey,
+  getCachedAudioRecord,
+  getPlayableAudioUrl,
+  getOrCreateAudioWithDeduplication,
+  normalizeSummaryText,
+  saveAudioRecordToCache,
+} from './deliveryAudioCacheService';
 
 let activeSound: Audio.Sound | null = null;
-const audioBase64Cache = new Map<string, string>(); // hash -> base64 MP3
+const audioBase64Cache = new Map<string, string>(); // cache quente durante a sessão
 
 export interface AudioPlaybackCallbacks {
   onStart?: () => void;
@@ -130,18 +139,47 @@ function pcmToWavBase64(pcmBase64: string, sampleRate = 24000, numChannels = 1, 
  */
 export const generateGeminiAudioMp3 = async (
   text: string
-): Promise<{ success: boolean; base64Mp3?: string; isWav?: boolean; error?: string }> => {
-  const cleanText = text.trim();
+): Promise<{ success: boolean; base64Mp3?: string; audioUrl?: string; isWav?: boolean; error?: string }> => {
+  const cleanText = normalizeSummaryText(text);
   if (!cleanText) return { success: false, error: 'Texto vazio' };
 
   if (audioBase64Cache.has(cleanText)) {
     return { success: true, base64Mp3: audioBase64Cache.get(cleanText), isWav: true };
   }
 
-  const geminiKey = await fetchGeminiApiKey();
-  if (!geminiKey) {
-    return { success: false, error: 'NO_KEY' };
+  const cacheKey = generateAudioCacheKey(cleanText, DEFAULT_VOICE_CONFIG);
+  const cached = await getCachedAudioRecord(cacheKey);
+  if (cached?.audioUrl) {
+    const playableUrl = await getPlayableAudioUrl(cached);
+    if (playableUrl && cached.audioStoragePath) {
+      return { success: true, audioUrl: playableUrl, isWav: true };
+    }
+    const isWav = cached.audioUrl.startsWith('data:audio/wav');
+    const base64 = cached.audioUrl.replace(/^data:audio\/[^;]+;base64,/, '');
+    audioBase64Cache.set(cleanText, base64);
+    return { success: true, base64Mp3: base64, isWav };
   }
+
+  return getOrCreateAudioWithDeduplication(cacheKey, async () => {
+    // Outra tela ou toque concorrente pode ter concluído entre a consulta e a trava.
+    const cachedAfterLock = await getCachedAudioRecord(cacheKey);
+    if (cachedAfterLock?.audioUrl) {
+      const playableUrl = await getPlayableAudioUrl(cachedAfterLock);
+      if (playableUrl && cachedAfterLock.audioStoragePath) {
+        return { success: true, audioUrl: playableUrl, isWav: true };
+      }
+      const isWav = cachedAfterLock.audioUrl.startsWith('data:audio/wav');
+      const base64 = cachedAfterLock.audioUrl.replace(/^data:audio\/[^;]+;base64,/, '');
+      audioBase64Cache.set(cleanText, base64);
+      return { success: true, base64Mp3: base64, isWav };
+    }
+
+    // A geração é exclusivamente do backend idempotente. Um clique apenas
+    // toca o arquivo persistido ou usa a voz nativa enquanto ele não existe.
+    return { success: false, error: 'AUDIO_NOT_READY' };
+
+    const geminiKey = await fetchGeminiApiKey();
+    if (!geminiKey) return { success: false, error: 'NO_KEY' };
 
   const candidateModels = [
     'gemini-2.5-flash-preview-tts',
@@ -150,7 +188,7 @@ export const generateGeminiAudioMp3 = async (
     'gemini-2.5-pro-preview-tts',
   ];
 
-  for (const model of candidateModels) {
+    for (const model of candidateModels) {
     try {
       const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(geminiKey)}`;
       const res = await fetch(endpoint, {
@@ -193,7 +231,14 @@ export const generateGeminiAudioMp3 = async (
       const audioPart = data?.candidates?.[0]?.content?.parts?.find((p: any) => p.inlineData);
       if (audioPart && audioPart.inlineData?.data) {
         const wavBase64 = pcmToWavBase64(audioPart.inlineData.data);
+        const audioUrl = `data:audio/wav;base64,${wavBase64}`;
         audioBase64Cache.set(cleanText, wavBase64);
+        await saveAudioRecordToCache({
+          cacheKey,
+          normalizedText: cleanText,
+          ...DEFAULT_VOICE_CONFIG,
+          audioUrl,
+        });
         return { success: true, base64Mp3: wavBase64, isWav: true };
       }
     } catch (err: any) {
@@ -201,7 +246,8 @@ export const generateGeminiAudioMp3 = async (
     }
   }
 
-  return { success: false, error: 'AUDIO_GENERATION_FAILED' };
+    return { success: false, error: 'AUDIO_GENERATION_FAILED' };
+  });
 };
 
 /**
@@ -223,7 +269,7 @@ export const playSummaryAudio = async (
 
   if (engine === 'gemini') {
     const res = await generateGeminiAudioMp3(cleanText);
-    if (res.success && res.base64Mp3) {
+    if (res.success && (res.base64Mp3 || res.audioUrl)) {
       try {
         await Audio.setAudioModeAsync({
           playsInSilentModeIOS: true,
@@ -231,7 +277,7 @@ export const playSummaryAudio = async (
           shouldDuckAndroid: true,
         });
 
-        const uri = res.isWav ? `data:audio/wav;base64,${res.base64Mp3}` : `data:audio/mp3;base64,${res.base64Mp3}`;
+        const uri = res.audioUrl || (res.isWav ? `data:audio/wav;base64,${res.base64Mp3}` : `data:audio/mp3;base64,${res.base64Mp3}`);
         const { sound } = await Audio.Sound.createAsync(
           { uri },
           { shouldPlay: true, volume: 1.0 },

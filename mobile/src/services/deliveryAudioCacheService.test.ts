@@ -8,7 +8,7 @@ import {
   clearAudioMemoryCache,
   DEFAULT_VOICE_CONFIG,
 } from './deliveryAudioCacheService';
-import { generateDeliveryAISummary, generateLocalSmartText } from './aiSummaryService';
+import { clearSummaryTextMemoryCache, generateDeliveryAISummary, generateLocalSmartText } from './aiSummaryService';
 
 // Mock AsyncStorage
 vi.mock('@react-native-async-storage/async-storage', () => ({
@@ -22,7 +22,9 @@ vi.mock('@react-native-async-storage/async-storage', () => ({
 vi.mock('./supabaseClient', () => {
   const queryMock = () => ({
     eq: () => queryMock(),
+    or: () => queryMock(),
     order: () => queryMock(),
+    limit: () => queryMock(),
     maybeSingle: async () => ({ data: null, error: null }),
     then: (cb: any) => Promise.resolve({ data: [], error: null }).then(cb),
   });
@@ -40,6 +42,7 @@ vi.mock('./supabaseClient', () => {
 describe('deliveryAudioCacheService & aiSummaryService — Cache por Hash de Conteúdo de Áudio', () => {
   beforeEach(() => {
     clearAudioMemoryCache();
+    clearSummaryTextMemoryCache();
     vi.clearAllMocks();
   });
 
@@ -152,6 +155,24 @@ describe('deliveryAudioCacheService & aiSummaryService — Cache por Hash de Con
     expect(executionCount).toBe(1); // Executou apenas UMA vez!
     expect(res1.audioUrl).toBe('data:audio/wav;base64,dedupAudio');
     expect(res2.audioUrl).toBe('data:audio/wav;base64,dedupAudio');
+  });
+
+  it('reabrir o mesmo período com os mesmos pedidos reutiliza o texto sem novo estado de geração', async () => {
+    const firstStates: boolean[] = [];
+    const firstText = await generateDeliveryAISummary('today', false, undefined, undefined, (state) => firstStates.push(state), []);
+    expect(firstText).toBe('Sem entregas para hoje.');
+    expect(firstStates).toContain(true);
+
+    const secondStates: boolean[] = [];
+    const secondText = await generateDeliveryAISummary('today', false, undefined, undefined, (state) => secondStates.push(state), []);
+    expect(secondText).toBe(firstText);
+    expect(secondStates).toEqual([false]);
+  });
+
+  it('does not change the audio cache key when a summary is reopened with the same text', () => {
+    const firstOpen = generateAudioCacheKey('Hoje temos 2 entregas programadas.');
+    const secondOpen = generateAudioCacheKey('  Hoje temos 2 entregas programadas.  ');
+    expect(secondOpen).toBe(firstOpen);
   });
 
   it('11 & 12. Normalização determinística e resiliência a falhas de TTS', () => {

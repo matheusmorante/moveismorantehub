@@ -1,5 +1,6 @@
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Platform, Text, TouchableOpacity, View, ActivityIndicator, StyleSheet } from 'react-native';
+import { Animated, Easing } from 'react-native';
 import { Play, Pause, AlertTriangle, RefreshCw } from 'lucide-react-native';
 
 export interface AISummaryAudioPlayerProps {
@@ -7,6 +8,7 @@ export interface AISummaryAudioPlayerProps {
   title?: string;
   updatedAt?: string;
   text?: string;
+  isLoadingText?: boolean;
   isGenerating?: boolean;
   isOutdated?: boolean;
   hasError?: boolean;
@@ -27,6 +29,7 @@ export const AISummaryAudioPlayer: React.FC<AISummaryAudioPlayerProps> = ({
   title = 'Ouvir resumo de hoje',
   updatedAt,
   text = '',
+  isLoadingText = false,
   isGenerating = false,
   isOutdated = false,
   hasError = false,
@@ -45,6 +48,28 @@ export const AISummaryAudioPlayer: React.FC<AISummaryAudioPlayerProps> = ({
   const timelineBarWidthRef = useRef(260);
   const containerPageXRef = useRef(0);
   const [seekingTime, setSeekingTime] = useState<number | null>(null);
+  const loadingRotation = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    if (!isGenerating) {
+      loadingRotation.stopAnimation();
+      loadingRotation.setValue(0);
+      return;
+    }
+
+    const animation = Animated.loop(
+      Animated.timing(loadingRotation, {
+        toValue: 1,
+        duration: 850,
+        easing: Easing.linear,
+        useNativeDriver: true,
+      }),
+    );
+    animation.start();
+    return () => animation.stop();
+  }, [isGenerating, loadingRotation]);
+
+  const loadingSpin = loadingRotation.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '360deg'] });
 
   const estimatedDuration = Math.max(10, Math.ceil((text || '').length / 14));
   const effectiveTotalDuration = totalDuration > 0 ? totalDuration : estimatedDuration;
@@ -70,11 +95,11 @@ export const AISummaryAudioPlayer: React.FC<AISummaryAudioPlayerProps> = ({
         <TouchableOpacity
           style={[
             styles.playBtn,
-            (isGenerating || !text) && styles.playBtnDisabled,
+            (isGenerating || isLoadingText || !text) && styles.playBtnDisabled,
             isSpeaking && !isPaused && styles.playBtnActive,
           ]}
           onPress={() => text && onToggle(text)}
-          disabled={isGenerating || !text}
+          disabled={isGenerating || isLoadingText || !text}
           activeOpacity={0.8}
           accessibilityRole="button"
           accessibilityLabel={
@@ -84,7 +109,10 @@ export const AISummaryAudioPlayer: React.FC<AISummaryAudioPlayerProps> = ({
           }
         >
           {isGenerating ? (
-            <ActivityIndicator color="#ffffff" size="small" />
+            <>
+              <Animated.View style={[styles.generationRing, { transform: [{ rotate: loadingSpin }] }]} />
+              <ActivityIndicator color="#ffffff" size="small" />
+            </>
           ) : isSpeaking && !isPaused ? (
             <Pause size={22} color="#ffffff" fill="#ffffff" />
           ) : (
@@ -98,7 +126,11 @@ export const AISummaryAudioPlayer: React.FC<AISummaryAudioPlayerProps> = ({
           </Text>
 
           <Text style={[styles.subtitle, isDarkMode && styles.subtitleDark]} numberOfLines={1}>
-            {isGenerating ? 'Gerando resumo em áudio...' : formattedUpdateLabel}
+            {isGenerating
+              ? 'Gerando resumo em áudio...'
+              : isLoadingText
+                ? 'Atualizando resumo...'
+                : formattedUpdateLabel}
           </Text>
 
           {isOutdated ? (
@@ -211,6 +243,8 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.3,
     shadowRadius: 4,
+    position: 'relative',
+    overflow: 'hidden',
   },
   playBtnActive: {
     backgroundColor: '#1d4ed8',
@@ -218,6 +252,16 @@ const styles = StyleSheet.create({
   playBtnDisabled: {
     backgroundColor: '#94a3b8',
     elevation: 0,
+  },
+  generationRing: {
+    position: 'absolute',
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    borderWidth: 3,
+    borderColor: 'rgba(255,255,255,0.25)',
+    borderTopColor: '#ffffff',
+    borderRightColor: '#ffffff',
   },
   infoCol: {
     flex: 1,

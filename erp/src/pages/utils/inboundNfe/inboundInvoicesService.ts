@@ -102,19 +102,23 @@ export const fetchInboundInvoices = async (): Promise<InboundInvoice[]> => {
 };
 
 export const saveInboundInvoice = async (invoice: InboundInvoice): Promise<InboundInvoice> => {
-    if (!invoice.nfeKey || invoice.nfeKey.replace(/\D/g, '').length !== 44) throw new Error('A chave de acesso de 44 dígitos é obrigatória para salvar a NF.');
+    const accessKey = invoice.nfeKey.replace(/\D/g, '');
+    const invoiceToSave = { ...invoice, nfeKey: accessKey };
     const local = getLocalInvoices();
-    const existingIndex = local.findIndex((inv) => inv.nfeKey === invoice.nfeKey);
+    // Sem uma chave confirmada, cada importação continua sendo um rascunho distinto.
+    const existingIndex = accessKey
+        ? local.findIndex((inv) => inv.nfeKey === accessKey)
+        : local.findIndex((inv) => inv.id === invoice.id);
     if (existingIndex >= 0) {
-        local[existingIndex] = invoice;
+        local[existingIndex] = invoiceToSave;
     } else {
-        local.unshift(invoice);
+        local.unshift(invoiceToSave);
     }
     saveLocalInvoices(local);
 
     try {
         const { error } = await supabase.from('inbound_invoices').upsert({
-            chave_acesso: invoice.nfeKey,
+            chave_acesso: accessKey || null,
             numero_nfe: Number(invoice.nfeNumber),
             series: invoice.series,
             data_emissao: invoice.issuedAt,
@@ -154,7 +158,7 @@ export const saveInboundInvoice = async (invoice: InboundInvoice): Promise<Inbou
         console.warn('Erro ao salvar no Supabase, mantido em cache local:', err);
     }
 
-    return invoice;
+    return invoiceToSave;
 };
 
 export const importInboundInvoiceXml = async (xmlString: string): Promise<InboundInvoice> => {
