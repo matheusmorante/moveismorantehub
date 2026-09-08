@@ -29,6 +29,7 @@ import { NativeReportsScreen } from './src/features/reports/screens/NativeReport
 import { NativeSettingsScreen } from './src/features/settings/screens/NativeSettingsScreen';
 import { NativeProductsScreen } from './src/features/products';
 import { FinanceHubScreen } from './src/features/finance/screens/FinanceHubScreen';
+import { GlobalAgentScreen } from './src/features/agent/screens/GlobalAgentScreen';
 
 import { NotificationsModal } from './src/components/modals/NotificationsModal';
 import { ProfileModal } from './src/components/modals/ProfileModal';
@@ -724,6 +725,8 @@ export default function App() {
                   WEB_URL={WEB_URL}
                 />
               </ScrollView>
+            ) : currentTab === 'agente' ? (
+              <GlobalAgentScreen isDarkMode={isDarkMode} userProfile={userProfile} />
             ) : currentTab === 'financeiro' && canSeeFinance ? (
               <FinanceHubScreen isDarkMode={isDarkMode} userProfile={userProfile} />
             ) : currentTab === 'pedidos' ? (

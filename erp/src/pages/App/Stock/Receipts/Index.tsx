@@ -63,6 +63,7 @@ export default function ReceiptsPage() {
                 const list = await fetchInboundInvoices();
                 const matched = list.find((inv) => inv.nfeKey === inboundKeyParam);
                 if (matched) {
+                    if (matched.supplierId) setSelectedSupplierId(matched.supplierId);
                     setSelectedInboundInvoice(matched);
                     setSelectedPurchase(null);
                     setIsFormOpen(true);
@@ -75,6 +76,7 @@ export default function ReceiptsPage() {
     }, [inboundKeyParam]);
 
     const handleSelectInboundInvoice = (invoice: InboundInvoice) => {
+        if (invoice.supplierId) setSelectedSupplierId(invoice.supplierId);
         setSelectedInboundInvoice(invoice);
         setSelectedPurchase(null);
         setSelectedReceipt(null);

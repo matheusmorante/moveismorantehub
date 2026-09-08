@@ -35,6 +35,11 @@ export default defineConfig({
     port: 5173,
     host: true, // Permite acesso via rede local (mobile)
     proxy: {
+      // O backend local da Vercel mantém GEMINI_API_KEY fora do navegador.
+      '/api': {
+        target: 'http://127.0.0.1:3000',
+        changeOrigin: true,
+      },
       '/r2-proxy': {
         target: 'https://pub-389127027ea5421fa2feff7d0840b3b4.r2.dev',
         changeOrigin: true,

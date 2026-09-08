@@ -41,3 +41,11 @@ export interface ToolExecutionResponse {
   code?: string;
   message?: string;
 }
+
+export interface AgentPageContext {
+  currentModule: string;
+  currentPage?: string;
+  currentPath?: string;
+  title?: string;
+}
+

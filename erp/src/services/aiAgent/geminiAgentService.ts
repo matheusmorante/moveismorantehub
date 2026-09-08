@@ -1,21 +1,25 @@
 import { erpAgentTools } from './geminiToolDeclarations';
 import { GeminiToolDispatcher } from './geminiToolDispatcher';
 import { GeminiClient } from './geminiClient';
-import { GeminiContent, GeminiPart, AgentExecutionResult, ExecutedToolRecord } from './geminiAgentTypes';
+import { GeminiContent, GeminiPart, AgentExecutionResult, ExecutedToolRecord, AgentPageContext } from './geminiAgentTypes';
 
 // Orquestrador conversacional do Agente Lisandro com Function Calling nativo
 
 const MAX_TOOL_ITERATIONS = 5;
 
 export class GeminiAgentService {
-  public static buildSystemInstruction(): string {
+  public static buildSystemInstruction(pageContext?: AgentPageContext): string {
     const now = new Date();
     const todayStr = now.toISOString().split('T')[0];
     const diasSemana = ['Domingo', 'Segunda-feira', 'Terça-feira', 'Quarta-feira', 'Quinta-feira', 'Sexta-feira', 'Sábado'];
     const diaNome = diasSemana[now.getDay()];
 
-    return `Você é Lisandro, o assistente inteligente de gestão e finanças do ERP Móveis Morante.
-Você é um agente com capacidade de raciocínio, consulta e execução através de ferramentas oficiais do ERP.
+    const contextSnippet = pageContext
+      ? `\nCONTEXTO DA INTERFACE ATUAL: O operador está na tela/módulo "${pageContext.currentModule}"${pageContext.currentPage ? ` (página: ${pageContext.currentPage})` : ''}. Use isso para compreender o contexto do usuário.`
+      : '';
+
+    return `Você é Lisandro, o Agente Geral e Inteligente do ERP Móveis Morante.
+Você é um agente com capacidade de raciocínio, consulta e execução através de ferramentas oficiais do ERP.${contextSnippet}
 
 DATA DE REFERÊNCIA DO SISTEMA: ${todayStr} (${diaNome}).
 Use essa data para interpretar datas relativas: "hoje", "ontem", "amanhã", "este mês", "semana passada".
@@ -79,12 +83,20 @@ SUAS REGRAS FUNDAMENTAIS:
 6. LINGUAGEM NATURAL E OBJETIVIDADE:
    - Responda em Português do Brasil com clareza, objetividade e cordialidade.
    - Não faça perguntas desnecessárias se tiver informações suficientes para consultar ou operar.
-   - Formate valores monetários como R$ 0,00.`;
+   - Formate valores monetários como R$ 0,00.
+
+7. ESCOPO ATUAL E LIMITAÇÃO DE EXECUÇÃO:
+   - Nesta etapa de evolução do ERP, você possui ferramentas oficiais de consulta e execução EXCLUSIVAMENTE para o módulo Financeiro (gestão de caixa, despesas, receitas, contas a pagar e fluxo de caixa).
+   - Se o usuário solicitar ações para outros módulos (como cadastrar/alterar produtos no estoque, criar compras de fornecedores, manipular pedidos de venda ou dados de clientes):
+     * Compreenda a intenção do usuário educadamente.
+     * Responda de forma clara, elegante e direta: "Essa ação ainda não está disponível para mim."
+     * NUNCA tente inventar ferramentas, alucinar dados ou simular que concluiu uma operação sem possuir a ferramenta oficial correspondente.`;
   }
 
   public static async sendMessage(
     userMessage: string,
-    history: GeminiContent[] = []
+    history: GeminiContent[] = [],
+    pageContext?: AgentPageContext
   ): Promise<{ result: AgentExecutionResult; updatedHistory: GeminiContent[] }> {
     const executedTools: ExecutedToolRecord[] = [];
     const conversation: GeminiContent[] = [...history];
@@ -96,7 +108,7 @@ SUAS REGRAS FUNDAMENTAIS:
 
     let iterations = 0;
     const systemInstruction = {
-      parts: [{ text: this.buildSystemInstruction() }],
+      parts: [{ text: this.buildSystemInstruction(pageContext) }],
     };
 
     while (iterations < MAX_TOOL_ITERATIONS) {

@@ -278,8 +278,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             if (!active) return;
             console.log('[Auth] State Change:', event);
             clearTimeout(failsafe);
-            // INITIAL_SESSION já é coberto por getSession(); evitar duplicata
-            if (event === 'INITIAL_SESSION') return;
+            // INITIAL_SESSION é a fonte de verdade da sessão restaurada. O bloqueio
+            // `handlingSession` já impede processamento duplicado com getSession().
             handleSession(session, event);
         });
 

@@ -1,10 +1,8 @@
 // Declarações JSON Schema oficiais das ferramentas disponíveis para o Gemini no App Mobile
 
-export const mobileAgentTools = [
+export const mobileFinancialTools = [
   {
-    functionDeclarations: [
-      {
-        name: 'buscarCategoriasFinanceiras',
+    name: 'buscarCategoriasFinanceiras',
         description:
           'Consulta as categorias financeiras oficiais cadastradas no ERP Móveis Morante. Use SEMPRE antes de criar uma movimentação quando precisar descobrir ou validar o categoriaId correspondente à despesa ou receita informada pelo usuário (ex: Combustível, Energia, Fornecedores, Salários, Vendas).',
         parameters: {
@@ -208,6 +206,22 @@ export const mobileAgentTools = [
           required: ['categoria', 'queixaUsuario'],
         },
       },
-    ],
+];
+
+// Registro de ferramentas do Agente no App Mobile modularizado por domínios
+// Nesta etapa: apenas o domínio Financeiro possui ferramentas ativas de execução.
+// Domínios futuros (Estoque, Compras, Vendas, Clientes) serão plugados aqui de forma modular.
+export const mobileDomainTools: Record<string, typeof mobileFinancialTools> = {
+  finance: mobileFinancialTools,
+  // inventory: [], // Futuro
+  // purchasing: [], // Futuro
+  // sales: [], // Futuro
+  // customers: [], // Futuro
+};
+
+export const mobileAgentTools = [
+  {
+    functionDeclarations: Object.values(mobileDomainTools).flat(),
   },
 ];
+

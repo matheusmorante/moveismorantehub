@@ -12,7 +12,8 @@ import {
   Wallet,
   MoreHorizontal, 
   X, 
-  ChevronRight 
+  ChevronRight,
+  Sparkles 
 } from 'lucide-react-native';
 
 export interface NavItemConfig {
@@ -63,6 +64,13 @@ export const NativeBottomNav: React.FC<Props> = ({
       label: 'Entregas',
       icon: Truck,
       url: `${WEB_URL}/schedule`,
+      visible: true,
+    },
+    {
+      key: 'agente',
+      label: 'Agente',
+      icon: Sparkles,
+      url: `${WEB_URL}/agent`,
       visible: true,
     },
     {
@@ -140,6 +148,9 @@ export const NativeBottomNav: React.FC<Props> = ({
         {primaryTabs.map((tab) => {
           const IconComponent = tab.icon;
           const active = isTabActive(tab.key);
+          const isAgent = tab.key === 'agente';
+          const activeColor = isAgent ? '#7c3aed' : '#2563eb';
+          const inactiveColor = isAgent ? '#8b5cf6' : '#94a3b8';
           return (
             <TouchableOpacity
               key={tab.key}
@@ -148,10 +159,14 @@ export const NativeBottomNav: React.FC<Props> = ({
             >
               <IconComponent 
                 size={22} 
-                color={active ? '#2563eb' : '#94a3b8'} 
+                color={active ? activeColor : inactiveColor} 
                 strokeWidth={active ? 2.5 : 2} 
               />
-              <Text style={[styles.navText, active && styles.navTextActive]}>
+              <Text style={[
+                styles.navText, 
+                active && (isAgent ? styles.navTextAgentActive : styles.navTextActive),
+                !active && isAgent && styles.navTextAgentInactive
+              ]}>
                 {tab.label}
               </Text>
             </TouchableOpacity>
@@ -301,6 +316,14 @@ const styles = StyleSheet.create({
   navTextActive: {
     color: '#2563eb',
     fontWeight: '900',
+  },
+  navTextAgentActive: {
+    color: '#7c3aed',
+    fontWeight: '900',
+  },
+  navTextAgentInactive: {
+    color: '#8b5cf6',
+    fontWeight: '800',
   },
 
   /* Estilos do Bottom Sheet */

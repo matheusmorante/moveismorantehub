@@ -387,6 +387,11 @@ deno_version = 2
 [analytics]
 enabled = false
 port = 54327
+
+# O handler valida a sessão explicitamente com auth.getUser(). Desabilitar a
+# validação antecipada evita que o gateway rejeite tokens antes do handler.
+[functions.analyze-inbound-invoice]
+verify_jwt = false
 # Configure one of the supported backends: `postgres`, `bigquery`.
 backend = "postgres"
 

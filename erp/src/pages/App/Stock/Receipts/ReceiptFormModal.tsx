@@ -167,8 +167,8 @@ export default function ReceiptFormModal({ isOpen, onClose, initialReceipt, init
         const normalize = (val = '') => val.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
 
         let matchedSupplier = suppliers.find((p) => {
-            if (p.cnpj && invoice.emitterCnpj) {
-                return cleanCnpj(p.cnpj) === cleanCnpj(invoice.emitterCnpj);
+            if (p.cpfCnpj && invoice.emitterCnpj) {
+                return cleanCnpj(p.cpfCnpj) === cleanCnpj(invoice.emitterCnpj);
             }
             return false;
         });
@@ -182,7 +182,7 @@ export default function ReceiptFormModal({ isOpen, onClose, initialReceipt, init
             });
         }
 
-        const resolvedSupplierId = matchedSupplier?.id || preselectedSupplierId || '';
+        const resolvedSupplierId = invoice.supplierId || matchedSupplier?.id || preselectedSupplierId || '';
         if (resolvedSupplierId) setSupplierId(resolvedSupplierId);
 
         setFiscalKey(invoice.nfeKey);

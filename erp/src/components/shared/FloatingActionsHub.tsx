@@ -1,11 +1,9 @@
 import React, { useState } from 'react';
-import AIChatAssistant from './AIChatAssistant';
 import AttendanceVoiceInput from './AttendanceVoiceInput';
 import { useTheme } from '../../context/ThemeContext';
 
 export default function FloatingActionsHub() {
   const [isOpen, setIsOpen] = useState(false);
-  const [isChatOpen, setIsChatOpen] = useState(false);
   const { theme } = useTheme();
 
   return (
@@ -16,10 +14,12 @@ export default function FloatingActionsHub() {
         {/* Chat Assistant */}
         <div className="relative group" data-testid="assistant-container">
            <button
-             onClick={() => setIsChatOpen(!isChatOpen)}
+             onClick={() => {
+               window.dispatchEvent(new CustomEvent('morante:open-agent'));
+             }}
              data-testid="assistant-toggle"
              className="w-12 h-12 rounded-full bg-indigo-600 hover:bg-indigo-700 text-white flex items-center justify-center shadow-lg hover:scale-110 active:scale-95 transition-all"
-             title="Assistente IA"
+             title="Assistente IA (Agente do ERP)"
            >
              <i className="bi bi-robot text-lg"></i>
            </button>
@@ -66,9 +66,6 @@ export default function FloatingActionsHub() {
       >
         <i className={`bi ${isOpen ? 'bi-x-lg' : 'bi-tools'} text-2xl`}></i>
       </button>
-
-      {/* Chat Assistant Window */}
-      {isChatOpen && <AIChatAssistant isFloating={false} forceOpen={isChatOpen} />}
     </div>
   );
 }

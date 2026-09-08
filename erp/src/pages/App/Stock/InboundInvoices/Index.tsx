@@ -5,8 +5,7 @@ import { useAuth } from '@/context/AuthContext';
 import { InboundInvoicesHeader } from './InboundInvoicesHeader';
 import { InboundInvoicesTable } from './InboundInvoicesTable';
 import { InboundInvoiceDetailsModal } from './InboundInvoiceDetailsModal';
-import { InboundXmlImportModal } from './InboundXmlImportModal';
-import { InboundAccessKeyModal } from './InboundAccessKeyModal';
+import { InboundDocumentImportModal } from './InboundDocumentImportModal';
 import { fetchInboundInvoices, getLastInboundInvoiceSyncAt, syncSefazDfe } from '@/pages/utils/inboundNfe/inboundInvoicesService';
 import { InboundInvoice } from '@/pages/utils/inboundNfe/inboundNfeTypes';
 
@@ -18,7 +17,6 @@ export default function InboundInvoicesPage() {
     const [isSyncing, setIsSyncing] = useState(false);
     const [selectedInvoice, setSelectedInvoice] = useState<InboundInvoice | null>(null);
     const [isImportModalOpen, setIsImportModalOpen] = useState(false);
-    const [isAccessKeyModalOpen, setIsAccessKeyModalOpen] = useState(false);
     const [lastSyncAt, setLastSyncAt] = useState<string | null>(getLastInboundInvoiceSyncAt);
     const isSyncInProgressRef = useRef(false);
 
@@ -107,19 +105,6 @@ export default function InboundInvoicesPage() {
         navigate(`/stock/receipts?inboundKey=${invoice.nfeKey}`);
     };
 
-    const handleAccessKeyLookup = async (accessKey: string) => {
-        await synchronizeInvoices();
-        const updatedInvoices = await fetchInboundInvoices();
-        const invoice = updatedInvoices.find((candidate) => candidate.nfeKey === accessKey);
-        if (!invoice) {
-            toast.info('A chave ainda não foi disponibilizada na distribuição DF-e. Tente novamente após a próxima atualização.');
-            return;
-        }
-        setInvoices(updatedInvoices);
-        setSelectedInvoice(invoice);
-        setIsAccessKeyModalOpen(false);
-    };
-
     const handleDownloadXml = (invoice: InboundInvoice) => {
         if (!invoice.rawXml) return toast.info('XML completo não armazenado para esta nota.');
         const blob = new Blob([invoice.rawXml], { type: 'application/xml' });
@@ -136,8 +121,7 @@ export default function InboundInvoicesPage() {
             <InboundInvoicesHeader
                 searchTerm={searchTerm}
                 onSearchChange={setSearchTerm}
-                onOpenImportXml={() => setIsImportModalOpen(true)}
-                onOpenAccessKey={() => setIsAccessKeyModalOpen(true)}
+                onOpenAddInvoice={() => setIsImportModalOpen(true)}
                 isSyncing={isSyncing}
                 lastSyncAt={lastSyncAt}
                 isAdmin={isAdmin}
@@ -157,16 +141,10 @@ export default function InboundInvoicesPage() {
                 onReceiveGoods={handleReceiveGoods}
             />
 
-            <InboundXmlImportModal
+            <InboundDocumentImportModal
                 isOpen={isImportModalOpen}
                 onClose={() => setIsImportModalOpen(false)}
-                onImportSuccess={() => loadInvoices()}
-            />
-            <InboundAccessKeyModal
-                isOpen={isAccessKeyModalOpen}
-                isLoading={isSyncing}
-                onClose={() => setIsAccessKeyModalOpen(false)}
-                onSubmit={handleAccessKeyLookup}
+                onImportSuccess={(invoice) => { void loadInvoices(); setSelectedInvoice(invoice); }}
             />
         </div>
     );

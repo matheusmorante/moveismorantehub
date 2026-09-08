@@ -4,8 +4,9 @@
   "description": "Master Orchestrator for Morante Ecosystem",
   "private": true,
   "scripts": {
-    "dev": "npm run dev --prefix erp",
+    "dev": "concurrently -k -n ERP,API -c cyan,magenta \"npm run dev:erp\" \"npm run dev:api\"",
     "dev:erp": "npm run dev --prefix erp",
+    "dev:api": "npx vercel dev --listen 3000 --yes",
     "dev:erp:test": "npm run dev:test --prefix erp",
     "dev:catalog": "npm run dev --prefix digital-catalog -- -p 3001",
     "dev:all": "concurrently \"npm run dev:erp\" \"npm run dev:catalog\"",

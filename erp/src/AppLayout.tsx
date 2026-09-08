@@ -11,6 +11,7 @@ import AssistanceOrderModal from "./pages/App/SalesOrder/AssistanceOrderModal";
 import { crmIntelligenceService } from "./pages/utils/crmIntelligenceService";
 import { redeConciliationService } from '@/pages/services/redeConciliationService';
 import FloatingActionsHub from "./components/shared/FloatingActionsHub";
+import AIChatAssistant from "./components/shared/AIChatAssistant";
 import logoMorante from "./assets/logo.jpeg";
 
 export type MenuKey = 'products' | 'stock' | 'salesOrder' | 'logistics' | 'registrations' | 'finance' | 'marketing' | 'assembly' | null;
@@ -19,6 +20,7 @@ export default function AppLayout() {
   const location = useLocation();
   const [activeMenu, setActiveMenu] = useState<MenuKey>(null);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isAgentOpen, setIsAgentOpen] = useState(false);
   const { theme, toggleTheme } = useTheme();
   const { user, profile, logout, isAdmin } = useAuth();
   const [isAssistanceModalOpen, setIsAssistanceModalOpen] = useState(false);
@@ -46,6 +48,12 @@ export default function AppLayout() {
       window.removeEventListener('OPEN_ASSISTANCE_MODAL', handleOpenAssistance);
       window.removeEventListener('REGISTER_CUSTOMER_DESIRE', handleRegisterDesire);
     };
+  }, []);
+
+  useEffect(() => {
+    const handleOpenAgent = () => setIsAgentOpen(true);
+    window.addEventListener('morante:open-agent', handleOpenAgent);
+    return () => window.removeEventListener('morante:open-agent', handleOpenAgent);
   }, []);
 
   useEffect(() => {
@@ -103,6 +111,17 @@ export default function AppLayout() {
           </div>
 
           <div className="flex items-center gap-2 lg:gap-4">
+            {/* Botão de Acesso Global ao Agente do ERP */}
+            <button
+              onClick={() => setIsAgentOpen(prev => !prev)}
+              data-testid="agent-header-btn"
+              className="flex items-center gap-2 px-3 py-1.5 sm:px-3.5 sm:py-2 rounded-xl bg-gradient-to-r from-indigo-600 via-indigo-500 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-white font-bold text-xs shadow-md shadow-indigo-500/20 hover:shadow-indigo-500/35 transition-all active:scale-95"
+              title="Abrir Agente do ERP (Assistente Inteligente)"
+            >
+              <i className="bi bi-stars text-amber-300 animate-pulse"></i>
+              <span className="hidden sm:inline font-black tracking-wide">Agente</span>
+            </button>
+
             <GlobalAutoScroll />
             <NotificationBell />
 
@@ -207,8 +226,15 @@ export default function AppLayout() {
         <Outlet />
       </main>
 
-      {/* Hub de Ações Flutuantes & Assistente Financeiro IA */}
+      {/* Hub de Ações Flutuantes */}
       <FloatingActionsHub />
+
+      {/* Agente Geral do ERP — Drawer Lateral Global */}
+      <AIChatAssistant
+        isOpen={isAgentOpen}
+        onClose={() => setIsAgentOpen(false)}
+        mode="drawer"
+      />
 
       {isAssistanceModalOpen && (
         <AssistanceOrderModal 

@@ -3,8 +3,7 @@ import React from 'react';
 interface InboundInvoicesHeaderProps {
     searchTerm: string;
     onSearchChange: (value: string) => void;
-    onOpenImportXml: () => void;
-    onOpenAccessKey: () => void;
+    onOpenAddInvoice: () => void;
     isSyncing: boolean;
     lastSyncAt: string | null;
     isAdmin?: boolean;
@@ -14,8 +13,7 @@ interface InboundInvoicesHeaderProps {
 export const InboundInvoicesHeader: React.FC<InboundInvoicesHeaderProps> = ({
     searchTerm,
     onSearchChange,
-    onOpenImportXml,
-    onOpenAccessKey,
+    onOpenAddInvoice,
     isSyncing,
     lastSyncAt,
     isAdmin = false,
@@ -53,19 +51,11 @@ export const InboundInvoicesHeader: React.FC<InboundInvoicesHeaderProps> = ({
                     )}
                     <button
                         type="button"
-                        onClick={onOpenAccessKey}
+                            onClick={onOpenAddInvoice}
                         className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-3.5 py-2 text-xs font-black uppercase tracking-wider text-white shadow-sm transition-all hover:bg-blue-700 cursor-pointer"
                     >
-                        <i className="bi bi-key-fill text-sm" />
-                        Adicionar NF-e por chave
-                    </button>
-                    <button
-                        type="button"
-                        onClick={onOpenImportXml}
-                        className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-black uppercase tracking-wider text-slate-700 shadow-sm hover:bg-slate-50 transition-all dark:border-slate-800 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800 cursor-pointer"
-                    >
-                        <i className="bi bi-filetype-xml text-emerald-600 text-sm" />
-                        Importar XML
+                        <i className="bi bi-file-earmark-plus-fill text-sm" />
+                        Adicionar NF
                     </button>
                 </div>
             </div>

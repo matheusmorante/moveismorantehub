@@ -6,6 +6,7 @@ import {
   GeminiPart,
   AgentExecutionResult,
   ExecutedToolRecord,
+  AgentPageContext,
 } from './mobileAgentTypes';
 
 // Orquestrador conversacional do Agente Lisandro no App Mobile com Function Calling nativo
@@ -13,7 +14,7 @@ import {
 const MAX_TOOL_ITERATIONS = 5;
 
 export class MobileAgentService {
-  public static buildSystemInstruction(): string {
+  public static buildSystemInstruction(pageContext?: AgentPageContext): string {
     const now = new Date();
     const todayStr = now.toISOString().split('T')[0];
     const diasSemana = [
@@ -27,8 +28,12 @@ export class MobileAgentService {
     ];
     const diaNome = diasSemana[now.getDay()];
 
-    return `Voce e Lisandro, o assistente inteligente de financas e gestao do ERP Moveis Morante no App Mobile.
-Voce e um agente com capacidade de raciocinio, consulta e execucao atraves de ferramentas oficiais do ERP.
+    const contextSnippet = pageContext
+      ? `\nCONTEXTO DA INTERFACE ATUAL NO APP: O usuario esta na tela/modulo "${pageContext.currentModule}"${pageContext.currentPage ? ` (pagina: ${pageContext.currentPage})` : ''}. Use isso para compreender o contexto.`
+      : '';
+
+    return `Voce e Lisandro, o Agente Inteligente do ERP Moveis Morante no App Mobile.
+Voce e um agente com capacidade de raciocinio, consulta e execucao atraves de ferramentas oficiais do ERP.${contextSnippet}
 
 DATA DE REFERENCIA DO SISTEMA: ${todayStr} (${diaNome}).
 Use essa data para interpretar datas relativas: "hoje", "ontem", "amanha", "este mes", "semana passada".
@@ -91,12 +96,19 @@ SUAS REGRAS FUNDAMENTAIS:
      * Responda de forma cortez confirmando que o feedback foi registrado no sistema de auditoria para a equipe aprimorar a IA.
 6. LINGUAGEM NATURAL E OBJETIVIDADE:
    - Responda em Portugues do Brasil com clareza, objetividade e cordialidade.
-   - Formate valores monetarios como R$ 0,00.`;
+   - Formate valores monetarios como R$ 0,00.
+7. ESCOPO ATUAL E LIMITACAO DE EXECUCAO:
+   - Nesta etapa, voce possui ferramentas oficiais de consulta e execucao EXCLUSIVAMENTE para o modulo Financeiro (fluxo de caixa, despesas, receitas e contas a pagar).
+   - Se o usuario solicitar acoes para outros modulos (como alterar estoque, pedidos, entregas, montagens ou clientes):
+     * Compreenda educadamente a solicitacao.
+     * Responda de forma clara, elegante e direta: "Essa acao ainda nao esta disponivel para mim."
+     * NUNCA invente ferramentas, alucine dados ou simule operacoes nao suportadas.`;
   }
 
   public static async sendMessage(
     userMessage: string,
-    history: GeminiContent[] = []
+    history: GeminiContent[] = [],
+    pageContext?: AgentPageContext
   ): Promise<{ result: AgentExecutionResult; updatedHistory: GeminiContent[] }> {
     const executedTools: ExecutedToolRecord[] = [];
     const conversation: GeminiContent[] = [...history];
@@ -108,7 +120,7 @@ SUAS REGRAS FUNDAMENTAIS:
 
     let iterations = 0;
     const systemInstruction = {
-      parts: [{ text: this.buildSystemInstruction() }],
+      parts: [{ text: this.buildSystemInstruction(pageContext) }],
     };
 
     while (iterations < MAX_TOOL_ITERATIONS) {
@@ -135,11 +147,11 @@ SUAS REGRAS FUNDAMENTAIS:
       conversation.push(modelContent);
 
       const functionCalls = modelContent.parts
-        .filter(p => Boolean(p.functionCall))
-        .map(p => p.functionCall!);
+        .filter((p: GeminiPart) => Boolean(p.functionCall))
+        .map((p: GeminiPart) => p.functionCall!);
 
       if (functionCalls.length === 0) {
-        const textParts = modelContent.parts.map(p => p.text || '').filter(Boolean);
+        const textParts = modelContent.parts.map((p: GeminiPart) => p.text || '').filter(Boolean);
         const finalAnswer = textParts.join('\n').trim();
         return {
           result: { answer: finalAnswer || 'Acao concluida com sucesso.', executedTools },

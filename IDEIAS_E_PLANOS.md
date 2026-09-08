@@ -41,6 +41,19 @@ Este documento unifica todo o planejamento estratégico, ideias futuras, tarefas
 
 ## 📌 2. Próximos Passos e Pendências Imediatas
 
+### 🤖 Evolução do Agente: Do Agente Financeiro ao Agente Geral do ERP (Concluído - Fase 1)
+- [x] **Mudança Conceitual**: De "Agente Financeiro" para "Agente do ERP" / "Assistente" universal.
+- [x] **Acesso Global**: Integrado botão de destaque "✦ Agente" no topo e Drawer lateral no ERP Web (`AppLayout`), e aba primária "Agente" com ícone `Sparkles` no rodapé mobile (`NativeBottomNav`), sem botão flutuante intrusivo.
+- [x] **Contexto de Tela Controlado (`pageContext`)**: Passar `currentModule`, `currentPage` e `currentPath` ao agente (`Contexto ≠ Permissão`), mantendo conversa viva durante navegação.
+- [x] **Escopo Seguro e Tratamento de Indisponibilidade**: Ferramentas ativas exclusivamente no Financeiro nesta etapa. Solicitações de outros domínios (Estoque, Compras, etc.) respondidas elegantemente com "Essa ação ainda não está disponível para mim." sem alucinações.
+- [x] **Arquitetura Modular por Domínio**: `geminiToolDeclarations.ts` e `mobileToolDeclarations.ts` estruturados por domínio com dicionário e registro pronto para novas ferramentas.
+- [x] **Testes Determinísticos de Nível A**: 21/21 casos de teste com 100% de aprovação no Golden Dataset (incluindo testes de segurança de escopo para estoque e pedidos).
+
+#### Próximas Fases do Agente do ERP (Roadmap de Domínios):
+- [ ] **Fase 2 - Domínio de Estoque & Produtos**: Consultas de saldo em estoque por variação, localização no galpão, alertas de estoque mínimo e busca de ficha técnica.
+- [ ] **Fase 3 - Domínio de Vendas & Pedidos**: Consulta de status de pedidos por cliente/número, prazos de entrega e agendamento de montagem.
+- [ ] **Fase 4 - Domínio de Clientes & CRM**: Histórico de compras do cliente, preferências registradas e status de assistência técnica.
+
 ### 🤖 Nova Arquitetura do Assistente de IA (Gemini Function Calling & Financeiro Conversacional)
 - [x] **Auditoria Completa Concluída**: Identificada dependência de parsers manuais, JSON textual, regex de markdown, ausência de tools nativas e isolamento completo do módulo financeiro.
 - [x] **Camada de Tools do ERP**:

@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
-import { Bot, Receipt } from 'lucide-react-native';
+import { Sparkles, Receipt } from 'lucide-react-native';
 
 interface Props {
   activeTab: 'transactions' | 'assistant';
@@ -40,7 +40,7 @@ export const FinanceTopTabsBar: React.FC<Props> = ({
           onPress={() => onSelectTab('assistant')}
           activeOpacity={0.7}
         >
-          <Bot size={15} color={activeTab === 'assistant' ? '#7c3aed' : isDarkMode ? '#94a3b8' : '#64748b'} />
+          <Sparkles size={15} color={activeTab === 'assistant' ? '#7c3aed' : isDarkMode ? '#94a3b8' : '#64748b'} />
           <Text
             style={[
               styles.topTabText,
@@ -48,7 +48,7 @@ export const FinanceTopTabsBar: React.FC<Props> = ({
               isDarkMode && activeTab !== 'assistant' && styles.topTabTextDark,
             ]}
           >
-            Assistente
+            Agente ERP
           </Text>
           <View style={styles.betaBadge}>
             <Text style={styles.betaBadgeText}>BETA</Text>

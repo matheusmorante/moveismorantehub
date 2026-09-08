@@ -174,8 +174,20 @@ export const financialToolDeclarations: GeminiFunctionDeclaration[] = [
   },
 ];
 
+// Registro de ferramentas do Agente por domínio de negócio do ERP
+// Nesta etapa: apenas o domínio Financeiro possui ferramentas ativas de execução.
+// Domínios futuros (Estoque, Compras, Vendas, Clientes) serão plugados aqui de forma modular.
+export const erpDomainTools: Record<string, GeminiFunctionDeclaration[]> = {
+  finance: financialToolDeclarations,
+  // inventory: inventoryToolDeclarations, // Futuro
+  // purchasing: purchasingToolDeclarations, // Futuro
+  // sales: salesToolDeclarations, // Futuro
+  // customers: customersToolDeclarations, // Futuro
+};
+
 export const erpAgentTools: GeminiTool[] = [
   {
-    functionDeclarations: financialToolDeclarations,
+    functionDeclarations: Object.values(erpDomainTools).flat(),
   },
 ];
+

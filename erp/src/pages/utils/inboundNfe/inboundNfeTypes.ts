@@ -11,6 +11,9 @@ export interface InboundInvoiceItem {
     totalCost: number;
     freightValue?: number;
     ipiValue?: number;
+    ipiPercent?: number;
+    discountValue?: number;
+    icmsValue?: number;
     matchedProductId?: string;
     matchedVariationId?: string;
 }
@@ -31,6 +34,22 @@ export interface InboundInvoice {
     totalProducts: number;
     totalFreight: number;
     totalIpi: number;
+    totalDiscount?: number;
+    totalInsurance?: number;
+    totalOtherExpenses?: number;
+    totalIcms?: number;
+    freightPercent?: number;
+    operationNature?: string;
+    model?: string;
+    protocol?: string;
+    entryExitAt?: string;
+    emitterIe?: string;
+    emitterAddress?: Record<string, unknown>;
+    supplierId?: string;
+    originalDocumentPath?: string;
+    originalDocumentMime?: string;
+    extractionWarnings?: string[];
+    extractionConfidence?: Record<string, unknown>;
     totalInvoice: number;
     status: InboundInvoiceStatus;
     itemsCount: number;

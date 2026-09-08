@@ -74,3 +74,11 @@ export interface AgentChatMessage {
   executedTools?: ExecutedToolRecord[];
   isAction?: boolean;
 }
+
+export interface AgentPageContext {
+  currentModule: string;
+  currentPage?: string;
+  currentPath?: string;
+  title?: string;
+}
+
