@@ -24,14 +24,12 @@ export const ScheduleCard: React.FC<Props> = ({
   const items = oData.items || item.order?.items || oData.assistanceItems || [];
   const orderHandling = oData.handlingType || item.order?.handling_type || oData.handling;
   const serviceSummary = analyzeOrderServiceHandlings(items, orderHandling);
+  const observationCount = item.observationCount ?? 0;
 
   // Informações de pagamento
   const financial = oData.financial || item.order?.financial || {};
   const pendingAmount = Number(financial.remainingAmount || financial.pendingBalance || 0);
   const paymentMethod = financial.pendingPaymentMethod || financial.paymentMethod || 'PIX / Cartão';
-
-  // Observações operacionais
-  const observations = (oData.observations || item.order?.observations || item.observations || '').trim();
 
   // Bairro e Cidade
   const shipping = oData.shipping || {};
@@ -56,13 +54,9 @@ export const ScheduleCard: React.FC<Props> = ({
       onPress={() => onViewOrder(item)}
       activeOpacity={0.88}
     >
-      {/* Cabeçalho do Card com Sequência, Parafusadeira e Código do Pedido */}
+      {/* Cabeçalho do Card com selos de serviço e código do pedido */}
       <View style={styles.cardHeader}>
         <View style={styles.headerLeft}>
-          <View style={styles.sequenceBadge}>
-            <Text style={styles.sequenceBadgeText}>{item.sequence}ª ENTREGA</Text>
-          </View>
-
           {/* Selo Parafusadeira Amarela - Montagem Depósito */}
           {serviceSummary.hasDepotAssembly && (
             <View style={[styles.drillBadge, styles.drillBadgeDepot]}>
@@ -119,11 +113,16 @@ export const ScheduleCard: React.FC<Props> = ({
         </View>
       ) : null}
 
-      {/* Quantidade de produtos */}
+      {/* Quantidade de itens e observações operacionais */}
       <View style={styles.metricsRow}>
         <Text style={[styles.productsCountText, isDarkMode && styles.textMuted]}>
-          📦 {item.itemsCount} {item.itemsCount === 1 ? 'produto' : 'produtos'}
+          📦 {item.itemsCount} {item.itemsCount === 1 ? 'item' : 'itens'}
         </Text>
+        {observationCount > 0 && (
+          <Text style={styles.observationsCountText}>
+            • {observationCount} {observationCount === 1 ? 'observação' : 'observações'}
+          </Text>
+        )}
       </View>
 
       {/* Botões de Ação do Card */}
@@ -173,20 +172,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 6,
     flexWrap: 'wrap',
-  },
-  sequenceBadge: {
-    backgroundColor: '#eff6ff',
-    paddingHorizontal: 10,
-    paddingVertical: 3.5,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#bfdbfe',
-  },
-  sequenceBadgeText: {
-    fontSize: 10,
-    fontWeight: '900',
-    color: '#1d4ed8',
-    letterSpacing: 0.5,
   },
   drillBadge: {
     width: 22,
@@ -315,6 +300,11 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '700',
     color: '#64748b',
+  },
+  observationsCountText: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#dc2626',
   },
   durationText: {
     fontSize: 11,

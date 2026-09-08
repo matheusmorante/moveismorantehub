@@ -29,16 +29,22 @@ export const OrderDetailsModal: React.FC<Props> = ({ order, onClose, isDarkMode,
   useEffect(() => {
     const loadPermission = async () => {
       const { data } = await supabase.from('settings').select('data').eq('id', 'app').maybeSingle();
-      const allowedRoles = data?.data?.rolePermissions?.startDelivery || ['administrator', 'deliverer'];
-      setCanStartDelivery(userRole === 'administrator' || allowedRoles.includes(userRole));
+      const configuredRoles = data?.data?.rolePermissions?.startDelivery;
+      const allowedRoles = Array.isArray(configuredRoles)
+        ? configuredRoles
+        : ['administrator', 'deliverer'];
+      const normalizedRole = String(userRole || '').trim().toLowerCase();
+      const isAdministrator = ['admin', 'administrator', 'master'].includes(normalizedRole);
+      const hasConfiguredPermission = allowedRoles.some(
+        (role: string) => String(role).trim().toLowerCase() === normalizedRole
+      );
+
+      setCanStartDelivery(isAdministrator || hasConfiguredPermission);
     };
     void loadPermission();
   }, [userRole]);
 
   if (!order) return null;
-
-  const orderData = order.order_data || order;
-  const customerName = order.customer_name || orderData.customerData?.fullName || orderData.customer?.fullName || 'Consumidor';
 
   return (
     <Modal
@@ -60,14 +66,7 @@ export const OrderDetailsModal: React.FC<Props> = ({ order, onClose, isDarkMode,
             <View style={styles.iconCircle}>
               <ShoppingBag size={20} color="#2563eb" />
             </View>
-            <View style={{ flex: 1 }}>
-              <Text style={[styles.titleText, isDarkMode && styles.textDark]}>
-                Detalhes do Pedido
-              </Text>
-              <Text style={{ fontSize: 12, fontWeight: '700', color: '#64748b' }} numberOfLines={1}>
-                {customerName}
-              </Text>
-            </View>
+            <Text style={[styles.titleText, isDarkMode && styles.textDark]}>Detalhes do Pedido</Text>
           </View>
 
           <TouchableOpacity onPress={onClose} style={[styles.closeBtn, isDarkMode && styles.closeBtnDark]}>
@@ -116,6 +115,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center'
   },
   titleText: {
+    flexShrink: 1,
     fontSize: 18,
     fontWeight: '900',
     color: '#0f172a'

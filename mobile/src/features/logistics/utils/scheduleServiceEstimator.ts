@@ -43,7 +43,9 @@ export function analyzeOrderServiceHandlings(
 
   for (const item of items) {
     const qty = Number(item.quantity || item.qty || 1);
-    const handling = String(item.handlingType || item.handling || item.serviceType || '').toLowerCase();
+    const handling = String(
+      item.handlingType || item.handling_type || item.handling || item.serviceType || ''
+    ).toLowerCase();
     const name = String(item.name || item.productName || item.description || '').toLowerCase();
 
     // Montagem Fora (na casa do cliente)
@@ -55,6 +57,7 @@ export function analyzeOrderServiceHandlings(
       handling.includes('local') ||
       Boolean(item.requiresAssembly) ||
       Boolean(item.assemblyOutside) ||
+      Boolean(item.assembly_outside) ||
       Boolean(item.is_assembly_outside)
     ) {
       hasOutsideAssembly = true;
@@ -78,6 +81,7 @@ export function analyzeOrderServiceHandlings(
       handling.includes('interna') ||
       handling.includes('montado') ||
       Boolean(item.assemblyDepot) ||
+      Boolean(item.assembly_depot) ||
       Boolean(item.is_assembly_depot)
     ) {
       hasDepotAssembly = true;

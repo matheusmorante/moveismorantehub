@@ -70,13 +70,6 @@ export const DeliveriesHubScreen: React.FC<Props> = ({
         <View style={styles.titleRow}>
           <View style={{ flex: 1 }}>
             <Text style={[styles.screenTitle, isDarkMode && styles.textLight]}>Entregas</Text>
-            <Text style={[styles.screenSubtitle, isDarkMode && styles.textMuted]}>
-              {activeTab === 'today'
-                ? 'Resumo de inteligência operacional de entregas'
-                : activeTab === 'schedule'
-                ? 'Sequência, horários e tempo de atendimento'
-                : 'Visão geográfica e trajeto no mapa'}
-            </Text>
           </View>
         </View>
 
@@ -220,7 +213,7 @@ const styles = StyleSheet.create({
   headerContainer: {
     backgroundColor: '#ffffff',
     paddingHorizontal: 16,
-    paddingBottom: 10,
+    paddingBottom: 8,
     borderBottomWidth: 1,
     borderBottomColor: '#f1f5f9',
   },
@@ -232,19 +225,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 10,
+    marginBottom: 6,
   },
   screenTitle: {
     fontSize: 20,
     fontWeight: '900',
     color: '#0f172a',
     letterSpacing: -0.5,
-  },
-  screenSubtitle: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#64748b',
-    marginTop: 1,
   },
   textLight: {
     color: '#f8fafc',

@@ -6,6 +6,7 @@ import { getOperationalScheduleDate } from '../../../utils/operationalSchedule';
 import { getLocationMapsUrl, parseCoordinatesFromMapsUrl, isCancelledOrder, formatOrderCode } from '../../../utils/orderUtils';
 import { hasDeliveryExceeded12Hours, autoFulfillOrderIfExceeded12Hours } from '../../orders/utils/deliveryAutoFulfillment';
 import { getDeliverySchedulePeriod } from '../utils/deliverySchedulePeriod';
+import { countDeliveryObservations } from '../utils/countDeliveryObservations';
 export { checkOutOfOrderRisk } from '../utils/deliveryRouteRisk';
 
 export interface DeliveryRouteItem {
@@ -24,6 +25,7 @@ export interface DeliveryRouteItem {
   durationMin?: number;
   phone?: string;
   observations?: string;
+  observationCount?: number;
   isCurrent: boolean;
   isNext: boolean;
   // Conceitos de Janela e Período de Atendimento
@@ -176,6 +178,9 @@ export function useDeliveryRoute() {
       }
 
       const items = oData.items || o.items || oData.assistanceItems || [];
+      const itemCount = Array.isArray(items) ? items.length : 0;
+      const observation = oData.observation ?? oData.observations ?? o.observation ?? o.observations;
+      const deliveryAddressObservation = shipping.deliveryAddress?.observation;
       const isCurrent = (status === 'in_progress' || status === 'in_service');
       const isNext = !firstInProgressId && o.id === activeTargetId;
 
@@ -201,7 +206,7 @@ export function useDeliveryRoute() {
           shipping.deliveryAddress?.city || customer.fullAddress?.city || 'Colombo',
         ].filter(Boolean).join(', '),
         mapsUrl,
-        itemsCount: items.reduce((acc: number, item: any) => acc + Number(item.quantity || item.qty || 1), 0),
+        itemsCount: itemCount,
         sequence: idx + 1, // Ordem do Roteiro
         status,
         coords,
@@ -209,7 +214,8 @@ export function useDeliveryRoute() {
         distanceKm: shipping.distance ? Number(Number(shipping.distance).toFixed(1)) : undefined,
         durationMin: shipping.durationMinutes ? Number(shipping.durationMinutes) : undefined,
         phone: customer.phone,
-        observations: oData.observations || o.observations,
+        observations: typeof observation === 'string' ? observation : undefined,
+        observationCount: countDeliveryObservations([observation, deliveryAddressObservation]),
         isCurrent,
         isNext,
         periodLabel: periodInfo.label,

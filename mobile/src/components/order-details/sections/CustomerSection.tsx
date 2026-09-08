@@ -10,6 +10,7 @@ interface CustomerSectionProps {
 
 export function CustomerSection({ customer, dark }: CustomerSectionProps) {
   const contacts = (customer?.additionalContacts || []).filter((contact: any) => contact?.name || contact?.phone);
+  const customerObservation = String(customer?.observations || customer?.observation || customer?.notes || '').trim();
 
   return (
     <SectionCard dark={dark}>
@@ -29,6 +30,12 @@ export function CustomerSection({ customer, dark }: CustomerSectionProps) {
       {Boolean(customer?.document) && (
         <Text style={styles.detail}>📄 CPF / CNPJ: {customer.document}</Text>
       )}
+      {customerObservation && (
+        <View style={[styles.observationBox, dark && styles.observationBoxDark]}>
+          <Text style={styles.observationTitle}>OBSERVAÇÕES DO CLIENTE</Text>
+          <Text style={[styles.observationText, dark && styles.light]}>{customerObservation}</Text>
+        </View>
+      )}
     </SectionCard>
   );
 }
@@ -41,4 +48,8 @@ const styles = StyleSheet.create({
   contactDark: { backgroundColor: '#0f172a', borderColor: '#334155' },
   contactName: { fontSize: 10, fontWeight: '900', color: '#2563eb', textTransform: 'uppercase' },
   contactPhone: { fontSize: 13, fontWeight: '800', color: '#334155' },
+  observationBox: { backgroundColor: '#eff6ff', borderWidth: 1, borderColor: '#bfdbfe', borderRadius: 11, padding: 10, gap: 3 },
+  observationBoxDark: { backgroundColor: '#172554', borderColor: '#1d4ed8' },
+  observationTitle: { fontSize: 9, fontWeight: '900', color: '#2563eb', letterSpacing: 0.5 },
+  observationText: { fontSize: 12, fontWeight: '700', color: '#334155', lineHeight: 17 },
 });

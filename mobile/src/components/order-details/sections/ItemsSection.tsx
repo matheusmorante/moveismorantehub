@@ -1,5 +1,5 @@
 import React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { DollarSign, FileText, Flame } from 'lucide-react-native';
 import { SectionCard, SectionHeader } from './SectionCard';
 import { formatItemNameExact } from '../../../utils/orderUtils';
@@ -64,7 +64,7 @@ export function ItemsSection({ items, handlingOptions, total, dark }: ItemsSecti
                   <Text style={[styles.itemName, dark && styles.light]}>
                     <Text style={styles.qty}>{qty}x</Text> {formatItemNameExact(item)}
                   </Text>
-                  <View style={styles.tagsRow}>
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tagsRow}>
                     {Boolean(opportunityLabel) && (
                       <View style={[styles.oppBadge, dark && styles.oppBadgeDark]}>
                         <Flame size={10} color={dark ? '#fbbf24' : '#d97706'} />
@@ -80,7 +80,7 @@ export function ItemsSection({ items, handlingOptions, total, dark }: ItemsSecti
                         </Text>
                       </View>
                     )}
-                  </View>
+                  </ScrollView>
                 </View>
 
                 <View style={styles.priceContainer}>
@@ -120,7 +120,7 @@ const styles = StyleSheet.create({
   light: { color: '#f8fafc' },
   inline: { flexDirection: 'row', alignItems: 'center', gap: 5 },
   itemsListContainer: { gap: 8, marginTop: 4 },
-  tagsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, alignItems: 'center', marginTop: 2 },
+  tagsRow: { gap: 6, alignItems: 'center', paddingRight: 4 },
   itemCard: {
     flexDirection: 'row',
     alignItems: 'center',

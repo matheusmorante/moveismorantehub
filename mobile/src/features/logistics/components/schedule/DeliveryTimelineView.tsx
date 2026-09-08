@@ -144,9 +144,7 @@ export const DeliveryTimelineView: React.FC<Props> = ({
                       styles.timelineNode,
                       item.isFixedTime ? styles.timelineNodeFixed : styles.timelineNodeNormal,
                     ]}
-                  >
-                    <Text style={styles.timelineNodeText}>{item.sequence}</Text>
-                  </View>
+                  />
                   {index < filteredItems.length - 1 && <View style={styles.timelineLine} />}
                 </View>
 
@@ -242,11 +240,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   timelineNode: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
+    width: 10,
+    height: 10,
+    borderRadius: 5,
     zIndex: 2,
   },
   timelineNodeNormal: {
@@ -254,11 +250,6 @@ const styles = StyleSheet.create({
   },
   timelineNodeFixed: {
     backgroundColor: '#dc2626',
-  },
-  timelineNodeText: {
-    fontSize: 11,
-    fontWeight: '900',
-    color: '#ffffff',
   },
   timelineLine: {
     flex: 1,

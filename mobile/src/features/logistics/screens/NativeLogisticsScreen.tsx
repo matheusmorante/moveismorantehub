@@ -302,7 +302,7 @@ export const NativeLogisticsScreen: React.FC<Props> = ({
       >
         {/* Top Badges Row */}
         <View style={styles.cardHeaderTop}>
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
+          <View style={styles.cardHeaderBadges}>
             <View style={[
               styles.handlingBadge,
               isAssistance ? styles.badgeAssistance : (isPickup ? styles.badgePickup : styles.badgeDelivery)
@@ -773,7 +773,8 @@ const styles = StyleSheet.create({
   stickySectionBadgeText: { fontSize: 10, fontWeight: '900', color: '#ffffff' },
   card: { backgroundColor: '#ffffff', borderRadius: 20, padding: 16, borderWidth: 2, gap: 10, elevation: 2, marginBottom: 12 },
   cardDark: { backgroundColor: '#1e293b' },
-  cardHeaderTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  cardHeaderTop: { alignItems: 'flex-start' },
+  cardHeaderBadges: { flexDirection: 'row', flexWrap: 'wrap', flex: 1, minWidth: 0, gap: 6 },
   handlingBadge: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 9, paddingVertical: 3.5, borderRadius: 10 },
   badgeDelivery: { backgroundColor: '#10b981' },
   badgePickup: { backgroundColor: '#a855f7' },

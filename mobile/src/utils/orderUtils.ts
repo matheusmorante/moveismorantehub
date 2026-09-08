@@ -70,7 +70,14 @@ export const formatItemNameExact = (item: any): string => {
   if (!item) return 'Móvel';
   const raw = item.description || item.name || item.title || item.productName || item.product_name || item.product || '';
   if (!raw) return 'Móvel';
-  return String(raw).replace(/\(.*?\)/g, '').replace(/\[.*?\]/g, '').trim() || String(raw);
+  const itemName = String(raw).replace(/\(.*?\)/g, '').replace(/\[.*?\]/g, '').trim() || String(raw);
+  const observation = typeof item.observation === 'string'
+    ? item.observation.trim()
+    : typeof item.observations === 'string'
+      ? item.observations.trim()
+      : '';
+
+  return observation ? `${itemName} - ${observation}` : itemName;
 };
 
 export const formatItemsListSummary = (items: any[]): string => {
