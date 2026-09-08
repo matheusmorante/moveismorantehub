@@ -59,6 +59,8 @@ export type Order = {
         status?: string,
         stockProcessed?: boolean,
         stockReversed?: boolean,
+        items?: Item[],
+        movedProductIds?: string[],
     },
     nfeData?: {
         accessKey?: string;

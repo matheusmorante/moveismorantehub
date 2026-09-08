@@ -1,6 +1,7 @@
 import Order, { OrderAction, IsButtonsClicked } from "../../../types/order.type";
 import { toast } from "react-toastify";
 import { formatOrderCode } from "../../../utils/orderCode";
+import { stringifyFullAddressWithObservation } from "../../../utils/formatters";
 
 import { 
     shippingOrderWhatsappUrl, 
@@ -229,20 +230,40 @@ export const actionsMap: Record<OrderAction, (order: Order) => void> = {
         const printWindow = window.open('', '_blank');
         if (!printWindow) return;
 
+        const formatCurrency = (value: unknown) => Number(value || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 });
+        const collectionDate = order.shipping?.scheduling?.date
+            ? new Date(`${order.shipping.scheduling.date}T12:00:00`).toLocaleDateString('pt-BR')
+            : 'A definir';
+        const originalOrderCode = order.linkedOrderCode || 'N/A';
+        const returnTotal = (order.items || []).reduce(
+            (total, item) => total + (Number(item.quantity || 0) * Number(item.unitPrice || 0)),
+            0,
+        );
+        const scheduling = order.shipping?.scheduling;
+        const isTimeRange = scheduling?.type === 'range';
+        const collectionTime = isTimeRange
+            ? `${scheduling?.startTime || ''}${scheduling?.endTime ? ` às ${scheduling.endTime}` : ''}`.trim() || scheduling?.time || 'A definir'
+            : scheduling?.startTime || scheduling?.time || 'A definir';
+        const collectionAddress = stringifyFullAddressWithObservation(
+            order.shipping?.deliveryAddress || order.customerData?.fullAddress,
+        ) || 'Endereço não informado';
+        const distance = order.shipping?.distance ? `${order.shipping.distance} km` : 'Não informada';
+        const estimatedTime = order.shipping?.durationMinutes ? `${order.shipping.durationMinutes} min` : 'Não informado';
+
         const itemsHtml = (order.items || []).map(item => `
             <tr>
                 <td style="padding: 12px; border-bottom: 1px solid #eee;">
                     <div style="font-weight: 900; font-size: 12px; text-transform: uppercase;">${item.description}${item.observation?.trim() ? ` - ${item.observation.trim()}` : ''}</div>
                 </td>
                 <td style="padding: 12px; border-bottom: 1px solid #eee; text-align: center; font-weight: 700;">${item.quantity}</td>
-                <td style="padding: 12px; border-bottom: 1px solid #eee; text-align: right; font-weight: 700;">R$ ${item.totalValue?.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
+                <td style="padding: 12px; border-bottom: 1px solid #eee; text-align: right; font-weight: 700;">R$ ${formatCurrency(Number(item.quantity || 0) * Number(item.unitPrice || 0))}</td>
             </tr>
         `).join('');
 
         printWindow.document.write(`
             <html>
                 <head>
-                    <title>COMPROVANTE DE DEVOLUÇÃO - ${formatOrderCode(order)}</title>
+                    <title>OS DE COLETA (DEVOLUÇÃO) - ${formatOrderCode(order)}</title>
                     <style>
                         body { font-family: sans-serif; padding: 20px; color: #333; line-height: 1.5; }
                         .ticket { max-width: 800px; margin: 0 auto; border: 2px solid #eee; padding: 30px; border-radius: 20px; }
@@ -253,17 +274,26 @@ export const actionsMap: Record<OrderAction, (order: Order) => void> = {
                 </head>
                 <body>
                     <div class="ticket">
-                        <div class="header" style="background: #d97706; color: white; padding: 30px; border-radius: 15px; display: flex; justify-content: space-between; align-items: center; -webkit-print-color-adjust: exact; print-color-adjust: exact; margin-bottom: 30px;">
+                        <div class="header" style="background: #d97706; color: white; padding: 30px; border-radius: 15px; display: flex; align-items: center; -webkit-print-color-adjust: exact; print-color-adjust: exact; margin-bottom: 30px;">
                             <div style="display: flex; gap: 20px; align-items: center;">
-                                <img src="/lizandro.png" style="width: 90px; height: 90px; border-radius: 15px; border: 3px solid rgba(255,255,255,0.3);" />
+                                <div style="width: 256px; height: 256px; flex: 0 0 256px; display: flex; align-items: center; justify-content: center; border-radius: 24px; background: white; padding: 12px; box-sizing: border-box;">
+                                    <img src="/images/logo-morante.png" style="width: 100%; height: 100%; object-fit: contain; border-radius: 18px;" />
+                                </div>
                                 <div>
-                                    <h1 style="color: white; margin: 0; font-size: 24px; font-weight: 900; text-transform: uppercase; letter-spacing: -1px;">OS de Devolução</h1>
+                                    <h1 style="color: white; margin: 0; font-size: 24px; font-weight: 900; text-transform: uppercase; letter-spacing: -1px;">OS de Coleta (Devolução)</h1>
                                     <div style="color: rgba(255,255,255,0.9); font-size: 14px; font-weight: 800;">PEDIDO: #${formatOrderCode(order)}</div>
                                 </div>
                             </div>
-                            <div style="text-align: right;">
-                                <div style="font-size: 10px; font-weight: 900; text-transform: uppercase; opacity: 0.8;">Data da Devolução</div>
-                                <div style="font-size: 16px; font-weight: 900;">${new Date(order.date).toLocaleDateString('pt-BR')}</div>
+                        </div>
+
+                        <div style="margin-bottom: 30px; padding: 18px; border: 1px solid #fed7aa; background: #fff7ed; border-radius: 12px;">
+                            <div style="font-size: 10px; font-weight: 900; text-transform: uppercase; color: #9a3412; margin-bottom: 12px;">Agendamento da Coleta</div>
+                            <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px 24px;">
+                                <div><div style="font-size: 9px; font-weight: 900; text-transform: uppercase; color: #b45309;">Data</div><div style="font-size: 14px; font-weight: 800; color: #7c2d12;">${collectionDate}</div></div>
+                                <div><div style="font-size: 9px; font-weight: 900; text-transform: uppercase; color: #b45309;">${isTimeRange ? 'Período' : 'Horário fixo'}</div><div style="font-size: 14px; font-weight: 800; color: #7c2d12;">${collectionTime}</div></div>
+                                <div><div style="font-size: 9px; font-weight: 900; text-transform: uppercase; color: #b45309;">Distância estimada</div><div style="font-size: 14px; font-weight: 800; color: #7c2d12;">${distance}</div></div>
+                                <div><div style="font-size: 9px; font-weight: 900; text-transform: uppercase; color: #b45309;">Tempo estimado</div><div style="font-size: 14px; font-weight: 800; color: #7c2d12;">${estimatedTime}</div></div>
+                                <div style="grid-column: 1 / -1;"><div style="font-size: 9px; font-weight: 900; text-transform: uppercase; color: #b45309;">Endereço da coleta</div><div style="font-size: 14px; font-weight: 800; color: #7c2d12;">${collectionAddress}</div></div>
                             </div>
                         </div>
 
@@ -275,8 +305,8 @@ export const actionsMap: Record<OrderAction, (order: Order) => void> = {
                             </div>
                             <div style="padding: 15px; background: #fffcf0; border-radius: 12px; text-align: right;">
                                 <div style="font-size: 9px; font-weight: 900; text-transform: uppercase; color: #92400e; margin-bottom: 5px;">Pedido Original</div>
-                                <div style="font-size: 14px; font-weight: 900;">#${order.linkedOrderId || 'N/A'}</div>
-                                <div style="font-size: 12px; font-weight: 600; color: #b45309;">Vendedor: ${order.seller}</div>
+                                <div style="font-size: 14px; font-weight: 900;">#${originalOrderCode}</div>
+                                <div style="font-size: 12px; font-weight: 600; color: #b45309;">Vendedor: ${order.seller || 'Não informado'}</div>
                             </div>
                         </div>
                         
@@ -294,7 +324,7 @@ export const actionsMap: Record<OrderAction, (order: Order) => void> = {
                                 <tfoot>
                                     <tr>
                                         <td colspan="2" style="padding: 15px; text-align: right; font-weight: 900; font-size: 14px; text-transform: uppercase; color: #78350f;">Total do Estorno:</td>
-                                        <td style="padding: 15px; text-align: right; font-weight: 900; font-size: 18px; color: #d97706;">R$ ${order.itemsSummary?.totalValue?.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
+                                        <td style="padding: 15px; text-align: right; font-weight: 900; font-size: 18px; color: #d97706;">R$ ${formatCurrency(returnTotal)}</td>
                                     </tr>
                                 </tfoot>
                             </table>
@@ -307,7 +337,7 @@ export const actionsMap: Record<OrderAction, (order: Order) => void> = {
                             </div>
                         ` : ''}
                         <div class="footer">
-                            <strong>MÓVEIS MORANTE</strong> - Comprovante gerado em ${new Date().toLocaleString('pt-BR')}
+                            <strong>MÓVEIS MORANTE</strong> - Ordem de serviço gerada em ${new Date().toLocaleString('pt-BR')}
                         </div>
                     </div>
                     <script>window.onload = function() { window.print(); window.close(); };</script>

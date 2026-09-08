@@ -5,7 +5,7 @@ import CustomerData from "../../types/customerData.type";
 import Person from "../../types/person.type";
 import { ValidationErrors } from "../../utils/validations";
 import { toTitleCase } from "../../utils/formatters";
-import { normalizeSearchTerm } from "../../utils/textUtils";
+import { canSearchCustomers, getCustomerSearchQuery, matchesCustomerSearch } from "../../utils/customerSearch";
 import PersonFormModal from "../Registrations/shared/PersonFormModal";
 
 interface Props {
@@ -54,13 +54,12 @@ const CustomerDataInputs = ({ customerData, setCustomerData, errors, marketingOr
     }, [customers, customerData.id]);
 
     const filteredCustomers = useMemo(() => {
-        const term = normalizeSearchTerm(searchTerm);
-        if (!term) return customers;
-        return customers.filter((customer) =>
-            normalizeSearchTerm(customer.fullName || customer.tradeName || "").includes(term)
-            || (customer.phone || "").replace(/\D/g, '').includes(term.replace(/\D/g, ''))
-            || (customer.phone || "").includes(term)
-        );
+        if (!canSearchCustomers(searchTerm)) return [];
+        const query = getCustomerSearchQuery(searchTerm);
+        return customers.filter((customer) => matchesCustomerSearch(query, {
+            name: customer.fullName || customer.tradeName,
+            phone: customer.phone,
+        }));
     }, [customers, searchTerm]);
 
     const clearCustomer = () => {
@@ -147,10 +146,10 @@ const CustomerDataInputs = ({ customerData, setCustomerData, errors, marketingOr
                             return;
                         }
                         setSearchTerm(value);
-                        setIsOpen(value.trim().length >= 2);
+                        setIsOpen(canSearchCustomers(value));
                         if (!value) clearCustomer();
                     }}
-                    onFocus={() => setIsOpen(searchTerm.trim().length >= 2)}
+                    onFocus={() => setIsOpen(canSearchCustomers(searchTerm))}
                     placeholder="Busque pelo nome ou telefone..."
                     className={`w-full border-b-2 bg-transparent py-3 pr-20 text-sm outline-none transition-all placeholder:text-slate-300 dark:text-slate-300 dark:placeholder:text-slate-700 ${
                         hasError

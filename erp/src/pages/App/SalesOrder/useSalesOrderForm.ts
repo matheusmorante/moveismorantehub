@@ -44,6 +44,10 @@ export const useSalesOrderForm = (initialDeliveryMethod?: 'delivery' | 'pickup',
     const [isButtonsClicked, setIsButtonsClicked] = useState<Order['isButtonsClicked']>(undefined);
     const [currentStep, setCurrentStep] = useState(1);
 
+    // Estado React só é refletido após o próximo render. Esta trava síncrona
+    // protege o intervalo entre o clique e a confirmação do insert no banco.
+    const submissionInFlightRef = useRef(false);
+
     const prevDeliveryMethodRef = useRef(shipping.deliveryMethod);
     const prevGlobalOrderTypeRef = useRef(shipping.orderType);
     const prevFirstItemHandlingRef = useRef(items[0]?.handlingType);
@@ -230,93 +234,110 @@ export const useSalesOrderForm = (initialDeliveryMethod?: 'delivery' | 'pickup',
     const handleSaveOrder = useCallback(async (e?: React.MouseEvent) => {
         if (e) e.preventDefault();
 
-        const currentIdx = await ensureOrderCode();
-        if (!currentIdx) return false;
-
-        const isBudgetOrder = latestState.current.orderType === 'budget';
-        const savedStatus = isBudgetOrder
-            ? 'draft'
-            : (latestState.current.currentOrderId && latestState.current.status !== 'draft'
-                ? latestState.current.status
-                : 'draft');
-        const orderData = getOrderData(savedStatus as 'draft' | 'scheduled' | 'fulfilled' | 'cancelled');
-        const validationErrors = validateOrder(orderData);
-
-        if (Object.keys(validationErrors).length > 0) {
-            setErrors(validationErrors);
-            toast.error("Existem campos obrigatórios não preenchidos.");
-            return false;
-        }
-
-        if (latestState.current.isSaving) return;
-        setIsSaving(true);
-        setErrors({});
+        if (submissionInFlightRef.current) return false;
+        submissionInFlightRef.current = true;
 
         try {
-            const savedId = await saveOrder(orderData);
-            if (!latestState.current.currentOrderId && savedId) {
-                setCurrentOrderId(savedId);
+            const currentIdx = await ensureOrderCode();
+            if (!currentIdx) return false;
+
+            const isBudgetOrder = latestState.current.orderType === 'budget';
+            const savedStatus = isBudgetOrder
+                ? 'draft'
+                : (latestState.current.currentOrderId && latestState.current.status !== 'draft'
+                    ? latestState.current.status
+                    : 'draft');
+            const orderData = getOrderData(savedStatus as 'draft' | 'scheduled' | 'fulfilled' | 'cancelled');
+            const validationErrors = validateOrder(orderData);
+
+            if (Object.keys(validationErrors).length > 0) {
+                setErrors(validationErrors);
+                toast.error("Existem campos obrigatórios não preenchidos.");
+                return false;
             }
-            setStatus(savedStatus);
-            toast.success(savedStatus === 'draft' ? (isBudgetOrder ? "Orçamento salvo com sucesso!" : "Pedido salvo como rascunho!") : "Alterações do pedido salvas!");
-            return savedId;
-        } catch (error: any) {
-            toast.error(error?.message || "Erro ao salvar pedido.");
-            return false;
+
+            if (latestState.current.isSaving) return false;
+            setIsSaving(true);
+            setErrors({});
+
+            try {
+                const savedId = await saveOrder(orderData);
+                if (!latestState.current.currentOrderId && savedId) {
+                    setCurrentOrderId(savedId);
+                }
+                setStatus(savedStatus);
+                toast.success(savedStatus === 'draft' ? (isBudgetOrder ? "Orçamento salvo com sucesso!" : "Pedido salvo como rascunho!") : "Alterações do pedido salvas!");
+                return savedId;
+            } catch (error: any) {
+                toast.error(error?.message || "Erro ao salvar pedido.");
+                return false;
+            } finally {
+                setIsSaving(false);
+            }
         } finally {
-            setIsSaving(false);
+            submissionInFlightRef.current = false;
         }
     }, [getOrderData, ensureOrderCode]);
 
     const handleCompleteOrder = useCallback(async (e?: React.MouseEvent) => {
         if (e) e.preventDefault();
 
-        const currentIdx = await ensureOrderCode();
-        if (!currentIdx) return false;
-
-        const resolvedStatus = resolveCompletedOrderStatus(latestState.current);
-        const orderData = getOrderData(resolvedStatus);
-        const validationErrors = validateOrder(orderData);
-
-        if (Object.keys(validationErrors).length > 0) {
-            setErrors(validationErrors);
-            toast.error("Existem campos obrigatórios não preenchidos.");
-            return false;
-        }
-
-        if (latestState.current.isSaving) return;
-        setIsSaving(true);
-        setErrors({});
+        if (submissionInFlightRef.current) return false;
+        submissionInFlightRef.current = true;
 
         try {
-            if (autoSaveTimerRef.current) {
-                clearTimeout(autoSaveTimerRef.current);
-            }
-            const savedId = await saveOrder(orderData);
-            if (!latestState.current.currentOrderId && savedId) {
-                setCurrentOrderId(savedId);
-                latestState.current.currentOrderId = savedId;
-            }
-            setStatus(resolvedStatus);
-            latestState.current.status = resolvedStatus;
+            const currentIdx = await ensureOrderCode();
+            if (!currentIdx) return false;
 
-            if (resolvedStatus === 'fulfilled') {
-                toast.success("Pedido CADASTRADO e ATENDIDO com sucesso! ✨");
-            } else {
-                toast.success("Pedido CADASTRADO com sucesso!");
+            const resolvedStatus = resolveCompletedOrderStatus(latestState.current);
+            const orderData = getOrderData(resolvedStatus);
+            const validationErrors = validateOrder(orderData);
+
+            if (Object.keys(validationErrors).length > 0) {
+                setErrors(validationErrors);
+                toast.error("Existem campos obrigatórios não preenchidos.");
+                return false;
             }
-            return {
-                ...orderData,
-                id: savedId,
-                status: resolvedStatus,
-                orderIndex: orderData.orderIndex || orderIndex || undefined,
-                orderNumber: orderData.orderIndex || orderIndex || undefined
-            } as any;
-        } catch (error: any) {
-            toast.error(error?.message || "Erro ao cadastrar pedido.");
-            return false;
+
+            if (latestState.current.isSaving) return false;
+            setIsSaving(true);
+            setErrors({});
+
+            try {
+                if (autoSaveTimerRef.current) {
+                    clearTimeout(autoSaveTimerRef.current);
+                }
+                const savedId = await saveOrder(orderData);
+                // Atualizar currentOrderId IMEDIATAMENTE após o insert confirmado.
+                // Isso garante que qualquer falha posterior (UI, notificação, etc.)
+                // não cause duplicação: a próxima tentativa do usuário fará UPDATE.
+                if (savedId) {
+                    setCurrentOrderId(savedId);
+                    latestState.current.currentOrderId = savedId;
+                }
+                setStatus(resolvedStatus);
+                latestState.current.status = resolvedStatus;
+
+                if (resolvedStatus === 'fulfilled') {
+                    toast.success("Pedido CADASTRADO e ATENDIDO com sucesso! ✨");
+                } else {
+                    toast.success("Pedido CADASTRADO com sucesso!");
+                }
+                return {
+                    ...orderData,
+                    id: savedId,
+                    status: resolvedStatus,
+                    orderIndex: orderData.orderIndex || orderIndex || undefined,
+                    orderNumber: orderData.orderIndex || orderIndex || undefined
+                } as any;
+            } catch (error: any) {
+                toast.error(error?.message || "Erro ao cadastrar pedido.");
+                return false;
+            } finally {
+                setIsSaving(false);
+            }
         } finally {
-            setIsSaving(false);
+            submissionInFlightRef.current = false;
         }
     }, [getOrderData, ensureOrderCode, autoSaveTimerRef, orderIndex]);
 

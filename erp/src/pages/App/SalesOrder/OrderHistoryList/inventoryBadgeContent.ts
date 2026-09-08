@@ -22,6 +22,7 @@ export type ItemMovementStatus = 'effective' | 'reversed' | 'not_effective' | 'u
 export interface ItemMovementDisplay {
     description: string;
     quantity: number;
+    productId?: string;
     status: ItemMovementStatus;
     statusLabel: string;
     statusBadgeClass: string;
@@ -104,12 +105,14 @@ export const getOrderItemsMovementList = (
     return order.items.map((item: Item) => {
         const description = item.description || (item as any).name || 'Produto';
         const quantity = item.quantity || 1;
+        const productId = item.productId;
         const isUnregistered = !item.productId || item.productId.trim() === '' || Boolean(item.isTemporaryProduct);
 
         if (isUnregistered) {
             return {
                 description,
                 quantity,
+                productId,
                 status: 'unregistered',
                 statusLabel: 'Sem Cadastro',
                 statusBadgeClass: 'bg-amber-100 text-amber-800 dark:bg-amber-950/70 dark:text-amber-300 border-amber-300 dark:border-amber-800',
@@ -121,6 +124,7 @@ export const getOrderItemsMovementList = (
             return {
                 description,
                 quantity,
+                productId,
                 status: 'reversed',
                 statusLabel: 'Estornada',
                 statusBadgeClass: 'bg-red-100 text-red-700 dark:bg-red-950/70 dark:text-red-300 border-red-200 dark:border-red-900',
@@ -134,6 +138,7 @@ export const getOrderItemsMovementList = (
                 return {
                     description,
                     quantity,
+                    productId,
                     status: 'effective',
                     statusLabel: 'Efetivada',
                     statusBadgeClass: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/70 dark:text-emerald-300 border-emerald-300 dark:border-emerald-800',
@@ -142,6 +147,7 @@ export const getOrderItemsMovementList = (
                 return {
                     description,
                     quantity,
+                    productId,
                     status: 'not_effective',
                     statusLabel: 'Não efetivada',
                     statusBadgeClass: 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400 border-slate-200 dark:border-slate-700',
@@ -153,6 +159,7 @@ export const getOrderItemsMovementList = (
             return {
                 description,
                 quantity,
+                productId,
                 status: 'effective',
                 statusLabel: 'Efetivada',
                 statusBadgeClass: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/70 dark:text-emerald-300 border-emerald-300 dark:border-emerald-800',
@@ -162,6 +169,7 @@ export const getOrderItemsMovementList = (
         return {
             description,
             quantity,
+            productId,
             status: 'not_effective',
             statusLabel: 'Não efetivada',
             statusBadgeClass: 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400 border-slate-200 dark:border-slate-700',

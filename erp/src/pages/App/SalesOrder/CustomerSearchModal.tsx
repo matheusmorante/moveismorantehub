@@ -4,7 +4,7 @@ import Person from "../../types/person.type";
 import Order from "../../types/order.type";
 import { subscribeToPeople } from '@/pages/utils/personService';
 import { getOrdersCustomerDataOnly } from "../../utils/orderHistoryService";
-import { normalizeSearchTerm } from "@/pages/utils/textUtils";
+import { canSearchCustomers, getCustomerSearchQuery, matchesCustomerSearch } from "@/pages/utils/customerSearch";
 
 interface CustomerSearchEntry {
     id: string;
@@ -175,15 +175,15 @@ const CustomerSearchModal = ({ onSelect, onClose, onAddNew, initialSearch = "" }
         }
 
         if (!search.trim()) return list;
-        const s = normalizeSearchTerm(search);
-        const cleanSearch = search.replace(/\D/g, '');
+        if (!canSearchCustomers(search)) return [];
+        const query = getCustomerSearchQuery(search);
         return list.filter(c => {
-            const cleanPhone = (c.phone || '').replace(/\D/g, '');
             const addr = c.customerData.fullAddress;
-            const fullAddrText = normalizeSearchTerm(`${addr?.street || ''} ${addr?.number || ''} ${addr?.neighborhood || ''} ${addr?.city || ''}`);
-            return normalizeSearchTerm(c.fullName).includes(s) ||
-                fullAddrText.includes(s) ||
-                (cleanSearch.length > 2 && cleanPhone.includes(cleanSearch));
+            return matchesCustomerSearch(query, {
+                name: c.fullName,
+                phone: c.phone,
+                address: `${addr?.street || ''} ${addr?.number || ''} ${addr?.neighborhood || ''} ${addr?.city || ''}`,
+            });
         });
     }, [customerList, search, selectedType, people]);
 
@@ -241,7 +241,7 @@ const CustomerSearchModal = ({ onSelect, onClose, onAddNew, initialSearch = "" }
                             <input
                                 autoFocus
                                 type="text"
-                                placeholder="Busque por nome, telefone, cidade ou bairro..."
+                                placeholder="Digite ao menos 2 caracteres para buscar..."
                                 value={search}
                                 onChange={e => setSearch(e.target.value)}
                                 className="w-full pl-11 pr-4 py-3 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-2xl text-sm font-bold text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500 transition-all placeholder:font-normal placeholder:text-slate-400"
@@ -302,8 +302,8 @@ const CustomerSearchModal = ({ onSelect, onClose, onAddNew, initialSearch = "" }
                         <div className="flex flex-col items-center justify-center py-16 text-slate-400 gap-4">
                             <i className="bi bi-person-x text-4xl opacity-30" />
                             <div className="text-center">
-                                <p className="text-sm font-bold">Nenhum cliente encontrado</p>
-                                <p className="text-xs text-slate-400">Tente outro nome, telefone ou cidade</p>
+                                <p className="text-sm font-bold">{search.trim() && !canSearchCustomers(search) ? "Digite ao menos 2 caracteres" : "Nenhum cliente encontrado"}</p>
+                                <p className="text-xs text-slate-400">{search.trim() && !canSearchCustomers(search) ? "Use nome, telefone, cidade ou bairro" : "Tente outro nome, telefone ou cidade"}</p>
                             </div>
                             {onAddNew && (
                                 <button

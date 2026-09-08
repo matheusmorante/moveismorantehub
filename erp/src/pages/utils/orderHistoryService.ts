@@ -149,6 +149,21 @@ export const fetchOrdersPage = async (
         query = query.eq('id', filters.searchId);
     }
 
+    // O tipo deve ser aplicado antes do count/range. Sem esse filtro no banco,
+    // a paginação de Devoluções contava todos os pedidos de venda do sistema.
+    if (filters?.isBudgetView) {
+        query = query.eq('order_data->>orderType', 'budget');
+    } else if (filters?.isAssistanceView) {
+        query = query.eq('order_data->>orderType', 'assistance');
+    } else if (filters?.isReturnView) {
+        query = query.eq('order_data->>orderType', 'return');
+    } else if (filters?.orderType) {
+        query = query.eq('order_data->>orderType', filters.orderType);
+    } else {
+        // Mantém a mesma regra da lista de vendas: exclui módulos próprios.
+        query = query.not('order_data->>orderType', 'in', '(budget,assistance,return)');
+    }
+
     // A busca por cliente precisa ocorrer antes da paginação. Filtrar somente
     // após carregar a página atual escondia pedidos mais antigos do cliente.
     const customerName = String(filters?.customerName || '').trim();
@@ -194,6 +209,8 @@ export const fetchOrdersPage = async (
                     status: row.order_data?.status,
                     stockProcessed: Boolean(row.order_data?.returnStockProcessed),
                     stockReversed: Boolean(row.order_data?.returnStockReversed),
+                    items: row.order_data?.items || [],
+                    movedProductIds: row.order_data?.movedProductIds || [],
                 },
             ]));
 
@@ -442,30 +459,41 @@ export const saveOrder = async (order: Order): Promise<string> => {
             console.error("[OrderCreate] Erro ao gravar histórico de status inicial:", historyErr);
         }
 
-        // Stock Management logic refactored
-        const updatedOrder = await handleStockAndBusinessRules(rowId, orderToSave);
-        if (updatedOrder.stockProcessed) {
-            await updateOrder(String(rowId), { stockProcessed: true, items: updatedOrder.items }, updatedOrder);
+        // --- Operações pós-insert: BEST-EFFORT ---
+        // O pedido já foi criado no banco com rowId confirmado.
+        // Erros aqui NUNCA devem lançar exceção nem impedir o retorno do rowId,
+        // pois isso causaria duplicação de pedido na próxima tentativa do usuário.
+
+        // Gestão de estoque e regras de negócio
+        try {
+            const updatedOrder = await handleStockAndBusinessRules(rowId, orderToSave);
+            if (updatedOrder.stockProcessed) {
+                await updateOrder(String(rowId), { stockProcessed: true, items: updatedOrder.items }, updatedOrder);
+            }
+        } catch (stockErr) {
+            console.error('[OrderCreate] Erro nas regras de negócio/estoque (pós-insert, best-effort):', stockErr);
         }
 
-        // Uma devolução recebida diretamente na loja já nasce atendida. Como não
-        // há transição de status posterior nesse caso, a entrada de estoque deve
-        // ser registrada logo após a criação do pedido.
+        // Devolução atendida: entrada de estoque imediata
         if (orderToSave.orderType === 'return' && orderToSave.status === 'fulfilled' && !orderToSave.returnStockProcessed) {
-            const processed = await processReturnInventoryEntries(String(rowId), orderToSave);
-            if (processed) {
-                orderToSave.returnStockProcessed = true;
-                await supabase
-                    .from(TABLE_NAME)
-                    .update({
-                        order_data: { ...orderToSave, returnStockProcessed: true },
-                        updated_at: new Date().toISOString(),
-                    })
-                    .eq('id', rowId);
+            try {
+                const processed = await processReturnInventoryEntries(String(rowId), orderToSave);
+                if (processed) {
+                    orderToSave.returnStockProcessed = true;
+                    await supabase
+                        .from(TABLE_NAME)
+                        .update({
+                            order_data: { ...orderToSave, returnStockProcessed: true },
+                            updated_at: new Date().toISOString(),
+                        })
+                        .eq('id', rowId);
+                }
+            } catch (returnErr) {
+                console.error('[OrderCreate] Erro ao processar estoque de devolução (pós-insert, best-effort):', returnErr);
             }
         }
 
-        // Sync customer data back to CRM if applicable
+        // Sync de dados do cliente de volta ao CRM
         if (orderToSave.customerData?.id) {
             try {
                 const { updatePerson } = await import("./personService");
@@ -474,21 +502,21 @@ export const saveOrder = async (order: Order): Promise<string> => {
                     marketingOrigin: orderToSave.marketingOrigin as any
                 });
             } catch (syncErr) {
-                console.error("[OrderCreate] Error syncing customer data to CRM:", syncErr);
+                console.error('[OrderCreate] Erro ao sincronizar cliente no CRM (pós-insert, best-effort):', syncErr);
             }
         }
 
-        // Disparar notificação em tempo real / push se for pedido agendado, montagem ou não rascunho
+        // Notificação em tempo real / push
         if (orderToSave.status && orderToSave.status !== 'draft') {
-            const schedText = formatOrderSchedulingText(orderToSave.shipping, orderToSave);
             try {
+                const schedText = formatOrderSchedulingText(orderToSave.shipping, orderToSave);
                 await notifyNewSaleAndAssemblies({
                     orderId: String(rowId),
                     order: orderToSave,
                     scheduleText: schedText,
                 });
-            } catch (err) {
-                console.error('[OrderCreate] Erro ao notificar app:', err);
+            } catch (notifyErr) {
+                console.error('[OrderCreate] Erro ao notificar app (pós-insert, best-effort):', notifyErr);
             }
         }
 

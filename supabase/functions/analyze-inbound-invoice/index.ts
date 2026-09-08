@@ -5,6 +5,18 @@ const cors = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers
 const supported = new Set(["application/pdf", "image/png", "image/jpeg"]);
 const maxBytes = 12 * 1024 * 1024;
 const digits = (value: unknown) => String(value || "").replace(/\D/g, "");
+const validateAccessKey = (value: unknown) => {
+  const raw = String(value || "").trim();
+  const normalized = digits(raw);
+  if (normalized.length !== 44) return { valid: false, normalized, reason: "access_key_incomplete" };
+  if (/[^\d\s.\-\/]/.test(raw)) return { valid: false, normalized, reason: "access_key_non_numeric" };
+  if (normalized.slice(20, 22) !== "55") return { valid: false, normalized, reason: "access_key_model_invalid" };
+  const weights = [4,3,2,9,8,7,6,5,4,3,2,9,8,7,6,5,4,3,2,9,8,7,6,5,4,3,2,9,8,7,6,5,4,3,2,9,8,7,6,5,4,3,2];
+  const sum = weights.reduce((total, weight, index) => total + Number(normalized[index]) * weight, 0);
+  const expected = 11 - (sum % 11);
+  const digit = expected >= 10 ? 0 : expected;
+  return Number(normalized[43]) === digit ? { valid: true, normalized } : { valid: false, normalized, reason: "access_key_check_digit_invalid" };
+};
 const numeric = (value: unknown) => {
   const raw = String(value ?? "").trim();
   if (!raw) return 0;
@@ -23,8 +35,10 @@ function validateExtraction(value: any) {
     throw new Error("NFC-e (modelo 65) não pode ser importada como NF de Entrada. Envie uma NF-e de fornecedor, modelo 55.");
   }
   const issuer = value.issuer || {};
-  const key = digits(invoice.accessKey);
-  if (key && key.length !== 44) throw new Error("A chave extraída não possui 44 dígitos.");
+  const rawKey = invoice.accessKey || value.accessKey || "";
+  const keyValidation = validateAccessKey(rawKey);
+  const warnings = Array.isArray(value.warnings) ? value.warnings.map(String) : [];
+  if (rawKey && !keyValidation.valid) warnings.push(keyValidation.reason);
   const items = value.items.map((item: any, index: number) => ({
     itemNumber: Number(item.itemNumber) || index + 1,
     productCode: String(item.productCode || "").trim(), productDescription: String(item.productDescription || "").trim(),
@@ -33,7 +47,9 @@ function validateExtraction(value: any) {
     freightValue: numeric(item.freightValue), ipiPercent: numeric(item.ipiPercent), ipiValue: numeric(item.ipiValue), icmsValue: numeric(item.icmsValue),
   }));
   if (!items.length) throw new Error("Nenhum item foi identificado no documento.");
-  return { invoice: { accessKey: key, number: String(invoice.number || ""), series: String(invoice.series || ""), issuedAt: invoice.issuedAt || null, entryExitAt: invoice.entryExitAt || null, operationNature: String(invoice.operationNature || ""), model: String(invoice.model || ""), protocol: String(invoice.protocol || ""), totalProducts: numeric(invoice.totalProducts), totalInvoice: numeric(invoice.totalInvoice), freight: numeric(invoice.freight), discount: numeric(invoice.discount), insurance: numeric(invoice.insurance), otherExpenses: numeric(invoice.otherExpenses), ipi: numeric(invoice.ipi), icms: numeric(invoice.icms) }, issuer: { legalName: String(issuer.legalName || ""), tradeName: String(issuer.tradeName || ""), taxId: digits(issuer.taxId), stateRegistration: String(issuer.stateRegistration || ""), address: issuer.address && typeof issuer.address === "object" ? issuer.address : {} }, items, warnings: Array.isArray(value.warnings) ? value.warnings.map(String) : [], confidence: value.confidence && typeof value.confidence === "object" ? value.confidence : {} };
+  const confidence = value.confidence && typeof value.confidence === "object" ? value.confidence : {};
+  const accessKeyConfidence = keyValidation.valid ? 0.9 : 0;
+  return { invoice: { accessKey: keyValidation.valid ? keyValidation.normalized : "", accessKeyRaw: keyValidation.normalized || null, number: String(invoice.number || ""), series: String(invoice.series || ""), issuedAt: invoice.issuedAt || null, entryExitAt: invoice.entryExitAt || null, operationNature: String(invoice.operationNature || ""), model: String(invoice.model || ""), protocol: String(invoice.protocol || ""), totalProducts: numeric(invoice.totalProducts), totalInvoice: numeric(invoice.totalInvoice), freight: numeric(invoice.freight), discount: numeric(invoice.discount), insurance: numeric(invoice.insurance), otherExpenses: numeric(invoice.otherExpenses), ipi: numeric(invoice.ipi), icms: numeric(invoice.icms) }, issuer: { legalName: String(issuer.legalName || ""), tradeName: String(issuer.tradeName || ""), taxId: digits(issuer.taxId), stateRegistration: String(issuer.stateRegistration || ""), address: issuer.address && typeof issuer.address === "object" ? issuer.address : {} }, items, warnings: Array.from(new Set(warnings)), confidence: { ...confidence, accessKey: { value: keyValidation.valid ? keyValidation.normalized : null, rawValue: keyValidation.normalized || null, confidence: accessKeyConfidence, source: "gemini_vision", validated: keyValidation.valid } }, validation: { valid: keyValidation.valid, access_key_valid: keyValidation.valid, warnings: Array.from(new Set(warnings)) }, needs_review: !keyValidation.valid };
 }
 
 serve(async (req) => {
@@ -63,7 +79,11 @@ serve(async (req) => {
     if (bytes.byteLength > maxBytes) throw new Error("O documento excede o limite de 12 MB.");
     const apiKey = Deno.env.get("GEMINI_API_KEY");
     if (!apiKey) throw new Error("Integração de análise de documentos não configurada.");
-    const prompt = `Analise visualmente este documento fiscal brasileiro ANTES de extrair qualquer campo. Este fluxo aceita EXCLUSIVAMENTE NF-e de fornecedor, modelo 55. É PROIBIDO aceitar NFC-e / Nota Fiscal de Consumidor Eletrônica / modelo 65, cupom fiscal ou DANFE NFC-e. Identifique por textos como "DOCUMENTO AUXILIAR DA NOTA FISCAL DE CONSUMIDOR ELETRÔNICA", "NFC-e" e pelo modelo 65. Retorne SOMENTE JSON válido com documentKind (NFE ou NFC-E), isConsumerInvoice (boolean), invoice, issuer, items, warnings e confidence. Se for NFC-e, retorne isConsumerInvoice:true, documentKind:"NFC-E" e items:[]; não tente adequá-la como NF-e. Para NF-e, extraia SOMENTE fatos legíveis, nunca invente campos. Cada item deve permanecer na linha correta. invoice: accessKey,number,series,issuedAt,entryExitAt,operationNature,model,protocol,totalProducts,totalInvoice,freight,discount,insurance,otherExpenses,ipi,icms. issuer: legalName,tradeName,taxId,stateRegistration,address. items[]: itemNumber,productCode,productDescription,ncm,cfop,unit,quantity,unitCost,totalCost,discountValue,freightValue,ipiPercent,ipiValue,icmsValue.`;
+    const prompt = `Você é um sistema especializado em leitura de DANFE/NF-e brasileira. Analise a estrutura visual e os rótulos do documento; não faça OCR cego. Este fluxo aceita EXCLUSIVAMENTE NF-e de fornecedor, modelo 55. Rejeite NFC-e, cupom fiscal, DANFE NFC-e ou modelo 65: retorne documentKind:"NFC-E", isConsumerInvoice:true e items:[].
+
+REGRAS ABSOLUTAS: nunca invente, estime, complete ou corrija números. Se não puder ler um campo, retorne null. Preserve os dígitos observados. Diferencie chave de acesso, protocolo, número da NF e código de barras. Para a chave, procure o rótulo "CHAVE DE ACESSO" e a região associada; remova apenas separadores visuais, nunca complete dígitos ausentes. Para itens, respeite linhas e colunas da tabela.
+
+Retorne SOMENTE JSON válido: {documentKind,isConsumerInvoice,invoice:{accessKey,number,series,issuedAt,entryExitAt,operationNature,model,protocol,totalProducts,totalInvoice,freight,discount,insurance,otherExpenses,ipi,icms},issuer:{legalName,tradeName,taxId,stateRegistration,address},items:[{itemNumber,productCode,productDescription,ncm,cfop,unit,quantity,unitCost,totalCost,discountValue,freightValue,ipiPercent,ipiValue,icmsValue}],warnings,confidence}.`;
     const response = await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=" + encodeURIComponent(apiKey), { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ contents: [{ parts: [{ text: prompt }, { inlineData: { mimeType, data: base64 } }] }], generationConfig: { responseMimeType: "application/json", temperature: 0 } }) });
     if (!response.ok) throw new Error("Não foi possível analisar o documento fiscal.");
     const payload = await response.json();
@@ -72,8 +92,8 @@ serve(async (req) => {
     const path = `${user.id}/${crypto.randomUUID()}-${fileName}`;
     const { error: uploadError } = await service.storage.from("inbound-invoice-documents").upload(path, bytes, { contentType: mimeType, upsert: false });
     if (uploadError) throw new Error("Não foi possível preservar o documento original.");
-    console.log("[analyze-inbound-invoice] completed", { itemCount: extraction.items.length, hasAccessKey: Boolean(extraction.invoice.accessKey) });
-    return new Response(JSON.stringify({ extraction, documentPath: path, documentMime: mimeType }), { headers: { ...cors, "Content-Type": "application/json" } });
+    console.log("[analyze-inbound-invoice] completed", { itemCount: extraction.items.length, hasAccessKey: Boolean(extraction.invoice.accessKey), needsReview: extraction.needs_review });
+    return new Response(JSON.stringify({ success: true, extraction, validation: extraction.validation, confidence: extraction.confidence?.accessKey?.confidence || 0, needs_review: extraction.needs_review, sources: { ocr: false, barcode: false, gemini: true }, documentPath: path, documentMime: mimeType }), { headers: { ...cors, "Content-Type": "application/json" } });
   } catch (error: any) {
     console.error("[analyze-inbound-invoice] failed", { message: error?.message || "unknown error" });
     return new Response(JSON.stringify({ error: error?.message || "Falha ao processar NF." }), { status: 400, headers: { ...cors, "Content-Type": "application/json" } });

@@ -2,40 +2,62 @@ import React from "react";
 import { createPortal } from "react-dom";
 import { Package, PackageCheck, PackageMinus, PackageX, X } from "lucide-react";
 import Order from "../../../types/order.type";
-import { InventoryBadgeContentResult, getOrderItemsMovementList } from "./inventoryBadgeContent";
+import { InventoryBadgeContentResult, ItemMovementDisplay, getOrderItemsMovementList } from "./inventoryBadgeContent";
 
-const getReturnEntryDisplay = (order?: Order) => {
+const getReturnEntryDisplay = (order: Order | undefined, item: ItemMovementDisplay) => {
     const movement = order?.linkedReturnMovement;
     if (!order?.returnOrderId) return null;
+
+    const returnedItem = movement?.items?.find((returnItem) =>
+        item.productId
+            ? String(returnItem.productId) === String(item.productId)
+            : returnItem.description === item.description,
+    );
+
+    if (!returnedItem) {
+        return {
+            label: 'Sem devolução',
+            badgeClass: 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400 border-slate-200 dark:border-slate-700',
+            tooltip: 'Este item não faz parte da devolução vinculada.',
+        };
+    }
+
+    if (item.status === 'unregistered') {
+        return {
+            label: 'Sem cadastro',
+            badgeClass: 'bg-amber-100 text-amber-800 dark:bg-amber-950/70 dark:text-amber-300 border-amber-300 dark:border-amber-800',
+            tooltip: 'Item sem cadastro no banco não gera entrada de estoque.',
+        };
+    }
 
     if (!movement) {
         return {
             label: 'Entrada pendente',
-            detail: 'A devolução foi gerada. O estado da entrada será atualizado assim que o pedido de devolução for carregado.',
             badgeClass: 'bg-amber-100 text-amber-800 dark:bg-amber-950/70 dark:text-amber-300 border-amber-300 dark:border-amber-800',
+            tooltip: 'A devolução foi gerada, aguardando o carregamento do seu estado de estoque.',
         };
     }
 
     if (movement.stockReversed || movement.status === 'cancelled') {
         return {
             label: 'Entrada estornada',
-            detail: 'A devolução vinculada foi cancelada e sua entrada de estoque foi estornada.',
             badgeClass: 'bg-red-100 text-red-700 dark:bg-red-950/70 dark:text-red-300 border-red-200 dark:border-red-900',
+            tooltip: 'A devolução vinculada foi cancelada e sua entrada de estoque foi estornada.',
         };
     }
 
     if (movement.stockProcessed) {
         return {
             label: 'Entrada efetivada',
-            detail: 'A devolução foi atendida e a entrada de estoque foi registrada.',
             badgeClass: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/70 dark:text-emerald-300 border-emerald-300 dark:border-emerald-800',
+            tooltip: 'A devolução foi atendida e a entrada de estoque foi registrada.',
         };
     }
 
     return {
         label: 'Entrada pendente',
-        detail: 'A devolução foi gerada, mas a entrada só será registrada quando ela for atendida.',
         badgeClass: 'bg-amber-100 text-amber-800 dark:bg-amber-950/70 dark:text-amber-300 border-amber-300 dark:border-amber-800',
+        tooltip: 'A devolução foi gerada, mas a entrada só será registrada quando ela for atendida.',
     };
 };
 
@@ -69,7 +91,7 @@ export const InventoryBadgePopover = ({
     if (typeof document === 'undefined') return null;
 
     const itemsMovement = getOrderItemsMovementList(order, hasMovement, isReversed);
-    const returnEntry = !isReturn ? getReturnEntryDisplay(order) : null;
+    const hasLinkedReturn = !isReturn && Boolean(order?.returnOrderId);
 
     return createPortal(
         <div
@@ -117,39 +139,24 @@ export const InventoryBadgePopover = ({
                 {content.explanation}
             </p>
 
-            {returnEntry && (
-                <div className="mt-3 rounded-xl border border-slate-100 bg-slate-50/80 p-2.5 dark:border-slate-700/60 dark:bg-slate-800/60">
-                    <div className="flex items-center justify-between gap-2">
-                        <span className="text-[9px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                            Entrada da devolução
-                        </span>
-                        <span className={`shrink-0 rounded-md border px-2 py-0.5 text-[9px] font-black uppercase tracking-wider ${returnEntry.badgeClass}`}>
-                            {returnEntry.label}
-                        </span>
-                    </div>
-                    <p className="mt-1 text-[10px] font-medium leading-relaxed text-slate-600 dark:text-slate-300">
-                        {returnEntry.detail}
-                    </p>
-                </div>
-            )}
-
             {/* Lista com Todos os Itens do Pedido */}
             {itemsMovement.length > 0 && (
                 <div className="mt-3 pt-2.5 border-t border-slate-100 dark:border-slate-800 flex flex-col min-h-0">
-                    <div className="flex items-center justify-between mb-2 shrink-0">
+                    <div className={`grid gap-2 mb-2 shrink-0 ${hasLinkedReturn ? 'grid-cols-[minmax(0,1fr)_92px_92px]' : 'grid-cols-[minmax(0,1fr)_92px]'}`}>
                         <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500">
                             Itens da Venda ({itemsMovement.length})
                         </span>
-                        <span className="text-[9px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">
-                            Movimentação
+                        <span className="text-center text-[9px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">
+                            Saída
                         </span>
+                        {hasLinkedReturn && <span className="text-center text-[9px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">Entrada</span>}
                     </div>
 
                     <div className="overflow-y-auto max-h-48 space-y-1.5 pr-1 custom-scrollbar">
                         {itemsMovement.map((item, idx) => (
                             <div
                                 key={idx}
-                                className="flex items-center justify-between gap-2 p-2 rounded-xl bg-slate-50/80 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-700/60 text-[11px]"
+                                className={`grid items-center gap-2 p-2 rounded-xl bg-slate-50/80 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-700/60 text-[11px] ${hasLinkedReturn ? 'grid-cols-[minmax(0,1fr)_92px_92px]' : 'grid-cols-[minmax(0,1fr)_92px]'}`}
                             >
                                 <div className="flex flex-col min-w-0 flex-1">
                                     <span 
@@ -164,11 +171,15 @@ export const InventoryBadgePopover = ({
                                 </div>
 
                                 <span
-                                    className={`shrink-0 px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-wider border ${item.statusBadgeClass}`}
+                                    className={`justify-self-center px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-wider border ${item.statusBadgeClass}`}
                                     title={item.tooltip}
                                 >
                                     {item.statusLabel}
                                 </span>
+                                {hasLinkedReturn && (() => {
+                                    const entry = getReturnEntryDisplay(order, item);
+                                    return entry && <span className={`justify-self-center px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-wider border ${entry.badgeClass}`} title={entry.tooltip}>{entry.label}</span>;
+                                })()}
                             </div>
                         ))}
                     </div>
