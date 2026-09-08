@@ -15,6 +15,7 @@ import NfeEmissionModal from "./OrderActions/NfeEmissionModal";
 import OrderDetailsModal from "../DeliverySchedule/OrderDetailsModal";
 import { useLocation, useNavigate } from "react-router-dom";
 import { canGenerateReturn } from '../../utils/returnPolicy';
+import { createSalesOrderDuplicate } from '../../utils/duplicateOrder';
 
 const SalesOrder = () => {
     const [orderModalType, setOrderModalType] = useState<'sale' | 'assistance' | 'budget' | 'return' | null>(null);
@@ -147,30 +148,21 @@ const SalesOrder = () => {
             if (!canGenerateReturn(order)) return;
             setReturningOrder(order);
         } else if (key === 'duplicateOrder') {
-            const { deleted, deletedAt, ...cleanOrder } = order;
-            if (cleanOrder.orderType === 'assistance') {
+            const duplicated = {
+                ...createSalesOrderDuplicate(order),
+                date: new Date().toISOString(),
+            };
+            if (duplicated.orderType === 'assistance') {
                 setDuplicatingOrder({
-                    ...cleanOrder,
-                    id: undefined,
-                    status: 'draft',
-                    date: new Date().toISOString()
+                    ...duplicated,
                 });
             } else {
-                const duplicated = {
-                    ...cleanOrder,
-                    id: undefined,
-                    status: 'draft' as const,
-                    date: new Date().toISOString()
-                };
                 sessionStorage.setItem("pdv_duplicate_order", JSON.stringify(duplicated));
-                navigate(`/sales-order/new?type=${cleanOrder.orderType || 'sale'}&duplicate=true`);
+                navigate(`/sales-order/new?type=${duplicated.orderType || 'sale'}&duplicate=true`);
             }
         } else if (key === 'generateSaleFromBudget') {
-            const { deleted, deletedAt, ...cleanOrder } = order;
             const duplicated = {
-                ...cleanOrder,
-                id: undefined,
-                status: 'draft' as const,
+                ...createSalesOrderDuplicate(order),
                 orderType: 'sale' as const,
                 date: new Date().toISOString()
             };

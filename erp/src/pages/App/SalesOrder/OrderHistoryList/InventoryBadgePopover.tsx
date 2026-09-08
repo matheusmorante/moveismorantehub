@@ -4,6 +4,41 @@ import { Package, PackageCheck, PackageMinus, PackageX, X } from "lucide-react";
 import Order from "../../../types/order.type";
 import { InventoryBadgeContentResult, getOrderItemsMovementList } from "./inventoryBadgeContent";
 
+const getReturnEntryDisplay = (order?: Order) => {
+    const movement = order?.linkedReturnMovement;
+    if (!order?.returnOrderId) return null;
+
+    if (!movement) {
+        return {
+            label: 'Entrada pendente',
+            detail: 'A devolução foi gerada. O estado da entrada será atualizado assim que o pedido de devolução for carregado.',
+            badgeClass: 'bg-amber-100 text-amber-800 dark:bg-amber-950/70 dark:text-amber-300 border-amber-300 dark:border-amber-800',
+        };
+    }
+
+    if (movement.stockReversed || movement.status === 'cancelled') {
+        return {
+            label: 'Entrada estornada',
+            detail: 'A devolução vinculada foi cancelada e sua entrada de estoque foi estornada.',
+            badgeClass: 'bg-red-100 text-red-700 dark:bg-red-950/70 dark:text-red-300 border-red-200 dark:border-red-900',
+        };
+    }
+
+    if (movement.stockProcessed) {
+        return {
+            label: 'Entrada efetivada',
+            detail: 'A devolução foi atendida e a entrada de estoque foi registrada.',
+            badgeClass: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/70 dark:text-emerald-300 border-emerald-300 dark:border-emerald-800',
+        };
+    }
+
+    return {
+        label: 'Entrada pendente',
+        detail: 'A devolução foi gerada, mas a entrada só será registrada quando ela for atendida.',
+        badgeClass: 'bg-amber-100 text-amber-800 dark:bg-amber-950/70 dark:text-amber-300 border-amber-300 dark:border-amber-800',
+    };
+};
+
 interface InventoryBadgePopoverProps {
     coords: { top: number; left: number; placement: 'top' | 'bottom' };
     content: InventoryBadgeContentResult;
@@ -34,6 +69,7 @@ export const InventoryBadgePopover = ({
     if (typeof document === 'undefined') return null;
 
     const itemsMovement = getOrderItemsMovementList(order, hasMovement, isReversed);
+    const returnEntry = !isReturn ? getReturnEntryDisplay(order) : null;
 
     return createPortal(
         <div
@@ -80,6 +116,22 @@ export const InventoryBadgePopover = ({
             <p className="mt-2.5 text-[11px] font-medium leading-relaxed text-slate-600 dark:text-slate-300 shrink-0">
                 {content.explanation}
             </p>
+
+            {returnEntry && (
+                <div className="mt-3 rounded-xl border border-slate-100 bg-slate-50/80 p-2.5 dark:border-slate-700/60 dark:bg-slate-800/60">
+                    <div className="flex items-center justify-between gap-2">
+                        <span className="text-[9px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                            Entrada da devolução
+                        </span>
+                        <span className={`shrink-0 rounded-md border px-2 py-0.5 text-[9px] font-black uppercase tracking-wider ${returnEntry.badgeClass}`}>
+                            {returnEntry.label}
+                        </span>
+                    </div>
+                    <p className="mt-1 text-[10px] font-medium leading-relaxed text-slate-600 dark:text-slate-300">
+                        {returnEntry.detail}
+                    </p>
+                </div>
+            )}
 
             {/* Lista com Todos os Itens do Pedido */}
             {itemsMovement.length > 0 && (

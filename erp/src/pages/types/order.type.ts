@@ -54,6 +54,12 @@ export type Order = {
     returnStockProcessed?: boolean,
     stockReversed?: boolean,
     returnStockReversed?: boolean,
+    /** Estado da entrada de estoque do pedido de devolução vinculado. Usado apenas para consulta na venda original. */
+    linkedReturnMovement?: {
+        status?: string,
+        stockProcessed?: boolean,
+        stockReversed?: boolean,
+    },
     nfeData?: {
         accessKey?: string;
         nfeNumber?: number;

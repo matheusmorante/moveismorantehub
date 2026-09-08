@@ -17,6 +17,16 @@ export const getOrderIndex = (order?: Partial<Order> | Record<string, any>): num
     return Number.isInteger(value) && value > 0 && value <= MAX_ORDER_CODE ? value : null;
 };
 
+/**
+ * O código de um pedido é um identificador histórico imutável. Em qualquer
+ * atualização, o código persistido prevalece sobre um valor eventualmente
+ * recebido no formulário ou na chamada de atualização.
+ */
+export const resolveOrderIndexForUpdate = (
+    persistedOrder?: Partial<Order> | Record<string, any>,
+    incomingOrder?: Partial<Order> | Record<string, any>,
+): number | null => getOrderIndex(persistedOrder) ?? getOrderIndex(incomingOrder);
+
 /** The human-facing code is always the six-digit sequential order index, never the UUID. */
 export const formatOrderCode = (order?: Partial<Order> | Record<string, any>): string => {
     const orderIndex = getOrderIndex(order);

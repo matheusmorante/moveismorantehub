@@ -78,7 +78,7 @@ const DeliverySchedule = () => {
                         </div>
                         <div>
                             <h3 className="text-sm font-black text-slate-800 dark:text-slate-100">Filtros</h3>
-                            <p className="text-[9px] font-bold uppercase tracking-widest text-slate-400 dark:text-slate-500">Cronograma Logístico</p>
+                            <p className="text-[9px] font-bold uppercase tracking-widest text-slate-400 dark:text-slate-500">Agenda</p>
                         </div>
                     </div>
                     <button
@@ -195,7 +195,7 @@ const DeliverySchedule = () => {
                 </div>
                 <div className="flex-1">
                     <h2 className="text-base sm:text-2xl font-black text-slate-800 dark:text-slate-100 tracking-tight leading-none">
-                        Cronograma Logístico
+                        Agenda
                     </h2>
                     <p className="text-slate-400 dark:text-slate-500 text-[10px] font-black uppercase tracking-wider mt-1">
                         {isStandalone ? "Visualização em Tempo Real" : "Gestão Logística v2.0"}
@@ -248,7 +248,7 @@ const DeliverySchedule = () => {
                     className="relative flex items-center gap-2.5 px-5 py-3 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl text-[11px] font-black uppercase tracking-[0.1em] text-slate-600 dark:text-slate-300 shadow-sm hover:shadow-md hover:border-blue-300 dark:hover:border-blue-800 transition-all active:scale-95 group"
                 >
                     <i className="bi bi-tools text-blue-500 group-hover:rotate-12 transition-transform" />
-                    Filtros do Cronograma
+                    Filtros da Agenda
                     {hasActiveFilters && (
                         <span className="w-2 h-2 bg-blue-600 rounded-full animate-pulse" />
                     )}
@@ -273,7 +273,7 @@ const DeliverySchedule = () => {
                         <Link
                             to="/settings"
                             className="p-4 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl text-slate-400 hover:text-blue-600 hover:border-blue-200 transition-all shadow-sm group"
-                            title="Configurações do Cronograma"
+                            title="Configurações da Agenda"
                         >
                             <i className="bi bi-gear-fill text-xl group-hover:rotate-90 transition-transform duration-500" />
                         </Link>

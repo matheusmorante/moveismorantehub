@@ -8,7 +8,7 @@ const PdvTabs = ({ activeTab, setActiveTab }: PdvTabsProps) => {
     const tabs = [
         { key: "pdv", label: "Adicionar Pedido" },
         { key: "history", label: "Histórico de Pedidos" },
-        { key: "schedule", label: "Cronograma Logístico" },
+        { key: "schedule", label: "Agenda" },
     ] as const;
 
     return (

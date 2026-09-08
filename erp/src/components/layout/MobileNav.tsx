@@ -72,7 +72,7 @@ const menuItems = [
         color: 'text-cyan-500',
         bg: 'bg-cyan-50 dark:bg-cyan-900/20',
         links: [
-            { to: '/delivery-schedule', icon: 'bi-calendar-check-fill', iconColor: 'text-cyan-500', label: 'Cronograma Logístico' },
+            { to: '/delivery-schedule', icon: 'bi-calendar-check-fill', iconColor: 'text-cyan-500', label: 'Agenda' },
             { to: '/logistics/assembly-list', icon: 'bi-hammer', iconColor: 'text-amber-500', label: 'Lista de Montagem' },
             { to: '/sales-order/freight-calculation', icon: 'bi-calculator-fill', iconColor: 'text-teal-500', label: 'Cálculo de Frete' },
         ]

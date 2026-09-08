@@ -14,8 +14,8 @@ const AutoScrollSection: React.FC<Props> = ({ settings, onChange }) => {
                 <div className="space-y-6">
                     {[
                         { id: 'orderTable', label: 'Tabela de Pedidos', icon: 'bi-grid-3x3' },
-                        { id: 'scheduleCards', label: 'Cards de Cronograma', icon: 'bi-card-list' },
-                        { id: 'scheduleTable', label: 'Tabela de Cronograma', icon: 'bi-calendar3' }
+                        { id: 'scheduleCards', label: 'Cards da Agenda', icon: 'bi-card-list' },
+                        { id: 'scheduleTable', label: 'Tabela da Agenda', icon: 'bi-calendar3' }
                     ].map(area => (
                         <div key={area.id} className="flex items-center justify-between">
                             <div className="flex items-center gap-3">

@@ -18,13 +18,13 @@ export const userDocumentation: DocumentationSection[] = [
         icon: "bi-truck",
         summary: "Guia para acompanhar entregas e montagens programadas e concluir atendimentos realizados.",
         rules: [
-            "Consulte o cronograma pelo período e tipo de atividade antes de sair para a rota.",
-            "Pedidos Agendados aparecem no cronograma; Atendidos e Cancelados não aparecem mais.",
+            "Consulte a agenda pelo período e tipo de atividade antes de sair para a rota.",
+            "Pedidos Agendados aparecem na agenda; Atendidos e Cancelados não aparecem mais.",
             "Após concluir a entrega ou montagem, marque o pedido como Atendido. Se houver divergência, registre-a antes de concluir.",
             "Na etapa Em atendimento, confira cada pagamento. Forma e valor podem ser ajustados, mas todos precisam estar como Pago para liberar a finalização.",
             "Não cancele pedido para corrigir um atendimento concluído: comunique o responsável para aplicar o fluxo correto de venda ou devolução.",
         ],
-        flow: [{ title: "Consultar", detail: "Filtre data e tipo no cronograma." }, { title: "Executar", detail: "Realize entrega ou montagem conforme o pedido." }, { title: "Atualizar", detail: "Marque Atendido após a execução." }, { title: "Divergência", detail: "Encaminhe a ocorrência antes de alterar o status." }],
+        flow: [{ title: "Consultar", detail: "Filtre data e tipo na agenda." }, { title: "Executar", detail: "Realize entrega ou montagem conforme o pedido." }, { title: "Atualizar", detail: "Marque Atendido após a execução." }, { title: "Divergência", detail: "Encaminhe a ocorrência antes de alterar o status." }],
     },
     {
         title: "Almoxarifado",

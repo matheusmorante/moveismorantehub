@@ -171,7 +171,7 @@ const AssemblyListPage = () => {
     const handleShareWhatsApp = () => {
         const REAL_URL = "https://morantehub.vercel.app";
         const url = `${REAL_URL}/assembly-schedule`;
-        const message = `🛠️ *Móveis Morante - Cronograma de Montagens*\n\nOlá! Segue o link para *visualização em tempo real* da lista de montagens atualizada:\n\n🔗 ${url}\n\n_Favor conferir os itens e horários no link antes de iniciar os serviços._`;
+        const message = `🛠️ *Móveis Morante - Agenda de Montagens*\n\nOlá! Segue o link para *visualização em tempo real* da lista de montagens atualizada:\n\n🔗 ${url}\n\n_Favor conferir os itens e horários no link antes de iniciar os serviços._`;
         const encoded = encodeURIComponent(message);
         window.open(`https://wa.me/?text=${encoded}`, '_blank');
     };
@@ -302,7 +302,7 @@ const AssemblyListPage = () => {
             <div className="max-w-[95%] mx-auto py-2 space-y-12">
                 {sortedKeys.map(dateKey => (
                     <div key={dateKey} id={`timeline-date-${dateKey}`} className="space-y-8">
-                        {/* ── Cabeçalho de Data (igual ao Cronograma) ── */}
+                        {/* ── Cabeçalho de Data (igual à Agenda) ── */}
                         <div className="sticky top-0 z-20 flex items-center gap-6 mb-12 bg-white/90 dark:bg-slate-900/90 backdrop-blur-xl px-8 py-6 rounded-[2rem] border border-slate-100 dark:border-slate-800 shadow-premium-sm">
                             <div className="flex flex-col">
                                 <span className="text-[10px] font-black text-blue-600 dark:text-blue-400 uppercase tracking-[0.3em]">
@@ -353,7 +353,7 @@ const AssemblyListPage = () => {
                                         {/* Linha conectora vertical */}
                                         <div className="absolute left-0 top-14 bottom-0 w-0.5 bg-slate-100 dark:bg-slate-800 -ml-0.25 group-last:hidden" />
 
-                                        {/* Card da Montagem (Visual de Cronograma com cores dinâmicas e hover suave) */}
+                                        {/* Card da Montagem (Visual da Agenda com cores dinâmicas e hover suave) */}
                                         <div className={`p-8 rounded-[2.5rem] border transition-all duration-300 hover:shadow-premium-lg group-hover:border-blue-300 dark:group-hover:border-blue-800 relative overflow-hidden ${cls.cardBg} ${cls.cardBorder}`}>
 
                                             {/* ─ Linha de badges + status + ações ─ */}

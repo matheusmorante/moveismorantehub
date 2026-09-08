@@ -2,12 +2,12 @@ import Order from "../types/order.type";
 import Shipping from "../types/Shipping.type";
 import { supabase } from '@/pages/utils/supabaseConfig';
 import { capitalizeOrder } from "./formatters";
-import { saveInventoryMove, cancelInventoryMovesByRelatedEntity, deleteInventoryMovesByRelatedEntity } from '@/pages/utils/inventoryService';
+import { saveInventoryMove, cancelInventoryMovesByRelatedEntity } from '@/pages/utils/inventoryService';
 import { getCurrentMovingAverageUnitCost, reprocessMovingAverageCosts } from './movingAverageCostService';
 import { assertDeletedOrderId, canPermanentlyDeleteDraft } from './orderDeletionRules';
 import { updateProduct } from '@/pages/utils/productService';
 import { getSettings } from '@/pages/utils/settingsService';
-import { formatOrderCode, getNextOrderIndex, getOrderIndex } from './orderCode';
+import { formatOrderCode, getNextOrderIndex, getOrderIndex, resolveOrderIndexForUpdate } from './orderCode';
 import { processReturnInventoryEntries } from './returnInventoryService';
 import { canMaintainSaleStock, getChangedSaleItems, hasActualSaleExit, isTemporarySaleItemReconciliation, reverseSaleItemMoves, shouldProcessSaleStock, syncLinkedReturnProductReferences } from './saleItemInventorySync';
 import { isPartialSaleStockMovement, isStockEligibleSaleItem } from './saleInventoryRules';
@@ -149,6 +149,13 @@ export const fetchOrdersPage = async (
         query = query.eq('id', filters.searchId);
     }
 
+    // A busca por cliente precisa ocorrer antes da paginação. Filtrar somente
+    // após carregar a página atual escondia pedidos mais antigos do cliente.
+    const customerName = String(filters?.customerName || '').trim();
+    if (customerName) {
+        query = query.ilike('order_data->customerData->>fullName', `%${customerName}%`);
+    }
+
     query = query.order('created_at', { ascending: false }).range(firstRow, lastRow);
 
     const { data, count, error } = await query;
@@ -164,6 +171,39 @@ export const fetchOrdersPage = async (
             const raw = { ...(row.order_data || {}), id: String(row.id), ...(idx != null ? { orderIndex: Number(idx) } : {}) } as Order;
             return capitalizeOrder(raw);
         });
+
+    // A venda original armazena apenas o id da devolução. Buscamos o pedido de
+    // devolução para o modal poder informar o estado real da sua entrada de estoque.
+    const returnOrderIds = rawOrders
+        .filter((order) => order.orderType !== 'return')
+        .map((order) => order.returnOrderId)
+        .filter((id): id is string => Boolean(id));
+
+    if (returnOrderIds.length > 0) {
+        const { data: returnRows, error: returnError } = await supabase
+            .from(TABLE_NAME)
+            .select('id, order_data')
+            .in('id', returnOrderIds);
+
+        if (returnError) {
+            console.warn('[OrdersService] Não foi possível carregar o estado das devoluções vinculadas:', returnError);
+        } else {
+            const returnMovementById = new Map((returnRows || []).map((row: any) => [
+                String(row.id),
+                {
+                    status: row.order_data?.status,
+                    stockProcessed: Boolean(row.order_data?.returnStockProcessed),
+                    stockReversed: Boolean(row.order_data?.returnStockReversed),
+                },
+            ]));
+
+            rawOrders.forEach((order) => {
+                if (order.returnOrderId) {
+                    order.linkedReturnMovement = returnMovementById.get(order.returnOrderId);
+                }
+            });
+        }
+    }
 
     const enrichedOrders = await enrichOrdersWithPeopleOrigins(rawOrders);
 
@@ -408,6 +448,23 @@ export const saveOrder = async (order: Order): Promise<string> => {
             await updateOrder(String(rowId), { stockProcessed: true, items: updatedOrder.items }, updatedOrder);
         }
 
+        // Uma devolução recebida diretamente na loja já nasce atendida. Como não
+        // há transição de status posterior nesse caso, a entrada de estoque deve
+        // ser registrada logo após a criação do pedido.
+        if (orderToSave.orderType === 'return' && orderToSave.status === 'fulfilled' && !orderToSave.returnStockProcessed) {
+            const processed = await processReturnInventoryEntries(String(rowId), orderToSave);
+            if (processed) {
+                orderToSave.returnStockProcessed = true;
+                await supabase
+                    .from(TABLE_NAME)
+                    .update({
+                        order_data: { ...orderToSave, returnStockProcessed: true },
+                        updated_at: new Date().toISOString(),
+                    })
+                    .eq('id', rowId);
+            }
+        }
+
         // Sync customer data back to CRM if applicable
         if (orderToSave.customerData?.id) {
             try {
@@ -587,7 +644,8 @@ export const updateOrder = async (
         }
 
         // Blindagem estrita: um pedido nunca pode perder seu orderIndex em updates
-        const existingCode = getOrderIndex(cleanUpdates) || getOrderIndex(previousOrderData) || getOrderIndex(currentOrder);
+        const persistedCodeSource = getOrderIndex(previousOrderData) ? previousOrderData : currentOrder;
+        const existingCode = resolveOrderIndexForUpdate(persistedCodeSource, cleanUpdates);
         if (existingCode) {
             merged.orderIndex = existingCode;
             merged.orderNumber = existingCode;
@@ -955,15 +1013,10 @@ export const restoreOrder = async (id: string): Promise<void> => {
 
 export const permanentDeleteOrder = async (id: string): Promise<void> => {
     try {
-        // Permanently delete related inventory moves too
-        await deleteInventoryMovesByRelatedEntity(id, 'sales_order');
-
-        const { error } = await supabase
-            .from(TABLE_NAME)
-            .delete()
-            .eq('id', id);
-
-        if (error) throw error;
+        // Pedidos não são removidos fisicamente: o registro tombado preserva o
+        // código sequencial e o histórico, evitando renumeração ou reutilização
+        // de códigos após uma exclusão.
+        await moveToTrash(id);
     } catch (error) {
         console.error("Erro ao deletar permanentemente o pedido: ", error);
         throw error;

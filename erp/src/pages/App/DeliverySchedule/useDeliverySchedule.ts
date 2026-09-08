@@ -309,7 +309,7 @@ export const useDeliverySchedule = () => {
         const PRODUCTION_URL = "https://morantehub.vercel.app";
         const scheduleUrl = `${PRODUCTION_URL}/schedule`;
         const shareText = encodeURIComponent(
-            `📦 Cronograma Logístico (${viewMode === "card" ? "Lista" : "Grade"})\n` +
+            `📦 Agenda (${viewMode === "card" ? "Lista" : "Grade"})\n` +
             `🔗 Acesse online agora: ${scheduleUrl}`
         );
 
