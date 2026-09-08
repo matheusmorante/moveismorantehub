@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from "react";
-import { Package, PackageCheck, PackageX } from "lucide-react";
+import { Package, PackageCheck, PackageMinus, PackageX } from "lucide-react";
 import type Order from "../../../types/order.type";
 import { isPartialSaleStockMovement } from "../../../utils/saleInventoryRules";
 import { getInventoryBadgeContent } from "./inventoryBadgeContent";
@@ -22,16 +22,32 @@ const InventoryMovementBadge = ({ orderType, hasMovement, isReversed, isPartial,
 
     const resolvedOrderType = orderType || order?.orderType;
     const isReturn = resolvedOrderType === 'return';
+    const linkedReturnKind = !isReturn && order?.returnOrderId ? order.returnKind : undefined;
+    const hasPartialReturn = linkedReturnKind === 'partial';
+    const hasFullReturn = linkedReturnKind === 'complete';
     const isPartialMovement = order 
         ? isPartialSaleStockMovement(order, order.movedProductIds) 
         : (isPartial ?? false);
 
-    const content = getInventoryBadgeContent({
+    const baseContent = getInventoryBadgeContent({
         isReturn,
         hasMovement,
         isReversed,
         isPartialMovement,
     });
+    const content = hasFullReturn ? {
+        ...baseContent,
+        title: 'Saída devolvida integralmente',
+        explanation: 'Este pedido possui uma devolução total vinculada. Confira abaixo o estado real de movimentação de cada item.',
+        statusLabel: 'Devolução Total', statusTextColor: 'text-red-600 dark:text-red-400',
+        badgeColorClass: 'border-red-700 bg-red-600 text-white hover:bg-red-700',
+    } : hasPartialReturn ? {
+        ...baseContent,
+        title: 'Saída devolvida parcialmente',
+        explanation: 'Este pedido possui uma devolução parcial vinculada. Confira abaixo o estado real de movimentação de cada item.',
+        statusLabel: 'Devolução Parcial', statusTextColor: 'text-amber-600 dark:text-amber-400',
+        badgeColorClass: 'border-amber-600 bg-amber-500 text-white hover:bg-amber-600',
+    } : baseContent;
 
     const updatePosition = useCallback(() => {
         if (!buttonRef.current) return;
@@ -115,7 +131,9 @@ const InventoryMovementBadge = ({ orderType, hasMovement, isReversed, isPartial,
                 title={content.title}
                 aria-label={content.title}
             >
-                {isReversed ? (
+                {hasFullReturn || hasPartialReturn ? (
+                    <PackageMinus className="h-3.5 w-3.5" />
+                ) : isReversed ? (
                     <PackageX className="h-3.5 w-3.5" />
                 ) : hasMovement ? (
                     <PackageCheck className="h-3.5 w-3.5" />
@@ -131,6 +149,8 @@ const InventoryMovementBadge = ({ orderType, hasMovement, isReversed, isPartial,
                     isReturn={isReturn}
                     hasMovement={hasMovement}
                     isReversed={isReversed}
+                    isPartialReturn={hasPartialReturn}
+                    isFullReturn={hasFullReturn}
                     order={order}
                     onClose={() => setIsOpen(false)}
                     onMouseEnter={() => {

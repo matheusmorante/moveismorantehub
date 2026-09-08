@@ -69,6 +69,12 @@ describe('getOrderItemsMovementList', () => {
         expect(result[0].statusLabel).toBe('Estornada');
     });
 
+    it('não chama uma movimentação de estornada apenas pelo status comercial cancelado', () => {
+        const order: Order = { orderType: 'sale', status: 'cancelled', stockProcessed: false, items: [itemCadastrado] } as Order;
+        const result = getOrderItemsMovementList(order, false, false);
+        expect(result[0].statusLabel).toBe('Não efetivada');
+    });
+
     it('identifica item com movimentação não efetivada quando ainda não foi processado', () => {
         const order: Order = {
             orderType: 'sale',

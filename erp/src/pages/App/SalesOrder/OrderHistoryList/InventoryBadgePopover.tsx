@@ -1,6 +1,6 @@
 import React from "react";
 import { createPortal } from "react-dom";
-import { Package, PackageCheck, PackageX, X } from "lucide-react";
+import { Package, PackageCheck, PackageMinus, PackageX, X } from "lucide-react";
 import Order from "../../../types/order.type";
 import { InventoryBadgeContentResult, getOrderItemsMovementList } from "./inventoryBadgeContent";
 
@@ -10,6 +10,8 @@ interface InventoryBadgePopoverProps {
     isReturn: boolean;
     hasMovement: boolean;
     isReversed?: boolean;
+    isPartialReturn?: boolean;
+    isFullReturn?: boolean;
     order?: Order;
     onClose: () => void;
     onMouseEnter: () => void;
@@ -22,6 +24,8 @@ export const InventoryBadgePopover = ({
     isReturn,
     hasMovement,
     isReversed,
+    isPartialReturn,
+    isFullReturn,
     order,
     onClose,
     onMouseEnter,
@@ -43,7 +47,9 @@ export const InventoryBadgePopover = ({
             <div className="flex items-start justify-between gap-2.5 shrink-0">
                 <div className="flex items-center gap-2.5">
                     <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-xl ${content.badgeColorClass}`}>
-                        {isReversed ? (
+                        {isPartialReturn || isFullReturn ? (
+                            <PackageMinus className="h-4 w-4" />
+                        ) : isReversed ? (
                             <PackageX className="h-4 w-4" />
                         ) : hasMovement ? (
                             <PackageCheck className="h-4 w-4" />

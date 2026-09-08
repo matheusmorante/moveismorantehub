@@ -96,7 +96,9 @@ export const getOrderItemsMovementList = (
 ): ItemMovementDisplay[] => {
     if (!order || !order.items || order.items.length === 0) return [];
 
-    const isOrderReversed = isReversed || order.status === 'cancelled' || Boolean(order.stockReversed) || Boolean(order.returnStockReversed);
+    // O texto do item só pode dizer "Estornada" quando existe uma movimentação
+    // efetivamente estornada, e não apenas por causa do status comercial do pedido.
+    const isOrderReversed = isReversed || Boolean(order.stockReversed) || Boolean(order.returnStockReversed);
     const movedSet = order.movedProductIds ? new Set(order.movedProductIds.map(String)) : null;
 
     return order.items.map((item: Item) => {
