@@ -38,14 +38,16 @@ const TableCell = ({ order, duration, onOrderClick }: Props) => {
 
     const allItems = [...(order.items || []), ...(order.assistanceItems as any || [])];
     
-    const isAssemblyOutside = allItems.some(item => {
+    const isReturn = order.orderType === 'return' || (order as any).type === 'return' || (order as any).is_return === true;
+    
+    const isAssemblyOutside = !isReturn && allItems.some(item => {
         const hLabel = (item.handlingType || "").trim().toLowerCase();
         if (!hLabel) return false;
         const foundOpt = allOptions.find(opt => (opt?.label || "").trim().toLowerCase() === hLabel);
         return foundOpt?.isAssemblyOutside === true;
     });
 
-    const isOnlyInternalAssembly = allItems.some(item => {
+    const isOnlyInternalAssembly = !isReturn && allItems.some(item => {
         const hLabel = (item.handlingType || "").trim().toLowerCase();
         if (!hLabel) return false;
         const foundOpt = allOptions.find(opt => (opt?.label || "").trim().toLowerCase() === hLabel);

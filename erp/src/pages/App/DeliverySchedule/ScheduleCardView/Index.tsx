@@ -103,7 +103,9 @@ const DeliveryOrderCard = ({ order, index, onOrderClick, isReadOnly, hasInitialS
         return undefined;
     };
     
-    const hasOutsideAssembly = allItems.some(item => {
+    const isReturn = order.orderType === 'return' || (order as any).type === 'return' || (order as any).is_return === true;
+
+    const hasOutsideAssembly = !isReturn && allItems.some(item => {
         if (!item) return false;
         const hLabel = (item.handlingType || item.handling || "").trim().toLowerCase();
         if (!hLabel) return false;
@@ -112,7 +114,7 @@ const DeliveryOrderCard = ({ order, index, onOrderClick, isReadOnly, hasInitialS
         return hLabel.includes('fora') || hLabel.includes('externa') || hLabel.includes('cliente') || hLabel.includes('montador');
     });
 
-    const hasInternalAssembly = allItems.some(item => {
+    const hasInternalAssembly = !isReturn && allItems.some(item => {
         if (!item) return false;
         const hLabel = (item.handlingType || item.handling || "").trim().toLowerCase();
         if (!hLabel) return false;

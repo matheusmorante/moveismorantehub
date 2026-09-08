@@ -1,71 +1,53 @@
-import React, { useState } from 'react';
-import AttendanceVoiceInput from './AttendanceVoiceInput';
-import { useTheme } from '../../context/ThemeContext';
+import React from 'react';
 
 export default function FloatingActionsHub() {
-  const [isOpen, setIsOpen] = useState(false);
-  const { theme } = useTheme();
+  const handleOpenAgent = () => {
+    window.dispatchEvent(new CustomEvent('morante:open-agent'));
+  };
 
   return (
-    <div className="fixed bottom-6 right-6 z-[200] flex flex-col items-end gap-3">
-      {/* Expanded Menu */}
-      <div className={`flex flex-col items-end gap-4 mb-2 transition-all duration-500 origin-bottom ${isOpen ? 'scale-100 opacity-100 translate-y-0' : 'scale-50 opacity-0 translate-y-10 pointer-events-none'}`}>
-        
-        {/* Chat Assistant */}
-        <div className="relative group" data-testid="assistant-container">
-           <button
-             onClick={() => {
-               window.dispatchEvent(new CustomEvent('morante:open-agent'));
-             }}
-             data-testid="assistant-toggle"
-             className="w-12 h-12 rounded-full bg-indigo-600 hover:bg-indigo-700 text-white flex items-center justify-center shadow-lg hover:scale-110 active:scale-95 transition-all"
-             title="Assistente IA (Agente do ERP)"
-           >
-             <i className="bi bi-robot text-lg"></i>
-           </button>
-           <span className="absolute right-full mr-4 top-1/2 -translate-y-1/2 px-3 py-1 bg-slate-900 text-white text-[9px] font-black uppercase rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap tracking-widest pointer-events-none shadow-xl">
-             Assistente IA
-           </span>
+    <div className="fixed bottom-6 right-6 z-[200] flex items-center gap-3">
+      {/* Botão Flutuante do Agente Seu Lizandro */}
+      <div className="relative group" data-testid="assistant-container">
+        {/* Tooltip elegante à esquerda */}
+        <div className="absolute right-full mr-3 top-1/2 -translate-y-1/2 px-3 py-1.5 bg-slate-900/95 dark:bg-slate-800/95 backdrop-blur-md text-white rounded-2xl shadow-xl border border-slate-700/50 opacity-0 group-hover:opacity-100 transition-all duration-300 pointer-events-none whitespace-nowrap flex items-center gap-2 transform translate-x-2 group-hover:translate-x-0">
+          <div className="flex flex-col text-left">
+            <span className="text-xs font-black text-white leading-tight">Seu Lizandro</span>
+            <span className="text-[10px] font-semibold text-indigo-300 dark:text-indigo-400">Agente IA do ERP</span>
+          </div>
+          <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
         </div>
 
-        {/* Voice Input */}
-        <div className="relative group">
-          <AttendanceVoiceInput isFloating={false} />
-          <span className="absolute right-full mr-4 top-1/2 -translate-y-1/2 px-3 py-1 bg-slate-900 text-white text-[9px] font-black uppercase rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap tracking-widest pointer-events-none shadow-xl">
-            Comando de Voz
-          </span>
-        </div>
-
-        {/* Download App (Integrated here as well for clean UI) */}
-        <div className="relative group">
-          <a 
-            href="https://expo.dev/artifacts/eas/2z1WIeabVBd27Zg66LdlZJTyjyR2v895eRnUiXwwHg0.apk"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="w-12 h-12 rounded-full bg-slate-900 text-white flex items-center justify-center shadow-lg hover:scale-110 active:scale-95 transition-all"
-            title="Baixar Aplicativo Android Móveis Morante Oficial"
+        {/* Botão Principal com Avatar do Seu Lizandro */}
+        <button
+          onClick={handleOpenAgent}
+          data-testid="assistant-toggle"
+          aria-label="Abrir chat do Seu Lizandro, Agente Inteligente do ERP"
+          className="relative w-14 h-14 sm:w-16 sm:h-16 rounded-full p-0.5 sm:p-1 bg-gradient-to-tr from-indigo-600 via-blue-500 to-amber-400 shadow-2xl shadow-indigo-500/30 hover:shadow-indigo-500/50 hover:scale-105 active:scale-95 transition-all duration-300 flex items-center justify-center focus:outline-none focus:ring-4 focus:ring-indigo-400/30"
+          title="Falar com Seu Lizandro (Agente IA)"
         >
-            <i className="bi bi-android2 text-lg text-emerald-400"></i>
-        </a>
-          <span className="absolute right-full mr-4 top-1/2 -translate-y-1/2 px-3 py-1 bg-slate-900 text-white text-[9px] font-black uppercase rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap tracking-widest pointer-events-none shadow-xl">
-            Baixar App Mobile
-          </span>
-        </div>
-      </div>
+          {/* Container interno da imagem */}
+          <div className="w-full h-full rounded-full overflow-hidden bg-slate-100 dark:bg-slate-800 border-2 border-white dark:border-slate-900 shadow-inner flex items-center justify-center">
+            <img
+              src="/lizandro.png"
+              alt="Seu Lizandro - Agente IA"
+              className="w-full h-full object-cover object-top hover:scale-110 transition-transform duration-300"
+              onError={(e) => {
+                // Fallback para seu-lizandro.jpg caso lizandro.png falhe
+                const target = e.currentTarget;
+                if (!target.src.endsWith('seu-lizandro.jpg')) {
+                  target.src = '/seu-lizandro.jpg';
+                }
+              }}
+            />
+          </div>
 
-      {/* Main Toggle Button (The Tools Icon) */}
-      <button
-        onClick={() => setIsOpen(!isOpen)}
-        data-testid="floating-hub-toggle"
-        data-testid-assistant-toggle="true"
-        className={`w-16 h-16 rounded-[2rem] flex items-center justify-center transition-all duration-500 shadow-premium-lg border-2 ${
-          isOpen 
-            ? 'bg-rose-500 border-rose-400 rotate-90 text-white' 
-            : 'bg-indigo-600 border-indigo-500 text-white hover:bg-indigo-700'
-        } hover:scale-105 active:scale-95`}
-      >
-        <i className={`bi ${isOpen ? 'bi-x-lg' : 'bi-tools'} text-2xl`}></i>
-      </button>
+          {/* Badge / Ponto de Status Online */}
+          <span className="absolute bottom-0 right-0 w-4 h-4 bg-emerald-500 border-2 border-white dark:border-slate-900 rounded-full shadow-sm flex items-center justify-center">
+            <span className="w-1.5 h-1.5 rounded-full bg-white"></span>
+          </span>
+        </button>
+      </div>
     </div>
   );
 }

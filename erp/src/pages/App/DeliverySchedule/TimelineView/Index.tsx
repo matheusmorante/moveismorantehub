@@ -43,7 +43,9 @@ const TimelineNode = ({ order, onOrderClick }: { order: Order; onOrderClick: (or
 
     const allItems = [...(order.items || []), ...(order.assistanceItems as any || [])];
     
-    const isAssemblyOutside = allItems.some(item => {
+    const isReturn = order.orderType === 'return' || (order as any).type === 'return' || (order as any).is_return === true;
+    
+    const isAssemblyOutside = !isReturn && allItems.some(item => {
         if (!item) return false;
         const hLabel = (item.handlingType || "").trim().toLowerCase();
         if (!hLabel) return false;
@@ -51,7 +53,7 @@ const TimelineNode = ({ order, onOrderClick }: { order: Order; onOrderClick: (or
         return foundOpt?.isAssemblyOutside === true;
     });
 
-    const isOnlyInternalAssembly = allItems.some(item => {
+    const isOnlyInternalAssembly = !isReturn && allItems.some(item => {
         if (!item) return false;
         const hLabel = (item.handlingType || "").trim().toLowerCase();
         if (!hLabel) return false;

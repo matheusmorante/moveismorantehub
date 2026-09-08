@@ -83,8 +83,8 @@ export function MobileOrderCard({ order, dark, handlingOptions, onDetails }: Pro
     shipping.handlingType || shipping.handling || order.handling || ''
   );
 
-  const hasAssemblyOutside = isHandlingOutside(orderHandling) || allOrderItems.some(isHandlingOutside);
-  const hasAssemblyDepot = isHandlingDepot(orderHandling) || allOrderItems.some(isHandlingDepot);
+  const hasAssemblyOutside = !isReturn && (isHandlingOutside(orderHandling) || allOrderItems.some(isHandlingOutside));
+  const hasAssemblyDepot = !isReturn && (isHandlingDepot(orderHandling) || allOrderItems.some(isHandlingDepot));
 
   const schedule = shipping.scheduling || data.schedule || {};
   const scheduleDate = schedule.date || schedule.startDate || order.scheduled_date || order.date;

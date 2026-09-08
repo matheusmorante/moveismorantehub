@@ -29,6 +29,11 @@ export const isHandlingOutsideItem = (item: any, allOptions: any[]): boolean => 
 };
 
 export const getOrderAssemblyFlags = (order: Order, settings: any): { hasAssemblyDepot: boolean; hasAssemblyOutside: boolean } => {
+    const isReturn = order.orderType === 'return' || (order as any).type === 'return' || (order as any).is_return === true;
+    if (isReturn) {
+        return { hasAssemblyDepot: false, hasAssemblyOutside: false };
+    }
+
     const allOptions = [
         ...(settings?.deliveryHandlingOptions || []),
         ...(settings?.pickupHandlingOptions || [])

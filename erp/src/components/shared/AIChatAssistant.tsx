@@ -80,8 +80,8 @@ export default function AIChatAssistant({
     return () => unsubscribe();
   }, []);
 
-  const aiName = settings.aiPrompts?.aiName || 'Lisandro';
-  const aiAvatar = settings.aiPrompts?.aiAvatar || '';
+  const aiName = settings.aiPrompts?.aiName || 'Seu Lizandro';
+  const aiAvatar = settings.aiPrompts?.aiAvatar || '/lizandro.png';
 
   const [messages, setMessages] = useState<ChatMessage[]>(() => {
     const saved = localStorage.getItem(STORAGE_KEY);

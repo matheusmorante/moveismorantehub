@@ -42,6 +42,7 @@ Este documento registra as regras e comportamentos **implementados** no sistema,
     - **Montagem Depósito** (antes da entrega/retirada): Fundo **Amarelo** (`bg-amber-500` / `#d97706`).
   - **Exibição Simultânea**: Quando um pedido contém itens com montagem fora e outros com montagem no depósito, o sistema exibe obrigatoriamente **ambos os selos à mostra** lado a lado tanto no ERP quanto no App Mobile.
   - **Rótulos Padronizados**: O rótulo é uniformemente **"Montagem Depósito"** (nunca "Montagem na Loja") e **"Montagem Fora"**, mantendo a mesma linguagem e estilo visual no ERP e no App.
+  - **Devoluções sem Selos de Montagem**: Em pedidos de **Devolução** (`orderType === 'return'`, `is_return: true`), **não são exibidos selos de montagem** (nem Montagem Depósito, nem Montagem Fora) nos cards, linhas de pedidos ou cronogramas tanto no ERP quanto no App Mobile, pois devoluções tratam estritamente do recolhimento/estorno do produto.
 - **Emissão Fiscal SEFAZ-PR — Lista de Itens da Venda e Campos Tributários (`NfeEmissionModal` / `NfeItemsSection`)**:
   - O modal de emissão fiscal exibe a lista completa de itens da venda que estão sendo passados para a NF-e/NFC-e, sem numeração estática `#1, #2...`.
   - Produtos não cadastrados no ERP (`!item.productId`) recebem destaque visual indicativo.

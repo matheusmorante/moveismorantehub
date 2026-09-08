@@ -26,13 +26,13 @@ export const ScheduleCard: React.FC<Props> = ({
   const oData = item.order?.order_data || item.order || {};
   const items = oData.items || item.order?.items || oData.assistanceItems || [];
   const orderHandling = oData.handlingType || item.order?.handling_type || oData.handling;
-  const serviceSummary = analyzeOrderServiceHandlings(items, orderHandling);
-  const hasOutsideAssembly = serviceSummary.hasOutsideAssembly ||
+  const isReturn = String(oData.orderType || oData.order_type || item.order?.orderType || item.order?.order_type || '').toLowerCase() === 'return';
+  const hasOutsideAssembly = !isReturn && (serviceSummary.hasOutsideAssembly ||
     isAssemblyOutsideType(orderHandling, handlingOptions) ||
-    items.some((entry: any) => isAssemblyOutsideType(entry?.handlingType || entry?.handling, handlingOptions));
-  const hasDepotAssembly = serviceSummary.hasDepotAssembly ||
+    items.some((entry: any) => isAssemblyOutsideType(entry?.handlingType || entry?.handling, handlingOptions)));
+  const hasDepotAssembly = !isReturn && (serviceSummary.hasDepotAssembly ||
     isAssemblyInternalType(orderHandling, handlingOptions) ||
-    items.some((entry: any) => isAssemblyInternalType(entry?.handlingType || entry?.handling, handlingOptions));
+    items.some((entry: any) => isAssemblyInternalType(entry?.handlingType || entry?.handling, handlingOptions)));
   const observationCount = item.observationCount ?? 0;
 
   // Informações de pagamento

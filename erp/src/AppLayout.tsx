@@ -111,17 +111,6 @@ export default function AppLayout() {
           </div>
 
           <div className="flex items-center gap-2 lg:gap-4">
-            {/* Botão de Acesso Global ao Agente do ERP */}
-            <button
-              onClick={() => setIsAgentOpen(prev => !prev)}
-              data-testid="agent-header-btn"
-              className="flex items-center gap-2 px-3 py-1.5 sm:px-3.5 sm:py-2 rounded-xl bg-gradient-to-r from-indigo-600 via-indigo-500 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-white font-bold text-xs shadow-md shadow-indigo-500/20 hover:shadow-indigo-500/35 transition-all active:scale-95"
-              title="Abrir Agente do ERP (Assistente Inteligente)"
-            >
-              <i className="bi bi-stars text-amber-300 animate-pulse"></i>
-              <span className="hidden sm:inline font-black tracking-wide">Agente</span>
-            </button>
-
             <GlobalAutoScroll />
             <NotificationBell />
 
