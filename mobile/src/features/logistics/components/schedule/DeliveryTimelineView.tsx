@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ScrollView, RefreshControl } from 'react-native';
-import { ChevronLeft, ChevronRight, AlertTriangle, Car, Clock } from 'lucide-react-native';
+import { ChevronLeft, ChevronRight, AlertTriangle, Clock } from 'lucide-react-native';
 import { DeliveryRouteItem } from '../../hooks/useDeliveryRoute';
 import { ScheduleCard } from './ScheduleCard';
 import { analyzeOrderServiceHandlings } from '../../utils/scheduleServiceEstimator';
@@ -159,22 +159,13 @@ export const DeliveryTimelineView: React.FC<Props> = ({
                     isDarkMode={isDarkMode}
                   />
 
-                  {/* Conector de Deslocamento ENTRE esta entrega e a próxima */}
-                  {index < filteredItems.length - 1 && (
+                  {/* Alerta de Risco de Atraso no Próximo Horário Fixo (se houver) */}
+                  {index < filteredItems.length - 1 && hasDelayRisk && (
                     <View style={styles.transitConnector}>
-                      <View style={styles.transitInfoRow}>
-                        <Car size={13} color="#64748b" />
-                        <Text style={styles.transitText}>
-                          {travelMinutes} min · {travelKm} km
-                        </Text>
+                      <View style={styles.delayRiskBadge}>
+                        <AlertTriangle size={12} color="#dc2626" />
+                        <Text style={styles.delayRiskText}>RISCO DE ATRASO NO HORÁRIO FIXO</Text>
                       </View>
-
-                      {hasDelayRisk && (
-                        <View style={styles.delayRiskBadge}>
-                          <AlertTriangle size={12} color="#dc2626" />
-                          <Text style={styles.delayRiskText}>RISCO DE ATRASO NO HORÁRIO FIXO</Text>
-                        </View>
-                      )}
                     </View>
                   )}
                 </View>

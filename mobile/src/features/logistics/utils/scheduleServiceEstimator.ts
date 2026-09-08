@@ -13,11 +13,33 @@ export interface ItemServiceHandlingSummary {
  * - Instalação de Aéreo / Fixação em Parede (🧱)
  * - Estima o tempo de serviço médio previsto
  */
-export function analyzeOrderServiceHandlings(items: any[] = []): ItemServiceHandlingSummary {
+export function analyzeOrderServiceHandlings(
+  items: any[] = [],
+  orderLevelHandling?: string
+): ItemServiceHandlingSummary {
   let hasOutsideAssembly = false;
   let hasDepotAssembly = false;
   let hasWallInstallation = false;
   let estimatedMinutes = 20; // 20 min base de descarga e conferência
+
+  const orderHandlingStr = String(orderLevelHandling || '').toLowerCase();
+  if (
+    orderHandlingStr.includes('fora') ||
+    orderHandlingStr.includes('cliente') ||
+    orderHandlingStr.includes('extern') ||
+    orderHandlingStr.includes('montador')
+  ) {
+    hasOutsideAssembly = true;
+  }
+  if (
+    orderHandlingStr.includes('deposito') ||
+    orderHandlingStr.includes('depósito') ||
+    orderHandlingStr.includes('loja') ||
+    orderHandlingStr.includes('interno') ||
+    orderHandlingStr.includes('interna')
+  ) {
+    hasDepotAssembly = true;
+  }
 
   for (const item of items) {
     const qty = Number(item.quantity || item.qty || 1);
@@ -32,7 +54,8 @@ export function analyzeOrderServiceHandlings(items: any[] = []): ItemServiceHand
       handling.includes('montador') ||
       handling.includes('local') ||
       Boolean(item.requiresAssembly) ||
-      Boolean(item.assemblyOutside)
+      Boolean(item.assemblyOutside) ||
+      Boolean(item.is_assembly_outside)
     ) {
       hasOutsideAssembly = true;
       // Estimação por tipo de móvel
@@ -45,14 +68,17 @@ export function analyzeOrderServiceHandlings(items: any[] = []): ItemServiceHand
       } else {
         estimatedMinutes += 30 * qty;
       }
-    } else if (
+    }
+
+    if (
       handling.includes('deposito') ||
       handling.includes('depósito') ||
       handling.includes('loja') ||
       handling.includes('interno') ||
       handling.includes('interna') ||
       handling.includes('montado') ||
-      Boolean(item.assemblyDepot)
+      Boolean(item.assemblyDepot) ||
+      Boolean(item.is_assembly_depot)
     ) {
       hasDepotAssembly = true;
     }

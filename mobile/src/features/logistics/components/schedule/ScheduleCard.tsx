@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { ChevronDown, ChevronUp, MapPin, Clock, Play, ArrowRight, Truck } from 'lucide-react-native';
 import { DeliveryRouteItem } from '../../hooks/useDeliveryRoute';
-import { analyzeOrderServiceHandlings, formatEstimatedServiceDuration } from '../../utils/scheduleServiceEstimator';
+import { analyzeOrderServiceHandlings } from '../../utils/scheduleServiceEstimator';
 import { MobileDrill } from '../../../../components/shared/MobileDrill';
 
 interface Props {
@@ -22,7 +22,8 @@ export const ScheduleCard: React.FC<Props> = ({
 
   const oData = item.order?.order_data || item.order || {};
   const items = oData.items || item.order?.items || oData.assistanceItems || [];
-  const serviceSummary = analyzeOrderServiceHandlings(items);
+  const orderHandling = oData.handlingType || item.order?.handling_type || oData.handling;
+  const serviceSummary = analyzeOrderServiceHandlings(items, orderHandling);
 
   // Informações de pagamento
   const financial = oData.financial || item.order?.financial || {};
@@ -38,6 +39,16 @@ export const ScheduleCard: React.FC<Props> = ({
   const neighborhood = deliveryAddr.neighborhood || '';
   const city = deliveryAddr.city || '';
   const locationText = [neighborhood, city].filter(Boolean).join(' · ');
+
+  // Tempo de deslocamento e quilometragem ao lado do endereço
+  const travelMin = item.durationMin || shipping.durationMinutes;
+  const travelKm = item.distanceKm || shipping.distance;
+  const travelParts = [
+    travelMin ? `${travelMin} min` : '',
+    travelKm ? `${travelKm} km` : '',
+  ].filter(Boolean);
+  const travelText = travelParts.join(' · ');
+  const addressAndTravelText = [locationText, travelText].filter(Boolean).join(' · ');
 
   return (
     <TouchableOpacity
@@ -94,27 +105,24 @@ export const ScheduleCard: React.FC<Props> = ({
         )}
       </View>
 
-      {/* Cliente e Localização */}
+      {/* Cliente e Localização com Deslocamento e Quilometragem */}
       <Text style={[styles.customerName, isDarkMode && styles.textLight]} numberOfLines={1}>
         {item.customerName}
       </Text>
 
-      {locationText ? (
+      {addressAndTravelText ? (
         <View style={styles.locationRow}>
           <MapPin size={13} color="#ef4444" style={{ marginTop: 1 }} />
           <Text style={[styles.locationText, isDarkMode && styles.textMuted]} numberOfLines={1}>
-            {locationText}
+            {addressAndTravelText}
           </Text>
         </View>
       ) : null}
 
-      {/* Quantidade de produtos e Tempo Estimado */}
+      {/* Quantidade de produtos */}
       <View style={styles.metricsRow}>
         <Text style={[styles.productsCountText, isDarkMode && styles.textMuted]}>
           📦 {item.itemsCount} {item.itemsCount === 1 ? 'produto' : 'produtos'}
-        </Text>
-        <Text style={[styles.durationText, isDarkMode && styles.textMuted]}>
-          ⏱ Serviço previsto: {formatEstimatedServiceDuration(serviceSummary.estimatedMinutes)}
         </Text>
       </View>
 
