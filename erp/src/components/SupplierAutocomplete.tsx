@@ -13,6 +13,8 @@ export interface SupplierAutocompleteProps {
     disabled?: boolean;
     disabledReason?: string;
     hideLabel?: boolean;
+    customLabel?: string;
+    showSelectedBadge?: boolean;
 }
 
 const SupplierAutocomplete: React.FC<SupplierAutocompleteProps> = ({
@@ -24,7 +26,9 @@ const SupplierAutocomplete: React.FC<SupplierAutocompleteProps> = ({
     inputClassName = "w-full bg-transparent border-0 border-b border-slate-200 dark:border-slate-800 p-2 focus:border-blue-600 dark:focus:border-blue-500 outline-none text-sm font-bold text-slate-700 dark:text-slate-300 transition-all focus:ring-0 focus:shadow-sm",
     disabled = false,
     disabledReason = "",
-    hideLabel = false
+    hideLabel = false,
+    customLabel = "Fornecedor",
+    showSelectedBadge = true
 }) => {
     const {
         query,
@@ -48,8 +52,8 @@ const SupplierAutocomplete: React.FC<SupplierAutocompleteProps> = ({
             {!hideLabel && (
                 <div className="flex items-center justify-between">
                     <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 flex items-center gap-1.5">
-                        Fornecedor
-                        {isSelected && (
+                        {customLabel}
+                        {showSelectedBadge && isSelected && (
                             <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300 text-[9px] font-bold tracking-wider">
                                 <i className="bi bi-check2-circle text-[10px]" /> Selecionado
                             </span>

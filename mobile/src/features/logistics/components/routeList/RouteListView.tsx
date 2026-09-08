@@ -80,14 +80,6 @@ export const RouteListView: React.FC<Props> = ({
         />
       )}
       contentContainerStyle={styles.listContent}
-      refreshControl={
-        <RefreshControl
-          refreshing={refreshing}
-          onRefresh={onRefresh}
-          colors={['#2563eb']}
-          tintColor="#2563eb"
-        />
-      }
     />
   );
 };

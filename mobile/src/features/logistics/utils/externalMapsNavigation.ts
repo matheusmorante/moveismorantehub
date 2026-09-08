@@ -7,6 +7,42 @@ export interface NavigationTarget {
   mapsUrl?: string | null;
 }
 
+type UnknownRecord = Record<string, unknown>;
+
+const asRecord = (value: unknown): UnknownRecord =>
+  value !== null && typeof value === 'object' ? value as UnknownRecord : {};
+
+const asNonEmptyString = (value: unknown): string | undefined => {
+  const text = typeof value === 'string' ? value.trim() : '';
+  return text || undefined;
+};
+
+const asCoordinate = (value: unknown): number | undefined => {
+  const coordinate = typeof value === 'number' ? value : Number(value);
+  return Number.isFinite(coordinate) && coordinate !== 0 ? coordinate : undefined;
+};
+
+/** Extrai somente dados de navegação já presentes no pedido, sem alterar o registro. */
+export const extractNavigationTarget = (order: unknown, fullAddress?: string): NavigationTarget => {
+  const row = asRecord(order);
+  const orderData = asRecord(row.order_data);
+  const shipping = asRecord(orderData.shipping ?? row.shipping);
+  const deliveryAddress = asRecord(shipping.deliveryAddress ?? shipping.address);
+  const destinationCoords = Array.isArray(shipping.destinationCoords) ? shipping.destinationCoords : [];
+
+  return {
+    latitude: asCoordinate(shipping.latitude ?? destinationCoords[1]),
+    longitude: asCoordinate(shipping.longitude ?? destinationCoords[0]),
+    fullAddress: fullAddress || asNonEmptyString(deliveryAddress.fullAddress ?? deliveryAddress.address),
+    mapsUrl: asNonEmptyString(
+      deliveryAddress.mapsUrl
+      ?? deliveryAddress.googleMapsUrl
+      ?? shipping.mapsUrl
+      ?? shipping.googleMapsUrl,
+    ),
+  };
+};
+
 /**
  * Abre o Google Maps externo com navegação curva a curva GPS (Intent nativa no Android).
  * PRIORIDADE ABSOLUTA: Se houver URL/Link de localização exata (mapsUrl), abre este link diretamente!
@@ -58,3 +94,6 @@ export async function openExternalNavigation(target: NavigationTarget): Promise<
     await Linking.openURL(universalAddr);
   }
 }
+
+/** Nome explícito para as etapas de entrega; delega à única implementação de navegação. */
+export const openGoogleMapsNavigation = openExternalNavigation;

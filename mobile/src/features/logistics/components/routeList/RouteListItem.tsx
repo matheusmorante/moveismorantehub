@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
-import { Navigation, Play, Eye, Check, AlertTriangle, MapPin, Package, Clock, Truck, Wrench } from 'lucide-react-native';
+import { Navigation, Eye, Check, AlertTriangle, MapPin, Package, Truck, Wrench } from 'lucide-react-native';
 import { DeliveryRouteItem } from '../../hooks/useDeliveryRoute';
 import { openExternalNavigation } from '../../utils/externalMapsNavigation';
 import { MobileDrill } from '../../../../components/shared/MobileDrill';
@@ -287,6 +287,9 @@ const styles = StyleSheet.create({
   },
   smallActionBtnDark: {
     backgroundColor: '#334155',
+  },
+  textLight: {
+    color: '#f8fafc',
   },
   startActionBtn: {
     width: 32,

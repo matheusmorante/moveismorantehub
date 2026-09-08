@@ -14,7 +14,8 @@
     "install:all": "npm install --prefix erp && npm install --prefix digital-catalog",
     "mcp:start": "npx tsx src/mcp/index.ts",
     "mcp:stdio": "npx tsx src/mcp/index.ts --stdio",
-    "mcp:test": "npm run test:unit --prefix erp -- ../src/mcp/"
+    "mcp:test": "npm run test:unit --prefix erp -- ../src/mcp/",
+    "sefaz:bridge": "npx tsx api/nfe/standaloneServer.ts"
   },
   "devDependencies": {
     "@types/bwip-js": "^3.2.3",

@@ -7,8 +7,8 @@ const client = new Client({
 async function run() {
     await client.connect();
 
-    const newApkUrl = 'https://expo.dev/artifacts/eas/LfZx-w0CCBqdqFboSKGGslTUTSxAo84WXZPSrqA6rkI.apk';
-    const newMinBuild = 24;
+    const newApkUrl = 'https://expo.dev/artifacts/eas/GoCr7Fvu_0gV7-45jS-MLYYX7Yax7xwcWxpGuxQfNyM.apk';
+    const newMinBuild = 13;
 
     console.log('--- ATUALIZANDO CONFIGURAÇÃO DE BUILD E APK NO SUPABASE ---');
 
@@ -21,6 +21,7 @@ async function run() {
 
     currentData.mobileSettings = {
         ...(currentData.mobileSettings || {}),
+        requiredAndroidBuild: newMinBuild,
         minimumAndroidBuild: newMinBuild,
         androidUpdateUrl: newApkUrl,
         updatedAt: new Date().toISOString()

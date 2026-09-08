@@ -115,15 +115,13 @@ export const NextDeliveryCard: React.FC<Props> = ({
           <Text style={styles.opBadgeText}>{isAssistance ? 'ASSISTÊNCIA' : isPickup ? 'RETIRADA' : 'ENTREGA'}</Text>
         </View>
         {hasInternalAssembly && (
-          <View style={[styles.opBadge, styles.opBadgeDepot]}>
-            <MobileDrill size={10} color="#fff" />
-            <Text style={styles.opBadgeText}>MONTADO NO DEPÓSITO</Text>
+          <View style={[styles.opBadge, styles.opBadgeDepot, { paddingHorizontal: 6, minWidth: 22, justifyContent: 'center' }]}>
+            <MobileDrill size={11} color="#fff" />
           </View>
         )}
         {hasOutsideAssembly && (
-          <View style={[styles.opBadge, styles.opBadgeOutside]}>
-            <MobileDrill size={10} color="#fff" />
-            <Text style={styles.opBadgeText}>MONTAGEM FORA</Text>
+          <View style={[styles.opBadge, styles.opBadgeOutside, { paddingHorizontal: 6, minWidth: 22, justifyContent: 'center' }]}>
+            <MobileDrill size={11} color="#fff" />
           </View>
         )}
       </View>

@@ -20,10 +20,21 @@ Este documento registra as regras e comportamentos **implementados** no sistema,
   5. **Mobile Offline-First (`mobile-offline-first`)**: Se for código do App Mobile em contexto operacional, respeita o ciclo de 4 estados de eventos e autoridade do backend?
   6. **Arquitetura do Agente Gemini (`arquitetura-agente-gemini`)**: Se o arquivo tocar o assistente de IA, obedece estritamente às diretrizes de Function Calling nativo, contexto conversacional real, autoridade estrita do ERP/backend, proibição de inventar IDs e proibição expressa de usar regex/parsers como cérebro?
   7. **Testes Seguros e Causa Raiz (`testes-seguros-erp`)**: Proibição de mascarar testes (remover assertions, sleeps artificiais, timeouts arbitrários). Validar com testes automatizados investigando sintoma → causa imediata → causa raiz antes de concluir a resposta.
-  8. **Checklist Pré-Conclusão (`modularizacao_codigo` Seção 37)**: Validar os 17 itens de conformidade (TypeScript rigoroso, Zero Trust em entradas, concorrência/idempotência, sem catches vazios).
+  8. **Eficiência de Dados e Prevenção de Egress (`eficiencia-dados-egress`)**: Se a alteração envolver banco de dados, Supabase, listagens, paginação, filtros, pesquisas, ordenações, testes E2E ou Realtime, garante transferência estrita apenas dos dados necessários para a página sem remover informações da interface ou prejudicar buscas/filtros server-side.
+  9. **Checklist Pré-Conclusão (`modularizacao_codigo` Seção 37)**: Validar os 17 itens de conformidade (TypeScript rigoroso, Zero Trust em entradas, concorrência/idempotência, sem catches vazios).
 - **Git Push**: Nao executar `git push` automaticamente. Aguardar solicitacao explicita do usuario.
 - **Modularização Segura e Código Limpo (`modularizacao_codigo`)**: Cada arquivo deve possuir uma única responsabilidade clara. Alvo recomendado de 30–100 linhas (aceitável até aproximadamente 150 linhas; acima de 200 linhas ou infração real analisar divisão). Estratégia conservadora sem perda de código: **COPIAR → VALIDAR → CONECTAR → TESTAR → SÓ DEPOIS REMOVER**. Nunca alterar regras de negócio silenciosamente durante refatorações. Quando o usuário autorizar modularização contínua/ilimitada, o agente deve executar a refatoração progressiva em profundidade sem interrupções artificiais, preservando total fidelidade funcional e cobertura de testes.
 - **Idioma dos termos no ERP**: Produtos **Ativos** / **Desativados** (nunca publicados/despublicados). No catalogo digital: **Publicado no Catalogo** / **Ocultado do Catalogo**.
+- **Versionamento Unificado e Sincronizado em Todos os Lugares (Mobile e ERP)**:
+  - Ao atualizar versões ou lançar novas builds do App Mobile, é terminantemente proibido atualizar a versão apenas parcialmente. O versionamento deve ser sincronizado em **100% dos locais do projeto**:
+    1. **`mobile/app.json`**: `expo.version`, `expo.runtimeVersion` e `expo.android.versionCode`.
+    2. **`mobile/android/app/build.gradle`**: `defaultConfig.versionCode` e `defaultConfig.versionName` (essencial para que as Configurações do Android → Aplicativos → Detalhes do App / App Info exibam a versão e build reais).
+    3. **`mobile/src/constants/appVersion.ts`**: `APP_VERSION`, `APP_BUILD` e `APP_RELEASE_DATE`.
+    4. **Interface Mobile (`ProfileModal.tsx`)**: Exibir versão semântica e número da build sincronizados.
+    5. **Verificação de Atualização Obrigatória (`useMandatoryAppUpdate.ts`)**: Validar contra `requiredAndroidBuild` e bloquear builds anteriores.
+    6. **Banco de Dados Supabase (`settings` id `'app'`)**: `mobileSettings.requiredAndroidBuild`, `minimumAndroidBuild` e `androidUpdateUrl`.
+    7. **Script de Migração (`erp/scripts/migration/update_mobile_apk_config.cjs`)**: Manter atualizado com a build e URL mais recentes.
+    8. **Landing Page do ERP (`erp/src/pages/App/MobileAppLanding.tsx`)**: Atualizar link de download do APK oficial e texto do QR code com a versão/build corretas.
 - **Ícone e Selos de Montagem (`Drill` - Parafusadeira / Furadeira Preenchida & Cores Padronizadas ERP/Mobile)**:
   - Em todos os módulos (cards e linhas de pedidos, cronograma logístico, lista de montagens, modais e itens), os rótulos e elementos referentes a **Montagem** utilizam o componente preenchido **`Drill`** (`@/components/shared/DrillIcon` no ERP e `MobileDrill` no mobile), com design sólido/preenchido (Filled), em substituição ao martelo e ao ícone linear.
   - **Cores dos Selos**:

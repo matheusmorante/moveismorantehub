@@ -11,7 +11,7 @@ export interface VoiceConfig {
 
 export const DEFAULT_VOICE_CONFIG: VoiceConfig = {
   provider: 'gemini',
-  model: 'gemini-3.1-flash-tts-preview',
+  model: 'gemini-2.0-flash',
   voiceId: 'Kore',
   language: 'pt-BR',
   speed: 1.0,

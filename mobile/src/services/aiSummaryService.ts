@@ -12,6 +12,7 @@ import {
 } from './deliverySummaryService';
 import { getLocalDateString } from '../utils/orderUtils';
 import { formatDistanceNatural, formatProductNameWithArticle } from '../utils/aiSummaryHelper';
+import { buildDeliverySummaryPrompt } from './aiSummaryPrompt';
 
 export const generateDeliveryAISummary = async (
   mode: 'today' | 'tomorrow' | 'next_days' | 'next5days',
@@ -24,7 +25,12 @@ export const generateDeliveryAISummary = async (
   try {
     let rawOrders = initialOrders;
     if (!rawOrders || rawOrders.length === 0) {
-      const { data } = await supabase.from('orders').select('*').order('created_at', { ascending: false });
+      const { data } = await supabase
+        .from('orders')
+        .select('id, status, created_at, order_data')
+        .or('order_data->>deleted.is.null,order_data->>deleted.eq.false')
+        .order('created_at', { ascending: false })
+        .limit(300);
       rawOrders = data || [];
     }
 
@@ -91,7 +97,7 @@ export const generateDeliveryAISummary = async (
 
       if (geminiKey && canonicalPayload.orders.length > 0) {
         try {
-          const geminiPrompt = buildGeminiPrompt(smartText);
+          const geminiPrompt = buildDeliverySummaryPrompt(smartText);
           const res = await fetch(
             `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${encodeURIComponent(geminiKey)}`,
             {
@@ -247,7 +253,9 @@ export function generateLocalSmartText(payload: CanonicalSummaryPayload): string
   const orders = payload.orders || [];
 
   if (orders.length === 0) {
-    return 'Sem entregas para hoje.';
+    return payload.scope === 'next_days'
+      ? 'Não há entregas agendadas para os próximos dias. Operação e frota disponíveis para novos lançamentos.'
+      : 'Sem entregas para hoje.';
   }
 
   if (payload.scope === 'next_days') {
@@ -268,13 +276,14 @@ export function generateLocalSmartText(payload: CanonicalSummaryPayload): string
     }
 
     const sortedDates = Array.from(ordersByDate.keys()).sort();
+    const firstScheduledDate = sortedDates[0];
     const dayBlocks: string[] = [];
 
     for (const dateKey of sortedDates) {
       const dayOrders = ordersByDate.get(dateKey) || [];
       if (dayOrders.length === 0) continue;
 
-      const dateLabel = formatExtendDateLabel(dateKey, todayStr, tomorrowStr);
+      const dateLabel = formatExtendDateLabel(dateKey, todayStr, firstScheduledDate || tomorrowStr);
       const dayOverview = `${dateLabel}, temos ${dayOrders.length} ${dayOrders.length === 1 ? 'entrega programada' : 'entregas programadas'}.`;
       const dayDetails = formatOrdersGroup(dayOrders);
 
@@ -285,27 +294,11 @@ export function generateLocalSmartText(payload: CanonicalSummaryPayload): string
   }
 
   // Escopo de Hoje ou Amanhã individual
-  const periodLabel = payload.scope === 'today' ? 'para hoje' : 'para amanhã';
+  const isToday = payload.scope === 'today';
   const total = orders.length;
-  const overview = `Para ${periodLabel === 'para today' || periodLabel === 'para hoje' ? 'hoje' : 'amanhã'}, temos ${total} ${total === 1 ? 'entrega programada' : 'entregas programadas'}.`;
+  const overview = `Para ${isToday ? 'hoje' : 'amanhã'}, temos ${total} ${total === 1 ? 'entrega programada' : 'entregas programadas'}.`;
   const details = formatOrdersGroup(orders);
 
   return `${overview} ${details}`.trim().replace(/\s+/g, ' ');
 }
 
-function buildGeminiPrompt(baseText: string): string {
-  return `Você é o supervisor de logística da Móveis Morante conversando por áudio no WhatsApp com a equipe de entregas.
-Sua única função é transformar o texto base fornecido em um áudio 100% natural, fluido e conversacional, perfeito para sintetizador de voz (Audio TTS).
-
-REGRAS ABSOLUTAS:
-1. Quando houver entregas em dias seguintes, SEMPRE anuncie claramente o dia e data antes de falar todas as entregas daquele respectivo dia (ex: 'Para amanhã, segunda-feira, dia 7 de setembro...', 'Para quarta-feira, dia 9 de setembro...').
-2. Fale TODAS as entregas dos dias seguintes sem omitir nenhuma.
-3. NUNCA mencione nome de produtos normais, A NÃO SER QUE TENHA MONTAGEM NO ENDEREÇO.
-4. NUNCA diga 'sem montagem' ou 'não precisa de montagem'.
-5. Mantenha a contagem de itens no MASCULINO: 'um item', 'dois itens', 'três itens'.
-6. NUNCA mencione a palavra 'Colombo'. Só fale a cidade se for fora de Colombo (ex: 'em Curitiba').
-7. Indique se a entrega é pertinho ou mais distante de acordo com a quilometragem quando informada.
-8. Retorne APENAS o texto a ser pronunciado.
-
-Texto base: "${baseText}"`;
-}

@@ -2,11 +2,19 @@ import React from 'react';
 import SupplierAutocomplete from '@/components/SupplierAutocomplete';
 import Person from '@/pages/types/person.type';
 import { ReceiptActionButtons } from './ReceiptActionButtons';
+import { ReceiptPeriod } from './receiptPeriodFilter.types';
+import { ReceiptPeriodSelector } from './ReceiptPeriodSelector';
 
 interface ReceiptsHeaderProps {
     suppliers: Person[];
     selectedSupplierId: string;
     onSelectSupplier: (id: string) => void;
+    period: ReceiptPeriod;
+    onPeriodChange: (period: ReceiptPeriod) => void;
+    customStartDate: string;
+    onCustomStartDateChange: (date: string) => void;
+    customEndDate: string;
+    onCustomEndDateChange: (date: string) => void;
     onSelectInboundNfe: () => void;
     onSelectPurchase: () => void;
     onSelectManual: () => void;
@@ -16,6 +24,12 @@ export const ReceiptsHeader: React.FC<ReceiptsHeaderProps> = ({
     suppliers,
     selectedSupplierId,
     onSelectSupplier,
+    period,
+    onPeriodChange,
+    customStartDate,
+    onCustomStartDateChange,
+    customEndDate,
+    onCustomEndDateChange,
     onSelectInboundNfe,
     onSelectPurchase,
     onSelectManual
@@ -29,18 +43,29 @@ export const ReceiptsHeader: React.FC<ReceiptsHeaderProps> = ({
                     </div>
                     <div>
                         <h1 className="text-xl font-black text-slate-800 dark:text-slate-100">Recebimentos de Mercadorias</h1>
-                        <p className="text-xs text-slate-400">Selecione um fornecedor para visualizar o histórico ou registrar recebimentos</p>
+                        <p className="text-xs text-slate-400">Histórico e registro de recebimentos de mercadorias no estoque</p>
                     </div>
                 </div>
 
-                <ReceiptActionButtons
-                    onSelectInboundNfe={onSelectInboundNfe}
-                    onSelectPurchase={onSelectPurchase}
-                    onSelectManual={onSelectManual}
-                />
+                <div className="flex flex-wrap items-center gap-3">
+                    <ReceiptPeriodSelector
+                        period={period}
+                        onPeriodChange={onPeriodChange}
+                        customStartDate={customStartDate}
+                        onCustomStartDateChange={onCustomStartDateChange}
+                        customEndDate={customEndDate}
+                        onCustomEndDateChange={onCustomEndDateChange}
+                    />
+
+                    <ReceiptActionButtons
+                        onSelectInboundNfe={onSelectInboundNfe}
+                        onSelectPurchase={onSelectPurchase}
+                        onSelectManual={onSelectManual}
+                    />
+                </div>
             </header>
 
-            {/* Campo de Seleção de Fornecedor em destaque acima da tabela */}
+            {/* Campo de Pesquisa de Fornecedor para filtro (opcional) */}
             <div className={`mb-4 rounded-2xl border bg-white p-4 shadow-sm transition-all dark:bg-slate-900 ${
                 selectedSupplierId 
                     ? 'border-emerald-300 dark:border-emerald-800/80 ring-2 ring-emerald-500/10' 
@@ -50,15 +75,12 @@ export const ReceiptsHeader: React.FC<ReceiptsHeaderProps> = ({
                     suppliers={suppliers}
                     selectedSupplierId={selectedSupplierId}
                     onSelect={onSelectSupplier}
-                    placeholder="Selecione um fornecedor para registrar recebimento ou consultar histórico..."
+                    customLabel="Pesquisa de Fornecedor"
+                    showSelectedBadge={false}
+                    placeholder="Filtrar por fornecedor (opcional) ou deixe em branco para ver todos..."
                 />
-                {!selectedSupplierId && (
-                    <p className="mt-2 text-[11px] font-medium text-slate-400 flex items-center gap-1.5">
-                        <i className="bi bi-info-circle text-emerald-600 dark:text-emerald-400" />
-                        Dica: Você pode selecionar um fornecedor acima ou clicar em <strong className="text-indigo-600 dark:text-indigo-400 font-bold">"Nota Fiscal de Entrada"</strong> para preenchimento automático.
-                    </p>
-                )}
             </div>
         </>
     );
 };
+

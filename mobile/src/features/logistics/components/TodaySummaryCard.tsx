@@ -1,10 +1,9 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
   TouchableOpacity,
   StyleSheet,
-  ActivityIndicator,
   Alert
 } from 'react-native';
 import {
@@ -13,23 +12,18 @@ import {
   CloudSun,
   MapPin,
   FileText,
-  Play,
-  Pause,
   ChevronRight,
-  Volume2,
-  Sparkles
+  Volume2
 } from 'lucide-react-native';
-import { getPreferredNavigationVoice, speakTextWithFallback, stopSpeech } from '../../../services/navigationVoiceService';
 import { generateDeliveryAISummary } from '../../../services/aiSummaryService';
 import { playSummaryAudio, stopGeminiAudio, pauseGeminiAudio, resumeGeminiAudio, seekGeminiAudio, fetchGeminiApiKey } from '../../../services/geminiAudioService';
 import { getLocalDateString } from '../../../utils/orderUtils';
-import { calculateDeliverySummaryMetrics } from '../utils/deliverySummaryMetrics';
+import { calculateDeliverySummaryMetrics, type DeliveryPeriodFilter } from '../utils/deliverySummaryMetrics';
 import { getOperationalScheduleDate } from '../../../utils/operationalSchedule';
 import { AISummaryAudioPlayer } from '../../dashboard/components/AISummaryAudioPlayer';
 import { supabase } from '../../../services/supabaseClient';
 import { offlineStorageService } from '../../../services/offline/offlineStorageService';
 
-export type DeliveryPeriodFilter = 'today' | 'next_days';
 export type VoiceEngineType = 'gemini' | 'native';
 
 interface OrderItem {
@@ -85,10 +79,10 @@ export const TodaySummaryCard: React.FC<TodaySummaryCardProps> = ({
     });
 
     if (!orders || orders.length === 0 || !hasFuture) {
-      offlineStorageService.getCachedWorkingSet<any[]>('logistics_orders').then((cached) => {
+      offlineStorageService.getWorkingSet<any[]>('logistics_orders').then((cached) => {
         if (!alive) return;
-        if (cached && cached.length > 0) {
-          setFallbackOrders(cached);
+        if (cached?.data && cached.data.length > 0) {
+          setFallbackOrders(cached.data);
         } else {
           supabase
             .from('orders')
@@ -145,7 +139,6 @@ export const TodaySummaryCard: React.FC<TodaySummaryCardProps> = ({
   }, [periodFilter, ordersFingerprint, effectiveOrders]);
 
   const {
-    filteredOrders,
     totalCount,
     morningCount,
     afternoonCount,

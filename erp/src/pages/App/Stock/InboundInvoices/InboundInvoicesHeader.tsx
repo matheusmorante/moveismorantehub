@@ -7,6 +7,8 @@ interface InboundInvoicesHeaderProps {
     onOpenAccessKey: () => void;
     isSyncing: boolean;
     lastSyncAt: string | null;
+    isAdmin?: boolean;
+    onSyncNow?: () => void;
 }
 
 export const InboundInvoicesHeader: React.FC<InboundInvoicesHeaderProps> = ({
@@ -16,8 +18,9 @@ export const InboundInvoicesHeader: React.FC<InboundInvoicesHeaderProps> = ({
     onOpenAccessKey,
     isSyncing,
     lastSyncAt,
+    isAdmin = false,
     onSyncNow,
-}: InboundInvoicesHeaderProps & { onSyncNow?: () => void }) => {
+}) => {
     return (
         <header className="mb-6 flex flex-col gap-4">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -36,10 +39,22 @@ export const InboundInvoicesHeader: React.FC<InboundInvoicesHeaderProps> = ({
                 </div>
 
                 <div className="flex flex-wrap items-center gap-2.5">
+                    {isAdmin && onSyncNow && (
+                        <button
+                            type="button"
+                            onClick={onSyncNow}
+                            disabled={isSyncing}
+                            className="inline-flex items-center gap-2 rounded-xl border border-indigo-200 bg-indigo-50 px-3.5 py-2 text-xs font-black uppercase tracking-wider text-indigo-700 shadow-sm hover:bg-indigo-100 transition-all dark:border-indigo-900/50 dark:bg-indigo-950/40 dark:text-indigo-300 dark:hover:bg-indigo-900/50 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                            title="Sincronizar distribuição de DF-e diretamente com a SEFAZ (Exclusivo Administrador)"
+                        >
+                            <i className={`bi bi-arrow-repeat text-sm ${isSyncing ? 'animate-spin text-indigo-600 dark:text-indigo-400' : ''}`} />
+                            {isSyncing ? 'Sincronizando...' : 'Sincronizar SEFAZ'}
+                        </button>
+                    )}
                     <button
                         type="button"
                         onClick={onOpenAccessKey}
-                        className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-3.5 py-2 text-xs font-black uppercase tracking-wider text-white shadow-sm transition-all hover:bg-blue-700"
+                        className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-3.5 py-2 text-xs font-black uppercase tracking-wider text-white shadow-sm transition-all hover:bg-blue-700 cursor-pointer"
                     >
                         <i className="bi bi-key-fill text-sm" />
                         Adicionar NF-e por chave
@@ -47,7 +62,7 @@ export const InboundInvoicesHeader: React.FC<InboundInvoicesHeaderProps> = ({
                     <button
                         type="button"
                         onClick={onOpenImportXml}
-                        className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-black uppercase tracking-wider text-slate-700 shadow-sm hover:bg-slate-50 transition-all dark:border-slate-800 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
+                        className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-black uppercase tracking-wider text-slate-700 shadow-sm hover:bg-slate-50 transition-all dark:border-slate-800 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800 cursor-pointer"
                     >
                         <i className="bi bi-filetype-xml text-emerald-600 text-sm" />
                         Importar XML
@@ -56,8 +71,10 @@ export const InboundInvoicesHeader: React.FC<InboundInvoicesHeaderProps> = ({
             </div>
 
             <div className="flex items-center gap-2 rounded-xl border border-blue-100 bg-blue-50 px-3.5 py-2 text-xs font-medium text-blue-700 dark:border-blue-900/50 dark:bg-blue-950/30 dark:text-blue-300">
-                <i className="bi bi-clock-history" />
-                {lastSyncAt
+                <i className={`bi ${isSyncing ? 'bi-arrow-repeat animate-spin text-blue-600' : 'bi-clock-history'}`} />
+                {isSyncing
+                    ? 'Consultando webservice da SEFAZ por novos documentos fiscais (DF-e)...'
+                    : lastSyncAt
                     ? `Sincronização automática em background ativa. Última consulta SEFAZ: ${new Date(lastSyncAt).toLocaleString('pt-BR')}. Próxima execução automática em 1 hora.`
                     : 'Sincronização automática em background ativa no servidor (ciclo de 1 hora).'}
             </div>

@@ -9,6 +9,7 @@ import {
 } from 'react-native';
 import { Plus, Trash2, ChevronDown } from 'lucide-react-native';
 import { generateVariationSku } from '../../services/mobileProductHelpers';
+import { resolveProductVariationName } from '../../domain/productVariationName';
 
 interface Props {
   formData: any;
@@ -46,6 +47,10 @@ export const ProductFormVariationsTab: React.FC<Props> = ({ formData, setFormDat
     const resolvedSku = generateVariationSku(parentCode, variations);
 
     const v = {
+      name: resolveProductVariationName({
+        productName: formData.name,
+        attributes: { [newVar.attrName.trim() || 'Cor']: newVar.attrVal.trim() },
+      }),
       sku: resolvedSku,
       price: newVar.price ? Number(newVar.price) : (Number(formData.unitPrice) || 0),
       stock: newVar.stock ? Number(newVar.stock) : 0,

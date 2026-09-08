@@ -6,6 +6,7 @@ import { useDeliveryRoute, DeliveryRouteItem, checkOutOfOrderRisk } from '../hoo
 import { useDriverLocation } from '../hooks/useDriverLocation';
 import { useRoutesApi } from '../hooks/useRoutesApi';
 import { DeliveryMapView } from '../components/deliveryMap/DeliveryMapView';
+import { MapErrorBoundary } from '../components/deliveryMap/MapErrorBoundary';
 import { NextDeliveryCard } from '../components/deliveryMap/NextDeliveryCard';
 import { DeliveryBottomSheet } from '../components/deliveryMap/DeliveryBottomSheet';
 import { RouteProgressHeader } from '../components/deliveryMap/RouteProgressHeader';
@@ -209,18 +210,20 @@ export const TodayDeliveriesScreen: React.FC<Props> = ({
         </View>
       ) : viewMode === 'map' ? (
         <View style={styles.mapArea}>
-          <DeliveryMapView
-            items={routeItems}
-            driverCoords={driverCoords}
-            storeCoords={storeCoords}
-            polylineCoords={polylineCoords}
-            selectedItem={selectedMarkerItem}
-            onSelectMarker={(item) => {
-              setSelectedMarkerItem(item);
-              setIsCardDismissed(false); // Reabre o card ao clicar no marcador!
-            }}
-            isDarkMode={isDarkMode}
-          />
+          <MapErrorBoundary isDarkMode={isDarkMode}>
+            <DeliveryMapView
+              items={routeItems}
+              driverCoords={driverCoords}
+              storeCoords={storeCoords}
+              polylineCoords={polylineCoords}
+              selectedItem={selectedMarkerItem}
+              onSelectMarker={(item) => {
+                setSelectedMarkerItem(item);
+                setIsCardDismissed(false); // Reabre o card ao clicar no marcador!
+              }}
+              isDarkMode={isDarkMode}
+            />
+          </MapErrorBoundary>
 
           {/* Card Flutuante de Próxima Entrega / Em Andamento */}
           {!isCardDismissed && (

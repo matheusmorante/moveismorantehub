@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import Order, { IsButtonsClicked } from "../../../types/order.type";
-import { subscribeToOrders, restoreOrder, permanentDeleteDraftOrder, permanentDeleteOrder, updateOrder, undoReturn } from "../../../utils/orderHistoryService";
+import { subscribeToOrders, fetchOrdersPage, restoreOrder, permanentDeleteDraftOrder, permanentDeleteOrder, updateOrder, undoReturn } from "../../../utils/orderHistoryService";
 import { actionsMap, buttons } from "../OrderActions/orderActionsConfig";
 import { autoFulfillExpiredOrders } from "@/pages/utils/orderFulfillmentCountdown";
 import { normalizeSearchTerm } from "@/pages/utils/textUtils";
@@ -33,21 +33,29 @@ export const useOrderHistory = (filters?: any) => {
         let active = true;
         setLoading(true);
 
-        const unsub = subscribeToOrders((allOrders) => {
+        fetchOrdersPage(currentPage, PAGE_SIZE, filters).then(({ orders: pageOrders, total }) => {
             if (!active) return;
-            setOrders(allOrders);
-            setTotalDatabaseItems(allOrders.length);
+            setOrders(pageOrders);
+            setTotalDatabaseItems(total);
             setLoading(false);
-
-            // Auto-atende pedidos cuja data de entrega já passou há 5 dias ou mais
-            autoFulfillExpiredOrders(allOrders);
+            autoFulfillExpiredOrders(pageOrders);
+        }).catch(err => {
+            if (!active) return;
+            console.error('[useOrderHistory] Erro ao buscar pedidos paginados:', err);
+            setLoading(false);
         });
 
         return () => {
             active = false;
-            unsub();
         };
-    }, [refreshSignal]);
+    }, [currentPage, filters, refreshSignal]);
+
+    useEffect(() => {
+        const unsub = subscribeToOrders(() => {
+            refresh();
+        });
+        return () => unsub();
+    }, []);
 
     // Reset pagination and selection when filters change
     useEffect(() => {
@@ -195,13 +203,12 @@ export const useOrderHistory = (filters?: any) => {
         filters?.dateRange?.end
     );
 
-    const totalItems = filteredOrders.length;
+    const totalItems = totalDatabaseItems || filteredOrders.length;
     const totalPages = Math.max(1, Math.ceil(totalItems / PAGE_SIZE));
 
     const displayedOrders = useMemo(() => {
-        const startIndex = (currentPage - 1) * PAGE_SIZE;
-        return filteredOrders.slice(startIndex, startIndex + PAGE_SIZE);
-    }, [filteredOrders, currentPage]);
+        return filteredOrders;
+    }, [filteredOrders]);
 
     const handleDelete = async (id: string) => {
         const order = orders.find((item) => item.id === id);

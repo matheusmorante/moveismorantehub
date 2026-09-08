@@ -1,19 +1,18 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, ScrollView, RefreshControl } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { FileText, Calendar, Map, Sparkles, RefreshCw } from 'lucide-react-native';
+import { FileText, Map, CalendarClock } from 'lucide-react-native';
 import { useDeliveryRoute, DeliveryRouteItem } from '../hooks/useDeliveryRoute';
 import { useDriverLocation } from '../hooks/useDriverLocation';
 import { useRoutesApi } from '../hooks/useRoutesApi';
 import { DeliveryMapView } from '../components/deliveryMap/DeliveryMapView';
+import { MapErrorBoundary } from '../components/deliveryMap/MapErrorBoundary';
 import { NextDeliveryCard } from '../components/deliveryMap/NextDeliveryCard';
 import { DeliveryBottomSheet } from '../components/deliveryMap/DeliveryBottomSheet';
-import { RouteOptimizationModal } from '../components/deliveryMap/RouteOptimizationModal';
 import { TodaySummaryCard } from '../components/TodaySummaryCard';
-import { NativeLogisticsScreen } from './NativeLogisticsScreen';
-import { calculateOptimizedRoute, applyOptimizedSequence, OptimizationResult } from '../services/routeOptimizationService';
+import { DeliveryTimelineView } from '../components/schedule/DeliveryTimelineView';
 
-export type DeliveriesSubTab = 'today' | 'map';
+export type DeliveriesSubTab = 'today' | 'schedule' | 'map';
 
 interface Props {
   isDarkMode?: boolean;
@@ -29,23 +28,16 @@ export const DeliveriesHubScreen: React.FC<Props> = ({
   onSelectOrder,
 }) => {
   const insets = useSafeAreaInsets();
-  const [activeTab, setActiveTab] = useState<DeliveriesSubTab>(initialTab === 'schedule' as any ? 'today' : initialTab);
+  const [activeTab, setActiveTab] = useState<DeliveriesSubTab>(initialTab);
   const [selectedMarkerItem, setSelectedMarkerItem] = useState<DeliveryRouteItem | null>(null);
 
   useEffect(() => {
-    if (initialTab && initialTab !== ('schedule' as any)) {
-      setActiveTab(initialTab);
-    }
+    setActiveTab(initialTab);
   }, [initialTab]);
-
-  // Otimização de rota
-  const [showOptimizationModal, setShowOptimizationModal] = useState(false);
-  const [optimizationResult, setOptimizationResult] = useState<OptimizationResult | null>(null);
-  const [applyingOptimization, setApplyingOptimization] = useState(false);
 
   // Hooks de Dados e Localização
   const { orders, routeItems, currentDelivery, nextDelivery, stats, loading, refreshing, onRefresh } = useDeliveryRoute();
-  const { coords: driverCoords, refreshLocation } = useDriverLocation();
+  const { coords: driverCoords } = useDriverLocation();
 
   // Coordenadas padrão do depósito Morante (Curitiba/Colombo - PR)
   const storeCoords = useMemo(() => ({
@@ -57,7 +49,7 @@ export const DeliveriesHubScreen: React.FC<Props> = ({
   const activeDeliveryTarget = currentDelivery || nextDelivery;
 
   // Polyline e métricas da Routes API entre motorista e próxima parada
-  const { polylineCoords, distanceKm, durationMin } = useRoutesApi({
+  const { polylineCoords } = useRoutesApi({
     origin: driverCoords || storeCoords,
     destination: activeDeliveryTarget?.coords || null,
     enabled: activeTab === 'map' && !!activeDeliveryTarget?.coords,
@@ -71,34 +63,9 @@ export const DeliveriesHubScreen: React.FC<Props> = ({
     onSelectOrder(item.order);
   };
 
-  const handleOpenOptimization = async () => {
-    try {
-      const origin = driverCoords || storeCoords;
-      const result = await calculateOptimizedRoute(routeItems, origin);
-      setOptimizationResult(result);
-      setShowOptimizationModal(true);
-    } catch (e) {
-      console.warn('Erro ao otimizar rota:', e);
-    }
-  };
-
-  const handleConfirmOptimization = async () => {
-    if (!optimizationResult) return;
-    setApplyingOptimization(true);
-    try {
-      await applyOptimizedSequence(optimizationResult.optimizedItems);
-      setShowOptimizationModal(false);
-      onRefresh();
-    } catch (e) {
-      console.warn('Erro ao aplicar otimização:', e);
-    } finally {
-      setApplyingOptimization(false);
-    }
-  };
-
   return (
     <View style={[styles.container, isDarkMode && styles.containerDark]}>
-      {/* Barra de Tabs Superior: [ Resumo ] [ Mapa ] */}
+      {/* Barra de Tabs Superior: [ Resumo ] [ Cronograma ] [ Mapa ] */}
       <View style={[styles.headerContainer, isDarkMode && styles.headerContainerDark, { paddingTop: Math.max(insets.top, 8) }]}>
         <View style={styles.titleRow}>
           <View style={{ flex: 1 }}>
@@ -106,12 +73,14 @@ export const DeliveriesHubScreen: React.FC<Props> = ({
             <Text style={[styles.screenSubtitle, isDarkMode && styles.textMuted]}>
               {activeTab === 'today'
                 ? 'Resumo de inteligência operacional de entregas'
+                : activeTab === 'schedule'
+                ? 'Sequência, horários e tempo de atendimento'
                 : 'Visão geográfica e trajeto no mapa'}
             </Text>
           </View>
         </View>
 
-        {/* Tabs no Topo em Pílulas */}
+        {/* Tabs no Topo em Pílulas: [ Resumo ] [ Cronograma ] [ Mapa ] */}
         <View style={[styles.tabsPillContainer, isDarkMode && styles.tabsPillContainerDark]}>
           <TouchableOpacity
             style={[styles.tabBtn, activeTab === 'today' && styles.tabBtnActive]}
@@ -121,6 +90,17 @@ export const DeliveriesHubScreen: React.FC<Props> = ({
             <FileText size={13} color={activeTab === 'today' ? '#2563eb' : (isDarkMode ? '#94a3b8' : '#64748b')} />
             <Text style={[styles.tabBtnText, activeTab === 'today' && styles.tabBtnTextActive]}>
               Resumo
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.tabBtn, activeTab === 'schedule' && styles.tabBtnActive]}
+            onPress={() => setActiveTab('schedule')}
+            activeOpacity={0.8}
+          >
+            <CalendarClock size={13} color={activeTab === 'schedule' ? '#2563eb' : (isDarkMode ? '#94a3b8' : '#64748b')} />
+            <Text style={[styles.tabBtnText, activeTab === 'schedule' && styles.tabBtnTextActive]}>
+              Cronograma
             </Text>
           </TouchableOpacity>
 
@@ -161,8 +141,25 @@ export const DeliveriesHubScreen: React.FC<Props> = ({
             />
           )}
         </ScrollView>
+      ) : activeTab === 'schedule' ? (
+        /* Aba CRONOGRAMA: Timeline vertical enxuta e focada */
+        loading ? (
+          <View style={styles.loadingCenter}>
+            <ActivityIndicator size="large" color="#2563eb" />
+            <Text style={[styles.loadingText, isDarkMode && styles.textMuted]}>Carregando cronograma...</Text>
+          </View>
+        ) : (
+          <DeliveryTimelineView
+            items={routeItems}
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            onStartDelivery={handleStartDelivery}
+            onViewOrder={handleViewOrder}
+            isDarkMode={isDarkMode}
+          />
+        )
       ) : (
-        /* Aba MAPA: Visão geográfica limpa no mapa (sem barra de parada 1, 2, 3...) */
+        /* Aba MAPA: Visão geográfica limpa no mapa */
         <View style={styles.mapArea}>
           {loading ? (
             <View style={styles.loadingCenter}>
@@ -171,15 +168,17 @@ export const DeliveriesHubScreen: React.FC<Props> = ({
             </View>
           ) : (
             <View style={{ flex: 1, position: 'relative' }}>
-              <DeliveryMapView
-                items={routeItems}
-                driverCoords={driverCoords}
-                storeCoords={storeCoords}
-                polylineCoords={polylineCoords}
-                selectedItem={selectedMarkerItem}
-                onSelectMarker={(item) => setSelectedMarkerItem(item)}
-                isDarkMode={isDarkMode}
-              />
+              <MapErrorBoundary isDarkMode={isDarkMode}>
+                <DeliveryMapView
+                  items={routeItems}
+                  driverCoords={driverCoords}
+                  storeCoords={storeCoords}
+                  polylineCoords={polylineCoords}
+                  selectedItem={selectedMarkerItem}
+                  onSelectMarker={(item) => setSelectedMarkerItem(item)}
+                  isDarkMode={isDarkMode}
+                />
+              </MapErrorBoundary>
 
               {/* Card Flutuante Inferior */}
               <View style={styles.floatingCardContainer}>
@@ -204,16 +203,6 @@ export const DeliveriesHubScreen: React.FC<Props> = ({
         onClose={() => setSelectedMarkerItem(null)}
         onStartDelivery={handleStartDelivery}
         onViewOrder={handleViewOrder}
-        isDarkMode={isDarkMode}
-      />
-
-      {/* Modal de Confirmação da Otimização */}
-      <RouteOptimizationModal
-        visible={showOptimizationModal}
-        result={optimizationResult}
-        applying={applyingOptimization}
-        onApply={handleConfirmOptimization}
-        onClose={() => setShowOptimizationModal(false)}
         isDarkMode={isDarkMode}
       />
     </View>
@@ -263,26 +252,6 @@ const styles = StyleSheet.create({
   textMuted: {
     color: '#94a3b8',
   },
-  optimizeBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    backgroundColor: '#eff6ff',
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#bfdbfe',
-  },
-  optimizeBtnDark: {
-    backgroundColor: '#1e3a8a30',
-    borderColor: '#1e40af',
-  },
-  optimizeBtnText: {
-    fontSize: 11,
-    fontWeight: '800',
-    color: '#2563eb',
-  },
   tabsPillContainer: {
     flexDirection: 'row',
     backgroundColor: '#f1f5f9',
@@ -320,12 +289,6 @@ const styles = StyleSheet.create({
   mapArea: {
     flex: 1,
   },
-  floatingCardContainer: {
-    position: 'absolute',
-    bottom: 16,
-    left: 16,
-    right: 16,
-  },
   loadingCenter: {
     flex: 1,
     alignItems: 'center',
@@ -333,9 +296,15 @@ const styles = StyleSheet.create({
     padding: 24,
   },
   loadingText: {
-    fontSize: 12,
-    fontWeight: '700',
+    marginTop: 12,
+    fontSize: 13,
+    fontWeight: '600',
     color: '#64748b',
-    marginTop: 10,
+  },
+  floatingCardContainer: {
+    position: 'absolute',
+    bottom: 16,
+    left: 16,
+    right: 16,
   },
 });

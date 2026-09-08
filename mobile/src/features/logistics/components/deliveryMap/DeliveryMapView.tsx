@@ -27,56 +27,82 @@ export const DeliveryMapView: React.FC<Props> = ({
 }) => {
   const mapRef = useRef<MapView | null>(null);
 
-  // Região padrão inicial (Curitiba / Colombo / RMC)
+  const isValidCoord = (c?: { latitude?: number; longitude?: number } | null): boolean => {
+    return Boolean(
+      c &&
+      typeof c.latitude === 'number' &&
+      !isNaN(c.latitude) &&
+      typeof c.longitude === 'number' &&
+      !isNaN(c.longitude) &&
+      Math.abs(c.latitude) <= 90 &&
+      Math.abs(c.longitude) <= 180 &&
+      (c.latitude !== 0 || c.longitude !== 0)
+    );
+  };
+
+  // Região padrão inicial (Curitiba / RMC)
   const initialRegion = {
-    latitude: storeCoords?.latitude || -25.352,
-    longitude: storeCoords?.longitude || -49.169,
+    latitude: isValidCoord(storeCoords) ? storeCoords!.latitude : -25.352,
+    longitude: isValidCoord(storeCoords) ? storeCoords!.longitude : -49.169,
     latitudeDelta: 0.12,
     longitudeDelta: 0.12,
   };
 
-  // Enquadra todos os pontos relevantes do roteiro
+  // Enquadra todos os pontos relevantes do roteiro com segurança
   const fitAllPoints = () => {
     if (!mapRef.current) return;
 
     const points: { latitude: number; longitude: number }[] = [];
 
-    if (driverCoords) points.push(driverCoords);
-    if (storeCoords) points.push(storeCoords);
+    if (isValidCoord(driverCoords)) points.push(driverCoords!);
+    if (isValidCoord(storeCoords)) points.push(storeCoords!);
 
     items.forEach((item) => {
-      if (item.coords) points.push(item.coords);
+      if (isValidCoord(item.coords)) points.push(item.coords!);
     });
 
     if (points.length > 0) {
-      mapRef.current.fitToCoordinates(points, {
-        edgePadding: { top: 70, right: 60, bottom: 220, left: 60 },
-        animated: true,
-      });
+      try {
+        mapRef.current.fitToCoordinates(points, {
+          edgePadding: { top: 70, right: 60, bottom: 220, left: 60 },
+          animated: true,
+        });
+      } catch (e) {
+        console.warn('[DeliveryMapView] Exceção ao enquadrar coordenadas:', e);
+      }
     }
   };
 
   // Centraliza na posição do motorista
   const centerOnDriver = () => {
-    if (!mapRef.current || !driverCoords) return;
-    mapRef.current.animateToRegion(
-      {
-        latitude: driverCoords.latitude,
-        longitude: driverCoords.longitude,
-        latitudeDelta: 0.02,
-        longitudeDelta: 0.02,
-      },
-      800
-    );
+    if (!mapRef.current || !isValidCoord(driverCoords)) return;
+    try {
+      mapRef.current.animateToRegion(
+        {
+          latitude: driverCoords!.latitude,
+          longitude: driverCoords!.longitude,
+          latitudeDelta: 0.02,
+          longitudeDelta: 0.02,
+        },
+        800
+      );
+    } catch (e) {
+      console.warn('[DeliveryMapView] Exceção ao centralizar no motorista:', e);
+    }
   };
 
-  // Ao montar ou mudar pontos, enquadra o roteiro suavemente
+  const [mapReady, setMapReady] = React.useState(false);
+
+  // Ao montar ou mudar pontos, enquadra o roteiro suavemente assim que o mapa estiver pronto
   useEffect(() => {
+    if (!mapReady) return;
     const timer = setTimeout(() => {
       fitAllPoints();
-    }, 600);
+    }, 400);
     return () => clearTimeout(timer);
-  }, [items.length, !!driverCoords]);
+  }, [mapReady, items.length, !!driverCoords]);
+
+  const validPolyline = (polylineCoords || []).filter(isValidCoord);
 
   return (
     <View style={styles.container}>
@@ -85,35 +111,38 @@ export const DeliveryMapView: React.FC<Props> = ({
         provider={PROVIDER_GOOGLE}
         style={styles.map}
         initialRegion={initialRegion}
-        showsUserLocation={true}
+        showsUserLocation={false}
         showsMyLocationButton={false}
         showsCompass={false}
         toolbarEnabled={false}
-        loadingEnabled={true}
+        loadingEnabled={false}
+        onMapReady={() => setMapReady(true)}
       >
         {/* Marcador da Posição do Motorista / Entregador (🚚) */}
-        {driverCoords && (
-          <DeliveryMarker isDriver driverCoords={driverCoords} />
+        {isValidCoord(driverCoords) && (
+          <DeliveryMarker isDriver driverCoords={driverCoords!} />
         )}
 
         {/* Marcador do Depósito / Loja */}
-        {storeCoords && (
-          <DeliveryMarker isStore storeCoords={storeCoords} />
+        {isValidCoord(storeCoords) && (
+          <DeliveryMarker isStore storeCoords={storeCoords!} />
         )}
 
         {/* Marcadores das Entregas do Roteiro */}
         {items.map((item) => (
-          <DeliveryMarker
-            key={item.id}
-            item={item}
-            onPress={() => onSelectMarker(item)}
-          />
+          isValidCoord(item.coords) ? (
+            <DeliveryMarker
+              key={item.id}
+              item={item}
+              onPress={() => onSelectMarker(item)}
+            />
+          ) : null
         ))}
 
         {/* Linha do Trajeto Recomendado (Routes API) */}
-        {polylineCoords && polylineCoords.length > 1 && (
+        {validPolyline.length > 1 && (
           <Polyline
-            coordinates={polylineCoords}
+            coordinates={validPolyline}
             strokeWidth={4.5}
             strokeColor="#2563eb"
             lineDashPattern={[8, 8]}

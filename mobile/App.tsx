@@ -277,7 +277,12 @@ export default function App() {
       let settingsData: any = null;
 
       try {
-        const { data } = await supabase.from('orders').select('*');
+        const { data } = await supabase
+          .from('orders')
+          .select('id, status, created_at, order_data')
+          .or('order_data->>deleted.is.null,order_data->>deleted.eq.false')
+          .order('created_at', { ascending: false })
+          .limit(400);
         if (data) rawOrders = data;
       } catch (e) {
         console.warn('[DashboardStats] Erro ao buscar pedidos:', e);

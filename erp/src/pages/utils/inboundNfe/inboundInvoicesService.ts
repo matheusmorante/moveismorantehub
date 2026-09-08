@@ -147,12 +147,20 @@ export const syncSefazDfe = async (options?: { forceMock?: boolean }): Promise<{
             body: { environment: 'production' }
         });
 
-        if (!error && data?.success) {
+        if (error) {
+            console.warn('[sefaz-inbound-sync] Edge Function respondeu com mensagem:', error);
+        } else if (data?.success) {
             saveLastInboundInvoiceSyncAt(new Date().toISOString());
             return {
                 newInvoicesCount: data.newDocsCount || 0,
                 updatedInvoicesCount: 0,
                 message: data.message || 'Sincronização SEFAZ DF-e executada com sucesso.'
+            };
+        } else if (data?.message || data?.error) {
+            return {
+                newInvoicesCount: 0,
+                updatedInvoicesCount: 0,
+                message: data.message || data.error
             };
         }
     } catch (edgeError) {

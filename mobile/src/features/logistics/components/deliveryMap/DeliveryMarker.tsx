@@ -21,13 +21,27 @@ export const DeliveryMarker: React.FC<Props> = ({
   driverCoords,
   onPress,
 }) => {
-  if (isDriver && driverCoords) {
+  const isValidCoord = (c?: { latitude?: number; longitude?: number } | null): boolean => {
+    return Boolean(
+      c &&
+      typeof c.latitude === 'number' &&
+      !isNaN(c.latitude) &&
+      typeof c.longitude === 'number' &&
+      !isNaN(c.longitude) &&
+      Math.abs(c.latitude) <= 90 &&
+      Math.abs(c.longitude) <= 180 &&
+      (c.latitude !== 0 || c.longitude !== 0)
+    );
+  };
+
+  if (isDriver && isValidCoord(driverCoords)) {
     return (
       <Marker
-        coordinate={driverCoords}
+        coordinate={driverCoords!}
         title="Posição Atual"
         description="Motorista / Entregador em Rota"
         anchor={{ x: 0.5, y: 0.5 }}
+        tracksViewChanges={false}
       >
         <View style={styles.driverPin}>
           <Truck size={16} color="#ffffff" />
@@ -36,13 +50,14 @@ export const DeliveryMarker: React.FC<Props> = ({
     );
   }
 
-  if (isStore && storeCoords) {
+  if (isStore && isValidCoord(storeCoords)) {
     return (
       <Marker
-        coordinate={storeCoords}
+        coordinate={storeCoords!}
         title="Depósito Móveis Morante"
         description="Ponto de Saída e Retorno"
         anchor={{ x: 0.5, y: 1 }}
+        tracksViewChanges={false}
       >
         <View style={styles.storePin}>
           <Store size={14} color="#ffffff" />
@@ -52,7 +67,7 @@ export const DeliveryMarker: React.FC<Props> = ({
     );
   }
 
-  if (!item || !item.coords) return null;
+  if (!item || !isValidCoord(item.coords)) return null;
 
   const isCompleted = item.status === 'completed';
   const isUnattended = item.status === 'unattended';

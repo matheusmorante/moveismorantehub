@@ -1,8 +1,10 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import Person from '@/pages/types/person.type';
 import { GoodsReceipt, deleteGoodsReceipt, reverseGoodsReceipt, subscribeToGoodsReceipts } from '@/pages/utils/goodsReceiptService';
 import { subscribeToPeople } from '@/pages/utils/personService';
 import { toast } from 'react-toastify';
+import { ReceiptPeriod } from './receiptPeriodFilter.types';
+import { filterReceiptsByPeriod } from './receiptPeriodUtils';
 
 const LOCAL_STORAGE_SUPPLIER_KEY = 'morantehub_receipts_selected_supplier';
 
@@ -15,6 +17,17 @@ export const useReceipts = () => {
         } catch {
             return '';
         }
+    });
+
+    const [period, setPeriod] = useState<ReceiptPeriod>('this_month');
+    const [customStartDate, setCustomStartDate] = useState(() => {
+        const d = new Date();
+        return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`;
+    });
+    const [customEndDate, setCustomEndDate] = useState(() => {
+        const d = new Date();
+        const lastDay = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
+        return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
     });
 
     const [isFormOpen, setIsFormOpen] = useState(false);
@@ -103,18 +116,24 @@ export const useReceipts = () => {
         }
     };
 
-    // Filtra por fornecedor selecionado
-    const supplierReceipts = selectedSupplierId
-        ? receipts.filter((rcpt) => {
-              if (rcpt.supplierId && rcpt.supplierId === selectedSupplierId) return true;
-              if (selectedSupplier && rcpt.supplierName) {
-                  const sName = selectedSupplier.fullName.toLowerCase();
-                  const rName = rcpt.supplierName.toLowerCase();
-                  return rName.includes(sName) || sName.includes(rName);
-              }
-              return false;
-          })
-        : [];
+    // Filtra por fornecedor (se selecionado) e por período
+    const filteredReceipts = useMemo(() => {
+        let list = receipts;
+
+        if (selectedSupplierId) {
+            list = list.filter((rcpt) => {
+                if (rcpt.supplierId && rcpt.supplierId === selectedSupplierId) return true;
+                if (selectedSupplier && rcpt.supplierName) {
+                    const sName = selectedSupplier.fullName.toLowerCase();
+                    const rName = rcpt.supplierName.toLowerCase();
+                    return rName.includes(sName) || sName.includes(rName);
+                }
+                return false;
+            });
+        }
+
+        return filterReceiptsByPeriod(list, period, customStartDate, customEndDate);
+    }, [receipts, selectedSupplierId, selectedSupplier, period, customStartDate, customEndDate]);
 
     return {
         receipts,
@@ -122,7 +141,14 @@ export const useReceipts = () => {
         selectedSupplierId,
         selectedSupplier,
         setSelectedSupplierId: handleSelectSupplier,
-        supplierReceipts,
+        filteredReceipts,
+        supplierReceipts: filteredReceipts,
+        period,
+        setPeriod,
+        customStartDate,
+        setCustomStartDate,
+        customEndDate,
+        setCustomEndDate,
         isFormOpen,
         setIsFormOpen,
         selectedReceipt,

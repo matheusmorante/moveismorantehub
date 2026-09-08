@@ -1,5 +1,12 @@
 import { defineConfig, devices } from '@playwright/test';
 
+// Trava de segurança E2E: Impede execução de testes Playwright contra Supabase de produção
+const supabaseUrl = process.env.VITE_SUPABASE_URL || '';
+const isProdSupabase = supabaseUrl.includes('wzpdfmihnwcrgkyagwkd') || supabaseUrl.includes('hkoxhourxwlddgsfdgws');
+if (isProdSupabase && process.env.VITE_APP_ENV !== 'local-test') {
+  throw new Error('E2E bloqueado: tentativa de executar testes contra Supabase de produção');
+}
+
 export default defineConfig({
   testDir: './tests/e2e/assistant/cases',
   fullyParallel: false,

@@ -63,8 +63,10 @@ export const NativeAssembliesScreen: React.FC<Props> = ({ isDarkMode, initialSub
       setLoading(true);
       const { data, error } = await supabase
         .from('orders')
-        .select('*')
-        .order('created_at', { ascending: false });
+        .select('id, status, created_at, order_data')
+        .or('order_data->>deleted.is.null,order_data->>deleted.eq.false')
+        .order('created_at', { ascending: false })
+        .limit(300);
 
       if (!error && data) {
         setOrders(data);

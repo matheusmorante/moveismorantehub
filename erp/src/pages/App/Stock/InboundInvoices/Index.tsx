@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
+import { useAuth } from '@/context/AuthContext';
 import { InboundInvoicesHeader } from './InboundInvoicesHeader';
 import { InboundInvoicesTable } from './InboundInvoicesTable';
 import { InboundInvoiceDetailsModal } from './InboundInvoiceDetailsModal';
@@ -11,6 +12,7 @@ import { InboundInvoice } from '@/pages/utils/inboundNfe/inboundNfeTypes';
 
 export default function InboundInvoicesPage() {
     const navigate = useNavigate();
+    const { isAdmin } = useAuth();
     const [invoices, setInvoices] = useState<InboundInvoice[]>([]);
     const [searchTerm, setSearchTerm] = useState('');
     const [isSyncing, setIsSyncing] = useState(false);
@@ -64,6 +66,32 @@ export default function InboundInvoicesPage() {
         });
     }, [invoices, searchTerm]);
 
+    const handleManualSync = async () => {
+        if (isSyncing || isSyncInProgressRef.current) return;
+        isSyncInProgressRef.current = true;
+        setIsSyncing(true);
+        toast.info('Consultando webservice da SEFAZ por novos documentos fiscais...');
+        try {
+            const result = await syncSefazDfe();
+            setLastSyncAt(getLastInboundInvoiceSyncAt());
+            await loadInvoices();
+
+            if (result.newInvoicesCount > 0) {
+                toast.success(`${result.newInvoicesCount} nova(s) NF-e importada(s) com sucesso da SEFAZ!`);
+            } else if (result.message && (result.message.toLowerCase().includes('error') || result.message.toLowerCase().includes('falha') || result.message.toLowerCase().includes('indispon'))) {
+                toast.warning(`Retorno da SEFAZ: ${result.message}`);
+            } else {
+                toast.success(result.message || 'Consulta SEFAZ finalizada. Nenhuma nova nota fiscal disponível no momento.');
+            }
+        } catch (error: any) {
+            console.error('Erro na sincronização manual com a SEFAZ:', error);
+            toast.error(`Não foi possível sincronizar com a SEFAZ: ${error?.message || 'Verifique o certificado digital.'}`);
+        } finally {
+            setIsSyncing(false);
+            isSyncInProgressRef.current = false;
+        }
+    };
+
     const handleReceiveGoods = (invoice: InboundInvoice) => {
         // Redireciona para recebimentos passando a chave da nota para pré-carregamento imediato
         navigate(`/stock/receipts?inboundKey=${invoice.nfeKey}`);
@@ -102,6 +130,8 @@ export default function InboundInvoicesPage() {
                 onOpenAccessKey={() => setIsAccessKeyModalOpen(true)}
                 isSyncing={isSyncing}
                 lastSyncAt={lastSyncAt}
+                isAdmin={isAdmin}
+                onSyncNow={handleManualSync}
             />
 
             <InboundInvoicesTable

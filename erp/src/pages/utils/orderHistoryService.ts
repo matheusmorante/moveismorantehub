@@ -119,6 +119,103 @@ export const fetchOrdersPage = async (
     return { orders, total: count || 0 };
 };
 
+// Auxiliar para enriquecer a origem de marketing de pedidos usando busca escopada na tabela people (evita buscar a tabela inteira)
+const enrichOrdersWithPeopleOrigins = async (orders: Order[]): Promise<Order[]> => {
+    if (!orders || orders.length === 0) return [];
+    
+    const customerIds = Array.from(new Set(orders.map(o => o.customerData?.id).filter(Boolean)));
+    let peopleOrigins: Record<string, string> = {};
+
+    if (customerIds.length > 0) {
+        try {
+            const { data: peopleData } = await supabase
+                .from('people')
+                .select('id, full_name, marketing_origin')
+                .in('id', customerIds);
+
+            if (peopleData) {
+                peopleData.forEach((p: any) => {
+                    const origin = p.marketing_origin || '';
+                    if (p.id) peopleOrigins[String(p.id)] = origin;
+                    if (p.full_name) peopleOrigins[String(p.full_name).trim().toLowerCase()] = origin;
+                });
+            }
+        } catch (e) {
+            console.error('[OrdersSync] Erro ao buscar origens escopadas de pessoas:', e);
+        }
+    }
+
+    return orders.map(rawData => {
+        const cInfo = rawData.customerData;
+        let legacyMarketingOrig: string | undefined = undefined;
+        if (cInfo?.id && peopleOrigins[String(cInfo.id)]) {
+            legacyMarketingOrig = peopleOrigins[String(cInfo.id)];
+        } else if (cInfo?.fullName && peopleOrigins[String(cInfo.fullName).trim().toLowerCase()]) {
+            legacyMarketingOrig = peopleOrigins[String(cInfo.fullName).trim().toLowerCase()];
+        }
+        
+        if (legacyMarketingOrig === 'paid') {
+            rawData.marketingOrigin = 'paid';
+        } else if (legacyMarketingOrig && (!rawData.marketingOrigin || rawData.marketingOrigin === 'organic' || rawData.marketingOrigin === 'Direto na Loja')) {
+            rawData.marketingOrigin = legacyMarketingOrig;
+        }
+        
+        if (rawData.marketingOrigin === 'Direto na Loja') rawData.marketingOrigin = 'organic';
+        if (rawData.marketingOrigin === 'Tráfego Pago') rawData.marketingOrigin = 'paid';
+        
+        return rawData;
+    });
+};
+
+export const fetchOrdersPage = async (
+    page: number = 1,
+    pageSize: number = 30,
+    filters?: any
+): Promise<{ orders: Order[]; total: number }> => {
+    const firstRow = Math.max(0, (page - 1) * pageSize);
+    const lastRow = firstRow + pageSize - 1;
+
+    let query = supabase
+        .from(TABLE_NAME)
+        .select('id, status, created_at, updated_at, order_data', { count: 'exact' });
+
+    const showTrash = filters?.showTrash || false;
+    const isDraft = filters?.isDraft || false;
+
+    if (showTrash) {
+        query = query.eq('order_data->>deleted', 'true');
+    } else {
+        query = query.or('order_data->>deleted.is.null,order_data->>deleted.eq.false');
+        if (isDraft) {
+            query = query.eq('status', 'draft');
+        }
+    }
+
+    if (filters?.searchId) {
+        query = query.eq('id', filters.searchId);
+    }
+
+    query = query.order('created_at', { ascending: false }).range(firstRow, lastRow);
+
+    const { data, count, error } = await query;
+    if (error) {
+        console.error('[OrdersService] Erro ao buscar página de pedidos:', error);
+        return { orders: [], total: 0 };
+    }
+
+    const rawOrders = (data || [])
+        .filter(isValidOrderRow)
+        .map((row: any) => {
+            const idx = row.order_data?.orderIndex ?? row.order_data?.order_index ?? row.order_index ?? row.order_number ?? row.orderNumber;
+            const raw = { ...(row.order_data || {}), id: String(row.id), ...(idx != null ? { orderIndex: Number(idx) } : {}) } as Order;
+            return capitalizeOrder(raw);
+        });
+
+    const enrichedOrders = await enrichOrdersWithPeopleOrigins(rawOrders);
+
+    return { orders: enrichedOrders, total: count || 0 };
+};
+
 export const subscribeToOrders = (callback: (orders: Order[]) => void) => {
     console.log('[OrdersSync] Start subscription');
 
@@ -132,9 +229,9 @@ export const subscribeToOrders = (callback: (orders: Order[]) => void) => {
 
             const { data, error } = await supabase
                 .from(TABLE_NAME)
-                .select('*')
+                .select('id, status, created_at, updated_at, order_data')
                 .order('created_at', { ascending: false })
-                .limit(2000);
+                .limit(300);
 
             if (aborted) {
                 console.log('[OrdersSync] Fetch completed but subscription was cancelled, ignoring.');
@@ -147,75 +244,30 @@ export const subscribeToOrders = (callback: (orders: Order[]) => void) => {
                 return;
             }
 
-            // Fetch people to populate legacy missing marketingOrigin
-            let peopleOrigins: Record<string, string> = {};
-            try {
-                const { data: peopleData } = await supabase.from('people').select('id, full_name, marketing_origin');
-                if (peopleData) {
-                    peopleData.forEach((p: any) => {
-                        const origin = p.marketing_origin || '';
-                        if (p.id) peopleOrigins[String(p.id)] = origin;
-                        if (p.full_name) peopleOrigins[String(p.full_name).trim().toLowerCase()] = origin;
-                    });
-                }
-            } catch (e) {
-                console.error('[OrdersSync] Failed to fetch people origins', e);
-            }
-
             if (data && Array.isArray(data)) {
                 console.log('[OrdersSync] Data received, count:', data.length);
-                currentOrders = data.filter(isValidOrderRow).map((row: any) => {
+                const mappedOrders = data.filter(isValidOrderRow).map((row: any) => {
                     try {
                         const idx = row.order_data?.orderIndex ?? row.order_data?.order_index ?? row.order_index ?? row.order_number ?? row.orderNumber;
                         const rawData = { ...(row.order_data || {}), id: String(row.id), ...(idx != null ? { orderIndex: Number(idx) } : {}) } as Order;
-                        // Inject marketing origin from people registry for legacy orders
-                        const cInfo = rawData.customerData;
-                        
-                        let legacyMarketingOrig: string | undefined = undefined;
-                        if (cInfo?.id && peopleOrigins[String(cInfo.id)]) {
-                            legacyMarketingOrig = peopleOrigins[String(cInfo.id)];
-                        } else if (cInfo?.fullName && peopleOrigins[String(cInfo.fullName).trim().toLowerCase()]) {
-                            legacyMarketingOrig = peopleOrigins[String(cInfo.fullName).trim().toLowerCase()];
-                        }
-                        
-                        if (legacyMarketingOrig === 'paid') {
-                            rawData.marketingOrigin = 'paid';
-                        } else if (legacyMarketingOrig && (!rawData.marketingOrigin || rawData.marketingOrigin === 'organic' || rawData.marketingOrigin === 'Direto na Loja')) {
-                            rawData.marketingOrigin = legacyMarketingOrig;
-                        }
-                        
-                        // Handle legacy "Direto na Loja" string
-                        if (rawData.marketingOrigin === 'Direto na Loja') rawData.marketingOrigin = 'organic';
-                        if (rawData.marketingOrigin === 'Tráfego Pago') rawData.marketingOrigin = 'paid';
-                        
                         const resolvedIndex = getOrderIndex({ ...rawData, id: row.id });
                         if (resolvedIndex && !rawData.orderIndex) {
                             rawData.orderIndex = resolvedIndex;
                             rawData.orderNumber = resolvedIndex;
                         }
-
                         return capitalizeOrder(rawData);
                     } catch (_e) {
                         const raw = { ...(row.order_data || {}), id: String(row.id) } as Order;
-                        const idx = getOrderIndex(raw);
-                        if (idx && !raw.orderIndex) {
-                            raw.orderIndex = idx;
-                            raw.orderNumber = idx;
-                        }
-                        return raw;
+                        return capitalizeOrder(raw);
                     }
                 });
-                currentOrders = await applyActualInventoryStatus(currentOrders);
+
+                const enriched = await enrichOrdersWithPeopleOrigins(mappedOrders);
+                currentOrders = enriched;
                 callback(currentOrders);
-            } else {
-                console.warn('[OrdersSync] No data or invalid format:', typeof data);
-                callback([]);
             }
-        } catch (err) {
-            if (!aborted) {
-                console.error('[OrdersSync] Exception in fetch:', err);
-                callback([]);
-            }
+        } catch (e) {
+            console.error('[OrdersSync] Exception fetching orders:', e);
         }
     };
 

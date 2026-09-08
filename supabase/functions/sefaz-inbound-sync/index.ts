@@ -71,8 +71,10 @@ function extractPemFromPfx(pfxBase64: string, password: string): { certPem: stri
     throw new Error("Não foi possível extrair o certificado e/ou a chave privada do arquivo .pfx com a senha fornecida.");
   }
 
-  // Enviar apenas o certificado folha (como no Node.js que conectou perfeitamente)
-  return { certPem: leafCertPem.trim(), keyPem: keyPem.trim() };
+  // Enviar o certificado folha seguido das CAs intermediárias da cadeia ICP-Brasil
+  // A SEFAZ derruba a conexão (Connection reset by peer) se a cadeia completa não for enviada no handshake TLS
+  const fullCertChainPem = caChainPem ? `${leafCertPem.trim()}\n${caChainPem.trim()}` : leafCertPem.trim();
+  return { certPem: fullCertChainPem, keyPem: keyPem.trim() };
 }
 
 // Descompactar GZip Base64 usando a API de streams nativa do Deno
@@ -277,6 +279,12 @@ serve(async (req) => {
       }
     }
 
+    // Limpar prefixo Data URI se o Base64 foi gravado com cabeçalho de upload de arquivo
+    if (certBase64 && certBase64.includes(",")) {
+      certBase64 = certBase64.split(",")[1];
+    }
+    certBase64 = certBase64.trim().replace(/[\r\n\s]/g, "");
+
     const cleanCnpj = cnpj.replace(/\D/g, "");
 
     if (!cleanCnpj) {
@@ -328,16 +336,10 @@ serve(async (req) => {
     console.log(`[sefaz-inbound-sync] Extraindo certificados PEM em memória...`);
     const { certPem, keyPem } = extractPemFromPfx(certBase64, certPassword);
 
-    // 4. Criar Deno HttpClient com mTLS (SEFAZ exige estritamente HTTP/1.1 e rejeita HTTP/2)
+    // 4. Parâmetros da consulta e URL da ponte Node.js mTLS
     const tpAmb = environment === "production" ? "1" : "2";
-    const targetUrl = environment === "production" ? SEFAZ_DFE_URL_PROD : SEFAZ_DFE_URL_HOM;
-
-    const httpClient = (Deno as any).createHttpClient({
-      cert: certPem,
-      key: keyPem,
-      http2: false,
-      alpnProtocols: ["http/1.1"],
-    });
+    const nodeBridgeUrl = Deno.env.get("SEFAZ_NODE_BRIDGE_URL") || "https://moveismorante.com.br/api/nfe/dist-dfe";
+    const bridgeToken = Deno.env.get("SEFAZ_BRIDGE_TOKEN") || Deno.env.get("MORANTEHUB_MCP_ACCESS_TOKEN") || "morante_mcp_master_8b4e2a9d6c1f3e5a7b0d2c4e";
 
     let totalPersisted = 0;
     let keepConsuming = true;
@@ -347,33 +349,41 @@ serve(async (req) => {
     let finalCStat = "";
     let finalXMotivo = "";
 
-    console.log(`[sefaz-inbound-sync] Conectando ao NFeDistribuicaoDFe (mTLS) em ${targetUrl}. NSU inicial: ${currentUltNsu}`);
+    console.log(`[sefaz-inbound-sync] Iniciando consulta DF-e via ponte Node.js (${nodeBridgeUrl}). NSU inicial: ${currentUltNsu}`);
 
     while (keepConsuming && iteration < MAX_ITERATIONS) {
       iteration++;
       const soapEnvelope = buildSoapEnvelope(cleanCnpj, currentUltNsu, tpAmb);
 
-      const hostHeader = environment === "production" ? "www1.nfe.fazenda.gov.br" : "hom1.nfe.fazenda.gov.br";
-
-      const response = await fetch(targetUrl, {
+      console.log(`[sefaz-inbound-sync] Iteração ${iteration}: Delegando mTLS para serviço Node.js...`);
+      const bridgeResponse = await fetch(nodeBridgeUrl, {
         method: "POST",
-        client: httpClient,
         headers: {
-          "Host": hostHeader,
-          "User-Agent": "Mozilla/4.0 (compatible; MSIE 6.0; Windows NT 5.1; SV1)",
-          "Content-Type": "application/soap+xml;charset=utf-8;action=\"http://www.portalfiscal.inf.br/nfe/wsdl/NFeDistribuicaoDFe/nfeDistDFeInteresse\"",
-          "Accept": "application/soap+xml, multipart/related, text/html, image/gif, image/jpeg, *; q=.2, */*; q=.2",
-          "Connection": "keep-alive",
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${bridgeToken}`,
         },
-        body: soapEnvelope,
+        body: JSON.stringify({
+          cleanCnpj,
+          ultNsu: currentUltNsu,
+          tpAmb,
+          certPem,
+          privateKeyPem: keyPem,
+          soapEnvelope,
+          environment,
+        }),
       });
 
-      if (!response.ok) {
-        const errText = await response.text().catch(() => "");
-        throw new Error(`Erro HTTP ${response.status} retornado pelo webservice da SEFAZ: ${errText.substring(0, 300)}`);
+      if (!bridgeResponse.ok) {
+        const errJson = await bridgeResponse.json().catch(() => ({}));
+        throw new Error(`Ponte Node.js retornou HTTP ${bridgeResponse.status}: ${errJson.message || errJson.error || "Erro de comunicação"}`);
       }
 
-      const responseXml = await response.text();
+      const bridgeData = await bridgeResponse.json();
+      if (!bridgeData.success || !bridgeData.responseXml) {
+        throw new Error(`Serviço Node.js mTLS reportou erro: ${bridgeData.message || bridgeData.error || "Resposta XML vazia"}`);
+      }
+
+      const responseXml = bridgeData.responseXml;
 
       // Extrair retorno
       const cStat = extractXmlTag(responseXml, "cStat");
@@ -492,9 +502,10 @@ serve(async (req) => {
     return new Response(
       JSON.stringify({
         success: false,
-        error: err.message || "Erro interno na conexão com SEFAZ.",
+        error: err.message || "Erro na conexão com SEFAZ.",
+        message: err.message || "Erro na conexão com SEFAZ.",
       }),
-      { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 500 }
+      { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 }
     );
   }
 });

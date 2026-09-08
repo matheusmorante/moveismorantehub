@@ -1,5 +1,6 @@
 import { supabase } from '../../../services/supabaseClient';
 import { getNextSequentialProductCode, generateVariationSku } from './mobileProductHelpers';
+import { resolveProductVariationName } from '../domain/productVariationName';
 
 export const toggleMobileProductCatalog = async (
   productId: string,
@@ -133,6 +134,11 @@ export const saveMobileProduct = async (productData: any) => {
       const resolvedSku = generateVariationSku(parentCode, vIdx);
       const varPayload: any = {
         product_id: savedProductId,
+        name: resolveProductVariationName({
+          name: v.name,
+          productName: payload.name,
+          attributes: v.attributes,
+        }),
         sku: resolvedSku,
         price: Number(v.price ?? payload.unit_price),
         cost_price: Number(v.costPrice ?? payload.cost_price),
@@ -144,9 +150,11 @@ export const saveMobileProduct = async (productData: any) => {
         updated_at: new Date().toISOString(),
       };
       if (v.id) {
-        await supabase.from('product_variations').update(varPayload).eq('id', v.id);
+        const { error } = await supabase.from('product_variations').update(varPayload).eq('id', v.id);
+        if (error) throw error;
       } else {
-        await supabase.from('product_variations').insert([varPayload]);
+        const { error } = await supabase.from('product_variations').insert([varPayload]);
+        if (error) throw error;
       }
     }
   }

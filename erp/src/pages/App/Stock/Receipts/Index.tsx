@@ -26,7 +26,13 @@ export default function ReceiptsPage() {
         suppliers,
         selectedSupplierId,
         setSelectedSupplierId,
-        supplierReceipts,
+        filteredReceipts,
+        period,
+        setPeriod,
+        customStartDate,
+        setCustomStartDate,
+        customEndDate,
+        setCustomEndDate,
         isFormOpen,
         setIsFormOpen,
         selectedReceipt,
@@ -93,6 +99,12 @@ export default function ReceiptsPage() {
                 suppliers={suppliers}
                 selectedSupplierId={selectedSupplierId}
                 onSelectSupplier={setSelectedSupplierId}
+                period={period}
+                onPeriodChange={setPeriod}
+                customStartDate={customStartDate}
+                onCustomStartDateChange={setCustomStartDate}
+                customEndDate={customEndDate}
+                onCustomEndDateChange={setCustomEndDate}
                 onSelectInboundNfe={() => setIsInboundPickerOpen(true)}
                 onSelectPurchase={() => setIsPurchasePickerOpen(true)}
                 onSelectManual={() => {
@@ -103,23 +115,32 @@ export default function ReceiptsPage() {
             />
 
             <section className="overflow-hidden">
-                {!selectedSupplierId ? (
+                {filteredReceipts.length === 0 ? (
                     <div className="rounded-[2rem] border border-slate-100 bg-white p-12 text-center shadow-xl dark:border-slate-800 dark:bg-slate-900">
-                        <i className="bi bi-person-lines-fill text-4xl text-slate-300 dark:text-slate-700" />
-                        <p className="mt-3 text-sm font-bold text-slate-500 dark:text-slate-400">Selecione um fornecedor acima</p>
-                        <p className="mt-1 text-xs text-slate-400">Pesquise o fornecedor para visualizar o histórico de recebimentos, ou utilize o botão acima para iniciar por Nota Fiscal de Entrada ou Pedido.</p>
-                    </div>
-                ) : supplierReceipts.length === 0 ? (
-                    <div className="rounded-[2rem] border border-slate-100 bg-white p-12 text-center shadow-xl dark:border-slate-800 dark:bg-slate-900">
-                        <i className="bi bi-box2-heart text-3xl text-slate-300" />
-                        <p className="mt-3 text-sm font-bold text-slate-400">Nenhum recebimento encontrado para este fornecedor.</p>
-                        <p className="mt-1 text-xs text-slate-400">Utilize as opções no topo para registrar um novo recebimento deste fornecedor.</p>
+                        <i className="bi bi-box2-heart text-3xl text-slate-300 dark:text-slate-600" />
+                        <p className="mt-3 text-sm font-bold text-slate-600 dark:text-slate-300">
+                            Nenhum recebimento encontrado no período selecionado.
+                        </p>
+                        <p className="mt-1 text-xs text-slate-400">
+                            {selectedSupplierId 
+                                ? `Não há recebimentos para "${selectedSupplier?.fullName || 'o fornecedor selecionado'}" com os filtros atuais.` 
+                                : 'Utilize os botões acima para registrar um novo recebimento ou altere o período do filtro.'}
+                        </p>
+                        {selectedSupplierId && (
+                            <button
+                                type="button"
+                                onClick={() => setSelectedSupplierId('')}
+                                className="mt-4 inline-flex items-center gap-1.5 px-4 py-2 text-xs font-bold text-emerald-600 hover:text-emerald-700 bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/40 dark:hover:bg-emerald-900/50 rounded-xl transition-colors"
+                            >
+                                <i className="bi bi-x-circle" /> Limpar filtro de fornecedor
+                            </button>
+                        )}
                     </div>
                 ) : (
                     <>
                         {/* Visualização em Tabela (Apenas telas XL ou maiores: >= 1280px) */}
                         <ReceiptsTable
-                            receipts={supplierReceipts}
+                            receipts={filteredReceipts}
                             openMenuId={openMenuId}
                             setOpenMenuId={setOpenMenuId}
                             onRowClick={handleRowClick}
@@ -132,7 +153,7 @@ export default function ReceiptsPage() {
                         {/* Visualização em Cards (Telas menores que XL: < 1280px) */}
                         <div className="block xl:hidden">
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                {supplierReceipts.map((receipt) => (
+                                {filteredReceipts.map((receipt) => (
                                     <ReceiptCard
                                         key={receipt.id}
                                         receipt={receipt}

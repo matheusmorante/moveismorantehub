@@ -35,7 +35,12 @@ export const AgendaScreen: React.FC<Props> = ({
   const loadData = async () => {
     try {
       const [{ data: orderData }, eventList] = await Promise.all([
-        supabase.from('orders').select('*').order('created_at', { ascending: false }),
+        supabase
+          .from('orders')
+          .select('id, status, created_at, order_data')
+          .or('order_data->>deleted.is.null,order_data->>deleted.eq.false')
+          .order('created_at', { ascending: false })
+          .limit(500),
         fetchCalendarEvents(),
       ]);
 
@@ -66,11 +71,15 @@ export const AgendaScreen: React.FC<Props> = ({
 
     // 1. Inserir Pedidos (Entregas / Retiradas / Montagens)
     orders.forEach(order => {
+      const orderData = order.order_data || {};
+      const shipping = orderData.shipping || order.shipping || {};
+      const customer = orderData.customerData || order.customer || {};
+      const orderItems = orderData.items || order.items || [];
       const dDate = getOperationalScheduleDate(order) || order.delivery_date || order.scheduled_date || todayStr;
       if (!itemsByDate[dDate]) itemsByDate[dDate] = [];
 
-      const isPickup = (order.shipping?.deliveryType || '').toLowerCase().includes('retirada');
-      const isAssembly = (order.items || []).some((i: any) => i.handlingType?.includes('montagem'));
+      const isPickup = String(shipping.deliveryType || shipping.deliveryMethod || '').toLowerCase().includes('retirada');
+      const isAssembly = orderItems.some((item: { handlingType?: string }) => item.handlingType?.includes('montagem'));
 
       let itemKind = isPickup ? 'pickup' : 'delivery';
       if (isAssembly) itemKind = 'assembly';
@@ -79,8 +88,8 @@ export const AgendaScreen: React.FC<Props> = ({
         id: `ord_${order.id}`,
         kind: itemKind,
         date: dDate,
-        title: order.customer_name || order.client_name || `Pedido #${order.orderIndex || order.order_number}`,
-        subtitle: formatFullAddress(order.shipping || {}),
+        title: customer.fullName || order.customer_name || order.client_name || `Pedido #${orderData.orderIndex || order.orderIndex || order.order_number}`,
+        subtitle: formatFullAddress(shipping, customer),
         order,
       });
     });

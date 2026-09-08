@@ -22,16 +22,18 @@ export const fetchGeminiApiKey = async (): Promise<string> => {
       data?.geminiApiKey ||
       data?.settings_data?.geminiApiKey ||
       data?.value?.geminiApiKey ||
+      data?.data?.aiApiKey ||
+      data?.aiApiKey ||
       process.env.EXPO_PUBLIC_GEMINI_API_KEY ||
       process.env.VITE_GEMINI_API_KEY ||
       DEFAULT_FALLBACK_KEY;
-    return key;
+    return (key || '').trim();
   } catch {
     return (
       process.env.EXPO_PUBLIC_GEMINI_API_KEY ||
       process.env.VITE_GEMINI_API_KEY ||
       DEFAULT_FALLBACK_KEY
-    );
+    ).trim();
   }
 };
 
@@ -124,7 +126,7 @@ function pcmToWavBase64(pcmBase64: string, sampleRate = 24000, numChannels = 1, 
 }
 
 /**
- * Sintetiza áudio via modelo oficial Gemini 3.1 Flash TTS do Google AI Studio.
+ * Sintetiza áudio via modelos oficiais de áudio do Gemini (gemini-2.0-flash com fallback para gemini-1.5-flash).
  */
 export const generateGeminiAudioMp3 = async (
   text: string
@@ -141,52 +143,65 @@ export const generateGeminiAudioMp3 = async (
     return { success: false, error: 'NO_KEY' };
   }
 
-  try {
-    const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-tts-preview:generateContent?key=${encodeURIComponent(geminiKey)}`;
-    const res = await fetch(endpoint, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [
-          {
-            parts: [
-              {
-                text: `Fale em português do Brasil com tom natural e claro: ${cleanText}`
-              }
-            ]
-          }
-        ],
-        generationConfig: {
-          responseModalities: ['AUDIO'],
-          speechConfig: {
-            voiceConfig: {
-              prebuiltVoiceConfig: {
-                voiceName: 'Kore'
+  const candidateModels = [
+    'gemini-2.5-flash-preview-tts',
+    'gemini-2.5-flash',
+    'gemini-3.1-flash-tts-preview',
+    'gemini-2.5-pro-preview-tts',
+  ];
+
+  for (const model of candidateModels) {
+    try {
+      const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(geminiKey)}`;
+      const res = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [
+            {
+              parts: [
+                {
+                  text: `Fale em português do Brasil com tom natural e claro: ${cleanText}`
+                }
+              ]
+            }
+          ],
+          generationConfig: {
+            responseModalities: ['AUDIO'],
+            speechConfig: {
+              voiceConfig: {
+                prebuiltVoiceConfig: {
+                  voiceName: 'Kore'
+                }
               }
             }
           }
-        }
-      })
-    });
+        })
+      });
 
-    if (!res.ok) {
-      console.warn('[GeminiAudio] Erro na requisição Gemini 3.1 Flash TTS:', res.status);
-      return { success: false, error: `HTTP_${res.status}` };
+      if (res.status === 429) {
+        console.warn(`[GeminiAudio] Cota limite atingida (HTTP 429) para a chave do modelo ${model}`);
+        return { success: false, error: 'QUOTA_EXHAUSTED' };
+      }
+
+      if (!res.ok) {
+        console.warn(`[GeminiAudio] Erro HTTP ${res.status} ao gerar áudio com modelo ${model}`);
+        continue;
+      }
+
+      const data = await res.json();
+      const audioPart = data?.candidates?.[0]?.content?.parts?.find((p: any) => p.inlineData);
+      if (audioPart && audioPart.inlineData?.data) {
+        const wavBase64 = pcmToWavBase64(audioPart.inlineData.data);
+        audioBase64Cache.set(cleanText, wavBase64);
+        return { success: true, base64Mp3: wavBase64, isWav: true };
+      }
+    } catch (err: any) {
+      console.warn(`[GeminiAudio] Exceção ao gerar áudio com modelo ${model}:`, err);
     }
-
-    const data = await res.json();
-    const audioPart = data?.candidates?.[0]?.content?.parts?.find((p: any) => p.inlineData);
-    if (audioPart && audioPart.inlineData?.data) {
-      const wavBase64 = pcmToWavBase64(audioPart.inlineData.data);
-      audioBase64Cache.set(cleanText, wavBase64);
-      return { success: true, base64Mp3: wavBase64, isWav: true };
-    }
-
-    return { success: false, error: 'NO_AUDIO_PART' };
-  } catch (err: any) {
-    console.warn('[GeminiAudio] Exceção no Gemini 3.1 Flash TTS:', err);
-    return { success: false, error: err?.message || 'NETWORK_ERROR' };
   }
+
+  return { success: false, error: 'AUDIO_GENERATION_FAILED' };
 };
 
 /**

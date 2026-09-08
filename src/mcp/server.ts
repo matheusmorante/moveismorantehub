@@ -331,6 +331,45 @@ export class MoranteHubMcpServer {
           return;
         }
 
+        // 5. Endpoint de distribuição DF-e SEFAZ (mTLS Proxy Seguro Node.js)
+        if ((pathname === '/api/nfe/dist-dfe' || pathname === '/api/sefaz/dist-dfe') && req.method === 'POST') {
+          let body = '';
+          req.on('data', chunk => {
+            body += chunk;
+          });
+          req.on('end', async () => {
+            try {
+              const parsedBody = body ? JSON.parse(body) : {};
+              const mockReq: any = {
+                method: 'POST',
+                headers: req.headers,
+                body: parsedBody,
+              };
+              const mockRes: any = {
+                setHeader: (k: string, v: string) => res.setHeader(k, v),
+                status: (code: number) => {
+                  res.statusCode = code;
+                  return mockRes;
+                },
+                json: (data: any) => {
+                  res.writeHead(res.statusCode || 200, { 'Content-Type': 'application/json' });
+                  res.end(JSON.stringify(data));
+                },
+                end: () => res.end(),
+              };
+
+              const distDfeModule = await import('../../api/nfe/dist-dfe.js');
+              await distDfeModule.default(mockReq, mockRes);
+            } catch (err: any) {
+              if (!res.headersSent) {
+                res.writeHead(500, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ error: 'INTERNAL_ERROR', message: err.message }));
+              }
+            }
+          });
+          return;
+        }
+
         res.writeHead(404, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ error: 'NOT_FOUND' }));
       });

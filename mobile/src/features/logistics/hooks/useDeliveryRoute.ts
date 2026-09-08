@@ -5,6 +5,8 @@ import { subscribeToLogisticsChanges } from '../../../services/logisticsRealtime
 import { getOperationalScheduleDate } from '../../../utils/operationalSchedule';
 import { getLocationMapsUrl, parseCoordinatesFromMapsUrl, isCancelledOrder, formatOrderCode } from '../../../utils/orderUtils';
 import { hasDeliveryExceeded12Hours, autoFulfillOrderIfExceeded12Hours } from '../../orders/utils/deliveryAutoFulfillment';
+import { getDeliverySchedulePeriod } from '../utils/deliverySchedulePeriod';
+export { checkOutOfOrderRisk } from '../utils/deliveryRouteRisk';
 
 export interface DeliveryRouteItem {
   id: string;
@@ -31,87 +33,6 @@ export interface DeliveryRouteItem {
   windowEnd?: string;
   isSuggestedFirst?: boolean;
   restrictionLevel?: 'free' | 'priority' | 'fixed';
-}
-
-// Extrai e normaliza a janela de atendimento prometida ao cliente
-function formatDeliveryPeriod(shipping: any): { label: string; isFixed: boolean; windowStart?: string; windowEnd?: string; sortWeight: number } {
-  const sched = shipping?.scheduling || {};
-  const rawTime = String(sched.time || '').trim();
-  const startTime = String(sched.startTime || '').trim();
-  const endTime = String(sched.endTime || '').trim();
-  const schedType = String(sched.type || sched.dateType || '').toLowerCase();
-
-  // 1. Se houver início e fim de janela (ex: 13:00 e 18:00) ou tipo 'range', trata como período compacto
-  if ((startTime && endTime && startTime !== endTime) || schedType === 'range' || rawTime.includes('-') || rawTime.includes('às') || rawTime.includes('ate')) {
-    const start = startTime || (rawTime.split('-')[0] || rawTime).trim();
-    const end = endTime || (rawTime.split('-')[1] || '').trim();
-    const displayLabel = (start && end) ? `${start}–${end}` : (start || end || rawTime);
-    return {
-      label: displayLabel,
-      isFixed: false,
-      windowStart: start,
-      windowEnd: end,
-      sortWeight: getMinutesFromTime(start, 480),
-    };
-  }
-
-  // 2. Se for explicitamente horário fixo/combinado ou apenas uma hora exata informada (sem fim)
-  const isFixed = schedType === 'fixed' || (startTime && !endTime) || (rawTime.includes(':') && !rawTime.includes('-'));
-  if (isFixed) {
-    const timeDisplay = startTime || rawTime || 'Horário Combinado';
-    return {
-      label: `🔒 ${timeDisplay}`,
-      isFixed: true,
-      windowStart: startTime || rawTime,
-      windowEnd: endTime,
-      sortWeight: getMinutesFromTime(startTime || rawTime, 480),
-    };
-  }
-
-  // 3. Checa nomenclaturas de período por palavras-chave
-  const lowerTime = rawTime.toLowerCase();
-  if (lowerTime.includes('manhã') || lowerTime.includes('manha')) {
-    return {
-      label: 'MANHÃ · 08:00–12:00',
-      isFixed: false,
-      windowStart: '08:00',
-      windowEnd: '12:00',
-      sortWeight: 480,
-    };
-  }
-  if (lowerTime.includes('tarde')) {
-    return {
-      label: 'TARDE · 13:00–18:00',
-      isFixed: false,
-      windowStart: '13:00',
-      windowEnd: '18:00',
-      sortWeight: 780,
-    };
-  }
-  if (lowerTime.includes('noite')) {
-    return {
-      label: 'NOITE · 18:00–21:00',
-      isFixed: false,
-      windowStart: '18:00',
-      windowEnd: '21:00',
-      sortWeight: 1080,
-    };
-  }
-
-  return {
-    label: rawTime ? rawTime.toUpperCase() : 'HORÁRIO COMERCIAL',
-    isFixed: false,
-    sortWeight: 480,
-  };
-}
-
-function getMinutesFromTime(timeStr: string, fallback: number): number {
-  if (!timeStr) return fallback;
-  const match = timeStr.match(/(\d{1,2}):(\d{2})/);
-  if (match) {
-    return parseInt(match[1], 10) * 60 + parseInt(match[2], 10);
-  }
-  return fallback;
 }
 
 export function useDeliveryRoute() {
@@ -177,8 +98,8 @@ export function useDeliveryRoute() {
 
       const shippingA = a.order_data?.shipping || {};
       const shippingB = b.order_data?.shipping || {};
-      const periodA = formatDeliveryPeriod(shippingA);
-      const periodB = formatDeliveryPeriod(shippingB);
+      const periodA = getDeliverySchedulePeriod(shippingA);
+      const periodB = getDeliverySchedulePeriod(shippingB);
 
       if (periodA.sortWeight !== periodB.sortWeight) {
         return periodA.sortWeight - periodB.sortWeight;
@@ -258,7 +179,7 @@ export function useDeliveryRoute() {
       const isCurrent = (status === 'in_progress' || status === 'in_service');
       const isNext = !firstInProgressId && o.id === activeTargetId;
 
-      const periodInfo = formatDeliveryPeriod(shipping);
+      const periodInfo = getDeliverySchedulePeriod(shipping);
       const isSuggestedFirst = (o.id === topPendingId);
 
       let restrictionLevel: DeliveryRouteItem['restrictionLevel'] = 'free';
@@ -344,37 +265,5 @@ export function useDeliveryRoute() {
     refreshing,
     onRefresh,
   };
-}
-
-export function checkOutOfOrderRisk(
-  targetItem: DeliveryRouteItem | null,
-  routeItems: DeliveryRouteItem[]
-): { hasRisk: boolean; riskyItemName?: string; riskyTime?: string; riskyOrderCode?: string } {
-  if (!targetItem || targetItem.status !== 'pending') {
-    return { hasRisk: false };
-  }
-
-  const pendingItems = routeItems.filter(i => i.status === 'pending');
-  if (pendingItems.length <= 1) return { hasRisk: false };
-
-  const topSuggested = pendingItems[0];
-  if (topSuggested.id === targetItem.id) return { hasRisk: false };
-
-  const targetIndexInPending = pendingItems.findIndex(i => i.id === targetItem.id);
-  if (targetIndexInPending <= 0) return { hasRisk: false };
-
-  const bypassedItems = pendingItems.slice(0, targetIndexInPending);
-  const riskyPriorItem = bypassedItems.find(i => i.isFixedTime || i.restrictionLevel === 'fixed' || i.periodLabel.includes('🔒') || i.periodLabel.includes('⚠️'));
-
-  if (riskyPriorItem) {
-    return {
-      hasRisk: true,
-      riskyItemName: riskyPriorItem.customerName,
-      riskyTime: riskyPriorItem.periodLabel,
-      riskyOrderCode: riskyPriorItem.orderIndex,
-    };
-  }
-
-  return { hasRisk: false };
 }
 
