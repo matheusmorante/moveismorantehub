@@ -86,19 +86,6 @@ const OrderHistoryRow = ({
     const isPaidTraffic = isPaidTrafficOrder(order);
 
     const cellBgClass = 'bg-white dark:bg-slate-900';
-    const rowAccentWidthClass = order.orderType === 'return' || order.orderType === 'assistance'
-        ? ''
-        : (isDraft ? 'border-l-[12px]' : 'border-l-[6px]');
-    const rowBorderClass = order.status === 'draft'
-        ? 'border-l-slate-300 dark:border-l-slate-600'
-        : rowColorKey === 'green'
-            ? 'border-l-green-600 dark:border-l-green-500'
-            : rowColorKey === 'purple'
-                ? 'border-l-purple-600 dark:border-l-purple-500'
-                : rowColorKey === 'orange'
-                    ? 'border-l-orange-500 dark:border-l-orange-400'
-                    : 'border-l-slate-300 dark:border-l-slate-600';
-
     const baseTdClass = `px-1 py-1 ${cellBgClass} border-b border-white dark:border-slate-800/50 align-middle relative`;
 
     const renderCell = (key: string) => {
@@ -231,7 +218,7 @@ const OrderHistoryRow = ({
         <tr
             id={id}
             onClick={isDraft ? () => onEdit(order) : (canViewDetails ? () => onViewDetails?.(order) : undefined)}
-            className={`relative transition-colors group ${isDraft || canViewDetails ? 'cursor-pointer' : 'cursor-default'} border-b border-white dark:border-slate-800/50 ${rowAccentWidthClass} ${rowBorderClass} ${cellBgClass} ${isSelected ? cls.rowActive : ''} ${isHighlighted ? 'animate-highlight' : ''}`}
+            className={`relative transition-colors group ${isDraft || canViewDetails ? 'cursor-pointer' : 'cursor-default'} border-b border-white dark:border-slate-800/50 ${cellBgClass} ${isSelected ? cls.rowActive : ''} ${isHighlighted ? 'animate-highlight' : ''}`}
         >
             {orderedColumnKeys ? orderedColumnKeys.map(key => renderCell(key)) : (
                 <>
