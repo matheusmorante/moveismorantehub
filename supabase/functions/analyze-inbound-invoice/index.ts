@@ -16,6 +16,12 @@ const numeric = (value: unknown) => {
 function validateExtraction(value: any) {
   if (!value || typeof value !== "object" || !Array.isArray(value.items)) throw new Error("Resposta estruturada inválida da IA.");
   const invoice = value.invoice || {};
+  const documentKind = String(value.documentKind || invoice.documentKind || "").toUpperCase();
+  const model = String(invoice.model || "").replace(/\D/g, "");
+  const isConsumerInvoice = value.isConsumerInvoice === true || documentKind === "NFC-E" || model === "65";
+  if (isConsumerInvoice) {
+    throw new Error("NFC-e (modelo 65) não pode ser importada como NF de Entrada. Envie uma NF-e de fornecedor, modelo 55.");
+  }
   const issuer = value.issuer || {};
   const key = digits(invoice.accessKey);
   if (key && key.length !== 44) throw new Error("A chave extraída não possui 44 dígitos.");
@@ -57,7 +63,7 @@ serve(async (req) => {
     if (bytes.byteLength > maxBytes) throw new Error("O documento excede o limite de 12 MB.");
     const apiKey = Deno.env.get("GEMINI_API_KEY");
     if (!apiKey) throw new Error("Integração de análise de documentos não configurada.");
-    const prompt = `Extraia SOMENTE fatos legíveis desta nota fiscal brasileira. Não invente nem complete campos ausentes. Retorne JSON válido com invoice, issuer, items, warnings e confidence. Cada item deve permanecer na linha correta. invoice: accessKey,number,series,issuedAt,entryExitAt,operationNature,model,protocol,totalProducts,totalInvoice,freight,discount,insurance,otherExpenses,ipi,icms. issuer: legalName,tradeName,taxId,stateRegistration,address. items[]: itemNumber,productCode,productDescription,ncm,cfop,unit,quantity,unitCost,totalCost,discountValue,freightValue,ipiPercent,ipiValue,icmsValue. confidence pode indicar campos incertos.`;
+    const prompt = `Analise visualmente este documento fiscal brasileiro ANTES de extrair qualquer campo. Este fluxo aceita EXCLUSIVAMENTE NF-e de fornecedor, modelo 55. É PROIBIDO aceitar NFC-e / Nota Fiscal de Consumidor Eletrônica / modelo 65, cupom fiscal ou DANFE NFC-e. Identifique por textos como "DOCUMENTO AUXILIAR DA NOTA FISCAL DE CONSUMIDOR ELETRÔNICA", "NFC-e" e pelo modelo 65. Retorne SOMENTE JSON válido com documentKind (NFE ou NFC-E), isConsumerInvoice (boolean), invoice, issuer, items, warnings e confidence. Se for NFC-e, retorne isConsumerInvoice:true, documentKind:"NFC-E" e items:[]; não tente adequá-la como NF-e. Para NF-e, extraia SOMENTE fatos legíveis, nunca invente campos. Cada item deve permanecer na linha correta. invoice: accessKey,number,series,issuedAt,entryExitAt,operationNature,model,protocol,totalProducts,totalInvoice,freight,discount,insurance,otherExpenses,ipi,icms. issuer: legalName,tradeName,taxId,stateRegistration,address. items[]: itemNumber,productCode,productDescription,ncm,cfop,unit,quantity,unitCost,totalCost,discountValue,freightValue,ipiPercent,ipiValue,icmsValue.`;
     const response = await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=" + encodeURIComponent(apiKey), { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ contents: [{ parts: [{ text: prompt }, { inlineData: { mimeType, data: base64 } }] }], generationConfig: { responseMimeType: "application/json", temperature: 0 } }) });
     if (!response.ok) throw new Error("Não foi possível analisar o documento fiscal.");
     const payload = await response.json();

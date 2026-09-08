@@ -38,6 +38,10 @@ export const parseInboundNfeXml = (xmlString: string): InboundInvoice => {
 
     const ideBlock = extractTag(xmlString, 'ide');
     const nfeNumber = extractTag(ideBlock, 'nNF');
+    const model = extractTag(ideBlock, 'mod');
+    if (model === '65') {
+        throw new Error('NFC-e (modelo 65) não pode ser importada como NF de Entrada. Envie uma NF-e de fornecedor, modelo 55.');
+    }
     const series = extractTag(ideBlock, 'serie') || '1';
     const rawIssuedAt = extractTag(ideBlock, 'dhEmi') || extractTag(ideBlock, 'dEmi');
     const issuedAt = rawIssuedAt ? new Date(rawIssuedAt).toISOString() : new Date().toISOString();
@@ -96,6 +100,7 @@ export const parseInboundNfeXml = (xmlString: string): InboundInvoice => {
         nfeKey,
         nfeNumber,
         series,
+        model,
         issuedAt,
         emitterCnpj,
         emitterName,
