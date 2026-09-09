@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
-import { Check, Edit2 } from 'lucide-react-native';
+import { Check } from 'lucide-react-native';
 import { CardVisualState } from '../TransactionPreviewCard';
 
 interface Props {
@@ -8,7 +8,6 @@ interface Props {
   readOnly?: boolean;
   isDarkMode?: boolean;
   onConfirm: () => void;
-  onEdit: () => void;
 }
 
 export const CardActionsSection: React.FC<Props> = ({
@@ -16,7 +15,6 @@ export const CardActionsSection: React.FC<Props> = ({
   readOnly,
   isDarkMode,
   onConfirm,
-  onEdit,
 }) => {
   if (readOnly) return null;
 
@@ -41,34 +39,15 @@ export const CardActionsSection: React.FC<Props> = ({
           </TouchableOpacity>
         </View>
       ) : cardState === 'ERROR' ? (
-        <View style={{ flex: 1, flexDirection: 'row', gap: 8 }}>
-          <TouchableOpacity
-            style={[styles.editBtn, { flex: 1 }]}
-            onPress={onEdit}
-            activeOpacity={0.7}
-          >
-            <Edit2 size={14} color="#475569" />
-            <Text style={styles.editBtnText}>Ajustar</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.confirmBtn, { flex: 2, backgroundColor: '#dc2626' }]}
-            onPress={onConfirm}
-            activeOpacity={0.8}
-          >
-            <Text style={styles.confirmBtnText}>Tentar novamente</Text>
-          </TouchableOpacity>
-        </View>
+        <TouchableOpacity
+          style={[styles.confirmBtn, { backgroundColor: '#dc2626' }]}
+          onPress={onConfirm}
+          activeOpacity={0.8}
+        >
+          <Text style={styles.confirmBtnText}>Tentar novamente</Text>
+        </TouchableOpacity>
       ) : cardState === 'NEEDS_INPUT' ? null : (
         <>
-          <TouchableOpacity
-            style={[styles.editBtn, isDarkMode && styles.editBtnDark]}
-            onPress={onEdit}
-            activeOpacity={0.7}
-          >
-            <Edit2 size={14} color={isDarkMode ? '#cbd5e1' : '#475569'} />
-            <Text style={[styles.editBtnText, isDarkMode && styles.editBtnTextDark]}>Editar</Text>
-          </TouchableOpacity>
-
           {cardState === 'READY_TO_CONFIRM' ? (
             <TouchableOpacity
               style={styles.confirmBtn}
@@ -128,26 +107,6 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: '#166534',
     fontWeight: '700',
-  },
-  editBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 8,
-    backgroundColor: '#f1f5f9',
-  },
-  editBtnDark: {
-    backgroundColor: '#334155',
-  },
-  editBtnText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#475569',
-  },
-  editBtnTextDark: {
-    color: '#cbd5e1',
   },
   confirmBtn: {
     flexDirection: 'row',

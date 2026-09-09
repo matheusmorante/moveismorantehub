@@ -23,6 +23,7 @@ export interface ParsedFinancialIntent {
   paymentMethod?: string | null;
   purpose?: 'BUSINESS' | 'PERSONAL_PARTNER' | 'NOT_INFORMED' | null;
   vehicleId?: string | null;
+  vehicle?: string | null;
   counterparty?: string | null;
 
   // Recorrência
@@ -30,7 +31,7 @@ export interface ParsedFinancialIntent {
   dueDay?: number | null;
   startDate?: string | null;
   // Finalidade do Gasto
-  businessPurpose?: 'BUSINESS' | 'PERSONAL' | 'UNKNOWN' | null;
+  businessPurpose?: 'BUSINESS' | 'PERSONAL' | 'PERSONAL_PARTNER' | 'UNKNOWN' | null;
 
   // Empréstimo e Credor
   creditor?: string | null;

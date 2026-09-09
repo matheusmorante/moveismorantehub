@@ -98,7 +98,7 @@ export const mobileFinancialTools = [
       {
         name: 'criarMovimentacaoFinanceira',
         description:
-          'Registra uma nova movimentação financeira oficial de entrada (income) ou saída (expense) no ERP Móveis Morante. Deve ser utilizada após o usuário fornecer ou confirmar valor e descrição.',
+          'Prepara uma nova movimentação financeira oficial de entrada (income) ou saída (expense) para confirmação no ERP Móveis Morante. Antes de chamar, consulte buscarCategoriasFinanceiras e use o categoriaId real. Para uma mensagem com vários fatos, faça uma chamada por grupo de mesma categoria, tipo, finalidade, forma de pagamento e data; some valores somente dentro desse mesmo grupo. Nunca misture categorias diferentes em uma única chamada.',
         parameters: {
           type: 'OBJECT',
           properties: {
@@ -146,7 +146,7 @@ export const mobileFinancialTools = [
               description: 'Notas ou observações adicionais sobre o lançamento.',
             },
           },
-          required: ['tipo', 'valor', 'descricao'],
+          required: ['tipo', 'valor', 'descricao', 'categoriaId'],
         },
       },
       {
@@ -208,15 +208,31 @@ export const mobileFinancialTools = [
       },
 ];
 
+const mobileOrderDeliveryTools = [
+  {
+    name: 'buscarPedidosEntregas',
+    description: 'Pesquisa pedidos e entregas do ERP de forma paginada. Use para localizar pedidos por cliente, código, status ou período antes de responder. Retorna status, cliente, valor, agendamento e situação da entrega; use obterDetalhesPedidoEntrega para todos os campos de um item específico.',
+    parameters: { type: 'OBJECT', properties: {
+      termo: { type: 'STRING', description: 'Nome do cliente ou código do pedido.' },
+      dataInicio: { type: 'STRING', description: 'Data inicial de agendamento/entrega AAAA-MM-DD, e não data de criação do pedido.' },
+      dataFim: { type: 'STRING', description: 'Data final de agendamento/entrega AAAA-MM-DD, e não data de criação do pedido.' },
+      status: { type: 'STRING', description: 'Status do pedido ou entrega.' },
+      limite: { type: 'NUMBER', description: 'Máximo de resultados, entre 1 e 20; padrão 10.' },
+    }},
+  },
+  {
+    name: 'obterDetalhesPedidoEntrega',
+    description: 'Obtém todas as informações persistidas de um pedido e sua entrega: itens, cliente, endereço, agendamento, pagamentos, observações e estados operacionais. Use somente após obter o pedidoId pela busca; nunca invente IDs.',
+    parameters: { type: 'OBJECT', properties: { pedidoId: { type: 'STRING', description: 'ID real retornado por buscarPedidosEntregas.' } }, required: ['pedidoId'] },
+  },
+];
+
 // Registro de ferramentas do Agente no App Mobile modularizado por domínios
 // Nesta etapa: apenas o domínio Financeiro possui ferramentas ativas de execução.
 // Domínios futuros (Estoque, Compras, Vendas, Clientes) serão plugados aqui de forma modular.
-export const mobileDomainTools: Record<string, typeof mobileFinancialTools> = {
+export const mobileDomainTools = {
   finance: mobileFinancialTools,
-  // inventory: [], // Futuro
-  // purchasing: [], // Futuro
-  // sales: [], // Futuro
-  // customers: [], // Futuro
+  ordersAndDeliveries: mobileOrderDeliveryTools,
 };
 
 export const mobileAgentTools = [

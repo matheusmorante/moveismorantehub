@@ -11,7 +11,7 @@ const readAsBase64 = (file: File) => new Promise<string>((resolve, reject) => {
     reader.readAsDataURL(file);
 });
 
-export type InboundDocumentExtraction = { invoice: Record<string, any>; issuer: Record<string, any>; items: InboundInvoiceItem[]; warnings: string[]; confidence: Record<string, unknown> };
+export type InboundDocumentExtraction = { invoice: Record<string, any>; issuer: Record<string, any>; recipient: Record<string, any>; items: InboundInvoiceItem[]; warnings: string[]; confidence: Record<string, unknown> };
 export type InboundDocumentAnalysis = { extraction: InboundDocumentExtraction; documentPath: string; documentMime: string };
 
 export async function analyzeInboundInvoiceDocument(file: File): Promise<InboundDocumentAnalysis> {
@@ -37,14 +37,14 @@ export async function analyzeInboundInvoiceDocument(file: File): Promise<Inbound
 }
 
 export function invoiceFromDocumentAnalysis(analysis: InboundDocumentAnalysis): InboundInvoice {
-    const { invoice, issuer, items, warnings, confidence } = analysis.extraction;
+    const { invoice, issuer, recipient, items, warnings, confidence } = analysis.extraction;
     const subtotal = Number(invoice.totalProducts || 0);
     const freight = Number(invoice.freight || 0);
     return {
         id: `draft_${crypto.randomUUID()}`, nfeKey: String(invoice.accessKey || ''), nfeNumber: String(invoice.number || ''), series: String(invoice.series || ''),
-        issuedAt: invoice.issuedAt || new Date().toISOString(), entryExitAt: invoice.entryExitAt || undefined, operationNature: invoice.operationNature || undefined, model: invoice.model || undefined, protocol: invoice.protocol || undefined,
+        issuedAt: invoice.issuedAt || new Date().toISOString(), entryExitAt: invoice.entryExitAt || undefined, operationNature: invoice.operationNature || undefined, model: invoice.model || undefined, protocol: invoice.protocol || undefined, additionalInfo: invoice.additionalInfo || undefined,
         emitterCnpj: String(issuer.taxId || ''), emitterName: String(issuer.legalName || ''), emitterTradeName: issuer.tradeName || undefined, emitterIe: issuer.stateRegistration || undefined, emitterAddress: issuer.address || {},
-        recipientCnpj: '', recipientName: '', totalProducts: subtotal, totalFreight: freight, totalIpi: Number(invoice.ipi || 0), totalDiscount: Number(invoice.discount || 0), totalInsurance: Number(invoice.insurance || 0), totalOtherExpenses: Number(invoice.otherExpenses || 0), totalIcms: Number(invoice.icms || 0), freightPercent: subtotal > 0 ? Number(((freight / subtotal) * 100).toFixed(4)) : 0,
-        totalInvoice: Number(invoice.totalInvoice || 0), status: 'pending', itemsCount: items.length, items, originalDocumentPath: analysis.documentPath, originalDocumentMime: analysis.documentMime, extractionWarnings: warnings, extractionConfidence: confidence, createdAt: new Date().toISOString(),
+        recipientCnpj: String(recipient?.taxId || ''), recipientName: String(recipient?.legalName || ''), totalProducts: subtotal, totalFreight: freight, totalIpi: Number(invoice.ipi || 0), totalDiscount: Number(invoice.discount || 0), totalInsurance: Number(invoice.insurance || 0), totalOtherExpenses: Number(invoice.otherExpenses || 0), totalIcms: Number(invoice.icms || 0), freightPercent: subtotal > 0 ? Number(((freight / subtotal) * 100).toFixed(4)) : 0,
+        totalInvoice: Number(invoice.totalInvoice || 0), totalIcmsSt: Number(invoice.icmsSt || 0), ipiPercent: subtotal > 0 ? Number(((Number(invoice.ipi || 0) / subtotal) * 100).toFixed(4)) : 0, status: 'pending', itemsCount: items.length, items, originalDocumentPath: analysis.documentPath, originalDocumentMime: analysis.documentMime, extractionWarnings: warnings, extractionConfidence: confidence, extractionStatus: warnings.length ? 'review_required' : 'completed', processedAt: new Date().toISOString(), aiModel: 'gemini-2.5-flash', rawExtraction: { invoice, issuer, recipient, items, warnings, confidence }, createdAt: new Date().toISOString(),
     };
 }

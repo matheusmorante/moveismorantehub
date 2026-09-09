@@ -18,8 +18,6 @@ export function useFinanceHubData({ userProfile }: UseFinanceHubDataProps) {
   const [selectedYear, setSelectedYear] = useState(now.getFullYear());
   const [selectedMonth, setSelectedMonth] = useState(now.getMonth() + 1);
 
-  const [activeTab, setActiveTab] = useState<'transactions' | 'assistant'>('transactions');
-
   const [categories, setCategories] = useState<FinancialCategory[]>([]);
   const [summary, setSummary] = useState<MonthlySummary>({ income: 0, expense: 0, balance: 0 });
   const [transactions, setTransactions] = useState<FinancialTransaction[]>([]);
@@ -70,12 +68,6 @@ export function useFinanceHubData({ userProfile }: UseFinanceHubDataProps) {
     loadData(true);
   }, [loadData]);
 
-  useEffect(() => {
-    if (!isAdmin && activeTab === 'assistant') {
-      setActiveTab('transactions');
-    }
-  }, [activeTab, isAdmin]);
-
   const handleMonthChange = (year: number, month: number) => {
     setSelectedYear(year);
     setSelectedMonth(month);
@@ -89,7 +81,6 @@ export function useFinanceHubData({ userProfile }: UseFinanceHubDataProps) {
   return {
     selectedYear,
     selectedMonth,
-    activeTab,
     categories,
     summary,
     transactions,
@@ -104,7 +95,6 @@ export function useFinanceHubData({ userProfile }: UseFinanceHubDataProps) {
     editingTransaction,
     userName,
     isAdmin,
-    setActiveTab,
     setTypeFilter,
     setAdvancedFilters,
     setShowFilterModal,

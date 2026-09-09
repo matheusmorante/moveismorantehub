@@ -22,7 +22,6 @@ interface Props {
   intent: ParsedFinancialIntent;
   cardState: CardVisualState;
   onConfirm: () => void;
-  onEdit: () => void;
   onSelectCandidate?: (candidate: any) => void;
   categories?: FinancialCategory[];
   isDarkMode?: boolean;
@@ -33,7 +32,6 @@ export const TransactionPreviewCard: React.FC<Props> = ({
   intent,
   cardState,
   onConfirm,
-  onEdit,
   onSelectCandidate,
   isDarkMode = false,
   readOnly = false,
@@ -178,11 +176,18 @@ export const TransactionPreviewCard: React.FC<Props> = ({
             </Text>
           </View>
 
+          <View style={styles.fieldRow}>
+            <Text style={styles.fieldLabel}>Categoria</Text>
+            <Text style={[styles.fieldValue, isDarkMode && styles.textDark]}>
+              {intent.categoryName || 'Não informada'}
+            </Text>
+          </View>
+
           {!isIncome && intent.businessPurpose && intent.businessPurpose !== 'UNKNOWN' && (
             <View style={styles.fieldRow}>
               <Text style={styles.fieldLabel}>Finalidade</Text>
               <Text style={[styles.fieldValue, isDarkMode && styles.textDark]}>
-                {intent.businessPurpose === 'PERSONAL_PARTNER' || intent.businessPurpose === 'PERSONAL'
+                {intent.businessPurpose === 'PERSONAL' || intent.businessPurpose === 'PERSONAL_PARTNER'
                   ? '👤 Uso Particular'
                   : '🏢 Operação da Empresa'}
               </Text>
@@ -206,7 +211,6 @@ export const TransactionPreviewCard: React.FC<Props> = ({
         readOnly={readOnly}
         isDarkMode={isDarkMode}
         onConfirm={onConfirm}
-        onEdit={onEdit}
       />
     </View>
   );

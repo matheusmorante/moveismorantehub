@@ -49,3 +49,4 @@ automation/.wwebjs_cache/
 **/Code Cache/
 **/CodeCache/
 .env*
+.env*.local

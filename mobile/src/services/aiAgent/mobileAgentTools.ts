@@ -1,12 +1,13 @@
 import { fetchFinancialCategories } from '../financial/mobileCategoryService';
 import { fetchPayableAccounts } from '../financial/mobilePayablesService';
-import { fetchFinancialSummary } from '../financial/mobileFinanceReports';
+import { fetchMonthlySummary } from '../financial/mobileFinanceReports';
 import {
   createFinancialTransaction,
   deleteFinancialTransaction,
 } from '../financial/mobileTransactionCrudService';
 import { supabase } from '../supabaseClient';
 import { ToolExecutionResponse } from './mobileAgentTypes';
+import { getOrderDeliveryDetails, searchOrdersAndDeliveries } from './orderDeliveryAgentService';
 
 import {
   PAYMENT_METHODS,
@@ -18,6 +19,26 @@ import {
 // Executores deterministicos das ferramentas do Gemini no Mobile
 
 export const mobileAgentTools = {
+  async buscarPedidosEntregas(args: { termo?: string; dataInicio?: string; dataFim?: string; status?: string; limite?: number }): Promise<ToolExecutionResponse> {
+    try {
+      const orders = await searchOrdersAndDeliveries(args);
+      return { success: true, data: orders, message: `${orders.length} pedido(s) ou entrega(s) encontrado(s).` };
+    } catch (error: unknown) {
+      return { success: false, code: 'ORDER_DELIVERY_SEARCH_ERROR', error: error instanceof Error ? error.message : 'Falha ao consultar pedidos e entregas.' };
+    }
+  },
+
+  async obterDetalhesPedidoEntrega(args: { pedidoId: string }): Promise<ToolExecutionResponse> {
+    if (!args.pedidoId?.trim()) return { success: false, code: 'INVALID_ORDER_ID', error: 'É necessário informar um ID de pedido válido.' };
+    try {
+      const order = await getOrderDeliveryDetails(args.pedidoId);
+      if (!order) return { success: false, code: 'ORDER_NOT_FOUND', error: 'Pedido não encontrado.' };
+      return { success: true, data: order, message: 'Dados completos do pedido e da entrega encontrados.' };
+    } catch (error: unknown) {
+      return { success: false, code: 'ORDER_DELIVERY_DETAILS_ERROR', error: error instanceof Error ? error.message : 'Falha ao carregar os detalhes do pedido.' };
+    }
+  },
+
   async buscarCategoriasFinanceiras(args: { tipo?: 'income' | 'expense' }): Promise<ToolExecutionResponse> {
     try {
       const categories = await fetchFinancialCategories();
@@ -176,7 +197,7 @@ export const mobileAgentTools = {
       const now = new Date();
       const year = now.getFullYear();
       const month = now.getMonth() + 1;
-      const summary = await fetchFinancialSummary(year, month);
+      const summary = await fetchMonthlySummary(year, month);
 
       return {
         success: true,
@@ -185,10 +206,10 @@ export const mobileAgentTools = {
             inicio: args.dataInicio || `${year}-${String(month).padStart(2, '0')}-01`,
             fim: args.dataFim || now.toISOString().split('T')[0],
           },
-          totalEntradas: summary.totalIncome,
-          totalSaidas: summary.totalExpense,
+          totalEntradas: summary.income,
+          totalSaidas: summary.expense,
           saldoPeriodo: summary.balance,
-          totalLancamentos: summary.transactionCount,
+          totalLancamentos: null,
         },
       };
     } catch (err: any) {
@@ -222,6 +243,15 @@ export const mobileAgentTools = {
         return { success: false, code: 'INVALID_DESCRIPTION', error: 'A descrição da movimentação é obrigatória.' };
       }
 
+      const categories = await fetchFinancialCategories();
+      const category = categories.find(item => item.id === args.categoriaId);
+      if (!category) {
+        return { success: false, code: 'INVALID_CATEGORY', error: 'A categoria precisa ser uma categoria oficial retornada por buscarCategoriasFinanceiras.' };
+      }
+      if (category.type !== args.tipo) {
+        return { success: false, code: 'CATEGORY_TYPE_MISMATCH', error: 'A categoria informada não corresponde ao tipo da movimentação.' };
+      }
+
       // Normalização da finalidade: estritamente 'BUSINESS' ou 'PERSONAL_PARTNER' para despesas
       let normalizedPurpose: 'BUSINESS' | 'PERSONAL_PARTNER' | null = null;
       if (args.tipo === 'expense') {
@@ -230,6 +260,13 @@ export const mobileAgentTools = {
         } else {
           normalizedPurpose = 'BUSINESS';
         }
+      }
+
+      if (args.tipo === 'expense' && normalizedPurpose === 'PERSONAL_PARTNER' && !isProLaboreCat(category.name)) {
+        return { success: false, code: 'PERSONAL_CATEGORY_REQUIRED', error: 'Uso particular deve usar a categoria Pró-labore.' };
+      }
+      if (args.tipo === 'expense' && normalizedPurpose === 'BUSINESS' && isProLaboreCat(category.name)) {
+        return { success: false, code: 'BUSINESS_CATEGORY_REQUIRED', error: 'A categoria Pró-labore é exclusiva para uso particular.' };
       }
 
       // Normalização da forma de pagamento estritamente com PAYMENT_METHODS do formulário (vazio até o usuário informar)
@@ -257,7 +294,8 @@ export const mobileAgentTools = {
         valor: Number(args.valor.toFixed(2)),
         descricao: args.descricao.trim(),
         finalidade: normalizedPurpose,
-        categoriaId: args.categoriaId || null,
+        categoriaId: category.id,
+        categoriaNome: category.name,
         data: args.data || today,
         formaPagamento: normalizedPaymentMethod,
         veiculo: normalizedVehicle,

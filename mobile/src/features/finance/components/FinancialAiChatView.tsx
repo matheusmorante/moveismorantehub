@@ -3,7 +3,6 @@ import { View, StyleSheet, ScrollView, ActivityIndicator } from 'react-native';
 import { Bot } from 'lucide-react-native';
 import { FinancialCategory } from '../../../services/mobileFinanceService';
 import { AssistantEmptyState } from './AssistantEmptyState';
-import { TransactionEditModal } from './TransactionEditModal';
 import { ChatHeaderToolBar } from './chat/ChatHeaderToolBar';
 import { ChatMessageItem } from './chat/ChatMessageItem';
 import { FinancialTimelineCard } from './chat/FinancialTimelineCard';
@@ -68,15 +67,10 @@ export const FinancialAiChatView: React.FC<Props> = ({
                   <FinancialTimelineCard
                     key={card.id}
                     entry={card}
-                    active={card.id === chat.activeTimelineCardId}
+                    active={card.cardState === 'READY_TO_CONFIRM' || card.cardState === 'SAVING' || card.cardState === 'ERROR'}
                     categories={categories}
                     isDarkMode={isDarkMode}
-                    onConfirm={intent =>
-                      card.intent.batchDraftsList?.length
-                        ? void chat.handleConfirmRegisterSingle(intent, 0)
-                        : void chat.handleConfirmRegister()
-                    }
-                    onEdit={() => chat.setEditModalVisible(true)}
+                    onConfirm={intent => void chat.handleConfirmTimelineCard(card.id, intent)}
                     onSelectCandidate={chat.handleSelectCandidate}
                   />
                 ))}
@@ -96,18 +90,6 @@ export const FinancialAiChatView: React.FC<Props> = ({
         ) : null}
       </ScrollView>
 
-      {/* Modal de Edição Manual de Dados */}
-      <TransactionEditModal
-        visible={chat.editModalVisible}
-        intent={chat.pendingIntent}
-        onClose={() => chat.setEditModalVisible(false)}
-        onSave={updatedIntent => {
-          chat.setPendingIntent(updatedIntent);
-          const anchor = chat.latestTimelineAnchor();
-          if (anchor) chat.publishTimelineCard(updatedIntent, 'READY_TO_CONFIRM', anchor);
-        }}
-        isDarkMode={isDarkMode}
-      />
 
       {/* Indicador de Status Discreto da Sessão de Voz */}
       <RecordingStatusBar

@@ -17,7 +17,7 @@ import {
   Volume2
 } from 'lucide-react-native';
 import { generateDeliveryAISummary } from '../../../services/aiSummaryService';
-import { playSummaryAudio, stopGeminiAudio, pauseGeminiAudio, resumeGeminiAudio, seekGeminiAudio, fetchGeminiApiKey } from '../../../services/geminiAudioService';
+import { playSummaryAudio, stopGeminiAudio, pauseGeminiAudio, resumeGeminiAudio, seekGeminiAudio } from '../../../services/geminiAudioService';
 import { getLocalDateString } from '../../../utils/orderUtils';
 import { calculateDeliverySummaryMetrics, type DeliveryPeriodFilter } from '../utils/deliverySummaryMetrics';
 import { getOperationalScheduleDate } from '../../../utils/operationalSchedule';
@@ -212,11 +212,10 @@ export const TodaySummaryCard: React.FC<TodaySummaryCardProps> = ({
 
   // Ação ao tentar alternar para Voz Gemini
   const handleSelectGeminiVoice = async () => {
-    const key = await fetchGeminiApiKey();
-    if (isGeminiQuotaExceeded || !key) {
+    if (isGeminiQuotaExceeded) {
       Alert.alert(
         'Voz Gemini IA Indisponível',
-        'O serviço de Voz Gemini IA não está disponível ou a chave de API/cota não foi encontrada. O áudio utilizará a Voz Nativa.'
+        'O serviço de Voz Gemini IA atingiu uma indisponibilidade temporária. O áudio utilizará a Voz Nativa.'
       );
       setVoiceEngine('native');
     } else {
@@ -243,7 +242,7 @@ export const TodaySummaryCard: React.FC<TodaySummaryCardProps> = ({
       setIsPlayingAudio(true);
       setIsPaused(false);
 
-      const res = await playSummaryAudio(textTarget, voiceEngine, {
+      await playSummaryAudio(textTarget, voiceEngine, {
         onStart: () => {
           setIsPlayingAudio(true);
           setIsPaused(false);
@@ -263,12 +262,10 @@ export const TodaySummaryCard: React.FC<TodaySummaryCardProps> = ({
           setIsPaused(false);
           setCurrentTime(0);
         },
-      });
+      }, periodFilter);
 
-      if (res.engineUsed !== voiceEngine && voiceEngine === 'gemini') {
-        setIsGeminiQuotaExceeded(true);
-        setVoiceEngine('native');
-      }
+      // Falhas de rede/servidor não desativam permanentemente a opção Gemini.
+      // A próxima ação do operador cria no máximo uma nova tentativa idempotente.
     }
   };
 

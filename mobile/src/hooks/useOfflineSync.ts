@@ -7,6 +7,7 @@ export function useOfflineSync() {
     pendingCount: 0,
     syncingCount: 0,
     rejectedCount: 0,
+    conflictCount: 0,
     hasRejections: false,
     isOnline: true,
   });

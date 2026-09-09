@@ -1,5 +1,7 @@
 import { Audio } from 'expo-av';
 import { supabase } from './supabaseClient';
+import { ensureSharedSummaryAudio } from './deliverySummaryAudioGenerationService';
+import { DeliverySummaryRecord } from './deliverySummaryService';
 import { speakTextWithFallback, stopSpeech as stopNativeSpeech, pauseSpeech as pauseNativeSpeech, resumeSpeech as resumeNativeSpeech } from './navigationVoiceService';
 import {
   DEFAULT_VOICE_CONFIG,
@@ -20,31 +22,6 @@ export interface AudioPlaybackCallbacks {
   onDone?: () => void;
   onError?: (err: any) => void;
 }
-
-const DEFAULT_FALLBACK_KEY = process.env.EXPO_PUBLIC_GEMINI_API_KEY || '';
-
-export const fetchGeminiApiKey = async (): Promise<string> => {
-  try {
-    const { data } = await supabase.from('settings').select('*').eq('id', 'app').maybeSingle();
-    const key =
-      data?.data?.geminiApiKey ||
-      data?.geminiApiKey ||
-      data?.settings_data?.geminiApiKey ||
-      data?.value?.geminiApiKey ||
-      data?.data?.aiApiKey ||
-      data?.aiApiKey ||
-      process.env.EXPO_PUBLIC_GEMINI_API_KEY ||
-      process.env.VITE_GEMINI_API_KEY ||
-      DEFAULT_FALLBACK_KEY;
-    return (key || '').trim();
-  } catch {
-    return (
-      process.env.EXPO_PUBLIC_GEMINI_API_KEY ||
-      process.env.VITE_GEMINI_API_KEY ||
-      DEFAULT_FALLBACK_KEY
-    ).trim();
-  }
-};
 
 export const stopGeminiAudio = async () => {
   try {
@@ -138,7 +115,8 @@ function pcmToWavBase64(pcmBase64: string, sampleRate = 24000, numChannels = 1, 
  * Sintetiza áudio via modelos oficiais de áudio do Gemini (gemini-2.0-flash com fallback para gemini-1.5-flash).
  */
 export const generateGeminiAudioMp3 = async (
-  text: string
+  text: string,
+  scope?: DeliverySummaryRecord['scope'],
 ): Promise<{ success: boolean; base64Mp3?: string; audioUrl?: string; isWav?: boolean; error?: string }> => {
   const cleanText = normalizeSummaryText(text);
   if (!cleanText) return { success: false, error: 'Texto vazio' };
@@ -174,79 +152,14 @@ export const generateGeminiAudioMp3 = async (
       return { success: true, base64Mp3: base64, isWav };
     }
 
-    // A geração é exclusivamente do backend idempotente. Um clique apenas
-    // toca o arquivo persistido ou usa a voz nativa enquanto ele não existe.
-    return { success: false, error: 'AUDIO_NOT_READY' };
-
-    const geminiKey = await fetchGeminiApiKey();
-    if (!geminiKey) return { success: false, error: 'NO_KEY' };
-
-  const candidateModels = [
-    'gemini-2.5-flash-preview-tts',
-    'gemini-2.5-flash',
-    'gemini-3.1-flash-tts-preview',
-    'gemini-2.5-pro-preview-tts',
-  ];
-
-    for (const model of candidateModels) {
-    try {
-      const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(geminiKey)}`;
-      const res = await fetch(endpoint, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [
-            {
-              parts: [
-                {
-                  text: `Fale em português do Brasil com tom natural e claro: ${cleanText}`
-                }
-              ]
-            }
-          ],
-          generationConfig: {
-            responseModalities: ['AUDIO'],
-            speechConfig: {
-              voiceConfig: {
-                prebuiltVoiceConfig: {
-                  voiceName: 'Kore'
-                }
-              }
-            }
-          }
-        })
-      });
-
-      if (res.status === 429) {
-        console.warn(`[GeminiAudio] Cota limite atingida (HTTP 429) para a chave do modelo ${model}`);
-        return { success: false, error: 'QUOTA_EXHAUSTED' };
-      }
-
-      if (!res.ok) {
-        console.warn(`[GeminiAudio] Erro HTTP ${res.status} ao gerar áudio com modelo ${model}`);
-        continue;
-      }
-
-      const data = await res.json();
-      const audioPart = data?.candidates?.[0]?.content?.parts?.find((p: any) => p.inlineData);
-      if (audioPart && audioPart.inlineData?.data) {
-        const wavBase64 = pcmToWavBase64(audioPart.inlineData.data);
-        const audioUrl = `data:audio/wav;base64,${wavBase64}`;
-        audioBase64Cache.set(cleanText, wavBase64);
-        await saveAudioRecordToCache({
-          cacheKey,
-          normalizedText: cleanText,
-          ...DEFAULT_VOICE_CONFIG,
-          audioUrl,
-        });
-        return { success: true, base64Mp3: wavBase64, isWav: true };
-      }
-    } catch (err: any) {
-      console.warn(`[GeminiAudio] Exceção ao gerar áudio com modelo ${model}:`, err);
-    }
-  }
-
-    return { success: false, error: 'AUDIO_GENERATION_FAILED' };
+    if (!scope) return { success: false, error: 'AUDIO_NOT_READY' };
+    const generation = await ensureSharedSummaryAudio(scope, cleanText);
+    if (generation.status !== 'READY') return { success: false, error: `AUDIO_${generation.status}` };
+    const generated = await getCachedAudioRecord(cacheKey);
+    if (!generated) return { success: false, error: 'AUDIO_CACHE_UNAVAILABLE' };
+    const playableUrl = await getPlayableAudioUrl(generated);
+    if (playableUrl && generated.audioStoragePath) return { success: true, audioUrl: playableUrl, isWav: true };
+    return { success: true, base64Mp3: generated.audioUrl.replace(/^data:audio\/[^;]+;base64,/, ''), isWav: generated.audioUrl.startsWith('data:audio/wav') };
   });
 };
 
@@ -257,8 +170,9 @@ export const generateGeminiAudioMp3 = async (
 export const playSummaryAudio = async (
   text: string,
   engine: 'gemini' | 'native',
-  callbacks: AudioPlaybackCallbacks
-): Promise<{ success: boolean; engineUsed: 'gemini' | 'native' }> => {
+  callbacks: AudioPlaybackCallbacks,
+  scope?: DeliverySummaryRecord['scope'],
+): Promise<{ success: boolean; engineUsed: 'gemini' | 'native'; fallbackReason?: string }> => {
   await stopGeminiAudio();
 
   const cleanText = text.trim();
@@ -267,8 +181,9 @@ export const playSummaryAudio = async (
     return { success: true, engineUsed: engine };
   }
 
+  let fallbackReason: string | undefined;
   if (engine === 'gemini') {
-    const res = await generateGeminiAudioMp3(cleanText);
+    const res = await generateGeminiAudioMp3(cleanText, scope);
     if (res.success && (res.base64Mp3 || res.audioUrl)) {
       try {
         await Audio.setAudioModeAsync({
@@ -301,6 +216,7 @@ export const playSummaryAudio = async (
         console.warn('[GeminiAudio] Erro ao carregar sound no expo-av, chaveando para voz nativa:', audioErr);
       }
     } else {
+      fallbackReason = res.error;
       console.info('[GeminiAudio] Ativando síntese nativa de alta fidelidade:', res.error);
     }
   }
@@ -315,5 +231,5 @@ export const playSummaryAudio = async (
     onError: (e) => callbacks.onError?.(e),
   });
 
-  return { success: true, engineUsed: 'native' };
+  return { success: true, engineUsed: 'native', fallbackReason };
 };

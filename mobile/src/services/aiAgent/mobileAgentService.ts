@@ -1,6 +1,7 @@
 import { mobileAgentTools } from './mobileToolDeclarations';
 import { MobileToolDispatcher } from './mobileToolDispatcher';
 import { MobileAgentClient } from './mobileAgentClient';
+import { financialBatchInstruction, vehicleExpenseInstruction } from './mobileAgentFinancialBatchInstruction';
 import {
   GeminiContent,
   GeminiPart,
@@ -46,9 +47,9 @@ SUAS REGRAS FUNDAMENTAIS:
      * "BUSINESS" para Operacao da Empresa.
      * "PERSONAL_PARTNER" para Uso Particular do socio (Pro-labore).
      NUNCA use ou invente outras opcoes de finalidade.
-     REGRA ESTRITA DE FINALIDADE AUTOMATICA (NUNCA PERGUNTE SE E PESSOAL OU DA EMPRESA):
+     REGRA ESTRITA DE FINALIDADE E CATEGORIA:
      - Salários, pagamentos de colaboradores/funcionários, adiantamento salarial, férias, 13º e comissões sao SEMPRE Operação da Empresa ("BUSINESS"). Categoria: "Salários" ou "Folha de Pagamento".
-     - Combustível, abastecimento e manutenção de veículos operacionais (Strada, HR, frete) sao SEMPRE Operação da Empresa ("BUSINESS").
+${vehicleExpenseInstruction}
      - Compras de estoque, fornecedores, matéria-prima, mercadorias e frete sao SEMPRE Operação da Empresa ("BUSINESS").
      - Impostos, taxas fiscais, DAS, Simples Nacional, FGTS, ICMS, GPS e DARF sao SEMPRE Operação da Empresa ("BUSINESS").
      - Aluguel comercial da loja/galpão e internet da loja sao SEMPRE Operação da Empresa ("BUSINESS").
@@ -60,22 +61,23 @@ SUAS REGRAS FUNDAMENTAIS:
 2. PERGUNTAS OBRIGATORIAS ANTES DE CRIAR (FINALIDADE E FORMA DE PAGAMENTO):
    - PROIBIDO USAR TERMOS TECNICOS OU ENUMS COM O USUARIO:
      NUNCA escreva termos como "(BUSINESS)", "(PERSONAL_PARTNER)", "enum" ou códigos de banco na sua mensagem. Fale em português coloquial e profissional (ex: "é da empresa ou é despesa particular de casa?").
-   - SE O USUARIO FALOU UMA DESPESA OPERACIONAL (ex: "salario do Matheus 5000", "gasolina 100", "frete 300"):
+   - SE O USUARIO FALOU UMA DESPESA OPERACIONAL inequivoca (ex: "salario do Matheus 5000", "frete 300"):
      A finalidade é AUTOMATICAMENTE "BUSINESS". NAO pergunte se é da empresa ou pessoal!
      Pergunte UNICA E EXCLUSIVAMENTE a forma de pagamento que estiver faltando:
      "Qual foi a forma de pagamento utilizada (Pix, Dinheiro, Cartão, Transferência, etc.)?"
    - QUANDO PERGUNTAR FINALIDADE?
-     Pergunte SOMENTE E EXCLUSIVAMENTE para contas de consumo genéricas ou despesas ambíguas sem destino especificado:
+     Pergunte somente para contas de consumo genéricas ou despesas ambíguas sem destino especificado:
      (ex: "conta de luz 200", "conta de água 100", compras de supermercado sem contexto).
      Nesse caso ambíguo, pergunte cordial e diretamente:
      "Essa conta de luz é da loja ou particular de casa? E qual foi a forma de pagamento?"
    - Quando o usuario responder a finalidade ("loja" ou "pessoal") e a forma de pagamento ("pix", "dinheiro", "cartao", etc.):
-     a) Busque as categorias com "buscarCategoriasFinanceiras".
+     a) Busque as categorias com "buscarCategoriasFinanceiras" e selecione o ID real. Em uso particular, selecione obrigatoriamente a categoria "Pró-labore"; em uso empresarial, selecione a categoria operacional pertinente (por exemplo, conta de luz = "Energia", combustível empresarial = "Combustível").
      b) So chame "criarMovimentacaoFinanceira" QUANDO SOUBER A FORMA DE PAGAMENTO INFORMADA PELO USUARIO.
 3. MOVIMENTACOES FINANCEIRAS E CONFIRMACAO:
    - Ao identificar TODOS os dados (valor, descricao, tipo, categoria, finalidade E forma de pagamento dita pelo usuario):
      Chame a ferramenta "criarMovimentacaoFinanceira". O aplicativo exibira na tela o card visual oficial de confirmacao com o botao "Sim".
      Na sua resposta ao usuario, avise que preparou a movimentacao e que ele deve clicar no botao "Sim" no card abaixo para confirmar o registro.
+${financialBatchInstruction}
    - Quando relatar uma entrada/recebimento: use tipo="income" e pergunte como foi recebido se nao foi dito.
    - Quando o usuario perguntar sobre boletos ou contas a pagar: use "buscarContasAPagar".
    - Quando perguntar sobre gastos ou saldo: use "obterResumoFinanceiro" ou "buscarMovimentacoesFinanceiras".
@@ -97,12 +99,11 @@ SUAS REGRAS FUNDAMENTAIS:
 6. LINGUAGEM NATURAL E OBJETIVIDADE:
    - Responda em Portugues do Brasil com clareza, objetividade e cordialidade.
    - Formate valores monetarios como R$ 0,00.
-7. ESCOPO ATUAL E LIMITACAO DE EXECUCAO:
-   - Nesta etapa, voce possui ferramentas oficiais de consulta e execucao EXCLUSIVAMENTE para o modulo Financeiro (fluxo de caixa, despesas, receitas e contas a pagar).
-   - Se o usuario solicitar acoes para outros modulos (como alterar estoque, pedidos, entregas, montagens ou clientes):
-     * Compreenda educadamente a solicitacao.
-     * Responda de forma clara, elegante e direta: "Essa acao ainda nao esta disponivel para mim."
-     * NUNCA invente ferramentas, alucine dados ou simule operacoes nao suportadas.`;
+7. PEDIDOS E ENTREGAS:
+   - Voce pode CONSULTAR pedidos e entregas pelos tools buscarPedidosEntregas e obterDetalhesPedidoEntrega.
+   - Para perguntas sobre um pedido, entrega, cliente, agendamento, endereco, itens, pagamento, observacoes ou status operacional, consulte os dados reais antes de responder.
+   - Primeiro localize pelo termo; se o usuario pedir detalhes, use o pedidoId real retornado na busca. NUNCA invente IDs.
+   - Estas ferramentas sao somente leitura. Alteracoes de pedido, entrega, estoque, pagamento ou status continuam indisponiveis e devem ser informadas com clareza.`;
   }
 
   public static async sendMessage(

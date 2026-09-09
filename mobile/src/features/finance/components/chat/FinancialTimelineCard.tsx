@@ -12,11 +12,10 @@ interface Props {
   categories: FinancialCategory[];
   isDarkMode: boolean;
   onConfirm: (intent: ParsedFinancialIntent) => void;
-  onEdit: () => void;
   onSelectCandidate: (candidate: any) => void;
 }
 
-export function FinancialTimelineCard({ entry, active, categories, isDarkMode, onConfirm, onEdit, onSelectCandidate }: Props) {
+export function FinancialTimelineCard({ entry, active, categories, isDarkMode, onConfirm, onSelectCandidate }: Props) {
   const queued = entry.intent.batchDraftsList || [];
   const current = queued[0] || entry.intent;
 
@@ -34,7 +33,6 @@ export function FinancialTimelineCard({ entry, active, categories, isDarkMode, o
       cardState={entry.cardState}
       readOnly={!active}
       onConfirm={() => onConfirm(current)}
-      onEdit={onEdit}
       onSelectCandidate={onSelectCandidate}
       categories={categories}
       isDarkMode={isDarkMode}

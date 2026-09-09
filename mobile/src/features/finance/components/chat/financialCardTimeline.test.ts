@@ -61,4 +61,26 @@ describe('linha do tempo de cards financeiros', () => {
     expect(saved[1].cardState).toBe('SAVED');
     expect(saved).toHaveLength(2);
   });
+
+  it('mantém confirmações independentes para lançamentos de categorias diferentes', () => {
+    const gasoline = { ...intent('Gasolina', true), categoryName: 'Combustível' };
+    const maintenance = { ...intent('Mecânica', true), categoryName: 'Manutenção de Veículos' };
+    const timeline = [
+      ...appendFinancialTimelineCard([], {
+        id: 'card-fuel', afterMessageId: 'message-batch', timestamp: '16:40',
+        intent: gasoline, cardState: 'READY_TO_CONFIRM',
+      }),
+      ...appendFinancialTimelineCard([], {
+        id: 'card-maintenance', afterMessageId: 'message-batch', timestamp: '16:40',
+        intent: maintenance, cardState: 'READY_TO_CONFIRM',
+      }),
+    ];
+
+    const saved = updateFinancialTimelineCardState(timeline, 'card-fuel', 'SAVED');
+
+    expect(saved.map(card => [card.intent.categoryName, card.cardState])).toEqual([
+      ['Combustível', 'SAVED'],
+      ['Manutenção de Veículos', 'READY_TO_CONFIRM'],
+    ]);
+  });
 });

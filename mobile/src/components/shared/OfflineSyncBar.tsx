@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
-import { Cloud, CloudOff, AlertCircle, RefreshCw, CheckCircle2 } from 'lucide-react-native';
+import { Cloud, CloudOff, AlertCircle, RefreshCw } from 'lucide-react-native';
 import { useOfflineSync } from '../../hooks/useOfflineSync';
 
 interface Props {
@@ -8,10 +8,10 @@ interface Props {
 }
 
 export const OfflineSyncBar: React.FC<Props> = ({ isDarkMode }) => {
-  const { pendingCount, syncingCount, rejectedCount, hasRejections, syncNow } = useOfflineSync();
+  const { pendingCount, syncingCount, rejectedCount, conflictCount, hasRejections, isOnline, lastSyncAt, syncNow } = useOfflineSync();
 
   const totalPending = pendingCount + syncingCount;
-  if (totalPending === 0 && !hasRejections) {
+  if (totalPending === 0 && !hasRejections && isOnline) {
     return null; // Nada pendente, barra oculta
   }
 
@@ -26,7 +26,7 @@ export const OfflineSyncBar: React.FC<Props> = ({ isDarkMode }) => {
       >
         <AlertCircle size={15} color="#ffffff" />
         <Text style={styles.text} numberOfLines={1}>
-          {rejectedCount} {rejectedCount === 1 ? 'operação requer atenção' : 'operações requerem atenção'} (toque para detalhes)
+          {rejectedCount + conflictCount} {rejectedCount + conflictCount === 1 ? 'alteração requer atenção' : 'alterações requerem atenção'}
         </Text>
         <RefreshCw size={13} color="#ffffff" />
       </TouchableOpacity>
@@ -42,13 +42,17 @@ export const OfflineSyncBar: React.FC<Props> = ({ isDarkMode }) => {
         isSyncing ? styles.containerSyncing : styles.containerPending,
       ]}
     >
-      {isSyncing ? (
+      {!isOnline ? (
+        <CloudOff size={15} color="#ffffff" />
+      ) : isSyncing ? (
         <ActivityIndicator size="small" color="#ffffff" />
       ) : (
         <CloudOff size={15} color="#ffffff" />
       )}
       <Text style={styles.text} numberOfLines={1}>
-        {isSyncing
+        {!isOnline
+          ? `Sem internet${lastSyncAt ? ` — última sincronização ${new Date(lastSyncAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}` : ''}`
+          : isSyncing
           ? 'Transmitindo eventos para o servidor...'
           : `Aguardando conexão (${pendingCount} ${pendingCount === 1 ? 'ação pendente' : 'ações pendentes'})`}
       </Text>

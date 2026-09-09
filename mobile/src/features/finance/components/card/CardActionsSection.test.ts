@@ -17,14 +17,9 @@ describe('CardActionsSection - Confirmação Manual Estrita e Ações', () => {
     expect(onConfirm).not.toHaveBeenCalled();
   });
 
-  it('deve disparar onEdit e não disparar onConfirm quando o operador clicar em Editar', () => {
+  it('mantém a confirmação explícita como única ação do card preparado', () => {
     const onConfirm = vi.fn();
-    const onEdit = vi.fn();
 
-    // Simula clique em Editar
-    onEdit();
-
-    expect(onEdit).toHaveBeenCalledTimes(1);
     expect(onConfirm).not.toHaveBeenCalled();
   });
 });

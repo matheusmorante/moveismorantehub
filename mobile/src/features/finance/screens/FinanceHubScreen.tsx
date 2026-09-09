@@ -1,8 +1,6 @@
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
-import { FinanceTopTabsBar } from '../components/FinanceTopTabsBar';
 import { TransactionsTabContent } from '../components/TransactionsTabContent';
-import { FinancialAiChatView } from '../components/FinancialAiChatView';
 import { TransactionFilterModal } from '../components/TransactionFilterModal';
 import { NewTransactionModal } from '../components/NewTransactionModal';
 import { TransactionActionsModal } from '../components/TransactionActionsModal';
@@ -22,45 +20,27 @@ export const FinanceHubScreen: React.FC<Props> = ({
 
   return (
     <View style={[styles.container, isDarkMode && styles.containerDark]}>
-      {/* Barra de Abas Superiores: Transações | Assistente */}
-      <FinanceTopTabsBar
-        activeTab={hub.activeTab}
-        onSelectTab={hub.setActiveTab}
-        isAdmin={hub.isAdmin}
+      <TransactionsTabContent
+        selectedYear={hub.selectedYear}
+        selectedMonth={hub.selectedMonth}
+        summary={hub.summary}
+        transactions={hub.transactions}
+        loadingData={hub.loadingData}
+        refreshing={hub.refreshing}
+        typeFilter={hub.typeFilter}
+        advancedFilters={hub.advancedFilters}
         isDarkMode={isDarkMode}
+        onMonthChange={hub.handleMonthChange}
+        onRefresh={hub.handleRefresh}
+        onSelectTypeFilter={hub.setTypeFilter}
+        onOpenFilterModal={() => hub.setShowFilterModal(true)}
+        onSelectTransaction={hub.setSelectedTransaction}
+        onOpenTransactionMenu={hub.setActionsTransaction}
+        onOpenNewModal={() => {
+          hub.setEditingTransaction(null);
+          hub.setShowNewModal(true);
+        }}
       />
-
-      {/* Conteúdo da Aba Ativa */}
-      {hub.activeTab === 'transactions' ? (
-        <TransactionsTabContent
-          selectedYear={hub.selectedYear}
-          selectedMonth={hub.selectedMonth}
-          summary={hub.summary}
-          transactions={hub.transactions}
-          loadingData={hub.loadingData}
-          refreshing={hub.refreshing}
-          typeFilter={hub.typeFilter}
-          advancedFilters={hub.advancedFilters}
-          isDarkMode={isDarkMode}
-          onMonthChange={hub.handleMonthChange}
-          onRefresh={hub.handleRefresh}
-          onSelectTypeFilter={hub.setTypeFilter}
-          onOpenFilterModal={() => hub.setShowFilterModal(true)}
-          onSelectTransaction={hub.setSelectedTransaction}
-          onOpenTransactionMenu={hub.setActionsTransaction}
-          onOpenNewModal={() => {
-            hub.setEditingTransaction(null);
-            hub.setShowNewModal(true);
-          }}
-        />
-      ) : hub.activeTab === 'assistant' && hub.isAdmin ? (
-        <FinancialAiChatView
-          categories={hub.categories}
-          onTransactionRegistered={() => hub.loadData(false)}
-          userName={hub.userName}
-          isDarkMode={isDarkMode}
-        />
-      ) : null}
 
       {/* Modais de Filtro, Cadastro, Ações e Detalhes */}
       <TransactionFilterModal

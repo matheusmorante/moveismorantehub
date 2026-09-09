@@ -1,6 +1,7 @@
 import React from 'react';
 import { InboundInvoice } from '@/pages/utils/inboundNfe/inboundNfeTypes';
 import { formatCurrency } from '@/pages/utils/formatters';
+import { InboundInvoiceFiscalReview } from './InboundInvoiceFiscalReview';
 
 interface InboundInvoiceDetailsModalProps {
     invoice: InboundInvoice | null;
@@ -52,6 +53,8 @@ export const InboundInvoiceDetailsModal: React.FC<InboundInvoiceDetailsModalProp
                         </div>
                     </div>
 
+                    <InboundInvoiceFiscalReview invoice={invoice} />
+
                     <div className="rounded-2xl border border-slate-100 overflow-hidden dark:border-slate-800">
                         <div className="bg-slate-100/60 px-4 py-2.5 text-xs font-black uppercase tracking-wider text-slate-600 dark:bg-slate-800 dark:text-slate-300">
                             Itens da Nota Fiscal ({invoice.items.length})
@@ -65,7 +68,9 @@ export const InboundInvoiceDetailsModal: React.FC<InboundInvoiceDetailsModalProp
                                         </p>
                                         <div className="flex items-center gap-3 text-[10px] text-slate-400">
                                             <span>Cód: {item.productCode || 'S/C'}</span>
+                                            <span>EAN: {item.ean || '—'}</span>
                                             <span>NCM: {item.ncm}</span>
+                                            <span>CEST: {item.cest || '—'}</span>
                                             <span>CFOP: {item.cfop}</span>
                                         </div>
                                     </div>
@@ -76,6 +81,8 @@ export const InboundInvoiceDetailsModal: React.FC<InboundInvoiceDetailsModalProp
                                         <p className="text-xs font-black text-emerald-600">
                                             {formatCurrency(item.totalCost)}
                                         </p>
+                                        <p className="text-[10px] text-slate-500">Frete {formatCurrency(item.freightValue || 0)} · IPI {formatCurrency(item.ipiValue || 0)} ({Number(item.ipiPercent || 0).toFixed(2)}%)</p>
+                                        <p className="text-[10px] text-slate-500">ICMS {formatCurrency(item.icmsValue || 0)} ({Number(item.icmsPercent || 0).toFixed(2)}%) · ST {formatCurrency(item.icmsStValue || 0)}</p>
                                     </div>
                                 </div>
                             ))}

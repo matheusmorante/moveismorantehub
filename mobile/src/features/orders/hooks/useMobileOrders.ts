@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { supabase } from '../../../services/supabaseClient';
-import { offlineStorageService } from '../../../services/offline/offlineStorageService';
+import { OrderRepository } from '../../../repositories/OrderRepository';
 import { fetchMobileOrdersPage, MobileOrderListItem } from '../services/mobileOrderListService';
 
 const ITEMS_PER_PAGE = 30;
@@ -20,10 +20,13 @@ export function useMobileOrders() {
     try {
       // 1. Tenta carregar dados do cache de trabalho local primeiro para exibição imediata
       if (!pull) {
-        const cached = await offlineStorageService.getWorkingSet<MobileOrderListItem[]>('mobile_orders_list');
-        if (cached?.data && cached.data.length > 0) {
-          setOrders(cached.data);
-          setTotalItems(cached.data.length);
+        const cached = await OrderRepository.list();
+        if (cached.length > 0) {
+          const localItems = cached.map((order) => ({ id: order.id, order_number: String(order.orderData.orderIndex ?? ''), created_at: order.updatedAt,
+            status: order.status, order_type: order.orderType ?? 'sale', customer_name: order.customerName ?? '', total_value: order.totalAmount ?? 0,
+            order_data: order.orderData, version: order.version }));
+          setOrders(localItems);
+          setTotalItems(localItems.length);
           setLoading(false);
         }
       }
@@ -39,9 +42,6 @@ export function useMobileOrders() {
       ]);
       setOrders(ordersResult.items);
       setTotalItems(ordersResult.total);
-      if (page === 1 && !searchTerm && statusFilter === 'all') {
-        await offlineStorageService.cacheWorkingSet('mobile_orders_list', ordersResult.items);
-      }
       const settings = settingsResult.data?.[0]?.data || settingsResult.data?.[0] || {};
       setHandlingOptions([...(settings.deliveryHandlingOptions || []), ...(settings.pickupHandlingOptions || [])]);
     } catch (error) {

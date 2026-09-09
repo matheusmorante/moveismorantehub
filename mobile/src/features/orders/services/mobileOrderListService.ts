@@ -1,4 +1,5 @@
 import { supabase } from '../../../services/supabaseClient';
+import { OrderRepository } from '../../../repositories/OrderRepository';
 
 export interface MobileOrderListItem {
   id: string;
@@ -9,6 +10,7 @@ export interface MobileOrderListItem {
   customer_name: string;
   total_value: number;
   order_data: Record<string, unknown>;
+  version?: number;
 }
 
 interface OrderListRow {
@@ -114,8 +116,10 @@ export const fetchMobileOrdersPage = async ({
 
     const { data, count, error } = await query;
     if (!error && data && data.length > 0) {
+      const items = data.map(toListItem);
+      await cacheOrders(items);
       return {
-        items: data.map(toListItem),
+        items,
         total: count || 0,
       };
     }
@@ -143,7 +147,21 @@ export const fetchMobileOrdersPage = async ({
   if (error) throw error;
 
   return {
-    items: (data || []).map(toListItem),
+    items: await cacheOrders((data || []).map(toListItem)),
     total: count || 0,
   };
 };
+
+async function cacheOrders(items: MobileOrderListItem[]): Promise<MobileOrderListItem[]> {
+  // Cache é um acelerador de leitura, não pode invalidar dados recebidos do ERP
+  // enquanto a migração SQLite ainda está inicializando no primeiro carregamento.
+  try {
+    await Promise.all(items.map((item) => OrderRepository.saveLocal({ id: item.id, status: item.status,
+      orderType: item.order_type, customerName: item.customer_name, totalAmount: item.total_value,
+      orderData: item.order_data, version: item.version ?? 1, updatedAt: item.created_at ?? new Date().toISOString(),
+      syncedAt: new Date().toISOString(), isPendingLocal: false })));
+  } catch (error) {
+    console.warn('[MobileOrders] Cache local indisponível; mantendo resposta remota:', error);
+  }
+  return items;
+}

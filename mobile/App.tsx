@@ -38,6 +38,9 @@ import { LoginScreen } from './src/components/LoginScreen';
 import { PendingApprovalScreen } from './src/components/PendingApprovalScreen';
 import { MandatoryUpdateModal } from './src/components/modals/MandatoryUpdateModal';
 import { OfflineSyncBar } from './src/components/shared/OfflineSyncBar';
+import { offlineSyncManager } from './src/services/offline/offlineSyncManager';
+import { OrderRepository } from './src/repositories/OrderRepository';
+import { fetchMobileOrdersPage } from './src/features/orders/services/mobileOrderListService';
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -278,13 +281,13 @@ export default function App() {
       let settingsData: any = null;
 
       try {
-        const { data } = await supabase
-          .from('orders')
-          .select('id, status, created_at, order_data')
-          .or('order_data->>deleted.is.null,order_data->>deleted.eq.false')
-          .order('created_at', { ascending: false })
-          .limit(400);
-        if (data) rawOrders = data;
+        // A view order_list_items já normaliza data de agenda e campos que podem
+        // estar em colunas ou no JSON. A tela de pedidos usa a mesma fonte.
+        const result = await fetchMobileOrdersPage({ page: 1, pageSize: 400, search: '', status: 'all' });
+        rawOrders = result.items.map((order) => ({
+          id: order.id, status: order.status, created_at: order.created_at,
+          order_type: order.order_type, order_data: order.order_data,
+        }));
       } catch (e) {
         console.warn('[DashboardStats] Erro ao buscar pedidos:', e);
       }
@@ -294,6 +297,11 @@ export default function App() {
         if (data && data.length > 0) settingsData = data[0]?.data || data[0];
       } catch (e) {
         console.warn('[DashboardStats] Erro ao buscar configurações:', e);
+      }
+
+      if (!rawOrders || rawOrders.length === 0) {
+        const localOrders = await OrderRepository.list();
+        rawOrders = localOrders.map((order) => ({ id: order.id, status: order.status, created_at: order.updatedAt, order_data: order.orderData }));
       }
 
       if (!rawOrders || rawOrders.length === 0) {
@@ -509,6 +517,7 @@ export default function App() {
   };
 
   useEffect(() => {
+    void offlineSyncManager.initialize();
     // 1. Registra e sincroniza o push token do aparelho
     registerPushToken();
     const cleanTokenListeners = initPushTokenListeners();

@@ -14,7 +14,7 @@ import {
   MAX_VOICE_INACTIVITY_MS,
 } from '../../../services/financialAiAssistantService';
 import { MobileAgentService } from '../../../services/aiAgent/mobileAgentService';
-import { GeminiContent } from '../../../services/aiAgent/mobileAgentTypes';
+import { GeminiContent, ExecutedToolRecord } from '../../../services/aiAgent/mobileAgentTypes';
 import { VoiceSessionState } from '../types/VoiceSessionState';
 import { CardVisualState } from '../components/TransactionPreviewCard';
 import {
@@ -43,7 +43,6 @@ export function useFinancialAiChat({
   const [registering, setRegistering] = useState(false);
   const [timelineCards, setTimelineCards] = useState<FinancialCardTimelineEntry[]>([]);
   const [activeTimelineCardId, setActiveTimelineCardId] = useState<string | null>(null);
-  const [editModalVisible, setEditModalVisible] = useState(false);
 
   // Estados de Edicao e Copia de Mensagens
   const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
@@ -62,6 +61,7 @@ export function useFinancialAiChat({
   const silenceTimerRef = useRef<any>(null);
   const inactivityTimerRef = useRef<any>(null);
   const geminiHistoryRef = useRef<GeminiContent[]>([]);
+  const confirmingTimelineCardIdsRef = useRef(new Set<string>());
 
   const voiceSessionIdRef = useRef<number>(0);
   const abortControllerRef = useRef<AbortController | null>(null);
@@ -154,13 +154,13 @@ export function useFinancialAiChat({
     setEditText('');
   };
 
-  const publishPreparedTransactionCard = (createdTx: any, asstMsgId: string) => {
+  const publishPreparedTransactionCard = (createdTx: ExecutedToolRecord, asstMsgId: string) => {
     if (!createdTx || !createdTx.result?.success) return;
     const txData = createdTx.result?.data || createdTx.args;
     if (!txData) return;
 
     const matchedCat = categories.find(c => c.id === txData.categoriaId);
-    const catName = matchedCat?.name || txData.descricao;
+    const catName = txData.categoriaNome || matchedCat?.name || 'Categoria não informada';
     const intent: ParsedFinancialIntent = {
       type: txData.tipo,
       amount: txData.valor,
@@ -172,10 +172,18 @@ export function useFinancialAiChat({
       paymentMethod: txData.formaPagamento || '',
       vehicle: txData.veiculo || undefined,
       date: txData.data || new Date().toISOString().split('T')[0],
+      missingFields: [],
       isReadyForConfirmation: true,
+      validationStatus: 'ready',
     };
     setPendingIntent(intent);
     publishTimelineCard(intent, 'READY_TO_CONFIRM', asstMsgId);
+  };
+
+  const publishPreparedTransactionCards = (executedTools: ExecutedToolRecord[], asstMsgId: string) => {
+    executedTools
+      .filter(tool => tool.name === 'criarMovimentacaoFinanceira' && tool.result?.success)
+      .forEach(tool => publishPreparedTransactionCard(tool, asstMsgId));
   };
 
   const handleSaveAndResend = async (targetMsg: ChatMessage) => {
@@ -226,10 +234,7 @@ export function useFinancialAiChat({
 
       setMessages(prev => [...prev, asstMsg]);
 
-      const createdTx = result.executedTools.find(t => t.name === 'criarMovimentacaoFinanceira');
-      if (createdTx && createdTx.result?.success) {
-        publishPreparedTransactionCard(createdTx, asstMsg.id);
-      }
+      publishPreparedTransactionCards(result.executedTools, asstMsg.id);
     } catch (err: any) {
       console.warn('Erro ao reenviar mensagem editada no mobile:', err);
     } finally {
@@ -273,10 +278,7 @@ export function useFinancialAiChat({
 
       setMessages(prev => [...prev, asstMsg]);
 
-      const createdTx = result.executedTools.find(t => t.name === 'criarMovimentacaoFinanceira');
-      if (createdTx && createdTx.result?.success) {
-        publishPreparedTransactionCard(createdTx, asstMsg.id);
-      }
+      publishPreparedTransactionCards(result.executedTools, asstMsg.id);
     } catch (err: any) {
       console.warn('Erro ao processar mensagem com o agente Gemini no mobile:', err);
       const asstMsg: ChatMessage = {
@@ -415,6 +417,28 @@ export function useFinancialAiChat({
     }
   };
 
+  const handleConfirmTimelineCard = async (cardId: string, intent: ParsedFinancialIntent) => {
+    if (confirmingTimelineCardIdsRef.current.has(cardId)) return;
+
+    confirmingTimelineCardIdsRef.current.add(cardId);
+    setTimelineCards(current => updateFinancialTimelineCardState(current, cardId, 'SAVING'));
+
+    try {
+      const res = await confirmFinancialDraft(intent, `agent-card_${cardId}`, userName);
+
+      if (res.success) {
+        setTimelineCards(current => updateFinancialTimelineCardState(current, cardId, 'SAVED'));
+        onTransactionRegistered();
+        return;
+      }
+
+      setTimelineCards(current => updateFinancialTimelineCardState(current, cardId, 'ERROR'));
+      Alert.alert('Erro ao Salvar', res.error || 'Nao foi possivel registrar a movimentacao.');
+    } finally {
+      confirmingTimelineCardIdsRef.current.delete(cardId);
+    }
+  };
+
   const handleSelectCandidate = (candidate: any) => {
     if (!pendingIntent) return;
     const updated = {
@@ -472,7 +496,6 @@ export function useFinancialAiChat({
     registering,
     timelineCards,
     activeTimelineCardId,
-    editModalVisible,
     editingMessageId,
     editText,
     copiedMessageId,
@@ -482,7 +505,6 @@ export function useFinancialAiChat({
     scrollViewRef,
     setInputText,
     setEditText,
-    setEditModalVisible,
     setPendingIntent,
     handleClearChat,
     handleCopyMessage,
@@ -494,6 +516,7 @@ export function useFinancialAiChat({
     handleStopVoice,
     handleCancelVoice,
     handleConfirmRegister,
+    handleConfirmTimelineCard,
     handleSelectCandidate,
     handleConfirmRegisterSingle,
     latestTimelineAnchor,

@@ -14,12 +14,15 @@ describe('Inbound XML Parser (SEFAZ Layout 4.00)', () => {
         <serie>1</serie>
         <nNF>1234</nNF>
         <dhEmi>2026-09-07T10:00:00-03:00</dhEmi>
+        <dhSaiEnt>2026-09-08T08:30:00-03:00</dhSaiEnt>
         <tpNF>1</tpNF>
       </ide>
       <emit>
         <CNPJ>12345678000190</CNPJ>
         <xNome>ESTOFADOS FABRICA LTDA</xNome>
         <xFant>FABRICA ESTOFADOS</xFant>
+        <IE>123456789</IE>
+        <enderEmit><xLgr>Rua das Flores</xLgr><nro>100</nro><xBairro>Centro</xBairro><xMun>Curitiba</xMun><UF>PR</UF><CEP>80000000</CEP></enderEmit>
       </emit>
       <dest>
         <CNPJ>44512248000107</CNPJ>
@@ -31,6 +34,7 @@ describe('Inbound XML Parser (SEFAZ Layout 4.00)', () => {
           <cEAN>SEM GTIN</cEAN>
           <xProd>SOFA RETRATIL 3L SUEDE</xProd>
           <NCM>94014010</NCM>
+          <CEST>2803800</CEST>
           <CFOP>5102</CFOP>
           <uCom>UN</uCom>
           <qCom>2.0000</qCom>
@@ -42,6 +46,7 @@ describe('Inbound XML Parser (SEFAZ Layout 4.00)', () => {
           <IPI>
             <IPITrib>
               <vIPI>50.00</vIPI>
+              <pIPI>5.00</pIPI>
             </IPITrib>
           </IPI>
         </imposto>
@@ -51,6 +56,11 @@ describe('Inbound XML Parser (SEFAZ Layout 4.00)', () => {
           <vProd>3000.00</vProd>
           <vFrete>100.00</vFrete>
           <vIPI>50.00</vIPI>
+          <vICMS>216.00</vICMS>
+          <vST>72.00</vST>
+          <vDesc>20.00</vDesc>
+          <vSeg>10.00</vSeg>
+          <vOutro>5.00</vOutro>
           <vNF>3150.00</vNF>
         </ICMSTot>
       </total>
@@ -72,6 +82,12 @@ describe('Inbound XML Parser (SEFAZ Layout 4.00)', () => {
         expect(result.totalFreight).toBe(100);
         expect(result.totalIpi).toBe(50);
         expect(result.totalInvoice).toBe(3150);
+        expect(result.totalIcms).toBe(216);
+        expect(result.totalIcmsSt).toBe(72);
+        expect(result.totalDiscount).toBe(20);
+        expect(result.operationNature).toBe('VENDA DE MERCADORIAS');
+        expect(result.emitterIe).toBe('123456789');
+        expect(result.emitterAddress).toMatchObject({ city: 'Curitiba', state: 'PR' });
 
         expect(result.items).toHaveLength(1);
         expect(result.items[0].productDescription).toBe('SOFA RETRATIL 3L SUEDE');
