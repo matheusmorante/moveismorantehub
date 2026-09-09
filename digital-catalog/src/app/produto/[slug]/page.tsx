@@ -2,6 +2,7 @@ import { Metadata } from "next"
 import { supabase } from "@/lib/supabase/client"
 import ProductPageContent from "@/features/products/components/product-page-content"
 import { stripHtml } from "@/services/meta-catalog"
+import { hasPublicCatalogItem } from "@/features/products/product-visibility"
 
 // A ocultação no ERP precisa refletir imediatamente também em links diretos,
 // prévias de compartilhamento e páginas já visitadas do catálogo.
@@ -29,6 +30,10 @@ async function getProductData(slug: string) {
   ])
 
   if (prodRes.error || !prodRes.data) {
+    return null
+  }
+
+  if (!hasPublicCatalogItem(prodRes.data)) {
     return null
   }
 

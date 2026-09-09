@@ -9,7 +9,7 @@ import { defaultStoreDesignSettings, productGridStyleClasses, StoreDesignSetting
 import { cn } from "@/lib/utils"
 
 import { slugifyText } from "@/lib/slug-utils"
-import { isPublicCatalogVariation } from "../product-visibility"
+import { hasPublicCatalogItem, isPublicCatalogVariation } from "../product-visibility"
 
 interface ProductGridProps {
   filters?: {
@@ -167,6 +167,8 @@ export function ProductGrid({ filters }: ProductGridProps) {
         let results: any[] = []
 
         for (const p of rawProducts) {
+          if (!hasPublicCatalogItem(p)) continue
+          const allVariations = p.product_variations || []
           const variations = p.product_variations?.filter((v: any) => isPublicCatalogVariation(v)) || []
           
           const finalOpportunities = p.opportunities || (p.is_salvado ? {
@@ -182,7 +184,7 @@ export function ProductGrid({ filters }: ProductGridProps) {
             opportunities: finalOpportunities
           }
 
-          if (variations.length > 0) {
+          if (allVariations.length > 0) {
             for (const v of variations) {
               const varPrice = v.use_parent_price === false && v.price ? parseFloat(v.price) : p.price
               const varPromoPrice = v.use_parent_promo_price === false && v.promo_price ? parseFloat(v.promo_price) : p.promo_price
