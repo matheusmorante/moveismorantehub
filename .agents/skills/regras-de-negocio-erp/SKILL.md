@@ -87,5 +87,15 @@ Use esta skill antes de alterar comportamentos de domínio referentes a vendas, 
 - **Consciência de Lote Obrigatória (`batch-aware`)**: Todo o pipeline (perguntas agrupadas via `buildGroupedQuestion`, chips de análise em tempo real via `buildDraftAnalysisChips`, renderização de cards e aplicação de patches via `applyTurnPatchWithDraftList`) DEVE ser conscientemente **batch-aware** e operar sobre a totalidade dos rascunhos do lote.
 - **Rastreabilidade Histórica da Causa Raiz**: O bug histórico onde a segunda movimentação sumia ocorria por conta da atribuição precoce de `questionToUser` isolada do item `[0]` e descarte visual de `batchDraftsList` na UI. O relatório de causa raiz é mantido junto da bateria de testes de regressão (`multiFactPipelineGroupedQuestions.test.ts` e `financialInvariants.test.ts`) para documentar a causa estrutural do comportamento.
 
+---
+
+## 9. Identidade Técnica Imutável (`id` / UUID)
+
+- **Regra Geral**: O `id`/UUID de qualquer registro persistido é sua identidade técnica imutável. Nenhum módulo do ERP, aplicativo, catálogo digital, serviço, Edge Function, RPC ou interface pode alterar, regenerar, substituir ou recriar o `id`/UUID de um registro existente.
+- **Relacionamentos Internos**: Relações entre entidades devem usar o `id`/UUID imutável. Em particular, a identidade de uma variação é sempre `product_variations.id`/`variation_id`; o SKU não pode ser usado como chave relacional interna quando o UUID existir.
+- **SKU é Código Comercial**: O SKU/código comercial pode ser alterado quando a operação de negócio permitir. A alteração nunca muda o UUID, nem pode romper vínculos, histórico, estoque, vendas, recebimentos, assistências ou demais registros relacionados.
+- **Sem Exposição Operacional**: Não disponibilizar em telas, fluxos, APIs de módulo ou lógicas comuns qualquer operação de troca de `id`/UUID. Nenhuma funcionalidade regular deve ter permissão para fazê-lo.
+- **Exceção Externa e Extraordinária**: Uma eventual alteração global de IDs só pode ocorrer diretamente no Supabase, como manutenção excepcional e fora do sistema operacional. Exige planejamento de migração de todas as referências, execução atômica, cópia de segurança e auditoria; não é uma operação de negócio nem deve ser implementada nas interfaces ou módulos.
+
 > Para o detalhamento completo de 50 tópicos e fórmulas matemáticas da arquitetura, consulte a referência em [references/estoque-cmpm-cmv.md](file:///c:/Users/mathe/OneDrive/%C3%81rea%20de%20Trabalho/projetos/morantehub/.agents/skills/regras-de-negocio-erp/references/estoque-cmpm-cmv.md).
 

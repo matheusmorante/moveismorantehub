@@ -180,14 +180,14 @@ export function InboundInvoiceItemsReview({ items, supplierId, suppliers, onChan
         advanceQueue(queue);
     };
 
-    /** Cria diretamente um produto dentro da família, herdando os dados do pai. */
+    /** Cria diretamente uma variação dentro do produto pai, herdando os dados aplicáveis. */
     const confirmNewVariationInFamily = async () => {
         if (!classifyingItem || !aiClassification?.matchedProductId || !supplierId) return;
         const markup = Number(effectiveMarkup.replace(',', '.'));
         if (!Number.isFinite(markup) || markup < 0) return toast.error('Informe um acréscimo válido sobre o custo final.');
         try {
             const family = await getFullProduct(aiClassification.matchedProductId);
-            if (!family) throw new Error('Família sugerida não encontrada no ERP.');
+            if (!family) throw new Error('Produto pai sugerido não encontrado no ERP.');
             const finalCost = finalItemCost(classifyingItem);
             const color = aiClassification.extractedAttributes.color;
             const attributes = color ? [await ensureAttributeValue('Cor', color)] : [];
@@ -206,12 +206,12 @@ export function InboundInvoiceItemsReview({ items, supplierId, suppliers, onChan
             });
             await saveProductSupplierCode({ supplierId, productId: family.id, productVariationId: variationId, supplierProductCode: classifyingItem.productCode, supplierDescription: classifyingItem.productDescription, normalizedDescription: aiClassification.normalizedParentName });
             onChange(classifyingItem.itemNumber, { matchedProductId: family.id, matchedVariationId: variationId, productErpName: `${family.name || family.title} — ${classifyingItem.productDescription}` });
-            toast.success(`Produto cadastrado na família "${family.name || family.title}".`);
+            toast.success(`Variação cadastrada no produto pai "${family.name || family.title}".`);
             const queue = creationQueue.filter((n) => n !== classifyingItem.itemNumber);
             setAiClassification(null); setClassifyingItem(null);
             advanceQueue(queue);
         } catch (error: any) {
-            toast.error(error.message || 'Não foi possível cadastrar o produto na família.');
+            toast.error(error.message || 'Não foi possível cadastrar a variação no produto pai.');
         }
     };
 
@@ -290,7 +290,7 @@ export function InboundInvoiceItemsReview({ items, supplierId, suppliers, onChan
                                 <h4 className="text-sm font-black text-slate-800 dark:text-slate-100">{item.itemNumber}. {item.productDescription || 'Descrição não encontrada'}</h4>
                                 <p className="text-xs font-mono text-slate-600 dark:text-slate-300">Cód. fornecedor: {item.productCode || '—'} · {item.quantity} {item.unit}</p>
                                 <div className="grid grid-cols-2 gap-2 text-xs text-slate-600 dark:text-slate-300"><span>Unit.: <b>{formatCurrency(item.unitCost)}</b></span><span>Total: <b>{formatCurrency(item.totalCost)}</b></span><span>NCM: {item.ncm || '—'}</span><span>CFOP: {item.cfop || '—'}</span></div>
-                                {item.normalizedParentName ? <div className="rounded-xl border border-indigo-200 bg-indigo-50/70 p-3 text-xs text-indigo-950 dark:border-indigo-900 dark:bg-indigo-950/30 dark:text-indigo-100"><p className="font-black"><i className="bi bi-stars mr-1" />Interpretação da IA — ainda não confirmada</p><p className="mt-1">Produto pai provável: <b>{item.normalizedParentName}</b></p>{item.extractedAttributes?.color ? <p className="mt-1">Cor detectada: <b>{item.extractedAttributes.color}</b></p> : null}{item.detectedSupplierCodeFamily ? <p className="mt-1">Família provável do código: <b>{item.detectedSupplierCodeFamily}</b></p> : null}</div> : null}
+                                {item.normalizedParentName ? <div className="rounded-xl border border-indigo-200 bg-indigo-50/70 p-3 text-xs text-indigo-950 dark:border-indigo-900 dark:bg-indigo-950/30 dark:text-indigo-100"><p className="font-black"><i className="bi bi-stars mr-1" />Interpretação da IA — ainda não confirmada</p><p className="mt-1">Produto pai provável: <b>{item.normalizedParentName}</b></p>{item.extractedAttributes?.color ? <p className="mt-1">Cor detectada: <b>{item.extractedAttributes.color}</b></p> : null}{item.detectedSupplierCodeFamily ? <p className="mt-1">Produto pai provável pelo código: <b>{item.detectedSupplierCodeFamily}</b></p> : null}</div> : null}
                                 <InboundInvoiceItemFiscalReview item={item} />
                             </div>
                             <div className="flex min-w-0 flex-col rounded-2xl border border-dashed border-slate-200 bg-slate-50/70 p-4 dark:border-slate-700 dark:bg-slate-950/40">
@@ -359,11 +359,11 @@ export function InboundInvoiceItemsReview({ items, supplierId, suppliers, onChan
             {/* Modal: NEW_VARIATION_OF_EXISTING_PRODUCT — criar variação dentro do produto pai */}
             {!isClassifying && aiClassification?.decision === 'NEW_VARIATION_OF_EXISTING_PRODUCT' && classifyingItem && <div className="fixed inset-0 z-[1000005] flex items-center justify-center bg-slate-950/60 p-4">
                 <section className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl dark:bg-slate-900">
-                    <div className="flex items-center gap-2"><i className="bi bi-diagram-2 text-indigo-500" /><h3 className="text-base font-black text-slate-800 dark:text-slate-100">Novo produto em família existente</h3></div>
-                    <p className="mt-3 text-sm text-slate-600 dark:text-slate-300">A IA identificou que este item deve ser cadastrado como produto dentro de uma família existente. Ao confirmar, o cadastro normal será aberto com a família já definida.</p>
+                    <div className="flex items-center gap-2"><i className="bi bi-diagram-2 text-indigo-500" /><h3 className="text-base font-black text-slate-800 dark:text-slate-100">Nova variação em produto pai existente</h3></div>
+                    <p className="mt-3 text-sm text-slate-600 dark:text-slate-300">A IA identificou que este item deve ser cadastrado como variação de um produto pai existente.</p>
                     <div className="mt-4 space-y-1 rounded-xl bg-indigo-50 p-3 text-xs dark:bg-indigo-950/30">
                         <p className="font-bold text-slate-700 dark:text-slate-200">Item da NF: {classifyingItem.productDescription}</p>
-                        <p className="text-slate-600 dark:text-slate-300">Família sugerida: <b className="text-indigo-700 dark:text-indigo-300">{aiClassification.normalizedParentName || '—'}</b></p>
+                        <p className="text-slate-600 dark:text-slate-300">Produto pai sugerido: <b className="text-indigo-700 dark:text-indigo-300">{aiClassification.normalizedParentName || '—'}</b></p>
                         {aiClassification.extractedAttributes.color && <p className="text-slate-500">Cor da nova variação: <b>{aiClassification.extractedAttributes.color}</b></p>}
                         {aiClassification.extractedAttributes.measure && <p className="text-slate-500">Medida: <b>{aiClassification.extractedAttributes.measure}</b></p>}
                         {aiClassification.extractedAttributes.material && <p className="text-slate-500">Material: <b>{aiClassification.extractedAttributes.material}</b></p>}
@@ -375,7 +375,7 @@ export function InboundInvoiceItemsReview({ items, supplierId, suppliers, onChan
                     <p className="mt-2 text-xs text-slate-500">Custo final: <b>{formatCurrency(finalItemCost(classifyingItem))}</b> · Preço estimado: <b>{effectiveMarkup.trim() ? formatCurrency(finalItemCost(classifyingItem) * (1 + Number(effectiveMarkup.replace(',', '.')) / 100)) : 'Informe o acréscimo'}</b></p>
                     <div className="mt-5 flex justify-end gap-2">
                         <button type="button" onClick={discardClassificationAndCreateNew} className="rounded-lg px-3 py-2 text-xs font-black text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800">Criar como produto independente</button>
-                        <button type="button" onClick={confirmNewVariationInFamily} className="rounded-lg bg-indigo-600 px-3 py-2 text-xs font-black text-white">Continuar cadastro na família</button>
+                        <button type="button" onClick={confirmNewVariationInFamily} className="rounded-lg bg-indigo-600 px-3 py-2 text-xs font-black text-white">Cadastrar variação no produto pai</button>
                     </div>
                 </section>
             </div>}

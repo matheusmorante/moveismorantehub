@@ -47,7 +47,7 @@ export const ProductCardVariationList: React.FC<ProductCardVariationListProps> =
             {variations.map((v: any, index: number) => {
                 const varName = getVariationDisplayName(v, `Variação #${index + 1}`);
                 const varSku = normalizeVariationSku(v.sku || `${product.sku || product.code}-${String(index + 1).padStart(2, '0')}`);
-                const targetVarCatalogId = `${product.id}_${varSku}`;
+                const targetVarCatalogId = v.id;
                 const hasPromo = v.promoPrice && Number(v.promoPrice) > 0 && Number(v.promoPrice) < Number(v.unitPrice);
                 const displayPrice = hasPromo ? v.promoPrice : (v.unitPrice || 0);
 
@@ -160,7 +160,7 @@ export const ProductCardVariationList: React.FC<ProductCardVariationListProps> =
                                                     className="flex items-center gap-3 px-4 py-2.5 hover:bg-slate-50 dark:hover:bg-slate-950 transition-colors text-left group cursor-pointer"
                                                 >
                                                     <i className="bi bi-arrow-left-right text-indigo-500" />
-                                                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-700 dark:text-slate-200">Mover para outra família</span>
+                                                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-700 dark:text-slate-200">Mover para outro produto pai</span>
                                                 </button>
                                             )}
                                             {onShowHistory && (

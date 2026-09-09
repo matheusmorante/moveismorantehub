@@ -6,6 +6,7 @@ import { parseVariationImages } from '@/pages/utils/productService';
 import { toast } from 'react-toastify';
 import { SquareImageCropper } from './SquareImageCropper';
 import { moveProductImage, replaceProductImage, setProductCoverImage } from './productImageOrdering';
+import { MAX_PARENT_PRODUCT_IMAGES } from '@/pages/utils/productImageLimits';
 interface ProductEcommerceTabProps {
     formData: Partial<Product>;
     setFormData: React.Dispatch<React.SetStateAction<Partial<Product>>>;
@@ -32,7 +33,7 @@ const ProductEcommerceTab: React.FC<ProductEcommerceTabProps> = ({
     const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
     const [replacingIndex, setReplacingIndex] = useState<number | null>(null);
     const [croppingIndex, setCroppingIndex] = useState<number | null>(null);
-    const maxPhotos = 15;
+    const maxPhotos = MAX_PARENT_PRODUCT_IMAGES;
     const currentCount = (formData.images || []).length;
     const handleReplacePhoto = async (index: number, file: File) => {
         setReplacingIndex(index);

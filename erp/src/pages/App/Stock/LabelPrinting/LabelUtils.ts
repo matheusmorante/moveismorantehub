@@ -44,7 +44,8 @@ export const processProductData = (data: any[]) => {
 
                 flattened.push({
                     ...normalizedProduct,
-                    id: `${product.id}_${v.sku || varName || v.id}`,
+                    id: v.id,
+                    variationId: v.id,
                     sku: v.sku || product.sku || product.code,
                     description: v.syncDescription ? `${description} - ${varName}` : (varName || description),
                     variationName: varName,

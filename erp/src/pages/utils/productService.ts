@@ -5,11 +5,21 @@ import { saveInventoryMove } from "./inventoryService";
 import { ensureDefaultVariation, isDefaultVariation, normalizeVariationSku } from './productVariationDefaults';
 import { removeAccents, buildAccentInsensitiveRegex } from './textUtils';
 import { normalizeSlug, resolveUniqueSlug } from './uniqueSlug';
+import { MAX_PARENT_PRODUCT_IMAGES, MAX_VARIATION_IMAGES } from './productImageLimits';
 
 
 
 const TABLE_NAME = "products";
 const LOCAL_STORAGE_KEY = 'local_products';
+
+const validateProductImageLimits = (product: Partial<Product>): void => {
+    if ((product.images || []).length > MAX_PARENT_PRODUCT_IMAGES) {
+        throw new Error(`O produto pai pode ter no máximo ${MAX_PARENT_PRODUCT_IMAGES} fotos.`);
+    }
+    if ((product.variations || []).some(variation => (variation.images || []).length > MAX_VARIATION_IMAGES)) {
+        throw new Error(`Cada variação pode vincular no máximo ${MAX_VARIATION_IMAGES} fotos.`);
+    }
+};
 
 export const parseVariationImages = (rawImageUrl: any, rawImages?: any): string[] => {
     const candidates: any[] = [];
@@ -777,28 +787,8 @@ export const checkSkusUniquenessBatch = async (skus: string[], excludeProductId?
 const syncProductToSupabase = async (product: Product): Promise<void> => {
     try {
         const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(product.id || '');
-        if (!isUUID && product.id) {
-            const oldId = product.id;
-            const newId = crypto.randomUUID();
-            console.log(`[ProductService] Convertendo ID legado ${oldId} para UUID ${newId}`);
-            
-            product.id = newId;
-            
-            if (product.variations) {
-                product.variations.forEach(v => {
-                    (v as any).product_id = newId;
-                    if (!v.id || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v.id)) {
-                        v.id = crypto.randomUUID();
-                    }
-                });
-            }
-            
-            const localProducts = getLocalProducts();
-            const idx = localProducts.findIndex(p => String(p.id) === String(oldId));
-            if (idx !== -1) {
-                localProducts[idx] = product;
-                saveLocalProducts(localProducts);
-            }
+        if (!isUUID) {
+            throw new Error('Produto sem UUID válido. IDs existentes não podem ser regenerados pelo sistema; regularize-o diretamente em manutenção externa.');
         }
 
         const dbData = mapToDB(product);
@@ -884,20 +874,14 @@ const syncProductToSupabase = async (product: Product): Promise<void> => {
                     }
                 }
 
-                // Alguns cadastros legados usam IDs como "<id-do-produto>_01".
-                // A tabela product_variations exige UUID, então normalizamos antes de
-                // montar os filtros e o upsert para não bloquear o salvamento.
+                // Variações persistidas preservam seu UUID. Não existe fallback
+                // pelo SKU nem regeneração de ID durante uma edição.
                 const isUuid = (value?: string) => Boolean(value && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value));
                 product.variations.forEach((variation) => {
-                    if (!isUuid(variation.id)) variation.id = crypto.randomUUID();
+                    if (!isUuid(variation.id)) {
+                        throw new Error('Toda variação deve possuir UUID antes de ser salva. Regularize cadastros legados em manutenção externa.');
+                    }
                 });
-                // Substitui o conjunto completo de variações. Além de simplificar a
-                // sincronização, evita enviar IDs legados no filtro `not.in`.
-                const { error: deleteVariationsError } = await supabase
-                    .from("product_variations")
-                    .delete()
-                    .eq("product_id", product.id);
-                if (deleteVariationsError) throw deleteVariationsError;
 
                 const { data: existingVariations, error: existingVariationsError } = await supabase
                     .from("product_variations")
@@ -932,7 +916,11 @@ const syncProductToSupabase = async (product: Product): Promise<void> => {
                     usedSkus.add(resolvedSku);
                     v.sku = resolvedSku;
 
-                    const effectiveImages = isDefaultVariation(v, index) ? (product.images || v.images || []) : (v.images || []);
+                    // A variação principal pode usar fotos do produto pai, mas seu
+                    // próprio vínculo continua limitado a 15 imagens.
+                    const effectiveImages = isDefaultVariation(v, index)
+                        ? (product.images || v.images || []).slice(0, MAX_VARIATION_IMAGES)
+                        : (v.images || []);
                     return {
                         ...(v.id ? { id: v.id } : {}),
                         product_id: product.id,
@@ -975,44 +963,11 @@ const ensureUuidFormat = (product: Partial<Product>): string => {
     if (!product.id) return crypto.randomUUID();
     const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(product.id);
     if (isUUID) return product.id;
-
-    const oldId = product.id;
-    const newId = crypto.randomUUID();
-    console.log(`[ProductService] ensureUuidFormat: Normalizando ID legado ${oldId} para UUID ${newId}`);
-    
-    product.id = newId;
-    if (product.variations) {
-        product.variations.forEach(v => {
-            (v as any).product_id = newId;
-            if (!v.id || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v.id)) {
-                v.id = crypto.randomUUID();
-            }
-        });
-    }
-
-    let localProducts = getLocalProducts();
-    // Limpar qualquer duplicata no cache local com o mesmo SKU (exceto o ID legado que estamos migrando) para evitar conflitos de SKU em uso
-    if (product.code) {
-        localProducts = localProducts.filter(p => String(p.id) === String(oldId) || p.code !== product.code);
-    }
-    const idx = localProducts.findIndex(p => String(p.id) === String(oldId));
-    if (idx !== -1) {
-        localProducts[idx] = {
-            ...localProducts[idx],
-            ...product,
-            id: newId
-        };
-    } else {
-        localProducts.push({
-            ...product,
-            id: newId
-        } as Product);
-    }
-    saveLocalProducts(localProducts);
-    return newId;
+    throw new Error('IDs existentes são imutáveis. Um cadastro legado sem UUID deve ser regularizado em manutenção externa antes de ser alterado.');
 };
 
 export const saveProduct = async (product: Product, forceInsert = false): Promise<string> => {
+    validateProductImageLimits(product);
     Object.assign(product, ensureDefaultVariation(product));
     const legacyId = !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(product.id || '') ? product.id : undefined;
     const resolvedId = ensureUuidFormat(product);
@@ -1126,7 +1081,11 @@ export const checkProductLinkedToSales = async (id: string | number): Promise<st
 };
 
 export const updateProduct = async (id: string, productToUpdate: Partial<Product>): Promise<void> => {
-    const legacyId = !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id) ? id : undefined;
+    validateProductImageLimits(productToUpdate);
+    if (productToUpdate.id && String(productToUpdate.id) !== String(id)) {
+        throw new Error('Não é permitido alterar o ID de um produto existente.');
+    }
+    const legacyId = undefined;
     const dummyProduct = { ...productToUpdate, id };
     const resolvedId = ensureUuidFormat(dummyProduct);
     if (productToUpdate.id) productToUpdate.id = resolvedId;
@@ -1213,13 +1172,6 @@ export const updateProduct = async (id: string, productToUpdate: Partial<Product
     // Sincronizar com Supabase e aguardar conclusão
     await syncProductToSupabase(updatedProduct);
 
-    const oldCode = currentItem.code;
-    const newCode = productToUpdate.code;
-    const variationsChanged = productToUpdate.variations !== undefined;
-
-    if ((newCode && oldCode !== newCode) || variationsChanged) {
-        syncCodesInOrders(id, newCode || oldCode || '', productToUpdate.variations).catch(console.error);
-    }
 };
 
 export const checkProductHasMoves = async (productId: string, variationId?: string): Promise<boolean> => {
@@ -1282,51 +1234,6 @@ export const deleteProduct = async (id: string): Promise<{ success: boolean; mes
             success: false,
             message: error.message || "Erro ao desativar o produto."
         };
-    }
-};
-
-const syncCodesInOrders = async (productId: string, parentCode: string, variations?: Variation[]) => {
-    try {
-        const { data: orders, error } = await supabase
-            .from('orders')
-            .select('id, order_data')
-            .filter('order_data', 'cs', `"{\\"items\\": [{\\"productId\\": \\"${productId}\\"}]}"`)
-            .neq('order_data->>deleted', 'true');
-
-        if (error) throw error;
-        if (!orders || orders.length === 0) return;
-
-        for (const order of orders) {
-            let changed = false;
-            const orderData = order.order_data;
-            if (!orderData?.items) continue;
-
-            const updatedItems = orderData.items.map((item: any) => {
-                if (item.productId === productId) {
-                    let correctCode = parentCode;
-                    
-                    if (item.variationId && variations) {
-                        const v = variations.find((v: any) => v.id === item.variationId);
-                        if (v?.sku) correctCode = v.sku;
-                    }
-
-                    if (item.code !== correctCode) {
-                        changed = true;
-                        return { ...item, code: correctCode };
-                    }
-                }
-                return item;
-            });
-
-            if (changed) {
-                await supabase
-                    .from('orders')
-                    .update({ order_data: { ...orderData, items: updatedItems } })
-                    .eq('id', order.id);
-            }
-        }
-    } catch (err) {
-        console.error(`Falha no sync de códigos para produto ${productId}:`, err);
     }
 };
 
@@ -1444,6 +1351,9 @@ export const restoreProduct = async (id: string): Promise<void> => {
 
 export const saveVariation = async (productId: string, variation: any): Promise<void> => {
     try {
+        if ((variation.images || []).length > MAX_VARIATION_IMAGES) {
+            throw new Error(`Cada variação pode vincular no máximo ${MAX_VARIATION_IMAGES} fotos.`);
+        }
         const products = getLocalProducts();
         const index = products.findIndex(p => String(p.id).toLowerCase() === String(productId).toLowerCase());
         if (index === -1) throw new Error("Produto pai não encontrado.");
@@ -1498,7 +1408,7 @@ export const saveVariation = async (productId: string, variation: any): Promise<
 };
 
 /**
- * Move uma variação já existente para outra família sem recriar seu registro.
+ * Move uma variação já existente para outro produto pai sem recriar seu registro.
  * O ID da variação, estoque, preços e histórico permanecem intactos.
  */
 export const moveVariationToFamily = async (
@@ -1507,18 +1417,81 @@ export const moveVariationToFamily = async (
     attributes: { name: string; value: string; showName?: boolean }[],
     name: string,
     imageUrls: string[],
+    sourceParentId?: string,
 ): Promise<void> => {
-    const { error } = await supabase
+    const variationImages = Array.from(new Set(imageUrls.filter(Boolean)));
+    if (variationImages.length > MAX_VARIATION_IMAGES) {
+        throw new Error(`Cada variação pode vincular no máximo ${MAX_VARIATION_IMAGES} fotos.`);
+    }
+
+    const { data: targetParent, error: targetParentError } = await supabase
+        .from(TABLE_NAME)
+        .select('images, product_images(image_url)')
+        .eq('id', targetFamilyId)
+        .single();
+    if (targetParentError) throw targetParentError;
+
+    const parentColumnImages = Array.isArray(targetParent?.images) ? targetParent.images : [];
+    const parentRelationImages = (targetParent?.product_images || []).map((image: any) => image.image_url);
+    const mergedParentImages = Array.from(new Set([...parentColumnImages, ...parentRelationImages, ...variationImages].filter(Boolean)));
+    if (mergedParentImages.length > MAX_PARENT_PRODUCT_IMAGES) {
+        throw new Error(`Não é possível mover: o novo produto pai ultrapassaria o limite de ${MAX_PARENT_PRODUCT_IMAGES} fotos.`);
+    }
+
+    const { error: parentImagesError } = await supabase
+        .from(TABLE_NAME)
+        .update({ images: mergedParentImages })
+        .eq('id', targetFamilyId);
+    if (parentImagesError) throw parentImagesError;
+
+    const { error: deleteParentImagesError } = await supabase
+        .from('product_images')
+        .delete()
+        .eq('product_id', targetFamilyId);
+    if (deleteParentImagesError) throw deleteParentImagesError;
+    if (mergedParentImages.length > 0) {
+        const { error: insertParentImagesError } = await supabase
+            .from('product_images')
+            .insert(mergedParentImages.map((imageUrl, index) => ({
+                product_id: targetFamilyId,
+                image_url: imageUrl,
+                is_main: index === 0,
+            })));
+        if (insertParentImagesError) throw insertParentImagesError;
+    }
+
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(variationId);
+    if (!isUuid) {
+        throw new Error('A variação precisa ter um UUID válido para ser movida. Atualize o cadastro legado antes de continuar.');
+    }
+    const deactivateSourceParentWhenEmpty = async () => {
+        if (!sourceParentId || sourceParentId === targetFamilyId) return;
+        const { count, error: countVariationsError } = await supabase
+            .from('product_variations')
+            .select('id', { count: 'exact', head: true })
+            .eq('product_id', sourceParentId);
+        if (countVariationsError) throw countVariationsError;
+        if (count === 0) {
+            const { error: deactivateParentError } = await supabase
+                .from(TABLE_NAME)
+                .update({ active: false })
+                .eq('id', sourceParentId);
+            if (deactivateParentError) throw deactivateParentError;
+        }
+    };
+
+    const { error: updateVariationError } = await supabase
         .from('product_variations')
         .update({
             product_id: targetFamilyId,
             attributes: Object.fromEntries(attributes.map(attribute => [attribute.name, attribute.value])),
             name,
-            image_url: imageUrls.join(','),
+            image_url: variationImages.join(','),
         })
         .eq('id', variationId);
 
-    if (error) throw error;
+    if (updateVariationError) throw updateVariationError;
+    await deactivateSourceParentWhenEmpty();
 };
 export const syncFromWhatsApp = async (whatsappProduct: any): Promise<string> => {
     try {
@@ -1548,7 +1521,7 @@ export const syncFromWhatsApp = async (whatsappProduct: any): Promise<string> =>
         if (existingProduct) {
             let currentImages = Array.isArray(existingProduct.images) ? existingProduct.images : [];
             if (whatsappProduct.image_url && !currentImages.includes(whatsappProduct.image_url)) {
-                currentImages = [whatsappProduct.image_url, ...currentImages];
+                currentImages = [whatsappProduct.image_url, ...currentImages].slice(0, MAX_PARENT_PRODUCT_IMAGES);
             }
 
             await updateProduct(String(existingProduct.id), {

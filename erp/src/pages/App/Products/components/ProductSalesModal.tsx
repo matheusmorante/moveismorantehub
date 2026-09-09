@@ -18,11 +18,10 @@ const ProductSalesModal: React.FC<ProductSalesModalProps> = ({ product, onClose 
         const fetchOrders = async () => {
             setLoading(true);
             try {
-                // Passamos SKU e Descrição para busca exaustiva (casos onde o ID mudou)
+                const variationId = (product as any).variationId || (product.isVariation ? product.id : undefined);
                 const data = await getOrdersByProductId(
-                    product.id!, 
-                    product.code || product.sku, 
-                    product.description
+                    String((product as any).parentId || product.id || ''),
+                    variationId ? String(variationId) : undefined,
                 );
                 setOrders(data);
             } catch (error) {
@@ -32,23 +31,25 @@ const ProductSalesModal: React.FC<ProductSalesModalProps> = ({ product, onClose 
             }
         };
         fetchOrders();
-    }, [product.id, product.code, product.sku, product.description]);
+    }, [product.id, (product as any).parentId, (product as any).variationId, (product as any).isVariation]);
 
     const getQuantityInOrder = (order: Order) => {
-        const productId = product.id;
-        const productSku = (product.code || product.sku)?.toString().toUpperCase();
+        const productId = String((product as any).parentId || product.id || '');
+        const variationId = (product as any).variationId || (product.isVariation ? product.id : undefined);
 
         const normalItems = (order.items || [])
             .filter(item => {
-                const itemCode = item.code?.toString().toUpperCase();
-                return item.productId === productId || (productSku && itemCode === productSku);
+                return variationId
+                    ? String(item.variationId || '') === String(variationId)
+                    : String(item.productId || '') === productId;
             })
             .reduce((sum, item) => sum + (item.quantity || 0), 0);
 
         const assistanceItems = (order.assistanceItems || [])
             .filter((item: any) => {
-                const itemCode = (item.code || item.sku)?.toString().toUpperCase();
-                return item.id === productId || (productSku && itemCode === productSku);
+                return variationId
+                    ? String(item.variationId || '') === String(variationId)
+                    : String(item.productId || item.id || '') === productId;
             })
             .reduce((sum, item) => sum + (item.quantity || 0), 0);
 
@@ -118,11 +119,13 @@ const ProductSalesModal: React.FC<ProductSalesModalProps> = ({ product, onClose 
                                 </thead>
                                 <tbody className="divide-y divide-slate-50 dark:divide-slate-800/50">
                                     {orders.map((order) => {
-                                        const productSku = (product.code || product.sku)?.toString().toUpperCase();
                                         const qty = getQuantityInOrder(order);
+                                        const variationId = (product as any).variationId || (product.isVariation ? product.id : undefined);
+                                        const productId = String((product as any).parentId || product.id || '');
                                         const item = [...(order.items || []), ...(order.assistanceItems || []) as any].find((i: any) => {
-                                            const itemCode = (i.code || i.sku)?.toString().toUpperCase();
-                                            return i.productId === product.id || i.id === product.id || (productSku && itemCode === productSku);
+                                            return variationId
+                                                ? String(i.variationId || '') === String(variationId)
+                                                : String(i.productId || i.id || '') === productId;
                                         });
 
                                         const typeColor = order.orderType === 'assistance' ? 'bg-purple-600 text-white shadow-purple-500/20' : 

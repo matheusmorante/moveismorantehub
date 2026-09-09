@@ -1254,37 +1254,28 @@ export const getNoticeFrequency = async (): Promise<Record<string, number>> => {
 };
 
 /**
- * Busca todos os pedidos que contenham um determinado produto
+ * Busca todos os pedidos que contenham um determinado produto/variação.
+ * SKU e descrição são snapshots comerciais e não participam desta resolução.
  */
-export const getOrdersByProductId = async (productId: string, productSku?: string, productDescription?: string): Promise<Order[]> => {
+export const getOrdersByProductId = async (productId: string, variationId?: string): Promise<Order[]> => {
     try {
-        const idStr = String(productId);
         const queryPromises: any[] = [];
         const baseQuery = () => supabase.from(TABLE_NAME).select('*').order('created_at', { ascending: false });
 
-        // 1. Busca por ID em itens e assistência
-        queryPromises.push(baseQuery().contains('order_data', { items: [{ productId: idStr }] }));
-        queryPromises.push(baseQuery().contains('order_data', { items: [{ variationId: idStr }] }));
-        queryPromises.push(baseQuery().contains('order_data', { assistanceItems: [{ id: idStr }] }));
-
-        const numId = parseInt(idStr);
-        if (!isNaN(numId)) {
-            queryPromises.push(baseQuery().contains('order_data', { items: [{ productId: numId }] }));
-            queryPromises.push(baseQuery().contains('order_data', { items: [{ variationId: numId }] }));
+        if (variationId) {
+            // Uma variação sempre é identificada pelo UUID, mesmo que o SKU
+            // comercial tenha sido alterado depois da venda.
+            queryPromises.push(baseQuery().contains('order_data', { items: [{ variationId: String(variationId) }] }));
+            queryPromises.push(baseQuery().contains('order_data', { assistanceItems: [{ variationId: String(variationId) }] }));
+        } else if (productId) {
+            // Itens simples/legados vinculados diretamente ao produto-pai.
+            // Nunca procurar por SKU ou descrição, que são apenas snapshots.
+            queryPromises.push(baseQuery().contains('order_data', { items: [{ productId: String(productId) }] }));
+            queryPromises.push(baseQuery().contains('order_data', { assistanceItems: [{ productId: String(productId) }] }));
+            queryPromises.push(baseQuery().contains('order_data', { assistanceItems: [{ id: String(productId) }] }));
         }
 
-        // 2. Busca por SKU/Code se fornecido
-        if (productSku) {
-            queryPromises.push(baseQuery().contains('order_data', { items: [{ code: productSku }] }));
-            queryPromises.push(baseQuery().contains('order_data', { items: [{ sku: productSku }] }));
-            queryPromises.push(baseQuery().contains('order_data', { assistanceItems: [{ sku: productSku }] }));
-        }
-
-        // 3. Busca por Descrição se fornecida
-        if (productDescription) {
-            queryPromises.push(baseQuery().contains('order_data', { items: [{ description: productDescription }] }));
-            queryPromises.push(baseQuery().contains('order_data', { assistanceItems: [{ description: productDescription }] }));
-        }
+        if (queryPromises.length === 0) return [];
 
         const results = await Promise.all(queryPromises);
         const uniqueOrders = new Map<string, Order>();

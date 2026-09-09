@@ -30,6 +30,7 @@ import ProductConversionModal from "./components/ProductConversionModal";
 import { VariationRow } from './components/VariationRow';
 import { PRODUCT_ENVIRONMENT_OPTIONS } from './productEnvironmentOptions';
 import { INITIAL_PRODUCT_FORM_DATA } from './productFormInitialData';
+import { MAX_PARENT_PRODUCT_IMAGES } from '@/pages/utils/productImageLimits';
 
 
 // [x] Novo: Cadastro de Produtos e Serviços Simplificado (Manual)
@@ -579,7 +580,7 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
 
         if (files.length === 0) return;
 
-        const MAX_PHOTOS = 15;
+        const MAX_PHOTOS = MAX_PARENT_PRODUCT_IMAGES;
         const currentCount = (formData.images || []).length;
 
         if (currentCount >= MAX_PHOTOS) {

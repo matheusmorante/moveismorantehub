@@ -15,8 +15,6 @@ export function useOrderProductSelection(
             ? (variation.costPrice ?? product.costPrice ?? 0)
             : (product.costPrice ?? 0);
 
-        const defaultHandling = (product.itemType === 'service' ? "Execução no local" : items[0]?.handlingType) || "";
-
         let resolvedCode = "";
         if (variation) {
             resolvedCode = variation.sku || "";
@@ -42,13 +40,15 @@ export function useOrderProductSelection(
                     unitDiscount: pricing.unitDiscount,
                     discountType: pricing.discountType,
                     costPrice: Number(selectedCost) || 0,
-                    handlingType: defaultHandling,
+                    // Manuseio é uma decisão operacional do pedido. A seleção do
+                    // produto não pode herdar nem sugerir uma opção automaticamente.
+                    handlingType: "",
                     condition: variation?.condition || product.condition || "novo"
                 };
             }
             return item;
         }));
-    }, [items, setItems]);
+    }, [setItems]);
 
     const handleItemChange = useCallback((index: number, field: keyof Item, value: any) => {
         setItems(currentItems => currentItems.map((item, i) => {

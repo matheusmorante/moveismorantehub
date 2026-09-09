@@ -142,7 +142,8 @@ export const ProductSearchInput: React.FC<ProductSearchInputProps> = ({
 
                     return [{
                         ...parent,
-                        id: `${parent.id}_${variation.sku || variation.id}`,
+                        id: variation.id,
+                        variationId: variation.id,
                         sku: variation.sku || parent.sku || parent.code,
                         title,
                         description: title,

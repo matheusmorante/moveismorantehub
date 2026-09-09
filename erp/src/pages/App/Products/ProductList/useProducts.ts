@@ -582,11 +582,24 @@ export const useProducts = (filters?: any) => {
             // Persistência em background
             if (isVariation && variation) {
                 if (parentProduct?.id && Array.isArray(parentProduct.variations)) {
+                    const isOnlyVariation = parentProduct.variations.length === 1;
                     await updateProduct(parentProduct.id, {
+                        ...(isOnlyVariation ? { status: newStatus } : {}),
                         variations: parentProduct.variations.map((item: any) =>
                             String(item.id) === String(variation.id) ? { ...item, status: newStatus } : item
                         )
                     });
+
+                    // O catálogo também filtra pelo status do pai. Para o
+                    // produto de variação única, pai e filha representam o
+                    // mesmo item e precisam sempre permanecer sincronizados.
+                    if (isOnlyVariation) {
+                        const { error: parentStatusError } = await supabase
+                            .from('products')
+                            .update({ status: newStatus })
+                            .eq('id', parentProduct.id);
+                        if (parentStatusError) throw parentStatusError;
+                    }
                 }
                 
                 const isVarIdUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(variation.id);

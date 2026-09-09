@@ -197,8 +197,8 @@ export function renderProductRowStandardCell(key: string, ctx: CellContext) {
             );
 
         case 'status':
-            const targetCatalogId = (product.isEmbeddedVariation || (product.isVariation && product.sku && product.parentId))
-                ? `${product.parentId || product.id}_${product.sku}`
+            const targetCatalogId = product.isVariation
+                ? ((product as any).variationId || product.id!)
                 : product.id!;
 
             return (

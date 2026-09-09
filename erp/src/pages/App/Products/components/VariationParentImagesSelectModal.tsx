@@ -6,6 +6,7 @@ interface VariationParentImagesSelectModalProps {
     onClose: () => void;
     parentImages: string[];
     selectedImages: string[];
+    maxSelection: number;
     onConfirm: (selected: string[]) => void;
 }
 
@@ -14,15 +15,16 @@ export const VariationParentImagesSelectModal: React.FC<VariationParentImagesSel
     onClose,
     parentImages,
     selectedImages,
+    maxSelection,
     onConfirm
 }) => {
     const [tempSelected, setTempSelected] = useState<string[]>([]);
 
     useEffect(() => {
         if (isOpen) {
-            setTempSelected(selectedImages || []);
+            setTempSelected((selectedImages || []).slice(0, maxSelection));
         }
-    }, [isOpen, selectedImages]);
+    }, [isOpen, selectedImages, maxSelection]);
 
     if (!isOpen) return null;
 
@@ -31,16 +33,17 @@ export const VariationParentImagesSelectModal: React.FC<VariationParentImagesSel
             if (prev.includes(url)) {
                 return prev.filter(u => u !== url);
             } else {
+                if (prev.length >= maxSelection) return prev;
                 return [...prev, url];
             }
         });
     };
 
     const handleSelectAll = () => {
-        if (tempSelected.length === parentImages.length) {
+        if (tempSelected.length === Math.min(parentImages.length, maxSelection)) {
             setTempSelected([]);
         } else {
-            setTempSelected([...parentImages]);
+            setTempSelected(parentImages.slice(0, maxSelection));
         }
     };
 
@@ -93,14 +96,14 @@ export const VariationParentImagesSelectModal: React.FC<VariationParentImagesSel
                         <>
                             <div className="flex items-center justify-between pb-1">
                                 <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400">
-                                    {tempSelected.length} de {parentImages.length} selecionada(s)
+                                    {tempSelected.length} de até {maxSelection} selecionada(s)
                                 </span>
                                 <button
                                     type="button"
                                     onClick={handleSelectAll}
                                     className="text-[10px] font-black uppercase tracking-wider text-blue-600 dark:text-blue-400 hover:underline"
                                 >
-                                    {tempSelected.length === parentImages.length ? "Desmarcar Todas" : "Selecionar Todas"}
+                                    {tempSelected.length === Math.min(parentImages.length, maxSelection) ? "Desmarcar Todas" : `Selecionar até ${maxSelection}`}
                                 </button>
                             </div>
 

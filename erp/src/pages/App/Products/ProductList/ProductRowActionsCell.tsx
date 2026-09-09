@@ -58,7 +58,7 @@ export const ProductRowActionsCell: React.FC<ProductRowActionsCellProps> = ({
                                     className="flex w-full items-center gap-3 px-4 py-2.5 text-left transition-colors hover:bg-slate-50 dark:hover:bg-slate-950"
                                 >
                                     <i className="bi bi-arrow-left-right text-indigo-500" />
-                                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-700 dark:text-slate-200">Mover para outra família</span>
+                                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-700 dark:text-slate-200">Mover para outro produto pai</span>
                                 </button>
                             </div>
                         </DropdownPortal>

@@ -139,6 +139,8 @@ export const ensureDefaultVariation = <T extends Partial<Product>>(product: T): 
     return {
         ...product,
         hasVariations: true,
-        variations: [{ id: product.id ? `${product.id}_${sku || '01'}` : crypto.randomUUID(), sku, name, stock: Number(product.stock || 0), unitPrice: Number(product.unitPrice || 0), costPrice: Number(product.costPrice || 0), active: product.active !== false, attributes: [], images: [], syncUnitPrice: true, syncPromoPrice: true, syncCostPrice: true, syncDescription: true, syncWidth: true, syncHeight: true, syncDepth: true, syncWeight: true }],
+        // A variação principal é um novo registro físico e recebe seu próprio
+        // UUID. Nunca derivar identidade de `product.id` ou do SKU.
+        variations: [{ id: crypto.randomUUID(), sku, name, stock: Number(product.stock || 0), unitPrice: Number(product.unitPrice || 0), costPrice: Number(product.costPrice || 0), active: product.active !== false, attributes: [], images: [], syncUnitPrice: true, syncPromoPrice: true, syncCostPrice: true, syncDescription: true, syncWidth: true, syncHeight: true, syncDepth: true, syncWeight: true }],
     };
 };

@@ -38,14 +38,17 @@ function buildVariationListRow(
 
     return {
         ...product,
-        id: `${product.id}_${sku || index}`,
+        // `id` da linha de variação é sempre o UUID persistido. `rowId` é
+        // apenas uma chave visual, sem qualquer uso de domínio.
+        id: variation.id,
+        rowId: `${product.id}:${variation.id || index}`,
         variationId: variation.id,
+        productId: product.id,
         sku,
         code: sku,
         description: variation.name,
         displayName: variation.name,
         attributes: variation.attributes || [],
-        images: variation.images || [],
         syncUnitPrice: variation.syncUnitPrice !== false,
         syncPromoPrice: variation.syncPromoPrice !== false,
         syncDescription: variation.syncDescription !== false,
