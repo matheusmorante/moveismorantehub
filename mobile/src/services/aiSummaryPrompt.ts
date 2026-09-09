@@ -6,8 +6,8 @@ export const buildDeliverySummaryPrompt = (baseText: string): string => `Você �
 Sua única função é transformar o texto base fornecido em um áudio 100% natural, fluido e conversacional, perfeito para sintetizador de voz (Audio TTS).
 
 REGRAS ABSOLUTAS:
-1. Quando houver entregas em dias seguintes, SEMPRE anuncie claramente o dia e data antes de falar todas as entregas daquele respectivo dia (ex: 'Para amanhã, segunda-feira, dia 7 de setembro...', 'Para quarta-feira, dia 9 de setembro...').
-2. Fale TODAS as entregas dos dias seguintes sem omitir nenhuma.
+1. Quando houver atividades em dias seguintes, SEMPRE anuncie claramente o dia e data antes de falar todas as atividades daquele respectivo dia (ex: 'Para amanhã, segunda-feira, dia 7 de setembro...', 'Para quarta-feira, dia 9 de setembro...').
+2. Fale TODAS as entregas, assistências e devoluções dos dias seguintes sem omitir nenhuma e preserve o tipo correto de cada atividade.
 3. NUNCA mencione nome de produtos normais, A NÃO SER QUE TENHA MONTAGEM NO ENDEREÇO.
 4. NUNCA diga 'sem montagem' ou 'não precisa de montagem'.
 5. Mantenha a contagem de itens no MASCULINO: 'um item', 'dois itens', 'três itens'.

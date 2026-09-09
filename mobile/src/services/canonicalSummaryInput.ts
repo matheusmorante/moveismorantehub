@@ -1,5 +1,6 @@
 import { getLocalDateString, isCancelledOrder, isDateInPeriod, parseOrderDateStr } from '../utils/orderUtils';
 import { getOperationalScheduleDate } from '../utils/operationalSchedule';
+import { getOperationActivityPresentation, getOperationActivityType, type OperationActivityType } from '../features/schedule/utils/operationActivity';
 
 export const SUMMARY_GENERATOR_VERSION = 'v1';
 export const TTS_VERSION = 'v1';
@@ -26,6 +27,8 @@ export interface CanonicalOrder {
   observations: string;
   items: CanonicalOrderItem[];
   notices: string[];
+  activityType?: OperationActivityType;
+  activityLabel?: string;
 }
 
 export interface CanonicalSummaryPayload {
@@ -91,7 +94,7 @@ export function buildCanonicalSummaryPayload(
 
   const activeOrders = (rawOrders || []).filter((o: any) => !isCancelledOrder(o));
 
-  const deliveryOrders = activeOrders.filter((o: any) => {
+  const operationOrders = activeOrders.filter((o: any) => {
     const oData = o.order_data || {};
     const orderStatus = (o.status || oData.status || '').toLowerCase();
     if (o.deleted || o.is_deleted || o.status === 'deleted' || oData.deleted || orderStatus === 'draft' || orderStatus === 'rascunho') {
@@ -99,7 +102,7 @@ export function buildCanonicalSummaryPayload(
     }
 
     const shipping = oData.shipping || o.shipping || {};
-    const isDelivery = shipping.deliveryMethod === 'delivery' || !shipping.deliveryMethod;
+    const activityType = getOperationActivityType(o);
     const sched = shipping.scheduling || oData.schedule || oData.scheduling || o.schedule || {};
     const isPendingScheduling = Boolean(
       sched.pendingScheduling || oData.pendingScheduling || o.pending_scheduling ||
@@ -107,7 +110,8 @@ export function buildCanonicalSummaryPayload(
     );
     const schedDate = getOperationalScheduleDate(o);
 
-    if (!isDelivery || isPendingScheduling || !schedDate || schedDate === 'sem_data') return false;
+    // Entregas, assistências e devoluções agendadas participam do resumo operacional.
+    if (!['delivery', 'assistance', 'return'].includes(activityType) || isPendingScheduling || !schedDate || schedDate === 'sem_data') return false;
 
     const cleanSchedDate = parseOrderDateStr(schedDate);
     if (!cleanSchedDate || cleanSchedDate === 'sem_data') return false;
@@ -124,7 +128,7 @@ export function buildCanonicalSummaryPayload(
     return false;
   });
 
-  const canonicalOrders: CanonicalOrder[] = deliveryOrders.map((o: any) => {
+  const canonicalOrders: CanonicalOrder[] = operationOrders.map((o: any) => {
     const oData = o.order_data || {};
     const shipping = oData.shipping || o.shipping || {};
     const sched = shipping.scheduling || oData.schedule || oData.scheduling || o.schedule || {};
@@ -170,6 +174,7 @@ export function buildCanonicalSummaryPayload(
     if (obsLower.includes('nota fiscal') || /\bnf\b/.test(obsLower)) notices.push('nota fiscal');
 
     const cleanDate = parseOrderDateStr(getOperationalScheduleDate(o)) || '';
+    const activity = getOperationActivityPresentation(o);
 
     return {
       id: String(o.id || o.order_id || '').trim(),
@@ -186,6 +191,8 @@ export function buildCanonicalSummaryPayload(
       observations: obsText,
       items,
       notices: notices.sort(),
+      activityType: activity.type,
+      activityLabel: activity.label,
     };
   }).sort((a: CanonicalOrder, b: CanonicalOrder) => {
     if (a.scheduledDate !== b.scheduledDate) {

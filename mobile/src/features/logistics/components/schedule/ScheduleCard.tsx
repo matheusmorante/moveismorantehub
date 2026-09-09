@@ -24,6 +24,7 @@ export const ScheduleCard: React.FC<Props> = ({
   const [isExpanded, setIsExpanded] = useState(false);
 
   const oData = item.order?.order_data || item.order || {};
+  const serviceSummary = analyzeOrderServiceHandlings(oData.items || item.order?.items || oData.assistanceItems || []);
   const items = oData.items || item.order?.items || oData.assistanceItems || [];
   const orderHandling = oData.handlingType || item.order?.handling_type || oData.handling;
   const isReturn = String(oData.orderType || oData.order_type || item.order?.orderType || item.order?.order_type || '').toLowerCase() === 'return';
@@ -66,6 +67,9 @@ export const ScheduleCard: React.FC<Props> = ({
       {/* Cabeçalho do Card com selos de serviço e código do pedido */}
       <View style={styles.cardHeader}>
         <View style={styles.headerLeft}>
+          <View style={[styles.activityBadge, { backgroundColor: item.activityBackgroundColor }]}>
+            <Text style={[styles.activityBadgeText, { color: item.activityColor }]}>{item.activityLabel}</Text>
+          </View>
           {/* Selo Parafusadeira Amarela - Montagem Depósito */}
           {hasDepotAssembly && (
             <View style={[styles.drillBadge, styles.drillBadgeDepot]}>
@@ -145,7 +149,7 @@ export const ScheduleCard: React.FC<Props> = ({
           activeOpacity={0.85}
         >
           <Play size={14} color="#ffffff" fill="#ffffff" />
-          <Text style={styles.startBtnText}>INICIAR ENTREGA</Text>
+          <Text style={styles.startBtnText}>{item.activityType === 'delivery' ? 'INICIAR ENTREGA' : 'VER ATIVIDADE'}</Text>
         </TouchableOpacity>
       </View>
     </TouchableOpacity>
@@ -181,6 +185,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 6,
     flexWrap: 'wrap',
+  },
+  activityBadge: {
+    paddingHorizontal: 7,
+    paddingVertical: 4,
+    borderRadius: 6,
+  },
+  activityBadgeText: {
+    fontSize: 9,
+    fontWeight: '900',
+    letterSpacing: 0.4,
   },
   drillBadge: {
     width: 22,

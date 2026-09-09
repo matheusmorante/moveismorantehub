@@ -5,7 +5,7 @@ import { sha256Hex, uploadGeminiFile, waitForGeminiFile } from "../_shared/gemin
 const cors = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type" };
 const supported = new Set(["application/pdf", "image/png", "image/jpeg"]);
 const maxBytes = 12 * 1024 * 1024;
-const EXTRACTION_SCHEMA_VERSION = "nfe-extraction-v1";
+const EXTRACTION_SCHEMA_VERSION = "nfe-extraction-v2";
 const digits = (value: unknown) => String(value || "").replace(/\D/g, "");
 const validateAccessKey = (value: unknown) => {
   const raw = String(value || "").trim();
@@ -53,6 +53,7 @@ function validateExtraction(value: any) {
     ncm: String(item.ncm || "").trim(), cfop: String(item.cfop || "").trim(), unit: String(item.unit || "").trim(),
     quantity: numeric(item.quantity), unitCost: numeric(item.unitCost), totalCost: numeric(item.totalCost), discountValue: numeric(item.discountValue),
     ean: String(item.ean || "").trim(), cest: String(item.cest || "").trim(), freightValue: numeric(item.freightValue), insuranceValue: numeric(item.insuranceValue), otherExpensesValue: numeric(item.otherExpensesValue), ipiPercent: numeric(item.ipiPercent), ipiValue: numeric(item.ipiValue), icmsPercent: numeric(item.icmsPercent), icmsBaseValue: numeric(item.icmsBaseValue), icmsValue: numeric(item.icmsValue), icmsStPercent: numeric(item.icmsStPercent), icmsStBaseValue: numeric(item.icmsStBaseValue), icmsStValue: numeric(item.icmsStValue),
+    normalizedParentName: String(item.normalizedParentName || "").trim(), extractedAttributes: item.extractedAttributes && typeof item.extractedAttributes === "object" ? item.extractedAttributes : {}, detectedSupplierCodeFamily: String(item.detectedSupplierCodeFamily || "").trim() || null,
   }));
   if (!items.length) throw new Error("Nenhum item foi identificado no documento.");
   const confidence = value.confidence && typeof value.confidence === "object" ? value.confidence : {};
@@ -87,7 +88,6 @@ serve(async (req) => {
     const bytes = Uint8Array.from(atob(base64), (c) => c.charCodeAt(0));
     if (bytes.byteLength > maxBytes) throw new Error("O documento excede o limite de 12 MB.");
     const fileSha256 = await sha256Hex(bytes);
-    const fileName = String(body.fileName || "documento").replace(/[^a-zA-Z0-9._-]/g, "_");
     const storageStartedAt = Date.now();
     const path = `${user.id}/${fileSha256}-${crypto.randomUUID()}-${fileName}`;
     const { error: uploadError } = await service.storage.from("inbound-invoice-documents").upload(path, bytes, { contentType: mimeType, upsert: false });
@@ -99,7 +99,9 @@ serve(async (req) => {
 
 REGRAS ABSOLUTAS: nunca invente, estime, complete ou corrija números. Se não puder ler um campo, retorne null. Preserve os dígitos observados. Diferencie chave de acesso, protocolo, número da NF e código de barras. Para a chave, procure o rótulo "CHAVE DE ACESSO" e a região associada. Em DANFEs ela normalmente aparece em grupos de quatro dígitos separados por espaços; leia todos os grupos visíveis e retorne somente os dígitos, sem preencher ou adivinhar o que faltar. A chave é OPCIONAL: se estiver parcial, ilegível ou ausente, retorne o que foi possível (ou null), sem rejeitar o documento. Para itens, respeite linhas e colunas da tabela.
 
-Retorne SOMENTE JSON válido: {documentKind,isConsumerInvoice,invoice:{accessKey,number,series,issuedAt,entryExitAt,operationNature,model,protocol,additionalInfo,totalProducts,totalInvoice,freight,discount,insurance,otherExpenses,ipi,icms,icmsSt},issuer:{legalName,tradeName,taxId,stateRegistration,address},recipient:{legalName,taxId},items:[{itemNumber,productCode,productDescription,ean,ncm,cest,cfop,unit,quantity,unitCost,totalCost,discountValue,freightValue,insuranceValue,otherExpensesValue,ipiPercent,ipiValue,icmsPercent,icmsBaseValue,icmsValue,icmsStPercent,icmsStBaseValue,icmsStValue}],warnings,confidence}.`;
+Além da extração fiscal, para CADA item extraia normalizedParentName e extractedAttributes {color,measure,doors,material,feet,mirror}. Cor sempre deve ser analisada semanticamente, inclusive cores compostas como "Freijó/Off White". Remova somente atributos reais de variação do nome-base: números de portas, medidas, modelo e função do móvel não podem ser apagados. detectedSupplierCodeFamily é apenas a parte comum provável do código do fornecedor quando a descrição também apoiar a família; caso contrário null. Não conclua que itens são o mesmo produto apenas por códigos parecidos. Valores e custos nunca definem identidade ou variação: no máximo são evidência complementar quando nome, fornecedor, código e atributos já forem coerentes.
+
+Retorne SOMENTE JSON válido: {documentKind,isConsumerInvoice,invoice:{accessKey,number,series,issuedAt,entryExitAt,operationNature,model,protocol,additionalInfo,totalProducts,totalInvoice,freight,discount,insurance,otherExpenses,ipi,icms,icmsSt},issuer:{legalName,tradeName,taxId,stateRegistration,address},recipient:{legalName,taxId},items:[{itemNumber,productCode,productDescription,ean,ncm,cest,cfop,unit,quantity,unitCost,totalCost,discountValue,freightValue,insuranceValue,otherExpensesValue,ipiPercent,ipiValue,icmsPercent,icmsBaseValue,icmsValue,icmsStPercent,icmsStBaseValue,icmsStValue,normalizedParentName,extractedAttributes:{color,measure,doors,material,feet,mirror},detectedSupplierCodeFamily}],warnings,confidence}.`;
     let fileReference: Awaited<ReturnType<typeof uploadGeminiFile>> | null = null;
     let geminiFileUploadMs = 0;
     let geminiFileProcessingMs = 0;

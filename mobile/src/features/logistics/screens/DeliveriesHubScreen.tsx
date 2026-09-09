@@ -72,7 +72,7 @@ export const DeliveriesHubScreen: React.FC<Props> = ({
       <View style={[styles.headerContainer, isDarkMode && styles.headerContainerDark, { paddingTop: Math.max(insets.top, 8) }]}>
         <View style={styles.titleRow}>
           <View style={{ flex: 1 }}>
-            <Text style={[styles.screenTitle, isDarkMode && styles.textLight]}>Entregas</Text>
+            <Text style={[styles.screenTitle, isDarkMode && styles.textLight]}>Operação</Text>
           </View>
         </View>
 
@@ -115,7 +115,7 @@ export const DeliveriesHubScreen: React.FC<Props> = ({
 
       {/* Conteúdo Dinâmico Conforme a Sub-aba Selecionada */}
       {activeTab === 'today' ? (
-        /* Aba RESUMO: Contém estritamente o Card de Resumo de Entregas */
+        /* Aba RESUMO: visão consolidada da operação */
         <ScrollView
           style={{ flex: 1 }}
           contentContainerStyle={{ paddingVertical: 12 }}
@@ -135,7 +135,7 @@ export const DeliveriesHubScreen: React.FC<Props> = ({
         loading ? (
           <View style={styles.loadingCenter}>
             <ActivityIndicator size="large" color="#2563eb" />
-            <Text style={[styles.loadingText, isDarkMode && styles.textMuted]}>Carregando cronograma...</Text>
+            <Text style={[styles.loadingText, isDarkMode && styles.textMuted]}>Carregando cronograma de operação...</Text>
           </View>
         ) : (
           <DeliveryTimelineView

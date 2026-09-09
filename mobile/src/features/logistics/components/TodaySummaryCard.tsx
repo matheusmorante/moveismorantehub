@@ -279,10 +279,10 @@ export const TodaySummaryCard: React.FC<TodaySummaryCardProps> = ({
 
         <View style={{ flex: 1, marginLeft: 12 }}>
           <Text style={styles.headerTitle}>
-            {periodFilter === 'today' ? 'Entregas de Hoje' : 'Entregas dos Próximos Dias'}
+            {periodFilter === 'today' ? 'Operação de Hoje' : 'Operação dos Próximos Dias'}
           </Text>
           <Text style={styles.headerSubtitle}>
-            {totalCount} {totalCount === 1 ? 'entrega programada' : 'entregas programadas'}
+            {totalCount} {totalCount === 1 ? 'atividade programada' : 'atividades programadas'}
           </Text>
         </View>
       </View>

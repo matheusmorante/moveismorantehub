@@ -1,5 +1,6 @@
 import { getOperationalScheduleDate } from '../../../utils/operationalSchedule';
 import { getLocalDateString, parseOrderDateStr, isCancelledOrder } from '../../../utils/orderUtils';
+import { getOperationActivityType } from '../../schedule/utils/operationActivity';
 
 export type DeliveryPeriodFilter = 'today' | 'next_days';
 
@@ -42,10 +43,11 @@ export function calculateDeliverySummaryMetrics(
       return false;
     }
 
-    // Ignorar pedidos que não sejam entrega (ex: retirada em loja)
+    // A operação inclui entrega, assistência e devolução; retiradas continuam fora.
     const shipping = oData.shipping || order.shipping || {};
     const deliveryMethod = shipping.deliveryMethod || order.delivery_method;
-    if (deliveryMethod && deliveryMethod !== 'delivery') return false;
+    const activityType = getOperationActivityType(order);
+    if (activityType === 'delivery' && deliveryMethod && deliveryMethod !== 'delivery') return false;
 
     // Ignorar agendamentos pendentes
     const sched = shipping.scheduling || oData.schedule || oData.scheduling || order.schedule || {};
@@ -100,7 +102,10 @@ export function calculateDeliverySummaryMetrics(
 
     const rawItems = order.items || order.order_items || oData.items || [];
     const itemsCount = Array.isArray(rawItems) && rawItems.length > 0 ? rawItems.length : 1;
-    const itemLabel = `${clientName} (${itemsCount} ${itemsCount === 1 ? 'item' : 'itens'})`;
+    const activityLabel = getOperationActivityType(order) === 'assistance'
+      ? 'Assistência'
+      : getOperationActivityType(order) === 'return' ? 'Devolução' : 'Entrega';
+    const itemLabel = `${activityLabel}: ${clientName} (${itemsCount} ${itemsCount === 1 ? 'item' : 'itens'})`;
 
     // Normalizar horário/período
     const shipping = oData.shipping || order.shipping || {};
@@ -159,16 +164,16 @@ export function calculateDeliverySummaryMetrics(
   if (totalCount === 0) {
     defaultSummaryText =
       periodFilter === 'today'
-        ? 'Nenhuma entrega programada para o dia de hoje.'
-        : 'Nenhuma entrega agendada para os próximos dias.';
+        ? 'Nenhuma atividade operacional programada para o dia de hoje.'
+        : 'Nenhuma atividade operacional agendada para os próximos dias.';
   } else {
     const morningPart =
       morningClients.length > 0
-        ? `Manhã: entregas para ${morningClients.join(', ')}.`
-        : 'Manhã: sem entregas.';
+        ? `Manhã: ${morningClients.join(', ')}.`
+        : 'Manhã: sem atividades.';
     const afternoonPart =
       afternoonClients.length > 0
-        ? `Tarde: entregas para ${afternoonClients.join(', ')}.`
+        ? `Tarde: ${afternoonClients.join(', ')}.`
         : '';
     defaultSummaryText = `${morningPart} ${afternoonPart}`.trim();
   }

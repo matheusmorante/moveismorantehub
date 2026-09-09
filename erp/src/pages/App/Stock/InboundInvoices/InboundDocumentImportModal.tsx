@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { toast } from 'react-toastify';
 import PersonFormModal from '@/pages/App/Registrations/shared/PersonFormModal';
 import { analyzeInboundInvoiceDocument, invoiceFromDocumentAnalysis } from '@/pages/utils/inboundNfe/inboundDocumentImportService';
@@ -6,6 +6,8 @@ import { saveInboundInvoice } from '@/pages/utils/inboundNfe/inboundInvoicesServ
 import { InboundInvoice, InboundInvoiceItem } from '@/pages/utils/inboundNfe/inboundNfeTypes';
 import { fetchPersons } from '@/pages/utils/personService';
 import { saveProductSupplierCode } from '@/pages/utils/productSupplierCodesService';
+import { findProductSupplierCodes } from '@/pages/utils/productSupplierCodesService';
+import { recordProductResolutionFeedback } from '@/pages/utils/inboundNfe/productResolutionFeedbackService';
 import Person from '@/pages/types/person.type';
 import { calculateAdditionalCosts, getLegacyCompatibleCosts, isBlankAdditionalCost } from '@/pages/utils/inboundNfe/additionalCosts';
 import { InboundAdditionalCostsSection } from './InboundAdditionalCostsSection';
@@ -29,6 +31,38 @@ export function InboundDocumentImportModal({ isOpen, onClose, onImportSuccess }:
         supplierId: id || undefined,
         items: current.items.map((item) => ({ ...item, matchedProductId: undefined, matchedVariationId: undefined })),
     }) : current);
+
+    // Vínculo confirmado é a primeira fonte de verdade: ele evita chamada à IA
+    // e impede que um item já conhecido seja interpretado outra vez.
+    useEffect(() => {
+        if (!invoice?.supplierId) return;
+        let active = true;
+        const resolveConfirmedMappings = async () => {
+            try {
+                const mappings = await findProductSupplierCodes(invoice.supplierId!, invoice.items.map((item) => item.productCode));
+                if (!active || !mappings.size) return;
+                setInvoice((current) => {
+                    if (!current || current.supplierId !== invoice.supplierId) return current;
+                    return {
+                    ...current,
+                    items: current.items.map((item) => {
+                        const mapping = mappings.get(item.productCode.trim().toLocaleUpperCase('pt-BR'));
+                        return mapping ? {
+                            ...item,
+                            matchedProductId: mapping.productId,
+                            matchedVariationId: mapping.productVariationId,
+                            productErpName: 'Variação vinculada anteriormente a este código do fornecedor',
+                        } : item;
+                    }),
+                };
+                });
+            } catch (error) {
+                console.warn('Não foi possível consultar vínculos confirmados do fornecedor.', error);
+            }
+        };
+        void resolveConfirmedMappings();
+        return () => { active = false; };
+    }, [invoice?.supplierId]);
 
     const analyze = async (fileToAnalyze = file) => {
         if (!fileToAnalyze || loading) return;
@@ -81,6 +115,20 @@ export function InboundDocumentImportModal({ isOpen, onClose, onImportSuccess }:
                 productVariationId: item.matchedVariationId,
                 supplierProductCode: item.productCode,
                 supplierDescription: item.productDescription,
+                normalizedDescription: item.normalizedParentName,
+            })));
+            await Promise.all(invoiceToSave.items.filter((item) => item.matchedProductId).map((item) => recordProductResolutionFeedback({
+                supplierId: invoiceToSave.supplierId!,
+                supplierProductCode: item.productCode,
+                supplierCodeFamily: item.detectedSupplierCodeFamily,
+                nfItemDescription: item.productDescription,
+                normalizedParentName: item.normalizedParentName,
+                detectedAttributes: Object.fromEntries(Object.entries(item.extractedAttributes || {}).filter(([, value]) => typeof value === 'string')) as Record<string, string>,
+                unitCost: item.unitCost,
+                userDecision: 'accepted',
+                finalProductId: item.matchedProductId!,
+                finalVariationId: item.matchedVariationId,
+                relationType: item.matchedVariationId ? 'existing_variation' : 'new_product',
             })));
             const saved = await saveInboundInvoice(invoiceToSave);
             toast.success('NF salva e pronta para recebimento.');

@@ -6,6 +6,8 @@ export type ProductSupplierCode = {
     supplierId: string;
     supplierProductCode: string;
     supplierDescription?: string;
+    normalizedDescription?: string;
+    confirmedByUser?: boolean;
 };
 
 const normalizeSupplierProductCode = (value: string) => value.trim().toLocaleUpperCase('pt-BR');
@@ -16,7 +18,7 @@ export const findProductSupplierCodes = async (supplierId: string, supplierCodes
 
     const { data, error } = await supabase
         .from('product_supplier_codes')
-        .select('product_id, product_variation_id, supplier_id, supplier_product_code, supplier_description')
+        .select('product_id, product_variation_id, supplier_id, supplier_product_code, supplier_description, normalized_description, confirmed_by_user')
         .eq('supplier_id', supplierId)
         .eq('is_active', true)
         .in('supplier_product_code', codes);
@@ -31,6 +33,8 @@ export const findProductSupplierCodes = async (supplierId: string, supplierCodes
             supplierId: row.supplier_id,
             supplierProductCode: row.supplier_product_code,
             supplierDescription: row.supplier_description || undefined,
+            normalizedDescription: row.normalized_description || undefined,
+            confirmedByUser: row.confirmed_by_user !== false,
         },
     ]));
 };
@@ -44,6 +48,9 @@ export const saveProductSupplierCode = async (reference: ProductSupplierCode): P
         supplier_id: reference.supplierId,
         supplier_product_code: normalizeSupplierProductCode(reference.supplierProductCode),
         supplier_description: reference.supplierDescription || null,
+        normalized_description: reference.normalizedDescription || null,
+        confirmed_by_user: reference.confirmedByUser !== false,
+        confirmed_at: reference.confirmedByUser === false ? null : new Date().toISOString(),
         is_active: true,
         updated_at: new Date().toISOString(),
     }, { onConflict: 'supplier_id,supplier_product_code' });

@@ -250,11 +250,12 @@ function formatOrdersGroup(orders: CanonicalSummaryPayload['orders']): string {
         .filter((it) => it.isAssemblyOutside)
         .map((it) => formatProductNameWithArticle(it.name, it.quantity));
 
+      const activityName = o.activityType === 'assistance' ? 'assistência' : o.activityType === 'return' ? 'devolução' : 'entrega';
       let base = '';
       if (assemblyItems.length > 0) {
-        base = `uma entrega${custPart}${cityPart}${distPart}, de ${itemsText}, sendo ${assemblyItems.join(' e ')}, com montagem no endereço`;
+        base = `uma ${activityName}${custPart}${cityPart}${distPart}, de ${itemsText}, sendo ${assemblyItems.join(' e ')}, com montagem no endereço`;
       } else {
-        base = `uma entrega${custPart}${cityPart}${distPart}, de ${itemsText}`;
+        base = `uma ${activityName}${custPart}${cityPart}${distPart}, de ${itemsText}`;
       }
 
       if (o.notices.length > 0) {
@@ -284,8 +285,8 @@ export function generateLocalSmartText(payload: CanonicalSummaryPayload): string
 
   if (orders.length === 0) {
     return payload.scope === 'next_days'
-      ? 'Não há entregas agendadas para os próximos dias. Operação e frota disponíveis para novos lançamentos.'
-      : 'Sem entregas para hoje.';
+      ? 'Não há atividades operacionais agendadas para os próximos dias. Operação e frota disponíveis para novos lançamentos.'
+      : 'Sem atividades operacionais para hoje.';
   }
 
   if (payload.scope === 'next_days') {
@@ -314,7 +315,14 @@ export function generateLocalSmartText(payload: CanonicalSummaryPayload): string
       if (dayOrders.length === 0) continue;
 
       const dateLabel = formatExtendDateLabel(dateKey, todayStr, firstScheduledDate || tomorrowStr);
-      const dayOverview = `${dateLabel}, temos ${dayOrders.length} ${dayOrders.length === 1 ? 'entrega programada' : 'entregas programadas'}.`;
+      const countByType = (type: string) => dayOrders.filter(order => (order.activityType || 'delivery') === type).length;
+      const describe = (count: number, singular: string, plural: string) => count ? `${count} ${count === 1 ? singular : plural}` : '';
+      const dayActivities = [
+        describe(countByType('delivery'), 'entrega', 'entregas'),
+        describe(countByType('assistance'), 'assistência', 'assistências'),
+        describe(countByType('return'), 'devolução', 'devoluções'),
+      ].filter(Boolean).join(', ');
+      const dayOverview = `${dateLabel}, temos ${dayActivities}.`;
       const dayDetails = formatOrdersGroup(dayOrders);
 
       dayBlocks.push(`${dayOverview} ${dayDetails}`.trim());
@@ -325,8 +333,14 @@ export function generateLocalSmartText(payload: CanonicalSummaryPayload): string
 
   // Escopo de Hoje ou Amanhã individual
   const isToday = payload.scope === 'today';
-  const total = orders.length;
-  const overview = `Para ${isToday ? 'hoje' : 'amanhã'}, temos ${total} ${total === 1 ? 'entrega programada' : 'entregas programadas'}.`;
+  const countByType = (type: string) => orders.filter(order => (order.activityType || 'delivery') === type).length;
+  const describe = (count: number, singular: string, plural: string) => count ? `${count} ${count === 1 ? singular : plural}` : '';
+  const activities = [
+    describe(countByType('delivery'), 'entrega', 'entregas'),
+    describe(countByType('assistance'), 'assistência', 'assistências'),
+    describe(countByType('return'), 'devolução', 'devoluções'),
+  ].filter(Boolean).join(', ');
+  const overview = `Para ${isToday ? 'hoje' : 'amanhã'}, temos ${activities}.`;
   const details = formatOrdersGroup(orders);
 
   return `${overview} ${details}`.trim().replace(/\s+/g, ' ');

@@ -190,8 +190,8 @@ const DeliverySchedule = () => {
     const renderHeader = () => (
         <div className={`flex flex-col xl:flex-row justify-between items-start xl:items-center gap-3 mb-3 ${isStandalone ? 'bg-white dark:bg-slate-900 p-3.5 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-800 transition-colors duration-300' : ''}`}>
             <div className="flex items-center gap-3 w-full xl:w-auto">
-                <div className="bg-blue-600 p-2.5 rounded-xl shadow-md shadow-blue-100 dark:shadow-blue-900/20 transition-all duration-500">
-                    <i className="bi bi-truck text-white text-lg" />
+                <div className="bg-amber-500 p-2.5 rounded-xl shadow-md shadow-amber-100 dark:shadow-amber-900/20 transition-all duration-500">
+                    <i className="bi bi-calendar-check-fill text-white text-lg" />
                 </div>
                 <div className="flex-1">
                     <h2 className="text-base sm:text-2xl font-black text-slate-800 dark:text-slate-100 tracking-tight leading-none">

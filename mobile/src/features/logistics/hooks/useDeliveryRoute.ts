@@ -7,6 +7,7 @@ import { getLocationMapsUrl, parseCoordinatesFromMapsUrl, isCancelledOrder, form
 import { hasDeliveryExceeded12Hours, autoFulfillOrderIfExceeded12Hours } from '../../orders/utils/deliveryAutoFulfillment';
 import { getDeliverySchedulePeriod } from '../utils/deliverySchedulePeriod';
 import { countDeliveryObservations } from '../utils/countDeliveryObservations';
+import { getOperationActivityPresentation, type OperationActivityType } from '../../schedule/utils/operationActivity';
 export { checkOutOfOrderRisk } from '../utils/deliveryRouteRisk';
 
 export interface DeliveryRouteItem {
@@ -35,6 +36,10 @@ export interface DeliveryRouteItem {
   windowEnd?: string;
   isSuggestedFirst?: boolean;
   restrictionLevel?: 'free' | 'priority' | 'fixed';
+  activityType: OperationActivityType;
+  activityLabel: string;
+  activityColor: string;
+  activityBackgroundColor: string;
 }
 
 export type DeliveryRouteDateScope = 'today' | 'next_days';
@@ -190,6 +195,7 @@ export function useDeliveryRoute(dateScope: DeliveryRouteDateScope = 'today') {
 
       const periodInfo = getDeliverySchedulePeriod(shipping);
       const isSuggestedFirst = (o.id === topPendingId);
+      const activity = getOperationActivityPresentation(o);
 
       let restrictionLevel: DeliveryRouteItem['restrictionLevel'] = 'free';
       if (periodInfo.isFixed) {
@@ -228,6 +234,10 @@ export function useDeliveryRoute(dateScope: DeliveryRouteDateScope = 'today') {
         windowEnd: periodInfo.windowEnd,
         isSuggestedFirst,
         restrictionLevel,
+        activityType: activity.type,
+        activityLabel: activity.label,
+        activityColor: activity.color,
+        activityBackgroundColor: activity.backgroundColor,
       };
     });
   }, [dateScope, orders, todayStr]);

@@ -8,6 +8,7 @@ import { fetchCalendarEvents, CalendarEvent } from '../../../services/scheduleEv
 import { CreateEventModal } from '../components/CreateEventModal';
 import { getLocalDateString, formatFullAddress } from '../../../utils/orderUtils';
 import { getOperationalScheduleDate } from '../../../utils/operationalSchedule';
+import { getOperationActivityPresentation, getOperationActivityType } from '../utils/operationActivity';
 
 export type AgendaFilterType = 'all' | 'deliveries' | 'pickups' | 'assemblies' | 'events';
 
@@ -78,10 +79,11 @@ export const AgendaScreen: React.FC<Props> = ({
       const dDate = getOperationalScheduleDate(order) || order.delivery_date || order.scheduled_date || todayStr;
       if (!itemsByDate[dDate]) itemsByDate[dDate] = [];
 
+      const operationType = getOperationActivityType(order);
       const isPickup = String(shipping.deliveryType || shipping.deliveryMethod || '').toLowerCase().includes('retirada');
       const isAssembly = orderItems.some((item: { handlingType?: string }) => item.handlingType?.includes('montagem'));
 
-      let itemKind = isPickup ? 'pickup' : 'delivery';
+      let itemKind = operationType === 'return' ? 'return' : operationType === 'assistance' ? 'assistance' : (isPickup ? 'pickup' : 'delivery');
       if (isAssembly) itemKind = 'assembly';
 
       itemsByDate[dDate].push({
@@ -209,9 +211,9 @@ export const AgendaScreen: React.FC<Props> = ({
                 activeOpacity={isOrder ? 0.7 : 1}
               >
                 <View style={styles.itemBadgeCol}>
-                  {item.kind === 'delivery' ? (
-                    <View style={[styles.kindBadge, { backgroundColor: '#dbeafe' }]}>
-                      <Truck size={14} color="#2563eb" />
+                  {item.kind === 'delivery' || item.kind === 'assistance' || item.kind === 'return' ? (
+                    <View style={[styles.kindBadge, { backgroundColor: getOperationActivityPresentation(item.order).backgroundColor }]}>
+                      <Text style={[styles.operationLabel, { color: getOperationActivityPresentation(item.order).color }]}>{getOperationActivityPresentation(item.order).label}</Text>
                     </View>
                   ) : item.kind === 'pickup' ? (
                     <View style={[styles.kindBadge, { backgroundColor: '#f3e8ff' }]}>
@@ -382,6 +384,11 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  operationLabel: {
+    fontSize: 8,
+    fontWeight: '900',
+    letterSpacing: 0.2,
   },
   itemTitle: {
     fontSize: 13.5,

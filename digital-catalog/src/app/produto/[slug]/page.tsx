@@ -3,6 +3,10 @@ import { supabase } from "@/lib/supabase/client"
 import ProductPageContent from "@/features/products/components/product-page-content"
 import { stripHtml } from "@/services/meta-catalog"
 
+// A ocultação no ERP precisa refletir imediatamente também em links diretos,
+// prévias de compartilhamento e páginas já visitadas do catálogo.
+export const dynamic = 'force-dynamic'
+
 interface Props {
   params: Promise<{ slug: string }>
 }
@@ -14,6 +18,8 @@ async function getProductData(slug: string) {
       .from("products")
       .select("*, product_images(*), opportunities(*), product_variations(*)")
       .eq("slug", slug)
+      .eq("status", "published")
+      .is("deleted_at", null)
       .maybeSingle(),
     supabase
       .from("store_style_settings")

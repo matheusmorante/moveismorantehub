@@ -129,4 +129,23 @@ describe('calculateDeliverySummaryMetrics - Resumo de Entregas Hoje vs Dias Segu
     expect(metrics.morningClients.some((c) => c.includes('Aryel Felipe'))).toBe(true);
     expect(metrics.afternoonClients.some((c) => c.includes('Cauã Murilo'))).toBe(true);
   });
+
+  it('inclui assistência e devolução no resumo operacional com o tipo correto', () => {
+    const operationOrders = [
+      ...mockOrders.slice(0, 1),
+      {
+        id: 'assistance-today', customer_name: 'Cliente Assistência', status: 'scheduled',
+        order_data: { orderType: 'assistance', customerData: { fullName: 'Cliente Assistência' }, shipping: { scheduling: { date: referenceToday, time: '14:00' } }, assistanceItems: [] },
+      },
+      {
+        id: 'return-today', customer_name: 'Cliente Devolução', status: 'scheduled',
+        order_data: { orderType: 'return', customerData: { fullName: 'Cliente Devolução' }, shipping: { deliveryMethod: 'pickup', scheduling: { date: referenceToday, time: '09:00' } }, items: [] },
+      },
+    ];
+
+    const metrics = calculateDeliverySummaryMetrics(operationOrders, 'today', referenceToday);
+    expect(metrics.totalCount).toBe(3);
+    expect(metrics.defaultSummaryText).toContain('Assistência: Cliente Assistência');
+    expect(metrics.defaultSummaryText).toContain('Devolução: Cliente Devolução');
+  });
 });

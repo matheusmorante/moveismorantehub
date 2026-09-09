@@ -9,6 +9,7 @@ import { defaultStoreDesignSettings, productGridStyleClasses, StoreDesignSetting
 import { cn } from "@/lib/utils"
 
 import { slugifyText } from "@/lib/slug-utils"
+import { isPublicCatalogVariation } from "../product-visibility"
 
 interface ProductGridProps {
   filters?: {
@@ -166,7 +167,7 @@ export function ProductGrid({ filters }: ProductGridProps) {
         let results: any[] = []
 
         for (const p of rawProducts) {
-          const variations = p.product_variations?.filter((v: any) => v.status === 'published') || []
+          const variations = p.product_variations?.filter((v: any) => isPublicCatalogVariation(v)) || []
           
           const finalOpportunities = p.opportunities || (p.is_salvado ? {
             name: "Salvados",

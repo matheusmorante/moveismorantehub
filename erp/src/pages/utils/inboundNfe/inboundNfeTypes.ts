@@ -37,6 +37,9 @@ export interface InboundInvoiceItem {
     allocatedAdditionalCosts?: number;
     totalAdditionalCosts?: number;
     acquisitionCost?: number;
+    normalizedParentName?: string;
+    extractedAttributes?: { color?: string | null; measure?: string | null; doors?: string | null; material?: string | null; feet?: string | null; mirror?: string | null };
+    detectedSupplierCodeFamily?: string | null;
 }
 
 export type InboundInvoiceStatus = 'pending' | 'received' | 'manifested';
