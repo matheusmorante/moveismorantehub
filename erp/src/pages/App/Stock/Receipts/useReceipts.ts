@@ -6,18 +6,10 @@ import { toast } from 'react-toastify';
 import { ReceiptPeriod } from './receiptPeriodFilter.types';
 import { filterReceiptsByPeriod } from './receiptPeriodUtils';
 
-const LOCAL_STORAGE_SUPPLIER_KEY = 'morantehub_receipts_selected_supplier';
-
 export const useReceipts = () => {
     const [receipts, setReceipts] = useState<GoodsReceipt[]>([]);
     const [suppliers, setSuppliers] = useState<Person[]>([]);
-    const [selectedSupplierId, setSelectedSupplierId] = useState<string>(() => {
-        try {
-            return localStorage.getItem(LOCAL_STORAGE_SUPPLIER_KEY) || '';
-        } catch {
-            return '';
-        }
-    });
+    const [selectedSupplierId, setSelectedSupplierId] = useState('');
 
     const [period, setPeriod] = useState<ReceiptPeriod>('this_month');
     const [customStartDate, setCustomStartDate] = useState(() => {
@@ -50,15 +42,6 @@ export const useReceipts = () => {
 
     const handleSelectSupplier = (id: string) => {
         setSelectedSupplierId(id);
-        try {
-            if (id) {
-                localStorage.setItem(LOCAL_STORAGE_SUPPLIER_KEY, id);
-            } else {
-                localStorage.removeItem(LOCAL_STORAGE_SUPPLIER_KEY);
-            }
-        } catch (err) {
-            console.error('Erro ao salvar fornecedor no localStorage:', err);
-        }
     };
 
     const selectedSupplier = suppliers.find((s) => s.id === selectedSupplierId);

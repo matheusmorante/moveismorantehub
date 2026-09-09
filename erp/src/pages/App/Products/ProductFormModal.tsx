@@ -221,8 +221,12 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
         const errors: string[] = [];
         const hasVars = Boolean(data.hasVariations);
         const catalogTitle = data.title || data.marketplaceTitle;
+        const catalogDescription = data.ecommerceDescription || data.description;
         if (!catalogTitle || catalogTitle.trim().length < 2) {
             errors.push("Título do Produto (E-commerce) deve ter pelo menos 2 caracteres.");
+        }
+        if (!catalogDescription || catalogDescription.trim().length < 2) {
+            errors.push("Descrição do catálogo deve ser preenchida antes da publicação.");
         }
         if (!hasVars && (!data.unitPrice || data.unitPrice <= 0)) {
             errors.push("Preço de Venda deve ser maior que zero.");
@@ -258,6 +262,7 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
             errors,
             checks: {
                 marketplaceTitle: !!catalogTitle && catalogTitle.trim().length >= 2,
+                description: !!catalogDescription && catalogDescription.trim().length >= 2,
                 unitPrice: !!data.unitPrice && data.unitPrice > 0,
                 categories: !!data.categoryIds && data.categoryIds.length > 0,
                 images: !!data.images && data.images.length > 0,
@@ -1144,7 +1149,6 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
             }
             const hasVars = Boolean(formData.hasVariations) && Array.isArray(formData.variations) && formData.variations.length > 0;
             if (!hasVars) errors.variations = true;
-            if (!formData.images || formData.images.length === 0) errors.images = true;
             if (!formData.categoryIds || formData.categoryIds.length === 0) {
                 errors.categoryIds = true;
             }
@@ -1152,10 +1156,6 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
                 errors.mainSupplierId = true;
             }
 
-            const hasVarsWithMissingPhoto = hasVars && Array.isArray(formData.variations) && formData.variations.some(v => !v.images || v.images.length === 0);
-            if (hasVarsWithMissingPhoto) {
-                errors.variationsImages = true;
-            }
             if (hasMissingRequiredAttributes(formData.variations || [])) {
                 errors.variationsAttributes = true;
             }
@@ -1166,12 +1166,10 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
                     setActiveTab('geral');
                 } else if (errors.mainSupplierId) {
                     setActiveTab('estoque');
-                } else if (errors.variations || errors.variationsImages || errors.variationsAttributes) {
+                } else if (errors.variations || errors.variationsAttributes) {
                     setActiveTab('variacoes');
-                } else if (errors.images) {
-                    setActiveTab('ecommerce');
                 }
-                toast.error(errors.variations ? "Adicione pelo menos uma variação ao produto." : errors.images ? "Adicione pelo menos uma foto ao produto." : errors.variationsAttributes ? "Todas as variações devem conter pelo menos um atributo." : errors.variationsImages ? "Cada variação deve ter pelo menos 1 foto vinculada." : errors.mainSupplierId ? "Selecione um fornecedor." : "Preencha todos os campos obrigatórios.");
+                toast.error(errors.variations ? "Adicione pelo menos uma variação ao produto." : errors.variationsAttributes ? "Todas as variações devem conter pelo menos um atributo." : errors.mainSupplierId ? "Selecione um fornecedor." : "Preencha todos os campos obrigatórios.");
                 return false;
             }
             setValidationErrors({});

@@ -63,7 +63,6 @@ export default function ReceiptsPage() {
                 const list = await fetchInboundInvoices();
                 const matched = list.find((inv) => inv.nfeKey === inboundKeyParam);
                 if (matched) {
-                    if (matched.supplierId) setSelectedSupplierId(matched.supplierId);
                     setSelectedInboundInvoice(matched);
                     setSelectedPurchase(null);
                     setIsFormOpen(true);
@@ -76,7 +75,6 @@ export default function ReceiptsPage() {
     }, [inboundKeyParam]);
 
     const handleSelectInboundInvoice = (invoice: InboundInvoice) => {
-        if (invoice.supplierId) setSelectedSupplierId(invoice.supplierId);
         setSelectedInboundInvoice(invoice);
         setSelectedPurchase(null);
         setSelectedReceipt(null);
@@ -84,9 +82,6 @@ export default function ReceiptsPage() {
     };
 
     const handleSelectPurchase = (purchase: Purchase) => {
-        if (purchase.supplierId) {
-            setSelectedSupplierId(purchase.supplierId);
-        }
         setSelectedInboundInvoice(null);
         setSelectedPurchase(purchase);
         setSelectedReceipt(null);
@@ -183,7 +178,6 @@ export default function ReceiptsPage() {
                 initialReceipt={selectedReceipt}
                 initialInboundInvoice={selectedInboundInvoice}
                 initialPurchase={selectedPurchase}
-                preselectedSupplierId={selectedSupplierId}
             />
 
             <ReceiptDetailsModal
@@ -205,16 +199,13 @@ export default function ReceiptsPage() {
                 isOpen={isInboundPickerOpen}
                 onClose={() => setIsInboundPickerOpen(false)}
                 onSelect={handleSelectInboundInvoice}
-                supplierId={selectedSupplierId}
-                supplierName={selectedSupplier?.fullName}
+                onCreate={handleSelectInboundInvoice}
             />
 
             <PurchaseReceiptPickerModal
                 isOpen={isPurchasePickerOpen}
                 onClose={() => setIsPurchasePickerOpen(false)}
                 onSelect={handleSelectPurchase}
-                supplierId={selectedSupplierId}
-                supplierName={selectedSupplier?.fullName}
             />
         </div>
     );

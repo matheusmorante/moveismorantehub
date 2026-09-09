@@ -2,34 +2,21 @@ import { useEffect, useState } from 'react';
 import Purchase from '../../../types/purchase.type';
 import { subscribeToPurchases } from '../../../utils/purchaseService';
 import { formatCurrency } from '../../../utils/formatters';
-import { normalizeSearchTerm } from '../../../utils/textUtils';
 
 type Props = {
     isOpen: boolean;
     onClose: () => void;
     onSelect: (purchase: Purchase) => void;
-    supplierId?: string;
-    supplierName?: string;
 };
 
-export default function PurchaseReceiptPickerModal({ isOpen, onClose, onSelect, supplierId, supplierName }: Props) {
+export default function PurchaseReceiptPickerModal({ isOpen, onClose, onSelect }: Props) {
     const [purchases, setPurchases] = useState<Purchase[]>([]);
 
     useEffect(() => (isOpen ? subscribeToPurchases(setPurchases) : undefined), [isOpen]);
 
     if (!isOpen) return null;
 
-    // Filtra apenas os pedidos do fornecedor selecionado que não estejam cancelados
-    const available = purchases.filter((purchase) => {
-        if (purchase.status === 'cancelled') return false;
-        if (supplierId && purchase.supplierId === supplierId) return true;
-        if (supplierName && purchase.supplierName) {
-            const sName = normalizeSearchTerm(supplierName);
-            const pName = normalizeSearchTerm(purchase.supplierName);
-            return pName.includes(sName) || sName.includes(pName);
-        }
-        return false;
-    });
+    const available = purchases.filter((purchase) => purchase.status !== 'cancelled');
 
     return (
         <div className="fixed inset-0 z-[1000001] flex items-center justify-center bg-slate-950/60 p-4 backdrop-blur-sm">
@@ -41,7 +28,7 @@ export default function PurchaseReceiptPickerModal({ isOpen, onClose, onSelect, 
                             Utilizar pedido de compra
                         </h3>
                         <p className="mt-1 text-xs font-bold text-slate-500">
-                            Fornecedor: <span className="text-blue-600 dark:text-blue-400 font-black">{supplierName || 'Fornecedor selecionado'}</span>
+                            Selecione um pedido para importar o fornecedor e os itens
                         </p>
                     </div>
                     <button onClick={onClose} className="p-2 text-slate-400 hover:text-red-500 transition-colors">
@@ -84,7 +71,7 @@ export default function PurchaseReceiptPickerModal({ isOpen, onClose, onSelect, 
                         {!available.length && (
                             <div className="py-12 text-center text-sm font-bold text-slate-400">
                                 <i className="bi bi-inbox text-3xl mb-2 block text-slate-300 dark:text-slate-700" />
-                                Nenhum pedido de compra encontrado para {supplierName || 'este fornecedor'}.
+                                Nenhum pedido de compra disponível.
                             </div>
                         )}
                     </div>

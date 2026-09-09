@@ -1,3 +1,5 @@
+import { AdditionalCost, AdditionalCostItemAllocation } from './additionalCosts';
+
 export interface InboundInvoiceItem {
     id?: string;
     itemNumber: number;
@@ -30,6 +32,11 @@ export interface InboundInvoiceItem {
     icmsStPercent?: number;
     matchedProductId?: string;
     matchedVariationId?: string;
+    productErpName?: string;
+    linkedProductCode?: string;
+    allocatedAdditionalCosts?: number;
+    totalAdditionalCosts?: number;
+    acquisitionCost?: number;
 }
 
 export type InboundInvoiceStatus = 'pending' | 'received' | 'manifested';
@@ -52,6 +59,11 @@ export interface InboundInvoice {
     totalDiscount?: number;
     totalInsurance?: number;
     totalOtherExpenses?: number;
+    /** @deprecated legado; novos cadastros usam somente additionalCosts. */
+    additionalFreight?: AdditionalCost;
+    additionalCosts?: AdditionalCost[];
+    additionalCostsTotal?: number;
+    additionalCostAllocations?: AdditionalCostItemAllocation[];
     totalIcms?: number;
     totalIcmsSt?: number;
     freightPercent?: number;

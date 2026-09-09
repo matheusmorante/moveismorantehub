@@ -10,6 +10,12 @@ export type PurchaseItem = {
     ipiPercent?: number;
     ipiValue?: number;
     freightValue?: number;
+    allocatedFreight?: number;
+    allocatedAdditionalCosts?: number;
+    totalAdditionalCosts?: number;
+    acquisitionCost?: number;
+    fiscalBaseCost?: number;
+    additionalCostUnit?: number;
 };
 
 export type Purchase = {

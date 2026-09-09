@@ -16,6 +16,8 @@ import ReceiptFiscalDocumentsSection from './ReceiptFiscalDocumentsSection';
 import InboundNfeItemsSection, { InboundReceiptItem } from './InboundNfeItemsSection';
 import { findProductSupplierCodes, saveProductSupplierCode } from '../../../utils/productSupplierCodesService';
 import { getProductsByIds } from '../../../utils/productService';
+import { calculateAdditionalCosts, getLegacyCompatibleCosts } from '../../../utils/inboundNfe/additionalCosts';
+import { calculateReceiptItems } from '../../../utils/goodsReceiptCostCalculation';
 
 type Props = {
     isOpen: boolean;
@@ -23,19 +25,9 @@ type Props = {
     initialReceipt?: GoodsReceipt | null;
     initialInboundInvoice?: InboundInvoice | null;
     initialPurchase?: Purchase | null;
-    preselectedSupplierId?: string;
 };
 
-const calculateItems = (items: PurchaseItem[], ipi: number, freight: number) => items.map((item) => {
-    const baseCost = item.baseCost || item.unitCost;
-    const quantity = Math.max(1, item.quantity);
-    const unitIpi = typeof item.ipiValue === 'number' ? item.ipiValue / quantity : baseCost * ipi / 100;
-    const unitFreight = typeof item.freightValue === 'number' ? item.freightValue / quantity : baseCost * freight / 100;
-    const unitCost = baseCost + unitIpi + unitFreight;
-    return { ...item, baseCost, unitCost: Number(unitCost.toFixed(2)), totalCost: Number((item.quantity * unitCost).toFixed(2)) };
-});
-
-export default function ReceiptFormModal({ isOpen, onClose, initialReceipt, initialInboundInvoice, initialPurchase, preselectedSupplierId }: Props) {
+export default function ReceiptFormModal({ isOpen, onClose, initialReceipt, initialInboundInvoice, initialPurchase }: Props) {
     const [suppliers, setSuppliers] = useState<Person[]>([]);
     const [draftId, setDraftId] = useState<string>('');
     const [supplierId, setSupplierId] = useState('');
@@ -44,6 +36,8 @@ export default function ReceiptFormModal({ isOpen, onClose, initialReceipt, init
     const [ipiPercent, setIpiPercent] = useState(0);
     const [freightPercent, setFreightPercent] = useState(0);
     const [receiptDate, setReceiptDate] = useState(new Date().toISOString().slice(0, 10));
+    const [invoiceNumber, setInvoiceNumber] = useState('');
+    const [invoiceDate, setInvoiceDate] = useState('');
     const [isSaving, setIsSaving] = useState(false);
     const [fiscalKey, setFiscalKey] = useState('');
     const [attachments, setAttachments] = useState<string[]>([]);
@@ -60,6 +54,8 @@ export default function ReceiptFormModal({ isOpen, onClose, initialReceipt, init
             setIpiPercent(initialReceipt.ipiPercent || 0);
             setFreightPercent(initialReceipt.freightPercent || 0);
             setReceiptDate(initialReceipt.receivedAt ? initialReceipt.receivedAt.slice(0, 10) : new Date().toISOString().slice(0, 10));
+            setInvoiceNumber(initialReceipt.invoiceNumber || '');
+            setInvoiceDate(initialReceipt.invoiceDate || '');
             setFiscalKey(initialReceipt.fiscalKey || '');
             setAttachments(initialReceipt.attachments || []);
             setIsDraftSaved(initialReceipt.isDraft);
@@ -68,20 +64,21 @@ export default function ReceiptFormModal({ isOpen, onClose, initialReceipt, init
             applyPurchase(initialPurchase);
             setInboundItems(null);
             setReceiptDate(new Date().toISOString().slice(0, 10));
+            setInvoiceNumber(''); setInvoiceDate('');
             setFiscalKey(''); setAttachments([]); setIsDraftSaved(false);
         } else if (initialInboundInvoice) {
             setDraftId('');
-            setSupplierId(preselectedSupplierId || '');
+            setSupplierId('');
             void applyInboundInvoice(initialInboundInvoice);
         } else {
-            setDraftId(''); setSupplierId(preselectedSupplierId || ''); setItems([]); setIpiPercent(0); setFreightPercent(0);
+            setDraftId(''); setSupplierId(''); setItems([]); setIpiPercent(0); setFreightPercent(0);
             setInboundItems(null);
-            setReceiptDate(new Date().toISOString().slice(0, 10)); setFiscalKey(''); setAttachments([]); setIsDraftSaved(false);
+            setReceiptDate(new Date().toISOString().slice(0, 10)); setInvoiceNumber(''); setInvoiceDate(''); setFiscalKey(''); setAttachments([]); setIsDraftSaved(false);
         }
         return subscribeToPeople('suppliers', (data) => setSuppliers(data.filter((person) => !person.deleted && person.type === 'suppliers')));
-    }, [isOpen, initialReceipt, initialInboundInvoice, initialPurchase, preselectedSupplierId]);
+    }, [isOpen, initialReceipt, initialInboundInvoice, initialPurchase]);
 
-    const processedItems = calculateItems(items, ipiPercent, freightPercent);
+    const processedItems = calculateReceiptItems(items, ipiPercent, freightPercent);
     const totalValue = processedItems.reduce((sum, item) => sum + item.totalCost, 0);
 
     // Auto-save rascunho de forma contínua quando fornecedor e pelo menos 1 item estão selecionados
@@ -98,6 +95,8 @@ export default function ReceiptFormModal({ isOpen, onClose, initialReceipt, init
                     supplierId,
                     supplierName: currentSupplier?.fullName || 'Fornecedor',
                     receivedAt: new Date(`${receiptDate}T12:00:00`).toISOString(),
+                    invoiceNumber,
+                    invoiceDate,
                     items: processedItems,
                     totalValue,
                     fiscalKey,
@@ -115,7 +114,7 @@ export default function ReceiptFormModal({ isOpen, onClose, initialReceipt, init
         return () => {
             if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
         };
-    }, [isOpen, supplierId, items, ipiPercent, freightPercent, receiptDate, fiscalKey, attachments]);
+    }, [isOpen, supplierId, items, ipiPercent, freightPercent, receiptDate, invoiceNumber, invoiceDate, fiscalKey, attachments]);
 
     if (!isOpen) return null;
     const supplier = suppliers.find((person) => person.id === supplierId);
@@ -142,6 +141,8 @@ export default function ReceiptFormModal({ isOpen, onClose, initialReceipt, init
                 supplierId,
                 supplierName: supplier.fullName,
                 receivedAt: new Date(`${receiptDate}T12:00:00`).toISOString(),
+                invoiceNumber,
+                invoiceDate,
                 items: processedItems,
                 totalValue,
                 fiscalKey,
@@ -151,7 +152,8 @@ export default function ReceiptFormModal({ isOpen, onClose, initialReceipt, init
                 status: 'received',
                 isDraft: false,
             });
-            if (fiscalKey && fiscalKey.length === 44) {
+            const isCompleteInvoiceReceipt = !inboundItems || inboundItems.every((item) => item.quantity >= (item.expectedQuantity || item.quantity));
+            if (fiscalKey && fiscalKey.length === 44 && isCompleteInvoiceReceipt) {
                 await markInvoiceAsReceived(fiscalKey, receiptId);
             }
             toast.success('Recebimento de mercadorias confirmado com sucesso!');
@@ -182,7 +184,7 @@ export default function ReceiptFormModal({ isOpen, onClose, initialReceipt, init
             });
         }
 
-        const resolvedSupplierId = invoice.supplierId || matchedSupplier?.id || preselectedSupplierId || '';
+        const resolvedSupplierId = invoice.supplierId || matchedSupplier?.id || '';
         if (resolvedSupplierId) setSupplierId(resolvedSupplierId);
 
         setFiscalKey(invoice.nfeKey);
@@ -208,12 +210,25 @@ export default function ReceiptFormModal({ isOpen, onClose, initialReceipt, init
         } catch (error) {
             console.warn('Não foi possível carregar os produtos vinculados à NF-e.', error);
         }
+        const additionalCostsCalculation = calculateAdditionalCosts(
+            invoice.items,
+            getLegacyCompatibleCosts(invoice.additionalCosts || [], invoice.additionalFreight),
+        );
+        const allocationByItem = new Map(additionalCostsCalculation.allocations.map((allocation) => [allocation.itemNumber, allocation]));
+        const hasItemSpecificIpi = invoice.items.some((item) => (item.ipiValue || 0) > 0 || (item.ipiPercent || 0) > 0);
         const linkedItems: InboundReceiptItem[] = invoice.items.map((item) => {
             const reference = references.get(item.productCode.trim().toLocaleUpperCase('pt-BR'));
             const product = products.find((candidate) => candidate.id === reference?.productId);
             const variation = product?.variations?.find((candidate) => candidate.id === reference?.productVariationId);
+            const allocation = allocationByItem.get(item.itemNumber);
             return {
                 ...item,
+                expectedQuantity: item.quantity,
+                allocatedAdditionalCosts: allocation?.allocatedAdditionalCosts ?? item.allocatedAdditionalCosts ?? 0,
+                totalAdditionalCosts: allocation?.allocatedAdditionalCosts ?? item.totalAdditionalCosts ?? 0,
+                acquisitionCost: allocation?.acquisitionCost ?? item.acquisitionCost ?? item.totalCost,
+                ipiValue: hasItemSpecificIpi ? item.ipiValue : undefined,
+                ipiPercent: hasItemSpecificIpi ? item.ipiPercent : undefined,
                 linkedProductId: reference?.productId || item.matchedProductId,
                 linkedVariationId: reference?.productVariationId || item.matchedVariationId,
                 linkedProductCode: variation?.sku || product?.code || '',
@@ -223,8 +238,16 @@ export default function ReceiptFormModal({ isOpen, onClose, initialReceipt, init
         });
         const convertedItems: PurchaseItem[] = linkedItems.map((item) => ({
             productId: item.linkedProductId || '', variationId: item.linkedVariationId || '', description: item.productDescription,
-            quantity: item.quantity, baseCost: item.unitCost, unitCost: item.unitCost, totalCost: item.totalCost,
-            ipiValue: item.ipiValue, freightValue: item.freightValue,
+            quantity: item.quantity,
+            baseCost: item.unitCost,
+            unitCost: item.unitCost,
+            totalCost: item.totalCost,
+            ipiValue: item.ipiValue, ipiPercent: item.ipiPercent, freightValue: item.freightValue,
+            allocatedAdditionalCosts: item.allocatedAdditionalCosts,
+            totalAdditionalCosts: item.totalAdditionalCosts,
+            acquisitionCost: item.acquisitionCost,
+            fiscalBaseCost: item.unitCost,
+            additionalCostUnit: Number(((item.totalAdditionalCosts || 0) / Math.max(1, item.expectedQuantity || item.quantity)).toFixed(4)),
         }));
 
         setInboundItems(linkedItems);
@@ -236,11 +259,18 @@ export default function ReceiptFormModal({ isOpen, onClose, initialReceipt, init
         setInboundItems((current) => {
             if (!current) return current;
             const updated = current.map((item) => item.itemNumber === itemNumber ? { ...item, ...update } : item);
-            setItems(updated.map((item) => ({
-                productId: item.linkedProductId || '', variationId: item.linkedVariationId || '', description: item.productDescription,
-                quantity: item.quantity, baseCost: item.unitCost, unitCost: item.unitCost, totalCost: item.unitCost * item.quantity,
-                ipiValue: item.ipiValue, freightValue: item.freightValue,
-            })));
+            setItems(updated.map((item) => {
+                const fiscalBaseCost = item.unitCost;
+                const additionalCostUnit = Number(((item.totalAdditionalCosts || 0) / Math.max(1, item.expectedQuantity || item.quantity)).toFixed(4));
+                return {
+                    productId: item.linkedProductId || '', variationId: item.linkedVariationId || '', description: item.productDescription,
+                    quantity: item.quantity, baseCost: fiscalBaseCost, unitCost: fiscalBaseCost, totalCost: Number((fiscalBaseCost * item.quantity).toFixed(2)),
+                    ipiValue: item.ipiValue, ipiPercent: item.ipiPercent, freightValue: item.freightValue,
+                    allocatedAdditionalCosts: item.allocatedAdditionalCosts,
+                    totalAdditionalCosts: item.totalAdditionalCosts, acquisitionCost: Number(((fiscalBaseCost + additionalCostUnit) * item.quantity).toFixed(2)),
+                    fiscalBaseCost, additionalCostUnit,
+                };
+            }));
             return updated;
         });
     };
@@ -298,6 +328,16 @@ export default function ReceiptFormModal({ isOpen, onClose, initialReceipt, init
                     <NumberField label="Frete (%)" value={freightPercent} onChange={setFreightPercent} />
                 </div>
                 <ReceiptFiscalDocumentsSection attachments={attachments} fiscalKey={fiscalKey} onAttachmentsChange={setAttachments} onFiscalKeyChange={setFiscalKey} />
+                {initialInboundInvoice && (
+                    <section className="rounded-2xl border border-amber-200 bg-amber-50/40 p-4 dark:border-amber-900/50 dark:bg-amber-950/10">
+                        <h3 className="text-xs font-black uppercase tracking-widest text-amber-900 dark:text-amber-200">Custos adicionais da compra</h3>
+                        <div className="mt-3 grid gap-2 text-xs sm:grid-cols-3">
+                            <span>Custos não fiscais: <b>{formatCurrency(initialInboundInvoice.additionalCostsTotal || 0)}</b></span>
+                            <span>Itens com rateio: <b>{formatCurrency(inboundItems?.reduce((sum, item) => sum + (item.totalAdditionalCosts || 0), 0) || 0)}</b></span>
+                            <span className="font-black text-amber-800 dark:text-amber-200">Base fiscal dos produtos: {formatCurrency(initialInboundInvoice.totalProducts)}</span>
+                        </div>
+                    </section>
+                )}
                 {inboundItems ? <InboundNfeItemsSection items={inboundItems} supplierId={supplierId} onChange={handleInboundItemChange} formatCurrency={formatCurrency} /> : <PurchaseItemsSection
                     items={items}
                     onAddItem={(item) => setItems((current) => [...current, item])}

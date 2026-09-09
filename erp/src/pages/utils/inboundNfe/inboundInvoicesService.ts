@@ -11,6 +11,22 @@ const toInboundInvoiceStatus = (value: string | null | undefined): InboundInvoic
     return 'pending';
 };
 
+const normalizeAdditionalCost = (value: any) => {
+    const calculationType = value?.calculationType === 'fixed' ? 'fixed' : 'percentage';
+    const inputValue = value?.inputValue ?? (calculationType === 'percentage' ? value?.percentage : value?.fixedAmount);
+    return {
+        id: String(value?.id || `additional-cost-${Math.random().toString(36).slice(2)}`),
+        description: String(value?.description || ''),
+        calculationType,
+        inputValue: inputValue === null || inputValue === undefined ? null : Number(inputValue),
+        calculationBase: 'products_base_value' as const,
+        calculatedAmount: Number(value?.calculatedAmount || 0),
+        calculatedRate: Number(value?.calculatedRate ?? (value?.calculatedAmount && Number(value?.calculatedAmount) > 0 ? 0 : 0)),
+    };
+};
+
+const normalizeAdditionalCosts = (value: unknown) => Array.isArray(value) ? value.map(normalizeAdditionalCost) : [];
+
 export const getLastInboundInvoiceSyncAt = (): string | null => {
     try {
         return localStorage.getItem(LAST_SYNC_KEY);
@@ -72,6 +88,10 @@ export const fetchInboundInvoices = async (): Promise<InboundInvoice[]> => {
                 totalDiscount: Number(row.valor_desconto || 0),
                 totalInsurance: Number(row.valor_seguro || 0),
                 totalOtherExpenses: Number(row.outras_despesas || 0),
+                additionalFreight: row.additional_freight ? normalizeAdditionalCost(row.additional_freight) : undefined,
+                additionalCosts: normalizeAdditionalCosts(row.additional_costs),
+                additionalCostsTotal: Number(row.additional_costs_total || 0),
+                additionalCostAllocations: Array.isArray(row.additional_cost_allocations) ? row.additional_cost_allocations : [],
                 totalIcms: Number(row.valor_icms || 0),
                 totalIcmsSt: Number(row.valor_icms_st || 0),
                 freightPercent: Number(row.valor_produtos || 0) > 0 ? Number((Number(row.valor_frete || 0) / Number(row.valor_produtos || 0) * 100).toFixed(4)) : 0,
@@ -142,6 +162,10 @@ export const saveInboundInvoice = async (invoice: InboundInvoice): Promise<Inbou
             valor_desconto: invoice.totalDiscount || 0,
             valor_seguro: invoice.totalInsurance || 0,
             outras_despesas: invoice.totalOtherExpenses || 0,
+            additional_freight: {},
+            additional_costs: invoice.additionalCosts || [],
+            additional_costs_total: invoice.additionalCostsTotal || 0,
+            additional_cost_allocations: [],
             valor_icms: invoice.totalIcms || 0,
             valor_icms_st: invoice.totalIcmsSt || 0,
             data_saida_entrada: invoice.entryExitAt || null,

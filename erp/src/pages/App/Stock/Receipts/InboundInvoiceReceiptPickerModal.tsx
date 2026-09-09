@@ -1,35 +1,76 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { fetchInboundInvoices } from '@/pages/utils/inboundNfe/inboundInvoicesService';
 import { InboundInvoice } from '@/pages/utils/inboundNfe/inboundNfeTypes';
 import { formatCurrency } from '@/pages/utils/formatters';
 import { normalizeSearchTerm } from '@/pages/utils/textUtils';
-import { InboundXmlImportModal } from '../InboundInvoices/InboundXmlImportModal';
+import { InboundDocumentImportModal } from '../InboundInvoices/InboundDocumentImportModal';
 
 interface Props {
     isOpen: boolean;
     onClose: () => void;
     onSelect: (invoice: InboundInvoice) => void;
-    supplierId?: string;
-    supplierName?: string;
+    onCreate: (invoice: InboundInvoice) => void;
 }
+
+type PeriodFilter = 'this_month' | 'last_3_months' | 'this_year' | 'custom';
+type StatusFilter = 'available' | 'all' | 'pending' | 'manifested' | 'received';
+
+const normalizeDigits = (value: string) => value.replace(/\D/g, '');
+const parseDate = (value?: string) => {
+    if (!value) return null;
+    const date = new Date(value);
+    return Number.isNaN(date.getTime()) ? null : date;
+};
+
+const isInPeriod = (value: string | undefined, period: PeriodFilter, start: string, end: string) => {
+    const date = parseDate(value);
+    if (!date) return false;
+    const now = new Date();
+    if (period === 'custom') {
+        const dateOnly = date.toISOString().slice(0, 10);
+        return (!start || dateOnly >= start) && (!end || dateOnly <= end);
+    }
+    if (period === 'this_year') return date.getFullYear() === now.getFullYear();
+    if (period === 'last_3_months') {
+        const minimum = new Date(now.getFullYear(), now.getMonth() - 2, 1);
+        return date >= minimum;
+    }
+    return date.getFullYear() === now.getFullYear() && date.getMonth() === now.getMonth();
+};
+
+const statusLabel = (status: InboundInvoice['status']) => {
+    if (status === 'received') return 'Recebida integralmente';
+    if (status === 'manifested') return 'Manifestada';
+    return 'Sem recebimento';
+};
 
 export default function InboundInvoiceReceiptPickerModal({
     isOpen,
     onClose,
     onSelect,
-    supplierId,
-    supplierName
+    onCreate
 }: Props) {
     const [invoices, setInvoices] = useState<InboundInvoice[]>([]);
     const [searchTerm, setSearchTerm] = useState('');
-    const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+    const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+    const [isLoading, setIsLoading] = useState(false);
+    const [loadError, setLoadError] = useState('');
+    const [period, setPeriod] = useState<PeriodFilter>('this_month');
+    const [status, setStatus] = useState<StatusFilter>('available');
+    const [customStartDate, setCustomStartDate] = useState('');
+    const [customEndDate, setCustomEndDate] = useState('');
 
     const loadInvoices = async () => {
+        setIsLoading(true);
+        setLoadError('');
         try {
             const list = await fetchInboundInvoices();
             setInvoices(list);
         } catch (e) {
             console.error('Erro ao carregar NF-e para recebimento:', e);
+            setLoadError('Não foi possível carregar as notas fiscais. Tente novamente.');
+        } finally {
+            setIsLoading(false);
         }
     };
 
@@ -39,17 +80,27 @@ export default function InboundInvoiceReceiptPickerModal({
         }
     }, [isOpen]);
 
-    if (!isOpen) return null;
-
-    const available = invoices.filter((inv) => {
-        if (inv.status === 'received') return false;
-        if (!searchTerm.trim()) return true;
+    const available = useMemo(() => {
         const term = normalizeSearchTerm(searchTerm);
-        const name = normalizeSearchTerm(inv.emitterName || '');
-        const key = inv.nfeKey || '';
-        const num = inv.nfeNumber || '';
-        return name.includes(term) || key.includes(term) || num.includes(term);
-    });
+        const termDigits = normalizeDigits(searchTerm);
+        return invoices
+            .filter((inv) => {
+                if (status === 'available' && inv.status === 'received') return false;
+                if (status !== 'all' && status !== 'available' && inv.status !== status) return false;
+                return isInPeriod(inv.issuedAt, period, customStartDate, customEndDate);
+            })
+            .filter((inv) => {
+                if (!term) return true;
+                const emitter = normalizeSearchTerm(inv.emitterName || '');
+                const cnpj = normalizeDigits(inv.emitterCnpj || '');
+                const key = normalizeDigits(inv.nfeKey || '');
+                const number = normalizeDigits(inv.nfeNumber || '');
+                return emitter.includes(term) || (termDigits.length > 0 && (cnpj.includes(termDigits) || number.includes(termDigits) || key.includes(termDigits)));
+            })
+            .sort((left, right) => Number(new Date(right.issuedAt)) - Number(new Date(left.issuedAt)));
+    }, [invoices, searchTerm, period, status, customStartDate, customEndDate]);
+
+    if (!isOpen) return null;
 
     return (
         <div className="fixed inset-0 z-[1000001] flex items-center justify-center bg-slate-950/60 p-4 backdrop-blur-sm animate-in fade-in">
@@ -71,11 +122,11 @@ export default function InboundInvoiceReceiptPickerModal({
                     <div className="flex items-center gap-2">
                         <button
                             type="button"
-                            onClick={() => setIsImportModalOpen(true)}
-                            className="rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-700 shadow-sm hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-200"
+                            onClick={() => setIsCreateModalOpen(true)}
+                            className="rounded-xl bg-emerald-600 px-3 py-1.5 text-xs font-black text-white shadow-sm hover:bg-emerald-700"
                         >
-                            <i className="bi bi-filetype-xml text-emerald-600 mr-1.5" />
-                            Importar XML
+                            <i className="bi bi-plus-lg mr-1.5" />
+                            Cadastrar nova NF de entrada
                         </button>
                         <button onClick={onClose} className="p-2 text-slate-400 hover:text-red-500">
                             <i className="bi bi-x-lg" />
@@ -83,25 +134,46 @@ export default function InboundInvoiceReceiptPickerModal({
                     </div>
                 </header>
 
-                <div className="p-4 border-b border-slate-100 dark:border-slate-800">
+                <div className="space-y-3 border-b border-slate-100 p-4 dark:border-slate-800">
                     <div className="relative">
                         <i className="bi bi-search absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-xs" />
                         <input
                             type="text"
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
-                            placeholder="Buscar nota por fornecedor, número ou chave..."
+                            placeholder="Emitente, CNPJ, nº da nota ou chave de acesso"
                             className="w-full rounded-xl border border-slate-200 bg-slate-50 py-2 pl-9 pr-4 text-xs font-medium text-slate-700 outline-none focus:bg-white focus:border-indigo-500 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-200"
                         />
+                    </div>
+                    <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-4">
+                        <select value={period} onChange={(event) => setPeriod(event.target.value as PeriodFilter)} className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-bold dark:border-slate-800 dark:bg-slate-950 dark:text-slate-200">
+                            <option value="this_month">Este mês</option>
+                            <option value="last_3_months">Últimos 3 meses</option>
+                            <option value="this_year">Este ano</option>
+                            <option value="custom">Personalizado</option>
+                        </select>
+                        <select value={status} onChange={(event) => setStatus(event.target.value as StatusFilter)} className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-bold dark:border-slate-800 dark:bg-slate-950 dark:text-slate-200">
+                            <option value="available">Disponíveis para recebimento</option>
+                            <option value="all">Todos os status</option>
+                            <option value="pending">Sem recebimento</option>
+                            <option value="manifested">Manifestadas</option>
+                            <option value="received">Recebidas integralmente</option>
+                        </select>
+                        {period === 'custom' && <input type="date" value={customStartDate} onChange={(event) => setCustomStartDate(event.target.value)} className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs dark:border-slate-800 dark:bg-slate-950 dark:text-slate-200" />}
+                        {period === 'custom' && <input type="date" value={customEndDate} onChange={(event) => setCustomEndDate(event.target.value)} className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs dark:border-slate-800 dark:bg-slate-950 dark:text-slate-200" />}
                     </div>
                 </div>
 
                 <div className="flex-1 overflow-y-auto p-5 space-y-3">
-                    {available.length === 0 ? (
+                    {isLoading ? (
+                        <div className="py-12 text-center text-sm font-bold text-slate-400"><i className="bi bi-arrow-repeat mb-2 block animate-spin text-2xl" />Buscando notas fiscais...</div>
+                    ) : loadError ? (
+                        <div className="py-12 text-center text-sm font-bold text-red-500"><p>{loadError}</p><button type="button" onClick={() => void loadInvoices()} className="mt-3 rounded-xl bg-red-50 px-4 py-2 text-xs font-black text-red-700">Tentar novamente</button></div>
+                    ) : available.length === 0 ? (
                         <div className="py-12 text-center text-slate-400">
                             <i className="bi bi-inbox text-3xl text-slate-300 dark:text-slate-700" />
-                            <p className="mt-2 text-xs font-bold">Nenhuma nota fiscal pendente encontrada.</p>
-                            <p className="mt-1 text-[11px]">Importe um arquivo XML ou consulte a SEFAZ no menu Notas Fiscais de Entrada.</p>
+                                    <p className="mt-2 text-xs font-bold">Nenhuma nota fiscal encontrada para os filtros selecionados.</p>
+                                    <button type="button" onClick={() => setIsCreateModalOpen(true)} className="mt-3 rounded-xl bg-emerald-600 px-4 py-2 text-xs font-black text-white">Cadastrar nova NF de entrada</button>
                         </div>
                     ) : (
                         available.map((inv) => (
@@ -122,9 +194,11 @@ export default function InboundInvoiceReceiptPickerModal({
                                     <p className="text-xs font-semibold text-slate-700 dark:text-slate-300 truncate">
                                         {inv.emitterName}
                                     </p>
+                                    <p className="text-[10px] text-slate-500">CNPJ: {inv.emitterCnpj || 'Não informado'} · Emissão: {parseDate(inv.issuedAt)?.toLocaleDateString('pt-BR') || '—'}</p>
                                     <p className="text-[10px] font-mono text-slate-400 truncate">
                                         Chave: {inv.nfeKey}
                                     </p>
+                                    <span className={`inline-flex rounded-full px-2 py-0.5 text-[9px] font-black uppercase ${inv.status === 'received' ? 'bg-slate-100 text-slate-500' : 'bg-emerald-100 text-emerald-700'}`}>{statusLabel(inv.status)}</span>
                                 </div>
 
                                 <div className="flex items-center justify-between sm:justify-end gap-4 shrink-0 pt-2 sm:pt-0 border-t sm:border-t-0 border-slate-100 dark:border-slate-800">
@@ -151,13 +225,13 @@ export default function InboundInvoiceReceiptPickerModal({
                 </div>
             </section>
 
-            <InboundXmlImportModal
-                isOpen={isImportModalOpen}
-                onClose={() => setIsImportModalOpen(false)}
+            <InboundDocumentImportModal
+                isOpen={isCreateModalOpen}
+                onClose={() => setIsCreateModalOpen(false)}
                 onImportSuccess={(newInv) => {
-                    loadInvoices();
-                    onSelect(newInv);
-                    onClose();
+                    setInvoices((current) => [newInv, ...current.filter((invoice) => invoice.id !== newInv.id)]);
+                    setIsCreateModalOpen(false);
+                    onCreate(newInv);
                 }}
             />
         </div>
