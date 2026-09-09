@@ -1465,10 +1465,6 @@ export const saveVariation = async (productId: string, variation: any): Promise<
             return false;
         });
 
-        if (varIndex === -1 && variations.length === 1) {
-            varIndex = 0;
-        }
-
         const variationToSave = { 
             ...variation, 
             id: variationId || (varIndex !== -1 ? variations[varIndex].id : crypto.randomUUID()) 
@@ -1499,6 +1495,30 @@ export const saveVariation = async (productId: string, variation: any): Promise<
         console.error("Erro ao salvar variação: ", error);
         throw error;
     }
+};
+
+/**
+ * Move uma variação já existente para outra família sem recriar seu registro.
+ * O ID da variação, estoque, preços e histórico permanecem intactos.
+ */
+export const moveVariationToFamily = async (
+    variationId: string,
+    targetFamilyId: string,
+    attributes: { name: string; value: string; showName?: boolean }[],
+    name: string,
+    imageUrls: string[],
+): Promise<void> => {
+    const { error } = await supabase
+        .from('product_variations')
+        .update({
+            product_id: targetFamilyId,
+            attributes: Object.fromEntries(attributes.map(attribute => [attribute.name, attribute.value])),
+            name,
+            image_url: imageUrls.join(','),
+        })
+        .eq('id', variationId);
+
+    if (error) throw error;
 };
 export const syncFromWhatsApp = async (whatsappProduct: any): Promise<string> => {
     try {

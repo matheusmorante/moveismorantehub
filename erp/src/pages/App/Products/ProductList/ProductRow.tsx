@@ -31,6 +31,7 @@ interface ProductRowProps {
     isExpanded?: boolean;
     onToggleExpand?: () => void;
     variationsCount?: number;
+    onMoveToAnotherFamily?: (product: Product) => void;
 }
 
 const ProductRow: React.FC<ProductRowProps> = ({
@@ -52,6 +53,7 @@ const ProductRow: React.FC<ProductRowProps> = ({
     isExpanded,
     onToggleExpand,
     variationsCount,
+    onMoveToAnotherFamily,
 }) => {
     const [labelModal, setLabelModal] = React.useState<{ open: boolean; type: LabelPrintType }>({ open: false, type: 'identification' });
     const [isSalesModalOpen, setIsSalesModalOpen] = React.useState(false);
@@ -121,6 +123,7 @@ const ProductRow: React.FC<ProductRowProps> = ({
                     onLaunchStock={onLaunchStock}
                     onOpenSalesModal={() => setIsSalesModalOpen(true)}
                     onOpenLabelModal={(type) => setLabelModal({ open: true, type })}
+                    onMoveToAnotherFamily={onMoveToAnotherFamily}
                 />
             );
         }

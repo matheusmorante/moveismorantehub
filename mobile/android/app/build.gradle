@@ -82,6 +82,21 @@ def enableMinifyInReleaseBuilds = (findProperty('android.enableMinifyInReleaseBu
  */
 def jscFlavor = 'io.github.react-native-community:jsc-android:2026004.+'
 
+// The Expo web map does not use the native Google Maps SDK. Native Android
+// builds must receive this key while compiling the manifest. Prefer a secure
+// EAS environment secret, allow a local Gradle property, and retain the Expo
+// app configuration as a backwards-compatible fallback.
+def configuredGoogleMapsApiKey = ""
+def expoAppConfigFile = new File(projectRoot, "app.json")
+if (expoAppConfigFile.exists()) {
+    configuredGoogleMapsApiKey = new groovy.json.JsonSlurper()
+        .parse(expoAppConfigFile)?.expo?.android?.config?.googleMaps?.apiKey ?: ""
+}
+def googleMapsApiKey = System.getenv("GOOGLE_MAPS_ANDROID_API_KEY") ?: (findProperty("GOOGLE_MAPS_ANDROID_API_KEY") ?: configuredGoogleMapsApiKey)
+if (!googleMapsApiKey?.trim() || googleMapsApiKey.startsWith("__REDACTED")) {
+    throw new GradleException("Configure GOOGLE_MAPS_ANDROID_API_KEY before generating an Android build with the delivery map.")
+}
+
 android {
     ndkVersion rootProject.ext.ndkVersion
 
@@ -97,6 +112,7 @@ android {
         versionName "1.5.0"
 
         buildConfigField "String", "REACT_NATIVE_RELEASE_LEVEL", "\"${findProperty('reactNativeReleaseLevel') ?: 'stable'}\""
+        manifestPlaceholders = [googleMapsApiKey: googleMapsApiKey]
     }
     signingConfigs {
         debug {

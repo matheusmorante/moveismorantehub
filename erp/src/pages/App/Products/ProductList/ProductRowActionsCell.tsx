@@ -15,6 +15,7 @@ interface ProductRowActionsCellProps {
     onLaunchStock?: (product: any) => void;
     onOpenSalesModal: () => void;
     onOpenLabelModal: (type: LabelPrintType) => void;
+    onMoveToAnotherFamily?: (product: Product) => void;
 }
 
 export const ProductRowActionsCell: React.FC<ProductRowActionsCellProps> = ({
@@ -29,13 +30,42 @@ export const ProductRowActionsCell: React.FC<ProductRowActionsCellProps> = ({
     onLaunchStock,
     onOpenSalesModal,
     onOpenLabelModal,
+    onMoveToAnotherFamily,
 }) => {
     const [isMenuOpen, setIsMenuOpen] = React.useState(false);
     const menuAnchorRef = React.useRef<HTMLButtonElement>(null);
     const isDraft = Boolean(product.isDraft) || Boolean((product as any).is_draft) || product.status === 'draft';
 
     if (isChildVar) {
-        return <td key="actions" className="px-3 py-3 text-center" onClick={(e) => e.stopPropagation()} />;
+        return (
+            <td key="actions" className="px-3 py-3 text-center" onClick={(e) => e.stopPropagation()}>
+                {onMoveToAnotherFamily && (product as any).variationId && (
+                    <div className="relative inline-flex">
+                        <button
+                            ref={menuAnchorRef}
+                            type="button"
+                            onClick={(event) => { event.stopPropagation(); setIsMenuOpen(value => !value); }}
+                            className="w-8 h-8 inline-flex items-center justify-center rounded-xl border border-slate-200/80 bg-slate-100 text-slate-700 transition-all hover:bg-blue-50 hover:text-blue-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
+                            title="Mais opções do produto"
+                        >
+                            <i className="bi bi-three-dots text-xs font-bold" />
+                        </button>
+                        <DropdownPortal isOpen={isMenuOpen} onClose={() => setIsMenuOpen(false)} anchorRef={menuAnchorRef} className="min-w-[220px]">
+                            <div className="rounded-2xl border border-slate-100 bg-white py-2 shadow-2xl dark:border-slate-800 dark:bg-slate-900">
+                                <button
+                                    type="button"
+                                    onClick={(event) => { event.stopPropagation(); setIsMenuOpen(false); onMoveToAnotherFamily(product); }}
+                                    className="flex w-full items-center gap-3 px-4 py-2.5 text-left transition-colors hover:bg-slate-50 dark:hover:bg-slate-950"
+                                >
+                                    <i className="bi bi-arrow-left-right text-indigo-500" />
+                                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-700 dark:text-slate-200">Mover para outra família</span>
+                                </button>
+                            </div>
+                        </DropdownPortal>
+                    </div>
+                )}
+            </td>
+        );
     }
 
     return (

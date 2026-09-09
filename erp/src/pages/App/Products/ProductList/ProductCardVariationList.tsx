@@ -18,6 +18,7 @@ interface ProductCardVariationListProps {
     onDeactivateCatalog: (id: string) => void;
     onShowHistory?: (product: any) => void;
     onLaunchStock?: (product: any) => void;
+    onMoveToAnotherFamily?: (variation: any) => void;
 }
 
 export const ProductCardVariationList: React.FC<ProductCardVariationListProps> = ({
@@ -32,6 +33,7 @@ export const ProductCardVariationList: React.FC<ProductCardVariationListProps> =
     onDeactivateCatalog,
     onShowHistory,
     onLaunchStock,
+    onMoveToAnotherFamily,
 }) => {
     const [activeVarMenuId, setActiveVarMenuId] = React.useState<string | null>(null);
     const varMenuRefs = React.useRef<Record<string, HTMLButtonElement | null>>({});
@@ -152,6 +154,15 @@ export const ProductCardVariationList: React.FC<ProductCardVariationListProps> =
                                                 <i className="bi bi-pencil-fill text-blue-500" />
                                                 <span className="text-[10px] font-black uppercase tracking-widest text-slate-700 dark:text-slate-200">Editar</span>
                                             </button>
+                                            {onMoveToAnotherFamily && (
+                                                <button
+                                                    onClick={(e) => { e.stopPropagation(); setActiveVarMenuId(null); onMoveToAnotherFamily({ ...v, variationId: v.id, parentId: product.id, attributes: v.attributes || [] }); }}
+                                                    className="flex items-center gap-3 px-4 py-2.5 hover:bg-slate-50 dark:hover:bg-slate-950 transition-colors text-left group cursor-pointer"
+                                                >
+                                                    <i className="bi bi-arrow-left-right text-indigo-500" />
+                                                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-700 dark:text-slate-200">Mover para outra família</span>
+                                                </button>
+                                            )}
                                             {onShowHistory && (
                                                 <button
                                                     onClick={(e) => { e.stopPropagation(); setActiveVarMenuId(null); onShowHistory(v); }}

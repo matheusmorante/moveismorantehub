@@ -1,16 +1,29 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import ProductAutocomplete from '@/components/ProductAutocomplete';
 import Product, { Variation } from '@/pages/types/product.type';
 import Person from '@/pages/types/person.type';
 import { InboundInvoiceItem } from '@/pages/utils/inboundNfe/inboundNfeTypes';
 import { findProductSupplierCodes, saveProductSupplierCode } from '@/pages/utils/productSupplierCodesService';
-import { saveProduct } from '@/pages/utils/productService';
+import { getFullProduct, saveProduct, saveVariation } from '@/pages/utils/productService';
+import { ensureAttributeValue } from '@/pages/utils/variationService';
 import { fetchGroupsAndCategories } from '@/pages/utils/categoryService';
 import { ensureDefaultVariation } from '@/pages/utils/productVariationDefaults';
 import { aiService } from '@/pages/utils/aiService';
+import { fetchSupplierProductsForContext, buildSupplierContextSummary, SupplierProductSummary } from '@/pages/utils/inboundNfe/inboundSupplierProductContext';
 import { toast } from 'react-toastify';
 import { formatCurrency } from '@/pages/utils/formatters';
 import { InboundInvoiceItemFiscalReview } from './InboundInvoiceItemFiscalReview';
+import { itemCostRate, itemCostWithAdditionalCosts, itemFiscalOtherExpensesCost, itemFreightCost, itemIpiCost, itemNonFiscalOtherExpensesCost } from '@/pages/utils/inboundNfe/inboundItemCosts';
+
+type AiClassification = {
+    decision: 'EXISTING_VARIATION' | 'NEW_VARIATION_OF_EXISTING_PRODUCT' | 'NEW_PRODUCT' | 'UNSURE';
+    matchedProductId: string | null;
+    matchedVariationId: string | null;
+    normalizedParentName: string;
+    extractedAttributes: { color: string | null; measure: string | null; material: string | null };
+    confidence: number;
+    reasons: string[];
+};
 
 type Props = {
     items: InboundInvoiceItem[];
@@ -20,10 +33,7 @@ type Props = {
 };
 
 const productName = (product: Product, variation?: Variation) => variation?.name || variation?.title || product.name || product.title || product.description || '';
-const finalItemCost = (item: InboundInvoiceItem) => {
-    const quantity = Math.max(1, item.quantity);
-    return item.unitCost + (item.ipiValue || 0) / quantity + (item.freightValue || 0) / quantity + (item.totalAdditionalCosts || 0) / quantity;
-};
+const finalItemCost = itemCostWithAdditionalCosts;
 
 export function InboundInvoiceItemsReview({ items, supplierId, suppliers, onChange }: Props) {
     const [creatingItemNumber, setCreatingItemNumber] = useState<number | null>(null);
@@ -31,33 +41,24 @@ export function InboundInvoiceItemsReview({ items, supplierId, suppliers, onChan
     const [initialProductData, setInitialProductData] = useState<Partial<Product> | null>(null);
     const [isSuggestingName, setIsSuggestingName] = useState(false);
     const [searchingItemNumber, setSearchingItemNumber] = useState<number | null>(null);
-    const [isBatchReviewOpen, setIsBatchReviewOpen] = useState(false);
-    const [batchCountdown, setBatchCountdown] = useState(5);
     const [individualItem, setIndividualItem] = useState<InboundInvoiceItem | null>(null);
     const [individualCountdown, setIndividualCountdown] = useState(5);
     const [individualMarkup, setIndividualMarkup] = useState('');
-    const [batchMarkup, setBatchMarkup] = useState('');
     const [suggestedCategory, setSuggestedCategory] = useState<{ id: string; name: string } | null>(null);
     const [isPreparingProduct, setIsPreparingProduct] = useState(false);
+    // IA com contexto de fornecedor
+    const [isClassifying, setIsClassifying] = useState(false);
+    const [aiClassification, setAiClassification] = useState<AiClassification | null>(null);
+    const [classifyingItem, setClassifyingItem] = useState<InboundInvoiceItem | null>(null);
+    // Cache de produtos do fornecedor para evitar multiplas consultas na mesma NF
+    const supplierProductsCacheRef = useRef<{ supplierId: string; products: SupplierProductSummary[] } | null>(null);
+
     const linkedCount = items.filter((item) => Boolean(item.matchedProductId)).length;
     const unlinkedItems = useMemo(() => items.filter((item) => !item.matchedProductId), [items]);
     const creatingItem = items.find((item) => item.itemNumber === creatingItemNumber);
     const supplier = suppliers.find((person) => person.id === supplierId);
-
-    useEffect(() => {
-        if (!isBatchReviewOpen) return;
-        setBatchCountdown(5);
-        const timer = window.setInterval(() => {
-            setBatchCountdown((current) => {
-                if (current <= 1) {
-                    window.clearInterval(timer);
-                    return 0;
-                }
-                return current - 1;
-            });
-        }, 1000);
-        return () => window.clearInterval(timer);
-    }, [isBatchReviewOpen]);
+    const effectiveMarkup = individualMarkup;
+    const setEffectiveMarkup = setIndividualMarkup;
 
     useEffect(() => {
         if (!individualItem) return;
@@ -74,15 +75,29 @@ export function InboundInvoiceItemsReview({ items, supplierId, suppliers, onChan
         return () => window.clearInterval(timer);
     }, [individualItem]);
 
-    const selectProduct = (itemNumber: number, product: Product, variation?: Variation) => onChange(itemNumber, {
-        matchedProductId: product.id,
-        matchedVariationId: variation?.id,
-        linkedProductCode: variation?.sku || product.code || '',
-        productErpName: productName(product, variation),
-    });
+    /** Obtém os produtos do fornecedor, usando cache quando disponível. */
+    const getSupplierProducts = async (): Promise<SupplierProductSummary[]> => {
+        if (!supplierId) return [];
+        if (supplierProductsCacheRef.current?.supplierId === supplierId) return supplierProductsCacheRef.current.products;
+        const products = await fetchSupplierProductsForContext(supplierId);
+        supplierProductsCacheRef.current = { supplierId, products };
+        return products;
+    };
 
-    const startCreation = async (item: InboundInvoiceItem, queue: number[] = []) => {
+    // Invalida cache quando o fornecedor muda
+    useEffect(() => {
+        if (supplierId && supplierProductsCacheRef.current?.supplierId !== supplierId) {
+            supplierProductsCacheRef.current = null;
+        }
+    }, [supplierId]);
+
+    /**
+     * Passo 1: classifica o item com IA antes de abrir o fluxo de criação.
+     * Se não houver produtos do fornecedor, vai direto para o fluxo normal.
+     */
+    const classifyAndStart = async (item: InboundInvoiceItem, queue: number[] = []) => {
         if (!supplierId) return toast.info('Vincule o fornecedor para identificar ou cadastrar os produtos.');
+        // Vínculo confirmado por código do fornecedor tem prioridade máxima
         if (item.productCode) {
             const existing = await findProductSupplierCodes(supplierId, [item.productCode]);
             const match = existing.get(item.productCode.trim().toLocaleUpperCase('pt-BR'));
@@ -92,6 +107,36 @@ export function InboundInvoiceItemsReview({ items, supplierId, suppliers, onChan
                 return;
             }
         }
+        setIsClassifying(true);
+        setClassifyingItem(item);
+        setCreationQueue(queue);
+        try {
+            const supplierProducts = await getSupplierProducts();
+            if (!supplierProducts.length) {
+                setIsClassifying(false);
+                void startCreation(item, queue);
+                return;
+            }
+            const contextSummary = buildSupplierContextSummary(supplierProducts);
+            const classification = await aiService.classifyInboundItemWithSupplierContext({
+                itemDescription: item.productDescription,
+                itemProductCode: item.productCode || undefined,
+                supplierContextSummary: contextSummary,
+            });
+            setIsClassifying(false);
+            if (classification.decision === 'NEW_PRODUCT' || classification.decision === 'UNSURE' || !classification.matchedProductId) {
+                void startCreation(item, queue);
+                return;
+            }
+            setAiClassification(classification);
+        } catch {
+            setIsClassifying(false);
+            void startCreation(item, queue);
+        }
+    };
+
+    const startCreation = async (item: InboundInvoiceItem, queue: number[] = [], family?: { id: string; name: string }) => {
+        if (!supplierId) return toast.info('Vincule o fornecedor para identificar ou cadastrar os produtos.');
         setCreationQueue(queue);
         setCreatingItemNumber(item.itemNumber);
         setIsSuggestingName(true);
@@ -105,32 +150,77 @@ export function InboundInvoiceItemsReview({ items, supplierId, suppliers, onChan
             if (!category) throw new Error('Nenhuma categoria existente foi encontrada para o produto.');
             setSuggestedCategory({ id: category.id, name: category.name });
             setInitialProductData({
-                name: suggestion.title,
-                title: suggestion.title,
-                description: item.productDescription,
-                unit: item.unit || 'UN',
-                itemType: 'product',
-                active: true,
-                isDraft: false,
-                status: 'hidden',
-                mainSupplierId: supplierId,
-                supplierId,
-                supplierIds: [supplierId],
-                supplierRef: item.productCode || undefined,
-                categoryIds: [category.id],
+                name: suggestion.title, title: suggestion.title, description: item.productDescription,
+                unit: item.unit || 'UN', itemType: 'product', active: true, isDraft: false, status: 'hidden',
+                mainSupplierId: supplierId, supplierId, supplierIds: [supplierId],
+                supplierRef: item.productCode || undefined, categoryIds: [category.id],
+                parentId: family?.id,
                 fiscal: { ncm: item.ncm || undefined, cest: item.cest || undefined, cfop: item.cfop || undefined },
-                unitPrice: 0,
-                ecommerceSync: false,
-                whatsappSync: false,
+                unitPrice: 0, ecommerceSync: false, whatsappSync: false,
             });
         } catch (error: any) {
-            setInitialProductData(null);
-            setCreatingItemNumber(null);
+            setInitialProductData(null); setCreatingItemNumber(null);
             toast.error(error.message || 'Não foi possível preparar categoria e dados obrigatórios do produto.');
         } finally {
-            setIsSuggestingName(false);
-            setIsPreparingProduct(false);
+            setIsSuggestingName(false); setIsPreparingProduct(false);
         }
+    };
+
+    /** Confirmar EXISTING_VARIATION: vincula item à variação já cadastrada. */
+    const confirmExistingVariationLink = () => {
+        if (!classifyingItem || !aiClassification?.matchedProductId) return;
+        onChange(classifyingItem.itemNumber, {
+            matchedProductId: aiClassification.matchedProductId,
+            matchedVariationId: aiClassification.matchedVariationId || undefined,
+            productErpName: aiClassification.normalizedParentName || 'Variação vinculada pela IA',
+        });
+        toast.success('Item vinculado à variação existente identificada pela IA.');
+        const queue = creationQueue.filter((n) => n !== classifyingItem.itemNumber);
+        setAiClassification(null); setClassifyingItem(null);
+        advanceQueue(queue);
+    };
+
+    /** Cria diretamente um produto dentro da família, herdando os dados do pai. */
+    const confirmNewVariationInFamily = async () => {
+        if (!classifyingItem || !aiClassification?.matchedProductId || !supplierId) return;
+        const markup = Number(effectiveMarkup.replace(',', '.'));
+        if (!Number.isFinite(markup) || markup < 0) return toast.error('Informe um acréscimo válido sobre o custo final.');
+        try {
+            const family = await getFullProduct(aiClassification.matchedProductId);
+            if (!family) throw new Error('Família sugerida não encontrada no ERP.');
+            const finalCost = finalItemCost(classifyingItem);
+            const color = aiClassification.extractedAttributes.color;
+            const attributes = color ? [await ensureAttributeValue('Cor', color)] : [];
+            const variationId = crypto.randomUUID();
+            await saveVariation(family.id, {
+                id: variationId,
+                name: classifyingItem.productDescription,
+                attributes,
+                unitPrice: Number((finalCost * (1 + markup / 100)).toFixed(2)),
+                costPrice: finalCost,
+                finalPurchasePrice: finalCost,
+                stock: classifyingItem.quantity,
+                // Os campos do pai continuam sendo a fonte de herança da variação.
+                syncUnitPrice: false, syncPromoPrice: false, syncDescription: true,
+                syncWidth: true, images: [],
+            });
+            await saveProductSupplierCode({ supplierId, productId: family.id, productVariationId: variationId, supplierProductCode: classifyingItem.productCode, supplierDescription: classifyingItem.productDescription, normalizedDescription: aiClassification.normalizedParentName });
+            onChange(classifyingItem.itemNumber, { matchedProductId: family.id, matchedVariationId: variationId, productErpName: `${family.name || family.title} — ${classifyingItem.productDescription}` });
+            toast.success(`Produto cadastrado na família "${family.name || family.title}".`);
+            const queue = creationQueue.filter((n) => n !== classifyingItem.itemNumber);
+            setAiClassification(null); setClassifyingItem(null);
+            advanceQueue(queue);
+        } catch (error: any) {
+            toast.error(error.message || 'Não foi possível cadastrar o produto na família.');
+        }
+    };
+
+    /** Descartar sugestão IA e criar como produto independente. */
+    const discardClassificationAndCreateNew = () => {
+        const item = classifyingItem;
+        const queue = [...creationQueue];
+        setAiClassification(null); setClassifyingItem(null);
+        if (item) void startCreation(item, queue);
     };
 
     const createProductDirectly = async (markupInput: string) => {
@@ -153,43 +243,28 @@ export function InboundInvoiceItemsReview({ items, supplierId, suppliers, onChan
 
     const handleCreated = (product: Product) => {
         const nextQueue = creationQueue.filter((itemNumber) => itemNumber !== creatingItem.itemNumber);
-        setCreatingItemNumber(null);
-        setInitialProductData(null);
-        setSuggestedCategory(null);
-        setIndividualMarkup('');
-        if (nextQueue.length) {
-            const next = items.find((item) => item.itemNumber === nextQueue[0] && !item.matchedProductId);
-            if (next) void startCreation(next, nextQueue);
-            else setCreationQueue([]);
-        }
+        setCreatingItemNumber(null); setInitialProductData(null); setSuggestedCategory(null); setIndividualMarkup('');
+        advanceQueue(nextQueue);
     };
 
-    const openBatchReview = () => {
-        if (!supplierId) return toast.info('Vincule o fornecedor para cadastrar os produtos.');
-        setIsBatchReviewOpen(true);
-    };
-
-    const confirmBatchCreation = () => {
-        if (!batchMarkup.trim() || !Number.isFinite(Number(batchMarkup.replace(',', '.'))) || Number(batchMarkup.replace(',', '.')) < 0) {
-            return toast.error('Informe o acréscimo padrão sobre o custo final.');
+    const advanceQueue = (queue: number[]) => {
+        setCreationQueue(queue);
+        if (queue.length) {
+            const next = items.find((item) => item.itemNumber === queue[0] && !item.matchedProductId);
+            if (next) void classifyAndStart(next, queue);
         }
-        setIsBatchReviewOpen(false);
-        setIndividualMarkup(batchMarkup);
-        const first = unlinkedItems[0];
-        if (first) void startCreation(first, unlinkedItems.map((item) => item.itemNumber));
     };
 
     const requestIndividualCreation = (item: InboundInvoiceItem) => {
         if (!supplierId) return toast.info('Vincule o fornecedor para identificar ou cadastrar os produtos.');
-        setIndividualItem(item);
-        setIndividualMarkup('');
+        setIndividualItem(item); setIndividualMarkup('');
     };
 
     const confirmIndividualCreation = () => {
         if (!individualItem) return;
         const item = individualItem;
         setIndividualItem(null);
-        void startCreation(item);
+        void classifyAndStart(item);
     };
 
     return (
@@ -204,8 +279,11 @@ export function InboundInvoiceItemsReview({ items, supplierId, suppliers, onChan
                 <div className="divide-y divide-slate-100 dark:divide-slate-800">
                     {items.map((item) => {
                         const linked = Boolean(item.matchedProductId);
-                        const quantity = Math.max(1, item.quantity);
-                        const totalUnit = item.unitCost + (item.ipiValue || 0) / quantity + (item.freightValue || 0) / quantity;
+                        const freightCost = itemFreightCost(item);
+                        const ipiCost = itemIpiCost(item);
+                        const fiscalOtherExpensesCost = itemFiscalOtherExpensesCost(item);
+                        const nonFiscalOtherExpensesCost = itemNonFiscalOtherExpensesCost(item);
+                        const totalUnit = finalItemCost(item);
                         return <div key={item.itemNumber} className="grid gap-5 p-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
                             <div className="min-w-0 space-y-2">
                                 <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Dados da NF</span>
@@ -215,9 +293,17 @@ export function InboundInvoiceItemsReview({ items, supplierId, suppliers, onChan
                                 {item.normalizedParentName ? <div className="rounded-xl border border-indigo-200 bg-indigo-50/70 p-3 text-xs text-indigo-950 dark:border-indigo-900 dark:bg-indigo-950/30 dark:text-indigo-100"><p className="font-black"><i className="bi bi-stars mr-1" />Interpretação da IA — ainda não confirmada</p><p className="mt-1">Produto pai provável: <b>{item.normalizedParentName}</b></p>{item.extractedAttributes?.color ? <p className="mt-1">Cor detectada: <b>{item.extractedAttributes.color}</b></p> : null}{item.detectedSupplierCodeFamily ? <p className="mt-1">Família provável do código: <b>{item.detectedSupplierCodeFamily}</b></p> : null}</div> : null}
                                 <InboundInvoiceItemFiscalReview item={item} />
                             </div>
-                            <div className="min-w-0 rounded-2xl border border-dashed border-slate-200 bg-slate-50/70 p-4 dark:border-slate-700 dark:bg-slate-950/40">
+                            <div className="flex min-w-0 flex-col rounded-2xl border border-dashed border-slate-200 bg-slate-50/70 p-4 dark:border-slate-700 dark:bg-slate-950/40">
                                 <div className="flex items-center justify-between gap-2"><span className="text-[10px] font-black uppercase tracking-widest text-slate-500">Produto no ERP</span><span className={`rounded-full px-2 py-1 text-[9px] font-black uppercase ${linked ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-800'}`}>{linked ? 'Vinculado' : 'Não vinculado'}</span></div>
-                                {!supplierId ? <p className="mt-5 text-xs text-amber-700">Vincule o fornecedor para identificar ou cadastrar os produtos.</p> : linked ? <div className="mt-5 space-y-2"><p className="text-sm font-black text-slate-800 dark:text-slate-100">{item.productErpName || 'Produto vinculado'}</p><p className="text-[10px] text-slate-500">Código ERP: {item.linkedProductCode || item.matchedProductId}</p><button type="button" onClick={() => onChange(item.itemNumber, { matchedProductId: undefined, matchedVariationId: undefined, linkedProductCode: undefined, productErpName: undefined })} className="text-xs font-black text-indigo-700">Trocar</button></div> : <div className="mt-5 space-y-3"><p className="text-xs text-slate-500">Nenhum produto vinculado</p>{searchingItemNumber === item.itemNumber ? <ProductAutocomplete supplierId={supplierId} value="" isSelected={false} placeholder="Buscar nome ou código..." onSelect={(product, variation) => { selectProduct(item.itemNumber, product, variation); setSearchingItemNumber(null); }} /> : <div className="flex flex-wrap gap-2"><button type="button" onClick={() => setSearchingItemNumber(item.itemNumber)} className="rounded-lg bg-indigo-600 px-3 py-2 text-[10px] font-black text-white">Vincular existente</button><button type="button" onClick={() => requestIndividualCreation(item)} className="rounded-lg border border-emerald-300 bg-emerald-50 px-3 py-2 text-[10px] font-black text-emerald-700">+ Cadastrar produto</button></div>}</div>}
+                                <div className="mt-4 rounded-xl border border-indigo-100 bg-indigo-50/60 p-3 text-xs text-slate-700 dark:border-indigo-900/60 dark:bg-indigo-950/30 dark:text-slate-200">
+                                    <div><span title="Cada componente é mantido separado. O valor do IPI da própria linha da NF é dividido pela quantidade e entra no custo final uma única vez." className="cursor-help font-black text-indigo-800 underline decoration-dotted underline-offset-4 dark:text-indigo-200">Composição do custo unitário <span aria-hidden="true">ⓘ</span></span></div>
+                                    <p className="mt-1 text-[10px] text-slate-500 dark:text-slate-400">Frete fiscal unitário: {(itemCostRate(freightCost, item) * 100).toFixed(2)}% · {formatCurrency(freightCost / Math.max(1, item.quantity))}</p>
+                                    <p className="mt-1 text-[10px] text-slate-500 dark:text-slate-400">IPI unitário: {(item.ipiPercent || itemCostRate(ipiCost, item) * 100).toFixed(2)}% · {formatCurrency(ipiCost / Math.max(1, item.quantity))}</p>
+                                    <p className="mt-1 text-[10px] text-slate-500 dark:text-slate-400">Outras despesas fiscais unitárias: {(itemCostRate(fiscalOtherExpensesCost, item) * 100).toFixed(2)}% · {formatCurrency(fiscalOtherExpensesCost / Math.max(1, item.quantity))}</p>
+                                    <p className="mt-1 text-[10px] text-slate-500 dark:text-slate-400">Outras despesas não fiscais unitárias: {(itemCostRate(nonFiscalOtherExpensesCost, item) * 100).toFixed(2)}% · {formatCurrency(nonFiscalOtherExpensesCost / Math.max(1, item.quantity))}</p>
+                                    <p className="mt-2 font-bold">Custo unitário final: <span className="text-emerald-700 dark:text-emerald-300">{formatCurrency(totalUnit)}</span></p>
+                                </div>
+                                {!supplierId ? <p className="mt-5 text-xs text-amber-700">Vincule o fornecedor para identificar ou cadastrar os produtos.</p> : linked ? <div className="mt-5 space-y-2"><p className="text-sm font-black text-slate-800 dark:text-slate-100">{item.productErpName || 'Produto vinculado'}</p><p className="text-[10px] text-slate-500">Código ERP: {item.linkedProductCode || item.matchedProductId}</p><button type="button" onClick={() => onChange(item.itemNumber, { matchedProductId: undefined, matchedVariationId: undefined, linkedProductCode: undefined, productErpName: undefined })} className="text-xs font-black text-indigo-700">Trocar</button></div> : <div className="mt-auto space-y-3 pt-5"><p className="text-xs text-slate-500">Nenhum produto vinculado</p>{searchingItemNumber === item.itemNumber ? <ProductAutocomplete supplierId={supplierId} value="" isSelected={false} placeholder="Buscar nome ou código..." onSelect={(product, variation) => { selectProduct(item.itemNumber, product, variation); setSearchingItemNumber(null); }} /> : <div className="flex flex-wrap justify-end gap-2"><button type="button" onClick={() => setSearchingItemNumber(item.itemNumber)} className="rounded-lg bg-indigo-600 px-3 py-2 text-[10px] font-black text-white">Vincular existente</button><button type="button" onClick={() => requestIndividualCreation(item)} className="rounded-lg border border-emerald-300 bg-emerald-50 px-3 py-2 text-[10px] font-black text-emerald-700">Cadastrar rapidamente</button></div>}</div>}
                             </div>
                         </div>;
                     })}
@@ -228,7 +314,6 @@ export function InboundInvoiceItemsReview({ items, supplierId, suppliers, onChan
                             <p>{items.length} itens na NF</p>
                             <p className="mt-1 text-emerald-700 dark:text-emerald-300">{linkedCount} vinculados · {unlinkedItems.length} sem vínculo</p>
                         </div>
-                        <button type="button" onClick={openBatchReview} className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-[10px] font-black uppercase text-amber-800 hover:bg-amber-100 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-300">Cadastrar {unlinkedItems.length} produtos restantes</button>
                     </div>
                 </footer>}
             </section>
@@ -242,21 +327,58 @@ export function InboundInvoiceItemsReview({ items, supplierId, suppliers, onChan
                     <div className="mt-5 flex justify-end gap-2"><button type="button" onClick={() => setIndividualItem(null)} className="rounded-lg px-3 py-2 text-xs font-black text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800">Cancelar</button><button type="button" disabled={individualCountdown > 0 || !individualMarkup.trim()} onClick={confirmIndividualCreation} className="rounded-lg bg-emerald-600 px-3 py-2 text-xs font-black text-white disabled:cursor-not-allowed disabled:opacity-50">{individualCountdown > 0 ? `Confirmar cadastro em ${individualCountdown}s` : 'Confirmar cadastro'}</button></div>
                 </section>
             </div>}
-            {isBatchReviewOpen && <div className="fixed inset-0 z-[1000004] flex items-center justify-center bg-slate-950/60 p-4">
-                <section className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl dark:bg-slate-900">
-                    <h3 className="text-base font-black text-slate-800 dark:text-slate-100">Cadastrar {unlinkedItems.length} produtos restantes</h3>
-                    <p className="mt-3 text-sm leading-6 text-slate-600 dark:text-slate-300">Os produtos abaixo ainda não possuem vínculo no ERP. Confirme que você já verificou possíveis correspondências antes de criar novos cadastros.</p>
-                    <label className="mt-4 block text-xs font-black text-slate-600 dark:text-slate-300">Acréscimo padrão sobre o custo final (%)<input type="number" min="0" step="0.01" required value={batchMarkup} onChange={(event) => setBatchMarkup(event.target.value)} className="mt-1 w-full rounded-lg border px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-950" /></label>
-                    <div className="mt-4 max-h-48 space-y-2 overflow-y-auto rounded-xl bg-slate-50 p-3 text-xs dark:bg-slate-950">
-                        {unlinkedItems.map((item) => <p key={item.itemNumber} className="font-bold text-slate-700 dark:text-slate-200">{item.itemNumber}. {item.productDescription}</p>)}
+            {creatingItemNumber && initialProductData && !isPreparingProduct && <div className="fixed inset-0 z-[1000006] flex items-center justify-center bg-slate-950/60 p-4"><section className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl dark:bg-slate-900"><h3 className="text-base font-black text-slate-800 dark:text-slate-100">Confirmar cadastro inteligente</h3><p className="mt-2 text-sm text-slate-600 dark:text-slate-300">A categoria foi selecionada automaticamente entre as categorias existentes. O nome foi sugerido pelo Gemini e pode ser revisado antes do cadastro.</p><div className="mt-4 space-y-2 rounded-xl bg-slate-50 p-3 text-xs dark:bg-slate-950"><p><b>Nome:</b> {initialProductData.name}</p><p><b>Categoria:</b> {suggestedCategory?.name || 'Não encontrada'}</p><p><b>NCM:</b> {initialProductData.fiscal?.ncm || 'Não informado na NF'}</p><p><b>Custo final:</b> {creatingItem ? formatCurrency(finalItemCost(creatingItem)) : '—'}</p></div><label className="mt-4 block text-xs font-black text-slate-600 dark:text-slate-300">Acréscimo sobre o custo final (%)<input type="number" min="0" step="0.01" value={individualMarkup} onChange={(event) => setIndividualMarkup(event.target.value)} className="mt-1 w-full rounded-lg border px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-950" /></label><p className="mt-2 text-xs text-slate-500">Preço de venda estimado: <b>{creatingItem && individualMarkup.trim() ? formatCurrency(finalItemCost(creatingItem) * (1 + Number(individualMarkup.replace(',', '.')) / 100)) : 'Informe o acréscimo'}</b></p><div className="mt-5 flex justify-end gap-2"><button type="button" onClick={() => { setCreatingItemNumber(null); setInitialProductData(null); setCreationQueue([]); }} className="rounded-lg px-3 py-2 text-xs font-black text-slate-500">Cancelar</button><button type="button" onClick={() => void createProductDirectly(individualMarkup)} className="rounded-lg bg-emerald-600 px-3 py-2 text-xs font-black text-white">Cadastrar e vincular</button></div></section></div>}
+            {/* Loading: classificando item com IA */}
+            {isClassifying && classifyingItem && <div className="fixed inset-0 z-[1000005] flex items-center justify-center bg-slate-950/60 p-4">
+                <section className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl dark:bg-slate-900 text-center">
+                    <i className="bi bi-stars text-3xl text-indigo-500 animate-pulse" />
+                    <h3 className="mt-3 text-base font-black text-slate-800 dark:text-slate-100">Analisando com IA...</h3>
+                    <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">Comparando com os produtos do fornecedor para sugerir o melhor vínculo.</p>
+                    <p className="mt-3 rounded-xl bg-slate-50 p-3 text-xs font-bold text-slate-700 dark:bg-slate-950 dark:text-slate-200">{classifyingItem.productDescription}</p>
+                </section>
+            </div>}
+            {/* Modal: EXISTING_VARIATION — confirmar vínculo com variação já existente */}
+            {!isClassifying && aiClassification?.decision === 'EXISTING_VARIATION' && classifyingItem && <div className="fixed inset-0 z-[1000005] flex items-center justify-center bg-slate-950/60 p-4">
+                <section className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl dark:bg-slate-900">
+                    <div className="flex items-center gap-2"><i className="bi bi-stars text-indigo-500" /><h3 className="text-base font-black text-slate-800 dark:text-slate-100">Variação já existe no ERP</h3></div>
+                    <p className="mt-3 text-sm text-slate-600 dark:text-slate-300">A IA identificou que este item já está cadastrado como uma variação existente.</p>
+                    <div className="mt-4 space-y-1 rounded-xl bg-slate-50 p-3 text-xs dark:bg-slate-950">
+                        <p className="font-bold text-slate-700 dark:text-slate-200">Item da NF: {classifyingItem.productDescription}</p>
+                        <p className="text-slate-500">Produto sugerido: <b className="text-emerald-700 dark:text-emerald-300">{aiClassification.normalizedParentName || '—'}</b></p>
+                        {aiClassification.extractedAttributes.color && <p className="text-slate-500">Cor detectada: <b>{aiClassification.extractedAttributes.color}</b></p>}
+                        {aiClassification.extractedAttributes.measure && <p className="text-slate-500">Medida detectada: <b>{aiClassification.extractedAttributes.measure}</b></p>}
+                        <p className="text-slate-400">Confiança: {Math.round(aiClassification.confidence * 100)}%</p>
+                        {aiClassification.reasons.length > 0 && <ul className="mt-1 list-disc pl-4 text-slate-400">{aiClassification.reasons.map((r, i) => <li key={i}>{r}</li>)}</ul>}
                     </div>
                     <div className="mt-5 flex justify-end gap-2">
-                        <button type="button" onClick={() => setIsBatchReviewOpen(false)} className="rounded-lg px-3 py-2 text-xs font-black text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800">Cancelar</button>
-                        <button type="button" disabled={batchCountdown > 0} onClick={confirmBatchCreation} className="rounded-lg bg-amber-600 px-3 py-2 text-xs font-black text-white disabled:cursor-not-allowed disabled:opacity-50">{batchCountdown > 0 ? `Confirmar cadastro em ${batchCountdown}s` : `Confirmar cadastro de ${unlinkedItems.length} produtos`}</button>
+                        <button type="button" onClick={discardClassificationAndCreateNew} className="rounded-lg px-3 py-2 text-xs font-black text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800">Criar como produto novo</button>
+                        <button type="button" onClick={confirmExistingVariationLink} className="rounded-lg bg-emerald-600 px-3 py-2 text-xs font-black text-white">Vincular à variação existente</button>
                     </div>
                 </section>
             </div>}
-            {creatingItemNumber && initialProductData && !isPreparingProduct && <div className="fixed inset-0 z-[1000006] flex items-center justify-center bg-slate-950/60 p-4"><section className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl dark:bg-slate-900"><h3 className="text-base font-black text-slate-800 dark:text-slate-100">Confirmar cadastro inteligente</h3><p className="mt-2 text-sm text-slate-600 dark:text-slate-300">A categoria foi selecionada automaticamente entre as categorias existentes. O nome foi sugerido pelo Gemini e pode ser revisado antes do cadastro.</p><div className="mt-4 space-y-2 rounded-xl bg-slate-50 p-3 text-xs dark:bg-slate-950"><p><b>Nome:</b> {initialProductData.name}</p><p><b>Categoria:</b> {suggestedCategory?.name || 'Não encontrada'}</p><p><b>NCM:</b> {initialProductData.fiscal?.ncm || 'Não informado na NF'}</p><p><b>Custo final:</b> {creatingItem ? formatCurrency(finalItemCost(creatingItem)) : '—'}</p></div><label className="mt-4 block text-xs font-black text-slate-600 dark:text-slate-300">Acréscimo sobre o custo final (%)<input type="number" min="0" step="0.01" value={creationQueue.length ? batchMarkup : individualMarkup} onChange={(event) => creationQueue.length ? setBatchMarkup(event.target.value) : setIndividualMarkup(event.target.value)} className="mt-1 w-full rounded-lg border px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-950" /></label><p className="mt-2 text-xs text-slate-500">Preço de venda estimado: <b>{creatingItem && (creationQueue.length ? batchMarkup : individualMarkup).trim() ? formatCurrency(finalItemCost(creatingItem) * (1 + Number((creationQueue.length ? batchMarkup : individualMarkup).replace(',', '.')) / 100)) : 'Informe o acréscimo'}</b></p><div className="mt-5 flex justify-end gap-2"><button type="button" onClick={() => { setCreatingItemNumber(null); setInitialProductData(null); setCreationQueue([]); }} className="rounded-lg px-3 py-2 text-xs font-black text-slate-500">Cancelar</button><button type="button" onClick={() => void createProductDirectly(creationQueue.length ? batchMarkup : individualMarkup)} className="rounded-lg bg-emerald-600 px-3 py-2 text-xs font-black text-white">Cadastrar e vincular</button></div></section></div>}
+            {/* Modal: NEW_VARIATION_OF_EXISTING_PRODUCT — criar variação dentro do produto pai */}
+            {!isClassifying && aiClassification?.decision === 'NEW_VARIATION_OF_EXISTING_PRODUCT' && classifyingItem && <div className="fixed inset-0 z-[1000005] flex items-center justify-center bg-slate-950/60 p-4">
+                <section className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl dark:bg-slate-900">
+                    <div className="flex items-center gap-2"><i className="bi bi-diagram-2 text-indigo-500" /><h3 className="text-base font-black text-slate-800 dark:text-slate-100">Novo produto em família existente</h3></div>
+                    <p className="mt-3 text-sm text-slate-600 dark:text-slate-300">A IA identificou que este item deve ser cadastrado como produto dentro de uma família existente. Ao confirmar, o cadastro normal será aberto com a família já definida.</p>
+                    <div className="mt-4 space-y-1 rounded-xl bg-indigo-50 p-3 text-xs dark:bg-indigo-950/30">
+                        <p className="font-bold text-slate-700 dark:text-slate-200">Item da NF: {classifyingItem.productDescription}</p>
+                        <p className="text-slate-600 dark:text-slate-300">Família sugerida: <b className="text-indigo-700 dark:text-indigo-300">{aiClassification.normalizedParentName || '—'}</b></p>
+                        {aiClassification.extractedAttributes.color && <p className="text-slate-500">Cor da nova variação: <b>{aiClassification.extractedAttributes.color}</b></p>}
+                        {aiClassification.extractedAttributes.measure && <p className="text-slate-500">Medida: <b>{aiClassification.extractedAttributes.measure}</b></p>}
+                        {aiClassification.extractedAttributes.material && <p className="text-slate-500">Material: <b>{aiClassification.extractedAttributes.material}</b></p>}
+                        <p className="text-slate-400">Confiança: {Math.round(aiClassification.confidence * 100)}%</p>
+                    </div>
+                    <label className="mt-4 block text-xs font-black text-slate-600 dark:text-slate-300">Acréscimo sobre o custo final (%)
+                        <input type="number" min="0" step="0.01" required value={effectiveMarkup} onChange={(event) => setEffectiveMarkup(event.target.value)} className="mt-1 w-full rounded-lg border px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-950" />
+                    </label>
+                    <p className="mt-2 text-xs text-slate-500">Custo final: <b>{formatCurrency(finalItemCost(classifyingItem))}</b> · Preço estimado: <b>{effectiveMarkup.trim() ? formatCurrency(finalItemCost(classifyingItem) * (1 + Number(effectiveMarkup.replace(',', '.')) / 100)) : 'Informe o acréscimo'}</b></p>
+                    <div className="mt-5 flex justify-end gap-2">
+                        <button type="button" onClick={discardClassificationAndCreateNew} className="rounded-lg px-3 py-2 text-xs font-black text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800">Criar como produto independente</button>
+                        <button type="button" onClick={confirmNewVariationInFamily} className="rounded-lg bg-indigo-600 px-3 py-2 text-xs font-black text-white">Continuar cadastro na família</button>
+                    </div>
+                </section>
+            </div>}
         </>
     );
 }

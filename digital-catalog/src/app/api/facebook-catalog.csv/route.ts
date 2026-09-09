@@ -170,9 +170,11 @@ export async function GET(request: Request) {
 
       // Suporte a variações relacionais e variações no formato JSON
       let variationsList: any[] = []
-      if (p.product_variations && p.product_variations.length > 0) {
+      const hasRelationalVariations = Boolean(p.product_variations && p.product_variations.length > 0)
+      const hasLegacyVariations = Boolean(p.variations && (Array.isArray(p.variations) ? p.variations.length : true))
+      if (hasRelationalVariations) {
         variationsList = p.product_variations.filter((v: any) => (v.status === "published" || !v.status) && v.active !== false)
-      } else if (p.variations) {
+      } else if (hasLegacyVariations) {
         const rawVars = Array.isArray(p.variations) ? p.variations : (typeof p.variations === 'string' ? JSON.parse(p.variations || '[]') : [])
         variationsList = rawVars.filter((v: any) => v.status !== "hidden" && v.active !== false)
       }
@@ -256,7 +258,7 @@ export async function GET(request: Request) {
             productType // custom_label_0 (ambiente > categoria)
           ])
         }
-      } else {
+      } else if (!hasRelationalVariations && !hasLegacyVariations) {
         // Sem variações, insere apenas o produto pai
         const descParts: string[] = []
         if (globalDescriptionPrefix) {

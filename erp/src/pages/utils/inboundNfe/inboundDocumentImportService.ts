@@ -1,22 +1,16 @@
-import { supabase } from '../supabaseConfig';
+import { supabase, supabasePublicAnonKey, supabasePublicUrl } from '../supabaseConfig';
 import { InboundInvoice, InboundInvoiceItem } from './inboundNfeTypes';
 
 const MAX_FILE_SIZE = 12 * 1024 * 1024;
 const allowedMime = new Set(['application/pdf', 'image/png', 'image/jpeg']);
 
-const readAsBase64 = (file: File) => new Promise<string>((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onerror = () => reject(new Error('Não foi possível ler o documento.'));
-    reader.onload = () => resolve(String(reader.result || '').split(',')[1] || '');
-    reader.readAsDataURL(file);
-});
-
 export type InboundDocumentExtraction = { invoice: Record<string, any>; issuer: Record<string, any>; recipient: Record<string, any>; items: InboundInvoiceItem[]; warnings: string[]; confidence: Record<string, unknown> };
 export type InboundDocumentAnalysis = { extraction: InboundDocumentExtraction; documentPath: string; documentMime: string };
+export type InboundDocumentAnalysisStage = 'uploading' | 'preparing' | 'extracting' | 'validating' | 'finalizing';
 
-export async function analyzeInboundInvoiceDocument(file: File): Promise<InboundDocumentAnalysis> {
+export async function analyzeInboundInvoiceDocument(file: File, onStage?: (stage: InboundDocumentAnalysisStage) => void): Promise<InboundDocumentAnalysis> {
     if (!allowedMime.has(file.type) || file.size > MAX_FILE_SIZE) throw new Error('Envie um PDF, PNG ou JPG de até 12 MB.');
-    const base64 = await readAsBase64(file);
+    onStage?.('uploading');
     // Em desenvolvimento a sessão persistida pode ter sido emitida antes de uma
     // troca de configuração do projeto. Renova e valida antes de enviar o arquivo.
     const { data: refreshed, error: refreshError } = await supabase.auth.refreshSession();
@@ -24,13 +18,25 @@ export async function analyzeInboundInvoiceDocument(file: File): Promise<Inbound
     if (refreshError || !session?.access_token) throw new Error('Sua sessão expirou. Entre novamente no ERP para analisar a NF.');
     const { error: userError } = await supabase.auth.getUser(session.access_token);
     if (userError) throw new Error('Sua sessão não é válida neste ambiente. Saia e entre novamente no ERP.');
-    const { data, error } = await supabase.functions.invoke('analyze-inbound-invoice', {
-        body: { fileName: file.name, mimeType: file.type, base64 },
-        headers: { Authorization: `Bearer ${session.access_token}` },
+    const body = new FormData();
+    body.append('file', file, file.name);
+    onStage?.('preparing');
+    const functionUrl = `${supabasePublicUrl}/functions/v1/analyze-inbound-invoice`;
+    const response = await fetch(functionUrl, {
+        method: 'POST',
+        headers: {
+            Authorization: `Bearer ${session.access_token}`,
+            apikey: supabasePublicAnonKey,
+        },
+        // Não definir Content-Type: o navegador acrescenta o boundary correto
+        // para que a Edge Function reconheça multipart/form-data.
+        body,
     });
-    if (error || !data) {
-        const responseError = await (error as any)?.context?.json?.().catch(() => null);
-        throw new Error(responseError?.error || data?.error || error?.message || 'Não foi possível analisar o documento.');
+    const rawResponse = await response.text();
+    const data = (() => { try { return rawResponse ? JSON.parse(rawResponse) : null; } catch { return null; } })();
+    if (!response.ok || !data) {
+        if (import.meta.env.DEV) console.error('[NF import] Edge Function response', { status: response.status, body: rawResponse.slice(0, 500) });
+        throw new Error(data?.error || 'Não foi possível analisar o documento fiscal.');
     }
     if (data.error) throw new Error(data.error);
     return data as InboundDocumentAnalysis;

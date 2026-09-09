@@ -43,15 +43,14 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Access Token ou Catalog ID do Meta não configurados no painel." }, { status: 400 })
     }
 
-    // 2. Buscar todos os produtos publicados e não deletados
-    const { data: products, error: productsError } = await supabase
+    // 2. Busca todos os itens próprios para também remover do Meta aqueles
+    // que foram ocultados, apagados ou ficaram sem variação publicada.
+    const { data: allProducts, error: productsError } = await supabase
       .from("products")
       .select("*, product_categories(categories(name, type)), product_images(*), product_variations(*), opportunities(*)")
-      .is("deleted_at", null)
-      .eq("status", "published")
 
-    if (productsError || !products) {
-      return NextResponse.json({ error: productsError?.message || "Nenhum produto publicado encontrado." }, { status: 400 })
+    if (productsError || !allProducts) {
+      return NextResponse.json({ error: productsError?.message || "Não foi possível carregar os produtos para sincronização." }, { status: 400 })
     }
 
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://moveismorante.com.br"
@@ -61,7 +60,29 @@ export async function POST(request: Request) {
     // A API do Meta aceita até 5.000 requests por batch
     const batchRequests: any[] = []
 
-    for (const p of products) {
+    const visibleProducts = allProducts.filter((p: any) => p.status === "published" && !p.deleted_at && !p.deleted && !p.is_draft)
+
+    for (const p of allProducts) {
+      const relationalVariations = p.product_variations || []
+      const hasRelationalVariations = relationalVariations.length > 0
+      const isParentVisible = p.status === "published" && !p.deleted_at && !p.deleted && !p.is_draft
+      const visibleVariations = relationalVariations.filter((v: any) => v.status === "published" && v.active !== false)
+
+      // Um produto com variações é publicado no Meta somente pelas variações.
+      // Tudo que deixou de ser público recebe DELETE explícito no items_batch.
+      if (hasRelationalVariations) {
+        batchRequests.push({ method: "DELETE", retailer_id: String(p.id) })
+        for (const variation of relationalVariations) {
+          if (!isParentVisible || variation.status !== "published" || variation.active === false) {
+            batchRequests.push({ method: "DELETE", retailer_id: String(variation.sku || variation.id) })
+          }
+        }
+        if (!isParentVisible || visibleVariations.length === 0) continue
+      } else if (!isParentVisible) {
+        batchRequests.push({ method: "DELETE", retailer_id: String(p.id) })
+        continue
+      }
+
       const parentCategories = p.product_categories
         ?.map((pc: any) => pc.categories)
         .filter((cat: any) => cat && cat.type === "category")
@@ -75,9 +96,9 @@ export async function POST(request: Request) {
       const parentImage = allImages[0] || ""
       const additionalImages = allImages.slice(1).join(",")
 
-      if (p.product_variations && p.product_variations.length > 0) {
+      if (hasRelationalVariations) {
         // Tratar as variantes como produtos individuais no Meta
-        for (const v of p.product_variations) {
+        for (const v of visibleVariations) {
           const isParentPrice = v.use_parent_price !== false
           const isParentPromo = v.use_parent_promo_price !== false
           const isParentDesc = v.use_parent_description !== false
@@ -122,8 +143,8 @@ export async function POST(request: Request) {
 
           batchRequests.push({
             method: "UPDATE", // UPDATE atua como upsert por padrão (cria se não existir)
+            retailer_id: String(v.sku || v.id),
             data: {
-              id: String(v.sku || v.id),
               title: varName,
               description: descWithPrefix,
               link: `${origin}/produto/${p.slug}?var=${v.id}`,
@@ -162,8 +183,8 @@ export async function POST(request: Request) {
 
         batchRequests.push({
           method: "UPDATE",
+          retailer_id: String(p.id),
           data: {
-            id: String(p.id),
             title: p.name,
             description: descWithPrefix,
             link: `${origin}/produto/${p.slug}`,
@@ -219,7 +240,7 @@ export async function POST(request: Request) {
     try {
       // Coletar nomes exclusivos das categorias de produtos sincronizados
       const categoryNames = new Set<string>()
-      for (const p of products) {
+      for (const p of visibleProducts) {
         p.product_categories?.forEach((pc: any) => {
           const catName = pc.categories?.name
           const catType = pc.categories?.type

@@ -44,6 +44,15 @@ function buildVariationListRow(
         code: sku,
         description: variation.name,
         displayName: variation.name,
+        attributes: variation.attributes || [],
+        images: variation.images || [],
+        syncUnitPrice: variation.syncUnitPrice !== false,
+        syncPromoPrice: variation.syncPromoPrice !== false,
+        syncDescription: variation.syncDescription !== false,
+        syncWidth: variation.syncWidth !== false,
+        syncHeight: variation.syncHeight !== false,
+        syncDepth: variation.syncDepth !== false,
+        syncWeight: variation.syncWeight !== false,
         unitPrice: variation.syncUnitPrice || typeof variation.unitPrice === 'undefined' || variation.unitPrice === null || variation.unitPrice === 0
             ? product.unitPrice
             : variation.unitPrice,

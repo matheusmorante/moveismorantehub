@@ -44,7 +44,7 @@ export function InboundAdditionalCostsSection({ invoice, onChange }: Props) {
 
     return (
         <section className="rounded-2xl border border-amber-200 bg-amber-50/40 p-4 dark:border-amber-900/50 dark:bg-amber-950/10">
-            <h3 className="text-xs font-black uppercase tracking-widest text-amber-900 dark:text-amber-200">Custos adicionais não fiscais</h3>
+            <h3 className="text-xs font-black uppercase tracking-widest text-amber-900 dark:text-amber-200">Outras despesas não fiscais</h3>
             <p className="mt-1 text-[11px] text-amber-800/80 dark:text-amber-300/80">Valores pagos por fora da NF. Não alteram os totais fiscais e serão compostos no recebimento.</p>
 
             <div className="mt-4">
@@ -52,7 +52,7 @@ export function InboundAdditionalCostsSection({ invoice, onChange }: Props) {
                             <input
                                 value={cost.description}
                                 onChange={(event) => updateCost({ description: event.target.value })}
-                                placeholder="Descrição do custo"
+                                placeholder="Descrição da despesa"
                                 className="rounded-lg border border-slate-200 px-3 py-2 text-xs dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
                             />
                             <select
@@ -80,7 +80,7 @@ export function InboundAdditionalCostsSection({ invoice, onChange }: Props) {
 
             <div className="mt-4 grid gap-1 border-t border-amber-200 pt-3 text-xs dark:border-amber-900/40 sm:grid-cols-3">
                 <span>Base dos produtos: <b>{formatCurrency(calculation.productsBaseValue)}</b></span>
-                <span>Custos adicionais: <b>{formatCurrency(calculation.totalAdditionalCosts)}</b></span>
+                <span>Outras despesas não fiscais: <b>{formatCurrency(calculation.totalAdditionalCosts)}</b></span>
                 <span className="font-black text-amber-800 dark:text-amber-200">Serão rateados no recebimento</span>
             </div>
         </section>

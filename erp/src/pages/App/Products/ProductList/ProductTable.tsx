@@ -12,6 +12,7 @@ import {
     type ProductTableColumn,
 } from './productTableColumns';
 import { ProductBulkActionsToolbar } from './ProductBulkActionsToolbar';
+import { MoveVariationFamilyModal } from './MoveVariationFamilyModal';
 
 interface ProductTableProps {
     products: Product[];
@@ -108,6 +109,7 @@ const ProductTable = ({
     };
 
     const [expandedParents, setExpandedParents] = React.useState<Record<string, boolean>>({});
+    const [variationToMove, setVariationToMove] = React.useState<any>(null);
 
     const toggleExpandParent = React.useCallback((parentId: string) => {
         setExpandedParents(prev => ({
@@ -239,6 +241,7 @@ const ProductTable = ({
                                         isExpanded={isExp}
                                         onToggleExpand={() => toggleExpandParent(product.id!)}
                                         variationsCount={vCount}
+                                        onMoveToAnotherFamily={setVariationToMove}
                                     />
                                 );
                             })}
@@ -275,10 +278,16 @@ const ProductTable = ({
                                     onRefresh={onRefresh}
                                     onDuplicate={onDuplicate}
                                     exitedVariationIds={exitedVariationIds}
+                                    onMoveToAnotherFamily={setVariationToMove}
                                 />
                             ))
                     )}
-                </div>
+            </div>
+            <MoveVariationFamilyModal
+                variation={variationToMove}
+                onClose={() => setVariationToMove(null)}
+                onMoved={() => onRefresh?.()}
+            />
         </div>
     );
 };

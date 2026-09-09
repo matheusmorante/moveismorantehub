@@ -7,6 +7,32 @@ const capitalize = (str: string): string => {
     return trimmed.charAt(0).toUpperCase() + trimmed.slice(1);
 };
 
+/** Garante um valor canônico para um atributo global sem criar atributos duplicados. */
+export const ensureAttributeValue = async (attributeName: string, value: string): Promise<{ name: string; value: string }> => {
+    const normalizedName = capitalize(attributeName);
+    const normalizedValue = capitalize(value);
+    const { data: attributes, error: attributeError } = await supabase
+        .from('attributes').select('id,name').ilike('name', normalizedName).limit(1);
+    if (attributeError) throw attributeError;
+
+    let attribute = attributes?.[0];
+    if (!attribute) {
+        const { data, error } = await supabase.from('attributes')
+            .insert({ name: normalizedName, active: true }).select('id,name').single();
+        if (error) throw error;
+        attribute = data;
+    }
+
+    const { data: values, error: valueError } = await supabase
+        .from('attribute_values').select('value').eq('attribute_id', attribute.id).ilike('value', normalizedValue).limit(1);
+    if (valueError) throw valueError;
+    if (!values?.length) {
+        const { error } = await supabase.from('attribute_values').insert({ attribute_id: attribute.id, value: normalizedValue });
+        if (error) throw error;
+    }
+    return { name: attribute.name, value: values?.[0]?.value || normalizedValue };
+};
+
 export const checkVariationUsage = async (attributeName: string, optionValue?: string): Promise<boolean> => {
     try {
         let query = supabase

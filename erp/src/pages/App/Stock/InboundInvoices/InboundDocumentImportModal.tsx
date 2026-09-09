@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { toast } from 'react-toastify';
 import PersonFormModal from '@/pages/App/Registrations/shared/PersonFormModal';
 import { analyzeInboundInvoiceDocument, invoiceFromDocumentAnalysis } from '@/pages/utils/inboundNfe/inboundDocumentImportService';
+import type { InboundDocumentAnalysisStage } from '@/pages/utils/inboundNfe/inboundDocumentImportService';
 import { saveInboundInvoice } from '@/pages/utils/inboundNfe/inboundInvoicesService';
 import { InboundInvoice, InboundInvoiceItem } from '@/pages/utils/inboundNfe/inboundNfeTypes';
 import { fetchPersons } from '@/pages/utils/personService';
@@ -24,6 +25,7 @@ export function InboundDocumentImportModal({ isOpen, onClose, onImportSuccess }:
     const [suppliers, setSuppliers] = useState<Person[]>([]);
     const [newSupplier, setNewSupplier] = useState(false);
     const [loading, setLoading] = useState(false);
+    const [analysisStage, setAnalysisStage] = useState<InboundDocumentAnalysisStage | null>(null);
     const [isDraggingFile, setIsDraggingFile] = useState(false);
 
     const setSupplier = (id: string) => setInvoice((current) => current ? ({
@@ -68,7 +70,7 @@ export function InboundDocumentImportModal({ isOpen, onClose, onImportSuccess }:
         if (!fileToAnalyze || loading) return;
         try {
             setLoading(true);
-            const result = invoiceFromDocumentAnalysis(await analyzeInboundInvoiceDocument(fileToAnalyze));
+            const result = invoiceFromDocumentAnalysis(await analyzeInboundInvoiceDocument(fileToAnalyze, setAnalysisStage));
             const list = await fetchPersons('suppliers');
             const document = result.emitterCnpj.replace(/\D/g, '');
             const match = document ? list.find((person) => (person.cpfCnpj || '').replace(/\D/g, '') === document) : undefined;
@@ -78,6 +80,7 @@ export function InboundDocumentImportModal({ isOpen, onClose, onImportSuccess }:
             toast.error(error.message || 'Falha ao analisar a NF.');
         } finally {
             setLoading(false);
+            setAnalysisStage(null);
         }
     };
 
@@ -97,7 +100,7 @@ export function InboundDocumentImportModal({ isOpen, onClose, onImportSuccess }:
         if (String(invoice.model || '').replace(/\D/g, '') === '65') return toast.error('NFC-e não pode ser cadastrada como NF de Entrada.');
         if (!invoice.supplierId) return toast.error('Selecione ou crie o fornecedor antes de salvar.');
         const additionalCosts = getLegacyCompatibleCosts(invoice.additionalCosts || [], invoice.additionalFreight).filter((cost) => !isBlankAdditionalCost(cost));
-        if (additionalCosts.some((cost) => !cost.description.trim() || cost.inputValue === null || !Number.isFinite(cost.inputValue) || cost.inputValue < 0)) return toast.error('Preencha descrição e valor de todos os custos adicionais.');
+        if (additionalCosts.some((cost) => !cost.description.trim() || cost.inputValue === null || !Number.isFinite(cost.inputValue) || cost.inputValue < 0)) return toast.error('Preencha descrição e valor de todas as outras despesas não fiscais.');
 
         const calculation = calculateAdditionalCosts(invoice.items, additionalCosts);
         const invoiceToSave: InboundInvoice = {
@@ -162,7 +165,7 @@ export function InboundDocumentImportModal({ isOpen, onClose, onImportSuccess }:
                             className={`flex w-full flex-col items-center rounded-2xl border-2 border-dashed p-8 transition-colors ${isDraggingFile ? 'border-indigo-500 bg-indigo-50 text-indigo-700 dark:bg-indigo-950/30' : 'border-slate-200 text-indigo-700 hover:border-indigo-400 hover:bg-indigo-50/40 dark:border-slate-700 dark:hover:bg-slate-800'} disabled:cursor-wait disabled:opacity-80`}
                         >
                             {loading ? <i className="bi bi-arrow-repeat animate-spin text-3xl text-indigo-600" /> : <i className="bi bi-cloud-arrow-up text-3xl" />}
-                            <b className="mt-2 text-xs">{loading ? 'Analisando Nota Fiscal...' : 'Adicionar foto ou documento'}</b>
+                            <b className="mt-2 text-xs">{loading ? (analysisStage === 'uploading' ? 'Enviando documento...' : 'Preparando e extraindo informações da NF...') : 'Adicionar foto ou documento'}</b>
                             {!loading && <span className="mt-1 text-[11px] text-slate-400">Clique ou arraste um PDF, PNG ou JPG para esta área</span>}
                         </button>}
                         {file && <div className="flex justify-between rounded-xl bg-slate-50 p-3"><span className="text-xs font-bold">{file.name}</span><button className="text-xs text-red-600" onClick={() => { setFile(null); setInvoice(null); }}>Remover</button></div>}

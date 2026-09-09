@@ -205,6 +205,7 @@ export function ProductGrid({ filters }: ProductGridProps) {
                 id: `${p.id}-${v.id}`, 
                 realProductId: p.id,
                 name: displayName,
+                sku: v.sku || p.code || "",
                 price: varPrice,
                 promo_price: varPromoPrice,
                 image_url: varImg,
@@ -384,7 +385,8 @@ export function ProductGrid({ filters }: ProductGridProps) {
               .map((pc: any) => normalizeSearch(pc.categories?.name || ""))
               .join(" ")
 
-            const fullSearchableText = `${cleanName} ${cleanDesc} ${cleanCats}`
+            const cleanSku = normalizeSearch(p.sku || p.code || "")
+            const fullSearchableText = `${cleanName} ${cleanDesc} ${cleanCats} ${cleanSku}`
 
             return searchTokens.every(token => {
               const synonyms = getSynonyms(token)
