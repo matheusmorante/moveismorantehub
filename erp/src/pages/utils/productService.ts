@@ -1361,23 +1361,45 @@ export const saveVariation = async (productId: string, variation: any): Promise<
         const parent = products[index];
         const variations = parent.variations || [];
         const rawVarId = variation.variationId || variation.id;
+
+        // Desfaz IDs sintéticos legados (formato `productId_skuSuffix`) para extrair o UUID real.
+        // Esse padrão foi eliminado pela migration 20260828120000, que criou variações reais
+        // para todos os produtos simples. Registros novos nunca chegam com esse formato.
         const variationId = (rawVarId && String(rawVarId).includes('_') && String(rawVarId).startsWith(String(productId)))
             ? String(rawVarId).split('_').slice(1).join('_')
             : rawVarId;
-        const targetIdStr = variationId ? String(variationId).toLowerCase() : '';
-        const targetSkuStr = variation.sku ? String(variation.sku).trim().toLowerCase() : '';
 
+        const isUuidPattern = (val?: string) =>
+            Boolean(val && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val));
+
+        const targetIdStr = variationId ? String(variationId).toLowerCase() : '';
+
+        // REGRA DE IDENTIDADE: a variação é localizada EXCLUSIVAMENTE pelo UUID.
+        // O SKU é código comercial — não é identidade relacional interna.
+        // Histórico: o fallback por SKU que existia aqui (removido em 2026-09-09) compensava
+        // variações legadas sem UUID físico. Esse cenário não existe mais desde a migration
+        // 20260828120000. Mantê-lo causaria bugs silenciosos ao trocar o SKU de uma variação.
         let varIndex = variations.findIndex((v: any) => {
             const vIdStr = v.id ? String(v.id).toLowerCase() : '';
-            const vSkuStr = v.sku ? String(v.sku).trim().toLowerCase() : '';
-            if (targetIdStr && vIdStr && targetIdStr === vIdStr) return true;
-            if (targetSkuStr && vSkuStr && targetSkuStr === vSkuStr) return true;
-            return false;
+            return targetIdStr && vIdStr && targetIdStr === vIdStr;
         });
+
+        // Quando não há UUID resolvível e a variação não foi encontrada por ID, falha
+        // de forma explícita — jamais tenta adivinhar pelo SKU.
+        if (varIndex === -1 && !isUuidPattern(variationId)) {
+            const skuHint = variation.sku ? ` (sku="${variation.sku}")` : '';
+            console.error(
+                `[saveVariation] Falha de identidade: variação sem UUID válido${skuHint}.`,
+                `productId=${productId}`,
+                `rawVarId=${rawVarId}`,
+                'Registre este caso para saneamento do cadastro legado.',
+            );
+            // Cria a variação como nova com UUID seguro — não polui registros existentes.
+        }
 
         const variationToSave = { 
             ...variation, 
-            id: variationId || (varIndex !== -1 ? variations[varIndex].id : crypto.randomUUID()) 
+            id: (isUuidPattern(variationId) ? variationId : null) || (varIndex !== -1 ? variations[varIndex].id : crypto.randomUUID()) 
         };
         delete (variationToSave as any).variationId;
 
@@ -1411,6 +1433,36 @@ export const saveVariation = async (productId: string, variation: any): Promise<
  * Move uma variação já existente para outro produto pai sem recriar seu registro.
  * O ID da variação, estoque, preços e histórico permanecem intactos.
  */
+/**
+ * Calcula o próximo SKU sequencial para uma família de produto.
+ * Lê o sufixo numérico de maior valor entre os SKUs existentes (ativos, desativados e históricos)
+ * e retorna `{código-pai}-{MAX+1:02d}`.
+ */
+export const calculateNextVariationSku = (
+    parentCode: string,
+    existingSkus: string[]
+): string => {
+    const cleanParent = String(parentCode || '').trim();
+    if (!cleanParent) return '';
+
+    let maxSuffix = 0;
+    const prefixPattern = new RegExp(`^${cleanParent.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}-(\\d+)$`, 'i');
+
+    for (const rawSku of existingSkus) {
+        const skuStr = String(rawSku || '').trim();
+        if (!skuStr) continue;
+
+        const matchPrefix = skuStr.match(prefixPattern);
+        if (matchPrefix && matchPrefix[1]) {
+            const num = parseInt(matchPrefix[1], 10);
+            if (!isNaN(num) && num > maxSuffix) maxSuffix = num;
+        }
+    }
+
+    const nextSuffix = String(maxSuffix + 1).padStart(2, '0');
+    return `${cleanParent}-${nextSuffix}`;
+};
+
 export const moveVariationToFamily = async (
     variationId: string,
     targetFamilyId: string,
@@ -1418,81 +1470,43 @@ export const moveVariationToFamily = async (
     name: string,
     imageUrls: string[],
     sourceParentId?: string,
-): Promise<void> => {
+): Promise<{ newSku: string; sourceParentRemoved: boolean }> => {
     const variationImages = Array.from(new Set(imageUrls.filter(Boolean)));
     if (variationImages.length > MAX_VARIATION_IMAGES) {
         throw new Error(`Cada variação pode vincular no máximo ${MAX_VARIATION_IMAGES} fotos.`);
-    }
-
-    const { data: targetParent, error: targetParentError } = await supabase
-        .from(TABLE_NAME)
-        .select('images, product_images(image_url)')
-        .eq('id', targetFamilyId)
-        .single();
-    if (targetParentError) throw targetParentError;
-
-    const parentColumnImages = Array.isArray(targetParent?.images) ? targetParent.images : [];
-    const parentRelationImages = (targetParent?.product_images || []).map((image: any) => image.image_url);
-    const mergedParentImages = Array.from(new Set([...parentColumnImages, ...parentRelationImages, ...variationImages].filter(Boolean)));
-    if (mergedParentImages.length > MAX_PARENT_PRODUCT_IMAGES) {
-        throw new Error(`Não é possível mover: o novo produto pai ultrapassaria o limite de ${MAX_PARENT_PRODUCT_IMAGES} fotos.`);
-    }
-
-    const { error: parentImagesError } = await supabase
-        .from(TABLE_NAME)
-        .update({ images: mergedParentImages })
-        .eq('id', targetFamilyId);
-    if (parentImagesError) throw parentImagesError;
-
-    const { error: deleteParentImagesError } = await supabase
-        .from('product_images')
-        .delete()
-        .eq('product_id', targetFamilyId);
-    if (deleteParentImagesError) throw deleteParentImagesError;
-    if (mergedParentImages.length > 0) {
-        const { error: insertParentImagesError } = await supabase
-            .from('product_images')
-            .insert(mergedParentImages.map((imageUrl, index) => ({
-                product_id: targetFamilyId,
-                image_url: imageUrl,
-                is_main: index === 0,
-            })));
-        if (insertParentImagesError) throw insertParentImagesError;
     }
 
     const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(variationId);
     if (!isUuid) {
         throw new Error('A variação precisa ter um UUID válido para ser movida. Atualize o cadastro legado antes de continuar.');
     }
-    const deactivateSourceParentWhenEmpty = async () => {
-        if (!sourceParentId || sourceParentId === targetFamilyId) return;
-        const { count, error: countVariationsError } = await supabase
-            .from('product_variations')
-            .select('id', { count: 'exact', head: true })
-            .eq('product_id', sourceParentId);
-        if (countVariationsError) throw countVariationsError;
-        if (count === 0) {
-            const { error: deactivateParentError } = await supabase
-                .from(TABLE_NAME)
-                .update({ active: false })
-                .eq('id', sourceParentId);
-            if (deactivateParentError) throw deactivateParentError;
-        }
+
+    // Chamada atômica à RPC PostgreSQL `move_variation_to_parent`.
+    // Todas as etapas (validação, lock de tabelas, MAX+1 SKU, update da variação, desativação/deleção do pai)
+    // ocorrem dentro de uma ÚNICA transação atômica no banco de dados com rollback garantido.
+    const { data, error } = await supabase.rpc('move_variation_to_parent', {
+        p_variation_id: variationId,
+        p_target_parent_id: targetFamilyId,
+        p_attributes: attributes,
+        p_name: name,
+        p_images: variationImages,
+        p_source_parent_id: sourceParentId || null,
+    });
+
+    if (error) {
+        throw new Error(`Falha ao mover variação no banco: ${error.message}`);
+    }
+
+    // Invalidar o cache local por completo
+    localStorage.removeItem(LOCAL_STORAGE_KEY);
+    notifySubscribers();
+
+    return {
+        newSku: String(data?.newSku || ''),
+        sourceParentRemoved: Boolean(data?.sourceParentRemoved),
     };
-
-    const { error: updateVariationError } = await supabase
-        .from('product_variations')
-        .update({
-            product_id: targetFamilyId,
-            attributes: Object.fromEntries(attributes.map(attribute => [attribute.name, attribute.value])),
-            name,
-            image_url: variationImages.join(','),
-        })
-        .eq('id', variationId);
-
-    if (updateVariationError) throw updateVariationError;
-    await deactivateSourceParentWhenEmpty();
 };
+
 export const syncFromWhatsApp = async (whatsappProduct: any): Promise<string> => {
     try {
         let existingProduct = null;

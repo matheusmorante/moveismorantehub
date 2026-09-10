@@ -242,7 +242,7 @@ export const PromptImagesStrip: React.FC<PromptImagesStripProps> = ({
                 onClick={() =>
                   setPickerTarget({
                     type: 'OPEN_VIEW',
-                    title: 'Trocar Imagem Secundária (Visão Interna ou Detalhe)',
+                    title: 'Trocar Imagem Secundária',
                   })
                 }
                 className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-400 hover:text-amber-300 bg-amber-950/50 hover:bg-amber-900/60 border border-amber-700/50 px-1.5 py-0.5 rounded transition"
@@ -383,7 +383,7 @@ export const PromptImagesStrip: React.FC<PromptImagesStripProps> = ({
                   onClick={handleRemoveOpenView}
                   className="text-xs text-red-400 hover:underline"
                 >
-                  Remover foto aberta
+                  Remover imagem secundária
                 </button>
               ) : <div />}
 

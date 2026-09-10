@@ -1,4 +1,5 @@
 import { supabase } from './supabaseClient';
+import { MobileAgentClient } from './aiAgent/mobileAgentClient';
 import {
   buildCanonicalSummaryPayload,
   generateCanonicalFingerprint,
@@ -53,7 +54,7 @@ export const generateDeliveryAISummary = async (
 
     const settings = settingsData?.data || settingsData || {};
     const handlingOptions: any[] = settings.handlingOptions || settings.orderTypes || [];
-    const geminiKey = settings.geminiApiKey || process.env.VITE_GEMINI_API_KEY || '';
+    const geminiKey = await MobileAgentClient.getApiKey();
 
     // 1. Montar payload canônico e calcular a fingerprint determinística dos dados
     const canonicalPayload: CanonicalSummaryPayload = buildCanonicalSummaryPayload(rawOrders || [], mode, handlingOptions);

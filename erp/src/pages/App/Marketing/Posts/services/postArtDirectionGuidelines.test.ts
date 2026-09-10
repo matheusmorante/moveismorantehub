@@ -53,8 +53,12 @@ describe('postArtDirectionGuidelines — Direção de Arte Global e Anti-Simplic
     expect(prompt).toContain('2. OFERTA / PREÇO');
 
     // 5. Identidade da marca Móveis Morante
-    expect(prompt).toContain('IDENTIDADE VISUAL DA MÓVEIS MORANTE:');
-    expect(prompt).toContain('azul escuro institucional, amarelo/dourado vibrante de destaque');
+    expect(prompt).toContain('IDENTIDADE VISUAL E PALETA DE CORES OBRIGATÓRIA DA MÓVEIS MORANTE:');
+    expect(prompt).toContain('AZUL ESCURO (#002B49)');
+    expect(prompt).toContain('AMARELO OURO (#F7B731 / #FFC107)');
+    expect(prompt).toContain('BRANCO (#FFFFFF)');
+    expect(prompt).toContain('Fundo do container/bloco de preço');
+    expect(prompt).toContain('Fundo do rodapé contínuo');
 
     // 6. Anti-Simplicidade (proibição de montagem simplista de catálogo)
     expect(prompt).toContain('ANTI-SIMPLICIDADE (RESULTADO INSUFICIENTE PROIBIDO):');
@@ -89,18 +93,26 @@ describe('postArtDirectionGuidelines — Direção de Arte Global e Anti-Simplic
     const prompt = renderSpecificationAsPrompt(spec);
 
     // 1. Benefícios comerciais reais autorizados
-    expect(prompt).toContain('DIFERENCIAIS E SELOS COMERCIAIS AUTORIZADOS');
+    expect(prompt).toContain('DIFERENCIAIS E BENEFÍCIOS COMERCIAIS');
     expect(prompt).toContain('Entrega Rápida');
-    expect(prompt).toContain('1 a 4 dias');
+    expect(prompt).toContain('1 a 5 dias úteis');
     expect(prompt).toContain('Montagem Inclusa');
+    expect(prompt).toContain('Retirada ou Entrega');
     expect(prompt).toContain('Compra Segura');
     expect(prompt).toContain('Pague na Entrega');
 
-    // 2. Proibição expressa de clichês e slogans vazios
+    // 2. Conteúdo literal separado da liberdade visual dos ícones
+    expect(prompt).toContain('CONTEÚDO LITERAL OBRIGATÓRIO — BENEFÍCIOS DO RODAPÉ');
+    expect(prompt).toContain('LIBERDADE VISUAL LIMITADA');
+    expect(prompt).toContain('A IA pode organizar visualmente os itens e desenhar ícones coerentes');
+
+    // 3. Proibição expressa de clichês, frases genéricas e slogans vazios
     expect(prompt).toContain('TEXTOS, SLOGANS E RÓTULOS GENÉRICOS EXPRESSAMENTE PROIBIDOS:');
+    expect(prompt).toContain('mais espaço para o seu dia a dia');
+    expect(prompt).toContain('design moderno e elegante');
+    expect(prompt).toContain('qualidade e durabilidade');
     expect(prompt).toContain('mais organização para o seu dia');
     expect(prompt).toContain('material de qualidade');
     expect(prompt).toContain('amplo espaço interno');
-    expect(prompt).toContain('design moderno');
   });
 });

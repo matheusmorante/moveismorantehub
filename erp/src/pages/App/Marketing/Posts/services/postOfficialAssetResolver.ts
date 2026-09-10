@@ -9,10 +9,10 @@
 
 import {
   OFFICIAL_MORANTE_LOGO_URL,
-  OFFICIAL_QUEIMA_BADGE_URL,
   OFFICIAL_ASSET_MASTER_RULE,
-  OFFICIAL_LOGO_STRICT_INSTRUCTIONS,
+  buildOfficialLogoStrictInstructions,
   buildOfficialBadgeStrictInstructions,
+  normalizeConfiguredAssetUrl,
   normalizeOfficialAssetUrl,
 } from './postOfficialAssetConstants';
 
@@ -21,6 +21,8 @@ export interface ResolvedOfficialAssets {
     name: string;
     url: string;
     role: 'OFFICIAL_ASSET';
+    /** Caminho do arquivo local no ZIP. Ex: 'official-assets/logo.png' */
+    file?: string | null;
   };
   badge: {
     name: string;
@@ -28,7 +30,24 @@ export interface ResolvedOfficialAssets {
     role: 'OFFICIAL_ASSET';
     opportunityId: string;
     opportunityName?: string;
+    /** Caminho do arquivo local no ZIP. Ex: 'official-assets/badge.png' */
+    file?: string | null;
   } | null;
+}
+
+/**
+ * Resolve somente o asset configurado no modelo da Biblioteca de Elementos.
+ * `referenceFiles[0]` mantém compatibilidade com selos antigos salvos como anexo.
+ */
+export function resolveConfiguredBadgeAssetUrl(model: any): string | null {
+  const rawUrl =
+    model?.generatedAssetUrl ||
+    model?.generated_asset_url ||
+    model?.referenceFiles?.[0]?.fileUrl ||
+    model?.reference_files?.[0]?.fileUrl ||
+    model?.reference_files?.[0]?.file_url ||
+    null;
+  return rawUrl ? normalizeConfiguredAssetUrl(rawUrl) : null;
 }
 
 export function resolveOfficialAssets(params: {
@@ -65,37 +84,20 @@ export function resolveOfficialAssets(params: {
       (typeof product?.opportunity === 'string' ? product.opportunity : null) ||
       'Oportunidade';
 
-    // REGRA DE NEGÓCIO ESTRITA:
-    // O selo do post NUNCA deve utilizar a miniatura/selo da listagem de produtos do ERP (product.opportunity.image_url).
-    // O selo deve vir EXCLUSIVAMENTE do modelo/elemento BADGE cadastrado na campanha ou do asset oficial de marketing.
-    let badgeUrl: string | null = null;
-
-    // Buscar no modelo ativo de badge (por ID da oportunidade ou por tipo BADGE)
-    const badgeModel = activeModels.find(
+    // Única fonte permitida: modelo BADGE ativo da campanha para a oportunidade exata.
+    const exactBadgeModel = activeModels.find(
       (m: any) =>
         (m.elementType === 'BADGE' || m.element_type === 'BADGE') &&
-        (!oppId || m.opportunityId === oppId || m.opportunity_id === oppId)
-    ) || activeModels.find((m: any) => m.elementType === 'BADGE' || m.element_type === 'BADGE');
+        ((oppId && (m.opportunityId === oppId || m.opportunity_id === oppId)) ||
+          (oppName && m.name && m.name.toLowerCase().includes(oppName.toLowerCase())))
+    );
 
-    if (badgeModel) {
-      badgeUrl =
-        badgeModel.generatedAssetUrl ||
-        badgeModel.generated_asset_url ||
-        badgeModel.fileUrl ||
-        badgeModel.file_url ||
-        badgeModel.resources?.find((r: any) => r.role === 'OFFICIAL_ASSET' || r.role === 'REQUIRED_ASSET')?.url ||
-        badgeModel.resources?.[0]?.url ||
-        null;
-    }
-
-    if (!badgeUrl && /queima|salvados/i.test(oppName)) {
-      badgeUrl = OFFICIAL_QUEIMA_BADGE_URL;
-    }
+    const badgeUrl = exactBadgeModel ? resolveConfiguredBadgeAssetUrl(exactBadgeModel) : null;
 
     if (badgeUrl) {
       badge = {
         name: `Selo Oficial ${oppName}`,
-        url: normalizeOfficialAssetUrl(badgeUrl),
+        url: badgeUrl,
         role: 'OFFICIAL_ASSET',
         opportunityId: oppId,
         opportunityName: oppName,
@@ -116,24 +118,31 @@ export function resolveOfficialAssets(params: {
 const SEP = '='.repeat(50);
 const SUB_SEP = '-'.repeat(50);
 
-export function renderOfficialAssetsPromptSection(assets: ResolvedOfficialAssets): string {
+export function renderOfficialAssetsPromptSection(
+  assets: ResolvedOfficialAssets,
+  options: { localFilesOnly?: boolean } = {},
+): string {
   const lines: string[] = [
     SEP,
     'ASSETS OFICIAIS (NÃO RECRIAR / NÃO REDESENHAR)',
     SEP,
     OFFICIAL_ASSET_MASTER_RULE,
     '',
-    OFFICIAL_LOGO_STRICT_INSTRUCTIONS,
   ];
 
-  if (assets.badge) {
+  if (!options.localFilesOnly || assets.logo.file) {
+    lines.push(buildOfficialLogoStrictInstructions(assets.logo.url, assets.logo.file));
+  }
+
+  if (assets.badge && (!options.localFilesOnly || assets.badge.file)) {
     lines.push('');
     lines.push(SUB_SEP);
     lines.push('');
     lines.push(
       buildOfficialBadgeStrictInstructions(
         assets.badge.url,
-        assets.badge.opportunityName || 'Oportunidade'
+        assets.badge.opportunityName || 'Oportunidade',
+        assets.badge.file || null,
       )
     );
   }

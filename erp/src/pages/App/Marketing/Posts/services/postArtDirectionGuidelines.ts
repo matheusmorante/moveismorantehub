@@ -34,50 +34,67 @@ DIRETRIZES DE COMPOSIÇÃO:
 
 HIERARQUIA VISUAL COMERCIAL (ORDEM DE ATENÇÃO):
 1. PRODUTO (Protagonista absoluto da peça);
-2. OFERTA / PREÇO (Bloco de preço publicitário destacado, com card/faixa contrastante, detalhes da marca e separação elegante de valor e moeda);
+2. OFERTA / PREÇO, quando fornecido na fonte oficial (bloco publicitário destacado, sem alterar nenhum valor ou texto literal);
 3. NOME DO PRODUTO (Com alta legibilidade e peso tipográfico equilibrado);
-4. DIFERENCIAIS E SELOS COMERCIAIS AUTORIZADOS (Mantenha EXCLUSIVAMENTE estes 3 selos/benefícios comerciais reais da loja:
-   1. "Entrega Rápida" (subtítulo obrigatório: "1 a 4 dias");
-   2. "Montagem Inclusa";
-   3. "Compra Segura" (subtítulo obrigatório: "Pague na Entrega").
-   É expressamente PROIBIDO inventar outros selos, prazos ou benefícios comerciais adicionais);
-5. CONDIÇÃO DE PAGAMENTO (Parcelamento claro e atraente);
-6. INFORMAÇÕES SECUNDÁRIAS (Foto do móvel aberto/interno em card discreto, miniaturas reais de outras cores — NUNCA duplicar a cor principal na galeria de cores);
-7. MARCA (Logo oficial da Móveis Morante posicionado com nobreza e fidelidade).
+4. DIFERENCIAIS E BENEFÍCIOS COMERCIAIS: exiba somente a lista da seção "CONTEÚDO LITERAL OBRIGATÓRIO — BENEFÍCIOS DO RODAPÉ", respeitando exatamente quantidade, ordem e textos. Se a lista estiver vazia, omita essa área.
 
-IDENTIDADE VISUAL DA MÓVEIS MORANTE:
-- Cores de identidade: azul escuro institucional, amarelo/dourado vibrante de destaque, branco e tons neutros contemporâneos (cinzas elegantes, amadeirados suaves). Paleta oficial da peça: fundo azul marinho institucional (#002B49), tipografia e elementos em branco puro e amarelo ouro vibrante (#F7B731 / #FFC107).
-- Aplique essas cores estrategicamente no bloco de preço, faixas, molduras, ícones, traçados e destaques tipográficos.
+Layout dos Benefícios:
+- A quantidade de itens é determinada exclusivamente pela lista estruturada do prompt.
+- NUNCA adicione textos genéricos, itens de preenchimento ou benefícios extraídos da imagem de referência.
+
+IDENTIDADE VISUAL E PALETA DE CORES OBRIGATÓRIA DA MÓVEIS MORANTE:
+
+CORES OBRIGATÓRIAS DA MARCA:
+- AZUL ESCURO (#002B49): Cor de fundo obrigatória para containers e superfícies institucionais:
+  * Fundo do container/bloco de preço.
+  * Fundo do rodapé contínuo na base da arte.
+  * Faixas e elementos gráficos institucionais.
+- AMARELO OURO (#F7B731 / #FFC107): Cor dos textos e elementos de DESTAQUE / PRIMÁRIOS:
+  * Nome do produto (no topo).
+  * Valor do preço (o número em destaque no container de preço).
+  * Destaques tipográficos, sublinhados e traçados decorativos.
+  * Ícones dos benefícios comerciais.
+  * Textos que precisam chamar atenção do olhar.
+- BRANCO (#FFFFFF): Cor dos textos SECUNDÁRIOS e de suporte:
+  * Textos menores como especificações, descrições, condições de parcelamento.
+  * Rótulos dos benefícios comerciais (subtítulos abaixo dos ícones).
+  * Textos informativos no rodapé.
+  * Nome da variação, categoria do produto.
+
+REGRA DE HIERARQUIA DE CORES:
+Quanto maior e mais importante o texto → mais amarelo.
+Quanto menor e mais informativo → mais branco.
+Fundo de containers e rodapé → sempre azul escuro (#002B49).
+
 - O logo da Móveis Morante e os selos oficiais são ASSETS PRONTOS: nunca redesenhe ou recrie por aproximação.
 
 LAYOUT E CONTAINERS DE REFERÊNCIA OFICIAL (SEGUIR POSIÇÕES E FORMATOS DA IMAGEM DE EXEMPLO):
 - Siga estritamente a mesma organização espacial e os containers da imagem de referência oficial:
-  * TOPO ESQUERDO: Título do produto com categoria em branco e nome em amarelo ouro vibrante (#F7B731), seguido de especificações técnicas (portas, gavetas, medidas) e Slogan 1 do produto;
-  * TOPO DIREITO: Slogan 2 do produto em tipografia caligráfica/brush com traço amarelo sublinhado;
+  * TOPO ESQUERDO: Título do produto com categoria em branco e nome em amarelo ouro vibrante (#F7B731), seguido de especificações técnicas (portas, gavetas, medidas);
+  * TOPO DIREITO: Slogan do produto em tipografia caligráfica/brush com traço amarelo sublinhado;
   * CENTRO / CENTRO-DIREITA: Móvel principal em destaque no ambiente residencial;
-  * MEIO ESQUERDO: Card flutuante com foto da visão interna (móvel aberto), com cantos arredondados e moldura sutil;
-  * INFERIOR ESQUERDO: Container de Preço em azul marinho degradê (#002B49) com borda/moldura dourada/amarela destacada, tag "APENAS", valor em amarelo ouro vibrante e cápsula branca de parcelamento ("EM ATÉ 10X SEM JUROS");
-  * INFERIOR DIREITO (abaixo do produto): Galeria de cores com título "DISPONÍVEL NAS CORES" entre traços amarelos, miniaturas em cards claros e tags azuis com os nomes das outras cores;
+  * MEIO ESQUERDO: Imagem secundária da Variação 1 flutuante e bem posicionada, sem borda. Ela pode mostrar o móvel aberto, outro ângulo, detalhe ou espaço interno, sem obrigação de exibir o móvel aberto;
+  * INFERIOR ESQUERDO: Quando houver preço/parcelamento na fonte oficial, use container em azul marinho degradê (#002B49), borda/moldura dourada/amarela e reproduza exclusivamente os valores e textos literais da seção de dados imutáveis. Não crie tags ou condições ausentes;
+  * INFERIOR DIREITO (abaixo do produto): Galeria de cores com título "DISPONÍVEL NAS CORES" entre traços amarelos, miniaturas das variações adicionais com borda branca e tags azuis com os nomes das outras cores. A borda branca é exclusiva dessas variações adicionais;
   * RODAPÉ CONTÍNUO NA BASE: Faixa horizontal em azul marinho institucional (#002B49) de ponta a ponta:
-    - À esquerda/centro: Os 3 SELOS COMERCIAIS OFICIAIS com ícones lineares brancos e textos em branco/amarelo ("Entrega Rápida" [1 a 4 dias], "Montagem Inclusa" e "Compra Segura" [Pague na Entrega]). REGRA ESTRITA: Não copie os selos legados da foto de exemplo como "Qualidade e Confiança" ou "Frete Grátis" — use exclusivamente os 3 selos oficiais;
+    - À esquerda/centro: somente os itens literais da seção estruturada de benefícios, quando existirem. Não copie nenhum texto ou selo da foto de exemplo;
     - À direita: Logo oficial da Móveis Morante posicionado sobre o fundo azul do rodapé.
 
 SLOGANS AUTORIZADOS DO PRODUTO (REGRAS ESTRITAS):
-- São permitidos EXCLUSIVAMENTE 2 slogans/destaques específicos do produto (móvel):
-  1. SLOGAN 1 (ABAIXO DO TÍTULO DO PRODUTO): frase curta de destaque do móvel, posicionada logo abaixo do nome do produto.
-  2. SLOGAN 2 (AO LADO DO PRODUTO): frase elegante posicionada ao lado do móvel, com tipografia em estilo caligráfico/escrita à mão (handwritten/brush) e uma linha traçada amarela destacada logo abaixo (sublinhado caligráfico amarelo).
+- É permitido EXCLUSIVAMENTE 1 destaque elegante posicionado ao lado do móvel (SLOGAN 2), com tipografia em estilo caligráfico/escrita à mão (handwritten/brush) e uma linha traçada amarela destacada logo abaixo (sublinhado caligráfico amarelo).
 
 TEXTOS, SLOGANS E RÓTULOS GENÉRICOS EXPRESSAMENTE PROIBIDOS:
+- É expressamente PROIBIDO inserir frases genéricas como "mais espaço para o seu dia a dia", "design moderno e elegante", "qualidade e durabilidade", "mais organização para o seu dia", "seu lar merece", etc.
 - É expressamente PROIBIDO inserir slogan da empresa ou da loja (ex.: "Seu lar mais completo com a Móveis Morante" ou "Qualidade que cabe no seu bolso") no canto inferior direito ou em qualquer parte da arte. A logo da Móveis Morante já carrega a identidade oficial da empresa.
-- É expressamente PROIBIDO à IA adicionar qualquer elemento, texto, caixa ou selo adicional que não tenha sido solicitado nesta especificação.
+- É expressamente PROIBIDO à IA adicionar qualquer elemento, texto, caixa ou selo adicional que não tenha sido solicitado nesta especificação. Na área de benefícios, a lista estruturada é a única fonte textual permitida.
 - É expressamente PROIBIDO inventar slogans publicitários ou frases clichês como "mais organização para o seu dia", "seu lar merece", etc.
-- É expressamente PROIBIDO inserir rótulos, tags ou balões sobrepostos ou ao redor da foto de visão interna (espaço interno), tais como:
+- É expressamente PROIBIDO inserir rótulos, tags ou balões sobrepostos ou ao redor da imagem secundária, tais como:
   * "material de qualidade";
   * "amplo espaço interno";
   * "design moderno";
   * "qualidade superior";
   * "espaço inteligente".
-- A foto da visão interna (móvel aberto) deve ser exibida de forma limpa, elegante e puramente fotográfica: sem textos sobrepostos, sem setas e sem tags descritivas.
+- A imagem secundária deve ser exibida de forma limpa, elegante, flutuante e sem borda: sem textos sobrepostos, sem setas e sem tags descritivas. Ela pode mostrar o móvel aberto, mas isso não é obrigatório.
 
 ANTI-SIMPLICIDADE (RESULTADO INSUFICIENTE PROIBIDO):
 Não produza uma composição semelhante a:
@@ -100,10 +117,10 @@ REGRA CRÍTICA — ANCORAGEM OBRIGATÓRIA DAS REFERÊNCIAS VISUAIS
 ==================================================
 
 1. EXTRAÇÃO E IDENTIFICAÇÃO PRELIMINAR:
-Ao receber este pacote (seja colado no chat ou links oficiais), extraia e identifique explicitamente quais arquivos são as IMAGENS DO PRODUTO (product/primary.*, product/open-view.*, product/variations/*) e ASSETS OFICIAIS (official-assets/logo.*) antes de qualquer tentativa de geração.
+Ao receber este pacote (seja colado no chat ou links oficiais), extraia e identifique explicitamente quais arquivos são as IMAGENS DO PRODUTO (product/primary.*, product/secondary.*, product/variations/*) e ASSETS OFICIAIS (official-assets/logo.*) antes de qualquer tentativa de geração.
 O usuário cola ou anexa as fotos oficiais e assets no chat (Ctrl+V) junto com este prompt.
-• IMAGEM PRINCIPAL: Fotografia do móvel fechado na cor principal (protagonista da arte).
-• VISÃO INTERNA / ABERTO (se enviada): Fotografia do móvel aberto para entender divisórias reais.
+• IMAGEM PRINCIPAL: Fotografia do móvel na cor principal (protagonista da arte).
+• IMAGEM SECUNDÁRIA (se enviada): Segunda foto da variação principal — pode ser o móvel aberto, em ângulo diferente, detalhe ou espaço interno. Use como referência complementar e posicione flutuando na composição sem borda.
 • LOGO MÓVEIS MORANTE (se enviado): Asset oficial pronto. NUNCA redesenhar ou recriar.
 • DEMAIS IMAGENS (OUTRAS CORES): Miniaturas reais para galeria de cores.
   REGRA OBRIGATÓRIA: NUNCA inclua a Variação 1 (cor principal) na galeria de cores secundárias.
@@ -136,4 +153,3 @@ FLUXO CONTÍNUO EM UMA ÚNICA ETAPA:
 O formato padrão já está definido como Feed 4:5. NÃO pare a execução para perguntar qual formato deseja.
 Execute o fluxo contínuo em sequência única:
 Leitura do pacote → Ancoragem das fotos reais como referências visuais → Geração direta da arte publicitária.`;
-

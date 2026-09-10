@@ -125,7 +125,7 @@ export async function downloadAllPostImages(
     });
   }
 
-  // 2. Visão Interna / Aberto
+  // 2. Imagem secundária da variação principal
   if (productImages.openView?.url) {
     queue.push({
       url: productImages.openView.url,

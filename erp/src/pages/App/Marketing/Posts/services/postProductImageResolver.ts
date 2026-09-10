@@ -191,7 +191,7 @@ export function resolveProductImages(
           role: 'OPEN_VIEW',
           variationId: primaryVar?.id,
           variationName: primaryVar?.name || product.name,
-          description: `Foto do produto aberto / visão interna selecionada manualmente (${primaryVar?.name || product.name})`,
+          description: `Imagem secundária selecionada manualmente (${primaryVar?.name || product.name})`,
         };
       }
     }
@@ -204,7 +204,7 @@ export function resolveProductImages(
         role: 'OPEN_VIEW',
         variationId: primaryVar.id,
         variationName: primaryVar.name,
-        description: `Foto do produto aberto / visão interna (${primaryVar.name})`,
+        description: `Imagem secundária da variação principal (${primaryVar.name})`,
       };
     }
   }
@@ -249,7 +249,7 @@ export function resolveProductImages(
   }
 
   if (!openViewRef) {
-    warnings.push('Nenhuma foto de visão interna/aberta (OPEN_VIEW) cadastrada na variação principal.');
+    warnings.push('Nenhuma imagem secundária (Foto 2) cadastrada na variação principal.');
   }
 
   const resultSpec: PostProductImagesSpec = {
@@ -289,9 +289,19 @@ A ambientação pode ser criada pela IA.
 O PRODUTO NÃO.`;
 
 export function renderProductImagesPromptSection(
-  productImages?: PostProductImagesSpec | null
+  productImages?: PostProductImagesSpec | null,
+  options: { localFilesOnly?: boolean } = {},
 ): string {
   if (!productImages) return '';
+
+  /** Retorna a referência da imagem: arquivo local no ZIP ou URL apenas no preview comum. */
+  function imageRef(
+    ref: { file?: string | null; url: string } | null | undefined,
+  ): { label: 'Arquivo' | 'URL'; value: string } | null {
+    if (!ref) return null;
+    if (ref.file) return { label: 'Arquivo', value: ref.file };
+    return options.localFilesOnly || !ref.url ? null : { label: 'URL', value: ref.url };
+  }
 
   const sep = '='.repeat(50);
   const subSep = '-'.repeat(50);
@@ -299,8 +309,10 @@ export function renderProductImagesPromptSection(
     sep,
     'IMAGENS OFICIAIS DO PRODUTO',
     sep,
-    'Estas imagens são a FONTE VISUAL DE VERDADE.',
-    'Não substitua o produto por outro semelhante.',
+    'Estas imagens foram enviadas junto com este prompt.',
+    'Elas são a FONTE VISUAL DE VERDADE do produto.',
+    'Identifique cada imagem pelo nome do arquivo indicado abaixo.',
+    'NÃO substitua o produto por outro semelhante.',
     '',
   ];
 
@@ -310,26 +322,30 @@ export function renderProductImagesPromptSection(
     lines.push('');
   }
 
-  if (productImages.primary?.url) {
+  const primaryRef = imageRef(productImages.primary);
+  if (primaryRef) {
     lines.push('IMAGEM PRINCIPAL');
-    lines.push(productImages.primary.url);
+    lines.push(`${primaryRef.label}: \`${primaryRef.value}\``);
     lines.push('');
-    lines.push('Esta é a imagem prioritária para representar o produto.');
+    lines.push('Esta é a imagem prioritária para representar o produto na arte.');
+    lines.push('O produto desta foto é o protagonista absoluto da composição.');
+    lines.push('A imagem principal NÃO recebe borda branca.');
     lines.push('');
   }
 
-  if (productImages.openView?.url) {
+  const secondaryRef = imageRef(productImages.openView);
+  if (secondaryRef) {
     lines.push(subSep);
     lines.push('');
-    lines.push('PRODUTO ABERTO / VISÃO COMPLEMENTAR');
+    lines.push('IMAGEM SECUNDÁRIA (Segunda foto da variação principal)');
     lines.push('');
-    lines.push(productImages.openView.url);
+    lines.push(`${secondaryRef.label}: \`${secondaryRef.value}\``);
     lines.push('');
-    lines.push('Use esta fotografia para compreender a estrutura real, interior,');
-    lines.push('divisões e características do produto.');
-    lines.push('Quando a campanha solicitar, ela também pode aparecer como pequeno');
-    lines.push('card secundário na composição.');
-    lines.push('Apresente esta foto de forma limpa, sem textos sobrepostos, sem setas e sem rótulos como "material de qualidade", "amplo espaço interno", "design moderno" ou "mais organização para o seu dia".');
+    lines.push('Use esta fotografia como referência complementar do produto.');
+    lines.push('Ela pode ser o móvel aberto, em ângulo diferente, detalhe ou espaço interno.');
+    lines.push('Quando presente na composição, deve aparecer flutuando, sem borda e de forma limpa.');
+    lines.push('NÃO sobreponha textos, setas ou rótulos como "material de qualidade",');
+    lines.push('"amplo espaço interno", "design moderno" ou "mais organização para o seu dia".');
     lines.push('');
   }
 
@@ -340,39 +356,32 @@ export function renderProductImagesPromptSection(
     lines.push('');
     lines.push('REGRA OBRIGATÓRIA DA GALERIA DE CORES / VARIAÇÕES:');
     lines.push(`- O móvel principal em destaque no post já é a Variação 1 (${productImages.primaryVariation?.name || 'Cor Principal'}).`);
-    lines.push('- Na galeria secundária ("Disponível nas Cores" / "Outras Cores"), apresente EXCLUSIVAMENTE as DEMAIS variações listadas abaixo.');
-    lines.push('- É ESTRITAMENTE PROIBIDO incluir a Variação 1 (cor principal) na galeria secundária de cores. NÃO duplique nem repita a cor principal na lista de opções.');
+    lines.push('- Na galeria secundária ("Disponível nas Cores"), apresente EXCLUSIVAMENTE as DEMAIS variações listadas abaixo.');
+    lines.push('- É ESTRITAMENTE PROIBIDO incluir a Variação 1 (cor principal) na galeria secundária de cores.');
+    lines.push('- Aplique borda branca SOMENTE nas miniaturas destas variações adicionais.');
+    lines.push('- Não aplique borda branca à imagem principal nem à imagem secundária.');
     lines.push('');
     for (const v of productImages.variations) {
-      lines.push(v.variationName);
-      lines.push(v.url);
+      const vRef = v.file
+        ? { label: 'Arquivo', value: v.file }
+        : (!options.localFilesOnly && v.url ? { label: 'URL', value: v.url } : null);
+      if (!vRef) continue;
+      lines.push(`**${v.variationName}**`);
+      lines.push(`${vRef.label}: \`${vRef.value}\``);
       lines.push('');
     }
-    lines.push('Cada imagem acima pertence à respectiva variação.');
-    lines.push('NÃO misture:');
-    lines.push('- cores;');
-    lines.push('- acabamento;');
-    lines.push('- portas;');
-    lines.push('- puxadores;');
-    lines.push('- estrutura;');
-    lines.push('- detalhes');
-    lines.push('entre variações diferentes.');
+    lines.push('Cada arquivo acima pertence à respectiva variação.');
+    lines.push('NÃO misture cores, acabamento, portas, puxadores ou estrutura entre variações diferentes.');
     lines.push('');
   }
 
   lines.push(sep);
   lines.push('FIDELIDADE VISUAL OBRIGATÓRIA');
   lines.push(sep);
-  lines.push('A imagem PRIMARY e as imagens complementares são a fonte visual de verdade do móvel.');
-  lines.push('A IA pode criar:');
-  lines.push('- ambiente;');
-  lines.push('- decoração;');
-  lines.push('- iluminação;');
-  lines.push('- composição publicitária.');
+  lines.push('A IMAGEM PRINCIPAL e as imagens complementares são a fonte visual de verdade do móvel.');
+  lines.push('A IA pode criar: ambiente, decoração, iluminação e composição publicitária.');
   lines.push('A IA NÃO pode criar outro móvel.');
   lines.push('Preservar exatamente as características visuais observáveis nas fotografias oficiais.');
 
   return lines.join('\n');
 }
-
-

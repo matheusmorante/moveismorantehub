@@ -4,22 +4,14 @@ import { GeminiContent } from './mobileAgentTypes';
 // Cliente HTTP leve e tipado para a API oficial do Google Gemini no Mobile
 
 export class MobileAgentClient {
-  private static cachedApiKey: string | null = null;
+  public static clearApiKeyCache() {
+    this.cachedApiKey = null;
+  }
 
   public static async getApiKey(): Promise<string> {
     if (this.cachedApiKey) return this.cachedApiKey;
 
-    // 1. Tentar variaveis de ambiente
-    const envKey =
-      (typeof process !== 'undefined' && (process.env?.EXPO_PUBLIC_GEMINI_API_KEY || process.env?.VITE_GEMINI_API_KEY || process.env?.GEMINI_API_KEY)) ||
-      '';
-
-    if (envKey && envKey.trim()) {
-      this.cachedApiKey = envKey.trim();
-      return this.cachedApiKey;
-    }
-
-    // 2. Tentar tabela settings no Supabase
+    // 1. Tentar tabela settings no Supabase (prioridade para permitir atualização dinâmica sem re-build)
     try {
       const { data } = await supabase.from('settings').select('*').eq('id', 'app').maybeSingle();
       const dbKey =
@@ -29,12 +21,25 @@ export class MobileAgentClient {
         data?.value?.geminiApiKey ||
         '';
 
-      if (dbKey && dbKey.trim()) {
+      if (dbKey && typeof dbKey === 'string' && dbKey.trim()) {
         this.cachedApiKey = dbKey.trim();
         return this.cachedApiKey;
       }
     } catch (err) {
       console.warn('Aviso: falha ao carregar chave do Gemini da tabela settings:', err);
+    }
+
+    // 2. Tentar variaveis de ambiente
+    const envKey =
+      (typeof process !== 'undefined' &&
+        (process.env?.EXPO_PUBLIC_GEMINI_API_KEY ||
+          process.env?.VITE_GEMINI_API_KEY ||
+          process.env?.GEMINI_API_KEY)) ||
+      '';
+
+    if (envKey && typeof envKey === 'string' && envKey.trim()) {
+      this.cachedApiKey = envKey.trim();
+      return this.cachedApiKey;
     }
 
     return '';
@@ -47,9 +52,14 @@ export class MobileAgentClient {
     toolConfig?: any;
     temperature?: number;
   }): Promise<any> {
-    const apiKey = await this.getApiKey();
+    let apiKey = await this.getApiKey();
     if (!apiKey) {
-      throw new Error('Chave de API do Gemini nao configurada. Defina em Configuracoes ou no ambiente.');
+      this.clearApiKeyCache();
+      apiKey = await this.getApiKey();
+    }
+
+    if (!apiKey) {
+      throw new Error('Chave de API do Gemini não configurada no servidor. Acesse as Configurações do ERP > Assistente de IA para cadastrar a chave.');
     }
 
     const model = 'gemini-2.5-flash';

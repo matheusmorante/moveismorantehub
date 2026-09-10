@@ -77,7 +77,7 @@ OBJETIVO:
 Gere uma estilização CSS dos elementos HTML com CONTRASTE PERFEITO (legibilidade comercial máxima, sem elementos sumindo no fundo).
 REGRAS OBRIGATÓRIAS:
 - Identidade visual da Móveis Morante: fundo azul institucional (#002B49), textos em branco puro (#ffffff) e detalhes/título/destaques em amarelo ouro (#F7B731).
-- As miniaturas de fotos secundárias SEMPRE devem manter cardBorderColor: "#ffffff" (borda branca pura sólida).
+- Somente as miniaturas das variações adicionais devem manter cardBorderColor: "#ffffff" (borda branca pura sólida). A imagem principal e a imagem secundária da Variação 1 ficam sem borda.
 - O bloco de preço deve ser vibrante, de varejo premium e chamativo (fundo azul institucional ou gradiente escuro com texto e valores em amarelo e branco).
 - Se o fundo for branco puro (#ffffff), o título, slogan e textos devem ter tons escuros (ex: azul marinho escuro #002B49, preto grafite) para manter contraste total.
 - Se o fundo for azul/escuro, o slogan deve ser branco puro (#ffffff), o título amarelo ouro (#F7B731) e o preço em amarelo vibrante.

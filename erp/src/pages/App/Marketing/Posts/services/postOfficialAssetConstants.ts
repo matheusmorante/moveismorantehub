@@ -20,10 +20,14 @@ Não recrie por aproximação.
 Se a ferramenta de geração não conseguir incorporar o asset com fidelidade,
 não substitua por uma versão inventada. É preferível deixar reservado o espaço do que inventar uma nova marca ou selo.`;
 
-export const OFFICIAL_LOGO_STRICT_INSTRUCTIONS = `LOGO OFICIAL DA MÓVEIS MORANTE
+export function buildOfficialLogoStrictInstructions(logoUrl: string, logoFilePath?: string | null): string {
+  const ref = logoFilePath
+    ? `Arquivo: \`${logoFilePath}\`\n(Este arquivo foi enviado junto com este prompt. Utilize-o diretamente.)`
+    : `URL: ${logoUrl}`;
 
-Arquivo:
-${OFFICIAL_MORANTE_LOGO_URL}
+  return `LOGO OFICIAL DA MÓVEIS MORANTE
+
+${ref}
 
 REGRA OBRIGATÓRIA:
 Utilize o arquivo oficial fornecido.
@@ -42,10 +46,15 @@ NÃO:
 
 O logo deve ser tratado como um asset gráfico pronto.
 Se a IA/ferramenta utilizada não conseguir inserir o asset fielmente, é preferível deixar reservado o espaço do logo do que inventar uma nova marca.`;
+}
 
-export function buildOfficialBadgeStrictInstructions(badgeUrl: string, opportunityName = 'Oportunidade'): string {
+export function buildOfficialBadgeStrictInstructions(badgeUrl: string, opportunityName = 'Oportunidade', badgeFilePath?: string | null): string {
+  const ref = badgeFilePath
+    ? `Arquivo: \`${badgeFilePath}\`\n(Este arquivo foi enviado junto com este prompt. Utilize-o diretamente.)`
+    : `URL: ${badgeUrl}`;
+
   return `SELO OFICIAL (${opportunityName.toUpperCase()}):
-${badgeUrl}
+${ref}
 
 REGRA:
 Utilizar o arquivo oficial fornecido sem recriação.
@@ -60,6 +69,17 @@ NÃO:
 - gerar uma versão semelhante.
 
 O selo é um asset gráfico pronto e só deve ser utilizado quando a oportunidade for aplicável.`;
+}
+
+/** Normaliza um asset escolhido na biblioteca sem substituí-lo por fallbacks legados. */
+export function normalizeConfiguredAssetUrl(rawUrl: string): string {
+  if (!rawUrl || typeof rawUrl !== 'string') return '';
+  const trimmed = rawUrl.trim();
+  if (trimmed.startsWith('https://') || trimmed.startsWith('data:')) return trimmed;
+  if (trimmed.startsWith('http://')) return trimmed.replace(/^http:\/\//, 'https://');
+  if (trimmed.startsWith('//')) return `https:${trimmed}`;
+  if (trimmed.startsWith('/')) return `https://www.moveismorante.com.br${trimmed}`;
+  return trimmed;
 }
 
 /**

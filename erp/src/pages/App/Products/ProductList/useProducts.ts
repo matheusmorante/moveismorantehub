@@ -5,7 +5,6 @@ import {
     fetchProductsPage,
     moveToTrash, 
     restoreProduct, 
-    permanentDeleteProduct, 
     deleteProduct,
     updateProduct,
     bulkMoveToTrash,

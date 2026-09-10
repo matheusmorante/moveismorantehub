@@ -70,17 +70,17 @@ export const PromptContextChecklist: React.FC<PromptContextChecklistProps> = ({
           )}
         </div>
 
-        {/* Visão Aberta */}
+        {/* Imagem Secundária */}
         <div className="flex items-center gap-1.5">
           {hasOpenView ? (
             <>
               <span className="text-emerald-400 font-bold">✓</span>
-              <span className="text-slate-300">Foto interna</span>
+              <span className="text-slate-300">Foto secundária</span>
             </>
           ) : (
             <>
               <span className="text-slate-500">—</span>
-              <span className="text-slate-500">Sem foto interna</span>
+              <span className="text-slate-500">Sem foto secundária</span>
             </>
           )}
         </div>

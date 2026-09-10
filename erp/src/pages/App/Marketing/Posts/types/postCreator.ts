@@ -66,7 +66,7 @@ export const elementLabel: Record<ElementType, string> = {
   POST_REFERENCE: 'Post de Exemplo / Referência',
   HEADER: 'Cabeçalho',
   FOOTER: 'Rodapé',
-  OPEN_VIEW: 'Visão Aberta / Interna',
+  OPEN_VIEW: 'Imagem Secundária',
   VARIATION_GALLERY: 'Galeria de Variações',
 };
 

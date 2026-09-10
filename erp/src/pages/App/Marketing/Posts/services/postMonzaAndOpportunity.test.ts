@@ -146,7 +146,7 @@ describe('Correção Crítica — Guarda-Roupa Monza & Filtragem de Badge de Opo
     expect(prompt).toContain('IMAGENS OFICIAIS DO PRODUTO');
     expect(prompt).toContain('IMAGEM PRINCIPAL');
     expect(prompt).toContain('https://pub-389127050a434f568c29dc66bdce2567.r2.dev/branco-1.jpg');
-    expect(prompt).toContain('PRODUTO ABERTO / VISÃO COMPLEMENTAR');
+    expect(prompt).toContain('IMAGEM SECUNDÁRIA');
     expect(prompt).toContain('https://pub-389127050a434f568c29dc66bdce2567.r2.dev/branco-aberto.jpg');
     expect(prompt).toContain('VARIAÇÕES DISPONÍVEIS');
     expect(prompt).toContain('Freijó/Grafite');
@@ -172,12 +172,13 @@ describe('Correção Crítica — Guarda-Roupa Monza & Filtragem de Badge de Opo
     // BADGE deve estar presente
     const badgeElement = spec.campaign.elements.find(e => e.elementType === 'BADGE');
     expect(badgeElement).toBeDefined();
-    expect(badgeElement?.resources.some(r => r.name.includes('Queima dos Salvados'))).toBe(true);
+    expect(badgeElement?.resources).toHaveLength(0);
+    expect(spec.officialAssets?.badge?.url).toBe('https://example.com/assets/queima-salvados-original.png');
 
     const prompt = renderSpecificationAsPrompt(spec);
     expect(prompt).toContain('ELEMENTO: BADGE');
-    expect(prompt).toContain('[ASSET OFICIAL] Selo Queima dos Salvados');
     expect(prompt).toContain('SELO OFICIAL');
+    expect(prompt.split('https://example.com/assets/queima-salvados-original.png')).toHaveLength(2);
   });
 
   it('3. Produto com OUTRA oportunidade: NUNCA inclui Queima dos Salvados por fallback', async () => {

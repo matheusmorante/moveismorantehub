@@ -146,11 +146,14 @@ describe('postSpecificationBuilder — Prompt Estruturado de Posts para IA', () 
     expect(prompt).toContain('Branco Neve');
     expect(prompt).toContain('IMAGEM PRINCIPAL');
     expect(prompt).toContain('https://example.com/monza-fechado.jpg');
-    expect(prompt).toContain('PRODUTO ABERTO / VISÃO COMPLEMENTAR');
+    expect(prompt).toContain('IMAGEM SECUNDÁRIA');
     expect(prompt).toContain('https://example.com/monza-aberto.jpg');
+    expect(prompt).toContain('pode ser o móvel aberto');
+    expect(prompt).toContain('flutuando, sem borda');
     expect(prompt).toContain('VARIAÇÕES DISPONÍVEIS');
     expect(prompt).toContain('Freijó Natural');
     expect(prompt).toContain('https://example.com/monza-freijo.jpg');
+    expect(prompt).toContain('borda branca SOMENTE');
     expect(prompt).toContain('FIDELIDADE VISUAL OBRIGATÓRIA');
   });
 

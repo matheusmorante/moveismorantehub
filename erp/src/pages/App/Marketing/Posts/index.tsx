@@ -30,7 +30,7 @@ export default function MarketingPostsManager() {
   const [creating, setCreating] = useState<{ type: ElementType; opportunityId?: string }>();
   const [editing, setEditing] = useState<ElementModel>();
   const [viewing, setViewing] = useState<ElementModel>();
-  const [opportunities, setOpportunities] = useState<Array<{ id: string; name: string; image_url?: string }>>([]);
+  const [opportunities, setOpportunities] = useState<Array<{ id: string; name: string }>>([]);
 
   const loadGlobalRules = useCallback(() => postCreatorService.globalGuidelines(), []);
   const saveGlobalRules = useCallback(async (value: string) => {
@@ -68,7 +68,6 @@ export default function MarketingPostsManager() {
       opportunity: {
         id: matchedOpportunity.id,
         name: matchedOpportunity.name,
-        image_url: matchedOpportunity.image_url,
       },
     };
   }, [editor.product, matchedOpportunity]);
@@ -103,7 +102,7 @@ export default function MarketingPostsManager() {
 
   useEffect(() => {
     void reload();
-    void supabase.from('opportunities').select('id, name, image_url').eq('active', true).order('name').then(({ data }) => setOpportunities(data || []));
+    void supabase.from('opportunities').select('id, name').eq('active', true).order('name').then(({ data }) => setOpportunities(data || []));
   }, []);
 
   // Abre direto na aba "Preview de Prompt + Assets" com o produto pré-selecionado

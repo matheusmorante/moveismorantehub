@@ -23,10 +23,14 @@ import {
 } from './postProductImageResolver';
 import {
   resolveOfficialAssets,
+  resolveConfiguredBadgeAssetUrl,
 } from './postOfficialAssetResolver';
 import {
+  normalizeConfiguredAssetUrl,
   normalizeOfficialAssetUrl,
 } from './postOfficialAssetConstants';
+import { resolvePostBenefits } from './postBenefitsResolver';
+import { resolvePostProductLiteralData } from './postProductLiteralDataResolver';
 export { renderShareSpecificationAsPrompt, renderSpecificationAsPrompt } from './postSpecificationPromptRenderer';
 
 // ---------------------------------------------------------------------------
@@ -89,12 +93,20 @@ function buildElementSpec(model: ElementModel): PostElementSpec {
   const normalizedGeneratedUrl = model.generatedAssetUrl
     ? normalizeOfficialAssetUrl(model.generatedAssetUrl)
     : undefined;
+  const centralizedBadgeUrl = model.elementType === 'BADGE'
+    ? resolveConfiguredBadgeAssetUrl(model)
+    : null;
 
   // Filtrar referências visuais para NÃO duplicar arquivos que já sejam o asset oficial do modelo
   const resources: PostFileResource[] = (model.referenceFiles || [])
     .filter(ref => {
-      const normalizedRefUrl = normalizeOfficialAssetUrl(ref.fileUrl);
-      if (normalizedGeneratedUrl && (normalizedRefUrl === normalizedGeneratedUrl || ref.fileUrl === model.generatedAssetUrl)) {
+      const normalizedRefUrl = model.elementType === 'BADGE'
+        ? normalizeConfiguredAssetUrl(ref.fileUrl)
+        : normalizeOfficialAssetUrl(ref.fileUrl);
+      if (
+        (normalizedGeneratedUrl && (normalizedRefUrl === normalizedGeneratedUrl || ref.fileUrl === model.generatedAssetUrl)) ||
+        (centralizedBadgeUrl && normalizedRefUrl === centralizedBadgeUrl)
+      ) {
         return false;
       }
       return true;
@@ -109,7 +121,8 @@ function buildElementSpec(model: ElementModel): PostElementSpec {
     }));
 
   // Asset oficial do próprio modelo (ex: logo, badge)
-  if (normalizedGeneratedUrl) {
+  // O asset de BADGE é centralizado em officialAssets.badge para existir uma única vez no prompt/ZIP.
+  if (normalizedGeneratedUrl && model.elementType !== 'BADGE') {
     resources.push({
       role: 'OFFICIAL_ASSET',
       elementType: model.elementType,
@@ -148,22 +161,22 @@ export function buildCampaignSpec(
   // Filtragem estrita de BADGE:
   // Se o produto NÃO possui oportunidade (oppId == null), NENHUM modelo de BADGE é incluído.
   // Se possui oportunidade, SOMENTE o modelo vinculado exatamente a essa oportunidade é incluído.
-  const filteredModels = activeModels.filter(model => {
-    if (model.elementType === 'BADGE') {
-      if (!oppId) return false;
-      return model.opportunityId === oppId;
-    }
-    return true;
-  });
+  const nonBadgeModels = activeModels.filter(model => model.elementType !== 'BADGE');
+  const applicableBadge = oppId
+    ? activeModels.find(model => model.elementType === 'BADGE' && model.opportunityId === oppId)
+    : undefined;
+  const filteredModels = applicableBadge
+    ? [...nonBadgeModels, applicableBadge]
+    : nonBadgeModels;
 
   const elements: PostElementSpec[] = filteredModels.map(buildElementSpec);
 
-  // Adicionar elemento estrutural OPEN_VIEW se houver foto aberta selecionada
+  // OPEN_VIEW é mantido como identificador técnico legado; na interface e no prompt é "imagem secundária".
   if (context?.hasOpenView && !elements.some(e => e.elementType === 'OPEN_VIEW')) {
     elements.push({
       elementType: 'OPEN_VIEW',
       prompt:
-        'Quando houver fotografia oficial do produto aberto, apresente-a em um card visual secundário e discreto, quando houver espaço suficiente. A fotografia deve permanecer real, limpa e sem reconstrução pela IA. REGRA OBRIGATÓRIA: NÃO adicione rótulos, tags ou balões na foto interna como "material de qualidade", "amplo espaço interno", "design moderno" ou slogans como "mais organização para o seu dia". Ela serve exclusivamente para mostrar de forma visual e limpa a divisão interna e funcionalidade do móvel.',
+        'Use a imagem secundária da Variação 1 como complemento visual flutuante e bem posicionado, quando houver espaço suficiente. Ela pode mostrar o móvel aberto, outro ângulo, um detalhe ou o espaço interno; mostrar o móvel aberto não é obrigatório. Preserve a fotografia real, sem reconstrução pela IA e SEM borda. Não adicione textos, setas, rótulos, tags ou balões sobre ou ao redor dessa imagem.',
       resources: [],
     });
   }
@@ -173,7 +186,7 @@ export function buildCampaignSpec(
     elements.push({
       elementType: 'VARIATION_GALLERY',
       prompt:
-        'Apresente de maneira compacta as opções reais de OUTRAS variações (cores complementares) utilizando a fotografia de cada variação. REGRA OBRIGATÓRIA: A Variação 1 (cor principal já em destaque no anúncio) NUNCA deve ser incluída na galeria secundária de cores. Apresente apenas as outras cores disponíveis, sem duplicar a cor principal. Cada miniatura deve corresponder à sua fotografia real. Não gerar artificialmente novas cores ou acabamentos.',
+        'Apresente de maneira compacta as opções reais das OUTRAS variações (cores complementares) utilizando a fotografia de cada variação. A Variação 1 já aparece nas imagens principal e secundária e NUNCA deve ser repetida nesta galeria. Somente as imagens das variações adicionais recebem borda branca; a imagem principal e a imagem secundária não recebem borda. Cada miniatura deve corresponder à fotografia real, sem gerar artificialmente novas cores ou acabamentos.',
       resources: [],
     });
   }
@@ -214,7 +227,7 @@ export async function buildSingleSpecification(params: {
 
   const oppId = params.product?.opportunity_id ?? params.product?.opportunityId ?? null;
   const hasOpenView = Boolean(resolvedImages?.openView?.url);
-  const hasVariations = Boolean(resolvedImages?.variations && resolvedImages.variations.length > 1);
+  const hasVariations = Boolean(resolvedImages?.variations && resolvedImages.variations.length > 0);
 
   const campaignSpec = buildCampaignSpec(params.campaign, params.activeModels, {
     opportunityId: oppId,
@@ -226,12 +239,16 @@ export async function buildSingleSpecification(params: {
     product: params.product,
     activeModels: params.activeModels,
   });
+  const benefits = resolvePostBenefits({ product: params.product, activeModels: params.activeModels });
+  const productLiteralData = resolvePostProductLiteralData(params.product, params.selectedVariationId);
 
   const configHash = await computeConfigHash({
     campaign: campaignSpec,
     globalRules: params.globalRules,
     productImages: resolvedImages,
     officialAssets,
+    benefits,
+    productLiteralFields: productLiteralData.fields,
     opportunityId: oppId,
   });
 
@@ -243,11 +260,14 @@ export async function buildSingleSpecification(params: {
       catalogUrl: params.productCatalogUrl,
       id: params.product?.id,
       name: params.product?.name,
-      price: params.product?.price ?? params.product?.unitPrice,
-      oldPrice: params.product?.oldPrice ?? params.product?.promoPrice,
+      price: productLiteralData.currentPrice,
+      oldPrice: productLiteralData.previousPrice,
+      installmentText: productLiteralData.installmentText,
     },
+    productLiteralFields: productLiteralData.fields,
     productImages: resolvedImages,
     officialAssets,
+    benefits,
     campaign: campaignSpec,
     formats: OFFICIAL_FORMATS,
     globalRules: params.globalRules,
@@ -281,7 +301,7 @@ export async function buildShareSpecification(params: {
 
   const oppId = params.product?.opportunity_id ?? params.product?.opportunityId ?? null;
   const hasOpenView = Boolean(resolvedImages?.openView?.url);
-  const hasVariations = Boolean(resolvedImages?.variations && resolvedImages.variations.length > 1);
+  const hasVariations = Boolean(resolvedImages?.variations && resolvedImages.variations.length > 0);
 
   const campaignSpecs = params.campaigns.map(({ campaign, activeModels }) =>
     buildCampaignSpec(campaign, activeModels, {
@@ -296,12 +316,16 @@ export async function buildShareSpecification(params: {
     product: params.product,
     activeModels: allActiveModels,
   });
+  const benefits = resolvePostBenefits({ product: params.product, activeModels: allActiveModels });
+  const productLiteralData = resolvePostProductLiteralData(params.product, params.selectedVariationId);
 
   const configHash = await computeConfigHash({
     campaigns: campaignSpecs,
     globalRules: params.globalRules,
     productImages: resolvedImages,
     officialAssets,
+    benefits,
+    productLiteralFields: productLiteralData.fields,
     opportunityId: oppId,
   });
 
@@ -313,11 +337,14 @@ export async function buildShareSpecification(params: {
       catalogUrl: params.productCatalogUrl,
       id: params.product?.id,
       name: params.product?.name,
-      price: params.product?.price ?? params.product?.unitPrice,
-      oldPrice: params.product?.oldPrice ?? params.product?.promoPrice,
+      price: productLiteralData.currentPrice,
+      oldPrice: productLiteralData.previousPrice,
+      installmentText: productLiteralData.installmentText,
     },
+    productLiteralFields: productLiteralData.fields,
     productImages: resolvedImages,
     officialAssets,
+    benefits,
     campaigns: campaignSpecs,
     formats: OFFICIAL_FORMATS,
     globalRules: params.globalRules,

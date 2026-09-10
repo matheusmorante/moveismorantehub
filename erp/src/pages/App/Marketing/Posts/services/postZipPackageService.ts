@@ -3,19 +3,16 @@
  *
  * Estrutura gerada:
  * post-context.zip
- * ├── prompt.txt
- * ├── INSTRUCOES.txt
- * ├── INSTRUCOES.md
- * ├── specification.json
+ * ├── prompt.md
  * ├── product/
- * │   ├── primary.png
- * │   ├── open-view.png
+ * │   ├── primary.<formato-real>
+ * │   ├── secondary.<formato-real>
  * │   └── variations/
  * │       ├── variacao-01-branco.png
  * │       └── variacao-02-freijo.png
  * ├── official-assets/
- * │   ├── logo.png
- * │   └── badge.png
+ * │   ├── logo.<formato-real>
+ * │   └── badge.<formato-real>
  * └── references/
  *     ├── title/
  *     ├── price/
@@ -29,6 +26,11 @@ import { buildImageFetchCandidates } from '@/pages/utils/imageFetchCandidates';
 import { PostCreationSpecification } from '../types/postSpecification';
 import { ElementModel } from '../types/postCreator';
 import { renderSpecificationAsPrompt } from './postSpecificationBuilder';
+import {
+  decodeInlineImageSource,
+  ValidatedImageAsset,
+  validateImageBytes,
+} from './postImageAssetCodec';
 
 function sanitizeFilename(str: string): string {
   return str
@@ -39,119 +41,56 @@ function sanitizeFilename(str: string): string {
     .replace(/(^-|-$)+/g, '');
 }
 
-function getFileExtension(url: string, defaultExt = 'png'): string {
-  try {
-    const cleanUrl = url.split('?')[0];
-    const match = cleanUrl.match(/\.(png|jpg|jpeg|webp|svg)$/i);
-    if (match) {
-      const ext = match[1].toLowerCase();
-      return ext === 'jpeg' ? 'jpg' : ext;
-    }
-  } catch {}
-  return defaultExt;
+function sourceLabel(source: string): string {
+  if (source.startsWith('data:')) return 'data URL';
+  if (source.startsWith('blob:')) return 'blob URL';
+  if (!source.includes(':')) return 'base64';
+  return source;
 }
 
-async function fetchFileArrayBuffer(rawUrl: string): Promise<ArrayBuffer | null> {
-  if (!rawUrl || typeof rawUrl !== 'string') return null;
+async function fetchValidatedImage(rawSource: string): Promise<ValidatedImageAsset> {
+  if (!rawSource || typeof rawSource !== 'string') throw new Error('Fonte da imagem ausente.');
 
-  const urlsToTry = buildImageFetchCandidates(rawUrl);
+  const inline = decodeInlineImageSource(rawSource);
+  if (inline) {
+    const validated = validateImageBytes(inline.buffer, inline.contentType);
+    if (validated) return validated;
+    throw new Error(`O conteúdo de ${sourceLabel(rawSource)} não é uma imagem válida ou está incompleto.`);
+  }
+  if (rawSource.startsWith('data:')) {
+    throw new Error('A data URL do asset está malformada ou não pôde ser decodificada.');
+  }
 
-  for (const url of urlsToTry) {
+  const candidates = rawSource.startsWith('blob:') ? [rawSource] : buildImageFetchCandidates(rawSource);
+  const failures: string[] = [];
+  for (const candidate of candidates) {
     try {
-      const response = await fetch(url, { mode: 'cors' });
-      if (response.ok) {
-        const buffer = await response.arrayBuffer();
-        if (buffer && buffer.byteLength > 0) {
-          return buffer;
-        }
+      const response = await fetch(candidate, { mode: 'cors' });
+      if (!response.ok) {
+        failures.push(`HTTP ${response.status || 'inválido'}`);
+        continue;
       }
-    } catch {
-      // continua tentando o próximo fallback
+      const buffer = await response.arrayBuffer();
+      const contentType = response.headers?.get?.('content-type') || '';
+      const validated = validateImageBytes(buffer, contentType);
+      if (validated) return validated;
+      failures.push(`conteúdo inválido (${contentType || 'Content-Type ausente'})`);
+    } catch (error) {
+      failures.push(error instanceof Error ? error.message : 'falha de rede');
     }
   }
 
-  // Fallback no browser: carregar via elemento Image e converter em canvas
-  if (typeof window !== 'undefined' && typeof document !== 'undefined') {
-    const candidatesForCanvas = [
-      `https://images.weserv.nl/?url=${encodeURIComponent(rawUrl)}`,
-      rawUrl,
-    ];
-    for (const cUrl of candidatesForCanvas) {
-      try {
-        const buffer = await new Promise<ArrayBuffer | null>((resolve) => {
-          const img = new Image();
-          img.crossOrigin = 'anonymous';
-          img.onload = () => {
-            try {
-              const canvas = document.createElement('canvas');
-              canvas.width = img.naturalWidth || img.width;
-              canvas.height = img.naturalHeight || img.height;
-              const ctx = canvas.getContext('2d');
-              if (!ctx) return resolve(null);
-              ctx.drawImage(img, 0, 0);
-              canvas.toBlob(blob => {
-                if (!blob) return resolve(null);
-                blob.arrayBuffer().then(buf => {
-                  if (buf && buf.byteLength > 0) resolve(buf);
-                  else resolve(null);
-                }).catch(() => resolve(null));
-              }, 'image/jpeg', 0.95);
-            } catch {
-              resolve(null);
-            }
-          };
-          img.onerror = () => resolve(null);
-          img.src = cUrl;
-        });
-        if (buffer) return buffer;
-      } catch {}
-    }
-  }
-
-  console.warn(`[postZipPackageService] Falha ao baixar arquivo para ZIP: ${rawUrl}`);
-  return null;
+  const details = Array.from(new Set(failures)).slice(0, 3).join('; ');
+  throw new Error(`Não foi possível obter uma imagem válida de ${sourceLabel(rawSource)}${details ? `: ${details}` : ''}.`);
 }
 
-function buildInstrucoesMd(spec: PostCreationSpecification): string {
-  const productName = spec.product?.name || 'Produto';
-  const price = spec.product?.price ? `R$ ${spec.product.price.toFixed(2).replace('.', ',')}` : 'Não informado';
-  const catalogUrl = spec.product?.catalogUrl || '';
-
-  return `# INSTRUÇÕES DO PACOTE DE CRIAÇÃO — MÓVEIS MORANTE
-
-Este pacote ZIP contém todos os materiais e diretrizes para a geração dos criativos publicitários da **Móveis Morante**.
-
-## 📄 ARQUIVOS PRINCIPAIS
-
-1. **\`prompt.txt\`**:
-   - Contém o **PROMPT COMPLETO E DETALHADO** pronto para uso da IA.
-   - Todo o direcionamento criativo, copy, regras de composição, precificação e formatos estão centralizados exclusivamente neste arquivo.
-
-2. **\`specification.json\`**:
-   - Especificação técnica estruturada (JSON) com metadados canônicos, URLs públicas e o mapeamento dos arquivos locais.
-
-## 📁 PASTAS DE RECURSOS VISUAIS (Incluídas apenas quando houver arquivos reais)
-
-- **\`product/\`**:
-  - Fotos oficiais em alta definição do móvel (**${productName}**), como \`product/primary\` e variações.
-  - **REGRA CRÍTICA**: O móvel é real e comercializado pela Móveis Morante. Utilize as imagens reais e preserve rigorosamente o design, puxadores, proporções, textura e cor exata. **NÃO REDESENHE O PRODUTO**.
-
-- **\`official-assets/\`**:
-  - Logotipos e selos institucionais oficiais da Móveis Morante (ex: \`official-assets/logo\`).
-  - São arquivos gráficos oficiais prontos para aplicação direta. Não redesenhe nem recrie por aproximação.
-
-- **\`references/\`**:
-  - Imagens de referência estética e direção de arte selecionadas.
-  - Servem como inspiração para iluminação, tipografia e diagramação.
-
----
-
-## ℹ️ RESUMO DO PRODUTO
-- **Produto**: ${productName}
-- **Preço**: ${price}
-${catalogUrl ? `- **Catálogo Digital**: ${catalogUrl}\n` : ''}
-Consulte o arquivo **\`prompt.txt\`** para o prompt completo a ser enviado para a IA!
-`;
+async function tryFetchValidatedImage(rawSource: string): Promise<ValidatedImageAsset | null> {
+  try {
+    return await fetchValidatedImage(rawSource);
+  } catch (error) {
+    console.warn('[postZipPackageService] Imagem ignorada:', error);
+    return null;
+  }
 }
 
 export interface GenerateZipOptions {
@@ -177,26 +116,24 @@ export async function generatePostContextZip(options: GenerateZipOptions): Promi
   if (specClone.productImages?.primary?.url) {
     onProgress?.(15, 'Baixando foto principal do produto...');
     const url = specClone.productImages.primary.url;
-    const ext = getFileExtension(url, 'jpg');
-    const buffer = await fetchFileArrayBuffer(url);
-    if (buffer) {
-      const filename = `primary.${ext}`;
+    const asset = await tryFetchValidatedImage(url);
+    if (asset) {
+      const filename = `primary.${asset.extension}`;
       const relativePath = `product/${filename}`;
-      zip.file(relativePath, buffer);
+      zip.file(relativePath, asset.buffer);
       specClone.productImages.primary.file = relativePath;
     }
   }
 
-  // 2. Baixar imagem de visão aberta/interna
+  // 2. Baixar imagem secundária do produto (Foto 2 da variação principal)
   if (specClone.productImages?.openView?.url) {
-    onProgress?.(30, 'Baixando foto de visão aberta...');
+    onProgress?.(30, 'Baixando imagem secundária...');
     const url = specClone.productImages.openView.url;
-    const ext = getFileExtension(url, 'jpg');
-    const buffer = await fetchFileArrayBuffer(url);
-    if (buffer) {
-      const filename = `open-view.${ext}`;
+    const asset = await tryFetchValidatedImage(url);
+    if (asset) {
+      const filename = `secondary.${asset.extension}`;
       const relativePath = `product/${filename}`;
-      zip.file(relativePath, buffer);
+      zip.file(relativePath, asset.buffer);
       specClone.productImages.openView.file = relativePath;
     }
   }
@@ -207,13 +144,12 @@ export async function generatePostContextZip(options: GenerateZipOptions): Promi
     for (let i = 0; i < specClone.productImages.variations.length; i++) {
       const v = specClone.productImages.variations[i];
       if (!v.url) continue;
-      const ext = getFileExtension(v.url, 'jpg');
-      const buffer = await fetchFileArrayBuffer(v.url);
-      if (buffer) {
-        const slug = sanitizeFilename(v.variationName || `variacao-${i + 1}`);
-        const filename = `${slug}.${ext}`;
+      const asset = await tryFetchValidatedImage(v.url);
+      if (asset) {
+        const slug = sanitizeFilename(v.variationName || 'variacao') || 'variacao';
+        const filename = `variation-${String(i + 1).padStart(2, '0')}-${slug}.${asset.extension}`;
         const relativePath = `product/variations/${filename}`;
-        zip.file(relativePath, buffer);
+        zip.file(relativePath, asset.buffer);
         v.file = relativePath;
       }
     }
@@ -223,58 +159,88 @@ export async function generatePostContextZip(options: GenerateZipOptions): Promi
   if (specClone.officialAssets?.logo?.url) {
     onProgress?.(60, 'Baixando logotipo oficial...');
     const url = specClone.officialAssets.logo.url;
-    const ext = getFileExtension(url, 'png');
-    const buffer = await fetchFileArrayBuffer(url);
-    if (buffer) {
-      const filename = `logo.${ext}`;
+    const asset = await tryFetchValidatedImage(url);
+    if (asset) {
+      const filename = `logo.${asset.extension}`;
       const relativePath = `official-assets/${filename}`;
-      zip.file(relativePath, buffer);
+      zip.file(relativePath, asset.buffer);
       specClone.officialAssets.logo.file = relativePath;
     }
   }
 
   if (specClone.officialAssets?.badge?.url) {
     onProgress?.(70, 'Baixando selo oficial...');
-    const url = specClone.officialAssets.badge.url;
-    const ext = getFileExtension(url, 'png');
-    const buffer = await fetchFileArrayBuffer(url);
-    if (buffer) {
-      const filename = `badge.${ext}`;
-      const relativePath = `official-assets/${filename}`;
-      zip.file(relativePath, buffer);
-      specClone.officialAssets.badge.file = relativePath;
-    }
-  }
+    const badge = specClone.officialAssets.badge;
+    const matchingModel = activeModels.find(model =>
+      model.elementType === 'BADGE' && model.opportunityId === badge.opportunityId,
+    );
+    const references = matchingModel?.referenceFiles.map(reference => reference.fileUrl).filter(Boolean) || [];
+    const locallyPackableReferences = references.filter(source =>
+      source.startsWith('data:') || source.startsWith('blob:') || !source.includes(':'),
+    );
+    const remoteReferences = references.filter(source => !locallyPackableReferences.includes(source));
+    const badgeSources = Array.from(new Set([
+      ...locallyPackableReferences,
+      badge.url,
+      matchingModel?.generatedAssetUrl || '',
+      ...remoteReferences,
+    ].filter(Boolean)));
 
-  // 5. Baixar referências visuais de modelos ativos (APENAS se houver arquivo com buffer válido)
-  if (activeModels.length > 0) {
-    onProgress?.(80, 'Processando referências visuais...');
-    for (const model of activeModels) {
-      if (!model.imageUrl) continue;
-      const buffer = await fetchFileArrayBuffer(model.imageUrl);
-      if (buffer) {
-        const catSlug = sanitizeFilename(model.category || 'geral');
-        const modelSlug = sanitizeFilename(model.name || 'modelo');
-        const ext = getFileExtension(model.imageUrl, 'jpg');
-        const relativePath = `references/${catSlug}/${modelSlug}.${ext}`;
-        zip.file(relativePath, buffer);
+    let resolvedBadge: { asset: ValidatedImageAsset; source: string } | null = null;
+    for (const source of badgeSources) {
+      try {
+        resolvedBadge = { asset: await fetchValidatedImage(source), source };
+        break;
+      } catch (error) {
+        const reason = error instanceof Error ? error.message : 'falha desconhecida';
+        console.warn(`[postZipPackageService] Fonte do selo indisponível: ${reason}`);
       }
     }
+
+    if (resolvedBadge) {
+      const filename = `badge.${resolvedBadge.asset.extension}`;
+      const relativePath = `official-assets/${filename}`;
+      zip.file(relativePath, resolvedBadge.asset.buffer);
+      badge.url = resolvedBadge.source;
+      badge.file = relativePath;
+    } else {
+      onProgress?.(75, 'Selo indisponível; continuando o pacote sem esse asset.');
+      specClone.officialAssets.badge = null;
+      specClone.campaign.elements = specClone.campaign.elements.filter(element => element.elementType !== 'BADGE');
+    }
   }
 
-  // 6. Gerar prompt.txt com o prompt completo e estruturado
+  // 5. Baixar as referências estruturadas dos elementos da campanha.
+  // O caminho inclui índices estáveis para impedir colisões entre nomes iguais.
+  onProgress?.(80, 'Processando anexos de referência...');
+  const centralizedAssetUrls = new Set(
+    [specClone.officialAssets?.logo?.url, specClone.officialAssets?.badge?.url].filter(Boolean),
+  );
+  for (let elementIndex = 0; elementIndex < specClone.campaign.elements.length; elementIndex++) {
+    const element = specClone.campaign.elements[elementIndex];
+    const elementSlug = sanitizeFilename(element.elementType) || `element-${elementIndex + 1}`;
+    for (let resourceIndex = 0; resourceIndex < element.resources.length; resourceIndex++) {
+      const resource = element.resources[resourceIndex];
+      if (!resource.url) continue;
+      if (element.elementType === 'BADGE' && resource.role === 'OFFICIAL_ASSET') continue;
+      if (centralizedAssetUrls.has(resource.url)) continue;
+      const asset = await tryFetchValidatedImage(resource.url);
+      if (!asset) continue;
+
+      const resourceSlug = sanitizeFilename(resource.name) || 'anexo';
+      const filename = `${String(resourceIndex + 1).padStart(2, '0')}-${resourceSlug}.${asset.extension}`;
+      const relativePath = `references/${String(elementIndex + 1).padStart(2, '0')}-${elementSlug}/${filename}`;
+      zip.file(relativePath, asset.buffer);
+      resource.file = relativePath;
+    }
+  }
+
+  // 6. Gerar prompt.md com o prompt completo e estruturado
   onProgress?.(85, 'Gerando prompt completo...');
-  const promptBody = renderSpecificationAsPrompt(specClone);
-  zip.file('prompt.txt', promptBody);
+  const promptBody = renderSpecificationAsPrompt(specClone, { localFilesOnly: true });
+  zip.file('prompt.md', promptBody);
 
-  // 7. Gerar INSTRUCOES.txt e INSTRUCOES.md (garante leitura no ChatGPT e outras LLMs sem restrição a .md)
-  onProgress?.(90, 'Gerando arquivo de instruções...');
-  const instrucoesContent = buildInstrucoesMd(specClone);
-  zip.file('INSTRUCOES.txt', instrucoesContent);
-  zip.file('INSTRUCOES.md', instrucoesContent);
-
-  // 8. Gerar specification.json canônico com os caminhos dos arquivos
-  zip.file('specification.json', JSON.stringify(specClone, null, 2));
+  validatePackageReferences(zip, promptBody);
 
   onProgress?.(95, 'Gerando arquivo ZIP compactado...');
 
@@ -286,6 +252,32 @@ export async function generatePostContextZip(options: GenerateZipOptions): Promi
 
   onProgress?.(100, 'Pacote ZIP pronto!');
   return content;
+}
+
+function validatePackageReferences(zip: JSZip, prompt: string): void {
+  const urls = prompt.match(/https?:\/\/[^\s)]+/gi) ?? [];
+  const allowedCatalogUrl = /^https:\/\/(?:www\.)?moveismorante\.com\.br\/produto\/[a-z0-9][a-z0-9-]*(?:\?var=[^\s)]+)?$/i;
+  if (urls.some(url => !allowedCatalogUrl.test(url))) {
+    throw new Error('O prompt do pacote contém URL externa não permitida; somente a página pública do produto pode permanecer.');
+  }
+
+  const fileNames = Object.values(zip.files)
+    .filter(entry => !entry.dir && entry.name !== 'prompt.md')
+    .map(entry => entry.name);
+  const referencedFiles = new Set(
+    Array.from(prompt.matchAll(/`((?:product|official-assets|references)\/[^`]+)`/g), match => match[1]),
+  );
+
+  for (const fileName of fileNames) {
+    if (!referencedFiles.has(fileName)) {
+      throw new Error(`Arquivo sem referência no prompt: ${fileName}`);
+    }
+  }
+  for (const fileName of referencedFiles) {
+    if (!zip.file(fileName)) {
+      throw new Error(`Referência do prompt sem arquivo no pacote: ${fileName}`);
+    }
+  }
 }
 
 /**
@@ -310,8 +302,8 @@ export async function downloadPostContextZip(options: GenerateZipOptions): Promi
     setTimeout(() => URL.revokeObjectURL(url), 1500);
 
     toast.success(`✓ Pacote "${filename}" baixado! Anexe o ZIP no ChatGPT.`);
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error('Erro ao gerar post-context.zip:', err);
-    toast.error('Erro ao gerar pacote ZIP: ' + (err.message || 'Falha desconhecida.'));
+    throw err instanceof Error ? err : new Error('Falha desconhecida ao gerar o pacote ZIP.');
   }
 }

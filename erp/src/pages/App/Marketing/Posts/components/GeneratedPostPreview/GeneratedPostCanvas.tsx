@@ -3,6 +3,8 @@ import { ElementModel } from '../../types/postCreator';
 import { PostProductImagesSpec, PostOfficialAssetsSpec } from '../../types/postSpecification';
 import { PaymentBrands } from '../Editor/PaymentBrands';
 import { HtmlPostThemeStyle, DEFAULT_THEME_STYLE } from '../../services/postHtmlStyleOptimizer';
+import { resolvePostBenefits } from '../../services/postBenefitsResolver';
+import { resolvePostProductLiteralData } from '../../services/postProductLiteralDataResolver';
 
 interface GeneratedPostCanvasProps {
   format: string; // '4:5' | '9:16'
@@ -47,9 +49,11 @@ export const GeneratedPostCanvas = forwardRef<HTMLDivElement, GeneratedPostCanva
       ? titleModel.prompt
       : 'OFERTA ESPECIAL';
     const productName = product.name || 'Produto Móveis Morante';
-    const regularPrice = product.oldPrice || product.regular_price || null;
-    const promotionalPrice = product.price || product.promotional_price || '0,00';
-    const installmentText = product.installmentValue || 'EM ATÉ 10X SEM JUROS';
+    const literalProductData = resolvePostProductLiteralData(product, product.selectedVariationId);
+    const regularPrice = literalProductData.previousPrice;
+    const promotionalPrice = literalProductData.currentPrice;
+    const installmentText = literalProductData.installmentText;
+    const benefits = resolvePostBenefits({ product, activeModels: models });
 
     // 1. Slogan do Produto (Abaixo do Título)
     const productTitleSlogan = sloganTitleModel?.prompt && !sloganTitleModel.prompt.includes('{{')
@@ -239,7 +243,7 @@ export const GeneratedPostCanvas = forwardRef<HTMLDivElement, GeneratedPostCanva
           </p>
 
           {/* Bloco de Preço Publicitário de Varejo com Gradiente/Cores Harmonizadas */}
-          <div
+          {promotionalPrice && <div
             className="mt-2 w-full max-w-[210px] p-2.5 rounded-xl shadow-xl border"
             style={{
               background: themeStyle.priceCardBg,
@@ -266,7 +270,7 @@ export const GeneratedPostCanvas = forwardRef<HTMLDivElement, GeneratedPostCanva
             </div>
 
             {/* Condição de Parcelamento e Bandeiras */}
-            <div className="mt-1 pt-1 border-t border-white/20">
+            {installmentText && <div className="mt-1 pt-1 border-t border-white/20">
               <div
                 className="text-[9px] font-black uppercase tracking-wide leading-tight"
                 style={{ color: themeStyle.installmentTextColor }}
@@ -276,13 +280,14 @@ export const GeneratedPostCanvas = forwardRef<HTMLDivElement, GeneratedPostCanva
               <div className="mt-1 w-full max-w-[130px]">
                 <PaymentBrands />
               </div>
-            </div>
-          </div>
+            </div>}
+          </div>}
         </div>
 
         {/* =========================================================================
-         * CAMADA 6: IMAGENS SECUNDÁRIAS COM BORDA BRANCA (VISÃO INTERNA E CORES)
-         * Conforme solicitado: Foto 2 (aberto) e fotos de variação têm borda branca.
+         * CAMADA 6: GALERIA INFERIOR — IMAGEM SECUNDÁRIA E MINIATURA DE VARIAÇÕES
+         * - Imagem secundária: sem borda, flutuando (qualquer foto da variação principal).
+         * - Miniaturas das variações: mantêm borda branca para indicar que são opções distintas.
          * ========================================================================= */}
         <div
           className={`absolute z-20 flex items-center gap-2 ${
@@ -291,25 +296,25 @@ export const GeneratedPostCanvas = forwardRef<HTMLDivElement, GeneratedPostCanva
               : 'bottom-[4%] left-[4.5%] right-[4.5%] justify-between'
           }`}
         >
-          {/* Imagens com Borda Branca */}
+          {/* Imagem secundária sem borda + variações adicionais com borda branca */}
           <div className="flex items-center gap-2 flex-wrap">
-            {/* 1. Visão Interna (Móvel Aberto) */}
+            {/* 1. Imagem Secundária (sem borda — flutua junto ao produto) */}
             {openViewImg && (
               <div
-                className={`relative overflow-hidden bg-white rounded-lg border-2 border-white ${
+                className={`relative overflow-hidden rounded-lg ${
                   isWhiteBg ? 'shadow-[0_4px_12px_rgba(0,0,0,0.18)]' : 'shadow-xl'
                 }`}
                 style={{ width: isStory ? '56px' : '68px', height: isStory ? '56px' : '68px' }}
-                title="Visão Interna (Móvel Aberto)"
+                title="Imagem Secundária do Produto"
               >
                 <img
                   crossOrigin="anonymous"
                   src={openViewImg}
-                  alt="Espaço Interno"
+                  alt="Imagem Secundária"
                   className="w-full h-full object-cover"
                 />
                 <span className="absolute bottom-0 inset-x-0 bg-black/70 text-[7px] text-white font-bold text-center py-0.5">
-                  Por Dentro
+                  Secundária
                 </span>
               </div>
             )}
@@ -335,14 +340,16 @@ export const GeneratedPostCanvas = forwardRef<HTMLDivElement, GeneratedPostCanva
           </div>
 
           {/* Benefícios Comerciais Autorizados com cor de contraste */}
-          <div
+          {benefits.length > 0 && <div
             className="hidden sm:flex flex-col items-end text-[8px] font-bold drop-shadow leading-tight"
             style={{ color: themeStyle.benefitsTextColor }}
           >
-            <span>✓ Entrega Rápida (1 a 4 dias)</span>
-            <span>✓ Montagem Inclusa</span>
-            <span>✓ Compra Segura (Pague na Entrega)</span>
-          </div>
+            {benefits.map(benefit => (
+              <span key={benefit.id}>
+                ✓ {benefit.title}{benefit.subtitle ? ` (${benefit.subtitle})` : ''}
+              </span>
+            ))}
+          </div>}
         </div>
       </div>
     );

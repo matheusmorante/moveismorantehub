@@ -161,7 +161,7 @@ describe('postProductImageResolver — Seleção e Estruturação de Imagens', (
 
     const { productImages, validation } = resolveProductImages({ product });
     expect(productImages.openView).toBeNull();
-    expect(validation.warnings.some(w => w.includes('OPEN_VIEW'))).toBe(true);
+    expect(validation.warnings.some(w => w.toLowerCase().includes('secundária') || w.toLowerCase().includes('foto 2'))).toBe(true);
   });
 
   it('17. validação emite erro claro se não houver foto principal', () => {

@@ -1,0 +1,870 @@
+src/components/shared/AIChatAssistant.tsx(649,26): error TS2552: Cannot find name 'setIsOpen'. Did you mean 'isOpen'?
+src/components/supplier-autocomplete/SupplierSuggestionsList.tsx(43,43): error TS2339: Property 'document' does not exist on type 'Person'.
+src/components/supplier-autocomplete/SupplierSuggestionsList.tsx(45,56): error TS2339: Property 'document' does not exist on type 'Person'.
+src/components/supplier-autocomplete/useSupplierAutocomplete.ts(59,37): error TS2339: Property 'document' does not exist on type 'Person'.
+src/pages/App/AccessAndUsers/components/UsersTab.tsx(65,10): error TS2304: Cannot find name 'confirmDeletePerson'.
+src/pages/App/AccessAndUsers/components/UsersTab.tsx(67,13): error TS2304: Cannot find name 'moveToTrash'.
+src/pages/App/AccessAndUsers/components/UsersTab.tsx(67,45): error TS2304: Cannot find name 'confirmDeletePerson'.
+src/pages/App/AccessAndUsers/components/UsersTab.tsx(69,7): error TS2304: Cannot find name 'setConfirmDeletePerson'.
+src/pages/App/AccessAndUsers/Index.tsx(3,20): error TS2307: Cannot find module '../../../types/person.type' or its corresponding type declarations.
+src/pages/App/Dashboard/components/RegionalHeatmap.tsx(176,17): error TS2322: Type '{ type: string; features: any[]; }' is not assignable to type 'string | GeoJSON<Geometry, GeoJsonProperties>'.
+  Type '{ type: string; features: any[]; }' is not assignable to type 'Point | MultiPoint | LineString | MultiLineString | Polygon | MultiPolygon | GeometryCollection<Geometry> | Feature<...> | FeatureCollection<...>'.
+    Type '{ type: string; features: any[]; }' is not assignable to type 'FeatureCollection<Geometry, GeoJsonProperties>'.
+      Types of property 'type' are incompatible.
+        Type 'string' is not assignable to type '"FeatureCollection"'.
+src/pages/App/Dashboard/components/RegionalHeatmap.tsx(240,36): error TS2345: Argument of type '{ type: string; features: any[]; }' is not assignable to parameter of type 'string | GeoJSON<Geometry, GeoJsonProperties>'.
+  Type '{ type: string; features: any[]; }' is not assignable to type 'Point | MultiPoint | LineString | MultiLineString | Polygon | MultiPolygon | GeometryCollection<Geometry> | Feature<...> | FeatureCollection<...>'.
+    Type '{ type: string; features: any[]; }' is not assignable to type 'FeatureCollection<Geometry, GeoJsonProperties>'.
+      Types of property 'type' are incompatible.
+        Type 'string' is not assignable to type '"FeatureCollection"'.
+src/pages/App/DeliverySchedule/ScheduleTableViewComponents/TableCell.tsx(26,48): error TS2304: Cannot find name 'resolveOrderColor'.
+src/pages/App/DeliverySchedule/ScheduleTableViewComponents/TableCell.tsx(27,17): error TS2304: Cannot find name 'getOrderTypeClasses'.
+src/pages/App/DeliverySchedule/ScheduleTableViewComponents/TableCell.tsx(112,44): error TS2304: Cannot find name 'resolveOrderColor'.
+src/pages/App/DeliverySchedule/ShowroomAssemblyModal.tsx(51,13): error TS2304: Cannot find name 'toast'.
+src/pages/App/DeliverySchedule/ShowroomAssemblyModal.tsx(64,13): error TS2304: Cannot find name 'toast'.
+src/pages/App/DeliverySchedule/ShowroomAssemblyModal.tsx(75,17): error TS2304: Cannot find name 'toast'.
+src/pages/App/DeliverySchedule/ShowroomAssemblyModal.tsx(81,17): error TS2304: Cannot find name 'toast'.
+src/pages/App/DeliverySchedule/ShowroomAssemblyModal.tsx(92,13): error TS2304: Cannot find name 'toast'.
+src/pages/App/DeliverySchedule/ShowroomAssemblyModal.tsx(108,13): error TS2304: Cannot find name 'toast'.
+src/pages/App/DeliverySchedule/ShowroomAssemblyModal.tsx(112,13): error TS2304: Cannot find name 'toast'.
+src/pages/App/DeliverySchedule/TimelineView/Index.tsx(90,42): error TS2304: Cannot find name 'formatDate'.
+src/pages/App/Logistics/AssemblyListPage.tsx(63,38): error TS2304: Cannot find name 'formatOrderCode'.
+src/pages/App/Marketing/Posts/components/GeneratedPostPreview/GeneratedPostCanvas.tsx(325,26): error TS2339: Property 'name' does not exist on type 'ProductVariationImageReference'.
+src/pages/App/Marketing/Posts/components/GeneratedPostPreview/GeneratedPostCanvas.tsx(330,26): error TS2339: Property 'name' does not exist on type 'ProductVariationImageReference'.
+src/pages/App/Marketing/Posts/components/GeneratedPostPreview/GeneratedPostPreview.tsx(71,21): error TS2304: Cannot find name 'WHITE_STUDIO_THEME_STYLE'.
+src/pages/App/Marketing/Posts/components/GeneratedPostPreview/GeneratedPostPreview.tsx(198,48): error TS2304: Cannot find name 'WHITE_STUDIO_THEME_STYLE'.
+src/pages/App/Marketing/Posts/components/PostsLibrary/PostCard.tsx(26,21): error TS2551: Property 'image_url' does not exist on type 'ProductPost'. Did you mean 'imageUrl'?
+src/pages/App/Marketing/Posts/components/PromptPreview/ChatGptProjectModal.tsx(3,79): error TS2307: Cannot find module '../../services/chatGptProjectInstructions' or its corresponding type declarations.
+src/pages/App/Marketing/Posts/components/PromptPreview/PromptImagesStrip.tsx(243,35): error TS2345: Argument of type '{ type: "OPEN_VIEW"; title: "Trocar Imagem Secundária (Visão Interna ou Detalhe)"; }' is not assignable to parameter of type 'SetStateAction<PickerTarget | null>'.
+  Types of property 'title' are incompatible.
+    Type '"Trocar Imagem Secundária (Visão Interna ou Detalhe)"' is not assignable to type '"Trocar Foto do Produto Aberto / Interno (OPEN_VIEW)"'.
+src/pages/App/Marketing/Posts/components/PromptPreview/PromptPreview.tsx(186,9): error TS2353: Object literal may only specify known properties, and 'campaign' does not exist in type 'GenerateZipOptions'.
+src/pages/App/Marketing/Posts/index.tsx(51,21): error TS2551: Property 'opportunity_id' does not exist on type 'Product'. Did you mean 'opportunityId'?
+src/pages/App/Marketing/Posts/index.tsx(58,107): error TS2551: Property 'opportunity_id' does not exist on type 'Product'. Did you mean 'opportunityId'?
+src/pages/App/Marketing/Posts/services/postArtDirectionGuidelines.test.ts(12,5): error TS2353: Object literal may only specify known properties, and 'aspectRatio' does not exist in type 'PostCampaign'.
+src/pages/App/Marketing/Posts/services/postCreatorResponsiveUi.test.ts(11,5): error TS2353: Object literal may only specify known properties, and 'prompt' does not exist in type 'PostCampaign'.
+src/pages/App/Marketing/Posts/services/postCreatorResponsiveUi.test.ts(33,49): error TS2345: Argument of type '{ campaign: PostCampaign; product: any; activeModels: never[]; }' is not assignable to parameter of type '{ productCatalogUrl: string; campaign: PostCampaign; activeModels: ElementModel[]; globalRules: string; product?: any; selectedVariationId?: string | undefined; manualOverrides?: { ...; } | ... 1 more ... | undefined; }'.
+  Type '{ campaign: PostCampaign; product: any; activeModels: never[]; }' is missing the following properties from type '{ productCatalogUrl: string; campaign: PostCampaign; activeModels: ElementModel[]; globalRules: string; product?: any; selectedVariationId?: string | undefined; manualOverrides?: { ...; } | ... 1 more ... | undefined; }': productCatalogUrl, globalRules
+src/pages/App/Marketing/Posts/services/postCreatorResponsiveUi.test.ts(51,11): error TS2739: Type '{ id: string; elementType: "BADGE"; name: string; opportunityId: string; generatedAssetUrl: string; createdAt: string; updatedAt: string; }' is missing the following properties from type 'ElementModel': contentKind, prompt, referenceFiles, generationVersion, status
+src/pages/App/Marketing/Posts/services/postCreatorResponsiveUi.test.ts(62,55): error TS2345: Argument of type '{ campaign: PostCampaign; product: any; activeModels: ElementModel[]; }' is not assignable to parameter of type '{ productCatalogUrl: string; campaign: PostCampaign; activeModels: ElementModel[]; globalRules: string; product?: any; selectedVariationId?: string | undefined; manualOverrides?: { ...; } | ... 1 more ... | undefined; }'.
+  Type '{ campaign: PostCampaign; product: any; activeModels: ElementModel[]; }' is missing the following properties from type '{ productCatalogUrl: string; campaign: PostCampaign; activeModels: ElementModel[]; globalRules: string; product?: any; selectedVariationId?: string | undefined; manualOverrides?: { ...; } | ... 1 more ... | undefined; }': productCatalogUrl, globalRules
+src/pages/App/Marketing/Posts/services/postCreatorResponsiveUi.test.ts(74,55): error TS2345: Argument of type '{ campaign: PostCampaign; product: any; activeModels: ElementModel[]; }' is not assignable to parameter of type '{ productCatalogUrl: string; campaign: PostCampaign; activeModels: ElementModel[]; globalRules: string; product?: any; selectedVariationId?: string | undefined; manualOverrides?: { ...; } | ... 1 more ... | undefined; }'.
+  Type '{ campaign: PostCampaign; product: any; activeModels: ElementModel[]; }' is missing the following properties from type '{ productCatalogUrl: string; campaign: PostCampaign; activeModels: ElementModel[]; globalRules: string; product?: any; selectedVariationId?: string | undefined; manualOverrides?: { ...; } | ... 1 more ... | undefined; }': productCatalogUrl, globalRules
+src/pages/App/Marketing/Posts/services/postCreatorService.ts(33,128): error TS2339: Property 'catch' does not exist on type 'PromiseLike<undefined>'.
+src/pages/App/Marketing/Posts/services/postCreatorService.ts(42,273): error TS2339: Property 'catch' does not exist on type 'PromiseLike<undefined>'.
+src/pages/App/Marketing/Posts/services/postCreatorService.ts(47,95): error TS2339: Property 'catch' does not exist on type 'PromiseLike<undefined>'.
+src/pages/App/Marketing/Posts/services/postCreatorService.ts(55,514): error TS2339: Property 'catch' does not exist on type 'PromiseLike<undefined>'.
+src/pages/App/Marketing/Posts/services/postCreatorService.ts(63,292): error TS2339: Property 'catch' does not exist on type 'PromiseLike<undefined>'.
+src/pages/App/Marketing/Posts/services/postCreatorService.ts(67,335): error TS2339: Property 'catch' does not exist on type 'PromiseLike<undefined>'.
+src/pages/App/Marketing/Posts/services/postCreatorService.ts(68,174): error TS2339: Property 'catch' does not exist on type 'PromiseLike<undefined>'.
+src/pages/App/Marketing/Posts/services/postCreatorService.ts(70,355): error TS2339: Property 'catch' does not exist on type 'PromiseLike<undefined>'.
+src/pages/App/Marketing/Posts/services/postOfficialAssets.test.ts(216,7): error TS2353: Object literal may only specify known properties, and 'campaignId' does not exist in type 'ElementModel'.
+src/pages/App/Marketing/Posts/services/postTemplateDraft.ts(14,3): error TS2322: Type '{ id: string; name: string; description: string; imagePrompt: string; formats: ("4:5" | "9:16")[]; aspectRatio: "4:5" | "9:16"; assets: PostModelAsset[]; extras: PostModelExtra[]; ... 13 more ...; promptNodes?: PromptNode[]; }' is not assignable to type 'PostTemplate'.
+  Types of property 'slug' are incompatible.
+    Type 'string | undefined' is not assignable to type 'string'.
+      Type 'undefined' is not assignable to type 'string'.
+src/pages/App/Marketing/Posts/services/postZipPackageService.ts(186,39): error TS2339: Property 'file' does not exist on type 'ProductImageReference'.
+src/pages/App/Marketing/Posts/services/postZipPackageService.ts(200,40): error TS2339: Property 'file' does not exist on type 'ProductImageReference'.
+src/pages/App/Marketing/Posts/services/postZipPackageService.ts(217,11): error TS2339: Property 'file' does not exist on type 'ProductVariationImageReference'.
+src/pages/App/Marketing/Posts/services/postZipPackageService.ts(232,37): error TS2339: Property 'file' does not exist on type '{ name: string; url: string; role: "OFFICIAL_ASSET"; }'.
+src/pages/App/Marketing/Posts/services/postZipPackageService.ts(245,38): error TS2339: Property 'file' does not exist on type '{ name: string; url: string; role: "OFFICIAL_ASSET"; opportunityId: string; opportunityName?: string | undefined; }'.
+src/pages/App/Marketing/Posts/services/postZipPackageService.ts(253,18): error TS2339: Property 'imageUrl' does not exist on type 'ElementModel'.
+src/pages/App/Marketing/Posts/services/postZipPackageService.ts(254,55): error TS2339: Property 'imageUrl' does not exist on type 'ElementModel'.
+src/pages/App/Marketing/Posts/services/postZipPackageService.ts(256,48): error TS2339: Property 'category' does not exist on type 'ElementModel'.
+src/pages/App/Marketing/Posts/services/postZipPackageService.ts(258,44): error TS2339: Property 'imageUrl' does not exist on type 'ElementModel'.
+src/pages/App/Products/components/LabelPrintSelectionModal.tsx(190,51): error TS2552: Cannot find name 'selectedIds'. Did you mean 'selected'?
+src/pages/App/Products/components/LabelPrintSelectionModal.tsx(192,67): error TS2304: Cannot find name 'selectedIds'.
+src/pages/App/Products/components/LabelPrintSelectionModal.tsx(193,74): error TS2304: Cannot find name 'selectedIds'.
+src/pages/App/Products/components/tabs/ProductVariationsTab.tsx(13,5): error TS2300: Duplicate identifier 'onEditCombo'.
+src/pages/App/Products/components/tabs/ProductVariationsTab.tsx(13,5): error TS2687: All declarations of 'onEditCombo' must have identical modifiers.
+src/pages/App/Products/components/tabs/ProductVariationsTab.tsx(16,5): error TS2300: Duplicate identifier 'onEditCombo'.
+src/pages/App/Products/components/tabs/ProductVariationsTab.tsx(16,5): error TS2687: All declarations of 'onEditCombo' must have identical modifiers.
+src/pages/App/Products/components/tabs/ProductVariationsTab.tsx(16,5): error TS2717: Subsequent property declarations must have the same type.  Property 'onEditCombo' must be of type '(id: string) => void', but here has type '((id: string) => void) | undefined'.
+src/pages/App/Products/components/tabs/SquareImageCropper.tsx(325,67): error TS2304: Cannot find name 'Corner'.
+src/pages/App/Products/Index.tsx(2,92): error TS2307: Cannot find module '../../types/product' or its corresponding type declarations.
+src/pages/App/Products/Index.tsx(88,31): error TS7006: Parameter 'prev' implicitly has an 'any' type.
+src/pages/App/Products/Index.tsx(105,71): error TS7006: Parameter 'prev' implicitly has an 'any' type.
+src/pages/App/Products/Index.tsx(120,65): error TS7006: Parameter 'prev' implicitly has an 'any' type.
+src/pages/App/Products/Index.tsx(237,62): error TS2304: Cannot find name 'setIsTrashOpen'.
+src/pages/App/Products/Index.tsx(237,96): error TS7006: Parameter 'prev' implicitly has an 'any' type.
+src/pages/App/Products/Index.tsx(252,66): error TS2304: Cannot find name 'setIsTrashOpen'.
+src/pages/App/Products/Index.tsx(252,100): error TS7006: Parameter 'prev' implicitly has an 'any' type.
+src/pages/App/Products/Index.tsx(263,64): error TS7006: Parameter 'prev' implicitly has an 'any' type.
+src/pages/App/Products/Index.tsx(274,77): error TS7006: Parameter 'prev' implicitly has an 'any' type.
+src/pages/App/Products/ProductFormModal.tsx(303,22): error TS2345: Argument of type '"estoque" | "ecommerce" | "fiscal" | "geral" | "ambientes" | "variacoes" | "technical"' is not assignable to parameter of type 'SetStateAction<"estoque" | "ecommerce" | "fiscal" | "geral" | "ambientes" | "variacoes">'.
+  Type '"technical"' is not assignable to type 'SetStateAction<"estoque" | "ecommerce" | "fiscal" | "geral" | "ambientes" | "variacoes">'.
+src/pages/App/Products/ProductFormModal.tsx(652,93): error TS2339: Property 'toLowerCase' does not exist on type '{ category: any; }'.
+src/pages/App/Products/ProductFormModal.tsx(670,25): error TS2345: Argument of type '(prev: Partial<Product>) => { description: { name: any; }; id?: string | undefined; code?: string | undefined; sku?: string | undefined; name?: string | undefined; title?: string | undefined; ... 93 more ...; status?: "draft" | ... 2 more ... | undefined; }' is not assignable to parameter of type 'SetStateAction<Partial<Product>>'.
+  Type '(prev: Partial<Product>) => { description: { name: any; }; id?: string | undefined; code?: string | undefined; sku?: string | undefined; name?: string | undefined; title?: string | undefined; ... 93 more ...; status?: "draft" | ... 2 more ... | undefined; }' is not assignable to type '(prevState: Partial<Product>) => Partial<Product>'.
+    Call signature return types '{ description: { name: any; }; id?: string | undefined; code?: string | undefined; sku?: string | undefined; name?: string | undefined; title?: string | undefined; category?: string | undefined; ... 92 more ...; status?: "draft" | ... 2 more ... | undefined; }' and 'Partial<Product>' are incompatible.
+      The types of 'description' are incompatible between these types.
+        Type '{ name: any; }' is not assignable to type 'string'.
+src/pages/App/Products/ProductFormModal.tsx(690,50): error TS2345: Argument of type '(prev: Partial<Product>) => { whatsappDescription: { description: string; }; id?: string | undefined; code?: string | undefined; sku?: string | undefined; name?: string | undefined; ... 94 more ...; status?: "draft" | ... 2 more ... | undefined; }' is not assignable to parameter of type 'SetStateAction<Partial<Product>>'.
+  Type '(prev: Partial<Product>) => { whatsappDescription: { description: string; }; id?: string | undefined; code?: string | undefined; sku?: string | undefined; name?: string | undefined; ... 94 more ...; status?: "draft" | ... 2 more ... | undefined; }' is not assignable to type '(prevState: Partial<Product>) => Partial<Product>'.
+    Call signature return types '{ whatsappDescription: { description: string; }; id?: string | undefined; code?: string | undefined; sku?: string | undefined; name?: string | undefined; title?: string | undefined; description?: string | undefined; ... 92 more ...; status?: "draft" | ... 2 more ... | undefined; }' and 'Partial<Product>' are incompatible.
+      The types of 'whatsappDescription' are incompatible between these types.
+        Type '{ description: string; }' is not assignable to type 'string'.
+src/pages/App/Products/ProductFormModal.tsx(691,30): error TS2345: Argument of type '(prev: Partial<Product>) => { ecommerceDescription: { description: string; }; id?: string | undefined; code?: string | undefined; sku?: string | undefined; name?: string | undefined; ... 94 more ...; status?: "draft" | ... 2 more ... | undefined; }' is not assignable to parameter of type 'SetStateAction<Partial<Product>>'.
+  Type '(prev: Partial<Product>) => { ecommerceDescription: { description: string; }; id?: string | undefined; code?: string | undefined; sku?: string | undefined; name?: string | undefined; ... 94 more ...; status?: "draft" | ... 2 more ... | undefined; }' is not assignable to type '(prevState: Partial<Product>) => Partial<Product>'.
+    Call signature return types '{ ecommerceDescription: { description: string; }; id?: string | undefined; code?: string | undefined; sku?: string | undefined; name?: string | undefined; title?: string | undefined; description?: string | undefined; ... 92 more ...; status?: "draft" | ... 2 more ... | undefined; }' and 'Partial<Product>' are incompatible.
+      The types of 'ecommerceDescription' are incompatible between these types.
+        Type '{ description: string; }' is not assignable to type 'string'.
+src/pages/App/Products/ProductFormModal.tsx(818,100): error TS2322: Type 'string' is not assignable to type 'ToastIcon | undefined'.
+src/pages/App/Products/ProductFormModal.tsx(821,125): error TS2322: Type 'string' is not assignable to type 'ToastIcon | undefined'.
+src/pages/App/Products/ProductFormModal.tsx(824,108): error TS2322: Type 'string' is not assignable to type 'ToastIcon | undefined'.
+src/pages/App/Products/ProductFormModal.tsx(1412,41): error TS2322: Type '{ onOpenCategorySearch: () => void; suppliers: Person[]; isService: boolean; formData: Partial<Product>; setFormData: Dispatch<SetStateAction<Partial<Product>>>; ... 4 more ...; setValidationErrors: Dispatch<...>; }' is not assignable to type 'IntrinsicAttributes & ProductGeneralTabProps'.
+  Property 'suppliers' does not exist on type 'IntrinsicAttributes & ProductGeneralTabProps'.
+src/pages/App/Products/ProductFormModal.tsx(1424,34): error TS2367: This comparison appears to be unintentional because the types '"estoque" | "ecommerce" | "fiscal" | "geral" | "ambientes" | "variacoes"' and '"technical"' have no overlap.
+src/pages/App/Products/ProductList/productActivationState.test.ts(29,16): error TS2532: Object is possibly 'undefined'.
+src/pages/App/Products/ProductList/productActivationState.test.ts(30,16): error TS2532: Object is possibly 'undefined'.
+src/pages/App/Products/ProductList/ProductCard.tsx(231,45): error TS2345: Argument of type 'number | undefined' is not assignable to parameter of type 'number'.
+  Type 'undefined' is not assignable to type 'number'.
+src/pages/App/Products/ProductList/productCatalogState.test.ts(17,16): error TS2532: Object is possibly 'undefined'.
+src/pages/App/Products/ProductList/productCatalogState.test.ts(18,16): error TS2532: Object is possibly 'undefined'.
+src/pages/App/Products/ProductList/productCatalogState.test.ts(32,16): error TS2532: Object is possibly 'undefined'.
+src/pages/App/Products/ProductList/productCatalogState.test.ts(38,16): error TS2532: Object is possibly 'undefined'.
+src/pages/App/Products/ProductList/ProductRowStandardCells.tsx(173,69): error TS7006: Parameter 'path' implicitly has an 'any' type.
+src/pages/App/Products/ProductList/ProductRowStandardCells.tsx(180,59): error TS7006: Parameter 'catName' implicitly has an 'any' type.
+src/pages/App/Products/ProductList/ProductRowStandardCells.tsx(180,68): error TS7006: Parameter 'idx' implicitly has an 'any' type.
+src/pages/App/Products/ProductList/useProducts.ts(108,48): error TS2551: Property 'is_draft' does not exist on type 'Product'. Did you mean 'isDraft'?
+src/pages/App/Products/ProductList/useProducts.ts(138,19): error TS2304: Cannot find name 'deactivateProduct'.
+src/pages/App/Products/ProductList/useProducts.ts(148,19): error TS2304: Cannot find name 'activateProduct'.
+src/pages/App/Products/ProductList/useProducts.ts(288,59): error TS2551: Property 'is_draft' does not exist on type 'Product'. Did you mean 'isDraft'?
+src/pages/App/Products/ProductList/useProducts.ts(295,60): error TS2551: Property 'is_draft' does not exist on type 'Product'. Did you mean 'isDraft'?
+src/pages/App/Products/ProductList/useProducts.ts(543,56): error TS2551: Property 'is_draft' does not exist on type 'Product'. Did you mean 'isDraft'?
+src/pages/App/Products/VariationFormModal.tsx(1073,136): error TS18047: 'formData' is possibly 'null'.
+src/pages/App/Products/VariationFormModal.tsx(1075,38): error TS18047: 'formData' is possibly 'null'.
+src/pages/App/Products/VariationFormModal.tsx(1079,30): error TS18047: 'formData' is possibly 'null'.
+src/pages/App/Products/VariationFormModal.tsx(1095,60): error TS18047: 'formData' is possibly 'null'.
+src/pages/App/Products/VariationFormModal.tsx(1106,69): error TS2345: Argument of type '{ fiscal: { ncm: string; ncmDescription: string; material?: string; condition?: "novo" | "usado" | "salvado" | ""; cest?: string; origem?: string; cst?: string; cfop?: string; pisCst?: string; cofinsCst?: string; icmsPercent?: number; codigoServico?: string; issPercent?: number; }; ... 50 more ...; description?: str...' is not assignable to parameter of type 'SetStateAction<Variation | null>'.
+  Type '{ fiscal: { ncm: string; ncmDescription: string; material?: string; condition?: "novo" | "usado" | "salvado" | ""; cest?: string; origem?: string; cst?: string; cfop?: string; pisCst?: string; cofinsCst?: string; icmsPercent?: number; codigoServico?: string; issPercent?: number; }; ... 50 more ...; description?: str...' is not assignable to type 'Variation'.
+    Types of property 'id' are incompatible.
+      Type 'string | undefined' is not assignable to type 'string'.
+        Type 'undefined' is not assignable to type 'string'.
+src/pages/App/Products/VariationFormModal.tsx(1109,68): error TS18047: 'formData' is possibly 'null'.
+src/pages/App/Products/VariationFormModal.tsx(1127,60): error TS18047: 'formData' is possibly 'null'.
+src/pages/App/Products/VariationFormModal.tsx(1128,82): error TS2345: Argument of type '{ fiscal: { ncm: string; ncmDescription?: string; material?: string; condition?: "novo" | "usado" | "salvado" | ""; cest?: string; origem?: string; cst?: string; cfop?: string; pisCst?: string; cofinsCst?: string; icmsPercent?: number; codigoServico?: string; issPercent?: number; }; ... 50 more ...; description?: st...' is not assignable to parameter of type 'SetStateAction<Variation | null>'.
+  Type '{ fiscal: { ncm: string; ncmDescription?: string; material?: string; condition?: "novo" | "usado" | "salvado" | ""; cest?: string; origem?: string; cst?: string; cfop?: string; pisCst?: string; cofinsCst?: string; icmsPercent?: number; codigoServico?: string; issPercent?: number; }; ... 50 more ...; description?: st...' is not assignable to type 'Variation'.
+    Types of property 'id' are incompatible.
+      Type 'string | undefined' is not assignable to type 'string'.
+        Type 'undefined' is not assignable to type 'string'.
+src/pages/App/Products/VariationFormModal.tsx(1128,110): error TS18047: 'formData' is possibly 'null'.
+src/pages/App/Products/VariationFormModal.tsx(1140,60): error TS18047: 'formData' is possibly 'null'.
+src/pages/App/Products/VariationFormModal.tsx(1141,82): error TS2345: Argument of type '{ fiscal: { cest: string; ncm?: string; ncmDescription?: string; material?: string; condition?: "novo" | "usado" | "salvado" | ""; origem?: string; cst?: string; cfop?: string; pisCst?: string; cofinsCst?: string; icmsPercent?: number; codigoServico?: string; issPercent?: number; }; ... 50 more ...; description?: st...' is not assignable to parameter of type 'SetStateAction<Variation | null>'.
+  Type '{ fiscal: { cest: string; ncm?: string; ncmDescription?: string; material?: string; condition?: "novo" | "usado" | "salvado" | ""; origem?: string; cst?: string; cfop?: string; pisCst?: string; cofinsCst?: string; icmsPercent?: number; codigoServico?: string; issPercent?: number; }; ... 50 more ...; description?: st...' is not assignable to type 'Variation'.
+    Types of property 'id' are incompatible.
+      Type 'string | undefined' is not assignable to type 'string'.
+        Type 'undefined' is not assignable to type 'string'.
+src/pages/App/Products/VariationFormModal.tsx(1141,110): error TS18047: 'formData' is possibly 'null'.
+src/pages/App/Products/VariationFormModal.tsx(1151,60): error TS18047: 'formData' is possibly 'null'.
+src/pages/App/Products/VariationFormModal.tsx(1152,82): error TS2345: Argument of type '{ fiscal: { cest: string; ncm?: string; ncmDescription?: string; material?: string; condition?: "novo" | "usado" | "salvado" | ""; origem?: string; cst?: string; cfop?: string; pisCst?: string; cofinsCst?: string; icmsPercent?: number; codigoServico?: string; issPercent?: number; }; ... 50 more ...; description?: st...' is not assignable to parameter of type 'SetStateAction<Variation | null>'.
+  Type '{ fiscal: { cest: string; ncm?: string; ncmDescription?: string; material?: string; condition?: "novo" | "usado" | "salvado" | ""; origem?: string; cst?: string; cfop?: string; pisCst?: string; cofinsCst?: string; icmsPercent?: number; codigoServico?: string; issPercent?: number; }; ... 50 more ...; description?: st...' is not assignable to type 'Variation'.
+    Types of property 'id' are incompatible.
+      Type 'string | undefined' is not assignable to type 'string'.
+        Type 'undefined' is not assignable to type 'string'.
+src/pages/App/Products/VariationFormModal.tsx(1152,110): error TS18047: 'formData' is possibly 'null'.
+src/pages/App/Products/VariationFormModal.tsx(1165,52): error TS18047: 'formData' is possibly 'null'.
+src/pages/App/Products/VariationFormModal.tsx(1166,74): error TS2345: Argument of type '{ fiscal: { ncmDescription: string; ncm?: string; material?: string; condition?: "novo" | "usado" | "salvado" | ""; cest?: string; origem?: string; cst?: string; cfop?: string; pisCst?: string; cofinsCst?: string; icmsPercent?: number; codigoServico?: string; issPercent?: number; }; ... 50 more ...; description?: st...' is not assignable to parameter of type 'SetStateAction<Variation | null>'.
+  Type '{ fiscal: { ncmDescription: string; ncm?: string; material?: string; condition?: "novo" | "usado" | "salvado" | ""; cest?: string; origem?: string; cst?: string; cfop?: string; pisCst?: string; cofinsCst?: string; icmsPercent?: number; codigoServico?: string; issPercent?: number; }; ... 50 more ...; description?: st...' is not assignable to type 'Variation'.
+    Types of property 'id' are incompatible.
+      Type 'string | undefined' is not assignable to type 'string'.
+        Type 'undefined' is not assignable to type 'string'.
+src/pages/App/Products/VariationFormModal.tsx(1166,102): error TS18047: 'formData' is possibly 'null'.
+src/pages/App/Products/VariationFormModal.tsx(1178,56): error TS18047: 'formData' is possibly 'null'.
+src/pages/App/Products/VariationFormModal.tsx(1179,78): error TS2345: Argument of type '{ fiscal: { origem: string; ncm?: string; ncmDescription?: string; material?: string; condition?: "novo" | "usado" | "salvado" | ""; cest?: string; cst?: string; cfop?: string; pisCst?: string; cofinsCst?: string; icmsPercent?: number; codigoServico?: string; issPercent?: number; }; ... 50 more ...; description?: st...' is not assignable to parameter of type 'SetStateAction<Variation | null>'.
+  Type '{ fiscal: { origem: string; ncm?: string; ncmDescription?: string; material?: string; condition?: "novo" | "usado" | "salvado" | ""; cest?: string; cst?: string; cfop?: string; pisCst?: string; cofinsCst?: string; icmsPercent?: number; codigoServico?: string; issPercent?: number; }; ... 50 more ...; description?: st...' is not assignable to type 'Variation'.
+    Types of property 'id' are incompatible.
+      Type 'string | undefined' is not assignable to type 'string'.
+        Type 'undefined' is not assignable to type 'string'.
+src/pages/App/Products/VariationFormModal.tsx(1179,106): error TS18047: 'formData' is possibly 'null'.
+src/pages/App/Products/VariationFormModal.tsx(1196,56): error TS18047: 'formData' is possibly 'null'.
+src/pages/App/Products/VariationFormModal.tsx(1197,78): error TS2345: Argument of type '{ fiscal: { cst: string; ncm?: string; ncmDescription?: string; material?: string; condition?: "novo" | "usado" | "salvado" | ""; cest?: string; origem?: string; cfop?: string; pisCst?: string; cofinsCst?: string; icmsPercent?: number; codigoServico?: string; issPercent?: number; }; ... 50 more ...; description?: st...' is not assignable to parameter of type 'SetStateAction<Variation | null>'.
+  Type '{ fiscal: { cst: string; ncm?: string; ncmDescription?: string; material?: string; condition?: "novo" | "usado" | "salvado" | ""; cest?: string; origem?: string; cfop?: string; pisCst?: string; cofinsCst?: string; icmsPercent?: number; codigoServico?: string; issPercent?: number; }; ... 50 more ...; description?: st...' is not assignable to type 'Variation'.
+    Types of property 'id' are incompatible.
+      Type 'string | undefined' is not assignable to type 'string'.
+        Type 'undefined' is not assignable to type 'string'.
+src/pages/App/Products/VariationFormModal.tsx(1197,106): error TS18047: 'formData' is possibly 'null'.
+src/pages/App/Products/VariationFormModal.tsx(1216,56): error TS18047: 'formData' is possibly 'null'.
+src/pages/App/Products/VariationFormModal.tsx(1217,78): error TS2345: Argument of type '{ fiscal: { cfop: string; ncm?: string; ncmDescription?: string; material?: string; condition?: "novo" | "usado" | "salvado" | ""; cest?: string; origem?: string; cst?: string; pisCst?: string; cofinsCst?: string; icmsPercent?: number; codigoServico?: string; issPercent?: number; }; ... 50 more ...; description?: st...' is not assignable to parameter of type 'SetStateAction<Variation | null>'.
+  Type '{ fiscal: { cfop: string; ncm?: string; ncmDescription?: string; material?: string; condition?: "novo" | "usado" | "salvado" | ""; cest?: string; origem?: string; cst?: string; pisCst?: string; cofinsCst?: string; icmsPercent?: number; codigoServico?: string; issPercent?: number; }; ... 50 more ...; description?: st...' is not assignable to type 'Variation'.
+    Types of property 'id' are incompatible.
+      Type 'string | undefined' is not assignable to type 'string'.
+        Type 'undefined' is not assignable to type 'string'.
+src/pages/App/Products/VariationFormModal.tsx(1217,106): error TS18047: 'formData' is possibly 'null'.
+src/pages/App/Products/VariationFormModal.tsx(1233,56): error TS18047: 'formData' is possibly 'null'.
+src/pages/App/Products/VariationFormModal.tsx(1236,65): error TS2345: Argument of type '{ fiscal: { icmsPercent: number; ncm?: string; ncmDescription?: string; material?: string; condition?: "novo" | "usado" | "salvado" | ""; cest?: string; origem?: string; cst?: string; cfop?: string; pisCst?: string; cofinsCst?: string; codigoServico?: string; issPercent?: number; }; ... 50 more ...; description?: st...' is not assignable to parameter of type 'SetStateAction<Variation | null>'.
+  Type '{ fiscal: { icmsPercent: number; ncm?: string; ncmDescription?: string; material?: string; condition?: "novo" | "usado" | "salvado" | ""; cest?: string; origem?: string; cst?: string; cfop?: string; pisCst?: string; cofinsCst?: string; codigoServico?: string; issPercent?: number; }; ... 50 more ...; description?: st...' is not assignable to type 'Variation'.
+    Types of property 'id' are incompatible.
+      Type 'string | undefined' is not assignable to type 'string'.
+        Type 'undefined' is not assignable to type 'string'.
+src/pages/App/Products/VariationFormModal.tsx(1239,64): error TS18047: 'formData' is possibly 'null'.
+src/pages/App/Products/VariationFormModal.tsx(1253,56): error TS18047: 'formData' is possibly 'null'.
+src/pages/App/Products/VariationFormModal.tsx(1254,78): error TS2345: Argument of type '{ fiscal: { pisCst: string; ncm?: string; ncmDescription?: string; material?: string; condition?: "novo" | "usado" | "salvado" | ""; cest?: string; origem?: string; cst?: string; cfop?: string; cofinsCst?: string; icmsPercent?: number; codigoServico?: string; issPercent?: number; }; ... 50 more ...; description?: st...' is not assignable to parameter of type 'SetStateAction<Variation | null>'.
+  Type '{ fiscal: { pisCst: string; ncm?: string; ncmDescription?: string; material?: string; condition?: "novo" | "usado" | "salvado" | ""; cest?: string; origem?: string; cst?: string; cfop?: string; cofinsCst?: string; icmsPercent?: number; codigoServico?: string; issPercent?: number; }; ... 50 more ...; description?: st...' is not assignable to type 'Variation'.
+    Types of property 'id' are incompatible.
+      Type 'string | undefined' is not assignable to type 'string'.
+        Type 'undefined' is not assignable to type 'string'.
+src/pages/App/Products/VariationFormModal.tsx(1254,106): error TS18047: 'formData' is possibly 'null'.
+src/pages/App/Products/VariationFormModal.tsx(1271,56): error TS18047: 'formData' is possibly 'null'.
+src/pages/App/Products/VariationFormModal.tsx(1272,78): error TS2345: Argument of type '{ fiscal: { cofinsCst: string; ncm?: string; ncmDescription?: string; material?: string; condition?: "novo" | "usado" | "salvado" | ""; cest?: string; origem?: string; cst?: string; cfop?: string; pisCst?: string; icmsPercent?: number; codigoServico?: string; issPercent?: number; }; ... 50 more ...; description?: st...' is not assignable to parameter of type 'SetStateAction<Variation | null>'.
+  Type '{ fiscal: { cofinsCst: string; ncm?: string; ncmDescription?: string; material?: string; condition?: "novo" | "usado" | "salvado" | ""; cest?: string; origem?: string; cst?: string; cfop?: string; pisCst?: string; icmsPercent?: number; codigoServico?: string; issPercent?: number; }; ... 50 more ...; description?: st...' is not assignable to type 'Variation'.
+    Types of property 'id' are incompatible.
+      Type 'string | undefined' is not assignable to type 'string'.
+        Type 'undefined' is not assignable to type 'string'.
+src/pages/App/Products/VariationFormModal.tsx(1272,106): error TS18047: 'formData' is possibly 'null'.
+src/pages/App/Registrations/shared/personForm/usePersonForm.ts(88,17): error TS2322: Type 'string[]' is not assignable to type 'UserRole[]'.
+  Type 'string' is not assignable to type 'UserRole'.
+src/pages/App/Registrations/shared/personForm/usePersonForm.ts(93,30): error TS2322: Type 'string' is not assignable to type 'UserRole'.
+src/pages/App/Registrations/shared/personForm/usePersonForm.ts(93,49): error TS2322: Type 'string' is not assignable to type 'UserRole'.
+src/pages/App/Registrations/shared/personForm/usePersonForm.ts(136,25): error TS2345: Argument of type '(current: Partial<Person>) => { fullName: string; position: string; role: UserRole; roles: string[]; id?: string | undefined; employeeCode?: number | undefined; ... 24 more ...; observations?: string | undefined; }' is not assignable to parameter of type 'SetStateAction<Partial<Person>>'.
+  Type '(current: Partial<Person>) => { fullName: string; position: string; role: UserRole; roles: string[]; id?: string | undefined; employeeCode?: number | undefined; ... 24 more ...; observations?: string | undefined; }' is not assignable to type '(prevState: Partial<Person>) => Partial<Person>'.
+    Call signature return types '{ fullName: string; position: string; role: UserRole; roles: string[]; id?: string | undefined; employeeCode?: number | undefined; personType?: "PF" | "PJ" | undefined; socialName?: string | undefined; ... 22 more ...; observations?: string | undefined; }' and 'Partial<Person>' are incompatible.
+      The types of 'roles' are incompatible between these types.
+        Type 'string[]' is not assignable to type 'UserRole[]'.
+          Type 'string' is not assignable to type 'UserRole'.
+src/pages/App/Registrations/shared/personForm/usePersonForm.ts(140,70): error TS2345: Argument of type 'string[]' is not assignable to parameter of type 'UserRole[]'.
+  Type 'string' is not assignable to type 'UserRole'.
+src/pages/App/Registrations/shared/personForm/usePersonForm.ts(157,53): error TS2345: Argument of type 'string[]' is not assignable to parameter of type 'UserRole[]'.
+  Type 'string' is not assignable to type 'UserRole'.
+src/pages/App/Registrations/shared/personForm/usePersonForm.ts(158,17): error TS2322: Type 'string[]' is not assignable to type 'UserRole[]'.
+  Type 'string' is not assignable to type 'UserRole'.
+src/pages/App/Registrations/shared/personForm/usePersonForm.ts(184,37): error TS2345: Argument of type '(prev: Partial<Person>) => { role: UserRole | undefined; roles: (UserRole | null)[]; id?: string | undefined; employeeCode?: number | undefined; ... 26 more ...; observations?: string | undefined; }' is not assignable to parameter of type 'SetStateAction<Partial<Person>>'.
+  Type '(prev: Partial<Person>) => { role: UserRole | undefined; roles: (UserRole | null)[]; id?: string | undefined; employeeCode?: number | undefined; ... 26 more ...; observations?: string | undefined; }' is not assignable to type '(prevState: Partial<Person>) => Partial<Person>'.
+    Call signature return types '{ role: UserRole | undefined; roles: (UserRole | null)[]; id?: string | undefined; employeeCode?: number | undefined; personType?: "PF" | "PJ" | undefined; fullName?: string | undefined; ... 24 more ...; observations?: string | undefined; }' and 'Partial<Person>' are incompatible.
+      The types of 'roles' are incompatible between these types.
+        Type '(UserRole | null)[]' is not assignable to type 'UserRole[]'.
+          Type 'UserRole | null' is not assignable to type 'UserRole'.
+            Type 'null' is not assignable to type 'UserRole'.
+src/pages/App/Registrations/shared/PersonImportModal.tsx(204,21): error TS2353: Object literal may only specify known properties, and 'rgIe' does not exist in type 'Partial<Person>'.
+src/pages/App/Registrations/shared/PersonRow.tsx(61,55): error TS2367: This comparison appears to be unintentional because the types '"employees" | "suppliers"' and '"customer"' have no overlap.
+src/pages/App/SalesOrder/AssemblyList/Index.tsx(29,38): error TS2304: Cannot find name 'getLocalISODate'.
+src/pages/App/SalesOrder/AssemblyList/Index.tsx(132,17): error TS2304: Cannot find name 'getLocalISODate'.
+src/pages/App/SalesOrder/AssistanceOrderModal.tsx(340,22): error TS2741: Property 'handleUpdateItemHandling' is missing in type '{ isLinked: boolean; setIsLinked: Dispatch<SetStateAction<boolean>>; linkedOrderId: string; onOpenSearch: () => void; currentLinkedOrder: Order | undefined; selectedAssistanceItems: AssistanceItem[]; handleToggleItem: (itemDescription: string, maxQty: number) => void; handleUpdateItemQty: (description: string, qty: ...' but required in type 'AssistanceLinkedOrderSectionProps'.
+src/pages/App/SalesOrder/CustomerData.tsx(81,76): error TS2339: Property 'noAddress' does not exist on type 'FullAddress'.
+src/pages/App/SalesOrder/CustomerData.tsx(103,47): error TS2339: Property 'marketingOrigin' does not exist on type 'CustomerData'.
+src/pages/App/SalesOrder/hooks/useOrderAutoSave.ts(5,8): error TS2613: Module '"C:/Users/mathe/OneDrive/\u00C1rea de Trabalho/projetos/morantehub/erp/src/pages/types/payments.type"' has no default export. Did you mean to use 'import { Payment } from "C:/Users/mathe/OneDrive/\u00C1rea de Trabalho/projetos/morantehub/erp/src/pages/types/payments.type"' instead?
+src/pages/App/SalesOrder/hooks/useOrderProductSelection.ts(61,29): error TS2339: Property 'total' does not exist on type '{ productId?: string | undefined; variationId?: string | undefined; isTemporaryProduct?: boolean | undefined; code?: string | undefined; description: string; quantity: number; unitPrice: number; ... 11 more ...; minStock?: number | undefined; }'.
+src/pages/App/SalesOrder/index.tsx(455,21): error TS2322: Type '{ orderType: "sale" | "budget"; onClose: () => void; onSaveSuccess: (id: string | undefined, order: Order | undefined) => void; }' is not assignable to type 'IntrinsicAttributes & NewSaleOrderProps'.
+  Property 'orderType' does not exist on type 'IntrinsicAttributes & NewSaleOrderProps'.
+src/pages/App/SalesOrder/OrderActions/Index.tsx(13,70): error TS2345: Argument of type 'IsButtonsClicked | { printReceipt: false; printShippingOrder: false; printWarrantyTerm: false; sendShippingOrder: false; sendCustomerOrder: false; sendCustomerReviews: false; ... 5 more ...; sendAssistanceOS: false; }' is not assignable to parameter of type 'IsButtonsClicked | (() => IsButtonsClicked)'.
+  Type '{ printReceipt: false; printShippingOrder: false; printWarrantyTerm: false; sendShippingOrder: false; sendCustomerOrder: false; sendCustomerReviews: false; printShippingLabel: false; printProductLabel: false; generatePaymentLink: false; printBudget: false; sendCustomerOrderDetails: false; sendAssistanceOS: false; }' is not assignable to type 'IsButtonsClicked | (() => IsButtonsClicked)'.
+    Type '{ printReceipt: false; printShippingOrder: false; printWarrantyTerm: false; sendShippingOrder: false; sendCustomerOrder: false; sendCustomerReviews: false; printShippingLabel: false; printProductLabel: false; generatePaymentLink: false; printBudget: false; sendCustomerOrderDetails: false; sendAssistanceOS: false; }' is missing the following properties from type 'IsButtonsClicked': sendBudget, sendGroupInvite, printAssistanceOS, generateReturn, and 4 more.
+src/pages/App/SalesOrder/OrderActions/nfe-modal/NfeOrderSummary.tsx(21,73): error TS2339: Property 'document' does not exist on type 'CustomerData'.
+src/pages/App/SalesOrder/OrderActions/orderActionsConfig.ts(96,119): error TS2339: Property 'observation' does not exist on type 'AssistanceItem'.
+src/pages/App/SalesOrder/OrderActions/orderActionsConfig.ts(96,152): error TS2339: Property 'observation' does not exist on type 'AssistanceItem'.
+src/pages/App/SalesOrder/OrderEditModal.tsx(400,33): error TS2322: Type '(e?: React.MouseEvent) => Promise<string | false | undefined>' is not assignable to type '(e?: React.MouseEvent) => Promise<string | false>'.
+  Type 'Promise<string | false | undefined>' is not assignable to type 'Promise<string | false>'.
+    Type 'string | false | undefined' is not assignable to type 'string | false'.
+      Type 'undefined' is not assignable to type 'string | false'.
+src/pages/App/SalesOrder/OrderHistoryList/InventoryMovementBadge.tsx(74,9): error TS2322: Type 'number' is not assignable to type 'Timeout'.
+src/pages/App/SalesOrder/OrderHistoryList/InventoryMovementBadge.tsx(85,9): error TS2322: Type 'number' is not assignable to type 'Timeout'.
+src/pages/App/SalesOrder/OrderHistoryList/StockCheckModal.tsx(114,43): error TS2339: Property 'variationLabel' does not exist on type 'Item | AssistanceItem'.
+  Property 'variationLabel' does not exist on type 'Item'.
+src/pages/App/SalesOrder/OrderHistoryList/StockCheckModal.tsx(116,51): error TS2339: Property 'variationLabel' does not exist on type 'Item | AssistanceItem'.
+  Property 'variationLabel' does not exist on type 'Item'.
+src/pages/App/SalesOrder/OrderHistoryList/useOrderHistory.ts(419,19): error TS2322: Type '{ printReceipt: boolean; printShippingOrder: boolean; printWarrantyTerm: boolean; sendShippingOrder: boolean; sendCustomerOrder: boolean; sendCustomerReviews: boolean; printShippingLabel: boolean; ... 13 more ...; issueNfe?: boolean | undefined; } | { ...; }' is not assignable to type 'IsButtonsClicked'.
+  Type '{ printReceipt: false; printShippingOrder: false; printWarrantyTerm: false; sendShippingOrder: false; sendCustomerOrder: false; sendCustomerReviews: false; printShippingLabel: false; printProductLabel: false; ... 4 more ...; sendBudget: false; }' is missing the following properties from type 'IsButtonsClicked': sendGroupInvite, printAssistanceOS, generateReturn, undoReturn, and 3 more.
+src/pages/App/SalesOrder/OrderHistoryList/useOrderHistory.ts(433,27): error TS2345: Argument of type '(prev: Order[]) => (Order | { isButtonsClicked: IsButtonsClicked | { printReceipt: false; printShippingOrder: false; printWarrantyTerm: false; sendShippingOrder: false; ... 8 more ...; sendBudget: false; }; ... 39 more ...; nfeData?: { ...; } | undefined; })[]' is not assignable to parameter of type 'SetStateAction<Order[]>'.
+  Type '(prev: Order[]) => (Order | { isButtonsClicked: IsButtonsClicked | { printReceipt: false; printShippingOrder: false; printWarrantyTerm: false; sendShippingOrder: false; ... 8 more ...; sendBudget: false; }; ... 39 more ...; nfeData?: { ...; } | undefined; })[]' is not assignable to type '(prevState: Order[]) => Order[]'.
+    Type '(Order | { isButtonsClicked: IsButtonsClicked | { printReceipt: false; printShippingOrder: false; printWarrantyTerm: false; sendShippingOrder: false; sendCustomerOrder: false; ... 7 more ...; sendBudget: false; }; ... 39 more ...; nfeData?: { ...; } | undefined; })[]' is not assignable to type 'Order[]'.
+      Type 'Order | { isButtonsClicked: IsButtonsClicked | { printReceipt: false; printShippingOrder: false; printWarrantyTerm: false; sendShippingOrder: false; sendCustomerOrder: false; ... 7 more ...; sendBudget: false; }; ... 39 more ...; nfeData?: { ...; } | undefined; }' is not assignable to type 'Order'.
+        Type '{ isButtonsClicked: IsButtonsClicked | { printReceipt: false; printShippingOrder: false; printWarrantyTerm: false; sendShippingOrder: false; sendCustomerOrder: false; ... 7 more ...; sendBudget: false; }; ... 39 more ...; nfeData?: { accessKey?: string; nfeNumber?: number; series?: string; model?: "55" | "65"; envir...' is not assignable to type 'Order'.
+          Types of property 'isButtonsClicked' are incompatible.
+            Type 'IsButtonsClicked | { printReceipt: false; printShippingOrder: false; printWarrantyTerm: false; sendShippingOrder: false; sendCustomerOrder: false; sendCustomerReviews: false; ... 6 more ...; sendBudget: false; }' is not assignable to type 'IsButtonsClicked | undefined'.
+              Type '{ printReceipt: false; printShippingOrder: false; printWarrantyTerm: false; sendShippingOrder: false; sendCustomerOrder: false; sendCustomerReviews: false; printShippingLabel: false; printProductLabel: false; ... 4 more ...; sendBudget: false; }' is missing the following properties from type 'IsButtonsClicked': sendGroupInvite, printAssistanceOS, generateReturn, undoReturn, and 3 more.
+src/pages/App/SalesOrder/PdvActions/Index.tsx(4,37): error TS2307: Cannot find module './orderActionsConfig' or its corresponding type declarations.
+src/pages/App/SalesOrder/PdvActions/Index.tsx(11,78): error TS2345: Argument of type '{ printReceipt: false; printShippingOrder: false; printWarrantyTerm: false; sendShippingOrder: false; sendCustomerOrder: false; sendCustomerReviews: false; printShippingLabel: false; printProductLabel: false; ... 4 more ...; printAssistanceOS: false; }' is not assignable to parameter of type 'IsButtonsClicked | (() => IsButtonsClicked)'.
+  Type '{ printReceipt: false; printShippingOrder: false; printWarrantyTerm: false; sendShippingOrder: false; sendCustomerOrder: false; sendCustomerReviews: false; printShippingLabel: false; printProductLabel: false; ... 4 more ...; printAssistanceOS: false; }' is missing the following properties from type 'IsButtonsClicked': sendBudget, sendGroupInvite, generateReturn, undoReturn, and 3 more.
+src/pages/App/SalesOrder/PdvActions/Index.tsx(41,23): error TS7006: Parameter 'btn' implicitly has an 'any' type.
+src/pages/App/SalesOrder/PdvActions/Index.tsx(50,20): error TS2339: Property 'order_data' does not exist on type 'Order'.
+src/pages/App/SalesOrder/PdvActions/Index.tsx(51,20): error TS2339: Property 'order_data' does not exist on type 'Order'.
+src/pages/App/SalesOrder/PdvActions/Index.tsx(52,20): error TS2339: Property 'order_data' does not exist on type 'Order'.
+src/pages/App/SalesOrder/PdvActions/Index.tsx(59,15): error TS7006: Parameter 'btn' implicitly has an 'any' type.
+src/pages/App/SalesOrder/PdvActions/Index.tsx(59,20): error TS7006: Parameter 'idx' implicitly has an 'any' type.
+src/pages/App/SalesOrder/ProductSearchModal.tsx(195,17): error TS2322: Type '{ isOpen: boolean; onClose: () => void; onSave: () => Promise<void>; }' is not assignable to type 'IntrinsicAttributes & ProductFormModalProps'.
+  Property 'onSave' does not exist on type 'IntrinsicAttributes & ProductFormModalProps'.
+src/pages/App/Settings/components/AutoScrollSection.tsx(47,98): error TS2339: Property 'speed' does not exist on type '{ orderTable: boolean; scheduleCards: boolean; scheduleTable: boolean; }'.
+src/pages/App/Settings/components/AutoScrollSection.tsx(54,56): error TS2339: Property 'speed' does not exist on type '{ orderTable: boolean; scheduleCards: boolean; scheduleTable: boolean; }'.
+src/pages/App/Settings/components/AutoScrollSection.tsx(62,101): error TS2339: Property 'threshold' does not exist on type '{ orderTable: boolean; scheduleCards: boolean; scheduleTable: boolean; }'.
+src/pages/App/Settings/components/AutoScrollSection.tsx(69,56): error TS2339: Property 'threshold' does not exist on type '{ orderTable: boolean; scheduleCards: boolean; scheduleTable: boolean; }'.
+src/pages/App/Settings/components/WhatsAppTemplatesSection.tsx(116,76): error TS2339: Property 'groupInviteLink' does not exist on type '{ reviewRequest: string; orderConfirmation: string; deliveryInfo: string; assistanceConfirmation: string; }'.
+src/pages/App/Stock/components/InventoryAuditModal.tsx(108,18): error TS2345: Argument of type '({ id: `${string}-${string}-${string}-${string}-${string}`; key: string; productId: string; variationId: string | undefined; name: string; supplierNames: string; systemStock: number; physicalCount: number; unit: string; } | null)[]' is not assignable to parameter of type 'SetStateAction<AuditItem[]>'.
+  Type '({ id: `${string}-${string}-${string}-${string}-${string}`; key: string; productId: string; variationId: string | undefined; name: string; supplierNames: string; systemStock: number; physicalCount: number; unit: string; } | null)[]' is not assignable to type 'AuditItem[]'.
+    Type '{ id: `${string}-${string}-${string}-${string}-${string}`; key: string; productId: string; variationId: string | undefined; name: string; supplierNames: string; systemStock: number; physicalCount: number; unit: string; } | null' is not assignable to type 'AuditItem'.
+      Type 'null' is not assignable to type 'AuditItem'.
+src/pages/App/Stock/components/InventoryAuditModal.tsx(123,35): error TS2677: A type predicate's type must be assignable to its parameter's type.
+  Type 'AuditItem' is not assignable to type '{ id: `${string}-${string}-${string}-${string}-${string}`; key: string; productId: string; variationId: string | undefined; name: string; supplierNames: string; systemStock: number; physicalCount: number; unit: string; }'.
+    Types of property 'id' are incompatible.
+      Type 'string' is not assignable to type '`${string}-${string}-${string}-${string}-${string}`'.
+src/pages/App/Stock/components/InventoryAuditModal.tsx(131,18): error TS2345: Argument of type '({ id: `${string}-${string}-${string}-${string}-${string}`; key: string; productId: string; variationId: string | undefined; name: string; supplierNames: string; systemStock: number; physicalCount: number; unit: string; } | null)[]' is not assignable to parameter of type 'SetStateAction<AuditItem[]>'.
+  Type '({ id: `${string}-${string}-${string}-${string}-${string}`; key: string; productId: string; variationId: string | undefined; name: string; supplierNames: string; systemStock: number; physicalCount: number; unit: string; } | null)[]' is not assignable to type 'AuditItem[]'.
+    Type '{ id: `${string}-${string}-${string}-${string}-${string}`; key: string; productId: string; variationId: string | undefined; name: string; supplierNames: string; systemStock: number; physicalCount: number; unit: string; } | null' is not assignable to type 'AuditItem'.
+      Type 'null' is not assignable to type 'AuditItem'.
+src/pages/App/Stock/components/InventoryAuditModal.tsx(143,35): error TS2677: A type predicate's type must be assignable to its parameter's type.
+  Type 'AuditItem' is not assignable to type '{ id: `${string}-${string}-${string}-${string}-${string}`; key: string; productId: string; variationId: string | undefined; name: string; supplierNames: string; systemStock: number; physicalCount: number; unit: string; }'.
+    Types of property 'id' are incompatible.
+      Type 'string' is not assignable to type '`${string}-${string}-${string}-${string}-${string}`'.
+src/pages/App/Stock/components/InventoryMoveEditModal.tsx(22,21): error TS2345: Argument of type '"entry" | "exit" | "withdrawal" | "balance"' is not assignable to parameter of type 'SetStateAction<"entry" | "withdrawal" | "balance">'.
+  Type '"exit"' is not assignable to type 'SetStateAction<"entry" | "withdrawal" | "balance">'.
+src/pages/App/Stock/components/InventoryMoveEditModal.tsx(49,39): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+src/pages/App/Stock/components/InventoryMovesTable.tsx(251,33): error TS2722: Cannot invoke an object which is possibly 'undefined'.
+src/pages/App/Stock/components/InventoryMovesTable.tsx(263,33): error TS2722: Cannot invoke an object which is possibly 'undefined'.
+src/pages/App/Stock/InboundInvoices/InboundInvoiceItemsReview.tsx(195,33): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+src/pages/App/Stock/InboundInvoices/InboundInvoiceItemsReview.tsx(207,57): error TS2322: Type 'string | undefined' is not assignable to type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+src/pages/App/Stock/InboundInvoices/InboundInvoiceItemsReview.tsx(245,79): error TS18048: 'creatingItem' is possibly 'undefined'.
+src/pages/App/Stock/InboundInvoices/InboundInvoiceItemsReview.tsx(306,979): error TS2304: Cannot find name 'selectProduct'.
+src/pages/App/Stock/LabelPrinting/components/ProductSearchInput.tsx(101,9): error TS2322: Type 'number' is not assignable to type 'Timeout'.
+src/pages/App/Stock/LabelPrinting/Index.tsx(10,31): error TS2614: Module '"./LabelGridModelModal"' has no exported member 'GridModel'. Did you mean to use 'import GridModel from "./LabelGridModelModal"' instead?
+src/pages/App/Stock/LabelPrinting/Index.tsx(825,58): error TS2339: Property 'product_images' does not exist on type 'Product'.
+src/pages/App/Stock/LabelPrinting/LabelConstants.ts(1,10): error TS2614: Module '"./LabelGridModelModal"' has no exported member 'GridModel'. Did you mean to use 'import GridModel from "./LabelGridModelModal"' instead?
+src/pages/App/Stock/LabelPrinting/LabelGridModelModal.tsx(427,34): error TS2551: Property 'promoPriceFontSize' does not exist on type 'GridModel'. Did you mean 'priceFontSize'?
+src/pages/App/Stock/LabelPrinting/LabelGridModelModal.tsx(427,103): error TS2551: Property 'promoPriceFontSize' does not exist on type 'GridModel'. Did you mean 'priceFontSize'?
+src/pages/App/Stock/LabelPrinting/LabelGridModelModal.tsx(429,34): error TS2551: Property 'promoPriceBold' does not exist on type 'GridModel'. Did you mean 'promoPriceColor'?
+src/pages/App/Stock/LabelPrinting/LabelGridModelModal.tsx(429,95): error TS2551: Property 'promoPriceBold' does not exist on type 'GridModel'. Did you mean 'promoPriceColor'?
+src/pages/App/Stock/LabelPrinting/LabelGridModelModal.tsx(430,34): error TS2551: Property 'promoPriceAlign' does not exist on type 'GridModel'. Did you mean 'priceAlign'?
+src/pages/App/Stock/LabelPrinting/LabelGridModelModal.tsx(430,97): error TS2551: Property 'promoPriceAlign' does not exist on type 'GridModel'. Did you mean 'priceAlign'?
+src/pages/App/Stock/LabelPrinting/LabelGridModelModal.tsx(431,34): error TS2551: Property 'promoPriceVAlign' does not exist on type 'GridModel'. Did you mean 'priceVAlign'?
+src/pages/App/Stock/LabelPrinting/LabelGridModelModal.tsx(431,99): error TS2551: Property 'promoPriceVAlign' does not exist on type 'GridModel'. Did you mean 'priceVAlign'?
+src/pages/App/Stock/LabelPrinting/LabelGridModelModal.tsx(460,32): error TS2345: Argument of type 'string' is not assignable to parameter of type 'SetStateAction<"split" | "standard">'.
+src/pages/App/Stock/LabelPrinting/LabelGridModelModal.tsx(496,62): error TS2345: Argument of type 'string' is not assignable to parameter of type 'SetStateAction<"split" | "standard">'.
+src/pages/App/Stock/LabelPrinting/LabelGridModelModal.tsx(572,17): error TS2561: Object literal may only specify known properties, but 'promoPriceFontSize' does not exist in type 'GridModel'. Did you mean to write 'priceFontSize'?
+src/pages/App/Stock/LabelPrinting/LabelUtils.ts(1,10): error TS2614: Module '"./LabelGridModelModal"' has no exported member 'GridModel'. Did you mean to use 'import GridModel from "./LabelGridModelModal"' instead?
+src/pages/App/Stock/Purchases/components/PurchaseReceiptCheckModal.tsx(4,10): error TS2724: '"../../../../utils/goodsReceiptService"' has no exported member named 'saveGoodsReceipt'. Did you mean 'GoodsReceipt'?
+src/pages/App/Stock/Receipts/Index.tsx(14,22): error TS2307: Cannot find module '@/types/purchase.type' or its corresponding type declarations.
+src/pages/App/Stock/Receipts/ReceiptDetailsModal.tsx(145,55): error TS2339: Property 'code' does not exist on type 'PurchaseItem'.
+src/pages/App/Stock/Receipts/ReceiptDetailsModal.tsx(145,126): error TS2339: Property 'code' does not exist on type 'PurchaseItem'.
+src/pages/App/Stock/Receipts/ReceiptFormModal.tsx(90,9): error TS2322: Type 'number' is not assignable to type 'Timeout'.
+src/pages/App/Users/Index.tsx(8,11): error TS2430: Interface 'Profile' incorrectly extends interface 'AccessProfile'.
+  Types of property 'roles' are incompatible.
+    Type 'UserRole[] | undefined' is not assignable to type 'UserRole[]'.
+      Type 'undefined' is not assignable to type 'UserRole[]'.
+src/pages/App/Users/Index.tsx(41,733): error TS2322: Type 'Profile' is not assignable to type 'AccessProfile'.
+  Types of property 'roles' are incompatible.
+    Type 'UserRole[] | undefined' is not assignable to type 'UserRole[]'.
+      Type 'undefined' is not assignable to type 'UserRole[]'.
+src/pages/ReceiptPage/index.tsx(64,17): error TS2322: Type '{ customerData: any; isPickup: boolean; noAddress: any; }' is not assignable to type 'IntrinsicAttributes & Props'.
+  Property 'noAddress' does not exist on type 'IntrinsicAttributes & Props'.
+src/pages/utils/complementaryFinancialAssistant.test.ts(9,3): error TS2459: Module '"../../../../mobile/src/services/financialAiAssistantService"' declares 'FinancialCategory' locally, but it is not exported.
+src/pages/utils/complementaryFinancialAssistant.test.ts(112,13): error TS2739: Type '{ intentType: "SINGLE_TRANSACTION"; type: "expense"; amount: number; description: string; categoryName: string; paymentMethod: string; }' is missing the following properties from type 'ParsedFinancialIntent': missingFields, isReadyForConfirmation
+src/pages/utils/complementaryFinancialAssistant.test.ts(172,13): error TS2739: Type '{ amount: number; description: string; categoryName: string; paymentMethod: string; }' is missing the following properties from type 'ParsedFinancialIntent': missingFields, isReadyForConfirmation
+src/pages/utils/complementaryFinancialAssistant.test.ts(188,13): error TS2739: Type '{ amount: number; description: string; categoryName: string; paymentMethod: string; }' is missing the following properties from type 'ParsedFinancialIntent': missingFields, isReadyForConfirmation
+src/pages/utils/complementaryFinancialAssistant.test.ts(201,13): error TS2739: Type '{ amount: number; description: string; categoryName: string; paymentMethod: string; }' is missing the following properties from type 'ParsedFinancialIntent': missingFields, isReadyForConfirmation
+src/pages/utils/complementaryFinancialAssistant.test.ts(218,13): error TS2739: Type '{ amount: number; description: string; businessPurpose: "PERSONAL"; categoryName: string; }' is missing the following properties from type 'ParsedFinancialIntent': missingFields, isReadyForConfirmation
+src/pages/utils/complementaryFinancialAssistant.test.ts(237,13): error TS2741: Property 'missingFields' is missing in type '{ amount: number; description: string; categoryName: string; isReadyForConfirmation: true; }' but required in type 'ParsedFinancialIntent'.
+src/pages/utils/complementaryFinancialAssistant.test.ts(249,13): error TS2739: Type '{ amount: number; description: string; categoryName: string; }' is missing the following properties from type 'ParsedFinancialIntent': missingFields, isReadyForConfirmation
+src/pages/utils/complementaryFinancialAssistant.test.ts(262,13): error TS2739: Type '{ amount: number; description: string; categoryName: string; }' is missing the following properties from type 'ParsedFinancialIntent': missingFields, isReadyForConfirmation
+src/pages/utils/complementaryFinancialAssistant.test.ts(277,11): error TS2739: Type '{ amount: number; description: string; categoryName: string; }' is missing the following properties from type 'ParsedFinancialIntent': missingFields, isReadyForConfirmation
+src/pages/utils/complementaryFinancialAssistant.test.ts(294,11): error TS2739: Type '{ amount: number; description: string; }' is missing the following properties from type 'ParsedFinancialIntent': missingFields, isReadyForConfirmation
+src/pages/utils/complementaryFinancialAssistant.test.ts(295,11): error TS2739: Type '{ amount: number; description: string; }' is missing the following properties from type 'ParsedFinancialIntent': missingFields, isReadyForConfirmation
+src/pages/utils/complementaryFinancialAssistant.test.ts(429,13): error TS2739: Type '{ amount: number; description: string; }' is missing the following properties from type 'ParsedFinancialIntent': missingFields, isReadyForConfirmation
+src/pages/utils/complementaryFinancialAssistant.test.ts(433,13): error TS2739: Type '{ amount: number; description: string; }' is missing the following properties from type 'ParsedFinancialIntent': missingFields, isReadyForConfirmation
+src/pages/utils/complementaryFinancialAssistant.test.ts(437,13): error TS2739: Type '{ amount: number; isEstimated: true; description: string; }' is missing the following properties from type 'ParsedFinancialIntent': missingFields, isReadyForConfirmation
+src/pages/utils/complementaryFinancialAssistant.test.ts(452,13): error TS2741: Property 'isReadyForConfirmation' is missing in type '{ amount: number; creditorType: "UNKNOWN"; missingFields: string[]; questionToUser: string; }' but required in type 'ParsedFinancialIntent'.
+src/pages/utils/complementaryFinancialAssistant.test.ts(517,13): error TS2739: Type '{ amount: number; description: string; paymentMethod: string; }' is missing the following properties from type 'ParsedFinancialIntent': missingFields, isReadyForConfirmation
+src/pages/utils/complementaryFinancialAssistant.test.ts(701,13): error TS2739: Type '{ amount: number; type: "expense"; paymentMethod: string; categoryName: string; }' is missing the following properties from type 'ParsedFinancialIntent': missingFields, isReadyForConfirmation
+src/pages/utils/complementaryFinancialAssistant.test.ts(721,13): error TS2739: Type '{ amount: number; description: string; }' is missing the following properties from type 'ParsedFinancialIntent': missingFields, isReadyForConfirmation
+src/pages/utils/complementaryFinancialAssistant.test.ts(769,13): error TS2739: Type '{ amount: number; description: string; }' is missing the following properties from type 'ParsedFinancialIntent': missingFields, isReadyForConfirmation
+src/pages/utils/complementaryFinancialAssistant.test.ts(815,63): error TS2345: Argument of type '{ amount: number; }' is not assignable to parameter of type 'ParsedFinancialIntent'.
+  Type '{ amount: number; }' is missing the following properties from type 'ParsedFinancialIntent': missingFields, isReadyForConfirmation
+src/pages/utils/complementaryFinancialAssistant.test.ts(820,61): error TS2345: Argument of type '{ amount: number; paymentMethod: string; }' is not assignable to parameter of type 'ParsedFinancialIntent'.
+  Type '{ amount: number; paymentMethod: string; }' is missing the following properties from type 'ParsedFinancialIntent': missingFields, isReadyForConfirmation
+src/pages/utils/complementaryFinancialAssistant.test.ts(825,75): error TS2345: Argument of type '{ amount: number; isReadyForConfirmation: true; }' is not assignable to parameter of type 'ParsedFinancialIntent'.
+  Property 'missingFields' is missing in type '{ amount: number; isReadyForConfirmation: true; }' but required in type 'ParsedFinancialIntent'.
+src/pages/utils/complementaryFinancialAssistant.test.ts(841,13): error TS2739: Type '{ amount: number; }' is missing the following properties from type 'ParsedFinancialIntent': missingFields, isReadyForConfirmation
+src/pages/utils/complementaryFinancialAssistant.test.ts(843,66): error TS2345: Argument of type 'ParsedFinancialIntent | null' is not assignable to parameter of type 'ParsedFinancialIntent'.
+  Type 'null' is not assignable to type 'ParsedFinancialIntent'.
+src/pages/utils/complementaryFinancialAssistant.test.ts(876,13): error TS2739: Type '{ amount: number; supplier: string; }' is missing the following properties from type 'ParsedFinancialIntent': missingFields, isReadyForConfirmation
+src/pages/utils/continuousMicAutoSend.test.ts(8,3): error TS2459: Module '"../../../../mobile/src/services/financialAiAssistantService"' declares 'FinancialCategory' locally, but it is not exported.
+src/pages/utils/continuousMicAutoSend.test.ts(97,11): error TS2741: Property 'missingFields' is missing in type '{ intentType: "SINGLE_TRANSACTION"; type: "expense"; amount: number; description: string; categoryName: string; paymentMethod: string; businessPurpose: "BUSINESS"; isReadyForConfirmation: true; }' but required in type 'ParsedFinancialIntent'.
+src/pages/utils/continuousMicAutoSend.test.ts(120,11): error TS2741: Property 'missingFields' is missing in type '{ intentType: "SINGLE_TRANSACTION"; type: "expense"; amount: number; description: string; categoryName: string; paymentMethod: string; businessPurpose: "BUSINESS"; isReadyForConfirmation: true; }' but required in type 'ParsedFinancialIntent'.
+src/pages/utils/continuousMicAutoSend.test.ts(197,11): error TS2741: Property 'missingFields' is missing in type '{ intentType: "SINGLE_TRANSACTION"; type: "expense"; amount: number; description: string; businessPurpose: "BUSINESS"; categoryName: string; isReadyForConfirmation: true; }' but required in type 'ParsedFinancialIntent'.
+src/pages/utils/continuousMicAutoSend.test.ts(317,9): error TS2739: Type '{ intentType: "SINGLE_TRANSACTION"; type: "expense"; amount: number; description: string; categoryName: string; paymentMethod: string; }' is missing the following properties from type 'ParsedFinancialIntent': missingFields, isReadyForConfirmation
+src/pages/utils/continuousVoiceStress.test.ts(8,3): error TS2459: Module '"../../../../mobile/src/services/financialAiAssistantService"' declares 'FinancialCategory' locally, but it is not exported.
+src/pages/utils/deliveryReminderService.ts(79,48): error TS2339: Property 'createdAt' does not exist on type 'Order'.
+src/pages/utils/deliverySummaryMetrics.test.ts(295,34): error TS2339: Property 'autoFulfilledAfter12h' does not exist on type '{ deliveryStatus: string; deliveryStartedAt: string; }'.
+src/pages/utils/deliverySummaryMetrics.test.ts(296,34): error TS2339: Property 'deliveryFinishedAt' does not exist on type '{ deliveryStatus: string; deliveryStartedAt: string; }'.
+src/pages/utils/divergenciasCorrecao.test.ts(259,12): error TS18048: 'merged.batchDraftsList' is possibly 'undefined'.
+src/pages/utils/divergenciasCorrecao.test.ts(260,12): error TS18048: 'merged.batchDraftsList' is possibly 'undefined'.
+src/pages/utils/draftAnalysisChips.test.ts(153,7): error TS2353: Object literal may only specify known properties, and 'accountName' does not exist in type 'ParsedFinancialIntent'.
+src/pages/utils/draftAnalysisChips.ts(185,13): error TS2339: Property 'accountName' does not exist on type 'ParsedFinancialIntent'.
+src/pages/utils/draftAnalysisChips.ts(189,30): error TS2339: Property 'accountName' does not exist on type 'ParsedFinancialIntent'.
+src/pages/utils/financialAiLayersAudit.test.ts(73,14): error TS18049: 'luz.description' is possibly 'null' or 'undefined'.
+src/pages/utils/financialAiLayersAudit.test.ts(80,14): error TS18049: 'internet.description' is possibly 'null' or 'undefined'.
+src/pages/utils/fiscalDocumentRule.test.ts(7,39): error TS2345: Argument of type '{ orderType: "sale"; shipping: { deliveryMethod: "pickup"; }; }' is not assignable to parameter of type 'Pick<Order, "orderType" | "shipping">'.
+  Types of property 'shipping' are incompatible.
+    Type '{ deliveryMethod: "pickup"; }' is missing the following properties from type 'Shipping': value, orderType, scheduling
+src/pages/utils/fiscalDocumentRule.test.ts(8,44): error TS2345: Argument of type '{ orderType: "sale"; shipping: { deliveryMethod: "pickup"; }; }' is not assignable to parameter of type 'Pick<Order, "orderType" | "shipping">'.
+  Types of property 'shipping' are incompatible.
+    Type '{ deliveryMethod: "pickup"; }' is missing the following properties from type 'Shipping': value, orderType, scheduling
+src/pages/utils/fiscalDocumentRule.test.ts(13,39): error TS2345: Argument of type '{ orderType: "sale"; shipping: { deliveryMethod: "delivery"; }; }' is not assignable to parameter of type 'Pick<Order, "orderType" | "shipping">'.
+  Types of property 'shipping' are incompatible.
+    Type '{ deliveryMethod: "delivery"; }' is missing the following properties from type 'Shipping': value, orderType, scheduling
+src/pages/utils/fiscalDocumentRule.test.ts(14,44): error TS2345: Argument of type '{ orderType: "sale"; shipping: { deliveryMethod: "delivery"; }; }' is not assignable to parameter of type 'Pick<Order, "orderType" | "shipping">'.
+  Types of property 'shipping' are incompatible.
+    Type '{ deliveryMethod: "delivery"; }' is missing the following properties from type 'Shipping': value, orderType, scheduling
+src/pages/utils/formatters.ts(239,149): error TS2339: Property 'trim' does not exist on type 'never'.
+src/pages/utils/goodsReceiptService.ts(159,37): error TS2345: Argument of type '{ productId: string; variationId: string | undefined; type: "entry"; quantity: number; unitCost: number | undefined; date: string; label: string; observation: string; }' is not assignable to parameter of type 'InventoryMove'.
+  Property 'productDescription' is missing in type '{ productId: string; variationId: string | undefined; type: "entry"; quantity: number; unitCost: number | undefined; date: string; label: string; observation: string; }' but required in type 'InventoryMove'.
+src/pages/utils/goodsReceiptService.ts(233,37): error TS2345: Argument of type '{ productId: string; variationId: string | undefined; type: "exit"; quantity: number; date: string; label: string; observation: string; }' is not assignable to parameter of type 'InventoryMove'.
+  Property 'productDescription' is missing in type '{ productId: string; variationId: string | undefined; type: "exit"; quantity: number; date: string; label: string; observation: string; }' but required in type 'InventoryMove'.
+src/pages/utils/inboundNfe/inboundInvoicesService.ts(71,19): error TS2322: Type '{ id: any; nfeKey: any; nfeNumber: string; series: any; issuedAt: any; emitterCnpj: any; emitterName: any; emitterTradeName: any; emitterIe: any; emitterAddress: any; supplierId: any; recipientCnpj: any; ... 34 more ...; createdAt: any; }[]' is not assignable to type 'InboundInvoice[]'.
+  Type '{ id: any; nfeKey: any; nfeNumber: string; series: any; issuedAt: any; emitterCnpj: any; emitterName: any; emitterTradeName: any; emitterIe: any; emitterAddress: any; supplierId: any; recipientCnpj: any; ... 34 more ...; createdAt: any; }' is not assignable to type 'InboundInvoice'.
+    Types of property 'additionalFreight' are incompatible.
+      Type '{ id: string; description: string; calculationType: string; inputValue: number | null; calculationBase: "products_base_value"; calculatedAmount: number; calculatedRate: number; } | undefined' is not assignable to type 'AdditionalCost | undefined'.
+        Type '{ id: string; description: string; calculationType: string; inputValue: number | null; calculationBase: "products_base_value"; calculatedAmount: number; calculatedRate: number; }' is not assignable to type 'AdditionalCost'.
+          Types of property 'calculationType' are incompatible.
+            Type 'string' is not assignable to type 'AdditionalCostCalculationType'.
+src/pages/utils/incrementalVoiceAssistant.test.ts(40,61): error TS2353: Object literal may only specify known properties, and 'active' does not exist in type 'FinancialCategory'.
+src/pages/utils/incrementalVoiceAssistant.test.ts(41,52): error TS2353: Object literal may only specify known properties, and 'active' does not exist in type 'FinancialCategory'.
+src/pages/utils/incrementalVoiceAssistant.test.ts(42,55): error TS2353: Object literal may only specify known properties, and 'active' does not exist in type 'FinancialCategory'.
+src/pages/utils/incrementalVoiceAssistant.test.ts(114,7): error TS2345: Argument of type 'FinancialCategory[]' is not assignable to parameter of type 'AbortSignal'.
+  Type 'FinancialCategory[]' is missing the following properties from type 'AbortSignal': aborted, onabort, reason, throwIfAborted, and 3 more.
+src/pages/utils/latestRulesBattery.test.ts(65,109): error TS2345: Argument of type '{ id: string; name: string; type: string; }[]' is not assignable to parameter of type 'FinancialCategory[]'.
+  Type '{ id: string; name: string; type: string; }' is not assignable to type 'FinancialCategory'.
+    Types of property 'type' are incompatible.
+      Type 'string' is not assignable to type '"income" | "expense"'.
+src/pages/utils/latestRulesBattery.test.ts(76,95): error TS2345: Argument of type '{ id: string; name: string; type: string; }[]' is not assignable to parameter of type 'FinancialCategory[]'.
+  Type '{ id: string; name: string; type: string; }' is not assignable to type 'FinancialCategory'.
+    Types of property 'type' are incompatible.
+      Type 'string' is not assignable to type '"income" | "expense"'.
+src/pages/utils/latestRulesBattery.test.ts(88,106): error TS2345: Argument of type '{ id: string; name: string; type: string; }[]' is not assignable to parameter of type 'FinancialCategory[]'.
+  Type '{ id: string; name: string; type: string; }' is not assignable to type 'FinancialCategory'.
+    Types of property 'type' are incompatible.
+      Type 'string' is not assignable to type '"income" | "expense"'.
+src/pages/utils/latestRulesBattery.test.ts(95,111): error TS2345: Argument of type '{ id: string; name: string; type: string; }[]' is not assignable to parameter of type 'FinancialCategory[]'.
+  Type '{ id: string; name: string; type: string; }' is not assignable to type 'FinancialCategory'.
+    Types of property 'type' are incompatible.
+      Type 'string' is not assignable to type '"income" | "expense"'.
+src/pages/utils/latestRulesBattery.test.ts(101,104): error TS2345: Argument of type '{ id: string; name: string; type: string; }[]' is not assignable to parameter of type 'FinancialCategory[]'.
+  Type '{ id: string; name: string; type: string; }' is not assignable to type 'FinancialCategory'.
+    Types of property 'type' are incompatible.
+      Type 'string' is not assignable to type '"income" | "expense"'.
+src/pages/utils/latestRulesBattery.test.ts(110,115): error TS2345: Argument of type '{ id: string; name: string; type: string; }[]' is not assignable to parameter of type 'FinancialCategory[]'.
+  Type '{ id: string; name: string; type: string; }' is not assignable to type 'FinancialCategory'.
+    Types of property 'type' are incompatible.
+      Type 'string' is not assignable to type '"income" | "expense"'.
+src/pages/utils/latestRulesBattery.test.ts(120,113): error TS2345: Argument of type '{ id: string; name: string; type: string; }[]' is not assignable to parameter of type 'FinancialCategory[]'.
+  Type '{ id: string; name: string; type: string; }' is not assignable to type 'FinancialCategory'.
+    Types of property 'type' are incompatible.
+      Type 'string' is not assignable to type '"income" | "expense"'.
+src/pages/utils/latestRulesBattery.test.ts(128,114): error TS2345: Argument of type '{ id: string; name: string; type: string; }[]' is not assignable to parameter of type 'FinancialCategory[]'.
+  Type '{ id: string; name: string; type: string; }' is not assignable to type 'FinancialCategory'.
+    Types of property 'type' are incompatible.
+      Type 'string' is not assignable to type '"income" | "expense"'.
+src/pages/utils/latestRulesBattery.test.ts(140,100): error TS2345: Argument of type '{ id: string; name: string; type: string; }[]' is not assignable to parameter of type 'FinancialCategory[]'.
+  Type '{ id: string; name: string; type: string; }' is not assignable to type 'FinancialCategory'.
+    Types of property 'type' are incompatible.
+      Type 'string' is not assignable to type '"income" | "expense"'.
+src/pages/utils/latestRulesBattery.test.ts(146,96): error TS2345: Argument of type '{ id: string; name: string; type: string; }[]' is not assignable to parameter of type 'FinancialCategory[]'.
+  Type '{ id: string; name: string; type: string; }' is not assignable to type 'FinancialCategory'.
+    Types of property 'type' are incompatible.
+      Type 'string' is not assignable to type '"income" | "expense"'.
+src/pages/utils/latestRulesBattery.test.ts(152,103): error TS2345: Argument of type '{ id: string; name: string; type: string; }[]' is not assignable to parameter of type 'FinancialCategory[]'.
+  Type '{ id: string; name: string; type: string; }' is not assignable to type 'FinancialCategory'.
+    Types of property 'type' are incompatible.
+      Type 'string' is not assignable to type '"income" | "expense"'.
+src/pages/utils/latestRulesBattery.test.ts(161,92): error TS2345: Argument of type '{ id: string; name: string; type: string; }[]' is not assignable to parameter of type 'FinancialCategory[]'.
+  Type '{ id: string; name: string; type: string; }' is not assignable to type 'FinancialCategory'.
+    Types of property 'type' are incompatible.
+      Type 'string' is not assignable to type '"income" | "expense"'.
+src/pages/utils/latestRulesBattery.test.ts(167,121): error TS2345: Argument of type '{ id: string; name: string; type: string; }[]' is not assignable to parameter of type 'FinancialCategory[]'.
+  Type '{ id: string; name: string; type: string; }' is not assignable to type 'FinancialCategory'.
+    Types of property 'type' are incompatible.
+      Type 'string' is not assignable to type '"income" | "expense"'.
+src/pages/utils/latestRulesBattery.test.ts(173,110): error TS2345: Argument of type '{ id: string; name: string; type: string; }[]' is not assignable to parameter of type 'FinancialCategory[]'.
+  Type '{ id: string; name: string; type: string; }' is not assignable to type 'FinancialCategory'.
+    Types of property 'type' are incompatible.
+      Type 'string' is not assignable to type '"income" | "expense"'.
+src/pages/utils/latestRulesBattery.test.ts(176,101): error TS2345: Argument of type '{ id: string; name: string; type: string; }[]' is not assignable to parameter of type 'FinancialCategory[]'.
+  Type '{ id: string; name: string; type: string; }' is not assignable to type 'FinancialCategory'.
+    Types of property 'type' are incompatible.
+      Type 'string' is not assignable to type '"income" | "expense"'.
+src/pages/utils/latestRulesBattery.test.ts(184,108): error TS2345: Argument of type '{ id: string; name: string; type: string; }[]' is not assignable to parameter of type 'FinancialCategory[]'.
+  Type '{ id: string; name: string; type: string; }' is not assignable to type 'FinancialCategory'.
+    Types of property 'type' are incompatible.
+      Type 'string' is not assignable to type '"income" | "expense"'.
+src/pages/utils/latestRulesBattery.test.ts(193,120): error TS2345: Argument of type '{ id: string; name: string; type: string; }[]' is not assignable to parameter of type 'FinancialCategory[]'.
+  Type '{ id: string; name: string; type: string; }' is not assignable to type 'FinancialCategory'.
+    Types of property 'type' are incompatible.
+      Type 'string' is not assignable to type '"income" | "expense"'.
+src/pages/utils/latestRulesBattery.test.ts(200,124): error TS2345: Argument of type '{ id: string; name: string; type: string; }[]' is not assignable to parameter of type 'FinancialCategory[]'.
+  Type '{ id: string; name: string; type: string; }' is not assignable to type 'FinancialCategory'.
+    Types of property 'type' are incompatible.
+      Type 'string' is not assignable to type '"income" | "expense"'.
+src/pages/utils/latestRulesBattery.test.ts(210,107): error TS2345: Argument of type '{ id: string; name: string; type: string; }[]' is not assignable to parameter of type 'FinancialCategory[]'.
+  Type '{ id: string; name: string; type: string; }' is not assignable to type 'FinancialCategory'.
+    Types of property 'type' are incompatible.
+      Type 'string' is not assignable to type '"income" | "expense"'.
+src/pages/utils/latestRulesBattery.test.ts(216,123): error TS2345: Argument of type '{ id: string; name: string; type: string; }[]' is not assignable to parameter of type 'FinancialCategory[]'.
+  Type '{ id: string; name: string; type: string; }' is not assignable to type 'FinancialCategory'.
+    Types of property 'type' are incompatible.
+      Type 'string' is not assignable to type '"income" | "expense"'.
+src/pages/utils/latestRulesBattery.test.ts(222,125): error TS2345: Argument of type '{ id: string; name: string; type: string; }[]' is not assignable to parameter of type 'FinancialCategory[]'.
+  Type '{ id: string; name: string; type: string; }' is not assignable to type 'FinancialCategory'.
+    Types of property 'type' are incompatible.
+      Type 'string' is not assignable to type '"income" | "expense"'.
+src/pages/utils/latestRulesBattery.test.ts(228,106): error TS2345: Argument of type '{ id: string; name: string; type: string; }[]' is not assignable to parameter of type 'FinancialCategory[]'.
+  Type '{ id: string; name: string; type: string; }' is not assignable to type 'FinancialCategory'.
+    Types of property 'type' are incompatible.
+      Type 'string' is not assignable to type '"income" | "expense"'.
+src/pages/utils/latestRulesBattery.test.ts(234,127): error TS2345: Argument of type '{ id: string; name: string; type: string; }[]' is not assignable to parameter of type 'FinancialCategory[]'.
+  Type '{ id: string; name: string; type: string; }' is not assignable to type 'FinancialCategory'.
+    Types of property 'type' are incompatible.
+      Type 'string' is not assignable to type '"income" | "expense"'.
+src/pages/utils/latestRulesBattery.test.ts(240,114): error TS2345: Argument of type '{ id: string; name: string; type: string; }[]' is not assignable to parameter of type 'FinancialCategory[]'.
+  Type '{ id: string; name: string; type: string; }' is not assignable to type 'FinancialCategory'.
+    Types of property 'type' are incompatible.
+      Type 'string' is not assignable to type '"income" | "expense"'.
+src/pages/utils/latestRulesBattery.test.ts(261,125): error TS2345: Argument of type '{ id: string; name: string; type: string; }[]' is not assignable to parameter of type 'FinancialCategory[]'.
+  Type '{ id: string; name: string; type: string; }' is not assignable to type 'FinancialCategory'.
+    Types of property 'type' are incompatible.
+      Type 'string' is not assignable to type '"income" | "expense"'.
+src/pages/utils/latestRulesBattery.test.ts(271,123): error TS2345: Argument of type '{ id: string; name: string; type: string; }[]' is not assignable to parameter of type 'FinancialCategory[]'.
+  Type '{ id: string; name: string; type: string; }' is not assignable to type 'FinancialCategory'.
+    Types of property 'type' are incompatible.
+      Type 'string' is not assignable to type '"income" | "expense"'.
+src/pages/utils/latestRulesBattery.test.ts(326,93): error TS2345: Argument of type '{ id: string; name: string; type: string; }[]' is not assignable to parameter of type 'FinancialCategory[]'.
+  Type '{ id: string; name: string; type: string; }' is not assignable to type 'FinancialCategory'.
+    Types of property 'type' are incompatible.
+      Type 'string' is not assignable to type '"income" | "expense"'.
+src/pages/utils/latestRulesBattery.test.ts(332,106): error TS2345: Argument of type '{ id: string; name: string; type: string; }[]' is not assignable to parameter of type 'FinancialCategory[]'.
+  Type '{ id: string; name: string; type: string; }' is not assignable to type 'FinancialCategory'.
+    Types of property 'type' are incompatible.
+      Type 'string' is not assignable to type '"income" | "expense"'.
+src/pages/utils/latestRulesBattery.test.ts(338,106): error TS2345: Argument of type '{ id: string; name: string; type: string; }[]' is not assignable to parameter of type 'FinancialCategory[]'.
+  Type '{ id: string; name: string; type: string; }' is not assignable to type 'FinancialCategory'.
+    Types of property 'type' are incompatible.
+      Type 'string' is not assignable to type '"income" | "expense"'.
+src/pages/utils/latestRulesBattery.test.ts(347,101): error TS2345: Argument of type '{ id: string; name: string; type: string; }[]' is not assignable to parameter of type 'FinancialCategory[]'.
+  Type '{ id: string; name: string; type: string; }' is not assignable to type 'FinancialCategory'.
+    Types of property 'type' are incompatible.
+      Type 'string' is not assignable to type '"income" | "expense"'.
+src/pages/utils/latestRulesBattery.test.ts(355,99): error TS2345: Argument of type '{ id: string; name: string; type: string; }[]' is not assignable to parameter of type 'FinancialCategory[]'.
+  Type '{ id: string; name: string; type: string; }' is not assignable to type 'FinancialCategory'.
+    Types of property 'type' are incompatible.
+      Type 'string' is not assignable to type '"income" | "expense"'.
+src/pages/utils/latestRulesBattery.test.ts(361,104): error TS2345: Argument of type '{ id: string; name: string; type: string; }[]' is not assignable to parameter of type 'FinancialCategory[]'.
+  Type '{ id: string; name: string; type: string; }' is not assignable to type 'FinancialCategory'.
+    Types of property 'type' are incompatible.
+      Type 'string' is not assignable to type '"income" | "expense"'.
+src/pages/utils/latestRulesBattery.test.ts(367,97): error TS2345: Argument of type '{ id: string; name: string; type: string; }[]' is not assignable to parameter of type 'FinancialCategory[]'.
+  Type '{ id: string; name: string; type: string; }' is not assignable to type 'FinancialCategory'.
+    Types of property 'type' are incompatible.
+      Type 'string' is not assignable to type '"income" | "expense"'.
+src/pages/utils/latestRulesBattery.test.ts(375,109): error TS2345: Argument of type '{ id: string; name: string; type: string; }[]' is not assignable to parameter of type 'FinancialCategory[]'.
+  Type '{ id: string; name: string; type: string; }' is not assignable to type 'FinancialCategory'.
+    Types of property 'type' are incompatible.
+      Type 'string' is not assignable to type '"income" | "expense"'.
+src/pages/utils/latestRulesBattery.test.ts(381,100): error TS2345: Argument of type '{ id: string; name: string; type: string; }[]' is not assignable to parameter of type 'FinancialCategory[]'.
+  Type '{ id: string; name: string; type: string; }' is not assignable to type 'FinancialCategory'.
+    Types of property 'type' are incompatible.
+      Type 'string' is not assignable to type '"income" | "expense"'.
+src/pages/utils/latestRulesBattery.test.ts(386,103): error TS2345: Argument of type '{ id: string; name: string; type: string; }[]' is not assignable to parameter of type 'FinancialCategory[]'.
+  Type '{ id: string; name: string; type: string; }' is not assignable to type 'FinancialCategory'.
+    Types of property 'type' are incompatible.
+      Type 'string' is not assignable to type '"income" | "expense"'.
+src/pages/utils/latestRulesBattery.test.ts(391,108): error TS2345: Argument of type '{ id: string; name: string; type: string; }[]' is not assignable to parameter of type 'FinancialCategory[]'.
+  Type '{ id: string; name: string; type: string; }' is not assignable to type 'FinancialCategory'.
+    Types of property 'type' are incompatible.
+      Type 'string' is not assignable to type '"income" | "expense"'.
+src/pages/utils/latestRulesBattery.test.ts(396,117): error TS2345: Argument of type '{ id: string; name: string; type: string; }[]' is not assignable to parameter of type 'FinancialCategory[]'.
+  Type '{ id: string; name: string; type: string; }' is not assignable to type 'FinancialCategory'.
+    Types of property 'type' are incompatible.
+      Type 'string' is not assignable to type '"income" | "expense"'.
+src/pages/utils/latestRulesBattery.test.ts(401,107): error TS2345: Argument of type '{ id: string; name: string; type: string; }[]' is not assignable to parameter of type 'FinancialCategory[]'.
+  Type '{ id: string; name: string; type: string; }' is not assignable to type 'FinancialCategory'.
+    Types of property 'type' are incompatible.
+      Type 'string' is not assignable to type '"income" | "expense"'.
+src/pages/utils/latestRulesBattery.test.ts(409,105): error TS2345: Argument of type '{ id: string; name: string; type: string; }[]' is not assignable to parameter of type 'FinancialCategory[]'.
+  Type '{ id: string; name: string; type: string; }' is not assignable to type 'FinancialCategory'.
+    Types of property 'type' are incompatible.
+      Type 'string' is not assignable to type '"income" | "expense"'.
+src/pages/utils/latestRulesBattery.test.ts(410,106): error TS2345: Argument of type '{ id: string; name: string; type: string; }[]' is not assignable to parameter of type 'FinancialCategory[]'.
+  Type '{ id: string; name: string; type: string; }' is not assignable to type 'FinancialCategory'.
+    Types of property 'type' are incompatible.
+      Type 'string' is not assignable to type '"income" | "expense"'.
+src/pages/utils/latestRulesBattery.test.ts(425,116): error TS2345: Argument of type '{ id: string; name: string; type: string; }[]' is not assignable to parameter of type 'FinancialCategory[]'.
+  Type '{ id: string; name: string; type: string; }' is not assignable to type 'FinancialCategory'.
+    Types of property 'type' are incompatible.
+      Type 'string' is not assignable to type '"income" | "expense"'.
+src/pages/utils/latestRulesBattery.test.ts(443,82): error TS2345: Argument of type '{ id: string; name: string; type: string; }[]' is not assignable to parameter of type 'FinancialCategory[]'.
+  Type '{ id: string; name: string; type: string; }' is not assignable to type 'FinancialCategory'.
+    Types of property 'type' are incompatible.
+      Type 'string' is not assignable to type '"income" | "expense"'.
+src/pages/utils/latestRulesBattery.test.ts(451,91): error TS2345: Argument of type '{ id: string; name: string; type: string; }[]' is not assignable to parameter of type 'FinancialCategory[]'.
+  Type '{ id: string; name: string; type: string; }' is not assignable to type 'FinancialCategory'.
+    Types of property 'type' are incompatible.
+      Type 'string' is not assignable to type '"income" | "expense"'.
+src/pages/utils/latestRulesBattery.test.ts(461,98): error TS2345: Argument of type '{ id: string; name: string; type: string; }[]' is not assignable to parameter of type 'FinancialCategory[]'.
+  Type '{ id: string; name: string; type: string; }' is not assignable to type 'FinancialCategory'.
+    Types of property 'type' are incompatible.
+      Type 'string' is not assignable to type '"income" | "expense"'.
+src/pages/utils/latestRulesBattery.test.ts(466,137): error TS2345: Argument of type '{ id: string; name: string; type: string; }[]' is not assignable to parameter of type 'FinancialCategory[]'.
+  Type '{ id: string; name: string; type: string; }' is not assignable to type 'FinancialCategory'.
+    Types of property 'type' are incompatible.
+      Type 'string' is not assignable to type '"income" | "expense"'.
+src/pages/utils/latestRulesBattery.test.ts(471,87): error TS2345: Argument of type '{ id: string; name: string; type: string; }[]' is not assignable to parameter of type 'FinancialCategory[]'.
+  Type '{ id: string; name: string; type: string; }' is not assignable to type 'FinancialCategory'.
+    Types of property 'type' are incompatible.
+      Type 'string' is not assignable to type '"income" | "expense"'.
+src/pages/utils/latestRulesBattery.test.ts(476,90): error TS2345: Argument of type '{ id: string; name: string; type: string; }[]' is not assignable to parameter of type 'FinancialCategory[]'.
+  Type '{ id: string; name: string; type: string; }' is not assignable to type 'FinancialCategory'.
+    Types of property 'type' are incompatible.
+      Type 'string' is not assignable to type '"income" | "expense"'.
+src/pages/utils/latestRulesBattery.test.ts(481,88): error TS2345: Argument of type '{ id: string; name: string; type: string; }[]' is not assignable to parameter of type 'FinancialCategory[]'.
+  Type '{ id: string; name: string; type: string; }' is not assignable to type 'FinancialCategory'.
+    Types of property 'type' are incompatible.
+      Type 'string' is not assignable to type '"income" | "expense"'.
+src/pages/utils/latestRulesBattery.test.ts(486,92): error TS2345: Argument of type '{ id: string; name: string; type: string; }[]' is not assignable to parameter of type 'FinancialCategory[]'.
+  Type '{ id: string; name: string; type: string; }' is not assignable to type 'FinancialCategory'.
+    Types of property 'type' are incompatible.
+      Type 'string' is not assignable to type '"income" | "expense"'.
+src/pages/utils/latestRulesBattery.test.ts(604,94): error TS2345: Argument of type '{ id: string; name: string; type: string; }[]' is not assignable to parameter of type 'FinancialCategory[]'.
+  Type '{ id: string; name: string; type: string; }' is not assignable to type 'FinancialCategory'.
+    Types of property 'type' are incompatible.
+      Type 'string' is not assignable to type '"income" | "expense"'.
+src/pages/utils/latestRulesBattery.test.ts(609,102): error TS2345: Argument of type '{ id: string; name: string; type: string; }[]' is not assignable to parameter of type 'FinancialCategory[]'.
+  Type '{ id: string; name: string; type: string; }' is not assignable to type 'FinancialCategory'.
+    Types of property 'type' are incompatible.
+      Type 'string' is not assignable to type '"income" | "expense"'.
+src/pages/utils/latestRulesBattery.test.ts(618,111): error TS2345: Argument of type '{ id: string; name: string; type: string; }[]' is not assignable to parameter of type 'FinancialCategory[]'.
+  Type '{ id: string; name: string; type: string; }' is not assignable to type 'FinancialCategory'.
+    Types of property 'type' are incompatible.
+      Type 'string' is not assignable to type '"income" | "expense"'.
+src/pages/utils/latestRulesBattery.test.ts(624,108): error TS2345: Argument of type '{ id: string; name: string; type: string; }[]' is not assignable to parameter of type 'FinancialCategory[]'.
+  Type '{ id: string; name: string; type: string; }' is not assignable to type 'FinancialCategory'.
+    Types of property 'type' are incompatible.
+      Type 'string' is not assignable to type '"income" | "expense"'.
+src/pages/utils/latestRulesBattery.test.ts(633,125): error TS2345: Argument of type '{ id: string; name: string; type: string; }[]' is not assignable to parameter of type 'FinancialCategory[]'.
+  Type '{ id: string; name: string; type: string; }' is not assignable to type 'FinancialCategory'.
+    Types of property 'type' are incompatible.
+      Type 'string' is not assignable to type '"income" | "expense"'.
+src/pages/utils/latestRulesBattery.test.ts(651,91): error TS2345: Argument of type '{ id: string; name: string; type: string; }[]' is not assignable to parameter of type 'FinancialCategory[]'.
+  Type '{ id: string; name: string; type: string; }' is not assignable to type 'FinancialCategory'.
+    Types of property 'type' are incompatible.
+      Type 'string' is not assignable to type '"income" | "expense"'.
+src/pages/utils/latestRulesBattery.test.ts(657,89): error TS2345: Argument of type '{ id: string; name: string; type: string; }[]' is not assignable to parameter of type 'FinancialCategory[]'.
+  Type '{ id: string; name: string; type: string; }' is not assignable to type 'FinancialCategory'.
+    Types of property 'type' are incompatible.
+      Type 'string' is not assignable to type '"income" | "expense"'.
+src/pages/utils/latestRulesBattery.test.ts(662,110): error TS2345: Argument of type '{ id: string; name: string; type: string; }[]' is not assignable to parameter of type 'FinancialCategory[]'.
+  Type '{ id: string; name: string; type: string; }' is not assignable to type 'FinancialCategory'.
+    Types of property 'type' are incompatible.
+      Type 'string' is not assignable to type '"income" | "expense"'.
+src/pages/utils/latestRulesBattery.test.ts(668,113): error TS2345: Argument of type '{ id: string; name: string; type: string; }[]' is not assignable to parameter of type 'FinancialCategory[]'.
+  Type '{ id: string; name: string; type: string; }' is not assignable to type 'FinancialCategory'.
+    Types of property 'type' are incompatible.
+      Type 'string' is not assignable to type '"income" | "expense"'.
+src/pages/utils/latestRulesBattery.test.ts(673,102): error TS2345: Argument of type '{ id: string; name: string; type: string; }[]' is not assignable to parameter of type 'FinancialCategory[]'.
+  Type '{ id: string; name: string; type: string; }' is not assignable to type 'FinancialCategory'.
+    Types of property 'type' are incompatible.
+      Type 'string' is not assignable to type '"income" | "expense"'.
+src/pages/utils/latestRulesBattery.test.ts(679,107): error TS2345: Argument of type '{ id: string; name: string; type: string; }[]' is not assignable to parameter of type 'FinancialCategory[]'.
+  Type '{ id: string; name: string; type: string; }' is not assignable to type 'FinancialCategory'.
+    Types of property 'type' are incompatible.
+      Type 'string' is not assignable to type '"income" | "expense"'.
+src/pages/utils/latestRulesBattery.test.ts(708,79): error TS2345: Argument of type '{ id: string; name: string; type: string; }[]' is not assignable to parameter of type 'FinancialCategory[]'.
+  Type '{ id: string; name: string; type: string; }' is not assignable to type 'FinancialCategory'.
+    Types of property 'type' are incompatible.
+      Type 'string' is not assignable to type '"income" | "expense"'.
+src/pages/utils/latestRulesBattery.test.ts(713,87): error TS2345: Argument of type '{ id: string; name: string; type: string; }[]' is not assignable to parameter of type 'FinancialCategory[]'.
+  Type '{ id: string; name: string; type: string; }' is not assignable to type 'FinancialCategory'.
+    Types of property 'type' are incompatible.
+      Type 'string' is not assignable to type '"income" | "expense"'.
+src/pages/utils/latestRulesBattery.test.ts(722,81): error TS2345: Argument of type '{ id: string; name: string; type: string; }[]' is not assignable to parameter of type 'FinancialCategory[]'.
+  Type '{ id: string; name: string; type: string; }' is not assignable to type 'FinancialCategory'.
+    Types of property 'type' are incompatible.
+      Type 'string' is not assignable to type '"income" | "expense"'.
+src/pages/utils/latestRulesBattery.test.ts(728,90): error TS2345: Argument of type '{ id: string; name: string; type: string; }[]' is not assignable to parameter of type 'FinancialCategory[]'.
+  Type '{ id: string; name: string; type: string; }' is not assignable to type 'FinancialCategory'.
+    Types of property 'type' are incompatible.
+      Type 'string' is not assignable to type '"income" | "expense"'.
+src/pages/utils/latestRulesBattery.test.ts(734,134): error TS2345: Argument of type '{ id: string; name: string; type: string; }[]' is not assignable to parameter of type 'FinancialCategory[]'.
+  Type '{ id: string; name: string; type: string; }' is not assignable to type 'FinancialCategory'.
+    Types of property 'type' are incompatible.
+      Type 'string' is not assignable to type '"income" | "expense"'.
+src/pages/utils/latestRulesBattery.test.ts(740,100): error TS2345: Argument of type '{ id: string; name: string; type: string; }[]' is not assignable to parameter of type 'FinancialCategory[]'.
+  Type '{ id: string; name: string; type: string; }' is not assignable to type 'FinancialCategory'.
+    Types of property 'type' are incompatible.
+      Type 'string' is not assignable to type '"income" | "expense"'.
+src/pages/utils/latestRulesBattery.test.ts(746,124): error TS2345: Argument of type '{ id: string; name: string; type: string; }[]' is not assignable to parameter of type 'FinancialCategory[]'.
+  Type '{ id: string; name: string; type: string; }' is not assignable to type 'FinancialCategory'.
+    Types of property 'type' are incompatible.
+      Type 'string' is not assignable to type '"income" | "expense"'.
+src/pages/utils/latestRulesBattery.test.ts(752,118): error TS2345: Argument of type '{ id: string; name: string; type: string; }[]' is not assignable to parameter of type 'FinancialCategory[]'.
+  Type '{ id: string; name: string; type: string; }' is not assignable to type 'FinancialCategory'.
+    Types of property 'type' are incompatible.
+      Type 'string' is not assignable to type '"income" | "expense"'.
+src/pages/utils/latestRulesBattery.test.ts(758,103): error TS2345: Argument of type '{ id: string; name: string; type: string; }[]' is not assignable to parameter of type 'FinancialCategory[]'.
+  Type '{ id: string; name: string; type: string; }' is not assignable to type 'FinancialCategory'.
+    Types of property 'type' are incompatible.
+      Type 'string' is not assignable to type '"income" | "expense"'.
+src/pages/utils/latestRulesBattery.test.ts(764,110): error TS2345: Argument of type '{ id: string; name: string; type: string; }[]' is not assignable to parameter of type 'FinancialCategory[]'.
+  Type '{ id: string; name: string; type: string; }' is not assignable to type 'FinancialCategory'.
+    Types of property 'type' are incompatible.
+      Type 'string' is not assignable to type '"income" | "expense"'.
+src/pages/utils/latestRulesBattery.test.ts(770,119): error TS2345: Argument of type '{ id: string; name: string; type: string; }[]' is not assignable to parameter of type 'FinancialCategory[]'.
+  Type '{ id: string; name: string; type: string; }' is not assignable to type 'FinancialCategory'.
+    Types of property 'type' are incompatible.
+      Type 'string' is not assignable to type '"income" | "expense"'.
+src/pages/utils/latestRulesBattery.test.ts(801,121): error TS2345: Argument of type '{ id: string; name: string; type: string; }[]' is not assignable to parameter of type 'FinancialCategory[]'.
+  Type '{ id: string; name: string; type: string; }' is not assignable to type 'FinancialCategory'.
+    Types of property 'type' are incompatible.
+      Type 'string' is not assignable to type '"income" | "expense"'.
+src/pages/utils/latestRulesBattery.test.ts(808,111): error TS2345: Argument of type '{ id: string; name: string; type: string; }[]' is not assignable to parameter of type 'FinancialCategory[]'.
+  Type '{ id: string; name: string; type: string; }' is not assignable to type 'FinancialCategory'.
+    Types of property 'type' are incompatible.
+      Type 'string' is not assignable to type '"income" | "expense"'.
+src/pages/utils/latestRulesBattery.test.ts(815,79): error TS2345: Argument of type '{ id: string; name: string; type: string; }[]' is not assignable to parameter of type 'FinancialCategory[]'.
+  Type '{ id: string; name: string; type: string; }' is not assignable to type 'FinancialCategory'.
+    Types of property 'type' are incompatible.
+      Type 'string' is not assignable to type '"income" | "expense"'.
+src/pages/utils/latestRulesBattery.test.ts(822,107): error TS2345: Argument of type '{ id: string; name: string; type: string; }[]' is not assignable to parameter of type 'FinancialCategory[]'.
+  Type '{ id: string; name: string; type: string; }' is not assignable to type 'FinancialCategory'.
+    Types of property 'type' are incompatible.
+      Type 'string' is not assignable to type '"income" | "expense"'.
+src/pages/utils/latestRulesBattery.test.ts(828,122): error TS2345: Argument of type '{ id: string; name: string; type: string; }[]' is not assignable to parameter of type 'FinancialCategory[]'.
+  Type '{ id: string; name: string; type: string; }' is not assignable to type 'FinancialCategory'.
+    Types of property 'type' are incompatible.
+      Type 'string' is not assignable to type '"income" | "expense"'.
+src/pages/utils/longConversationState.test.ts(64,52): error TS2345: Argument of type 'any[]' is not assignable to parameter of type 'ParsedFinancialIntent'.
+  Type 'any[]' is missing the following properties from type 'ParsedFinancialIntent': missingFields, isReadyForConfirmation
+src/pages/utils/maps.ts(535,35): error TS2339: Property 'catch' does not exist on type 'PromiseLike<PostgrestSingleResponse<null>>'.
+src/pages/utils/moveVariationConcurrency.test.ts(67,16): error TS18047: 'updatedX' is possibly 'null'.
+src/pages/utils/moveVariationConcurrency.test.ts(68,16): error TS18047: 'updatedY' is possibly 'null'.
+src/pages/utils/moveVariationConcurrency.test.ts(71,23): error TS18047: 'updatedX' is possibly 'null'.
+src/pages/utils/moveVariationConcurrency.test.ts(71,37): error TS18047: 'updatedY' is possibly 'null'.
+src/pages/utils/moveVariationConcurrency.test.ts(73,16): error TS18047: 'updatedX' is possibly 'null'.
+src/pages/utils/moveVariationConcurrency.test.ts(73,39): error TS18047: 'updatedY' is possibly 'null'.
+src/pages/utils/moveVariationConcurrency.test.ts(76,16): error TS18047: 'updatedX' is possibly 'null'.
+src/pages/utils/moveVariationConcurrency.test.ts(77,16): error TS18047: 'updatedY' is possibly 'null'.
+src/pages/utils/moveVariationConcurrency.test.ts(119,16): error TS18047: 'finalVar' is possibly 'null'.
+src/pages/utils/moveVariationConcurrency.test.ts(120,50): error TS18047: 'finalVar' is possibly 'null'.
+src/pages/utils/moveVariationConcurrency.test.ts(155,16): error TS18047: 'checkVar' is possibly 'null'.
+src/pages/utils/moveVariationConcurrency.test.ts(156,16): error TS18047: 'checkVar' is possibly 'null'.
+src/pages/utils/moveVariationConcurrency.test.ts(157,16): error TS18047: 'checkVar' is possibly 'null'.
+src/pages/utils/movingAverageCostRules.test.ts(40,24): error TS2769: No overload matches this call.
+  Overload 1 of 3, '(callbackfn: (previousValue: { id: string; type: string; quantity: number; unitCost: number; } | { id: string; type: string; quantity: number; unitCost?: undefined; }, currentValue: { id: string; type: string; quantity: number; unitCost: number; } | { ...; }, currentIndex: number, array: ({ ...; } | { ...; })[]) => { ...; } | { ...; }, initialValue: { ...; } | { ...; }): { ...; } | { ...; }', gave the following error.
+    Type 'CostState' is not assignable to type '{ id: string; type: string; quantity: number; unitCost: number; } | { id: string; type: string; quantity: number; unitCost?: undefined; }'.
+      Type 'CostState' is missing the following properties from type '{ id: string; type: string; quantity: number; unitCost?: undefined; }': id, type
+  Overload 2 of 3, '(callbackfn: (previousValue: { quantity: number; inventoryValue: number; unitCost: number | undefined; }, currentValue: { id: string; type: string; quantity: number; unitCost: number; } | { id: string; type: string; quantity: number; unitCost?: undefined; }, currentIndex: number, array: ({ ...; } | { ...; })[]) => { ...; }, initialValue: { ...; }): { ...; }', gave the following error.
+    Type 'CostState' is not assignable to type '{ quantity: number; inventoryValue: number; unitCost: number | undefined; }'.
+      Property 'unitCost' is optional in type 'CostState' but required in type '{ quantity: number; inventoryValue: number; unitCost: number | undefined; }'.
+src/pages/utils/multiFactPipelineGroupedQuestions.test.ts(50,33): error TS18049: 'd.description' is possibly 'null' or 'undefined'.
+src/pages/utils/multiFactPipelineGroupedQuestions.test.ts(56,38): error TS18049: 'd.description' is possibly 'null' or 'undefined'.
+src/pages/utils/multiFactPipelineGroupedQuestions.test.ts(86,34): error TS18049: 'd.description' is possibly 'null' or 'undefined'.
+src/pages/utils/multiFactPipelineGroupedQuestions.test.ts(87,39): error TS18049: 'd.description' is possibly 'null' or 'undefined'.
+src/pages/utils/multiFactPipelineGroupedQuestions.test.ts(123,34): error TS18049: 'd.description' is possibly 'null' or 'undefined'.
+src/pages/utils/multiFactPipelineGroupedQuestions.test.ts(124,39): error TS18049: 'd.description' is possibly 'null' or 'undefined'.
+src/pages/utils/multiFactPipelineGroupedQuestions.test.ts(149,28): error TS18049: 'd.description' is possibly 'null' or 'undefined'.
+src/pages/utils/multiFactPipelineGroupedQuestions.test.ts(150,28): error TS18049: 'd.description' is possibly 'null' or 'undefined'.
+src/pages/utils/multiFactPipelineGroupedQuestions.test.ts(151,28): error TS18049: 'd.description' is possibly 'null' or 'undefined'.
+src/pages/utils/multiFactPipelineGroupedQuestions.test.ts(164,33): error TS18049: 'd.description' is possibly 'null' or 'undefined'.
+src/pages/utils/multiFactPipelineGroupedQuestions.test.ts(165,38): error TS18049: 'd.description' is possibly 'null' or 'undefined'.
+src/pages/utils/multiFactPipelineGroupedQuestions.test.ts(182,28): error TS18049: 'd.description' is possibly 'null' or 'undefined'.
+src/pages/utils/multiFactPipelineGroupedQuestions.test.ts(183,28): error TS18049: 'd.description' is possibly 'null' or 'undefined'.
+src/pages/utils/multiFactPipelineGroupedQuestions.test.ts(184,28): error TS18049: 'd.description' is possibly 'null' or 'undefined'.
+src/pages/utils/multiFactPipelineGroupedQuestions.test.ts(201,28): error TS18049: 'd.description' is possibly 'null' or 'undefined'.
+src/pages/utils/multiFactPipelineGroupedQuestions.test.ts(202,28): error TS18049: 'd.description' is possibly 'null' or 'undefined'.
+src/pages/utils/nfe/danfeGenerator.ts(35,44): error TS2339: Property 'name' does not exist on type 'CustomerData'.
+src/pages/utils/nfe/danfeGenerator.ts(36,52): error TS2339: Property 'document' does not exist on type 'CustomerData'.
+src/pages/utils/nfe/danfeGenerator.ts(37,38): error TS2551: Property 'address' does not exist on type 'Shipping'. Did you mean 'noAddress'?
+src/pages/utils/nfe/danfeGenerator.ts(37,67): error TS2551: Property 'address' does not exist on type 'CustomerData'. Did you mean 'noAddress'?
+src/pages/utils/nfe/danfeGenerator.ts(38,37): error TS2551: Property 'address' does not exist on type 'Shipping'. Did you mean 'noAddress'?
+src/pages/utils/nfe/danfeGenerator.ts(38,66): error TS2551: Property 'address' does not exist on type 'CustomerData'. Did you mean 'noAddress'?
+src/pages/utils/nfe/danfeGenerator.ts(39,40): error TS2551: Property 'address' does not exist on type 'Shipping'. Did you mean 'noAddress'?
+src/pages/utils/nfe/danfeGenerator.ts(39,75): error TS2551: Property 'address' does not exist on type 'CustomerData'. Did you mean 'noAddress'?
+src/pages/utils/nfe/danfeGenerator.ts(40,37): error TS2551: Property 'address' does not exist on type 'Shipping'. Did you mean 'noAddress'?
+src/pages/utils/nfe/danfeGenerator.ts(40,63): error TS2551: Property 'address' does not exist on type 'CustomerData'. Did you mean 'noAddress'?
+src/pages/utils/nfe/danfeGenerator.ts(41,37): error TS2551: Property 'address' does not exist on type 'Shipping'. Did you mean 'noAddress'?
+src/pages/utils/nfe/danfeGenerator.ts(41,64): error TS2551: Property 'address' does not exist on type 'CustomerData'. Did you mean 'noAddress'?
+src/pages/utils/nfe/danfeGenerator.ts(42,36): error TS2551: Property 'address' does not exist on type 'Shipping'. Did you mean 'noAddress'?
+src/pages/utils/nfe/danfeGenerator.ts(42,64): error TS2551: Property 'address' does not exist on type 'CustomerData'. Did you mean 'noAddress'?
+src/pages/utils/nfe/danfeGenerator.ts(47,44): error TS2339: Property 'fee' does not exist on type 'Shipping'.
+src/pages/utils/nfe/nfeModules.test.ts(45,21): error TS2353: Object literal may only specify known properties, and 'id' does not exist in type 'Item'.
+src/pages/utils/nfe/nfeModules.test.ts(53,47): error TS2353: Object literal may only specify known properties, and 'totalValue' does not exist in type 'ItemsSummary'.
+src/pages/utils/nfe/nfeModules.test.ts(54,53): error TS2353: Object literal may only specify known properties, and 'fee' does not exist in type 'Shipping'.
+src/pages/utils/nfe/nfeModules.test.ts(57,72): error TS2353: Object literal may only specify known properties, and 'balanceDue' does not exist in type 'PaymentsSummary'.
+src/pages/utils/nfe/nfeModules.test.ts(58,13): error TS2739: Type '{ fullName: string; cpfCnpj: string; }' is missing the following properties from type 'CustomerData': phone, fullAddress
+src/pages/utils/nfe/nfeModules.test.ts(72,47): error TS2353: Object literal may only specify known properties, and 'totalValue' does not exist in type 'ItemsSummary'.
+src/pages/utils/nfe/nfeModules.test.ts(73,13): error TS2739: Type '{ deliveryMethod: "pickup"; }' is missing the following properties from type 'Shipping': value, orderType, scheduling
+src/pages/utils/nfe/nfeModules.test.ts(76,66): error TS2353: Object literal may only specify known properties, and 'balanceDue' does not exist in type 'PaymentsSummary'.
+src/pages/utils/nfe/nfeModules.test.ts(77,13): error TS2739: Type '{ fullName: string; }' is missing the following properties from type 'CustomerData': phone, fullAddress
+src/pages/utils/nfe/nfeModules.test.ts(95,21): error TS2353: Object literal may only specify known properties, and 'id' does not exist in type 'Item'.
+src/pages/utils/nfe/nfeModules.test.ts(103,47): error TS2353: Object literal may only specify known properties, and 'totalValue' does not exist in type 'ItemsSummary'.
+src/pages/utils/nfe/nfeModules.test.ts(104,51): error TS2353: Object literal may only specify known properties, and 'fee' does not exist in type 'Shipping'.
+src/pages/utils/nfe/nfeModules.test.ts(106,41): error TS2353: Object literal may only specify known properties, and 'value' does not exist in type 'Payment'.
+src/pages/utils/nfe/nfeModules.test.ts(107,70): error TS2353: Object literal may only specify known properties, and 'balanceDue' does not exist in type 'PaymentsSummary'.
+src/pages/utils/nfe/nfeModules.test.ts(108,13): error TS2739: Type '{ fullName: string; cpfCnpj: string; }' is missing the following properties from type 'CustomerData': phone, fullAddress
+src/pages/utils/nfe/nfeService.ts(162,27): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+src/pages/utils/nfe/nfeService.ts(181,88): error TS2339: Property 'document' does not exist on type 'CustomerData'.
+src/pages/utils/nfe/nfeValidator.ts(68,41): error TS2551: Property 'address' does not exist on type 'Shipping'. Did you mean 'noAddress'?
+src/pages/utils/nfe/nfeValidator.ts(69,44): error TS2551: Property 'address' does not exist on type 'CustomerData'. Did you mean 'noAddress'?
+src/pages/utils/nfe/xml/xmlTotalsBlock.ts(4,43): error TS2339: Property 'fee' does not exist on type 'Shipping'.
+src/pages/utils/orderHistoryService.ts(796,59): error TS7006: Parameter 'item' implicitly has an 'any' type.
+src/pages/utils/orderHistoryService.ts(806,42): error TS7006: Parameter 'item' implicitly has an 'any' type.
+src/pages/utils/orderTypeColorUtils.ts(137,5): error TS2353: Object literal may only specify known properties, and 'slate' does not exist in type 'Record<OrderTypeColor, OrderTypeColorClasses>'.
+src/pages/utils/purchaseService.ts(3,10): error TS2300: Duplicate identifier 'saveInventoryMove'.
+src/pages/utils/purchaseService.ts(72,10): error TS2300: Duplicate identifier 'saveInventoryMove'.
+src/pages/utils/returnInventoryService.ts(37,13): error TS2322: Type 'string | undefined' is not assignable to type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+src/pages/utils/returnInventoryService.ts(56,47): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+src/pages/utils/saleInventoryRules.test.ts(28,46): error TS2345: Argument of type '{ description: string; quantity: number; unitPrice: number; unitDiscount: number; discountType: string; handlingType: string; isTemporaryProduct: boolean; }' is not assignable to parameter of type 'Item'.
+  Types of property 'discountType' are incompatible.
+    Type 'string' is not assignable to type 'DiscountType'.
+src/pages/utils/saleInventoryRules.test.ts(30,67): error TS2345: Argument of type '{ description: string; quantity: number; unitPrice: number; unitDiscount: number; discountType: string; handlingType: string; isTemporaryProduct: boolean; }' is not assignable to parameter of type 'Item'.
+  Types of property 'discountType' are incompatible.
+    Type 'string' is not assignable to type 'DiscountType'.
+src/pages/utils/saleInventoryRules.test.ts(31,64): error TS2345: Argument of type '{ productId: string; isTemporaryProduct: boolean; description: string; quantity: number; unitPrice: number; unitDiscount: number; discountType: string; handlingType: string; }' is not assignable to parameter of type 'Item'.
+  Types of property 'discountType' are incompatible.
+    Type 'string' is not assignable to type 'DiscountType'.
+src/pages/utils/saleInventoryRules.test.ts(32,64): error TS2345: Argument of type '{ productId: string; isTemporaryProduct: boolean; description: string; quantity: number; unitPrice: number; unitDiscount: number; discountType: string; handlingType: string; }' is not assignable to parameter of type 'Item'.
+  Types of property 'discountType' are incompatible.
+    Type 'string' is not assignable to type 'DiscountType'.
+src/pages/utils/saleInventoryRules.ts(29,78): error TS2339: Property 'itemType' does not exist on type 'Item'.
+src/pages/utils/settingsService.ts(558,5): error TS2739: Type '{ autoPrintReceipt: true; autoPrintDeliveryOrder: true; autoSendWhatsAppDelivery: true; autoSendCustomerOrder: true; deliveryPhone: string; }' is missing the following properties from type '{ autoPrintReceipt: boolean; autoPrintDeliveryOrder: boolean; autoSendWhatsAppDelivery: boolean; autoSendCustomerOrder: boolean; deliveryPhone: string; groupInviteMessage: string; groupInviteLink: string; }': groupInviteMessage, groupInviteLink
+src/pages/utils/settingsService.ts(589,9): error TS2353: Object literal may only specify known properties, and 'groupInviteMessage' does not exist in type '{ reviewRequest: string; orderConfirmation: string; deliveryInfo: string; assistanceConfirmation: string; }'.
+src/pages/utils/voicePreAnalysisDebounce.test.ts(4,39): error TS2307: Cannot find module '../../../../../mobile/src/services/financial/financialIntentValidator' or its corresponding type declarations.
+src/pages/utils/whatsapp.ts(262,66): error TS2339: Property 'payments' does not exist on type 'PaymentsSummary'.
+src/pages/utils/whatsapp.ts(377,30): error TS2339: Property 'observation' does not exist on type 'Item | AssistanceItem'.
+  Property 'observation' does not exist on type 'AssistanceItem'.
+src/pages/utils/whatsapp.ts(377,63): error TS2339: Property 'observation' does not exist on type 'Item | AssistanceItem'.
+  Property 'observation' does not exist on type 'AssistanceItem'.
+src/pages/utils/whatsapp.ts(456,47): error TS2339: Property 'groupInviteMessage' does not exist on type '{ reviewRequest: string; orderConfirmation: string; deliveryInfo: string; assistanceConfirmation: string; }'.
+src/pages/utils/whatsapp.ts(457,46): error TS2339: Property 'groupInviteLink' does not exist on type '{ reviewRequest: string; orderConfirmation: string; deliveryInfo: string; assistanceConfirmation: string; }'.
+src/pages/utils/whatsapp.ts(471,47): error TS2339: Property 'groupInviteMessage' does not exist on type '{ reviewRequest: string; orderConfirmation: string; deliveryInfo: string; assistanceConfirmation: string; }'.
+src/pages/utils/whatsapp.ts(472,46): error TS2339: Property 'groupInviteLink' does not exist on type '{ reviewRequest: string; orderConfirmation: string; deliveryInfo: string; assistanceConfirmation: string; }'.
+src/pages/utils/whatsapp.ts(575,30): error TS2339: Property 'observation' does not exist on type 'AssistanceItem'.
+src/pages/utils/whatsapp.ts(575,63): error TS2339: Property 'observation' does not exist on type 'AssistanceItem'.
+src/services/aiGateway/core/AiQuotaManager.ts(151,60): error TS2339: Property 'name' does not exist on type 'CategoryLimitConfig'.
+src/services/aiGateway/core/AiQuotaManager.ts(187,13): error TS2820: Type '"AI_MONTHLY_LIMIT_REACHED"' is not assignable to type 'AiErrorCode | undefined'. Did you mean '"AI_HOURLY_LIMIT_REACHED"'?
+src/services/aiGateway/core/AiQuotaManager.ts(200,13): error TS2820: Type '"AI_MONTHLY_LIMIT_REACHED"' is not assignable to type 'AiErrorCode | undefined'. Did you mean '"AI_HOURLY_LIMIT_REACHED"'?
+../mobile/src/services/aiAgent/mobileAgentClient.ts(34,9): error TS2322: Type 'string | null' is not assignable to type 'string'.
+  Type 'null' is not assignable to type 'string'.
+../mobile/src/services/financial/financialTextParser.ts(302,7): error TS2322: Type '"BUSINESS" | "PERSONAL_PARTNER" | "PERSONAL" | "UNKNOWN" | null' is not assignable to type '"BUSINESS" | "PERSONAL" | "UNKNOWN" | null'.
+  Type '"PERSONAL_PARTNER"' is not assignable to type '"BUSINESS" | "PERSONAL" | "UNKNOWN" | null'.
+../mobile/src/services/financial/mobileFinanceReports.ts(23,5): error TS2322: Type 'PostgrestSingleResponse<{ type: any; amount: any; }[]>' is not assignable to type 'PostgrestSingleResponse<{ type: any; amount: any; status: any; }[]>'.
+  Type 'PostgrestResponseSuccess<{ type: any; amount: any; }[]>' is not assignable to type 'PostgrestSingleResponse<{ type: any; amount: any; status: any; }[]>'.
+    Type 'PostgrestResponseSuccess<{ type: any; amount: any; }[]>' is not assignable to type 'PostgrestResponseSuccess<{ type: any; amount: any; status: any; }[]>'.
+      Type '{ type: any; amount: any; }[]' is not assignable to type '{ type: any; amount: any; status: any; }[]'.
+        Property 'status' is missing in type '{ type: any; amount: any; }' but required in type '{ type: any; amount: any; status: any; }'.
+../mobile/src/services/financial/mobileFinanceReports.ts(69,6): error TS2322: Type 'PostgrestSingleResponse<{ type: any; amount: any; }[]>' is not assignable to type 'PostgrestSingleResponse<{ type: any; amount: any; status: any; }[]>'.
+  Type 'PostgrestResponseSuccess<{ type: any; amount: any; }[]>' is not assignable to type 'PostgrestSingleResponse<{ type: any; amount: any; status: any; }[]>'.
+    Type 'PostgrestResponseSuccess<{ type: any; amount: any; }[]>' is not assignable to type 'PostgrestResponseSuccess<{ type: any; amount: any; status: any; }[]>'.
+      Type '{ type: any; amount: any; }[]' is not assignable to type '{ type: any; amount: any; status: any; }[]'.
+        Property 'status' is missing in type '{ type: any; amount: any; }' but required in type '{ type: any; amount: any; status: any; }'.
+../mobile/src/services/financial/mobileFinanceReports.ts(69,16): error TS2322: Type 'PostgrestSingleResponse<{ type: any; amount: any; }[]>' is not assignable to type 'PostgrestSingleResponse<{ type: any; amount: any; status: any; }[]>'.
+  Type 'PostgrestResponseSuccess<{ type: any; amount: any; }[]>' is not assignable to type 'PostgrestSingleResponse<{ type: any; amount: any; status: any; }[]>'.
+    Type 'PostgrestResponseSuccess<{ type: any; amount: any; }[]>' is not assignable to type 'PostgrestResponseSuccess<{ type: any; amount: any; status: any; }[]>'.
+      Type '{ type: any; amount: any; }[]' is not assignable to type '{ type: any; amount: any; status: any; }[]'.
+        Property 'status' is missing in type '{ type: any; amount: any; }' but required in type '{ type: any; amount: any; status: any; }'.
+../mobile/src/services/financial/multiTurnIntentClassifier.ts(251,49): error TS2345: Argument of type 'ParsedFinancialIntent[]' is not assignable to parameter of type 'PurposeDraft[]'.
+  Type 'ParsedFinancialIntent' is not assignable to type 'PurposeDraft'.
+    Types of property 'businessPurpose' are incompatible.
+      Type '"BUSINESS" | "PERSONAL_PARTNER" | "PERSONAL" | "UNKNOWN" | null | undefined' is not assignable to type '"UNKNOWN" | BusinessPurposeReply | null | undefined'.
+        Type '"PERSONAL_PARTNER"' is not assignable to type '"UNKNOWN" | BusinessPurposeReply | null | undefined'.

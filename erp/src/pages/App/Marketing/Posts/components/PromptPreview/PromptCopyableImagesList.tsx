@@ -50,16 +50,16 @@ export const PromptCopyableImagesList: React.FC<PromptCopyableImagesListProps> =
     });
   }
 
-  // 2. Visão Interna / Aberto (OPEN_VIEW)
+  // 2. Imagem Secundária (OPEN_VIEW — segunda foto da variação principal)
   if (productImages?.openView?.url) {
     items.push({
       id: 'open-view',
       order: orderIndex++,
-      label: 'Visão Interna',
-      badge: '2. ABERTO / INTERNO',
+      label: 'Imagem Secundária',
+      badge: '2. IMAGEM SECUNDÁRIA',
       badgeColor: 'bg-amber-500/20 text-amber-300 border-amber-500/40',
-      title: 'Móvel Aberto',
-      subtitle: 'Estrutura, divisões e cabideiro',
+      title: 'Segunda foto da variação principal',
+      subtitle: 'Pode ser aberta, detalhe ou ângulo diferente',
       url: productImages.openView.url,
       aspectClass: 'object-cover',
     });

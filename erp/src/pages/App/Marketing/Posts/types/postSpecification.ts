@@ -28,6 +28,8 @@ export interface PostFileResource {
   name: string;
   /** URL HTTPS públicamente acessível — sem blob:, localhost ou base64. */
   url: string;
+  /** Caminho local no pacote ZIP, preenchido somente após download válido. */
+  file?: string | null;
   mimeType: string;
   description?: string;
 }
@@ -37,6 +39,7 @@ export interface PostOfficialAssetsSpec {
     name: string;
     url: string;
     role: 'OFFICIAL_ASSET';
+    file?: string | null;
   };
   badge: {
     name: string;
@@ -44,6 +47,7 @@ export interface PostOfficialAssetsSpec {
     role: 'OFFICIAL_ASSET';
     opportunityId: string;
     opportunityName?: string;
+    file?: string | null;
   } | null;
 }
 
@@ -70,6 +74,25 @@ export interface PostCampaignSpec {
   elements: PostElementSpec[];
 }
 
+/** Conteúdo literal de um benefício comercial, separado da liberdade visual da IA. */
+export interface PostBenefitSpec {
+  /** Identificador estável vindo da fonte ou derivado de sua posição original. */
+  id: string;
+  /** Texto principal que deve ser reproduzido sem reescrita. */
+  title: string;
+  /** Texto secundário opcional que deve ser reproduzido sem reescrita. */
+  subtitle?: string;
+  /** Campo/origem que forneceu o benefício. */
+  source: string;
+}
+
+export interface PostProductLiteralField {
+  id: string;
+  label: string;
+  value: string;
+  source: string;
+}
+
 // ---------------------------------------------------------------------------
 // Imagens do Produto com Papéis Semânticos
 // ---------------------------------------------------------------------------
@@ -82,6 +105,8 @@ export interface ProductImageReference {
   variationId?: string;
   variationName?: string;
   description?: string;
+  /** Caminho do arquivo local no ZIP (preenchido após download). Ex: 'product/primary.png' */
+  file?: string | null;
 }
 
 export interface ProductVariationImageReference {
@@ -89,6 +114,8 @@ export interface ProductVariationImageReference {
   variationName: string;
   url: string;
   role: 'VARIATION_PRIMARY';
+  /** Caminho do arquivo local no ZIP (preenchido após download). Ex: 'product/variations/branco.png' */
+  file?: string | null;
 }
 
 export interface PostProductImagesSpec {
@@ -120,13 +147,17 @@ export interface PostCreationSpecification {
     catalogUrl: string;
     id?: string;
     name?: string;
-    price?: number;
-    oldPrice?: number;
+    price?: number | string;
+    oldPrice?: number | string;
     installmentText?: string;
     photos?: string[];
   };
+  /** Fallback textual imutável do ERP caso o catálogo público não possa ser consultado. */
+  productLiteralFields?: PostProductLiteralField[];
   productImages?: PostProductImagesSpec;
   officialAssets?: PostOfficialAssetsSpec;
+  /** Lista literal já resolvida; [] significa omitir o rodapé de benefícios. */
+  benefits?: PostBenefitSpec[];
   campaign: PostCampaignSpec;
   formats: PostFormatSpec[];
   globalRules: string;
@@ -147,13 +178,17 @@ export interface PostShareSpecification {
     catalogUrl: string;
     id?: string;
     name?: string;
-    price?: number;
-    oldPrice?: number;
+    price?: number | string;
+    oldPrice?: number | string;
     installmentText?: string;
     photos?: string[];
   };
+  /** Fallback textual imutável do ERP caso o catálogo público não possa ser consultado. */
+  productLiteralFields?: PostProductLiteralField[];
   productImages?: PostProductImagesSpec;
   officialAssets?: PostOfficialAssetsSpec;
+  /** Lista literal já resolvida; [] significa omitir o rodapé de benefícios. */
+  benefits?: PostBenefitSpec[];
   campaigns: PostCampaignSpec[];
   formats: PostFormatSpec[];
   globalRules: string;

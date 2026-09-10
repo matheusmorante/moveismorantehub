@@ -142,6 +142,9 @@ describe('Assets Oficiais Móveis Morante & Selos de Oportunidade', () => {
     const prompt = renderSpecificationAsPrompt(spec);
     expect(prompt).toContain('SELO OFICIAL');
     expect(prompt).toContain(OFFICIAL_QUEIMA_BADGE_URL);
+    expect(prompt.split(OFFICIAL_QUEIMA_BADGE_URL)).toHaveLength(2);
+    const badgeElement = spec.campaign.elements.find(element => element.elementType === 'BADGE');
+    expect(badgeElement?.resources.some(resource => resource.url === OFFICIAL_QUEIMA_BADGE_URL)).toBe(false);
   });
 
   it('4. Produto sem oportunidade → badge totalmente ausente de assets e prompt', async () => {
@@ -230,5 +233,42 @@ describe('Assets Oficiais Móveis Morante & Selos de Oportunidade', () => {
     // Deve usar o do elemento da campanha e NUNCA o da lista do ERP
     expect(resolved.badge?.url).toBe('https://hkoxhourxwlddgsfdgws.supabase.co/storage/v1/object/public/products/marketing/seals/campaign-badge-hd.png');
     expect(resolved.badge?.url).not.toContain('erp-list-badge-small.png');
+  });
+
+  it('9. Produto com selo legado no ERP fica sem badge quando a campanha não possui modelo correspondente', () => {
+    const resolved = resolveOfficialAssets({
+      product: {
+        ...productWithQueimaOpp,
+        opportunity: {
+          id: 'opp-queima-id',
+          name: 'Queima dos Salvados',
+          image_url: 'https://example.com/erp-list-badge.png',
+        },
+      },
+      activeModels: [],
+    });
+
+    expect(resolved.badge).toBeNull();
+  });
+
+  it('10. Modelo legado salvo somente como anexo continua sendo a fonte oficial do selo', () => {
+    const attachmentUrl = 'https://example.com/biblioteca/selo-queima-com-fogos.png';
+    const modelWithAttachmentOnly: ElementModel = {
+      ...queimaBadgeModel,
+      generatedAssetUrl: null,
+      referenceFiles: [{
+        id: 'ref-fire-badge',
+        name: 'Selo Queima com Fogos',
+        fileUrl: attachmentUrl,
+        mimeType: 'image/png',
+      }],
+    };
+
+    const resolved = resolveOfficialAssets({
+      product: productWithQueimaOpp,
+      activeModels: [modelWithAttachmentOnly],
+    });
+
+    expect(resolved.badge?.url).toBe(attachmentUrl);
   });
 });

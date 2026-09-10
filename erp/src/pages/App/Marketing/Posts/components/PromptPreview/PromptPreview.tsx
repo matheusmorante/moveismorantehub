@@ -96,7 +96,7 @@ export function PromptPreview({
     };
     setManualSelection(next);
     saveProductImageSelection(effectiveProductId, next);
-    toast.success(url ? 'Foto aberta selecionada e salva!' : 'Foto aberta removida.');
+    toast.success(url ? 'Imagem secundária selecionada e salva!' : 'Imagem secundária removida.');
   };
 
   const handleChangeVariation = (varId: string, url: string) => {
@@ -187,8 +187,8 @@ export function PromptPreview({
         activeModels: effectiveModels,
         product,
       });
-    } catch (err: any) {
-      toast.error(err.message || 'Falha ao gerar arquivo ZIP.');
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : 'Falha ao gerar arquivo ZIP.');
     } finally {
       setDownloadingZip(false);
     }
