@@ -120,6 +120,8 @@ const ProductCard: React.FC<ProductCardProps> = ({
                         isParent={isParent}
                         canManageCatalog={canManageCatalog}
                         isDraft={isDraft}
+                        activeVariationsCount={(product as any).activeVariationsCount ?? (product.variations?.filter((v: any) => v.active !== false).length)}
+                        totalVariationsCount={(product as any).totalVariationsCount ?? product.variations?.length}
                         onToggleActive={(e) => {
                             e.stopPropagation();
                             onToggleActive(product.id!, product.active !== false);

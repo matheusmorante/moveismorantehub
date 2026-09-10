@@ -493,31 +493,38 @@ export const saveOrder = async (order: Order): Promise<string> => {
             }
         }
 
-        // Sync de dados do cliente de volta ao CRM
+        // Sincronização de CRM e notificações não fazem parte da confirmação
+        // do pedido. Rodam em segundo plano para não manter o formulário
+        // bloqueado depois que o documento e o estoque essencial já foram
+        // persistidos.
         if (orderToSave.customerData?.id) {
-            try {
-                const { updatePerson } = await import("./personService");
-                await updatePerson('customers', orderToSave.customerData.id, {
-                    phone: orderToSave.customerData.phone,
-                    marketingOrigin: orderToSave.marketingOrigin as any
-                });
-            } catch (syncErr) {
-                console.error('[OrderCreate] Erro ao sincronizar cliente no CRM (pós-insert, best-effort):', syncErr);
-            }
+            void (async () => {
+                try {
+                    const { updatePerson } = await import("./personService");
+                    await updatePerson('customers', orderToSave.customerData.id, {
+                        phone: orderToSave.customerData.phone,
+                        marketingOrigin: orderToSave.marketingOrigin as any
+                    });
+                } catch (syncErr) {
+                    console.error('[OrderCreate] Erro ao sincronizar cliente no CRM (pós-insert, best-effort):', syncErr);
+                }
+            })();
         }
 
         // Notificação em tempo real / push
         if (orderToSave.status && orderToSave.status !== 'draft') {
-            try {
-                const schedText = formatOrderSchedulingText(orderToSave.shipping, orderToSave);
-                await notifyNewSaleAndAssemblies({
-                    orderId: String(rowId),
-                    order: orderToSave,
-                    scheduleText: schedText,
-                });
-            } catch (notifyErr) {
-                console.error('[OrderCreate] Erro ao notificar app (pós-insert, best-effort):', notifyErr);
-            }
+            void (async () => {
+                try {
+                    const schedText = formatOrderSchedulingText(orderToSave.shipping, orderToSave);
+                    await notifyNewSaleAndAssemblies({
+                        orderId: String(rowId),
+                        order: orderToSave,
+                        scheduleText: schedText,
+                    });
+                } catch (notifyErr) {
+                    console.error('[OrderCreate] Erro ao notificar app (pós-insert, best-effort):', notifyErr);
+                }
+            })();
         }
 
         return String(rowId);
@@ -832,31 +839,16 @@ export const updateOrder = async (
         // 1. Mudança de status de rascunho -> agendado / não rascunho (ou criação com id preexistente do rascunho)
         const isFromDraftOrNew = (!oldStatus || oldStatus === 'draft') && newStatus && newStatus !== 'draft';
         if (isFromDraftOrNew) {
-            try {
-                await notifyNewSaleAndAssemblies({
-                    orderId: String(id),
-                    order: merged,
-                    scheduleText: schedText,
-                });
-            } catch (err) {
-                console.error('[OrderUpdate] Erro ao notificar pedido agendado:', err);
-            }
+            void notifyNewSaleAndAssemblies({ orderId: String(id), order: merged, scheduleText: schedText })
+                .catch(err => console.error('[OrderUpdate] Erro ao notificar pedido agendado:', err));
         }
 
         if (!isFromDraftOrNew && previousOrderData) {
             const previousKinds = new Set(getOrderAssemblyKinds(previousOrderData));
             const newKinds = getOrderAssemblyKinds(merged).filter(kind => !previousKinds.has(kind));
             if (newKinds.length > 0) {
-                try {
-                    await notifyNewAssemblies({
-                        orderId: String(id),
-                        order: merged,
-                        scheduleText: schedText,
-                        kinds: newKinds,
-                    });
-                } catch (err) {
-                    console.error('[OrderUpdate] Erro ao notificar nova montagem:', err);
-                }
+                void notifyNewAssemblies({ orderId: String(id), order: merged, scheduleText: schedText, kinds: newKinds })
+                    .catch(err => console.error('[OrderUpdate] Erro ao notificar nova montagem:', err));
             }
         }
 
@@ -865,18 +857,10 @@ export const updateOrder = async (
 
         if (changedAreas.length > 0 && shouldNotifyOrderChange(oldStatus)) {
             const notifData = formatOrderChangeNotification(customerName, changedAreas);
-            try {
-                await dispatchAppNotification({
-                    orderId: String(id),
-                    title: notifData.title,
-                    message: notifData.message,
-                    type: notifData.type,
-                    scheduleText: schedText,
-                    orderData: merged
-                });
-            } catch (err) {
-                console.error('[OrderUpdate] Erro ao notificar alteração do pedido:', err);
-            }
+            void dispatchAppNotification({
+                orderId: String(id), title: notifData.title, message: notifData.message,
+                type: notifData.type, scheduleText: schedText, orderData: merged
+            }).catch(err => console.error('[OrderUpdate] Erro ao notificar alteração do pedido:', err));
         }
 
         // Log status change
@@ -893,18 +877,11 @@ export const updateOrder = async (
             }
 
             if (newStatus === 'cancelled') {
-                try {
-                    await dispatchAppNotification({
-                        orderId: String(id),
-                        title: `Venda cancelada - ${customerName}`,
-                        message: `O pedido #${formatOrderCode(merged)} foi cancelado e a saída de estoque será estornada.`,
-                        type: 'order_edited',
-                        scheduleText: schedText,
-                        orderData: merged,
-                    });
-                } catch (notificationErr) {
-                    console.error('[OrderUpdate] Erro ao notificar cancelamento:', notificationErr);
-                }
+                void dispatchAppNotification({
+                    orderId: String(id), title: `Venda cancelada - ${customerName}`,
+                    message: `O pedido #${formatOrderCode(merged)} foi cancelado e a saída de estoque será estornada.`,
+                    type: 'order_edited', scheduleText: schedText, orderData: merged,
+                }).catch(notificationErr => console.error('[OrderUpdate] Erro ao notificar cancelamento:', notificationErr));
             }
 
             const { inventoryAutomation } = getSettings();
@@ -999,15 +976,17 @@ export const updateOrder = async (
         }
         // Sync customer data back to CRM if applicable
         if (merged.customerData?.id) {
-            try {
-                const { updatePerson } = await import("./personService");
-                await updatePerson('customers', merged.customerData.id, {
-                    phone: merged.customerData.phone,
-                    marketingOrigin: merged.marketingOrigin as any
-                });
-            } catch (syncErr) {
-                console.error("[OrderUpdate] Error syncing customer data to CRM:", syncErr);
-            }
+            void (async () => {
+                try {
+                    const { updatePerson } = await import("./personService");
+                    await updatePerson('customers', merged.customerData.id, {
+                        phone: merged.customerData.phone,
+                        marketingOrigin: merged.marketingOrigin as any
+                    });
+                } catch (syncErr) {
+                    console.error("[OrderUpdate] Error syncing customer data to CRM:", syncErr);
+                }
+            })();
         }
     } catch (error) {
         console.error("Erro ao atualizar o pedido: ", error);

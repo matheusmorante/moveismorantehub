@@ -372,12 +372,20 @@ export const useProducts = (filters?: any) => {
             // Uma variação persistida é atualizada diretamente. Regravar o
             // produto-pai inteiro aqui fazia o toggle falhar quando outra
             // variação legada da mesma família ainda não possuía UUID.
-            // O status da variação selecionada não depende dessas irmãs.
+            const syncParentActiveInDb = async (parentId: string) => {
+                const { data: siblings } = await supabase
+                    .from('product_variations')
+                    .select('active')
+                    .eq('product_id', parentId);
+                const hasActiveVariation = (siblings || []).some((s: any) => s.active !== false);
+                await supabase.from('products').update({ active: hasActiveVariation }).eq('id', parentId);
+            };
+
             const isVariationUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
             if (isVariationUuid) {
                 const { data: variation, error: variationLookupError } = await supabase
                     .from('product_variations')
-                    .select('id')
+                    .select('id, product_id')
                     .eq('id', id)
                     .maybeSingle();
                 if (variationLookupError) throw variationLookupError;
@@ -387,26 +395,32 @@ export const useProducts = (filters?: any) => {
                         .update({ active: newActive })
                         .eq('id', id);
                     if (variationUpdateError) throw variationUpdateError;
+                    if (variation.product_id) {
+                        await syncParentActiveInDb(variation.product_id);
+                    }
                     return;
                 }
             }
 
-            // 1. Caso seja uma variação do array JSON (ex: 'parentId_sku')
+            // 1. Identificador visual legado (parentId_sku): atualiza somente
+            // a linha correspondente no banco. Não regrava o pai nem usa SKU
+            // para reconstruir qualquer identidade; aqui ele só localiza o
+            // registro legado que a própria lista exibiu.
             if (id.includes('_')) {
                 const [parentId, ...skuParts] = id.split('_');
                 const targetSku = skuParts.join('_');
-                const parent = products.find(p => p.id === parentId) || serverProducts.find(p => p.id === parentId);
-                if (parent && parent.variations) {
-                    const newVariations = parent.variations.map((v: any, index: number) => {
-                        const vSku = v.sku || index;
-                        if (String(vSku) === String(targetSku)) {
-                            return { ...v, active: newActive };
-                        }
-                        return v;
-                    });
-                    await updateProduct(parentId, { variations: newVariations });
+                const { data: updatedLegacyVariations, error: legacyVariationError } = await supabase
+                    .from('product_variations')
+                    .update({ active: newActive })
+                    .eq('product_id', parentId)
+                    .eq('sku', targetSku)
+                    .select('id');
+                if (legacyVariationError) throw legacyVariationError;
+                if ((updatedLegacyVariations || []).length > 0) {
+                    await syncParentActiveInDb(parentId);
                     return;
                 }
+                throw new Error('A variação não foi encontrada para alterar o status.');
             }
 
             // 2. Caso seja uma variação com ID direto no banco ou variação interna
@@ -416,15 +430,16 @@ export const useProducts = (filters?: any) => {
                     if (Array.isArray(parent.variations)) {
                         const vIndex = parent.variations.findIndex((v: any) => String(v.id) === String(id));
                         if (vIndex !== -1) {
-                            const updatedVariations = [...parent.variations];
-                            updatedVariations[vIndex] = { ...updatedVariations[vIndex], active: newActive };
-                            await updateProduct(parent.id!, { variations: updatedVariations });
-                            
                             const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
                             if (isUUID) {
-                                await supabase.from('product_variations').update({ active: newActive }).eq('id', id);
+                                const { error } = await supabase.from('product_variations').update({ active: newActive }).eq('id', id);
+                                if (error) throw error;
+                                if (parent.id) {
+                                    await syncParentActiveInDb(parent.id);
+                                }
+                                return;
                             }
-                            return;
+                            throw new Error('Esta variação legada não possui UUID e não pode ser localizada com segurança.');
                         }
                     }
                 }
@@ -434,16 +449,22 @@ export const useProducts = (filters?: any) => {
             // 3. Caso seja um produto pai ou produto regular
             const parentProduct = products.find(p => p.id === id) || targetProduct;
             if (parentProduct) {
-                const updatePayload: Partial<Product> = { active: newActive };
+                const isProductUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+                if (isProductUuid) {
+                    const { error: productUpdateError } = await supabase
+                        .from('products')
+                        .update({ active: newActive })
+                        .eq('id', id);
+                    if (productUpdateError) throw productUpdateError;
 
-                if (parentProduct.variations && parentProduct.variations.length > 0) {
-                    updatePayload.variations = parentProduct.variations.map((v: any) => ({
-                        ...v,
-                        active: newActive
-                    }));
+                    const { error: variationUpdateError } = await supabase
+                        .from('product_variations')
+                        .update({ active: newActive })
+                        .eq('product_id', id);
+                    if (variationUpdateError) throw variationUpdateError;
+                } else {
+                    await updateProduct(id, { active: newActive });
                 }
-
-                await updateProduct(id, updatePayload);
 
                 const independentChildren = serverProducts.filter(p => p.parentId === id);
                 for (const child of independentChildren) {
@@ -607,25 +628,16 @@ export const useProducts = (filters?: any) => {
 
             // Persistência em background
             if (isVariation && variation) {
-                if (parentProduct?.id && Array.isArray(parentProduct.variations)) {
-                    const isOnlyVariation = parentProduct.variations.length === 1;
-                    await updateProduct(parentProduct.id, {
-                        ...(isOnlyVariation ? { status: newStatus } : {}),
-                        variations: parentProduct.variations.map((item: any) =>
-                            String(item.id) === String(variation.id) ? { ...item, status: newStatus } : item
-                        )
-                    });
+                if (parentProduct?.id && Array.isArray(parentProduct.variations) && parentProduct.variations.length === 1) {
+                    const { error: parentStatusError } = await supabase
+                        .from('products')
+                        .update({ status: newStatus })
+                        .eq('id', parentProduct.id);
+                    if (parentStatusError) throw parentStatusError;
 
                     // O catálogo também filtra pelo status do pai. Para o
                     // produto de variação única, pai e filha representam o
                     // mesmo item e precisam sempre permanecer sincronizados.
-                    if (isOnlyVariation) {
-                        const { error: parentStatusError } = await supabase
-                            .from('products')
-                            .update({ status: newStatus })
-                            .eq('id', parentProduct.id);
-                        if (parentStatusError) throw parentStatusError;
-                    }
                 }
                 
                 const isVarIdUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(variation.id);

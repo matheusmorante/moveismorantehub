@@ -179,6 +179,7 @@ Este documento registra as regras e comportamentos **implementados** no sistema,
 - **Atualização Instantânea e Otimista de Status sem Recarregamento de Tela (`toggleActive` / `deactivateCatalog`)**:
   - Ao clicar no botão de status de canais (tanto **ERP: Ativo/Inativo** quanto **Catálogo: Publicado/Oculto**) na tabela ou nos cards, o status é alternado **imediatamente na interface** através de atualização de estado local otimista (`setServerProducts`), sem recarregar a página, sem flicker/piscar de tela e sem exibir o spinner de loading global.
   - As funções `toggleActive` e `deactivateCatalog` em `useProducts.ts` nunca disparam `refresh()` bloqueante; a sincronização com o banco de dados (`products` e `product_variations`) ocorre de forma resiliente em segundo plano (background).
+  - A tabela `product_variations` possui sua própria coluna `active` booleana (`DEFAULT true NOT NULL`), permitindo que variações filhas tenham status ativo/inativo independente no ERP. Ao alternar o status de uma variação, o produto pai tem seu campo `active` sincronizado automaticamente no banco (`active: true` se houver pelo menos 1 variação ativa; `active: false` se todas estiverem inativas).
   - Em caso de falha na persistência no banco, o sistema realiza rollback automático para o status anterior e notifica o operador via toast de erro.
 
 ---

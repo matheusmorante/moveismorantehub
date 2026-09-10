@@ -14,7 +14,25 @@ export function flattenProductsForList(products: Product[]): any[] {
             ? product.variations!.map((variation: any, index: number) => buildVariationListRow(product, variation, index, parentSku))
             : [];
 
-        flattened.push({ ...product, sku: parentSku, code: parentSku, isParent, allVariations });
+        // Regra do Pai no ERP: Ativo se ao menos uma variação estiver ativa; Desativado se todas estiverem desativadas
+        const activeVariationsCount = hasJsonVariations
+            ? product.variations!.filter((v: any) => v.active !== false).length
+            : (product.active !== false ? 1 : 0);
+        const totalVariationsCount = hasJsonVariations ? product.variations!.length : 1;
+        const parentActive = hasJsonVariations
+            ? activeVariationsCount > 0
+            : (product.active !== false);
+
+        flattened.push({
+            ...product,
+            active: parentActive,
+            sku: parentSku,
+            code: parentSku,
+            isParent,
+            allVariations,
+            activeVariationsCount,
+            totalVariationsCount,
+        });
 
         if (hasJsonVariations) {
             product.variations!.forEach((variation: any, index: number) => {

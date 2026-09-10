@@ -219,9 +219,18 @@ const NewSaleOrder = ({
 
     const renderContent = () => (
         <div
-            className="bg-white dark:bg-slate-900 w-full h-full flex flex-col overflow-hidden"
+            className="relative bg-white dark:bg-slate-900 w-full h-full flex flex-col overflow-hidden"
             onClick={(e) => e.stopPropagation()}
         >
+            {form.state.isSaving && (
+                <div className="absolute inset-0 z-[120] flex flex-col items-center justify-center gap-3 bg-slate-950/30 backdrop-blur-[1px]" aria-live="polite" aria-busy="true">
+                    <div className="flex items-center gap-3 rounded-2xl bg-white px-5 py-4 text-sm font-black text-slate-800 shadow-2xl dark:bg-slate-900 dark:text-white">
+                        <i className="bi bi-arrow-repeat animate-spin text-lg text-emerald-600" />
+                        Salvando pedido com segurança…
+                    </div>
+                    <span className="text-xs font-bold text-white">O formulário permanecerá aberto até a confirmação.</span>
+                </div>
+            )}
             <div className={`sticky top-0 z-50 transition-all duration-300 border-b flex flex-col lg:flex-row justify-between items-center gap-3 px-4 py-3 sm:px-6 sm:py-3.5 shrink-0 ${isScrolled ? 'bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl shadow-md border-slate-200 dark:border-slate-800' : isBudget ? 'bg-indigo-50/40 border-indigo-100/60 dark:bg-indigo-950/20 dark:border-indigo-900/30' : isReturn ? 'bg-amber-50/40 border-amber-100/60 dark:bg-amber-950/20 dark:border-amber-900/30' : isPickup ? 'bg-purple-50/40 border-purple-100/60 dark:bg-purple-950/20 dark:border-purple-900/30' : 'bg-emerald-50/40 border-emerald-100/60 dark:bg-emerald-950/20 dark:border-emerald-900/30'}`}>
                 {/* Esquerda: Identificação */}
                 <div className="flex w-full lg:w-auto justify-between items-center shrink-0">

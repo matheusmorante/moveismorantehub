@@ -210,6 +210,8 @@ export function renderProductRowStandardCell(key: string, ctx: CellContext) {
                             isParent={product.isParent}
                             canManageCatalog={canManageCatalog}
                             isDraft={isDraft}
+                            activeVariationsCount={(product as any).activeVariationsCount}
+                            totalVariationsCount={(product as any).totalVariationsCount}
                             onToggleActive={(e) => {
                                 e.stopPropagation();
                                 onToggleActive(product.id!, product.active !== false);
