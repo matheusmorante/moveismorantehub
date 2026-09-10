@@ -7,6 +7,7 @@ import {
   isPartialSaleStockMovement,
   isStockEligibleSaleItem,
   isTemporarySaleItemReconciliation,
+  getSaleInventoryDate,
   shouldProcessSaleStock,
 } from './saleInventoryRules';
 
@@ -30,6 +31,15 @@ describe('regras de estoque de pedido de venda', () => {
     expect(canCreateSaleExitForItem(sale('scheduled', temporary), temporary, false)).toBe(false);
     expect(canCreateSaleExitForItem(sale('scheduled', linked), linked, false)).toBe(true);
     expect(canCreateSaleExitForItem(sale('scheduled', linked), linked, true)).toBe(false);
+  });
+
+  it('define a data da movimentação de saída com base na data de cadastro do pedido', () => {
+    const saleWithDate = { orderType: 'sale', status: 'scheduled', date: '2026-09-08T14:30:00.000Z' } as any;
+    expect(getSaleInventoryDate(saleWithDate)).toBe('2026-09-08T14:30:00.000Z');
+
+    const fakeNow = new Date('2026-09-10T12:00:00.000Z');
+    const saleWithoutDate = { orderType: 'sale', status: 'scheduled' } as any;
+    expect(getSaleInventoryDate(saleWithoutDate, false, fakeNow)).toBe('2026-09-10T12:00:00.000Z');
   });
 
   it('não processa a mesma saída duas vezes depois que o pedido foi marcado', () => {

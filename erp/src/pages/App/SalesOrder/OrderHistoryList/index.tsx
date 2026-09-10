@@ -5,6 +5,7 @@ import OrderHistoryTable from "./OrderHistoryTable";
 import StockActionModal from "../OrderActions/StockActionModal";
 import ConfirmModal from "@/components/shared/ConfirmModal";
 import ReturnFulfillmentConfirmModal from "./ReturnFulfillmentConfirmModal";
+import CancelReturnModal from "./CancelReturnModal";
 import OrderPagination from "./OrderPagination";
 import OrderCustomerSearchBar from "./OrderCustomerSearchBar";
 
@@ -64,6 +65,9 @@ const OrderHistoryList = forwardRef<OrderHistoryListRef, OrderHistoryListProps>(
         pendingReturnFulfillment,
         confirmReturnFulfillment,
         cancelReturnFulfillment,
+        pendingReturnCancellation,
+        confirmReturnCancellation,
+        cancelReturnCancellation,
         totalItems,
         selectedOrders,
         toggleSelection,
@@ -266,6 +270,14 @@ const OrderHistoryList = forwardRef<OrderHistoryListRef, OrderHistoryListProps>(
                     order={pendingReturnFulfillment} 
                     onCancel={cancelReturnFulfillment} 
                     onConfirm={confirmReturnFulfillment} 
+                />
+            )}
+
+            {pendingReturnCancellation && (
+                <CancelReturnModal
+                    order={pendingReturnCancellation}
+                    onCancel={cancelReturnCancellation}
+                    onConfirm={confirmReturnCancellation}
                 />
             )}
 

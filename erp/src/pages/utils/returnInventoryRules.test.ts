@@ -12,12 +12,13 @@ describe('devolução de produto cadastrado', () => {
     expect(shouldCreateReturnEntry({ ...item, productId: 'produto-teste' }, true)).toBe(false);
   });
 
-  it('só movimenta devolução atendida e preserva a data histórica na reconciliação', () => {
+  it('movimenta devolução agendada e atendida, preservando a data de cadastro da devolução', () => {
     const scheduled = { orderType: 'return', status: 'scheduled', date: '2026-08-01T10:00:00.000Z' } as any;
     const fulfilled = { ...scheduled, status: 'fulfilled' };
 
-    expect(canProcessReturnStock(scheduled)).toBe(false);
+    expect(canProcessReturnStock(scheduled)).toBe(true);
     expect(canProcessReturnStock(fulfilled)).toBe(true);
+    expect(getReturnInventoryDate(fulfilled, false)).toBe('2026-08-01T10:00:00.000Z');
     expect(getReturnInventoryDate(fulfilled, true)).toBe('2026-08-01T10:00:00.000Z');
   });
 

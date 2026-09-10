@@ -24,6 +24,13 @@ export const shouldProcessSaleStock = (
 export const canCreateSaleExitForItem = (order: Order, item: Item, hasEffectiveExit: boolean) =>
   canMaintainSaleStock(order) && !isTemporarySaleItem(item) && !hasEffectiveExit;
 
+/**
+ * A data da movimentação de saída de estoque da venda deve ser a mesma data em que o pedido foi cadastrado.
+ */
+export const getSaleInventoryDate = (order: Order, historical: boolean = false, now = new Date()) =>
+  order.date || (historical ? order.date : undefined) || now.toISOString();
+
+
 /** Verifica se um item de venda é elegível para movimentação física no estoque. */
 export const isStockEligibleSaleItem = (item?: Item): boolean =>
   Boolean(item && item.productId?.trim() && !item.isTemporaryProduct && item.itemType !== 'service');

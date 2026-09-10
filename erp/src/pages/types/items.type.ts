@@ -17,6 +17,7 @@ export type Item = {
     observation?: string;
     condition?: 'novo' | 'usado' | 'salvado' | '';
     deliveryMethod?: 'delivery' | 'pickup';
+    itemType?: 'product' | 'service';
     isCombo?: boolean;
     isComboItem?: boolean;
     currentStock?: number;

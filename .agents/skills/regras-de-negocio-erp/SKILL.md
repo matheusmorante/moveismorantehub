@@ -19,6 +19,7 @@ Use esta skill antes de alterar comportamentos de domínio referentes a vendas, 
 - **Materialização Obrigatória do CMV**: No momento da saída, o CMV unitário (`cmvUnitCost`) e o CMV total (`cmvTotal`) são capturados do **CMPM vigente naquele exato instante** e materializados no item da venda.
 - **Imutabilidade de Vendas Passadas**: O CMV materializado em uma venda antiga **jamais** muda apenas porque novas compras alteraram o `costPrice` atual do produto no futuro.
 - **Item Temporário**: Itens sem produto/variação vinculados (`isTemporaryProduct: true` ou `productId` nulo) **não** movimentam estoque nem geram CMV artificial.
+- **Data Efetiva da Movimentação de Saída**: No momento em que o pedido de venda é cadastrado definitivamente (seja ele agendado em entregas ou retiradas, ou atendido em retiradas imediatas), a data efetiva da movimentação de saída no estoque (`date` em `inventory_moves`) utiliza a **mesma data em que o pedido foi cadastrado** (`order.date`).
 
 ---
 
@@ -36,9 +37,13 @@ Use esta skill antes de alterar comportamentos de domínio referentes a vendas, 
 
 ## 3. Devoluções e Custo de Retorno
 
-- **Gatilhos de Estoque**: Devolução `scheduled` não movimenta estoque. Devolução `fulfilled` com item cadastrado gera entrada no estoque (+1).
-- **Custo de Retorno**: A entrada no estoque da devolução é valorizada utilizando o **CMV unitário histórico materializado da venda original**. Essa entrada pode ajustar o `costPrice` (CMPM) para movimentações subsequentes.
+- **Gatilhos de Estoque Imediatos**: Ao cadastrar uma devolução definitivamente (seja ela `scheduled` com coleta ou `fulfilled` já trazida à loja), a entrada no estoque é gerada **imediatamente** (`returnStockProcessed: true`).
+- **Custo de Retorno**: A entrada no estoque da devolução é valorizada utilizando o **CMV unitário histórico materializado da venda original**. Essa entrada ajusta o `costPrice` (CMPM) para movimentações subsequentes.
+- **Cancelamento e Estorno com Modal de 5 Segundos**:
+  - Para devolução agendada (`scheduled`): ação no menu de 3 pontinhos exibe **"Cancelar Devolução"**. Ao confirmar no modal de segurança com contagem de 5s, o status muda para cancelado, a entrada de estoque é estornada e é exibido o carimbo de **"Cancelado"** na linha/card.
+  - Para devolução atendida (`fulfilled`): ação no menu de 3 pontinhos exibe **"Estornar Devolução"**. Ao confirmar no modal de segurança com contagem de 5s, o status muda para cancelado, a entrada de estoque é estornada e é exibido o carimbo de **"Estornado"** na linha/card.
 - **Separação de Fatos**: Devolução nunca apaga ou substitui o registro da venda original. Ambas permanecem como fatos históricos distintos.
+- **Data Efetiva da Movimentação de Entrada**: A movimentação de entrada de estoque gerada pela devolução tem como data efetiva a **mesma data em que a devolução foi cadastrada** (`order.date`).
 
 ---
 
@@ -93,6 +98,18 @@ Use esta skill antes de alterar comportamentos de domínio referentes a vendas, 
 
 - **Regra Geral**: O `id`/UUID de qualquer registro persistido é sua identidade técnica imutável. Nenhum módulo do ERP, aplicativo, catálogo digital, serviço, Edge Function, RPC ou interface pode alterar, regenerar, substituir ou recriar o `id`/UUID de um registro existente.
 - **Relacionamentos Internos**: Relações entre entidades devem usar o `id`/UUID imutável. Em particular, a identidade de uma variação é sempre `product_variations.id`/`variation_id`; o SKU não pode ser usado como chave relacional interna quando o UUID existir.
+
+---
+
+## 10. Snapshot Imutável de Pedidos e Independência Cadastral
+
+- **Garantia de Snapshot no Cadastro**: Ao criar ou salvar qualquer pedido (`saveOrder` / `handleCompleteOrder`):
+  - O sistema **obrigatoriamente** congela o snapshot dos dados vigentes: `customerData` (nome, telefone, endereço completo), `items` (descrição, valor unitário, manuseio, código) e vendedor.
+  - Se o cliente possuir `id` vinculado mas o snapshot textual estiver incompleto ou em branco, o sistema busca automaticamente os dados completos da entidade `people` no banco e preenche o snapshot antes de gravar.
+  - As colunas dedicadas da tabela `orders` (`customer_id`, `customer_name`, `seller_id`, `seller_name`, `status`, `total_amount`, `order_number`) são sempre sincronizadas com o `order_data`.
+- **Alteração Intencional via Tela do Pedido**: Ao editar o pedido pela tela de pedidos (`OrderEditModal` / `useSalesOrderForm`), qualquer modificação intencional feita pelo usuário (troca de cliente, edição de endereço, troca de itens ou valores) altera o snapshot do pedido e as colunas físicas correspondentes.
+- **Imutabilidade contra Alterações Externas**: Se um cliente, produto ou colaborador for alterado externamente em seus próprios módulos (ex: cadastro de pessoas `/registrations/customers` ou produtos `/products`), o snapshot histórico de pedidos antigos já gravados **NÃO é alterado**. Os pedidos antigos continuam referenciando o `id`/UUID real da entidade, mas preservam o nome, endereço, descrição e valor vigentes no momento da venda.
+
 - **SKU é Código Comercial**: O SKU/código comercial pode ser alterado quando a operação de negócio permitir. A alteração nunca muda o UUID, nem pode romper vínculos, histórico, estoque, vendas, recebimentos, assistências ou demais registros relacionados.
 - **Sem Exposição Operacional**: Não disponibilizar em telas, fluxos, APIs de módulo ou lógicas comuns qualquer operação de troca de `id`/UUID. Nenhuma funcionalidade regular deve ter permissão para fazê-lo.
 - **Exceção Externa e Extraordinária**: Uma eventual alteração global de IDs só pode ocorrer diretamente no Supabase, como manutenção excepcional e fora do sistema operacional. Exige planejamento de migração de todas as referências, execução atômica, cópia de segurança e auditoria; não é uma operação de negócio nem deve ser implementada nas interfaces ou módulos.

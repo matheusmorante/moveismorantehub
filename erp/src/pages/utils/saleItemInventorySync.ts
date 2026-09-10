@@ -15,6 +15,7 @@ import { isEffectiveInventoryMove } from './movingAverageCostRules';
 export {
     canMaintainSaleStock,
     canCreateSaleExitForItem,
+    getSaleInventoryDate,
     hasTemporarySaleItem,
     isTemporarySaleItemReconciliation,
     shouldProcessSaleStock,

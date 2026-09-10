@@ -1,24 +1,29 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
 import Product from "../../../types/product.type";
 import { 
-    subscribeToProducts, 
     fetchProductsPage,
-    moveToTrash, 
-    restoreProduct, 
-    deleteProduct,
-    updateProduct,
-    bulkMoveToTrash,
-    bulkRestoreProducts,
-    bulkPermanentDeleteProducts
+    activateProduct, 
 } from '@/pages/utils/productService';
-import { normalizeVariationSku } from '@/pages/utils/productVariationDefaults';
 import { toast } from "react-toastify";
-import { supabase } from '@/pages/utils/supabaseConfig';
 import { flattenProductsForList } from './productListTransformers';
-import { filterAndSortProducts } from './productListFiltering';
 import { toggleProductSelection } from './productSelection';
 import { updateProductActivationState } from './productActivationState';
 import { updateProductCatalogState } from './productCatalogState';
+import { validateErpActivationRequirements } from './useProductsActivationValidation';
+import { persistProductActiveState } from './useProductsActivePersistence';
+import { 
+    resolveCatalogEntities, 
+    validateCatalogPublication, 
+    persistCatalogStatus 
+} from './useProductsCatalogActions';
+import { 
+    discardProductDraft, 
+    deactivateSingleProduct, 
+    deleteProductPermanently, 
+    executeBulkTrash, 
+    executeBulkRestore, 
+    executeBulkPermanentDelete 
+} from './useProductsDeletionActions';
 
 export const useProducts = (filters?: any) => {
     // ═══════════════════════════════════════════════
@@ -26,34 +31,20 @@ export const useProducts = (filters?: any) => {
     // ═══════════════════════════════════════════════
     const [serverProducts, setServerProducts] = useState<Product[]>([]);
     const [serverTotal, setServerTotal] = useState(0);
-    const [serverLoading, setServerLoading] = useState(false);
+    const [serverLoading, setServerLoading] = useState(true);
 
-    const [products, setProducts] = useState<Product[]>([]);
-    const [loading, setLoading] = useState(true);
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(30);
     const [selectedProducts, setSelectedProducts] = useState<string[]>([]);
     const [refreshSignal, setRefreshSignal] = useState(0);
 
-    const isServerPagination = true;
-
     const refresh = () => setRefreshSignal(prev => prev + 1);
 
     const removeRestoredProductsFromTrash = useCallback((ids: string[]) => {
         const restoredIds = new Set(ids.map(String));
-
         setServerProducts(previous => previous.filter(product => !restoredIds.has(String(product.id))));
         if (filters?.showTrash) {
             setServerTotal(previous => Math.max(0, previous - restoredIds.size));
-        }
-    }, [filters?.showTrash]);
-
-    const removeDeactivatedProductsFromActiveList = useCallback((ids: string[]) => {
-        const deactivatedIds = new Set(ids.map(String));
-
-        setServerProducts(previous => previous.filter(product => !deactivatedIds.has(String(product.id))));
-        if (!filters?.showTrash) {
-            setServerTotal(previous => Math.max(0, previous - deactivatedIds.size));
         }
     }, [filters?.showTrash]);
 
@@ -89,62 +80,25 @@ export const useProducts = (filters?: any) => {
     useEffect(() => {
         setCurrentPage(1);
         setSelectedProducts([]);
-    }, [filters]);
+    }, [filters?.search, filters?.category, filters?.activeOnly, filters?.status, filters?.isDraft, filters?.includeDeactivated, filters?.showTrash]);
 
-    const filteredProducts = useMemo(() => filterAndSortProducts(products, filters), [products, filters]);
-
-    // Modos paralelos: servidor usa serverProducts, local usa transformedProducts
     const serverTransformed = useMemo(() => flattenProductsForList(serverProducts).filter((product: any) => {
-        // Uma variação mesclada permanece no histórico, mas não polui a lista
-        // operacional salvo quando o operador pede para visualizá-la.
         return filters?.includeMergedVariations === true || !product.isVariation || !product.mergedToVariationId;
     }), [serverProducts, filters?.includeMergedVariations]);
 
-    // Totais e páginas dependem do modo backend
     const totalItems = serverTotal;
     const totalPages = Math.max(1, Math.ceil(totalItems / itemsPerPage));
-
-    // paginatedProducts: o servidor já entrega os produtos da página atual
     const paginatedProducts = serverTransformed;
 
-
+    // ─── Ações de exclusão e ativação ───────────────────
     const handleDelete = async (id: string) => {
         const targetProduct = serverProducts.find(p => String(p.id) === String(id) || String((p as any).realId) === String(id));
         const isDraft = Boolean(targetProduct?.is_draft) || targetProduct?.status === 'draft' || Boolean((targetProduct as any)?.isDraft);
 
         if (isDraft) {
-            const confirmed = window.confirm(
-                "Deseja descartar este rascunho permanentemente?\n\nEsta ação não poderá ser desfeita."
-            );
-            if (!confirmed) return;
-
-            const toastId = toast.loading("Descartando rascunho...");
-            try {
-                await supabase.from('product_variations').delete().eq('product_id', id);
-                const { error } = await supabase.from('products').delete().eq('id', id);
-                if (error) {
-                    await supabase.from('products').update({ deleted: true, active: false }).eq('id', id);
-                }
-                refresh();
-                toast.update(toastId, { render: "Rascunho descartado com sucesso!", type: "success", isLoading: false, autoClose: 3000 });
-            } catch (error: any) {
-                toast.update(toastId, { render: error.message || "Erro ao descartar rascunho.", type: "error", isLoading: false, autoClose: 3000 });
-            }
-            return;
-        }
-
-        const confirmed = window.confirm(
-            "Desativar este produto?\n\nEle permanecerá na lista com a etiqueta de 'Desativado'."
-        );
-        if (!confirmed) return;
-
-        const toastId = toast.loading("Desativando produto...");
-        try {
-            await deactivateProduct(id);
-            refresh();
-            toast.update(toastId, { render: "Produto desativado com sucesso.", type: "info", isLoading: false, autoClose: 3500 });
-        } catch (error: any) {
-            toast.update(toastId, { render: error.message || "Erro ao desativar produto.", type: "error", isLoading: false, autoClose: 3000 });
+            await discardProductDraft(id, refresh);
+        } else {
+            await deactivateSingleProduct(id, refresh);
         }
     };
 
@@ -159,111 +113,22 @@ export const useProducts = (filters?: any) => {
     };
 
     const handlePermanentDelete = async (id: string) => {
-        const toastId = toast.loading("Verificando e excluindo produto...");
-        try {
-            const result = await deleteProduct(id);
-            if (result.success) {
-                toast.update(toastId, { render: "Produto excluído com sucesso!", type: "success", isLoading: false, autoClose: 3000 });
-                refresh();
-            } else {
-                toast.update(toastId, { render: result.message || "Não foi possível excluir o produto.", type: "error", isLoading: false, autoClose: 5000 });
-            }
-        } catch (error: any) {
-            toast.update(toastId, { render: error.message || "Erro ao tentar excluir produto.", type: "error", isLoading: false, autoClose: 5000 });
-        }
+        await deleteProductPermanently(id, refresh);
     };
 
     const handleBulkTrash = async () => {
-        if (selectedProducts.length === 0) return;
-        const confirmed = window.confirm(
-            `Desativar ${selectedProducts.length} produto(s)?`
-        );
-        if (!confirmed) return;
-
-        const toastId = toast.loading("Desativando itens selecionados...");
-        setLoading(true);
-        try {
-            const realIds = selectedProducts.filter(id => !id.toString().includes('_'));
-            const result = await bulkMoveToTrash(realIds);
-            refresh();
-            
-            if (result.successCount > 0) {
-                toast.update(toastId, { 
-                    render: `${result.successCount} produto(s) desativado(s) com sucesso.`,
-                    type: "info", 
-                    isLoading: false, 
-                    autoClose: 3000 
-                });
-            } else {
-                toast.dismiss(toastId);
-            }
-            
-            if (result.errorCount > 0) {
-                result.errors.forEach(err => toast.warning(err));
-            }
-            setSelectedProducts([]);
-        } catch (error) {
-            toast.update(toastId, { render: "Erro ao desativar produtos em massa.", type: "error", isLoading: false, autoClose: 3000 });
-            console.error(error);
-        } finally {
-            setLoading(false);
-        }
+        await executeBulkTrash(selectedProducts, refresh, setSelectedProducts, setServerLoading);
     };
 
     const handleBulkRestore = async () => {
-        if (selectedProducts.length === 0) return;
-        setLoading(true);
-        try {
-            const realIds = selectedProducts.filter(id => !id.toString().includes('_'));
-            await bulkRestoreProducts(realIds);
-            removeRestoredProductsFromTrash(realIds);
-            refresh();
-            toast.success(`${realIds.length} produto(s) ativado(s) com sucesso!`);
-            setSelectedProducts([]);
-        } catch (error) {
-            toast.error("Erro ao ativar produtos selecionados.");
-        } finally {
-            setLoading(false);
-        }
+        await executeBulkRestore(selectedProducts, refresh, removeRestoredProductsFromTrash, setSelectedProducts, setServerLoading);
     };
 
     const handleBulkPermanentDelete = async () => {
-        if (selectedProducts.length === 0) return;
-        const toastId = toast.loading("Excluindo produtos selecionados...");
-        setLoading(true);
-        let successCount = 0;
-        let errors: string[] = [];
-
-        try {
-            const realIds = selectedProducts.filter(id => !id.toString().includes('_'));
-            for (const id of realIds) {
-                const res = await deleteProduct(id);
-                if (res.success) {
-                    successCount++;
-                } else if (res.message) {
-                    errors.push(res.message);
-                }
-            }
-
-            if (successCount > 0) {
-                toast.update(toastId, { render: `${successCount} produto(s) excluído(s) permanentemente.`, type: "success", isLoading: false, autoClose: 3000 });
-                refresh();
-            } else {
-                toast.dismiss(toastId);
-            }
-
-            if (errors.length > 0) {
-                // Exibir o primeiro erro representativo
-                toast.error(errors[0]);
-            }
-            setSelectedProducts([]);
-        } catch (error: any) {
-            toast.update(toastId, { render: "Erro ao excluir produtos em massa.", type: "error", isLoading: false, autoClose: 3000 });
-        } finally {
-            setLoading(false);
-        }
+        await executeBulkPermanentDelete(selectedProducts, refresh, setSelectedProducts, setServerLoading);
     };
 
+    // ─── Seleção ───────────────────
     const toggleSelection = (id: string) => {
         setSelectedProducts(previous => toggleProductSelection(previous, id, serverTransformed));
     };
@@ -282,342 +147,56 @@ export const useProducts = (filters?: any) => {
 
     const clearSelection = () => setSelectedProducts([]);
 
+    // ─── Alternância de Ativo/Inativo ERP ───────────────────
     const toggleActive = async (id: string, currentStatus: boolean) => {
         const newActive = !currentStatus;
 
-            if (newActive) {
-                // Bloqueio rigoroso para Rascunhos: não pode ativar no ERP
-                if (id.includes('_')) {
-                    const [parentId] = id.split('_');
-                    const parent = serverProducts.find(p => String(p.id) === String(parentId)) || products.find(p => String(p.id) === String(parentId));
-                    const isParentDraft = Boolean(parent?.is_draft) || parent?.status === 'draft' || Boolean((parent as any)?.isDraft);
-                    if (isParentDraft) {
-                        toast.warning("Este produto é um rascunho. Termine o cadastramento para poder ativá-lo no ERP.");
-                        return;
-                    }
+        if (newActive) {
+            const validation = validateErpActivationRequirements(id, serverProducts, serverProducts);
+            if (!validation.isValid) {
+                if (validation.errorMessage?.includes("rascunho")) {
+                    toast.warning(validation.errorMessage);
                 } else {
-                    const targetProduct = serverProducts.find(p => String(p.id) === String(id)) || products.find(p => String(p.id) === String(id));
-                    const isDraft = Boolean(targetProduct?.is_draft) || targetProduct?.status === 'draft' || Boolean((targetProduct as any)?.isDraft);
-                    if (isDraft) {
-                        toast.warning("Este produto é um rascunho. Termine o cadastramento para poder ativá-lo no ERP.");
-                        return;
-                    }
+                    toast.error(validation.errorMessage);
                 }
-
-                if (id.includes('_')) {
-                    const [parentId, ...skuParts] = id.split('_');
-                    const targetSku = skuParts.join('_');
-                    const parent = products.find(p => p.id === parentId);
-                    if (parent && parent.variations) {
-                        const v = parent.variations.find((item: any, idx: number) => {
-                            const sku = item.sku || `${parent.sku || parent.code}-${String(idx + 1).padStart(2, '0')}`;
-                            return String(sku) === targetSku;
-                        });
-                        if (v) {
-                            const missingFields: string[] = [];
-                            const isVPriceValid = (v.syncUnitPrice || Number(v.unitPrice || 0) > 0 || Number(parent.unitPrice || 0) > 0);
-                            
-                            if (!(parent.description || '').trim() || (parent.description || '').trim().length < 2) {
-                                missingFields.push('nome do produto no pai');
-                            }
-                            if (!isVPriceValid) {
-                                missingFields.push('preço de venda');
-                            }
-                            if (!(parent.categoryIds || []).length && !parent.category) {
-                                missingFields.push('categoria no pai');
-                            }
-                            if (!parent.mainSupplierId && !parent.supplierId) {
-                                missingFields.push('fornecedor no pai');
-                            }
-
-                            if (missingFields.length > 0) {
-                                toast.error(`Preencha os requisitos do ERP (${missingFields.join(', ')}) antes de ativar esta variação.`);
-                                return;
-                            }
-                        }
-                    }
-                } else {
-                    const productToActivate = products.find(product => String(product.id) === String(id));
-                    if (productToActivate) {
-                        const missingFields: string[] = [];
-                        const isParent = productToActivate.isParent || (productToActivate.variations && productToActivate.variations.length > 0);
-
-                        if (!(productToActivate.name || productToActivate.description || '').trim() || (productToActivate.name || productToActivate.description || '').trim().length < 2) {
-                            missingFields.push('nome do produto');
-                        }
-                        if (!isParent && (!productToActivate.unitPrice || Number(productToActivate.unitPrice) <= 0)) {
-                            missingFields.push('preço de venda');
-                        }
-                        if (!(productToActivate.categoryIds || []).length && !productToActivate.category) {
-                            missingFields.push('categoria');
-                        }
-                        if (!productToActivate.mainSupplierId && !productToActivate.supplierId) {
-                            missingFields.push('fornecedor');
-                        }
-
-                        if (missingFields.length > 0) {
-                            toast.error(`Preencha os requisitos do ERP (${missingFields.join(', ')}) antes de ativar este produto.`);
-                            return;
-                        }
-                    }
-                }
+                return;
             }
+        }
 
-        // ⚡ Atualização Otimista Imediata no estado local (sem recarregar a tela nem flicker)
+        // Atualização otimista
         setServerProducts(previous => updateProductActivationState(previous, id, newActive));
-
         toast.success(`Produto ${newActive ? 'ativado' : 'desativado'} com sucesso!`);
 
         try {
-            // Uma variação persistida é atualizada diretamente. Regravar o
-            // produto-pai inteiro aqui fazia o toggle falhar quando outra
-            // variação legada da mesma família ainda não possuía UUID.
-            const syncParentActiveInDb = async (parentId: string) => {
-                const { data: siblings } = await supabase
-                    .from('product_variations')
-                    .select('active')
-                    .eq('product_id', parentId);
-                const hasActiveVariation = (siblings || []).some((s: any) => s.active !== false);
-                await supabase.from('products').update({ active: hasActiveVariation }).eq('id', parentId);
-            };
-
-            const isVariationUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
-            if (isVariationUuid) {
-                const { data: variation, error: variationLookupError } = await supabase
-                    .from('product_variations')
-                    .select('id, product_id')
-                    .eq('id', id)
-                    .maybeSingle();
-                if (variationLookupError) throw variationLookupError;
-                if (variation) {
-                    const { error: variationUpdateError } = await supabase
-                        .from('product_variations')
-                        .update({ active: newActive })
-                        .eq('id', id);
-                    if (variationUpdateError) throw variationUpdateError;
-                    if (variation.product_id) {
-                        await syncParentActiveInDb(variation.product_id);
-                    }
-                    return;
-                }
-            }
-
-            // 1. Identificador visual legado (parentId_sku): atualiza somente
-            // a linha correspondente no banco. Não regrava o pai nem usa SKU
-            // para reconstruir qualquer identidade; aqui ele só localiza o
-            // registro legado que a própria lista exibiu.
-            if (id.includes('_')) {
-                const [parentId, ...skuParts] = id.split('_');
-                const targetSku = skuParts.join('_');
-                const { data: updatedLegacyVariations, error: legacyVariationError } = await supabase
-                    .from('product_variations')
-                    .update({ active: newActive })
-                    .eq('product_id', parentId)
-                    .eq('sku', targetSku)
-                    .select('id');
-                if (legacyVariationError) throw legacyVariationError;
-                if ((updatedLegacyVariations || []).length > 0) {
-                    await syncParentActiveInDb(parentId);
-                    return;
-                }
-                throw new Error('A variação não foi encontrada para alterar o status.');
-            }
-
-            // 2. Caso seja uma variação com ID direto no banco ou variação interna
-            const targetProduct = serverProducts.find(p => String(p.id) === String(id));
-            if (!targetProduct) {
-                for (const parent of serverProducts) {
-                    if (Array.isArray(parent.variations)) {
-                        const vIndex = parent.variations.findIndex((v: any) => String(v.id) === String(id));
-                        if (vIndex !== -1) {
-                            const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
-                            if (isUUID) {
-                                const { error } = await supabase.from('product_variations').update({ active: newActive }).eq('id', id);
-                                if (error) throw error;
-                                if (parent.id) {
-                                    await syncParentActiveInDb(parent.id);
-                                }
-                                return;
-                            }
-                            throw new Error('Esta variação legada não possui UUID e não pode ser localizada com segurança.');
-                        }
-                    }
-                }
-                return;
-            }
-
-            // 3. Caso seja um produto pai ou produto regular
-            const parentProduct = products.find(p => p.id === id) || targetProduct;
-            if (parentProduct) {
-                const isProductUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
-                if (isProductUuid) {
-                    const { error: productUpdateError } = await supabase
-                        .from('products')
-                        .update({ active: newActive })
-                        .eq('id', id);
-                    if (productUpdateError) throw productUpdateError;
-
-                    const { error: variationUpdateError } = await supabase
-                        .from('product_variations')
-                        .update({ active: newActive })
-                        .eq('product_id', id);
-                    if (variationUpdateError) throw variationUpdateError;
-                } else {
-                    await updateProduct(id, { active: newActive });
-                }
-
-                const independentChildren = serverProducts.filter(p => p.parentId === id);
-                for (const child of independentChildren) {
-                    if (child.id) {
-                        await updateProduct(child.id, { active: newActive });
-                    }
-                }
-                return;
-            }
-
-            await updateProduct(id, { active: newActive });
+            await persistProductActiveState(id, newActive, serverProducts, serverProducts);
         } catch (error) {
             console.error("Erro ao alterar status:", error);
             toast.error("Erro ao alterar status do produto no banco.");
             // Reverte em caso de erro
-            setServerProducts(previous => previous.map(p => {
-                if (String(p.id) === String(id)) {
-                    const revertedVars = p.variations?.map((v: any) => ({ ...v, active: currentStatus }));
-                    return { ...p, active: currentStatus, variations: revertedVars || p.variations };
-                }
-                if (id.includes('_')) {
-                    const [parentId, ...skuParts] = id.split('_');
-                    const targetSku = skuParts.join('_');
-                    if (String(p.id) === String(parentId) && p.variations) {
-                        const revertedVars = p.variations.map((v: any, index: number) => {
-                            const vSku = v.sku || index;
-                            if (String(vSku) === String(targetSku) || String(v.id) === String(targetSku)) {
-                                return { ...v, active: currentStatus };
-                            }
-                            return v;
-                        });
-                        return { ...p, variations: revertedVars };
-                    }
-                }
-                if (p.variations?.some((v: any) => String(v.id) === String(id))) {
-                    const revertedVars = p.variations.map((v: any) =>
-                        String(v.id) === String(id) ? { ...v, active: currentStatus } : v
-                    );
-                    return { ...p, variations: revertedVars };
-                }
-                return p;
-            }));
+            setServerProducts(previous => updateProductActivationState(previous, id, currentStatus));
         }
     };
 
+    // ─── Catálogo Digital ───────────────────
     const deactivateCatalog = async (id: string) => {
         try {
-            const [possibleParentId, ...skuParts] = id.split('_');
-            const targetSku = skuParts.join('_');
-            const isCompoundId = skuParts.length > 0;
-
-            let parentProduct: Product | undefined;
-            let variation: any = undefined;
-
-            // 1. Procurar em serverProducts por ID composto (possibleParentId)
-            if (isCompoundId) {
-                parentProduct = serverProducts.find(p => String(p.id) === String(possibleParentId));
-                if (parentProduct && Array.isArray(parentProduct.variations)) {
-                    variation = parentProduct.variations.find((item: any, index: number) => {
-                        if (String(item.id) === targetSku) return true;
-                        if (String(index) === targetSku) return true;
-                        const rawSku = item.sku || '';
-                        const genSku = `${parentProduct!.sku || parentProduct!.code || ''}-${String(index + 1).padStart(2, '0')}`;
-                        if (rawSku && String(rawSku) === targetSku) return true;
-                        if (genSku === targetSku) return true;
-                        if (normalizeVariationSku(rawSku) === normalizeVariationSku(targetSku)) return true;
-                        if (normalizeVariationSku(genSku) === normalizeVariationSku(targetSku)) return true;
-                        return false;
-                    });
-                }
-            }
-
-            // 2. Procurar em serverProducts se id for diretamente o ID ou SKU de uma variação
-            if (!variation) {
-                for (const p of serverProducts) {
-                    if (Array.isArray(p.variations)) {
-                        const found = p.variations.find((v: any) => 
-                            String(v.id) === String(id) || 
-                            String(v.id) === targetSku ||
-                            String(v.sku) === String(id) ||
-                            normalizeVariationSku(v.sku || '') === normalizeVariationSku(id)
-                        );
-                        if (found) {
-                            parentProduct = p;
-                            variation = found;
-                            break;
-                        }
-                    }
-                }
-            }
-
-            // 3. Fallback: procurar no Supabase se não estiver na página atual em memória
-            if (isCompoundId && !variation) {
-                const { data: dbProd } = await supabase.from('products').select('*, product_variations(*)').eq('id', possibleParentId).maybeSingle();
-                if (dbProd) {
-                    parentProduct = dbProd;
-                    const vars = (dbProd as any).product_variations || (dbProd as any).variations || [];
-                    variation = vars.find((item: any, index: number) => {
-                        if (String(item.id) === targetSku) return true;
-                        const rawSku = item.sku || '';
-                        const genSku = `${dbProd.code || ''}-${String(index + 1).padStart(2, '0')}`;
-                        return normalizeVariationSku(rawSku) === normalizeVariationSku(targetSku) ||
-                               normalizeVariationSku(genSku) === normalizeVariationSku(targetSku);
-                    });
-                }
-            } else if (!variation) {
-                const { data: dbVar } = await supabase.from('product_variations').select('*, products(*)').eq('id', id).maybeSingle();
-                if (dbVar) {
-                    variation = dbVar;
-                    parentProduct = (dbVar as any).products;
-                }
-            }
-
-            // 4. Se ainda não for variação, verifica se é produto simples/pai
-            if (!parentProduct) {
-                parentProduct = serverProducts.find(p => String(p.id) === String(id));
-            }
-
-            const isVariation = Boolean(variation);
+            const { parentProduct, variation, isVariation } = await resolveCatalogEntities(id, serverProducts);
             const currentStatus = isVariation ? (variation.status || 'published') : (parentProduct?.status || 'published');
             const newStatus = currentStatus === 'published' ? 'hidden' : 'published';
 
             if (newStatus === 'published') {
-                const isDraft = Boolean(parentProduct?.is_draft) || parentProduct?.status === 'draft' || Boolean((parentProduct as any)?.isDraft);
-                if (isDraft) {
-                    toast.warning("Este produto é um rascunho. Termine o cadastramento para poder publicá-lo no Catálogo.");
+                const validation = validateCatalogPublication(parentProduct, variation, isVariation);
+                if (!validation.isValid) {
+                    if (validation.errorMessage?.includes("rascunho")) {
+                        toast.warning(validation.errorMessage);
+                    } else {
+                        toast.error(validation.errorMessage);
+                    }
                     return;
-                }
-
-                if (isVariation) {
-                    const hasImages = (variation?.images && variation.images.length > 0) || 
-                                      (variation?.image_url && String(variation.image_url).trim().length > 0) ||
-                                      (parentProduct?.images && parentProduct.images.length > 0);
-                    const hasPrice = (variation?.syncUnitPrice || Number(variation?.unitPrice || 0) > 0 || Number(parentProduct?.unitPrice || 0) > 0);
-                    const isEligible = hasPrice && hasImages && (parentProduct?.description || (parentProduct as any)?.name || '').trim().length >= 2;
-
-                    if (!isEligible) {
-                        toast.error('Preencha os requisitos do Catálogo (preço maior que zero e pelo menos uma imagem) antes de publicar esta variação.');
-                        return;
-                    }
-                } else if (parentProduct) {
-                    const hasImages = parentProduct.images && parentProduct.images.length > 0;
-                    const hasPrice = Number(parentProduct.unitPrice || 0) > 0;
-                    const isEligible = hasPrice && hasImages && (parentProduct.description || (parentProduct as any)?.name || '').trim().length >= 2;
-
-                    if (!isEligible) {
-                        toast.error('Preencha os requisitos do Catálogo (preço maior que zero e pelo menos uma imagem) antes de publicar este produto.');
-                        return;
-                    }
                 }
             }
 
-            // ⚡ Atualização Otimista Imediata no estado local (sem recarregar a tela nem flicker)
+            // Atualização otimista
             setServerProducts(previous => updateProductCatalogState(previous, id, newStatus));
 
             if (isVariation) {
@@ -626,60 +205,7 @@ export const useProducts = (filters?: any) => {
                 toast.success(`Catálogo Digital: Produto ${newStatus === 'published' ? 'publicado' : 'ocultado'} com sucesso! 🚀`);
             }
 
-            // Persistência em background
-            if (isVariation && variation) {
-                if (parentProduct?.id && Array.isArray(parentProduct.variations) && parentProduct.variations.length === 1) {
-                    const { error: parentStatusError } = await supabase
-                        .from('products')
-                        .update({ status: newStatus })
-                        .eq('id', parentProduct.id);
-                    if (parentStatusError) throw parentStatusError;
-
-                    // O catálogo também filtra pelo status do pai. Para o
-                    // produto de variação única, pai e filha representam o
-                    // mesmo item e precisam sempre permanecer sincronizados.
-                }
-                
-                const isVarIdUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(variation.id);
-                if (isVarIdUUID) {
-                    const { error } = await supabase
-                        .from('product_variations')
-                        .update({ status: newStatus })
-                        .eq('id', variation.id);
-                    if (error) throw error;
-                }
-                return;
-            }
-
-            const isProdIdUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
-            if (isProdIdUUID) {
-                const { error: productError } = await supabase
-                    .from('products')
-                    .update({ status: newStatus })
-                    .eq('id', id);
-                if (productError) throw productError;
-            }
-
-            await updateProduct(id, { status: newStatus });
-
-            if (parentProduct?.variations?.length) {
-                await updateProduct(id, {
-                    variations: parentProduct.variations.map((variation: any) => ({ ...variation, status: newStatus }))
-                });
-            }
-
-            if (isProdIdUUID) {
-                const { error: variationsError } = await supabase
-                    .from('product_variations')
-                    .update({ status: newStatus })
-                    .eq('product_id', id);
-                if (variationsError) throw variationsError;
-            }
-
-            const independentChildren = serverProducts.filter(product => String(product.parentId) === String(id));
-            await Promise.all(independentChildren
-                .filter(child => child.id)
-                .map(child => updateProduct(child.id!, { status: newStatus })));
+            await persistCatalogStatus(id, newStatus, parentProduct, variation, serverProducts);
         } catch (error) {
             console.error('Erro ao alternar catálogo:', error);
             toast.error('Erro ao alterar status no Catálogo Digital.');

@@ -564,3 +564,21 @@ export const isSupplierNameTaken = async (name: string, excludeId?: string): Pro
         return pName === normalized;
     });
 };
+
+export const fetchPersonById = async (id: string): Promise<Person | null> => {
+    if (!id) return null;
+    try {
+        const { data, error } = await supabase
+            .from(TABLE_NAME)
+            .select('*')
+            .eq('id', id)
+            .maybeSingle();
+
+        if (error || !data) return null;
+        return mapFromDB(data);
+    } catch (e) {
+        console.error("Erro ao buscar pessoa por ID em personService:", e);
+        return null;
+    }
+};
+

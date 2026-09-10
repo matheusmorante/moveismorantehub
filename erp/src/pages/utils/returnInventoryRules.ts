@@ -8,7 +8,12 @@ export const shouldCreateReturnEntry = (item: Item, alreadyExists: boolean) =>
   Boolean(item.productId?.trim()) && !item.isTemporaryProduct && !alreadyExists;
 
 export const canProcessReturnStock = (order: Order) =>
-  order.orderType === 'return' && order.status === 'fulfilled';
+  order.orderType === 'return' && ['scheduled', 'fulfilled'].includes(order.status || '');
 
-export const getReturnInventoryDate = (order: Order, historical: boolean, now = new Date()) =>
-  historical && order.date ? order.date : now.toISOString();
+
+/**
+ * A data da movimentação de entrada de estoque da devolução deve ser a mesma data em que a devolução foi cadastrada.
+ */
+export const getReturnInventoryDate = (order: Order, historical: boolean = false, now = new Date()) =>
+  order.date || (historical ? order.date : undefined) || now.toISOString();
+

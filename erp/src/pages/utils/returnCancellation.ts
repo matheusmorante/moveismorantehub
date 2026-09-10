@@ -4,13 +4,14 @@ export const buildCancelledReturn = (order: Order): Partial<Order> => {
     if (order.orderType !== "return") {
         throw new Error("O pedido informado não é uma devolução.");
     }
-    if (order.status === "fulfilled" || order.returnStockProcessed) {
-        throw new Error("Uma devolução atendida não pode ser cancelada.");
+    if (order.status === "cancelled") {
+        throw new Error("Esta devolução já foi cancelada.");
     }
 
     return {
         status: "cancelled",
         returnStockProcessed: false,
+        returnStockReversed: true,
     };
 };
 

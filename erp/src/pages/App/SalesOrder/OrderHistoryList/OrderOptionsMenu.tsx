@@ -1,10 +1,9 @@
 import React, { useState, useRef } from "react";
 import { createPortal } from "react-dom";
 import Order from "../../../types/order.type";
-import { buttons } from "../OrderActions/orderActionsConfig";
-import PostSaleActionMenuButton, { isPostSaleAction } from "./PostSaleActionMenuButton";
-import CancelScheduledSaleButton from "./CancelScheduledSaleButton";
-import { canGenerateReturn } from "@/pages/utils/returnPolicy";
+import { OrderMenuDraftActions } from "./OrderMenuDraftActions";
+import { OrderMenuTrashActions } from "./OrderMenuTrashActions";
+import { OrderMenuActiveActions } from "./OrderMenuActiveActions";
 
 interface OrderOptionsMenuProps {
     order: Order;
@@ -97,160 +96,31 @@ export const OrderOptionsMenu = ({
                                 </span>
                             </button>
                         ) : isDraft ? (
-                            <>
-                                <button
-                                    type="button"
-                                    onClick={(e) => {
-                                        e.stopPropagation();
-                                        onEdit(order);
-                                        setShowMenu(false);
-                                    }}
-                                    className="flex items-center gap-3 w-full p-2.5 rounded-xl text-blue-600 hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-blue-950/30 transition-all text-left cursor-pointer group/item"
-                                    title="Retomar cadastramento do pedido"
-                                >
-                                    <i className="bi bi-arrow-repeat text-lg" />
-                                    <span className="text-xs font-black uppercase tracking-widest">
-                                        Retomar Cadastramento
-                                    </span>
-                                </button>
-                                <button
-                                    type="button"
-                                    onClick={(e) => {
-                                        e.stopPropagation();
-                                        onDelete(order.id!);
-                                        setShowMenu(false);
-                                    }}
-                                    className="flex items-center gap-3 w-full p-2.5 rounded-xl text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/30 transition-all text-left cursor-pointer group/item"
-                                    title="Descartar este rascunho permanentemente"
-                                >
-                                    <i className="bi bi-trash3-fill text-lg" />
-                                    <span className="text-xs font-black uppercase tracking-widest">
-                                        Descartar Rascunho
-                                    </span>
-                                </button>
-                            </>
+                            <OrderMenuDraftActions
+                                order={order}
+                                onEdit={onEdit}
+                                onDelete={onDelete}
+                                onCloseMenu={() => setShowMenu(false)}
+                            />
                         ) : showTrash ? (
-                            <>
-                                <button
-                                    type="button"
-                                    onClick={(e) => {
-                                        e.stopPropagation();
-                                        onRestore(order.id!);
-                                        setShowMenu(false);
-                                    }}
-                                    className="flex items-center gap-3 w-full p-2.5 rounded-xl text-emerald-600 hover:bg-emerald-50 dark:text-emerald-400 dark:hover:bg-emerald-950/30 transition-all text-left cursor-pointer group/item"
-                                    title="Restaurar Pedido"
-                                >
-                                    <i className="bi bi-arrow-counterclockwise text-lg" />
-                                    <span className="text-xs font-black uppercase tracking-widest">
-                                        Restaurar Pedido
-                                    </span>
-                                </button>
-                                <button
-                                    type="button"
-                                    onClick={(e) => {
-                                        e.stopPropagation();
-                                        onPermanentDelete(order.id!);
-                                        setShowMenu(false);
-                                    }}
-                                    className="flex items-center gap-3 w-full p-2.5 rounded-xl text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/30 transition-all text-left cursor-pointer group/item"
-                                    title="Excluir Definitivamente"
-                                >
-                                    <i className="bi bi-trash-fill text-lg" />
-                                    <span className="text-xs font-black uppercase tracking-widest">
-                                        Excluir Definitivamente
-                                    </span>
-                                </button>
-                            </>
+                            <OrderMenuTrashActions
+                                orderId={order.id!}
+                                onRestore={onRestore}
+                                onPermanentDelete={onPermanentDelete}
+                                onCloseMenu={() => setShowMenu(false)}
+                            />
                         ) : (
-                            <>
-                                {canReconcileTemporaryProducts && (
-                                    <button
-                                        onClick={(e) => { e.stopPropagation(); onEdit(order, 2, true, true); setShowMenu(false); }}
-                                        className="flex w-full items-center gap-3 rounded-xl p-2.5 text-amber-600 transition-all hover:bg-amber-50 dark:text-amber-400 dark:hover:bg-amber-950/30"
-                                    >
-                                        <i className="bi bi-link-45deg text-lg" />
-                                        <span className="text-xs font-black uppercase tracking-widest">Conciliação Comercial</span>
-                                    </button>
-                                )}
-
-                                {!isEditLocked && !isCancelled && (
-                                    <button
-                                        onClick={(e) => { e.stopPropagation(); onEdit(order); setShowMenu(false); }}
-                                        className={`flex items-center gap-3 w-full p-2.5 rounded-xl transition-all hover:bg-slate-50 dark:hover:bg-slate-800 group/item ${
-                                            order.orderType === 'assistance' ? 'text-orange-600' : order.orderType === 'budget' ? 'text-blue-600' : order.orderType === 'return' ? 'text-amber-600' : 'text-emerald-600'
-                                        }`}
-                                        title={isDraft ? 'Retomar cadastramento do pedido' : `Editar est${order.orderType === 'assistance' ? 'a assistência' : order.orderType === 'budget' ? 'e orçamento' : order.orderType === 'return' ? 'a devolução' : 'a venda'}`}
-                                    >
-                                        <i className={`bi ${isDraft ? 'bi-arrow-repeat' : 'bi-pencil-fill'} text-lg`} />
-                                        <div className="flex flex-col text-left">
-                                            <span className="text-xs font-black uppercase tracking-widest">
-                                                {isDraft
-                                                    ? 'Retomar Cadastramento'
-                                                    : (order.orderType === 'assistance' ? 'Editar Assistência' : order.orderType === 'budget' ? 'Editar Orçamento' : order.orderType === 'return' ? 'Editar Devolução' : 'Editar Venda')}
-                                            </span>
-                                        </div>
-                                    </button>
-                                )}
-
-                                <PostSaleActionMenuButton
-                                    order={order}
-                                    onOpen={onShowPostSaleActions}
-                                    onCloseMenu={() => setShowMenu(false)}
-                                />
-
-                                {buttons.filter(btn => {
-                                    if (isPostSaleAction(btn.key)) return false;
-                                    if (btn.key === 'sendCustomerReviews' && order.orderType === 'assistance') return false;
-                                    if (btn.orderTypes && !btn.orderTypes.includes(order.orderType || 'sale')) return false;
-
-                                    const hasReturn = !!(
-                                        order.returnOrderId ||
-                                        order.orderType === 'return' ||
-                                        order.status === 'returned' ||
-                                        (order as any).hasReturn ||
-                                        (order as any).returned ||
-                                        (order as any).order_data?.returnOrderId ||
-                                        (order as any).order_data?.returned ||
-                                        (order as any).order_data?.status === 'returned'
-                                    );
-
-                                    if (btn.key === 'generateReturn' && (hasReturn || !canGenerateReturn(order))) return false;
-                                    if (btn.key === 'undoReturn' && (!hasReturn || order.status === 'cancelled')) return false;
-
-                                    return true;
-                                }).map((btn) => {
-                                    const isPrintReceipt = btn.key === 'printReceipt';
-                                    const disablePrintReceipt = isPrintReceipt && (!order.customerData?.fullName || order.customerData.fullName === "Nenhum" || order.customerData.fullName === "Ao Consumidor");
-                                    return (
-                                        <button
-                                            key={btn.key}
-                                            disabled={disablePrintReceipt}
-                                            onClick={async (e) => {
-                                                e.stopPropagation();
-                                                if (disablePrintReceipt) return;
-                                                onAction(btn.key, order);
-                                                setShowMenu(false);
-                                            }}
-                                            className={`flex items-center gap-3 w-full p-2.5 rounded-xl transition-all ${disablePrintReceipt ? 'opacity-50 cursor-not-allowed text-slate-400 dark:text-slate-600 bg-slate-50 dark:bg-slate-900/50' : `hover:bg-slate-50 dark:hover:bg-slate-800 group/item ${btn.color}`}`}
-                                            title={disablePrintReceipt ? 'Não é possível imprimir recibo sem cliente associado' : btn.tooltip}
-                                        >
-                                            <div className="flex items-center gap-3 text-left">
-                                                <i className={`bi ${btn.icon} text-lg`} />
-                                                <span className="text-xs font-black uppercase tracking-widest">
-                                                    {typeof btn.label === 'function' ? btn.label(order) : btn.label}
-                                                </span>
-                                            </div>
-                                        </button>
-                                    );
-                                })}
-
-                                <CancelScheduledSaleButton
-                                    order={order}
-                                    onStatusUpdate={onStatusUpdate}
-                                    onCloseMenu={() => setShowMenu(false)}
-                                />
-                            </>
+                            <OrderMenuActiveActions
+                                order={order}
+                                isEditLocked={isEditLocked}
+                                isCancelled={isCancelled}
+                                canReconcileTemporaryProducts={canReconcileTemporaryProducts}
+                                onEdit={onEdit}
+                                onAction={onAction}
+                                onStatusUpdate={onStatusUpdate}
+                                onShowPostSaleActions={onShowPostSaleActions}
+                                onCloseMenu={() => setShowMenu(false)}
+                            />
                         )}
                     </div>
                 </div>,

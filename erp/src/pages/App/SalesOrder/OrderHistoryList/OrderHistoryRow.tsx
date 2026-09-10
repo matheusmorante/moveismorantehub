@@ -236,7 +236,7 @@ const OrderHistoryRow = ({
                     className="pointer-events-none absolute inset-0 z-10 bg-slate-950/35 flex items-center justify-center"
                 >
                     <span className="max-w-[82%] truncate whitespace-nowrap rounded-md border-2 border-white bg-red-600 font-black uppercase tracking-[0.2em] text-white opacity-100 shadow-2xl drop-shadow-md px-4 py-1.5 text-xs">
-                        Cancelado
+                        {order.orderType === 'return' && order.returnStockReversed ? 'Estornado' : 'Cancelado'}
                     </span>
                 </div>
             )}

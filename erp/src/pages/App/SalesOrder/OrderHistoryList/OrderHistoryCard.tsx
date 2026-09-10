@@ -106,7 +106,13 @@ const OrderHistoryCard = ({
             onClick={isDraft ? () => onEdit(order) : (canViewDetails ? () => onViewDetails?.(order) : undefined)}
             className={`bg-white dark:bg-slate-900 min-h-fit border border-slate-200 dark:border-slate-800 ${isHighlighted ? 'animate-highlight' : ''} rounded-xl shadow-none transition-all relative overflow-visible ${isDraft || canViewDetails ? 'cursor-pointer' : 'cursor-default'}`}
         >
-            {order.status === 'cancelled' && <CancelledOrderBadge tilted large />}
+            {order.status === 'cancelled' && (
+                <CancelledOrderBadge 
+                    tilted 
+                    large 
+                    text={order.orderType === 'return' && order.returnStockReversed ? 'Estornado' : 'Cancelado'} 
+                />
+            )}
 
             {/* Header com faixa colorida + badges operacionais */}
             <div className={`${headerAccentClass} rounded-t-xl px-3 py-2 flex items-center justify-between gap-2 flex-wrap`}>
