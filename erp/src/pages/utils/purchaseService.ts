@@ -237,12 +237,27 @@ export const updatePurchase = async (id: string, updates: Partial<Purchase>): Pr
 
         if (updates.items && merged.stockProcessed) {
             for (const item of updates.items) {
-                await supabase
+                // A variação é a identidade operacional principal. product_id
+                // fica como segurança contra cruzamento, mas variation_id é a
+                // chave primária que distingue itens do mesmo pai na compra.
+                let moveQuery = supabase
                     .from('inventory_moves')
                     .update({ unit_cost: item.unitCost })
-                    .eq('product_id', item.productId)
-                    .eq('type', 'entry')
-                    .like('observation', `%${id}%`);
+                    .eq('order_id', id)
+                    .eq('type', 'entry');
+
+                if (item.variationId) {
+                    moveQuery = moveQuery
+                        .eq('variation_id', item.variationId)
+                        .eq('product_id', item.productId);
+                } else {
+                    moveQuery = moveQuery
+                        .eq('product_id', item.productId)
+                        .is('variation_id', null);
+                }
+
+                const { error: moveUpdateError } = await moveQuery;
+                if (moveUpdateError) throw moveUpdateError;
             }
         }
     } catch (error) {

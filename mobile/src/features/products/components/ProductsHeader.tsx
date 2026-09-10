@@ -22,6 +22,10 @@ interface Props {
   onSearch: (value: string) => void;
   onNewProduct: () => void;
   onOpenConfigs: () => void;
+  showDeactivated: boolean;
+  showMerged: boolean;
+  onToggleDeactivated: () => void;
+  onToggleMerged: () => void;
 }
 
 export function ProductsHeader({
@@ -31,6 +35,10 @@ export function ProductsHeader({
   onSearch,
   onNewProduct,
   onOpenConfigs,
+  showDeactivated,
+  showMerged,
+  onToggleDeactivated,
+  onToggleMerged,
 }: Props) {
   const [showMenu, setShowMenu] = useState(false);
   const [menuAnchor, setMenuAnchor] = useState<{ top: number; right: number } | null>(null);
@@ -80,6 +88,25 @@ export function ProductsHeader({
             <X size={16} color="#94a3b8" />
           </TouchableOpacity>
         )}
+      </View>
+
+      <View style={styles.visibilityFilters}>
+        <TouchableOpacity
+          onPress={onToggleDeactivated}
+          style={[styles.visibilityButton, dark && styles.darkVisibilityButton, showDeactivated && styles.deactivatedSelected]}
+        >
+          <Text style={[styles.visibilityText, dark && styles.light, showDeactivated && styles.selectedVisibilityText]}>
+            {showDeactivated ? '☑' : '☐'} Mostrar desativados
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          onPress={onToggleMerged}
+          style={[styles.visibilityButton, dark && styles.darkVisibilityButton, showMerged && styles.mergedSelected]}
+        >
+          <Text style={[styles.visibilityText, dark && styles.light, showMerged && styles.selectedVisibilityText]}>
+            {showMerged ? '☑' : '☐'} Mostrar mesclados
+          </Text>
+        </TouchableOpacity>
       </View>
 
       {/* Dropdown ancorado ao botão — NÃO bloqueia a tela */}
@@ -191,6 +218,13 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#0f172a',
   },
+  visibilityFilters: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  visibilityButton: { borderWidth: 1, borderColor: '#e2e8f0', backgroundColor: '#fff', borderRadius: 10, paddingHorizontal: 10, paddingVertical: 8 },
+  darkVisibilityButton: { borderColor: '#334155', backgroundColor: '#1e293b' },
+  deactivatedSelected: { borderColor: '#fda4af', backgroundColor: '#fff1f2' },
+  mergedSelected: { borderColor: '#c4b5fd', backgroundColor: '#f5f3ff' },
+  visibilityText: { fontSize: 11, fontWeight: '800', color: '#475569' },
+  selectedVisibilityText: { color: '#6d28d9' },
   // Backdrop TOTALMENTE transparente — não escurece a tela
   backdrop: {
     flex: 1,

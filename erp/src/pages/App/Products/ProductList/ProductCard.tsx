@@ -28,6 +28,7 @@ interface ProductCardProps {
     onDuplicate?: (product: Product) => void;
     exitedVariationIds?: Set<string>;
     onMoveToAnotherFamily?: (variation: any) => void;
+    onMergeWithAnotherVariation?: (variation: any) => void;
 }
 
 const ProductCard: React.FC<ProductCardProps> = ({
@@ -45,6 +46,7 @@ const ProductCard: React.FC<ProductCardProps> = ({
     onDuplicate,
     exitedVariationIds,
     onMoveToAnotherFamily,
+    onMergeWithAnotherVariation,
 }) => {
     const [isSalesModalOpen, setIsSalesModalOpen] = React.useState(false);
     const [showVariations, setShowVariations] = React.useState(false);
@@ -286,6 +288,7 @@ const ProductCard: React.FC<ProductCardProps> = ({
                     onShowHistory={onShowHistory}
                     onLaunchStock={onLaunchStock}
                     onMoveToAnotherFamily={onMoveToAnotherFamily}
+                    onMergeWithAnotherVariation={onMergeWithAnotherVariation}
                 />
             )}
 

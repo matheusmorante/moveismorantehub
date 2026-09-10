@@ -99,11 +99,16 @@ const StockLaunchModal = ({
             return;
         }
 
+        if (!activeVariation?.id) {
+            toast.error("Esta operação exige uma variação cadastrada. Vincule ou crie a variação antes de movimentar o estoque.");
+            return;
+        }
+
         setIsSaving(true);
         try {
             const move: InventoryMove = {
                 productId: targetProduct.id!,
-                variationId: activeVariation?.id || targetProduct.id!,
+                variationId: activeVariation.id,
                 productDescription: fullDisplayName,
                 type: type === 'adjustment' ? 'balance' : (type === 'entry' ? 'entry' : 'withdrawal'),
                 quantity: moveQuantity,

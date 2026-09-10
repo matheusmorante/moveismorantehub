@@ -4,6 +4,8 @@ export interface MobileProductFilterOptions {
   search?: string;
   category?: string;
   statusFilter?: 'all' | 'active' | 'disabled' | 'draft';
+  includeDeactivated?: boolean;
+  includeMerged?: boolean;
 }
 
 export const fetchMobileProductsPage = async (
@@ -27,8 +29,11 @@ export const fetchMobileProductsPage = async (
       query = query.not('is_draft', 'is', true).neq('status', 'draft').eq('active', true);
     } else if (status === 'disabled') {
       query = query.not('is_draft', 'is', true).neq('status', 'draft').eq('active', false);
+    } else if (options?.includeDeactivated === false) {
+      // Rascunhos seguem acessíveis para conclusão do cadastro; somente os
+      // produtos de fato desativados ficam ocultos na visão padrão.
+      query = query.or('active.eq.true,is_draft.eq.true,status.eq.draft');
     }
-    // No modo 'all' (padrão), rascunhos, ativos e desativados aparecem na lista normal com suas respectivas badges
 
     if (options?.category) {
       query = query.eq('category', options.category);
@@ -82,7 +87,10 @@ export const fetchMobileProductsPage = async (
         ? [p.images]
         : [];
 
-      let allVars: any[] = (p.product_variations || []).map((v: any, vIdx: number) => {
+      const storedVariations = p.product_variations || [];
+      let allVars: any[] = storedVariations
+        .filter((v: any) => options?.includeMerged === true || !v.merged_to_variation_id)
+        .map((v: any, vIdx: number) => {
         const varImages = Array.isArray(v.images) && v.images.length > 0
           ? v.images
           : v.image_url
@@ -111,13 +119,13 @@ export const fetchMobileProductsPage = async (
           images: varImages,
           attributes: v.attributes || {},
         };
-      });
+        });
 
       // LÓGICA OFICIAL DO ERP (productService.ts):
       // Todo produto do tipo 'product' que não possui variações na tabela product_variations
       // gera a variação padrão filha com o código parentCode-01 e as fotos/preços do produto!
       const isProductItem = !p.item_type || p.item_type === 'product';
-      if (allVars.length === 0 && isProductItem) {
+      if (storedVariations.length === 0 && allVars.length === 0 && isProductItem) {
         allVars = [
           {
             id: `${p.id}_${parentCode}-01`,

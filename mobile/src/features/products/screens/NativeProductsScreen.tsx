@@ -85,6 +85,10 @@ export const NativeProductsScreen: React.FC<Props> = ({ isDarkMode }) => {
             onSearch={productsHook.setSearchTerm}
             onNewProduct={handleOpenNew}
             onOpenConfigs={() => setShowConfigModal(true)}
+            showDeactivated={productsHook.showDeactivated}
+            showMerged={productsHook.showMerged}
+            onToggleDeactivated={() => productsHook.setShowDeactivated(value => !value)}
+            onToggleMerged={() => productsHook.setShowMerged(value => !value)}
           />
 
           {productsHook.products.length === 0 ? (

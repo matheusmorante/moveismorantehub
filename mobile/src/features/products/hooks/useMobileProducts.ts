@@ -16,6 +16,8 @@ export function useMobileProducts() {
   const [refreshing, setRefreshing] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'disabled' | 'draft'>('all');
+  const [showDeactivated, setShowDeactivated] = useState(false);
+  const [showMerged, setShowMerged] = useState(false);
   const [categoryFilter, setCategoryFilter] = useState<string>('');
   const [currentPage, setCurrentPage] = useState(1);
   const [totalItems, setTotalItems] = useState(0);
@@ -26,6 +28,8 @@ export function useMobileProducts() {
       const { data, total } = await fetchMobileProductsPage(page, ITEMS_PER_PAGE, {
         search: searchTerm,
         statusFilter,
+        includeDeactivated: showDeactivated || statusFilter === 'disabled',
+        includeMerged: showMerged,
         category: categoryFilter || undefined,
       });
       setProducts(data);
@@ -36,7 +40,7 @@ export function useMobileProducts() {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [currentPage, searchTerm, statusFilter, categoryFilter]);
+  }, [currentPage, searchTerm, statusFilter, categoryFilter, showDeactivated, showMerged]);
 
   useEffect(() => {
     loadProducts(false, currentPage);
@@ -44,7 +48,7 @@ export function useMobileProducts() {
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchTerm, statusFilter, categoryFilter]);
+  }, [searchTerm, statusFilter, categoryFilter, showDeactivated, showMerged]);
 
   const handleToggleCatalog = async (productId: string, currentStatus: string, isVar = false, varId?: string) => {
     const targetProd = products.find(p => p.id === productId);
@@ -106,6 +110,8 @@ export function useMobileProducts() {
     refreshing,
     searchTerm,
     statusFilter,
+    showDeactivated,
+    showMerged,
     categoryFilter,
     currentPage,
     totalItems,
@@ -113,6 +119,8 @@ export function useMobileProducts() {
     itemsPerPage: ITEMS_PER_PAGE,
     setSearchTerm,
     setStatusFilter,
+    setShowDeactivated,
+    setShowMerged,
     setCategoryFilter,
     setCurrentPage,
     refresh: () => loadProducts(true),

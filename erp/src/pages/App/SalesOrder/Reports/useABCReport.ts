@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { supabase } from '@/pages/utils/supabaseConfig';
 import { parse, format } from 'date-fns';
+import { resolveCanonicalVariationReportItems } from '@/pages/utils/variationCanonicalService';
 
 export interface ABCResult {
     product: string;
@@ -21,6 +22,7 @@ export interface SaleItem {
     cost: number;
     salesValue: number;
     profit: number;
+    variationId?: string;
 }
 
 export const useABCReport = () => {
@@ -42,7 +44,7 @@ export const useABCReport = () => {
             if (item.date < minDate) minDate = item.date;
             if (item.date > maxDate) maxDate = item.date;
 
-            const key = `${item.product}-${item.supplier}`;
+            const key = `${item.variationId || item.product}-${item.supplier}`;
             if (!productStats[key]) {
                 productStats[key] = { product: item.product, supplier: item.supplier, qty: 0, rev: 0, profit: 0, totalCost: 0 };
             }
@@ -128,12 +130,13 @@ export const useABCReport = () => {
                     quantity: qty,
                     cost: cost,
                     salesValue: salesVal,
-                    profit: profit
+                    profit: profit,
+                    variationId: item.variationId || undefined
                 });
             });
         });
 
-        return items;
+        return resolveCanonicalVariationReportItems(items);
     };
 
     const saveReport = async (name: string, source: 'erp' | 'csv', config: any) => {

@@ -69,6 +69,7 @@ export const useProducts = (filters?: any) => {
                 activeOnly: hasSearch ? undefined : filters?.activeOnly,
                 status: filters?.status,
                 isDraft: filters?.isDraft,
+                includeDeactivated: filters?.includeDeactivated,
                 sortBy: filters?.sortBy,
                 sortOrder: filters?.sortOrder,
             });
@@ -77,7 +78,7 @@ export const useProducts = (filters?: any) => {
         } finally {
             setServerLoading(false);
         }
-    }, [filters?.showTrash, filters?.search, filters?.category, filters?.activeOnly, filters?.status, filters?.isDraft, filters?.sortBy, filters?.sortOrder]);
+    }, [filters?.showTrash, filters?.search, filters?.category, filters?.activeOnly, filters?.status, filters?.isDraft, filters?.includeDeactivated, filters?.sortBy, filters?.sortOrder]);
 
     // Fetch on page/perPage/filters/refresh change
     useEffect(() => {
@@ -93,7 +94,11 @@ export const useProducts = (filters?: any) => {
     const filteredProducts = useMemo(() => filterAndSortProducts(products, filters), [products, filters]);
 
     // Modos paralelos: servidor usa serverProducts, local usa transformedProducts
-    const serverTransformed = useMemo(() => flattenProductsForList(serverProducts), [serverProducts]);
+    const serverTransformed = useMemo(() => flattenProductsForList(serverProducts).filter((product: any) => {
+        // Uma variação mesclada permanece no histórico, mas não polui a lista
+        // operacional salvo quando o operador pede para visualizá-la.
+        return filters?.includeMergedVariations === true || !product.isVariation || !product.mergedToVariationId;
+    }), [serverProducts, filters?.includeMergedVariations]);
 
     // Totais e páginas dependem do modo backend
     const totalItems = serverTotal;
@@ -364,6 +369,28 @@ export const useProducts = (filters?: any) => {
         toast.success(`Produto ${newActive ? 'ativado' : 'desativado'} com sucesso!`);
 
         try {
+            // Uma variação persistida é atualizada diretamente. Regravar o
+            // produto-pai inteiro aqui fazia o toggle falhar quando outra
+            // variação legada da mesma família ainda não possuía UUID.
+            // O status da variação selecionada não depende dessas irmãs.
+            const isVariationUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+            if (isVariationUuid) {
+                const { data: variation, error: variationLookupError } = await supabase
+                    .from('product_variations')
+                    .select('id')
+                    .eq('id', id)
+                    .maybeSingle();
+                if (variationLookupError) throw variationLookupError;
+                if (variation) {
+                    const { error: variationUpdateError } = await supabase
+                        .from('product_variations')
+                        .update({ active: newActive })
+                        .eq('id', id);
+                    if (variationUpdateError) throw variationUpdateError;
+                    return;
+                }
+            }
+
             // 1. Caso seja uma variação do array JSON (ex: 'parentId_sku')
             if (id.includes('_')) {
                 const [parentId, ...skuParts] = id.split('_');

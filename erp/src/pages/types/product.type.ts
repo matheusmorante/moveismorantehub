@@ -10,6 +10,9 @@ export type InitialStockEntry = {
 
 export type Variation = {
     id: string;
+    // Preenchido quando esta variação é uma referência histórica para outra
+    // variação canônica. O UUID próprio nunca é substituído.
+    mergedToVariationId?: string;
     sku: string;
     name: string; // e.g., "SOFA 3 LUG AZUL" (Nome ERP)
     title?: string; // e.g., "Sofá 3 Lugares Conforto Azul" (Título Catálogo)

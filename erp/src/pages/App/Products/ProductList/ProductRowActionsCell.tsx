@@ -16,6 +16,7 @@ interface ProductRowActionsCellProps {
     onOpenSalesModal: () => void;
     onOpenLabelModal: (type: LabelPrintType) => void;
     onMoveToAnotherFamily?: (product: Product) => void;
+    onMergeWithAnotherVariation?: (product: Product) => void;
 }
 
 export const ProductRowActionsCell: React.FC<ProductRowActionsCellProps> = ({
@@ -31,6 +32,7 @@ export const ProductRowActionsCell: React.FC<ProductRowActionsCellProps> = ({
     onOpenSalesModal,
     onOpenLabelModal,
     onMoveToAnotherFamily,
+    onMergeWithAnotherVariation,
 }) => {
     const [isMenuOpen, setIsMenuOpen] = React.useState(false);
     const menuAnchorRef = React.useRef<HTMLButtonElement>(null);
@@ -60,6 +62,12 @@ export const ProductRowActionsCell: React.FC<ProductRowActionsCellProps> = ({
                                     <i className="bi bi-arrow-left-right text-indigo-500" />
                                     <span className="text-[10px] font-black uppercase tracking-widest text-slate-700 dark:text-slate-200">Mover para outro produto pai</span>
                                 </button>
+                                {onMergeWithAnotherVariation && !(product as any).mergedToVariationId && (
+                                    <button type="button" onClick={(event) => { event.stopPropagation(); setIsMenuOpen(false); onMergeWithAnotherVariation(product); }} className="flex w-full items-center gap-3 px-4 py-2.5 text-left transition-colors hover:bg-slate-50 dark:hover:bg-slate-950">
+                                        <i className="bi bi-intersect text-violet-500" />
+                                        <span className="text-[10px] font-black uppercase tracking-widest text-slate-700 dark:text-slate-200">Mesclar com outra variação</span>
+                                    </button>
+                                )}
                             </div>
                         </DropdownPortal>
                     </div>

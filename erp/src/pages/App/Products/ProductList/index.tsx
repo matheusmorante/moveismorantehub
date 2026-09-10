@@ -26,6 +26,16 @@ export interface ProductListRef {
 
 const ProductList = forwardRef<ProductListRef, ProductListProps>(({ onEdit, onShowHistory, onLaunchStock, filters, visibilitySettings, onToggleColumn, onSort, categoryTree, title, onCloseTrash, onRefresh, onDuplicate }, ref) => {
 
+    const [showDeactivated, setShowDeactivated] = React.useState(false);
+    const [showMerged, setShowMerged] = React.useState(false);
+    const listFilters = React.useMemo(() => ({
+        ...filters,
+        // A visão exclusiva de desativados continua funcionando pelos filtros
+        // existentes; na lista normal, o padrão é escondê-los.
+        includeDeactivated: filters?.activeOnly === false ? true : showDeactivated,
+        includeMergedVariations: showMerged,
+    }), [filters, showDeactivated, showMerged]);
+
     const {
         products,
         paginatedProducts,
@@ -50,7 +60,7 @@ const ProductList = forwardRef<ProductListRef, ProductListProps>(({ onEdit, onSh
         toggleActive,
         deactivateCatalog,
         refresh
-    } = useProducts(filters);
+    } = useProducts(listFilters);
 
     const { exitedVariationIds } = useVariationExitFlags();
 
@@ -129,6 +139,28 @@ const ProductList = forwardRef<ProductListRef, ProductListProps>(({ onEdit, onSh
                 </div>
             )}
             <div className="p-0.5 sm:p-2 lg:p-4">
+                {!filters?.showTrash && !filters?.isDraft && (
+                    <div className="mb-3 flex flex-wrap items-center gap-2 px-1">
+                        <button
+                            type="button"
+                            aria-pressed={showDeactivated}
+                            onClick={() => setShowDeactivated(current => !current)}
+                            className={`flex items-center gap-2 rounded-xl border px-3 py-2 text-[10px] font-black uppercase tracking-wider transition-colors ${showDeactivated ? 'border-rose-300 bg-rose-50 text-rose-600 dark:border-rose-900 dark:bg-rose-950/40 dark:text-rose-300' : 'border-slate-200 bg-white text-slate-500 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-400'}`}
+                        >
+                            <i className={`bi ${showDeactivated ? 'bi-check-square-fill' : 'bi-square'}`} />
+                            Mostrar desativados
+                        </button>
+                        <button
+                            type="button"
+                            aria-pressed={showMerged}
+                            onClick={() => setShowMerged(current => !current)}
+                            className={`flex items-center gap-2 rounded-xl border px-3 py-2 text-[10px] font-black uppercase tracking-wider transition-colors ${showMerged ? 'border-violet-300 bg-violet-50 text-violet-600 dark:border-violet-900 dark:bg-violet-950/40 dark:text-violet-300' : 'border-slate-200 bg-white text-slate-500 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-400'}`}
+                        >
+                            <i className={`bi ${showMerged ? 'bi-check-square-fill' : 'bi-square'}`} />
+                            Mostrar mesclados
+                        </button>
+                    </div>
+                )}
 
                 <ProductTable
                     products={paginatedProducts}
@@ -142,8 +174,8 @@ const ProductList = forwardRef<ProductListRef, ProductListProps>(({ onEdit, onSh
                     onDeactivateCatalog={deactivateCatalog}
                     visibilitySettings={visibilitySettings}
                     onToggleColumn={onToggleColumn}
-                    showTrash={filters?.showTrash}
-                    filters={filters}
+                    showTrash={listFilters.showTrash}
+                    filters={listFilters}
                     onSort={onSort}
                     selectedProducts={selectedProducts}
                     onToggleSelection={toggleSelection}

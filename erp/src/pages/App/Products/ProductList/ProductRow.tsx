@@ -32,6 +32,7 @@ interface ProductRowProps {
     onToggleExpand?: () => void;
     variationsCount?: number;
     onMoveToAnotherFamily?: (product: Product) => void;
+    onMergeWithAnotherVariation?: (product: Product) => void;
 }
 
 const ProductRow: React.FC<ProductRowProps> = ({
@@ -54,6 +55,7 @@ const ProductRow: React.FC<ProductRowProps> = ({
     onToggleExpand,
     variationsCount,
     onMoveToAnotherFamily,
+    onMergeWithAnotherVariation,
 }) => {
     const [labelModal, setLabelModal] = React.useState<{ open: boolean; type: LabelPrintType }>({ open: false, type: 'identification' });
     const [isSalesModalOpen, setIsSalesModalOpen] = React.useState(false);
@@ -124,6 +126,7 @@ const ProductRow: React.FC<ProductRowProps> = ({
                     onOpenSalesModal={() => setIsSalesModalOpen(true)}
                     onOpenLabelModal={(type) => setLabelModal({ open: true, type })}
                     onMoveToAnotherFamily={onMoveToAnotherFamily}
+                    onMergeWithAnotherVariation={onMergeWithAnotherVariation}
                 />
             );
         }

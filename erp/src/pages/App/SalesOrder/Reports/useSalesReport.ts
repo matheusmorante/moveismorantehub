@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { supabase } from '@/pages/utils/supabaseConfig';
 import { format, parse, differenceInMonths, differenceInCalendarMonths } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { resolveCanonicalVariationReportItems } from '@/pages/utils/variationCanonicalService';
 
 export interface ABCResult {
     product: string;
@@ -25,6 +26,7 @@ export interface SaleItem {
     cost?: number;
     salesValue: number;
     profit?: number;
+    variationId?: string;
 }
 
 export const useSalesReport = () => {
@@ -69,7 +71,9 @@ export const useSalesReport = () => {
                 if (!maxDate || item.date.getTime() > maxDate.getTime()) maxDate = item.date;
             }
 
-            const key = `${item.mappedName}-${item.supplier}`;
+            // UUID canônico é a chave da métrica; nome e SKU nunca decidem
+            // identidade. CSVs legados, sem UUID, mantêm o agrupamento textual.
+            const key = `${item.variationId || item.mappedName}-${item.supplier}`;
             if (!productStats[key]) {
                 productStats[key] = { product: item.mappedName, supplier: item.supplier, qty: 0, rev: 0, profit: 0, totalCost: 0 };
             }
@@ -328,12 +332,13 @@ export const useSalesReport = () => {
                     quantity: qty,
                     cost: cost,
                     salesValue: salesVal,
-                    profit: profit
+                    profit: profit,
+                    variationId: item.variationId || undefined,
                 });
             });
         });
 
-        return items;
+        return resolveCanonicalVariationReportItems(items);
     };
 
     const saveReport = async (name: string, source: 'erp' | 'csv', config: any, manualData?: any) => {

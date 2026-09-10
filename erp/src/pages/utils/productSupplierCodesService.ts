@@ -25,26 +25,78 @@ export const findProductSupplierCodes = async (supplierId: string, supplierCodes
 
     if (error) throw error;
 
-    return new Map((data || []).map((row) => [
-        normalizeSupplierProductCode(row.supplier_product_code),
-        {
-            productId: row.product_id,
-            productVariationId: row.product_variation_id || undefined,
-            supplierId: row.supplier_id,
-            supplierProductCode: row.supplier_product_code,
-            supplierDescription: row.supplier_description || undefined,
-            normalizedDescription: row.normalized_description || undefined,
-            confirmedByUser: row.confirmed_by_user !== false,
-        },
-    ]));
+    // A referência do fornecedor continua guardando a variação original. Para
+    // novos recebimentos e movimentações, porém, usamos a canônica quando a
+    // original já foi mesclada. Assim o histórico não é reescrito.
+    const resolvedRows = await Promise.all((data || []).map(async (row) => {
+        let productVariationId = row.product_variation_id || undefined;
+
+        if (productVariationId) {
+            const { data: canonicalVariationId, error: resolutionError } = await supabase.rpc(
+                'resolve_canonical_variation_id',
+                { p_variation_id: productVariationId },
+            );
+
+            if (resolutionError) throw resolutionError;
+            productVariationId = canonicalVariationId || productVariationId;
+
+            const { data: canonicalVariation, error: variationError } = await supabase
+                .from('product_variations')
+                .select('product_id')
+                .eq('id', productVariationId)
+                .single();
+            if (variationError) throw variationError;
+
+            // O item operacional deve sempre trazer o pai real da variação
+            // canônica; nunca o pai legado da referência de fornecedor.
+            if (canonicalVariation?.product_id) {
+                row.product_id = canonicalVariation.product_id;
+            }
+        }
+
+        return [
+            normalizeSupplierProductCode(row.supplier_product_code),
+            {
+                productId: row.product_id,
+                productVariationId,
+                supplierId: row.supplier_id,
+                supplierProductCode: row.supplier_product_code,
+                supplierDescription: row.supplier_description || undefined,
+                normalizedDescription: row.normalized_description || undefined,
+                confirmedByUser: row.confirmed_by_user !== false,
+            } satisfies ProductSupplierCode,
+        ] as const;
+    }));
+
+    return new Map(resolvedRows);
 };
 
 export const saveProductSupplierCode = async (reference: ProductSupplierCode): Promise<void> => {
     if (!reference.supplierId || !reference.productId || !reference.supplierProductCode.trim()) return;
 
+    let productId = reference.productId;
+    let productVariationId = reference.productVariationId || null;
+
+    if (productVariationId) {
+        const { data: canonicalVariationId, error: resolutionError } = await supabase.rpc(
+            'resolve_canonical_variation_id',
+            { p_variation_id: productVariationId },
+        );
+        if (resolutionError) throw resolutionError;
+        productVariationId = canonicalVariationId || productVariationId;
+
+        const { data: canonicalVariation, error: variationError } = await supabase
+            .from('product_variations')
+            .select('product_id')
+            .eq('id', productVariationId)
+            .single();
+        if (variationError) throw variationError;
+        productId = canonicalVariation?.product_id || productId;
+    }
+
     const { error } = await supabase.from('product_supplier_codes').upsert({
-        product_id: reference.productId,
-        product_variation_id: reference.productVariationId || null,
+        product_id: productId,
+        product_variation_id: productVariationId,
         supplier_id: reference.supplierId,
         supplier_product_code: normalizeSupplierProductCode(reference.supplierProductCode),
         supplier_description: reference.supplierDescription || null,

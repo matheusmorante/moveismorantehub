@@ -303,6 +303,7 @@ export const mapFromDB = (data: any, index?: number): Product => {
         if (v.product_id) {
             return {
                 id: String(v.id),
+                mergedToVariationId: v.merged_to_variation_id || undefined,
                 sku: resolvedSku,
                 name: v.name || '',
                 stock: Number(v.stock || 0),
@@ -550,6 +551,7 @@ export const fetchProductsPage = async (
         activeOnly?: boolean;
         status?: string;
         isDraft?: boolean;
+        includeDeactivated?: boolean;
         supplierId?: string;
         sortBy?: string;
         sortOrder?: 'asc' | 'desc';
@@ -592,6 +594,10 @@ export const fetchProductsPage = async (
             query = query.eq('active', false);
         } else if (options?.activeOnly === true) {
             query = query.eq('active', true);
+        } else if (options?.includeDeactivated === false) {
+            // Rascunhos não são produtos desativados: permanecem acessíveis no
+            // fluxo de cadastro, enquanto os desativados ficam ocultos.
+            query = query.or('active.eq.true,is_draft.eq.true,status.eq.draft');
         }
 
         query = query
@@ -867,12 +873,9 @@ const syncProductToSupabase = async (product: Product): Promise<void> => {
         // Sincronizar variações na tabela product_variations
         if (product.id) {
             if ((product.hasVariations || (Array.isArray(product.variations) && product.variations.length > 0)) && product.variations && product.variations.length > 0) {
-                if (!product.isDraft) {
-                    const varWithoutImage = product.variations.find((v, index) => !isDefaultVariation(v, index) && (!v.images || v.images.length === 0));
-                    if (varWithoutImage) {
-                        throw new Error(`A variação "${varWithoutImage.name || 'Sem título'}" deve ter pelo menos 1 foto vinculada.`);
-                    }
-                }
+                // Foto é requisito de publicação no catálogo, não requisito
+                // operacional. Estoque, pedidos, assistência, devoluções e
+                // recebimentos não podem ser bloqueados por falta de imagem.
 
                 // Variações persistidas preservam seu UUID. Não existe fallback
                 // pelo SKU nem regeneração de ID durante uma edição.
@@ -1504,6 +1507,33 @@ export const moveVariationToFamily = async (
     return {
         newSku: String(data?.newSku || ''),
         sourceParentRemoved: Boolean(data?.sourceParentRemoved),
+    };
+};
+
+/**
+ * Marca uma variação como não canônica e transfere ao produto canônico apenas
+ * os fornecedores que ele ainda não possui. Nenhum UUID, estoque, custo,
+ * recebimento ou movimentação histórica é alterado.
+ */
+export const mergeVariationIntoCanonical = async (
+    nonCanonicalVariationId: string,
+    canonicalVariationId: string,
+): Promise<{ transferredSupplierIds: string[]; canonicalSupplierIds: string[] }> => {
+    const { data, error } = await supabase.rpc('merge_product_variation_into_canonical', {
+        p_non_canonical_variation_id: nonCanonicalVariationId,
+        p_canonical_variation_id: canonicalVariationId,
+    });
+
+    if (error) {
+        throw new Error(`Falha ao mesclar variações no banco: ${error.message}`);
+    }
+
+    localStorage.removeItem(LOCAL_STORAGE_KEY);
+    notifySubscribers();
+
+    return {
+        transferredSupplierIds: Array.isArray(data?.transferredSupplierIds) ? data.transferredSupplierIds : [],
+        canonicalSupplierIds: Array.isArray(data?.canonicalSupplierIds) ? data.canonicalSupplierIds : [],
     };
 };
 

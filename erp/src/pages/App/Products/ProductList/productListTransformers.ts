@@ -43,6 +43,7 @@ function buildVariationListRow(
         id: variation.id,
         rowId: `${product.id}:${variation.id || index}`,
         variationId: variation.id,
+        mergedToVariationId: variation.mergedToVariationId || variation.merged_to_variation_id || undefined,
         productId: product.id,
         sku,
         code: sku,

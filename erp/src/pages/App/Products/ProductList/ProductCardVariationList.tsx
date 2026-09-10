@@ -19,6 +19,7 @@ interface ProductCardVariationListProps {
     onShowHistory?: (product: any) => void;
     onLaunchStock?: (product: any) => void;
     onMoveToAnotherFamily?: (variation: any) => void;
+    onMergeWithAnotherVariation?: (variation: any) => void;
 }
 
 export const ProductCardVariationList: React.FC<ProductCardVariationListProps> = ({
@@ -34,6 +35,7 @@ export const ProductCardVariationList: React.FC<ProductCardVariationListProps> =
     onShowHistory,
     onLaunchStock,
     onMoveToAnotherFamily,
+    onMergeWithAnotherVariation,
 }) => {
     const [activeVarMenuId, setActiveVarMenuId] = React.useState<string | null>(null);
     const varMenuRefs = React.useRef<Record<string, HTMLButtonElement | null>>({});
@@ -161,6 +163,15 @@ export const ProductCardVariationList: React.FC<ProductCardVariationListProps> =
                                                 >
                                                     <i className="bi bi-arrow-left-right text-indigo-500" />
                                                     <span className="text-[10px] font-black uppercase tracking-widest text-slate-700 dark:text-slate-200">Mover para outro produto pai</span>
+                                                </button>
+                                            )}
+                                            {onMergeWithAnotherVariation && !v.mergedToVariationId && !v.merged_to_variation_id && (
+                                                <button
+                                                    onClick={(e) => { e.stopPropagation(); setActiveVarMenuId(null); onMergeWithAnotherVariation({ ...v, variationId: v.id, parentId: product.id }); }}
+                                                    className="flex items-center gap-3 px-4 py-2.5 hover:bg-slate-50 dark:hover:bg-slate-950 transition-colors text-left cursor-pointer"
+                                                >
+                                                    <i className="bi bi-intersect text-violet-500" />
+                                                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-700 dark:text-slate-200">Mesclar com outra variação</span>
                                                 </button>
                                             )}
                                             {onShowHistory && (

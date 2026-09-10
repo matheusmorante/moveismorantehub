@@ -440,12 +440,20 @@ export const getAvailableLots = async (productId: string, variationId?: string):
         let query = supabase
             .from(TABLE_NAME)
             .select('*')
-            .eq('product_id', productId)
             .eq('type', 'entry')
             .order('date', { ascending: true });
 
-        if (variationId) query = query.eq('variation_id', variationId);
-        else query = query.is('variation_id', null);
+        // variation_id é a identidade operacional principal.
+        // product_id fica como segurança redundante (belt-and-suspenders).
+        if (variationId) {
+            query = query
+                .eq('variation_id', variationId)
+                .eq('product_id', productId);
+        } else {
+            query = query
+                .eq('product_id', productId)
+                .is('variation_id', null);
+        }
 
         const { data: entries, error: entryError } = await query;
         if (entryError) throw entryError;

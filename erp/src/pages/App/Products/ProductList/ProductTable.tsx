@@ -13,6 +13,7 @@ import {
 } from './productTableColumns';
 import { ProductBulkActionsToolbar } from './ProductBulkActionsToolbar';
 import { MoveVariationFamilyModal } from './MoveVariationFamilyModal';
+import { MergeVariationModal } from './MergeVariationModal';
 
 interface ProductTableProps {
     products: Product[];
@@ -110,6 +111,7 @@ const ProductTable = ({
 
     const [expandedParents, setExpandedParents] = React.useState<Record<string, boolean>>({});
     const [variationToMove, setVariationToMove] = React.useState<any>(null);
+    const [variationToMerge, setVariationToMerge] = React.useState<any>(null);
 
     const toggleExpandParent = React.useCallback((parentId: string) => {
         setExpandedParents(prev => ({
@@ -242,6 +244,7 @@ const ProductTable = ({
                                         onToggleExpand={() => toggleExpandParent(product.id!)}
                                         variationsCount={vCount}
                                         onMoveToAnotherFamily={setVariationToMove}
+                                        onMergeWithAnotherVariation={setVariationToMerge}
                                     />
                                 );
                             })}
@@ -279,6 +282,7 @@ const ProductTable = ({
                                     onDuplicate={onDuplicate}
                                     exitedVariationIds={exitedVariationIds}
                                     onMoveToAnotherFamily={setVariationToMove}
+                                    onMergeWithAnotherVariation={setVariationToMerge}
                                 />
                             ))
                     )}
@@ -287,6 +291,11 @@ const ProductTable = ({
                 variation={variationToMove}
                 onClose={() => setVariationToMove(null)}
                 onMoved={() => onRefresh?.()}
+            />
+            <MergeVariationModal
+                variation={variationToMerge}
+                onClose={() => setVariationToMerge(null)}
+                onMerged={() => onRefresh?.()}
             />
         </div>
     );
