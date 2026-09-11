@@ -427,5 +427,6 @@ Este documento unifica todo o planejamento estratégico, ideias futuras, tarefas
 - **Normalização Oficial da UF**: Todos os estados são convertidos estritamente para a sigla de 2 letras maiúsculas (ex: `PR`, `SP`, `SC`), compatibilizando com os inputs `maxLength={2}` de UF em todo o ERP.
 - **Algoritmo Baseado em Termos Estruturados e Prevenção de Ambiguidade**: O novo módulo modularizado `src/pages/utils/addressParsing.ts` prioriza os termos (`terms`) do Google Places, garantindo que a cidade nunca seja confundida ou atribuída como bairro caso a rua não possua bairro cadastrado.
 - **Refinamento Não-Bloqueante**: Busca assíncrona de detalhes via Place Details em segundo plano (enriquecendo número, CEP exato e coordenadas) sem travar a interface e com resolução de dependências sem exceptions no console.
+- **URL do Google Maps Exclusivamente Manual e Prioritária**: O campo `mapsUrl` (`Link do Google Maps da Localização`) não é preenchido nem alterado automaticamente ao selecionar uma sugestão de logradouro no `AddressAutocompleteInput`. Ele permanece estritamente manual para casos em que o endereço não for localizado por rua/número. Quando preenchido manualmente, ele possui autoridade máxima e é inserido com prioridade no `{{routeUrl}}` do WhatsApp para a equipe e nos botões de rota/navegação do ERP e Mobile.
 
 

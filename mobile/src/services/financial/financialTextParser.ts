@@ -299,7 +299,7 @@ export const fallbackHeuristicParser = (
   const isDualItem = Boolean(dualItemMatch);
   const isAmbiguous = isUtilityBill || isDualItem;
 
-  let businessPurpose: 'BUSINESS' | 'PERSONAL' | 'UNKNOWN' | null = activeDraft?.businessPurpose || null;
+  let businessPurpose: 'BUSINESS' | 'PERSONAL' | 'PERSONAL_PARTNER' | 'UNKNOWN' | null = activeDraft?.businessPurpose || null;
   let catName = activeDraft?.categoryName || null;
 
   if (movementType === 'expense') {

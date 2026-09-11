@@ -314,7 +314,7 @@ export function useFinancialAiChat({
     voiceSessionIdRef.current += 1;
     const currentSessionId = voiceSessionIdRef.current;
 
-    setVoiceState('INITIALIZING');
+    setVoiceState('STARTING');
     resetInactivityTimer();
 
     const started = await startVoiceRecording({

@@ -76,6 +76,7 @@ export interface TransactionFilterOptions {
   type?: 'income' | 'expense' | 'all';
   categoryId?: string;
   paymentMethod?: string;
+  accountId?: string;
   createdBy?: string;
   collaboratorId?: string;
   searchQuery?: string;

@@ -1,4 +1,4 @@
-export type BusinessPurposeReply = 'BUSINESS' | 'PERSONAL';
+export type BusinessPurposeReply = 'BUSINESS' | 'PERSONAL' | 'PERSONAL_PARTNER';
 
 type PurposeDraft = {
   description?: string | null;

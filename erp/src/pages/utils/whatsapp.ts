@@ -43,7 +43,17 @@ const buildDeliveryMessage = (order: Order) => {
         itemsBlock += `\n*Frete:* ${formatCurrency(order.shipping.value)}`;
     }
 
-    const mapsLink = customer.fullAddress?.mapsUrl || (customer.fullAddress as any)?.googleMapsUrl || (customer.fullAddress as any)?.mapsLink;
+    const mapsLink = (
+        order.shipping?.deliveryAddress?.mapsUrl ||
+        (order.shipping?.deliveryAddress as any)?.googleMapsUrl ||
+        (order.shipping?.deliveryAddress as any)?.mapsLink ||
+        (order.shipping as any)?.mapsUrl ||
+        customer.fullAddress?.mapsUrl ||
+        (customer.fullAddress as any)?.googleMapsUrl ||
+        (customer.fullAddress as any)?.mapsLink ||
+        (customer as any)?.mapsUrl ||
+        ''
+    )?.trim() || null;
 
     let finalMessage = message
         .replace(/{{customerName}}/g, () => customerNameFormatted)
@@ -54,7 +64,8 @@ const buildDeliveryMessage = (order: Order) => {
         .replace(/{{customerObservations}}/g, () => customer.observations || "")
         .replace(/{{address}}/g, () => {
             if (order.shipping?.noAddress) return order.shipping?.deliveryMethod === 'pickup' ? "Retirada em loja" : "Não informado";
-            let addrStr = stringifyFullAddressWithObservation(customer.fullAddress);
+            const effectiveAddr = order.shipping?.deliveryAddress || customer.fullAddress;
+            let addrStr = stringifyFullAddressWithObservation(effectiveAddr);
             if (mapsLink) {
                 addrStr += `\n📍 *Localização (Google Maps):* ${mapsLink}`;
             }
@@ -65,7 +76,7 @@ const buildDeliveryMessage = (order: Order) => {
         .replace(/{{totalValue}}/g, () => formatCurrency(order.paymentsSummary?.totalOrderValue || 0))
         .replace(/{{observation}}/g, () => order.observation || "Sem observações")
         .replace(/{{seller}}/g, () => order.seller || "Não informado")
-        .replace(/{{routeUrl}}/g, () => mapsLink || (customer.fullAddress ? getShippingRouteUrl(customer.fullAddress) : "Endereço não informado"));
+        .replace(/{{routeUrl}}/g, () => mapsLink || (order.shipping?.deliveryAddress || customer.fullAddress ? getShippingRouteUrl(order.shipping?.deliveryAddress || customer.fullAddress) : "Endereço não informado"));
 
     if (order.shipping?.deliveryMethod === 'pickup') {
         finalMessage = finalMessage

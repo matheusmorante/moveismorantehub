@@ -3,6 +3,7 @@ import { StyleSheet, Text, TouchableOpacity, View, Linking, Platform } from 'rea
 import { Clock, AlertTriangle, PackageCheck, MapPin, Navigation, User } from 'lucide-react-native';
 import { SlideHoldToStart } from '../SlideHoldToStart';
 import { DeliveryPaymentSection } from './DeliveryPaymentSection';
+import { openGoogleMapsNavigation, extractNavigationTarget } from '../../../logistics/utils/externalMapsNavigation';
 
 interface Props {
   order: any;
@@ -40,16 +41,8 @@ export const DeliveryServiceStep: React.FC<Props> = ({
   const fullAddress = customAddress || data.shipping?.address || '';
 
   const openGPS = () => {
-    if (!fullAddress) return;
-    const encoded = encodeURIComponent(fullAddress);
-    const url = Platform.select({
-      ios: `maps:0,0?q=${encoded}`,
-      android: `geo:0,0?q=${encoded}`,
-    }) || `https://www.google.com/maps/search/?api=1&query=${encoded}`;
-
-    Linking.openURL(url).catch(() => {
-      Linking.openURL(`https://www.google.com/maps/search/?api=1&query=${encoded}`);
-    });
+    const target = extractNavigationTarget(order, fullAddress);
+    void openGoogleMapsNavigation(target);
   };
 
   const formattedArrivalTime = arrivedAt

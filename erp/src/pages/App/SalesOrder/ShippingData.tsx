@@ -200,7 +200,7 @@ const ShippingData = ({ shipping, setShipping, customerData, isCalculatingDistan
                                                     state: data.state || prev.deliveryAddress?.state || "PR",
                                                     cep: data.cep || prev.deliveryAddress?.cep || "",
                                                     number: data.number || prev.deliveryAddress?.number || "",
-                                                    mapsUrl: data.mapsUrl || prev.deliveryAddress?.mapsUrl
+                                                    mapsUrl: prev.deliveryAddress?.mapsUrl || ""
                                                 }
                                             }));
                                         }}

@@ -12,7 +12,6 @@ export interface AddressSelectedData {
     cep?: string;
     placeId?: string;
     coords?: [number, number];
-    mapsUrl?: string;
     formattedAddress?: string;
 }
 
@@ -130,7 +129,6 @@ export const AddressAutocompleteInput: React.FC<Props> = ({
             cep,
             placeId: suggestion.place_id,
             coords,
-            mapsUrl: routeUrl || undefined,
             formattedAddress: suggestion.display_name,
         });
 
@@ -160,7 +158,6 @@ export const AddressAutocompleteInput: React.FC<Props> = ({
                         cep: refinedCep,
                         placeId: suggestion.place_id,
                         coords: refinedCoords,
-                        mapsUrl: routeUrl || undefined,
                         formattedAddress: details.formattedAddress || suggestion.display_name,
                     });
                 }

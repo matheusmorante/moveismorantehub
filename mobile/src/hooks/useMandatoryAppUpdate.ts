@@ -6,7 +6,7 @@ import { supabase } from '../services/supabaseClient';
 
 export type RequiredUpdate = { required: boolean; url: string };
 
-const TARGET_OFFICIAL_BUILD = 13;
+const TARGET_OFFICIAL_BUILD = 16;
 
 function getInstalledAndroidBuild(): number {
   try {

@@ -76,7 +76,7 @@ export default function MobileAppLanding() {
                <div className="flex flex-col text-left pr-2">
                  <span className="text-xs font-black uppercase tracking-wider text-blue-400">Instalação Rápida</span>
                  <span className="text-sm font-bold text-white leading-tight">Escaneie o QR Code</span>
-                 <span className="text-[10px] text-slate-400 mt-1">Aponte a câmera do seu celular para baixar a v1.5.0 (Build 13)</span>
+                  <span className="text-[10px] text-slate-400 mt-1">Aponte a câmera do seu celular para baixar a v1.6.0 (Build 16)</span>
                </div>
              </div>
           </div>

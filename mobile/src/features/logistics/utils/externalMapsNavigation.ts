@@ -28,18 +28,32 @@ export const extractNavigationTarget = (order: unknown, fullAddress?: string): N
   const orderData = asRecord(row.order_data);
   const shipping = asRecord(orderData.shipping ?? row.shipping);
   const deliveryAddress = asRecord(shipping.deliveryAddress ?? shipping.address);
+  const customerData = asRecord(orderData.customerData ?? row.customerData ?? orderData.customer ?? row.customer);
+  const customerAddress = asRecord(customerData.fullAddress ?? customerData.address);
   const destinationCoords = Array.isArray(shipping.destinationCoords) ? shipping.destinationCoords : [];
+
+  const rawMapsUrl = asNonEmptyString(
+    deliveryAddress.mapsUrl
+    ?? deliveryAddress.googleMapsUrl
+    ?? deliveryAddress.mapsLink
+    ?? shipping.mapsUrl
+    ?? shipping.googleMapsUrl
+    ?? shipping.mapsLink
+    ?? customerAddress.mapsUrl
+    ?? customerAddress.googleMapsUrl
+    ?? customerAddress.mapsLink
+    ?? customerData.mapsUrl
+    ?? customerData.googleMapsUrl
+    ?? customerData.mapsLink
+    ?? orderData.mapsUrl
+    ?? row.mapsUrl,
+  );
 
   return {
     latitude: asCoordinate(shipping.latitude ?? destinationCoords[1]),
     longitude: asCoordinate(shipping.longitude ?? destinationCoords[0]),
-    fullAddress: fullAddress || asNonEmptyString(deliveryAddress.fullAddress ?? deliveryAddress.address),
-    mapsUrl: asNonEmptyString(
-      deliveryAddress.mapsUrl
-      ?? deliveryAddress.googleMapsUrl
-      ?? shipping.mapsUrl
-      ?? shipping.googleMapsUrl,
-    ),
+    fullAddress: fullAddress || asNonEmptyString(deliveryAddress.fullAddress ?? deliveryAddress.address ?? customerAddress.fullAddress ?? customerAddress.address),
+    mapsUrl: rawMapsUrl,
   };
 };
 
@@ -50,15 +64,14 @@ export const extractNavigationTarget = (order: unknown, fullAddress?: string): N
 export async function openExternalNavigation(target: NavigationTarget): Promise<void> {
   const { latitude, longitude, fullAddress, mapsUrl } = target;
 
-  // 1º PRIORIDADE ABSOLUTA: Link do Google Maps do local real informado no pedido
+  // 1º PRIORIDADE ABSOLUTA: Link do Google Maps do local real informado no pedido/cliente
   if (mapsUrl && typeof mapsUrl === 'string' && mapsUrl.trim().length > 5) {
     const cleanUrl = mapsUrl.trim();
-    if (cleanUrl.startsWith('http://') || cleanUrl.startsWith('https://') || cleanUrl.startsWith('google.navigation:')) {
-      const canOpen = await Linking.canOpenURL(cleanUrl);
-      if (canOpen) {
-        await Linking.openURL(cleanUrl);
-        return;
-      }
+    try {
+      await Linking.openURL(cleanUrl);
+      return;
+    } catch (e) {
+      console.warn('Falha ao abrir mapsUrl direta, tentando alternativas:', e);
     }
   }
 

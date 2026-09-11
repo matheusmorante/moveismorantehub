@@ -121,17 +121,24 @@ export const ShippingSection = ({ fullAddress, destinationCoords, distance, dura
             </div>
         )}
 
-        {destinationCoords && (
-            <a
-                href={`https://www.google.com/maps/dir/?api=1&destination=${destinationCoords[1]},${destinationCoords[0]}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-blue-600 dark:text-blue-400 hover:text-blue-700 transition-colors mt-3"
-            >
-                <i className="bi bi-geo-fill" />
-                Ver no Google Maps
-            </a>
-        )}
+        {(() => {
+            const explicitMapsUrl = (fullAddress?.mapsUrl || fullAddress?.googleMapsUrl || fullAddress?.mapsLink || '')?.trim();
+            const targetUrl = explicitMapsUrl && explicitMapsUrl.length > 5 
+                ? explicitMapsUrl 
+                : (destinationCoords ? `https://www.google.com/maps/dir/?api=1&destination=${destinationCoords[1]},${destinationCoords[0]}` : null);
+            if (!targetUrl) return null;
+            return (
+                <a
+                    href={targetUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-blue-600 dark:text-blue-400 hover:text-blue-700 transition-colors mt-3"
+                >
+                    <i className="bi bi-geo-fill" />
+                    Ver no Google Maps
+                </a>
+            );
+        })()}
     </section>
 );
 

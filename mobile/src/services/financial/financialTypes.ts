@@ -19,6 +19,8 @@ export interface ParsedFinancialIntent {
   description?: string | null;
   categoryName?: string | null;
   categoryId?: string | null;
+  category?: string | null;
+  notes?: string | null;
   date?: string | null;
   paymentMethod?: string | null;
   purpose?: 'BUSINESS' | 'PERSONAL_PARTNER' | 'NOT_INFORMED' | null;

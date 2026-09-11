@@ -86,7 +86,7 @@ export const PersonAddressSection: React.FC<PersonAddressSectionProps> = ({
                                     city: data.city || prev.fullAddress?.city || "",
                                     state: data.state || prev.fullAddress?.state || "PR",
                                     cep: data.cep || prev.fullAddress?.cep || "",
-                                    mapsUrl: data.mapsUrl || prev.fullAddress?.mapsUrl,
+                                    mapsUrl: prev.fullAddress?.mapsUrl || "",
                                 }
                             }));
                         }}
@@ -94,7 +94,6 @@ export const PersonAddressSection: React.FC<PersonAddressSectionProps> = ({
                         stateHint={formData.fullAddress?.state || "PR"}
                         label="Logradouro"
                         required={collectionName === 'customers'}
-                        routeUrl={routeUrl}
                         className="md:col-span-3 flex flex-col gap-2 relative group/field"
                     />
                     <div className="flex flex-col gap-2">

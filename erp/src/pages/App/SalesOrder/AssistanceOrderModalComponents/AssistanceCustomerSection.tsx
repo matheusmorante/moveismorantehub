@@ -115,7 +115,7 @@ const AssistanceCustomerSection = ({
                                 state: data.state || customerData.fullAddress?.state || "PR",
                                 cep: data.cep || customerData.fullAddress?.cep || "",
                                 number: data.number || customerData.fullAddress?.number || "",
-                                mapsUrl: data.mapsUrl || customerData.fullAddress?.mapsUrl
+                                mapsUrl: customerData.fullAddress?.mapsUrl || ""
                             }
                         });
                     }}
