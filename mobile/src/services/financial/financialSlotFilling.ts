@@ -3,6 +3,9 @@ import { parsePtBrNumber } from './financialTextParser';
 import { parsePtBrWrittenNumbers } from './wordToNumberPtBr';
 import { validateParsedIntent } from './financialIntentValidator';
 import { inferBusinessPurpose } from './financialPurposeReply';
+import { detectFinancialPaymentMethod } from './financialPaymentMethodDetector';
+import { isBankFinancialInstitution } from './bankKeywords';
+import { tryPatchInstallmentSlots } from './patchers/installmentSlotPatcher';
 
 export const extractUnknownFieldsFromText = (
   text: string,
@@ -126,21 +129,12 @@ export const trySlotFillingFallback = (
     }
   }
 
-  if (!draft.paymentMethod || draft.paymentMethod === 'UNKNOWN' || draft.missingFields?.includes('paymentMethod')) {
-    let paymentMethod: string | null = null;
-    if (/débito|debito/i.test(text)) paymentMethod = 'Cartão de Débito';
-    else if (/crédito|credito/i.test(text)) paymentMethod = 'Cartão de Crédito';
-    else if (/\bpix\b/i.test(text)) paymentMethod = 'Pix';
-    else if (/\bboleto\b/i.test(text)) paymentMethod = 'Boleto';
-    else if (/\bdinheiro\b/i.test(text)) paymentMethod = 'Dinheiro';
-    else if (/transferência|transferencia/i.test(text)) paymentMethod = 'Transferência';
-
+    const paymentMethod = detectFinancialPaymentMethod(text);
     if (paymentMethod) {
       draft.paymentMethod = paymentMethod;
       draft.missingFields = (draft.missingFields || []).filter(field => field !== 'paymentMethod');
       commonFieldsPatched += 1;
     }
-  }
 
   if (
     draft.type === 'expense' &&
@@ -171,8 +165,7 @@ export const trySlotFillingFallback = (
   // 0.5. Slot filling para Credor de Empréstimo (ex: "Do banco", "Do Itaú", "Do Matheus", "Do João")
   const isCreditorMissing = activeDraft.missingFields?.includes('creditor') || (activeDraft.questionToUser && activeDraft.questionToUser.includes('De quem foi'));
   if (isCreditorMissing || (draft.isLoan && (!draft.creditor || draft.creditorType === 'UNKNOWN'))) {
-    const bankKeywords = ['banco', 'itaú', 'itau', 'bradesco', 'santander', 'nubank', 'caixa', 'inter', 'sicoob', 'sicredi', 'safra', 'btg', 'c6', 'financeira', 'cooperativa'];
-    const isBankAnswer = bankKeywords.some(b => text.includes(b));
+    const isBankAnswer = isBankFinancialInstitution(text);
 
     let detectedCreditor: string | null = null;
     let detectedType: 'FINANCIAL_INSTITUTION' | 'PERSON_OR_OTHER' = 'PERSON_OR_OTHER';
@@ -302,111 +295,10 @@ export const trySlotFillingFallback = (
     }
   }
 
-  // 1.2. Slot filling para complemento de boletos faltantes (ex: "e outro de 4 mil", "e mais um de 3000")
-  const isComplementingBill =
-    (text.includes('outro') || text.includes('mais') || text.includes('faltou')) &&
-    !text.includes('para o dia') &&
-    !text.includes('vencimento') &&
-    !text.includes('total');
-
-  if (isComplementingBill && draft.installmentList && draft.installmentList.length > 0) {
-    const missingBillMatch = text.match(/(?:outro|mais|mais\s+um|faltou)\s*(?:boleto|parcela)?\s*(?:de\s*)?(?:r\$\s*)?(\d+(?:\.\d{3})?)(?:\s*mil|\s*k)?/i);
-    if (missingBillMatch) {
-      let amt = parsePtBrNumber(missingBillMatch[1], text.includes('mil') || text.includes('k'));
-
-      if (amt > 0) {
-        const nextNumber = draft.installmentList.length + 1;
-        draft.installmentList.push({
-          number: nextNumber,
-          amount: amt,
-          dueDate: null,
-        });
-        draft.installmentsCount = draft.installmentList.length;
-        return validateParsedIntent(draft, todayStr);
-      }
-    }
-  }
-
-  // 1.5. Slot filling para troca de Fornecedor / Contraparte (ex: "na verdade o fornecedor é Bertolini", "foi para Lucas")
-  const isSupplierChange = text.includes('fornecedor') || text.includes('fábrica') || text.includes('fabrica') || text.includes('na verdade é da') || text.includes('na verdade é do') || text.includes('na verdade o fornecedor') || text.includes('foi para');
-  if (isSupplierChange) {
-    const supplierMatch = text.match(/(?:fornecedor|fábrica|fabrica|na\s+verdade\s+é\s+d[ao]|é\s+d[ao]|na\s+verdade\s+o\s+fornecedor\s+é|foi\s+para)\s+(?:é\s+)?([a-zA-ZáàâãéèêíïóôõöúçñA-ZÁÀÂÃÉÈÊÍÏÓÔÕÖÚÇÑ]+)/i);
-    if (supplierMatch) {
-      const raw = supplierMatch[1];
-      const stopWords = ['uma', 'um', 'compra', 'mercadoria', 'estoque', 'produtos', 'outro', 'outra'];
-      if (!stopWords.includes(raw.toLowerCase())) {
-        const formattedName = raw.charAt(0).toUpperCase() + raw.slice(1);
-        draft.supplier = formattedName;
-        draft.counterparty = formattedName;
-        return validateParsedIntent(draft, todayStr);
-      }
-    }
-  }
-
-  // 2. Correção do Total Declarado (ex: "o total é 25 mil", "o total correto é 25.000")
-  const totalCorrectionMatch = text.match(/(?:o\s+)?total\s*(?:é|correto\s*é|de)?\s*(?:r\$\s*)?(\d+(?:\.\d{3})?)(?:\s*mil|\s*k)?/i);
-  if (totalCorrectionMatch) {
-    let correctedTotal = parsePtBrNumber(totalCorrectionMatch[1], text.includes('mil') || text.includes('k'));
-
-    if (correctedTotal > 0) {
-      draft.totalAmount = correctedTotal;
-      draft.amount = correctedTotal;
-      return validateParsedIntent(draft, todayStr);
-    }
-  }
-
-  // 3. Patching Incremental Preservativo de Parcela/Grupo (ex: "eu quis dizer 2 de 5.000")
-  const patchMatch = text.match(/(?:(\d+|dois|três|quatro)\s*(?:boletos?|parcelas?)?\s*de\s*(?:r\$\s*)?(\d+(?:\.\d{3})?)(?:\s*mil|\s*k)?)/i);
-
-  if (patchMatch && draft.installmentList && draft.installmentList.length > 0) {
-    const rawQ = patchMatch[1].toLowerCase();
-    const newQty = rawQ === 'dois' ? 2 : rawQ === 'três' ? 3 : rawQ === 'quatro' ? 4 : parseInt(rawQ, 10);
-    const targetVal = parsePtBrNumber(patchMatch[2], text.includes('mil') || text.includes('k'));
-
-    if (newQty > 0 && targetVal > 0) {
-      const existingTargetItems = draft.installmentList.filter(item => item.amount === targetVal);
-
-      if (existingTargetItems.length > 0) {
-        const otherItems = draft.installmentList.filter(item => item.amount !== targetVal);
-        const newTargetItems = Array.from({ length: newQty }, (_, i) => ({
-          number: 0,
-          amount: targetVal,
-          dueDate: existingTargetItems[i]?.dueDate || null,
-        }));
-
-        const combinedList = [...otherItems, ...newTargetItems];
-        combinedList.sort((a, b) => b.amount - a.amount);
-        draft.installmentList = combinedList.map((item, idx) => ({
-          ...item,
-          number: idx + 1,
-        }));
-        draft.installmentsCount = combinedList.length;
-
-        if (draft.dueDay) {
-          const today = new Date(todayStr || Date.now());
-          const isNextMonth = text.includes('próximo mês') || text.includes('proximo mes') || draft.dueDate?.includes('-10-') || draft.dueDate?.includes('-11-');
-          let startMonth = today.getMonth() + (isNextMonth ? 1 : 0);
-          let startYear = today.getFullYear();
-
-          draft.installmentList = draft.installmentList.map((item, idx) => {
-            let m = startMonth + idx;
-            let y = startYear;
-            while (m > 11) {
-              m -= 12;
-              y += 1;
-            }
-            const formattedMonth = String(m + 1).padStart(2, '0');
-            const formattedDay = String(draft.dueDay!).padStart(2, '0');
-            return {
-              ...item,
-              dueDate: item.dueDate || `${y}-${formattedMonth}-${formattedDay}`,
-            };
-          });
-        }
-
-        return validateParsedIntent(draft, todayStr);
-      }
-    }
+  // 1.2 e 3: Patching de parcelas e complemento de boletos
+  const installmentPatchResult = tryPatchInstallmentSlots(text, draft, todayStr);
+  if (installmentPatchResult) {
+    return installmentPatchResult;
   }
 
   // 4. Slot filling para Forma de Pagamento / Recebimento (ex: "Pix", "no cartão", "dinheiro", "foi no pix")
@@ -430,13 +322,7 @@ export const trySlotFillingFallback = (
   const isMissingPaymentMethod = !draft.paymentMethod || draft.paymentMethod === 'UNKNOWN' || draft.missingFields?.includes('paymentMethod');
 
   if ((isPaymentMention || isMissingPaymentMethod) && !text.includes('boletos') && !text.includes('parcelas')) {
-    let capturedMethod: string | null = null;
-    if (text.includes('débito') || text.includes('debito')) capturedMethod = 'Cartão de Débito';
-    else if (text.includes('crédito') || text.includes('credito')) capturedMethod = 'Cartão de Crédito';
-    else if (text.includes('pix')) capturedMethod = 'Pix';
-    else if (text.includes('boleto')) capturedMethod = 'Boleto';
-    else if (text.includes('dinheiro')) capturedMethod = 'Dinheiro';
-    else if (text.includes('transferência') || text.includes('transferencia')) capturedMethod = 'Transferência';
+    const capturedMethod = detectFinancialPaymentMethod(text);
 
     if (capturedMethod) {
       draft.paymentMethod = capturedMethod;

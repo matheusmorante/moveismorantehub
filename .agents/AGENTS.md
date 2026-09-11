@@ -72,6 +72,7 @@ Consulte a skill correspondente para obter o procedimento operacional detalhado:
 | **Compatibilidade** | `analise-compatibilidade-mudancas` | Novos campos em JSONs/tabelas, fallbacks de leitura e retrocompatibilidade. |
 | **Publicação Mobile** | `mobile-eas-publicacao` | Builds nativas Android/iOS, atualizações OTA e publicação Expo EAS. |
 | **Proteção Cloud** | `cloud-free-tier-guard` | Proteção contra cobranças, cotas de APIs (Google Maps, Gemini) e teto R$ 0,00. |
+| **Organização de Pastas** | `organizacao-arquivos-diretorios` | Estruturação de diretórios, subpastas semânticas e migração segura de arquivos sem quebra de imports. |
 
 ---
 

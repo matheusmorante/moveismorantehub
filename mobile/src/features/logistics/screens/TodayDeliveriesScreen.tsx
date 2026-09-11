@@ -8,7 +8,6 @@ import { useRoutesApi } from '../hooks/useRoutesApi';
 import { DeliveryMapView } from '../components/deliveryMap/DeliveryMapView';
 import { MapErrorBoundary } from '../components/deliveryMap/MapErrorBoundary';
 import { NextDeliveryCard } from '../components/deliveryMap/NextDeliveryCard';
-import { DeliveryBottomSheet } from '../components/deliveryMap/DeliveryBottomSheet';
 import { RouteProgressHeader } from '../components/deliveryMap/RouteProgressHeader';
 import { RouteOptimizationModal } from '../components/deliveryMap/RouteOptimizationModal';
 import { RouteListView } from '../components/routeList/RouteListView';
@@ -27,8 +26,9 @@ export const TodayDeliveriesScreen: React.FC<Props> = ({
 }) => {
   const insets = useSafeAreaInsets();
   const [viewMode, setViewMode] = useState<'map' | 'list'>('map');
+  // Por padrão, nenhum card fica aberto na tela até que o motorista clique em um marcador
   const [selectedMarkerItem, setSelectedMarkerItem] = useState<DeliveryRouteItem | null>(null);
-  const [isCardDismissed, setIsCardDismissed] = useState<boolean>(false);
+  const [isCardDismissed, setIsCardDismissed] = useState<boolean>(true);
 
   // Otimização de rota
   const [showOptimizationModal, setShowOptimizationModal] = useState(false);
@@ -45,16 +45,16 @@ export const TodayDeliveriesScreen: React.FC<Props> = ({
     longitude: -49.169,
   }), []);
 
-  // Alvo ativo da rota (parada selecionada pelo clique no mapa, em andamento ou próxima)
-  const activeDeliveryTarget = selectedMarkerItem || currentDelivery || nextDelivery;
+  // Alvo ativo da rota: SOMENTE a parada clicada pelo motorista no mapa (sem rota forçada por padrão)
+  const activeDeliveryTarget = selectedMarkerItem;
 
-  // Itens restantes da lista/mapa (sem duplicar a próxima entrega exibida no card do topo)
+  // Itens restantes da lista/mapa (sem duplicar a entrega selecionada)
   const remainingRouteItems = useMemo(() => {
     if (!activeDeliveryTarget) return routeItems;
     return routeItems.filter((item) => item.id !== activeDeliveryTarget.id);
   }, [routeItems, activeDeliveryTarget]);
 
-  // Polyline e métricas da Routes API entre motorista e próxima parada
+  // Polyline e métricas da Routes API entre motorista e parada selecionada (somente quando houver seleção explícita)
   const { polylineCoords, distanceKm, durationMin } = useRoutesApi({
     origin: driverCoords || storeCoords,
     destination: activeDeliveryTarget?.coords || null,
@@ -253,15 +253,6 @@ export const TodayDeliveriesScreen: React.FC<Props> = ({
           isDarkMode={isDarkMode}
         />
       )}
-
-      {/* Bottom Sheet de Detalhes da Parada */}
-      <DeliveryBottomSheet
-        item={selectedMarkerItem}
-        onClose={() => setSelectedMarkerItem(null)}
-        onStartDelivery={handleStartDelivery}
-        onViewOrder={handleViewOrder}
-        isDarkMode={isDarkMode}
-      />
 
       {/* Modal de Confirmação de Otimização */}
       <RouteOptimizationModal

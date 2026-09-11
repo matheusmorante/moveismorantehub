@@ -208,6 +208,7 @@ export async function buildSingleSpecification(params: {
   productCatalogUrl: string;
   campaign: PostCampaign;
   activeModels: ElementModel[];
+  elementModels?: ElementModel[];
   globalRules: string;
   product?: any;
   selectedVariationId?: string;
@@ -238,6 +239,7 @@ export async function buildSingleSpecification(params: {
   const officialAssets = resolveOfficialAssets({
     product: params.product,
     activeModels: params.activeModels,
+    elementModels: params.elementModels,
   });
   const benefits = resolvePostBenefits({ product: params.product, activeModels: params.activeModels });
   const productLiteralData = resolvePostProductLiteralData(params.product, params.selectedVariationId);

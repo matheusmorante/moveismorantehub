@@ -1,8 +1,9 @@
-import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, StyleSheet } from 'react-native';
 import { Marker } from 'react-native-maps';
-import { Check, AlertTriangle, Store, Truck } from 'lucide-react-native';
+import { Check, AlertTriangle, Store, Truck, Wrench, Package, RotateCcw } from 'lucide-react-native';
 import { DeliveryRouteItem } from '../../hooks/useDeliveryRoute';
+import { getOperationActivityType } from '../../../schedule/utils/operationActivity';
 
 interface Props {
   item?: DeliveryRouteItem;
@@ -21,6 +22,28 @@ export const DeliveryMarker: React.FC<Props> = ({
   driverCoords,
   onPress,
 }) => {
+  // tracksViewChanges dinâmico: necessário no Android para permitir que ícones e badges
+  // renderizem na tela nativa antes de congelar a visualização do Marker
+  const [tracksViewChanges, setTracksViewChanges] = useState(true);
+
+  useEffect(() => {
+    // Permite que o mapa capture a visualização inicial dos componentes filhos
+    setTracksViewChanges(true);
+    const timer = setTimeout(() => {
+      setTracksViewChanges(false);
+    }, 1200);
+    return () => clearTimeout(timer);
+  }, [
+    item?.status,
+    item?.sequence,
+    item?.isCurrent,
+    item?.isNext,
+    isStore,
+    isDriver,
+    driverCoords?.latitude,
+    driverCoords?.longitude,
+  ]);
+
   const isValidCoord = (c?: { latitude?: number; longitude?: number } | null): boolean => {
     return Boolean(
       c &&
@@ -41,10 +64,10 @@ export const DeliveryMarker: React.FC<Props> = ({
         title="Posição Atual"
         description="Motorista / Entregador em Rota"
         anchor={{ x: 0.5, y: 0.5 }}
-        tracksViewChanges={false}
+        tracksViewChanges={tracksViewChanges}
       >
         <View style={styles.driverPin}>
-          <Truck size={16} color="#ffffff" />
+          <Truck size={28} color="#2563eb" fill="#2563eb" />
         </View>
       </Marker>
     );
@@ -57,12 +80,14 @@ export const DeliveryMarker: React.FC<Props> = ({
         title="Depósito Móveis Morante"
         description="Ponto de Saída e Retorno"
         anchor={{ x: 0.5, y: 1 }}
-        tracksViewChanges={false}
+        tracksViewChanges={tracksViewChanges}
       >
-        <View style={styles.storePin}>
-          <Store size={14} color="#ffffff" />
+        <View style={styles.markerContainer}>
+          <View style={styles.storePin}>
+            <Store size={15} color="#ffffff" />
+          </View>
+          <View style={styles.pinTipStore} />
         </View>
-        <View style={styles.pinTipStore} />
       </Marker>
     );
   }
@@ -74,21 +99,35 @@ export const DeliveryMarker: React.FC<Props> = ({
   const isCurrent = item.isCurrent;
   const isNext = item.isNext && !isCurrent;
 
-  let backgroundColor = '#334155'; // Pendente
+  // Determinação da atividade operacional
+  const activityType = getOperationActivityType(item.order);
+  const isPickup = item.order?.shipping?.deliveryMethod === 'pickup';
+
+  // Cores de fundo por tipo de pedido:
+  // - Retirada: Roxo (#7c3aed)
+  // - Assistência: Amarelo/Âmbar (#eab308)
+  // - Coleta de Devolução: Laranja (#f97316)
+  // - Entrega: Verde (#16a34a)
+  let backgroundColor = '#16a34a'; // Padrão: Entrega (Verde)
   let borderColor = '#ffffff';
 
-  if (isCurrent) {
-    backgroundColor = '#2563eb'; // Em Rota / Em Atendimento (Destaque)
-    borderColor = '#bfdbfe';
-  } else if (isNext) {
-    backgroundColor = '#0284c7'; // Próxima
-    borderColor = '#bae6fd';
-  } else if (isCompleted) {
+  if (isPickup) {
+    backgroundColor = '#7c3aed'; // Retirada (Roxo)
+  } else if (activityType === 'assistance') {
+    backgroundColor = '#eab308'; // Assistência (Amarelo)
+  } else if (activityType === 'return') {
+    backgroundColor = '#f97316'; // Coleta de Devolução (Laranja)
+  }
+
+  // Se concluída ou não atendida, cores de estado têm prioridade semântica
+  if (isCompleted) {
     backgroundColor = '#10b981'; // Concluída
     borderColor = '#a7f3d0';
   } else if (isUnattended) {
     backgroundColor = '#ef4444'; // Não Atendida
     borderColor = '#fecaca';
+  } else if (isCurrent) {
+    borderColor = '#ffffff';
   }
 
   return (
@@ -96,16 +135,22 @@ export const DeliveryMarker: React.FC<Props> = ({
       coordinate={item.coords}
       anchor={{ x: 0.5, y: 1 }}
       onPress={onPress}
-      tracksViewChanges={false}
+      tracksViewChanges={tracksViewChanges}
     >
       <View style={[styles.markerContainer, (isCurrent || isNext) && styles.markerHighlight]}>
         <View style={[styles.markerBadge, { backgroundColor, borderColor }]}>
           {isCompleted ? (
-            <Check size={14} color="#ffffff" strokeWidth={3} />
+            <Check size={15} color="#ffffff" strokeWidth={3} />
           ) : isUnattended ? (
-            <AlertTriangle size={12} color="#ffffff" strokeWidth={3} />
+            <AlertTriangle size={13} color="#ffffff" strokeWidth={3} />
+          ) : isPickup ? (
+            <Package size={14} color="#ffffff" strokeWidth={2.5} />
+          ) : activityType === 'assistance' ? (
+            <Wrench size={14} color="#ffffff" strokeWidth={2.5} />
+          ) : activityType === 'return' ? (
+            <RotateCcw size={14} color="#ffffff" strokeWidth={2.5} />
           ) : (
-            <Text style={styles.sequenceText}>{item.sequence}</Text>
+            <Truck size={14} color="#ffffff" strokeWidth={2.5} />
           )}
         </View>
         <View style={[styles.pinTip, { borderTopColor: backgroundColor }]} />
@@ -174,18 +219,12 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
   },
   driverPin: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    backgroundColor: '#2563eb',
-    borderWidth: 2.5,
-    borderColor: '#ffffff',
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#2563eb',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.4,
-    shadowRadius: 6,
-    elevation: 6,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.35,
+    shadowRadius: 4,
+    elevation: 4,
   },
 });

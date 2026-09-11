@@ -1,7 +1,7 @@
 import React from 'react';
 import { InboundInvoice } from '@/pages/utils/inboundNfe/inboundNfeTypes';
 import { formatCurrency } from '@/pages/utils/formatters';
-import { InboundInvoiceFiscalReview } from './InboundInvoiceFiscalReview';
+import { InboundInvoiceFiscalReview } from '../components/InboundInvoiceFiscalReview';
 
 interface InboundInvoiceDetailsModalProps {
     invoice: InboundInvoice | null;

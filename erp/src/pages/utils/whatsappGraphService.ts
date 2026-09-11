@@ -22,43 +22,12 @@ export interface WhatsAppProduct {
 /**
  * Service to interact with WhatsApp Business / Facebook Graph API
  */
-export const whatsappGraphService = {
-    /**
-     * Helper to get common headers
-     */
-    getHeaders: () => {
-        const { whatsappConfig } = getSettings();
-        if (!whatsappConfig?.accessToken) {
-            throw new Error("Token de acesso do WhatsApp não configurado.");
-        }
-        return {
-            'Authorization': `Bearer ${whatsappConfig.accessToken}`,
-            'Content-Type': 'application/json'
-        };
-    },
+import { whatsappHttpClient } from './whatsappHttpClient';
 
-    /**
-     * Verifies if the basic API configuration is working
-     */
-    testConnection: async (config?: any) => {
-        const targetConfig = config || getSettings().whatsappConfig;
-        if (!targetConfig?.phoneNumberId) throw new Error("Phone Number ID não configurado.");
-        if (!targetConfig?.accessToken) throw new Error("Token de acesso não configurado.");
-        
-        const response = await fetch(
-            `${FACEBOOK_GRAPH_URL}/${GRAPH_API_VERSION}/${targetConfig.phoneNumberId}`,
-            { 
-                headers: {
-                    'Authorization': `Bearer ${targetConfig.accessToken}`,
-                    'Content-Type': 'application/json'
-                }
-            }
-        );
-        
-        const data = await response.json();
-        if (data.error) throw new Error(data.error.message);
-        return data;
-    },
+export const whatsappGraphService = {
+    getHeaders: whatsappHttpClient.getHeaders,
+    testConnection: whatsappHttpClient.testConnection,
+
 
     /**
      * Fetches products from the Meta Catalog

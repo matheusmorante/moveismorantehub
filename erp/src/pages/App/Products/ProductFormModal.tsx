@@ -31,6 +31,8 @@ import { VariationRow } from './components/VariationRow';
 import { PRODUCT_ENVIRONMENT_OPTIONS } from './productEnvironmentOptions';
 import { INITIAL_PRODUCT_FORM_DATA } from './productFormInitialData';
 import { MAX_PARENT_PRODUCT_IMAGES } from '@/pages/utils/productImageLimits';
+import { checkERPLegibility, checkEcomLegibility } from './productLegibilityRules';
+import { useProductFormPricing } from './hooks/useProductFormPricing';
 
 
 // [x] Novo: Cadastro de Produtos e Serviços Simplificado (Manual)
@@ -77,200 +79,17 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
         ...initialData
     });
 
-    const [discountPercent, setDiscountPercent] = useState('');
-    const [discountFixed, setDiscountFixed] = useState('');
-
-    const parsePrice = useCallback((val: any): number => {
-        if (typeof val === 'number') return val;
-        if (!val) return 0;
-        const clean = String(val).replace(/[^\d.,]/g, '').replace(',', '.');
-        const parsed = parseFloat(clean);
-        return isNaN(parsed) ? 0 : parsed;
-    }, []);
-
-    // Atualizar descontos ao alterar preço original
-    const handlePriceChange = useCallback((newPrice: string | number) => {
-        const orig = parsePrice(newPrice);
-        setFormData(prev => {
-            const next = { ...prev, unitPrice: orig };
-            if (orig <= 0) {
-                setDiscountPercent("");
-                setDiscountFixed("");
-                next.promoPrice = undefined;
-                return next;
-            }
-
-            if (discountPercent) {
-                const pct = parseFloat(discountPercent);
-                if (!isNaN(pct)) {
-                    const fixed = orig * (pct / 100);
-                    setDiscountFixed(fixed.toFixed(2));
-                    const promo = orig - fixed;
-                    next.promoPrice = promo > 0 ? Number(promo.toFixed(2)) : 0;
-                }
-            } else if (prev.promoPrice && prev.promoPrice < orig) {
-                const fixed = orig - prev.promoPrice;
-                const pct = (fixed / orig) * 100;
-                setDiscountFixed(fixed.toFixed(2));
-                setDiscountPercent(pct.toFixed(1));
-            }
-            return next;
-        });
-    }, [discountPercent, parsePrice]);
-
-    // Quando muda o desconto percentual (%)
-    const handleDiscountPercentChange = useCallback((valStr: string) => {
-        setDiscountPercent(valStr);
-        setFormData(prev => {
-            const orig = prev.unitPrice || 0;
-            if (orig <= 0 || valStr === "") {
-                setDiscountFixed("");
-                return { ...prev, promoPrice: undefined };
-            }
-
-            const pct = parseFloat(valStr);
-            if (isNaN(pct) || pct < 0) {
-                setDiscountFixed("");
-                return { ...prev, promoPrice: undefined };
-            }
-
-            const fixed = orig * (pct / 100);
-            setDiscountFixed(fixed.toFixed(2));
-            const promo = orig - fixed;
-            return { ...prev, promoPrice: promo > 0 ? Number(promo.toFixed(2)) : 0 };
-        });
-    }, []);
-
-    // Quando muda o desconto fixo (R$)
-    const handleDiscountFixedChange = useCallback((valStr: string | number) => {
-        const fixed = parsePrice(valStr);
-        setDiscountFixed(String(valStr));
-        setFormData(prev => {
-            const orig = prev.unitPrice || 0;
-            if (orig <= 0 || !valStr || fixed <= 0) {
-                setDiscountPercent("");
-                return { ...prev, promoPrice: undefined };
-            }
-
-            const pct = (fixed / orig) * 100;
-            setDiscountPercent(pct.toFixed(1));
-            const promo = orig - fixed;
-            return { ...prev, promoPrice: promo > 0 ? Number(promo.toFixed(2)) : 0 };
-        });
-    }, [parsePrice]);
-
-    // Quando muda o preço promocional final (R$)
-    const handlePromoPriceFieldChange = useCallback((valStr: string | number) => {
-        const promo = parsePrice(valStr);
-        setFormData(prev => {
-            const orig = prev.unitPrice || 0;
-            if (orig > 0 && promo > 0 && promo < orig) {
-                const fixed = orig - promo;
-                const pct = (fixed / orig) * 100;
-                setDiscountFixed(fixed.toFixed(2));
-                setDiscountPercent(pct.toFixed(1));
-            } else if (promo <= 0) {
-                setDiscountFixed("");
-                setDiscountPercent("");
-            }
-            return { ...prev, promoPrice: promo > 0 ? promo : undefined };
-        });
-    }, [parsePrice]);
-
-    const checkERPLegibility = useCallback((data: Partial<Product>) => {
-        const errors: string[] = [];
-        const hasVars = Boolean(data.hasVariations);
-
-        if (!data.description || data.description.trim().length < 2) {
-            errors.push("Nome do Produto (Interno) deve ter pelo menos 2 caracteres.");
-        }
-        if (!hasVars) {
-            if (!data.unitPrice || data.unitPrice <= 0) {
-                errors.push("Preço de Venda deve ser maior que zero.");
-            }
-            if (data.promoPrice !== undefined && data.promoPrice !== null && !isNaN(data.promoPrice) && data.promoPrice > 0) {
-                const up = data.unitPrice || 0;
-                if (data.promoPrice >= up) {
-                    errors.push("O preço promocional deve ser menor que o preço de venda.");
-                }
-            }
-        } else {
-            if (!data.variations || data.variations.length === 0) {
-                errors.push("Adicione pelo menos uma variação para o produto.");
-            }
-        }
-        if (!data.categoryIds || data.categoryIds.length === 0) {
-            errors.push("Pelo menos uma categoria deve ser selecionada.");
-        }
-        if (!data.mainSupplierId) {
-            errors.push("Fornecedor Principal é obrigatório.");
-        }
-
-        return {
-            isLegible: errors.length === 0,
-            errors,
-            checks: {
-                description: !!data.description && data.description.trim().length >= 2,
-                unitPrice: hasVars ? (data.variations && data.variations.length > 0) : (!!data.unitPrice && data.unitPrice > 0),
-                categories: !!data.categoryIds && data.categoryIds.length > 0,
-                supplier: !!data.mainSupplierId
-            }
-        };
-    }, []);
-
-    const checkEcomLegibility = useCallback((data: Partial<Product>) => {
-        const errors: string[] = [];
-        const hasVars = Boolean(data.hasVariations);
-        const catalogTitle = data.title || data.marketplaceTitle;
-        const catalogDescription = data.ecommerceDescription || data.description;
-        if (!catalogTitle || catalogTitle.trim().length < 2) {
-            errors.push("Título do Produto (E-commerce) deve ter pelo menos 2 caracteres.");
-        }
-        if (!catalogDescription || catalogDescription.trim().length < 2) {
-            errors.push("Descrição do catálogo deve ser preenchida antes da publicação.");
-        }
-        if (!hasVars && (!data.unitPrice || data.unitPrice <= 0)) {
-            errors.push("Preço de Venda deve ser maior que zero.");
-        }
-        if (!data.categoryIds || data.categoryIds.length === 0) {
-            errors.push("Pelo menos uma categoria deve ser selecionada.");
-        }
-        if (!data.images || data.images.length === 0) {
-            errors.push("Pelo menos uma foto deve ser adicionada.");
-        }
-        const isService = data.itemType === 'service';
-        if (!isService) {
-            if (!data.width || Number(data.width) <= 0) {
-                errors.push("Largura deve ser maior que zero.");
-            }
-            if (!data.height || Number(data.height) <= 0) {
-                errors.push("Altura deve ser maior que zero.");
-            }
-            if (!data.depth || Number(data.depth) <= 0) {
-                errors.push("Profundidade deve ser maior que zero.");
-            }
-        }
-        
-        if (data.promoPrice !== undefined && data.promoPrice !== null && !isNaN(data.promoPrice) && data.promoPrice > 0) {
-            const up = data.unitPrice || 0;
-            if (data.promoPrice >= up) {
-                errors.push("O preço promocional deve ser menor que o preço de venda.");
-            }
-        }
-
-        return {
-            isLegible: errors.length === 0,
-            errors,
-            checks: {
-                marketplaceTitle: !!catalogTitle && catalogTitle.trim().length >= 2,
-                description: !!catalogDescription && catalogDescription.trim().length >= 2,
-                unitPrice: !!data.unitPrice && data.unitPrice > 0,
-                categories: !!data.categoryIds && data.categoryIds.length > 0,
-                images: !!data.images && data.images.length > 0,
-                dimensions: isService || (!!data.width && Number(data.width) > 0 && !!data.height && Number(data.height) > 0 && !!data.depth && Number(data.depth) > 0)
-            }
-        };
-    }, []);
+    const {
+        discountPercent,
+        discountFixed,
+        setDiscountPercent,
+        setDiscountFixed,
+        handlePriceChange,
+        handleDiscountPercentChange,
+        handleDiscountFixedChange,
+        handlePromoPriceFieldChange,
+        initializeDiscounts
+    } = useProductFormPricing(formData, setFormData);
 
     const navigateToRequirementField = useCallback((fieldKey: string) => {
         const requirementMap: Record<string, { tab: 'geral' | 'ambientes' | 'estoque' | 'variacoes' | 'ecommerce' | 'technical' | 'fiscal'; fieldId: string }> = {
@@ -357,49 +176,20 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, onSuccess }: 
             if (product?.id) {
                 const initialNext = ensureDefaultVariation({ ...INITIAL_PRODUCT_FORM_DATA, ...product, hasVariations: true });
                 setFormData(initialNext);
-                const initOrig = product.unitPrice || 0;
-                const initPromo = product.promoPrice || 0;
-                if (initOrig > 0 && initPromo > 0 && initPromo < initOrig) {
-                    const diff = initOrig - initPromo;
-                    setDiscountFixed(diff.toFixed(2));
-                    setDiscountPercent(((diff / initOrig) * 100).toFixed(1));
-                } else {
-                    setDiscountFixed("");
-                    setDiscountPercent("");
-                }
+                initializeDiscounts(product.unitPrice, product.promoPrice);
 
                 const full = await getFullProduct(product.id);
                 if (full && isMounted) {
                     const nextFormData = ensureDefaultVariation({ ...full, hasVariations: true });
                     initialFormDataRef.current = JSON.stringify(nextFormData);
                     setFormData(nextFormData);
-                    // Inicializar descontos
-                    const orig = full.unitPrice || 0;
-                    const promo = full.promoPrice || 0;
-                    if (orig > 0 && promo > 0 && promo < orig) {
-                        const diff = orig - promo;
-                        setDiscountFixed(diff.toFixed(2));
-                        setDiscountPercent(((diff / orig) * 100).toFixed(1));
-                    } else {
-                        setDiscountFixed("");
-                        setDiscountPercent("");
-                    }
+                    initializeDiscounts(full.unitPrice, full.promoPrice);
                 }
             } else if (product) {
                 const nextFormData = ensureDefaultVariation({ ...INITIAL_PRODUCT_FORM_DATA, ...product, hasVariations: true });
                 initialFormDataRef.current = JSON.stringify(nextFormData);
                 setFormData(nextFormData);
-                // Inicializar descontos
-                const orig = product.unitPrice || 0;
-                const promo = product.promoPrice || 0;
-                if (orig > 0 && promo > 0 && promo < orig) {
-                    const diff = orig - promo;
-                    setDiscountFixed(diff.toFixed(2));
-                    setDiscountPercent(((diff / orig) * 100).toFixed(1));
-                } else {
-                    setDiscountFixed("");
-                    setDiscountPercent("");
-                }
+                initializeDiscounts(product.unitPrice, product.promoPrice);
             } else {
                 // If creating new, start with the canonical defaults, then apply initialData and generate ID/SKU.
                 const generatedId = crypto.randomUUID();

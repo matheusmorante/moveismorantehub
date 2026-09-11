@@ -56,12 +56,14 @@ export function resolveConfiguredBadgeAssetUrl(model: any): string | null {
 export function resolveOfficialAssets(params: {
   product?: any | null;
   activeModels?: any[];
+  elementModels?: any[];
 }): ResolvedOfficialAssets {
-  const { product, activeModels = [] } = params;
+  const { product, activeModels = [], elementModels = [] } = params;
+  const candidateModels = [...activeModels, ...elementModels];
 
   // 1. Resolver LOGO oficial (sempre ativo com URL absoluta)
   let logoUrl = OFFICIAL_MORANTE_LOGO_URL;
-  const logoModel = activeModels.find(
+  const logoModel = candidateModels.find(
     (m: any) =>
       m.elementType === 'LOGO' ||
       m.element_type === 'LOGO' ||
@@ -87,37 +89,55 @@ export function resolveOfficialAssets(params: {
       (typeof product?.opportunity === 'string' ? product.opportunity : null) ||
       'Oportunidade';
 
-    // 1. Tentar obter do modelo BADGE configurado da campanha
-    const exactBadgeModel = activeModels.find(
+    // 1. Tentar obter do modelo BADGE configurado da campanha / biblioteca de elementos.
+    // Prioriza modelos que possuem asset real configurado (generatedAssetUrl ou anexo) e mais recente.
+    const matchingBadgeModels = candidateModels.filter(
       (m: any) =>
         (m.elementType === 'BADGE' || m.element_type === 'BADGE') &&
         ((oppId && (m.opportunityId === oppId || m.opportunity_id === oppId)) ||
           (oppName && m.name && m.name.toLowerCase().includes(oppName.toLowerCase())))
     );
 
+    const sortedBadgeModels = [...matchingBadgeModels].sort((a: any, b: any) => {
+      const urlA = resolveConfiguredBadgeAssetUrl(a);
+      const urlB = resolveConfiguredBadgeAssetUrl(b);
+      if (urlA && !urlB) return -1;
+      if (!urlA && urlB) return 1;
+      const dateA = new Date(a.updatedAt || a.updated_at || a.createdAt || a.created_at || 0).getTime();
+      const dateB = new Date(b.updatedAt || b.updated_at || b.createdAt || b.created_at || 0).getTime();
+      return dateB - dateA;
+    });
+
+    const exactBadgeModel = sortedBadgeModels[0] || null;
+
     if (exactBadgeModel) {
       let badgeUrl = resolveConfiguredBadgeAssetUrl(exactBadgeModel);
 
-      // Fallback canônico se o modelo da campanha não tiver gerado asset ainda
+      // Se ainda não houver asset no modelo, usa o asset da oportunidade do produto (sem forçar imagem legada)
       if (!badgeUrl) {
-        const isQueima = /queima|salvado/i.test(`${oppName} ${oppId}`);
-        const isLiquida = /liquida/i.test(`${oppName} ${oppId}`);
-        if (isQueima) {
-          badgeUrl = OFFICIAL_QUEIMA_BADGE_URL;
-        } else if (isLiquida) {
-          badgeUrl = OFFICIAL_LIQUIDACAO_BADGE_URL;
-        }
+        badgeUrl =
+          product?.opportunityImageUrl ||
+          (typeof product?.opportunity === 'object' ? product?.opportunity?.image_url : null) ||
+          null;
       }
 
       if (badgeUrl) {
         badge = {
-          name: 'Selo de Oportunidade',
+          name: exactBadgeModel.name || 'Selo de Oportunidade',
           url: badgeUrl,
           role: 'OFFICIAL_ASSET',
           opportunityId: oppId,
           opportunityName: oppName,
         };
       }
+    } else if (product?.opportunityImageUrl || (typeof product?.opportunity === 'object' && product?.opportunity?.image_url)) {
+      badge = {
+        name: 'Selo de Oportunidade',
+        url: product?.opportunityImageUrl || product?.opportunity?.image_url,
+        role: 'OFFICIAL_ASSET',
+        opportunityId: oppId,
+        opportunityName: oppName,
+      };
     }
   }
 

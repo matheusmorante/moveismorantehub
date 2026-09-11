@@ -1,11 +1,11 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { toast } from 'react-toastify';
-import { InboundInvoicesHeader, DateFilterConfig } from './InboundInvoicesHeader';
-import { InboundInvoicesTable } from './InboundInvoicesTable';
-import { InboundInvoiceDetailsModal } from './InboundInvoiceDetailsModal';
-import { InboundDocumentImportModal } from './InboundDocumentImportModal';
-import { ManageInboundInvoiceMappingsModal } from './ManageInboundInvoiceMappingsModal';
-import { InboundInvoicesPagination } from './InboundInvoicesPagination';
+import { InboundInvoicesHeader, DateFilterConfig } from './components/InboundInvoicesHeader';
+import { InboundInvoicesTable } from './components/InboundInvoicesTable';
+import { InboundInvoiceDetailsModal } from './modals/InboundInvoiceDetailsModal';
+import { InboundDocumentImportModal } from './modals/InboundDocumentImportModal';
+import { ManageInboundInvoiceMappingsModal } from './modals/ManageInboundInvoiceMappingsModal';
+import { InboundInvoicesPagination } from './components/InboundInvoicesPagination';
 import { fetchInboundInvoicesPage } from '@/pages/utils/inboundNfe/inboundInvoicesService';
 import { InboundInvoice } from '@/pages/utils/inboundNfe/inboundNfeTypes';
 

@@ -1,17 +1,17 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import {
-  Modal,
   Platform,
-  ScrollView,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
-import { Check, ChevronDown, Link2, X } from 'lucide-react-native';
+import { ChevronDown, Link2 } from 'lucide-react-native';
 import { fetchMobileCategories, MobileCategory } from '../../services/mobileCategoryService';
 import { fetchMobileOpportunities, MobileOpportunity } from '../../services/mobileOpportunityService';
+import { OpportunitySelectModal } from '../components/OpportunitySelectModal';
+import { CategoryMultiSelectList } from '../components/CategoryMultiSelectList';
 
 interface Props {
   formData: any;
@@ -51,7 +51,6 @@ export const ProductFormBasicTab: React.FC<Props> = ({ formData, setFormData, da
 
   const set = (field: string, val: any) => setFormData(prev => ({ ...prev, [field]: val }));
 
-  // Cálculo dinâmico do slug amigável
   const computedSlug = useMemo(() => {
     const raw = formData.title || formData.name || '';
     const clean = raw
@@ -63,12 +62,10 @@ export const ProductFormBasicTab: React.FC<Props> = ({ formData, setFormData, da
     return clean || 'slug-do-produto';
   }, [formData.name, formData.title]);
 
-  // Atualiza slug no formData caso não esteja preenchido
   useEffect(() => {
     set('slug', computedSlug);
   }, [computedSlug]);
 
-  // Filtra categorias para remover ambientes puros, idêntico ao ERP
   const filteredCategories = useMemo(() => {
     return categories.filter(cat => {
       const name = cat.name?.trim().toUpperCase() || '';
@@ -79,7 +76,6 @@ export const ProductFormBasicTab: React.FC<Props> = ({ formData, setFormData, da
     });
   }, [categories]);
 
-  // Toggle de seleção de categoria (múltipla)
   const handleToggleCategory = (cat: MobileCategory) => {
     const currentIds: string[] = formData.categoryIds || (formData.categoryId ? [formData.categoryId] : []);
     const isChecked = currentIds.includes(cat.id);
@@ -102,10 +98,11 @@ export const ProductFormBasicTab: React.FC<Props> = ({ formData, setFormData, da
   };
 
   const selectedOpportunity = opportunities.find(o => o.id === formData.opportunityId);
+  const selectedCategoryIds: string[] = formData.categoryIds || (formData.categoryId ? [formData.categoryId] : []);
 
   return (
     <View style={styles.container}>
-      {/* ── NOME DO PRODUTO (com Diferenciar Título no Catálogo) ── */}
+      {/* NOME DO PRODUTO */}
       <View style={styles.field}>
         <View style={styles.labelRow}>
           <Text style={[styles.label, dark && styles.lightLabel]}>
@@ -152,7 +149,7 @@ export const ProductFormBasicTab: React.FC<Props> = ({ formData, setFormData, da
         />
       </View>
 
-      {/* ── TÍTULO NO CATÁLOGO (Condicional) ── */}
+      {/* TÍTULO NO CATÁLOGO */}
       {diferenciarTitulo && (
         <View style={styles.field}>
           <View style={styles.labelRow}>
@@ -179,7 +176,7 @@ export const ProductFormBasicTab: React.FC<Props> = ({ formData, setFormData, da
         </View>
       )}
 
-      {/* ── SLUG (URL DO PRODUTO) ── */}
+      {/* SLUG */}
       <View style={styles.field}>
         <View style={styles.labelRow}>
           <View style={styles.labelBadgeRow}>
@@ -195,7 +192,7 @@ export const ProductFormBasicTab: React.FC<Props> = ({ formData, setFormData, da
         </View>
       </View>
 
-      {/* ── CATEGORIA(S) * com Badge Catálogo ── */}
+      {/* CATEGORIA(S) */}
       <View style={styles.field}>
         <View style={styles.labelRow}>
           <View style={styles.labelBadgeRow}>
@@ -208,48 +205,16 @@ export const ProductFormBasicTab: React.FC<Props> = ({ formData, setFormData, da
           </View>
         </View>
 
-        <View style={[styles.categoriesContainer, dark && styles.darkCategoriesContainer]}>
-          <ScrollView nestedScrollEnabled style={styles.categoriesScroll}>
-            {filteredCategories.map(cat => {
-              const selectedIds: string[] = formData.categoryIds || (formData.categoryId ? [formData.categoryId] : []);
-              const isChecked = selectedIds.includes(cat.id);
-
-              const parentNames = (cat.parents || [])
-                .map(pid => categories.find(item => item.id === pid)?.name)
-                .filter(Boolean)
-                .join(', ');
-
-              return (
-                <TouchableOpacity
-                  key={cat.id}
-                  onPress={() => handleToggleCategory(cat)}
-                  style={[styles.categoryItem, dark && styles.darkCategoryItem]}
-                  activeOpacity={0.7}
-                >
-                  <View style={[styles.checkbox, isChecked && styles.checkboxChecked, dark && !isChecked && styles.darkCheckbox]}>
-                    {isChecked && <Check size={12} color="#ffffff" strokeWidth={3} />}
-                  </View>
-                  <View style={styles.categoryInfo}>
-                    <Text style={[styles.categoryName, isChecked && styles.categoryNameActive, dark && styles.lightText]}>
-                      {cat.name}
-                    </Text>
-                    {parentNames ? (
-                      <Text style={styles.categoryParents} numberOfLines={1}>
-                        Ambientes: {parentNames}
-                      </Text>
-                    ) : null}
-                  </View>
-                </TouchableOpacity>
-              );
-            })}
-            {filteredCategories.length === 0 && (
-              <Text style={styles.emptyCategoriesText}>Carregando categorias...</Text>
-            )}
-          </ScrollView>
-        </View>
+        <CategoryMultiSelectList
+          categories={categories}
+          filteredCategories={filteredCategories}
+          selectedCategoryIds={selectedCategoryIds}
+          onToggleCategory={handleToggleCategory}
+          dark={dark}
+        />
       </View>
 
-      {/* ── OPORTUNIDADE com Badge Catálogo ── */}
+      {/* OPORTUNIDADE */}
       <View style={styles.field}>
         <View style={styles.labelRow}>
           <View style={styles.labelBadgeRow}>
@@ -271,7 +236,7 @@ export const ProductFormBasicTab: React.FC<Props> = ({ formData, setFormData, da
         </TouchableOpacity>
       </View>
 
-      {/* ── OBSERVAÇÕES INTERNAS ── */}
+      {/* OBSERVAÇÕES INTERNAS */}
       <View style={styles.field}>
         <Text style={[styles.label, dark && styles.lightLabel]}>OBSERVAÇÕES INTERNAS</Text>
         <TextInput
@@ -286,65 +251,15 @@ export const ProductFormBasicTab: React.FC<Props> = ({ formData, setFormData, da
         />
       </View>
 
-      {/* Modal de Seleção de Oportunidade */}
-      <Modal visible={showOpportunityModal} transparent animationType="fade">
-        <TouchableOpacity
-          style={styles.modalOverlay}
-          activeOpacity={1}
-          onPress={() => setShowOpportunityModal(false)}
-        >
-          <View style={[styles.modalContent, dark && styles.darkModalContent]}>
-            <View style={styles.modalHeader}>
-              <Text style={[styles.modalTitle, dark && styles.lightText]}>Selecionar Oportunidade</Text>
-              <TouchableOpacity onPress={() => setShowOpportunityModal(false)} style={styles.modalCloseBtn}>
-                <X size={18} color={dark ? '#94a3b8' : '#64748b'} />
-              </TouchableOpacity>
-            </View>
-
-            <ScrollView style={styles.modalList}>
-              <TouchableOpacity
-                onPress={() => {
-                  set('opportunityId', null);
-                  setShowOpportunityModal(false);
-                }}
-                style={[
-                  styles.modalItem,
-                  !formData.opportunityId && styles.modalItemActive,
-                  dark && styles.darkModalItem,
-                ]}
-              >
-                <Text style={[styles.modalItemText, !formData.opportunityId && styles.modalItemTextActive, dark && styles.lightText]}>
-                  Nenhuma (Produto Normal)
-                </Text>
-                {!formData.opportunityId && <Check size={16} color="#2563eb" strokeWidth={2.5} />}
-              </TouchableOpacity>
-
-              {opportunities.map(opp => {
-                const isSelected = formData.opportunityId === opp.id;
-                return (
-                  <TouchableOpacity
-                    key={opp.id}
-                    onPress={() => {
-                      set('opportunityId', opp.id);
-                      setShowOpportunityModal(false);
-                    }}
-                    style={[
-                      styles.modalItem,
-                      isSelected && styles.modalItemActive,
-                      dark && styles.darkModalItem,
-                    ]}
-                  >
-                    <Text style={[styles.modalItemText, isSelected && styles.modalItemTextActive, dark && styles.lightText]}>
-                      {opp.name}
-                    </Text>
-                    {isSelected && <Check size={16} color="#2563eb" strokeWidth={2.5} />}
-                  </TouchableOpacity>
-                );
-              })}
-            </ScrollView>
-          </View>
-        </TouchableOpacity>
-      </Modal>
+      {/* Modal Modular de Oportunidade */}
+      <OpportunitySelectModal
+        visible={showOpportunityModal}
+        opportunities={opportunities}
+        selectedOpportunityId={formData.opportunityId}
+        onSelect={id => set('opportunityId', id)}
+        onClose={() => setShowOpportunityModal(false)}
+        dark={dark}
+      />
     </View>
   );
 };
@@ -466,72 +381,6 @@ const styles = StyleSheet.create({
     fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
     flex: 1,
   },
-  categoriesContainer: {
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
-    borderRadius: 14,
-    backgroundColor: '#ffffff',
-    maxHeight: 220,
-    overflow: 'hidden',
-  },
-  darkCategoriesContainer: {
-    backgroundColor: '#0f172a',
-    borderColor: '#334155',
-  },
-  categoriesScroll: {
-    padding: 6,
-  },
-  categoryItem: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    paddingVertical: 8,
-    paddingHorizontal: 8,
-    borderRadius: 8,
-    gap: 10,
-  },
-  darkCategoryItem: {
-    backgroundColor: 'transparent',
-  },
-  checkbox: {
-    width: 18,
-    height: 18,
-    borderRadius: 5,
-    borderWidth: 1.5,
-    borderColor: '#cbd5e1',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 2,
-  },
-  darkCheckbox: {
-    borderColor: '#475569',
-  },
-  checkboxChecked: {
-    backgroundColor: '#2563eb',
-    borderColor: '#2563eb',
-  },
-  categoryInfo: {
-    flex: 1,
-    gap: 1,
-  },
-  categoryName: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#334155',
-  },
-  categoryNameActive: {
-    color: '#2563eb',
-  },
-  categoryParents: {
-    fontSize: 10,
-    fontWeight: '500',
-    color: '#94a3b8',
-  },
-  emptyCategoriesText: {
-    fontSize: 12,
-    color: '#94a3b8',
-    textAlign: 'center',
-    paddingVertical: 16,
-  },
   selectBox: {
     height: 44,
     borderWidth: 1,
@@ -560,68 +409,5 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#1e293b',
     backgroundColor: '#ffffff',
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-  },
-  modalContent: {
-    width: '100%',
-    maxWidth: 380,
-    backgroundColor: '#ffffff',
-    borderRadius: 20,
-    overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOpacity: 0.15,
-    shadowRadius: 10,
-    elevation: 5,
-  },
-  darkModalContent: {
-    backgroundColor: '#1e293b',
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f1f5f9',
-  },
-  modalTitle: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: '#0f172a',
-  },
-  modalCloseBtn: {
-    padding: 4,
-  },
-  modalList: {
-    maxHeight: 280,
-    padding: 8,
-  },
-  modalItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 12,
-    paddingHorizontal: 12,
-    borderRadius: 10,
-  },
-  darkModalItem: {},
-  modalItemActive: {
-    backgroundColor: '#eff6ff',
-  },
-  modalItemText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#334155',
-  },
-  modalItemTextActive: {
-    color: '#2563eb',
-    fontWeight: '700',
   },
 });

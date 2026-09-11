@@ -52,24 +52,26 @@ export async function fetchSupplierProductsForContext(supplierId: string): Promi
       .eq('deleted', false)
       .eq('active', true)
       .not('is_draft', 'is', true)
-      .order('created_at', { ascending: false })
-      .limit(MAX_SUPPLIER_PRODUCTS_FOR_CONTEXT * 3);
+      .or(`supplier_id.eq.${supplierId},main_supplier_id.eq.${supplierId},supplier_ids.cs.{"${supplierId}"}`)
+      .order('name', { ascending: true })
+      .limit(100);
 
     if (error) {
       console.warn('[inboundSupplierProductContext] Erro ao buscar produtos do fornecedor:', error);
       return [];
     }
 
-    const filtered = (data || []).filter((row: Record<string, unknown>) => {
-      const ids: string[] = Array.isArray(row['supplier_ids']) ? (row['supplier_ids'] as string[]) : [];
-      return (
-        ids.includes(supplierId) ||
-        row['main_supplier_id'] === supplierId ||
-        row['supplier_id'] === supplierId
-      );
-    });
+    const filtered = (data || []).length > 0
+      ? data
+      : (await supabase
+          .from('products')
+          .select('id, name, description, supplier_ids, main_supplier_id, supplier_id, is_draft, active, deleted, product_variations(id, name, attributes)')
+          .eq('deleted', false)
+          .eq('active', true)
+          .not('is_draft', 'is', true)
+          .limit(100)).data || [];
 
-    return filtered
+    return (filtered || [])
       .slice(0, MAX_SUPPLIER_PRODUCTS_FOR_CONTEXT)
       .map((row: Record<string, unknown>) => ({
         id: String(row['id'] || ''),

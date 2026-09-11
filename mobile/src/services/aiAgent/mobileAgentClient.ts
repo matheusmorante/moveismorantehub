@@ -3,6 +3,8 @@ import { GeminiContent } from './mobileAgentTypes';
 
 // Cliente HTTP leve e tipado para a API oficial do Google Gemini no Mobile
 
+const DEFAULT_GEMINI_API_KEY = '';
+
 export class MobileAgentClient {
   private static cachedApiKey: string | null = null;
 
@@ -41,6 +43,12 @@ export class MobileAgentClient {
 
     if (envKey && typeof envKey === 'string' && envKey.trim()) {
       this.cachedApiKey = envKey.trim();
+      return this.cachedApiKey;
+    }
+
+    // 3. Fallback seguro padrão do projeto Morante Hub para compilações nativas (APK/EAS)
+    if (DEFAULT_GEMINI_API_KEY && DEFAULT_GEMINI_API_KEY.trim()) {
+      this.cachedApiKey = DEFAULT_GEMINI_API_KEY.trim();
       return this.cachedApiKey;
     }
 

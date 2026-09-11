@@ -281,10 +281,19 @@ export function useFinancialAiChat({
       publishPreparedTransactionCards(result.executedTools, asstMsg.id);
     } catch (err: any) {
       console.warn('Erro ao processar mensagem com o agente Gemini no mobile:', err);
+      const errorMsg = err?.message || '';
+      let userFriendlyText = 'Desculpe, ocorreu uma falha ao consultar o assistente. Por favor, tente novamente.';
+
+      if (errorMsg.includes('Chave de API do Gemini não configurada') || errorMsg.includes('API_KEY_INVALID') || errorMsg.includes('403')) {
+        userFriendlyText = 'A chave da API do Gemini não foi encontrada ou é inválida. Verifique as configurações do sistema.';
+      } else if (errorMsg.includes('Network') || errorMsg.includes('Failed to fetch') || errorMsg.includes('network')) {
+        userFriendlyText = 'Não foi possível conectar ao servidor do Gemini. Verifique a sua conexão com a internet.';
+      }
+
       const asstMsg: ChatMessage = {
         id: `asst_${Date.now()}`,
         sender: 'assistant',
-        text: 'Desculpe, ocorreu uma falha ao consultar o assistente. Por favor, tente novamente.',
+        text: userFriendlyText,
         timestamp: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
         isAlert: true,
       };

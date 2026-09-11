@@ -38,7 +38,7 @@
     },
     "android": {
       "package": "com.morante.mobile",
-      "versionCode": 16,
+      "versionCode": 17,
       "experimentalLauncherActivity": true,
       "googleServicesFile": "./google-services.json",
       "config": {

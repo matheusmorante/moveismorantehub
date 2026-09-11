@@ -11,6 +11,9 @@ interface ProductAutocompleteProps {
     onCreateNew?: () => void;
     isSelected?: boolean;
     isTemporary?: boolean;
+    isAiSuggestion?: boolean;
+    onAcceptSuggestion?: () => void;
+    onRejectSuggestion?: () => void;
     value?: string;
     placeholder?: string;
     className?: string;
@@ -20,6 +23,8 @@ interface ProductAutocompleteProps {
     variationsOnly?: boolean;
     products?: Product[];
     clearOnSelect?: boolean;
+    disabled?: boolean;
+    isLoadingSuggestions?: boolean;
 }
 
 const ProductAutocomplete: React.FC<ProductAutocompleteProps> = ({
@@ -29,6 +34,9 @@ const ProductAutocomplete: React.FC<ProductAutocompleteProps> = ({
     onCreateNew,
     isSelected = false,
     isTemporary = false,
+    isAiSuggestion = false,
+    onAcceptSuggestion,
+    onRejectSuggestion,
     value = "",
     placeholder = "Digite o nome ou código do produto...",
     className = "",
@@ -37,7 +45,9 @@ const ProductAutocomplete: React.FC<ProductAutocompleteProps> = ({
     onlyName = false,
     variationsOnly = false,
     products: localProducts,
-    clearOnSelect = false
+    clearOnSelect = false,
+    disabled = false,
+    isLoadingSuggestions = false,
 }) => {
     const [query, setQuery] = useState(value);
     const [suggestions, setSuggestions] = useState<SuggestionItem[]>([]);
@@ -130,7 +140,8 @@ const ProductAutocomplete: React.FC<ProductAutocompleteProps> = ({
                     <input
                         type="text"
                         autoComplete="off"
-                        value={query || ''}
+                        disabled={disabled || isLoadingSuggestions}
+                        value={isLoadingSuggestions ? 'Buscando sugestão de vínculo...' : (query || '')}
                         onChange={(e) => {
                             const val = e.target.value;
                             setQuery(val);
@@ -138,22 +149,42 @@ const ProductAutocomplete: React.FC<ProductAutocompleteProps> = ({
                             if (onChange) onChange(val);
                         }}
                         onFocus={() => setShowSuggestions(query.trim().length >= 2)}
-                        placeholder={placeholder}
+                        placeholder={isLoadingSuggestions ? 'Identificando produto...' : placeholder}
                         className={inputClassName || `w-full border-b-2 bg-transparent px-3 py-2 text-sm font-medium outline-none transition-colors ${
-                            isTemporary 
-                                ? 'border-amber-400 text-amber-950 dark:text-amber-100 focus:border-amber-500'
-                                : isSelected 
-                                    ? 'border-emerald-500 text-emerald-950 dark:text-emerald-100 font-semibold focus:border-emerald-600 pr-9'
-                                    : 'border-slate-200 dark:border-slate-800 focus:border-blue-600 dark:focus:border-blue-500'
-                        } ${className}`}
+                            isLoadingSuggestions
+                                ? 'border-amber-400 bg-amber-50/40 dark:bg-amber-950/30 text-amber-800 dark:text-amber-200 cursor-wait rounded-t-lg select-none'
+                                : isAiSuggestion
+                                    ? 'border-amber-400 text-amber-950 dark:text-amber-100 focus:border-amber-500 bg-amber-50/20 dark:bg-amber-950/20 rounded-t-lg'
+                                    : isTemporary 
+                                        ? 'border-amber-400 text-amber-950 dark:text-amber-100 focus:border-amber-500'
+                                        : isSelected 
+                                            ? 'border-emerald-500 text-emerald-950 dark:text-emerald-100 font-semibold focus:border-emerald-600 pr-9'
+                                            : 'border-slate-200 dark:border-slate-800 focus:border-blue-600 dark:focus:border-blue-500'
+                        } ${disabled ? 'opacity-60 cursor-not-allowed' : ''} ${className}`}
                     />
-                    {isLoading ? (
+
+                    {/* Faixa amarela animada passando no input durante o processamento */}
+                    {isLoadingSuggestions && (
+                        <div className="absolute inset-x-0 bottom-0 h-[2px] overflow-hidden rounded-b-lg pointer-events-none">
+                            <div className="ncm-input-shimmer absolute inset-0 w-1/2" />
+                        </div>
+                    )}
+
+                    {isLoadingSuggestions ? (
+                        <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1 text-amber-600 dark:text-amber-400">
+                            <i className="bi bi-arrow-repeat animate-spin text-sm" />
+                        </div>
+                    ) : isLoading ? (
                         <div className="absolute right-3 top-1/2 -translate-y-1/2">
                             <i className="bi bi-arrow-repeat animate-spin text-slate-400"></i>
                         </div>
                     ) : isSelected ? (
                         <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" title="Produto vinculado ao catálogo">
                             <i className="bi bi-check-circle-fill text-emerald-500 text-sm"></i>
+                        </div>
+                    ) : isAiSuggestion ? (
+                        <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" title="Sugestão de IA">
+                            <i className="bi bi-stars text-amber-500 text-sm animate-pulse"></i>
                         </div>
                     ) : null}
                 </div>
@@ -180,6 +211,47 @@ const ProductAutocomplete: React.FC<ProductAutocompleteProps> = ({
                     </button>
                 )}
             </div>
+
+            {isAiSuggestion && (
+                <div className="flex items-center justify-between mt-1.5 px-1">
+                    <span className="flex items-center gap-1.5 text-[11px] font-bold text-amber-700 dark:text-amber-400">
+                        <i className="bi bi-stars text-amber-500 text-xs" />
+                        Sugestão de IA
+                    </span>
+                    <div className="flex items-center gap-1.5">
+                        {onAcceptSuggestion && (
+                            <button
+                                type="button"
+                                onClick={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    onAcceptSuggestion();
+                                }}
+                                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm transition-colors"
+                                title="Aceitar sugestão da IA"
+                            >
+                                <i className="bi bi-check-lg" />
+                                Aceitar
+                            </button>
+                        )}
+                        {onRejectSuggestion && (
+                            <button
+                                type="button"
+                                onClick={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    onRejectSuggestion();
+                                }}
+                                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950/30 dark:hover:text-red-300 transition-colors"
+                                title="Recusar sugestão da IA"
+                            >
+                                <i className="bi bi-x-lg text-[10px]" />
+                                Recusar
+                            </button>
+                        )}
+                    </div>
+                </div>
+            )}
 
             <DropdownPortal anchorRef={wrapperRef} isOpen={showSuggestions && query.trim().length >= 2}>
                 <div className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl shadow-2xl max-h-72 overflow-y-auto animate-in fade-in slide-in-from-top-2 duration-200 divide-y divide-slate-100 dark:divide-slate-800/50">

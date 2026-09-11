@@ -7,7 +7,7 @@ import { fetchPersons } from '@/pages/utils/personService';
 import { saveProductSupplierCode, findProductSupplierCodes } from '@/pages/utils/productSupplierCodesService';
 import { recordProductResolutionFeedback } from '@/pages/utils/inboundNfe/productResolutionFeedbackService';
 import Person from '@/pages/types/person.type';
-import { InboundInvoiceItemsReview } from './InboundInvoiceItemsReview';
+import { InboundInvoiceItemsReview } from '../components/InboundInvoiceItemsReview';
 
 type Props = {
     isOpen: boolean;

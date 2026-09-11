@@ -47,16 +47,39 @@ export const postCreatorService = {
     await supabase.from('post_creator_campaigns').delete().eq('id', id).then(() => undefined).catch(() => undefined);
   },
   async models(): Promise<ElementModel[]> {
-    try { const { data, error } = await supabase.from('post_creator_element_models').select('*').order('created_at', { ascending: false }); if (!error && data) { const values = data.map(modelFromRow); writeLocal('models', values); return values; } } catch { /* fallback */ }
-    return localPostCreator.models();
+    const local = localPostCreator.models();
+    try {
+      const { data, error } = await supabase.from('post_creator_element_models').select('*').order('created_at', { ascending: false });
+      if (!error && data && data.length > 0) {
+        const values = data.map(modelFromRow);
+        // Mesclar: modelos do banco têm precedência, mas modelos locais que não estão no banco são preservados
+        const merged = [...values, ...local.filter(l => !values.some(v => v.id === l.id))];
+        writeLocal('models', merged);
+        return merged;
+      }
+    } catch { /* fallback */ }
+    return local;
   },
   async saveModel(value: ElementModel): Promise<ElementModel> {
-    const saved = { ...value, updatedAt: now(), createdAt: value.createdAt || now() }; writeLocal('models', [saved, ...localPostCreator.models().filter(item => item.id !== saved.id)]);
-    await supabase.from('post_creator_element_models').upsert({ id: saved.id, name: saved.name, element_type: saved.elementType, content_kind: saved.contentKind, opportunity_id: saved.opportunityId || null, prompt: saved.prompt, reference_files: saved.referenceFiles, generated_asset_url: saved.generatedAssetUrl, generation_input_hash: saved.generationInputHash, generation_version: saved.generationVersion, status: saved.status, created_at: saved.createdAt, updated_at: saved.updatedAt }).then(() => undefined).catch(() => undefined); return saved;
+    const saved = { ...value, updatedAt: now(), createdAt: value.createdAt || now() };
+    const current = localPostCreator.models();
+    writeLocal('models', [saved, ...current.filter(item => item.id !== saved.id)]);
+    await supabase.from('post_creator_element_models').upsert({ id: saved.id, name: saved.name, element_type: saved.elementType, content_kind: saved.contentKind, opportunity_id: saved.opportunityId || null, prompt: saved.prompt, reference_files: saved.referenceFiles, generated_asset_url: saved.generatedAssetUrl, generation_input_hash: saved.generationInputHash, generation_version: saved.generationVersion, status: saved.status, created_at: saved.createdAt, updated_at: saved.updatedAt }).then(() => undefined).catch(() => undefined);
+    return saved;
   },
   async links(campaignId: string): Promise<CampaignElementModel[]> {
-    try { const { data, error } = await supabase.from('post_creator_campaign_element_models').select('*').eq('campaign_id', campaignId); if (!error && data) { const values = data.map((row: any) => ({ campaignId: row.campaign_id, elementModelId: row.element_model_id, elementType: row.element_type, opportunityId: row.opportunity_id, active: row.active, createdAt: row.created_at })); const others = localPostCreator.links().filter(item => item.campaignId !== campaignId); writeLocal('links', [...others, ...values]); return values; } } catch { /* fallback */ }
-    return localPostCreator.links().filter(item => item.campaignId === campaignId);
+    const local = localPostCreator.links().filter(item => item.campaignId === campaignId);
+    try {
+      const { data, error } = await supabase.from('post_creator_campaign_element_models').select('*').eq('campaign_id', campaignId);
+      if (!error && data && data.length > 0) {
+        const values = data.map((row: any) => ({ campaignId: row.campaign_id, elementModelId: row.element_model_id, elementType: row.element_type, opportunityId: row.opportunity_id, active: row.active, createdAt: row.created_at }));
+        const merged = [...values, ...local.filter(l => !values.some(v => v.elementModelId === l.elementModelId && v.elementType === l.elementType))];
+        const others = localPostCreator.links().filter(item => item.campaignId !== campaignId);
+        writeLocal('links', [...others, ...merged]);
+        return merged;
+      }
+    } catch { /* fallback */ }
+    return local;
   },
   async linkModel(link: CampaignElementModel): Promise<void> {
     const next = [...localPostCreator.links().filter(item => !(item.campaignId === link.campaignId && item.elementModelId === link.elementModelId)), link]; writeLocal('links', next);

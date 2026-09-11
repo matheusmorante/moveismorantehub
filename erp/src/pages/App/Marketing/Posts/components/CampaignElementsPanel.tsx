@@ -121,6 +121,7 @@ export function CampaignElementsPanel({
   hasManualOverrides,
 }: Props) {
   const [open, setOpen] = useState<ElementType | null>(null);
+  const [openImages, setOpenImages] = useState(false);
 
   // Contagem para o cabeçalho compacto
   const totalConfigured = models.length;
@@ -141,6 +142,7 @@ export function CampaignElementsPanel({
       <div className="divide-y divide-slate-800 max-h-[700px] overflow-y-auto scrollbar-thin scrollbar-thumb-slate-700">
         {ELEMENT_GROUPS.map(group => {
           if (group.isImagesGroup) {
+            const hasImages = Boolean(productImages?.primaryUrl);
             return (
               <div key={group.name} className="py-1">
                 <div className="px-3.5 py-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-400 bg-slate-950/40 flex items-center justify-between">
@@ -152,30 +154,63 @@ export function CampaignElementsPanel({
                     Fotos reais do produto
                   </span>
                 </div>
-                <div className="p-3">
-                  {product ? (
-                    <PromptImagesStrip
-                      product={product}
-                      productImages={productImages}
-                      validation={imagesValidation}
-                      opportunityName={opportunityName}
-                      opportunityBadgeUrl={opportunityBadgeUrl}
-                      onChangePrimary={onChangePrimary}
-                      onChangeOpenView={onChangeOpenView}
-                      onChangeVariation={onChangeVariation}
-                      onResetOverrides={onResetOverrides}
-                      hasManualOverrides={hasManualOverrides}
-                    />
-                  ) : (
-                    <div className="rounded-lg border border-dashed border-slate-800 bg-slate-950/50 p-6 text-center text-xs text-slate-400">
-                      <span className="text-xl block mb-1">📸</span>
-                      <p className="font-semibold text-slate-300">Nenhum produto selecionado</p>
-                      <p className="text-[11px] text-slate-500 mt-0.5">
-                        Selecione um produto no topo da página para escolher a foto principal, secundária e variações para a IA.
-                      </p>
+                <section className="border-b border-slate-800/60 last:border-0">
+                  <button
+                    type="button"
+                    onClick={() => setOpenImages(prev => !prev)}
+                    className="flex w-full items-center justify-between px-3.5 py-2.5 text-left text-xs sm:text-sm hover:bg-slate-800/50 transition group"
+                  >
+                    <div className="flex items-center gap-2 min-w-0 pr-2">
+                      <span className="text-slate-500 group-hover:text-indigo-400 text-xs transition">
+                        {openImages ? '▾' : '▸'}
+                      </span>
+                      <span className="font-semibold text-slate-200 truncate">Fotos do Produto (Prompt)</span>
+                    </div>
+
+                    <div className="shrink-0 text-right">
+                      {hasImages ? (
+                        <span className="text-[10px] font-bold text-emerald-400 bg-emerald-950/40 border border-emerald-800/40 px-2 py-0.5 rounded">
+                          Configurado ✓
+                        </span>
+                      ) : product ? (
+                        <span className="text-[10px] text-amber-400 bg-amber-950/40 border border-amber-800/40 px-2 py-0.5 rounded">
+                          Disponível
+                        </span>
+                      ) : (
+                        <span className="text-[10px] text-slate-500 bg-slate-800/30 px-2 py-0.5 rounded">
+                          Nenhum produto
+                        </span>
+                      )}
+                    </div>
+                  </button>
+
+                  {openImages && (
+                    <div className="bg-slate-950/50 p-3 border-t border-slate-800/60">
+                      {product ? (
+                        <PromptImagesStrip
+                          product={product}
+                          productImages={productImages}
+                          validation={imagesValidation}
+                          opportunityName={opportunityName}
+                          opportunityBadgeUrl={opportunityBadgeUrl}
+                          onChangePrimary={onChangePrimary}
+                          onChangeOpenView={onChangeOpenView}
+                          onChangeVariation={onChangeVariation}
+                          onResetOverrides={onResetOverrides}
+                          hasManualOverrides={hasManualOverrides}
+                        />
+                      ) : (
+                        <div className="rounded-lg border border-dashed border-slate-800 bg-slate-950/50 p-6 text-center text-xs text-slate-400">
+                          <span className="text-xl block mb-1">📸</span>
+                          <p className="font-semibold text-slate-300">Nenhum produto selecionado</p>
+                          <p className="text-[11px] text-slate-500 mt-0.5">
+                            Selecione um produto no topo da página para escolher a foto principal, secundária e variações para a IA.
+                          </p>
+                        </div>
+                      )}
                     </div>
                   )}
-                </div>
+                </section>
               </div>
             );
           }

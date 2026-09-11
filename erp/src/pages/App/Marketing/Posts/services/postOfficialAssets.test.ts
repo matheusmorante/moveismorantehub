@@ -271,4 +271,26 @@ describe('Assets Oficiais Móveis Morante & Selos de Oportunidade', () => {
 
     expect(resolved.badge?.url).toBe(attachmentUrl);
   });
+
+  it('11. Selo de oportunidade é resolvido a partir de elementModels mesmo se activeModels estiver vazio', () => {
+    const customBadgeInLibrary: ElementModel = {
+      id: 'model-library-queima',
+      name: 'Selo Queima dos Salvados - Biblioteca de Elementos',
+      elementType: 'BADGE',
+      opportunityId: 'opp-queima-id',
+      prompt: 'Usar selo queima',
+      generatedAssetUrl: 'https://hkoxhourxwlddgsfdgws.supabase.co/storage/v1/object/public/products/marketing/seals/campaign-badge-element.png',
+      status: 'UPDATED',
+    };
+
+    const resolved = resolveOfficialAssets({
+      product: productWithQueimaOpp,
+      activeModels: [],
+      elementModels: [customBadgeInLibrary],
+    });
+
+    expect(resolved.badge).not.toBeNull();
+    expect(resolved.badge?.url).toBe('https://hkoxhourxwlddgsfdgws.supabase.co/storage/v1/object/public/products/marketing/seals/campaign-badge-element.png');
+    expect(resolved.badge?.opportunityName).toBe('Queima dos Salvados');
+  });
 });

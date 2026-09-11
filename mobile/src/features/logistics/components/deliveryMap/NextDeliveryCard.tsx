@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
-import { Navigation, Play, Eye, CheckCircle2, MapPin, Package, Clock, Check, X, Truck, Wrench } from 'lucide-react-native';
+import { Navigation, Play, Eye, CheckCircle2, MapPin, Package, Clock, Check, X, Truck, Wrench, RotateCcw } from 'lucide-react-native';
 import { DeliveryRouteItem } from '../../hooks/useDeliveryRoute';
 import { MobileDrill } from '../../../../components/shared/MobileDrill';
 
@@ -57,6 +57,12 @@ export const NextDeliveryCard: React.FC<Props> = ({
   };
 
   const isAssistance = activeItem.order?.orderType === 'assistance' || activeItem.order?.taskType === 'assistance';
+  const isReturn =
+    activeItem.order?.orderType === 'return' ||
+    activeItem.order?.order_type === 'return' ||
+    activeItem.order?.orderType === 'devolucao' ||
+    activeItem.order?.orderType === 'devolução' ||
+    activeItem.order?.taskType === 'return';
   const isPickup = activeItem.order?.shipping?.deliveryMethod === 'pickup';
 
   const allItems = [...(activeItem.order?.items || []), ...(activeItem.order?.assistanceItems || [])];
@@ -73,15 +79,13 @@ export const NextDeliveryCard: React.FC<Props> = ({
     <View style={[styles.card, isDarkMode && styles.cardDark]}>
       {/* Badge Superior e Botão de Fechar */}
       <View style={styles.headerRow}>
-        <View style={[styles.badge, isInProgress ? styles.badgeProgress : styles.badgeNext]}>
-          <Text style={[styles.badgeText, isInProgress ? styles.badgeTextProgress : styles.badgeTextNext]}>
-            {isInProgress
-              ? 'EM ANDAMENTO'
-              : activeItem.isSuggestedFirst
-              ? `PARADA SUGERIDA · #${activeItem.sequence}`
-              : `PARADA · #${activeItem.sequence}`}
-          </Text>
-        </View>
+        {isInProgress ? (
+          <View style={[styles.badge, styles.badgeProgress]}>
+            <Text style={[styles.badgeText, styles.badgeTextProgress]}>
+              EM ANDAMENTO
+            </Text>
+          </View>
+        ) : <View />}
 
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
           {activeItem.orderIndex && (
@@ -103,16 +107,32 @@ export const NextDeliveryCard: React.FC<Props> = ({
         </View>
       </View>
 
-      {/* Badges de Tipo de Serviço & Montagem & Destaque Sugerido */}
+      {/* Badges de Tipo de Serviço & Montagem */}
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 5, marginBottom: 6 }}>
-        {activeItem.isSuggestedFirst && !isInProgress && (
-          <View style={[styles.opBadge, { backgroundColor: '#f59e0b' }]}>
-            <Text style={styles.opBadgeText}>⭐ SUGERIDA PELO ROTEIRO</Text>
-          </View>
-        )}
-        <View style={[styles.opBadge, isAssistance ? styles.opBadgeAssis : isPickup ? styles.opBadgePick : styles.opBadgeDeliv]}>
-          {isAssistance ? <Wrench size={10} color="#fff" /> : isPickup ? <Package size={10} color="#fff" /> : <Truck size={10} color="#fff" />}
-          <Text style={styles.opBadgeText}>{isAssistance ? 'ASSISTÊNCIA' : isPickup ? 'RETIRADA' : 'ENTREGA'}</Text>
+        <View
+          style={[
+            styles.opBadge,
+            isReturn
+              ? styles.opBadgeReturn
+              : isAssistance
+              ? styles.opBadgeAssis
+              : isPickup
+              ? styles.opBadgePick
+              : styles.opBadgeDeliv,
+          ]}
+        >
+          {isReturn ? (
+            <RotateCcw size={10} color="#fff" />
+          ) : isAssistance ? (
+            <Wrench size={10} color="#fff" />
+          ) : isPickup ? (
+            <Package size={10} color="#fff" />
+          ) : (
+            <Truck size={10} color="#fff" />
+          )}
+          <Text style={styles.opBadgeText}>
+            {isReturn ? 'COLETA DE DEVOLUÇÃO' : isAssistance ? 'ASSISTÊNCIA' : isPickup ? 'RETIRADA' : 'ENTREGA'}
+          </Text>
         </View>
         {hasInternalAssembly && (
           <View style={[styles.opBadge, styles.opBadgeDepot, { paddingHorizontal: 6, minWidth: 22, justifyContent: 'center' }]}>
@@ -401,6 +421,9 @@ const styles = StyleSheet.create({
   },
   opBadgeAssis: {
     backgroundColor: '#ea580c',
+  },
+  opBadgeReturn: {
+    backgroundColor: '#f97316',
   },
   opBadgeDepot: {
     backgroundColor: '#f59e0b',

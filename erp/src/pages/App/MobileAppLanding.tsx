@@ -50,7 +50,7 @@ export default function MobileAppLanding() {
           <div className="flex flex-col sm:flex-row items-center gap-6 justify-center lg:justify-start animate-slide-up">
              <div className="flex flex-col gap-3">
                  <a 
-                    href="https://expo.dev/artifacts/eas/GoCr7Fvu_0gV7-45jS-MLYYX7Yax7xwcWxpGuxQfNyM.apk"
+                    href="https://expo.dev/artifacts/eas/c6GuI7KSgOnw0kSY-zI9S_5dxaFMuc9lCT37XL-ynYE.apk"
                     target="_blank"
                    rel="noopener noreferrer"
                    className="px-8 py-4 bg-white text-slate-950 rounded-[1.5rem] font-black uppercase tracking-widest text-xs flex items-center justify-center gap-3 hover:scale-105 transition-all shadow-xl active:scale-95 cursor-pointer"
@@ -76,7 +76,7 @@ export default function MobileAppLanding() {
                <div className="flex flex-col text-left pr-2">
                  <span className="text-xs font-black uppercase tracking-wider text-blue-400">Instalação Rápida</span>
                  <span className="text-sm font-bold text-white leading-tight">Escaneie o QR Code</span>
-                  <span className="text-[10px] text-slate-400 mt-1">Aponte a câmera do seu celular para baixar a v1.6.0 (Build 16)</span>
+                  <span className="text-[10px] text-slate-400 mt-1">Aponte a câmera do seu celular para baixar a v1.6.0 (Build 17)</span>
                </div>
              </div>
           </div>

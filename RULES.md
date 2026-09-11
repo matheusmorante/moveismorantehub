@@ -103,3 +103,8 @@ Este arquivo consolida as regras de ouro e diretrizes de desenvolvimento para o 
       - `Produto` → `Qtd. recebida` → `Custo unitário` → `Desconto` → `Frete` → `Outras despesas` → `Custo unitário final` (destaque verde esmeralda) → `Total do item` (destaque negrito).
       - Fórmula: $\text{Custo unitário final} = \text{Custo unitário} - \text{Desconto} + \text{Frete} + \text{Outras despesas}$.
       - $\text{Total do item} = \text{Custo unitário final} \times \text{Qtd. recebida}$.
+13. **Interface Limpa e Conciliação Direta de NF-e (`InboundInvoiceItemsReview`)**:
+    - **Sem Poluição de Hipóteses de IA**: O bloco "Interpretação da IA" não deve ser exibido na conciliação dos itens.
+    - **Sem Duplicidade de Custos no ERP**: Não exibir bloco de composição de custos fiscais no card do produto no ERP; a autoridade de exibição dos custos é exclusivamente o lado esquerdo ("Dados da NF").
+    - **Campo de Busca Direto (Autocomplete)**: O campo de busca de produtos no catálogo do ERP fica visível e aberto por padrão (sem necessidade de alternar botão "Vincular existente"). Abre sugestões com 2 ou mais caracteres. Ao selecionar, fixa visualmente como vinculado com checkmark, código do ERP e opção de desvincular.
+    - **Vínculo Imediato pós-Cadastro Rápido**: Ao cadastrar um novo produto pelo botão "Cadastrar rapidamente", o produto criado é imediatamente associado ao item da nota e refletido no campo de seleção.

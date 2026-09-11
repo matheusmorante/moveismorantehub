@@ -1,449 +1,237 @@
-# 🎯 Plano Mestre, Ideias e Pendências - Móveis Morante Hub
+# Ideias e Planos Pendentes — Morante Hub
 
-Este documento unifica todo o planejamento estratégico, ideias futuras, tarefas pendentes e o histórico recente do projeto.
-
----
-
-## 🎙️ 1. Direcionamento Estratégico (Plano Mestra Morante)
-
-### 🎙️ BI por Voz (Sales Intelligence)
-**Objetivo:** Capturar o "porquê não comprou" e o comportamento do cliente no balcão via áudio.
-- [x] **Captura de Voz:** Implementada no botão `Voz BI Morante`.
-- [x] **Persistência Resiliente:** Logs salvos mesmo se a IA falhar.
-- [x] **Análise Inteligente:** Cruzamento com histórico de compras.
-- [ ] **Exportação NotebookLM:** Gerar CSV mensal formatado para análise profunda de padrões.
-- [ ] **Salvamento de Áudio Físico:** Implementar upload do `.wav` original para o Supabase Storage (atualmente salvamos a transcrição).
-
-### 🧠 CRM Inteligente e "Me Avise"
-**Objetivo:** Reativar vendas e facilitar assistências com contexto histórico.
-- [x] **Detecção de Intenção:** Identifica se o cliente quer assistência, comprar algo novo ou apenas uma dúvida.
-- [x] **Match de Histórico:** A IA identifica automaticamente de qual produto o cliente está falando baseada no que ele já comprou (ex: "meu guarda-roupa" -> "Guarda-roupa Topázio 6 portas").
-- [ ] **Monitoramento de Desejos:** Tabela `customer_desires` para monitorar itens que o cliente quis e não tinha em estoque.
-- [ ] **Alerta de Salvados:** Automação que avisa o vendedor quando um 'Salvado' (usado) entra em estoque e coincide com o desejo de um cliente.
-
-### 📱 WhatsApp Automático & Seguro
-**Objetivo:** Agilizar comunicação sem risco de banimento (Regras Anti-Bloqueio).
-1. **Interação Primeiro:** Priorizar o envio de mensagens para clientes que já iniciaram uma conversa. 
-2. **Templates Oficiais:** Usar apenas mensagens pré-aprovadas pela Meta para iniciar conversas (notificações de entrega, etc).
-3. **Botão de Sair:** Sempre oferecer uma forma clara do cliente parar de receber mensagens ("Digite SAIR para não receber mais avisos").
-4. **Volume Controlado:** Evitar disparos de centenas de mensagens no mesmo segundo. O sistema agora usa a Graph API que gerencia isso, mas a supervisão humana é o filtro final.
-5. **Contexto é Rei:** A IA Lisandro garante que a mensagem seja ultra-personalizada ("Olá João, sobre o seu Guarda-roupa comprado em Janeiro..."), o que reduz denúncias de spam quase a zero.
-- [x] **Envio Direto (Graph API):** Implementado para Entrega, Assistência e Pedido.
-- [ ] **Fila de Mensagens:** Implementar um pequeno delay entre envios automáticos para simular ritmo humano.
-- [ ] **Gestão de Opt-Out:** Adicionar checkbox "Aceita receber notificações" no cadastro de clientes.
-
-### 🛠️ Assistência Automática
-**Objetivo:** Abrir pedido de assistência em 1 clique.
-- [x] **Draft System:** Identificação do produto mencionado na conversa.
-- [ ] **Auto-Preenchimento:** Quando a IA detecta 'ASSISTANCE', ela já preenche o formulário de assistência com o ID do produto histórico e a descrição do problema.
+Este arquivo centraliza planos, ideias e tarefas pendentes do projeto Morante Hub para posterior consulta e continuidade, evitando esquecimento e garantindo rastreabilidade.
 
 ---
 
-## 📌 2. Próximos Passos e Pendências Imediatas
-
-### 🤖 Evolução do Agente: Do Agente Financeiro ao Agente Geral do ERP (Concluído - Fase 1)
-- [x] **Mudança Conceitual**: De "Agente Financeiro" para "Agente do ERP" / "Assistente" universal.
-- [x] **Acesso Global**: Integrado botão de destaque "✦ Agente" no topo e Drawer lateral no ERP Web (`AppLayout`), e aba primária "Agente" com ícone `Sparkles` no rodapé mobile (`NativeBottomNav`), sem botão flutuante intrusivo.
-- [x] **Contexto de Tela Controlado (`pageContext`)**: Passar `currentModule`, `currentPage` e `currentPath` ao agente (`Contexto ≠ Permissão`), mantendo conversa viva durante navegação.
-- [x] **Escopo Seguro e Tratamento de Indisponibilidade**: Ferramentas ativas exclusivamente no Financeiro nesta etapa. Solicitações de outros domínios (Estoque, Compras, etc.) respondidas elegantemente com "Essa ação ainda não está disponível para mim." sem alucinações.
-- [x] **Arquitetura Modular por Domínio**: `geminiToolDeclarations.ts` e `mobileToolDeclarations.ts` estruturados por domínio com dicionário e registro pronto para novas ferramentas.
-- [x] **Testes Determinísticos de Nível A**: 21/21 casos de teste com 100% de aprovação no Golden Dataset (incluindo testes de segurança de escopo para estoque e pedidos).
-
-#### Próximas Fases do Agente do ERP (Roadmap de Domínios):
-- [ ] **Fase 2 - Domínio de Estoque & Produtos**: Consultas de saldo em estoque por variação, localização no galpão, alertas de estoque mínimo e busca de ficha técnica.
-- [ ] **Fase 3 - Domínio de Vendas & Pedidos**: Consulta de status de pedidos por cliente/número, prazos de entrega e agendamento de montagem.
-- [ ] **Fase 4 - Domínio de Clientes & CRM**: Histórico de compras do cliente, preferências registradas e status de assistência técnica.
-
-### 🤖 Nova Arquitetura do Assistente de IA (Gemini Function Calling & Financeiro Conversacional)
-- [x] **Auditoria Completa Concluída**: Identificada dependência de parsers manuais, JSON textual, regex de markdown, ausência de tools nativas e isolamento completo do módulo financeiro.
-- [x] **Camada de Tools do ERP**:
-  - [x] `buscarCategoriasFinanceiras`: Consulta categorias ativas de receitas e despesas no Supabase.
-  - [x] `buscarMovimentacoesFinanceiras`: Extrato e fluxo de caixa filtrado por período, tipo e termo.
-  - [x] `obterResumoFinanceiro`: Entradas, saídas e saldo por período consolidado.
-  - [x] `criarMovimentacaoFinanceira`: Lançamento validado de receitas/despesas com categoria real.
-  - [x] `cancelarOuExcluirMovimentacaoFinanceira`: Remoção de transação incorreta com validação e segurança.
-- [x] **Gemini Agent Orchestrator (`geminiAgentService`)**:
-  - [x] Protocolo nativo da API Gemini v1beta (Function Declarations + loop de tool calls com proteção anti-loop).
-  - [x] Manutenção de contexto conversacional real (turnos `user` e `model`, respostas de tools com `functionResponse`).
-  - [x] Suporte a linguagem natural, gírias, datas relativas e correções fluidas ("não, foi 250").
-  - [x] Respeito estrito às cotas e circuit breaker do `ApiUsageGuard` / `ApiUsageTracker`.
-- [x] **Refatoração do `AIChatAssistant.tsx`**: Interface conversacional limpa, sem parsers manuais, com badges visuais de tools executadas.
-- [x] **Paridade Estrita 1:1 de Campos, Opções e Categorias com o Formulário de Nova Transação**:
-  - O agente Gemini agora considera e preenche estritamente os mesmos campos e opções oficiais do formulário de transações (`NewTransactionModal.tsx` / `useTransactionForm.ts`), sem inventar enums arbitrários.
-  - **Tipo**: `income` ou `expense`.
-  - **Finalidade (apenas despesas)**: `BUSINESS` (🏢 Operação da Empresa) ou `PERSONAL_PARTNER` (👤 Uso Particular / Pró-labore).
-  - **Formas de Pagamento oficiais**: `PAYMENT_METHODS` (`['PIX', 'Cartão de Crédito', 'Cartão de Débito', 'Boleto', 'Dinheiro', 'TED']`).
-  - **Veículos oficiais**: `VEHICLES` (`['Strada', 'HR', 'Outro', 'Não informado']`).
-  - **Categorias oficiais**: Respeita categorias cadastradas no ERP, categorização de Pró-labore e categorias de receita (`buildIncomeCategories`).
-  - **Visualização no Card**: O card de confirmação pré-registro (`TransactionPreviewCard.tsx`) exibe exatamente o espelho dos campos do formulário (Valor, Data, Forma de Pagamento, Finalidade e Veículo).
-- [x] **Confirmação Estritamente Manual Pré-Lançamento no Card do Assistente Mobile**:
-  - Removido qualquer timer ou contagem regressiva de auto-confirmação (`setInterval`). O lançamento financeiro só é gravado após o operador clicar expressamente no botão `"Sim"`.
-  - **Forma de Pagamento Obrigatória e Inicialmente Vazia**: O assistente financeiro é proibido de assumir PIX ou qualquer forma de pagamento por padrão. A forma de pagamento permanece vazia (`Não informada`) até o usuário informar explicitamente qual será. Se o usuário não informar, o assistente pergunta antes de preparar/gravar o registro.
-- [x] **Reconhecimento Automático de Finalidade Operacional (`BUSINESS`) para Salários e Despesas da Empresa**:
-  - Despesas genuinamente operacionais como **Salários**, folha de pagamento, adiantamento salarial, comissões, combustível, veículos da empresa, compras de estoque, fornecedores, fretes, impostos (DAS, Simples, FGTS) e aluguel comercial têm finalidade `BUSINESS` (Operação da Empresa) identificada automaticamente.
-  - O assistente não faz perguntas desnecessárias sobre se o salário é da empresa ou pessoal.
-  - O assistente foi instruído a jamais expor nomes técnicos de enum como `(BUSINESS)` ou `(PERSONAL_PARTNER)` na conversa com o operador, utilizando linguagem 100% natural em português.
-  - Para entradas como `"SALARIO DO MATHEUS MORANTE 5000"`, o assistente agora pergunta **exclusivamente a forma de pagamento** pendente de forma natural.
-- [x] **Submenu "Notas Fiscais de Entrada" no Estoque do ERP (`/stock/inbound-invoices`)**:
-  - Puxa notas fiscais emitidas por fornecedores via webservice SEFAZ DF-e (`NFeDistribuicaoDFe`) ou através de upload e leitura determinística de arquivos XML (Layout 4.00 da SEFAZ).
-  - Tabela e cards responsivos exibindo chave de acesso (44 dígitos), número da NF-e, emitente (razão social e CNPJ), total da nota e lista de itens detalhados com NCM, CFOP, quantidade e custos unitários.
-  - Ação direta "Receber no Estoque" vinculada ao recebimento de mercadorias.
-- [x] **Nova Semântica Contábil, Descontos Globais e Separação Fiscal vs Não Fiscal no Recebimento**:
-  - **Remoção de Despesas Não Fiscais da Importação de NF-e**: Cadastro da NF focado exclusivamente nos dados oficiais da nota fiscal.
-  - **Duas Camadas Estruturadas no Recebimento de Mercadorias (`ReceiptFormModal`)**:
-    - *Camada Fiscal*: IPI, Frete Fiscal, Desconto Fiscal e Outras Despesas Fiscais extraídas da NF (somente leitura para evitar divergências fiscais).
-    - *Camada Não Fiscal*: Desconto Não Fiscal, Frete Não Fiscal e Outras Despesas Não Fiscais informadas no ato do recebimento, com alternância `%` e `R$` e rateio ponderado centavo a centavo entre os itens.
-  - **Nova Nomenclatura Semântica Unificada**:
-    - `Produto` → `Qtd. recebida` → `Custo unitário` → `Desconto` → `IPI` → `Frete` → `Outras despesas` → `Custo unitário final` (destaque verde esmeralda) → `Total do item` (destaque negrito).
-    - $\text{Custo unitário final} = \text{Custo unitário} - \text{Descontos} + \text{IPI} + \text{Frete} + \text{Outras despesas}$.
-    - $\text{Total do item} = \text{Custo unitário final} \times \text{Qtd. recebida}$.
-- [x] **Botão Triplo no Recebimento de Mercadorias (`/stock/receipts`)**:
-  - O botão de criar novo recebimento foi transformado em um botão triplo com 3 opções claras e destacadas:
-    1. **Nota Fiscal de Entrada** (ícone `bi-file-earmark-arrow-down-fill`): seleciona uma NF-e de fornecedor disponível ou importa XML na hora, pré-carregando fornecedor, chave de 44 dígitos, frete, IPI e itens no recebimento.
-    2. **Pedido de Venda / Compra** (ícone `bi-cart-check`): carrega itens de pedidos de compra ou pedidos de venda.
-    3. **Recebimento Manual** (ícone `bi-pencil-square`): abre o formulário limpo para inclusão e conferência manual dos itens.
-- [x] **Reconhecimento Resiliente de Respostas Monossilábicas (`inferBusinessPurpose`)**:
-  - Respostas diretas como `"loja"`, `"empresa"`, `"pessoal"`, `"casa"`, `"particular"` agora são reconhecidas imediatamente, eliminando loops onde o assistente repetia a pergunta ("Essa conta de luz é da loja ou pessoal?") mesmo após o usuário responder `"loja"`.
-- [x] **Formalização da Skill Oficial de Arquitetura do Agente Gemini**:
-  - Criada a skill [.agents/skills/arquitetura-agente-gemini/SKILL.md](file:///c:/Users/Rosilene/Desktop/morantehub/.agents/skills/arquitetura-agente-gemini/SKILL.md) e integrada no Pre-Flight de Skills do [AGENTS.md](file:///c:/Users/Rosilene/Desktop/morantehub/.agents/AGENTS.md), estabelecendo os 28 princípios obrigatórios para impedir regressões para parsers manuais e garantir integridade total do agente conversacional.
-- [x] **Modernização do Assistente de IA no App Mobile (100% de Conformidade com a Skill)**:
-  - Criada a camada modular `mobile/src/services/aiAgent/` com tipagem formal (`mobileAgentTypes.ts`), declaração JSON Schema de 6 tools oficiais (`mobileToolDeclarations.ts`), executores diretos (`mobileAgentTools.ts`), despachante isolado (`mobileToolDispatcher.ts`), cliente HTTP oficial v1beta (`mobileAgentClient.ts`) e orquestrador (`mobileAgentService.ts`).
-  - Refatorado `useFinancialAiChat.ts` reduzindo de ~715 linhas para ~350 linhas orquestradoras, eliminando a dependência de parsers manuais/regex e operando sobre histórico conversacional real (`GeminiContent[]`) com Function Calling nativo.
-  - Criados testes unitários de integração determinísticos em `mobileAiAgent.test.ts` (4 testes passando, totalizando 24 testes verdes na suíte de IA).
-- [ ] **Sistema de Feedback e Telemetria de Qualidade da IA (Auditoria de Erros & Pipeline de Regressão)**:
-  - **Tool Específica de Feedback (`registrarFeedbackAgente` / `reportAgentIssue`)**:
-    - Disparada nativamente pelo Gemini quando o operador faz uma reclamação, retificação ou correção de comportamento ("Você entendeu errado", "Falei que era saída", "Colocou a categoria errada", "Eu disse ontem", "Não foi isso que eu falei", "Por que está perguntando de novo?").
-    - Parâmetros estruturados: `conversationId`, `userMessage`, `agentResponse`, `category` (misunderstanding, wrong_tool, wrong_arguments, wrong_result, unnecessary_question, missing_context, permission_disagreement, other), `userComplaint`, `toolCalls`, `severity`.
-  - **Persistência no Supabase (`ai_agent_feedback`)**:
-    - Tabela dedicada com carimbo de data/hora, módulo (ERP/Mobile), operador, transcrição dos turnos recentes e status (`pending_review`, `confirmed_bug`, `expected_behavior`, `fixed`, `ignored`).
-  - **Painel no ERP: "Qualidade da IA" / "Auditoria do Assistente"**:
-    - Listagem com filtros de status e severidade.
-    - Card de diagnóstico detalhado mostrando: fala do usuário, resposta da IA, tools chamadas, argumentos, campo divergente e status de revisão.
-  - **Regra de Ouro Arquitetural**:
-    - *Nunca alterar prompts, código ou regras automaticamente com base apenas na reclamação* (a reclamação é evidência investigativa, não prova automática de bug).
-    - Todo feedback confirmado como bug deve gerar obrigatoriamente um caso de teste no Golden Dataset (`goldenDataset.ts`) antes de considerar a correção concluída.
-
-
-### 🧹 Refatoração, Código Limpo, Engenharia de Software e Modularização (`modularizacao_codigo`)
-- [x] **Consolidação Mestre de Engenharia de Software e Boas Práticas Operacionais**:
-  - Auditadas todas as 11 skills do projeto e integrados os 30 princípios de engenharia de software na skill mestre `modularizacao_codigo` (SOLID, KISS, DRY moderado, YAGNI, SSOT, Imutabilidade, Zero Trust em entradas, Concorrência/Idempotência, Separação de Camadas UI → Application → Domain → Infrastructure).
-  - Integrado o lema permanente no topo de `AGENTS.md`: *"ANTES DE CRIAR, PROCURE. ANTES DE ALTERAR, ENTENDA. ANTES DE ABSTRAIR, JUSTIFIQUE. ANTES DE CONCLUIR, TESTE. ANTES DE DIZER QUE RESOLVEU, VERIFIQUE REGRESSÕES."*
-  - Formalizado o Fluxo de 9 Etapas de Desenvolvimento (Investigar → Entender → Identificar Causa → Planejar → Implementar → Validar → Testar → Revisar Regressões → Concluir).
-  - Formalizada a Hierarquia Universal de Decisão (10 prioridades lideradas por Correção, Segurança e Integridade de Dados).
-  - Formalizado o Checklist Pré-Conclusão de 17 itens obrigatórios e regras de Causa Raiz na skill `testes-seguros-erp`.
-- [ ] **Diretriz Contínua do Usuário**: Em cada arquivo tocado ou analisado (especialmente > 150 linhas), perguntar explicitamente ao usuário no final se deseja modularizá-lo em conformidade com a skill `modularizacao_codigo`.
-- [ ] **Meta de Arquitetura**: 30–100 linhas (aceitável até 150). Responsabilidade única estrita. Estratégia segura: COPIAR → VALIDAR → CONECTAR → TESTAR → SÓ DEPOIS REMOVER.
-- [ ] **Backlog de Arquivos Extensos a Modularizar Sob Demanda**:
-  - [x] `PersonFormModal.tsx` (ERP): modularizado com sucesso de ~1.015 linhas para ~160 linhas orquestradoras, com extração de `usePersonForm.ts`, `PersonIdentificationSection.tsx`, `PersonEmployeeRolesSection.tsx`, `PersonContactsSection.tsx`, `PersonAddressSection.tsx` e `PersonObservationsSection.tsx`, preservando 100% das regras de negócio.
-  - `ProductFormModal.tsx` (> 600 linhas): dividir abas, validação de legibilidade e gerenciadores de variações.
-- [x] `ProductRow.tsx` e `ProductCard.tsx` (ERP): modularizados com sucesso segundo a skill `modularizacao_codigo` (redução de mais de 70% das linhas com extração de `useProductMetadata`, `ProductRowDescriptionCell`, `ProductRowActionsCell`, `ProductRowStandardCells`, `ProductRowModals`, `ProductCardActions` e `ProductCardVariationList`).
-  - [x] `MobileProductCard.tsx` e `MobileProductVariationList.tsx` (Mobile): modularizados com sucesso com extração de `useMobileProductMetadata`, `MobileChannelBadges`, `MobileProductActionsMenu` e `MobileProductVariationCard`.
-  - [x] **Atualização Imediata da Lista ao Salvar Edição (ERP e Mobile)**: Ao salvar produto ou alterar fornecedor, a lista reflete imediatamente os novos dados no ERP (`onSuccess` com `refresh` e `fetchStats`) e no Mobile (`saveMobileProduct` com persistência de `supplier_id`/`main_supplier_id`/`supplier_ids` e recarregamento instantâneo da página atual).
-  - [x] `OrderHistoryRow.tsx` e `OrderHistoryCard.tsx` + `InventoryMovementBadge.tsx`: modularizados com sucesso segundo a skill `modularizacao_codigo`.
-  - [x] **Detalhamento de Itens no Popover de Estoque**: Exibição da lista de todos os itens da venda com nome, quantidade e status de movimentação (`Efetivada`, `Estornada`, `Não efetivada` e `Sem Cadastro` com alerta).
-  - [x] **Alternância Otimista de Status sem Recarregamento de Tela (`toggleActive` e `deactivateCatalog`)**: A troca de status de canais (ERP Ativo/Inativo e Catálogo Publicado/Oculto) atualiza instantaneamente a interface de forma otimista, mantendo a tela estática sem recarregamento, sem piscar e sem perder a posição ou expansão das variações, com sincronização em background e rollback automático em caso de falha.
-  - `useProducts.ts` e `orderHistoryService.ts`: segregação de queries, mutations e regras de negócio.
-
-### 📱 Mobile Offline-First Baseado em Eventos & Risco Operacional
-- [x] **Criação da Skill `mobile-offline-first` (Completa & Fechada)**: Diretrizes baseadas em risco operacional de campo/depósito (entregas, montagens, inventário, conferência), ciclo de 4 estados (`PENDING` → `SYNCING` → `CONFIRMED` / `REJECTED`), idempotência via UUID e backend como autoridade estrita de estoque.
-- [ ] **Fila de Eventos de Campo & Depósito (`event_queue`)**: Gravar eventos atômicos (baixas de entrega, inventário físico, conferência de recebimento, checklists) com `event_id` UUID, timestamp `occurred_at` e máquina de estados (`PENDING` / `SYNCING` / `CONFIRMED` / `REJECTED`).
-- [ ] **Fila Separada de Mídia (`media_upload_queue`)**: Upload resiliente de fotos de avarias, comprovantes e assinaturas sem poluir o payload JSON dos eventos.
-- [ ] **Processador de Eventos no Backend / Supabase RPC**: Endpoint atômico que valida idempotência, processa eventos na ordem de dependência, resolve estoque em `inventory_moves` e retorna confirmação ou rejeição fundamentada.
-- [ ] **Working-Set Cache (Read-Only)**: Cache local apenas dos roteiros, pedidos, NFs/recebimentos e clientes atribuídos ao operador do dia.
-- [ ] **Status Visual na UI**: Badges dos 4 estados com tratamento visual destacado para `REJECTED` (alerta e motivo claro ao operador).
-
-- [x] **Padronização Global de Logradouro com Google Places API (`AddressAutocompleteInput`)**:
-  - Componente único e modularizado reutilizado em todo o sistema (`PersonFormModal`, `ShippingData`, `AssistanceCustomerSection`, `CompanyFiscalDataSection`, `OrderRouteMap`).
-  - Renderização suspensa via `DropdownPortal` (`z-[99999999]`), sem cortes em modais.
-  - Otimização de cota via cache no banco (`address_cache`).
-- [x] **Monitoramento e Governança de APIs Externas (`/api-usage`)**:
-  - Tabelas e RPC atômica (`record_api_usage_atomic`) para auditoria de Google Maps, Gemini AI, WhatsApp e SEFAZ.
-  - Circuit Breaker contra loops e Hard Limit de 95% contra estouro de faturas.
-  - Tela completa de métricas, gráficos e edição de custos/franquias sem hardcode.
-- [x] **Módulo Unificado de Entregas no Mobile (`DeliveriesHubScreen`)**:
-  - Unificação de roteiro do dia, cronograma semanal e mapa interativo com 3 abas no topo: `[ Hoje ] [ Cronograma ] [ Mapa ]`.
-  - Navegação inferior simplificada com aba "Entregas" (`Truck`).
-
-### 📦 Logística e Estoque
-- [ ] **Status de Pedido**: Sincronizar status 'Atendido' com o fluxo de estoque (baixa automática).
-- [ ] **Sincronização de Endereço**: Avaliar se mudanças de endereço no pedido também devem atualizar o cadastro principal do cliente (atualmente é manual via botão "Editar").
-- [ ] **Sincronização Automática**: Criar um cron job ou script de monitoramento para a pasta `produtosbling` para importar novos produtos assim que o CSV for atualizado.
-- [ ] **Batch Release (Lote)**: Criar interface para importação em lote de notas fiscais de entrada para atualizar `warehouseStock`.
-
-### 🛠️ Infraestrutura e Banco de Dados (SQL/DEV/PROD)
-- [ ] **Limpeza de Banco de Dados (SQL)**: Avaliar e executar o DROP das colunas removidas da UI na tabela `products` (`line`, `main_differential`, `colors`, `not_included`, `width`, `height`, `depth`, `extra_dimensions`).
-- [ ] **Executar Scripts SQL**: Criar tabelas `attendance_logs` e `customer_desires` no Supabase.
-- [ ] **Variáveis de Ambiente**: Revisar rotas de API e Supabase para garantir funcionamento perfeito em ambos os ambientes conforme a nova regra.
-
-### 💎 UX / Refinamentos
-- [x] **App Mobile - Código e SKU 100% Automáticos (Sem Input Manual)**: Código sequencial de 6 dígitos gerado na abertura via `getNextSequentialProductCode` (`000245`) e SKUs das variações gerados via `generateVariationSku` (`000245-01`), sem inputs de digitação manual para o usuário, idêntico ao ERP.
-- [x] **App Mobile - Cadastro Geral com Paridade ERP**: Campos de nomes/títulos diferenciados, slug amigável em tempo real, seleção de oportunidades e múltiplas categorias sincronizadas via tabela intermediária `product_categories`.
-- [x] **Catálogo Digital - Logo Ampliado no Header**: Logo aumentado com proporção de destaque visual e header expandido para maior presença da marca.
-- [x] **Catálogo Digital - 'Ver todos' na Lista de Categorias**: Dropdown de ambientes e menu mobile ajustados para exibir 'Ver todos' como primeira opção da lista, eliminando cabeçalhos duplicados.
-- [x] **Catálogo Digital - Troca Fluida de Fotos na Página do Produto**: Corrigido bug de reset para a 1ª foto ao clicar em thumbnails e sincronização com lightbox.
-- [x] **Catálogo Digital - Cores de Título por Oportunidade**: Cor dos títulos de produtos dinamizada tanto nos cards quanto na página de detalhes conforme a oportunidade vinculada.
-- [x] **ERP - Confirmação Segura de Cancelamento de Venda com Contador de 5s**: O botão de confirmar cancelamento no `CancelSaleModal` inicia com contagem regressiva de 5 segundos (`Cancelar venda (5s)`), ficando desabilitado e protegido contra cliques acidentais até a liberação.
-- [x] **ERP - Botão de Editar Produto nos 3 Pontinhos**: Disponibilizada a opção "Editar Produto" dentro do menu de opções de 3 pontinhos tanto na tabela (`ProductRow`) quanto nos cards (`ProductCard`), além do botão de atalho direto do lápis.
-- [x] **ERP - Descarte de Rascunhos nos 3 Pontinhos**: Adicionado botão "Descartar Rascunho" (ícone de lixeira vermelha `bi-trash3-fill`) no menu de 3 pontinhos tanto na tabela (`ProductRow`) quanto nos cards (`ProductCard`), permitindo descartar definitivamente rascunhos com limpeza das variações associadas.
-- [x] **ERP - Bloqueio de Ativação e Publicação para Rascunhos**: Produtos em rascunho não podem ser ativados no ERP nem publicados no Catálogo Digital; botões de status de canais (`ChannelStatusBadges`) mantêm estado inativo/oculto e, ao clicar, disparam aviso orientando que o cadastramento precisa ser finalizado.
-- [x] **ERP - Modal Completo de Gerenciamento de Atributos na Variação**: Ao clicar em "Gerenciar Atributos" no formulário de variação de produto (`VariationFormModal`), abre o painel oficial completo do sistema (`ManageAttributesModal`) com busca em tempo real, criação de atributos por tags, remoção segura e adição de valores, atualizando automaticamente os atributos da variação ao concluir.
-- [x] **ERP - Aba de Fotos da Variação com Input 1:1 e Drag and Drop**: Aba de fotos reformulada com card/slot de adicionar 1:1 (`aspect-square`) que abre o modal de seleção das fotos do pai (`VariationParentImagesSelectModal`), e fotos vinculadas exibidas em sequência com reordenação por Drag & Drop e selo de foto de Capa na primeira imagem.
-- [x] **Correção da Tela Branca em Detalhes do Pedido (Mobile)**: Corrigido o `ReferenceError` em `OrderDetailsSections.tsx` restaurando a declaração de `displayOriginalPrice` e `displayFinalPrice` ao renderizar o manuseio e preço com desconto.
-- [x] **Card de Formas de Pagamento Dinâmico (Mobile)**:
-  - Fundo e borda em **Amarelo/Âmbar** (`#f59e0b` / `#fffbeb`) com alerta quando o status estiver **Pendente**, **A Verificar** ou houver saldo a receber.
-  - Fundo e borda em **Verde** (`#10b981` / `#f0fdf4`) com check quando todos os pagamentos estiverem **Pagos**.
-- [x] **Exibição do Manuseio do Item e Desconto Sobreposto (Mobile)**:
-  - Exibição do tipo de manuseio (ex: *"Item não necessita de montagem"*, *"Montagem de Móvel"*) diretamente abaixo do título de cada produto.
-  - Preço original antes do desconto posicionado diretamente **acima** do preço verde final (com efeito riscado/tachado).
-- [x] **Checklist com Checkbox Individual por Item/Volume (Mobile)**: Cada volume/item do pedido possui seu próprio checkbox de conferência e carregamento antes de sair.
-- [x] **Busca Precisa do Catálogo Digital**: Aprimorada a barra de busca e sugestões para filtrar por palavras completas e sinônimos moveleiros (ex: "roupa" busca guarda-roupas, roupeiros e armários de roupas no título ou categoria) sem misturar letras soltas.
-- [x] **Integração Nativa Google Firebase FCM V1 (v1.2.0 / Build 19)**: Arquivos `google-services.json` e `google-services-key.json` vinculados para entrega de notificações push com o app 100% fechado (nível de sistema operacional idêntico ao WhatsApp).
-  - Build oficial concluída e links atualizados no ERP: `https://expo.dev/accounts/morante/projects/mobile/builds/7fca3976-4db5-4b11-92c6-caeee69a39c1`
-- [x] **Google Maps Places Autocomplete (2 dígitos)**: Ativação instantânea a partir de 2 caracteres digitados no campo Rua/Logradouro em todos os formulários do ERP (Cadastro de Clientes, Pedido de Venda - Dados do Cliente, Dados de Entrega e Assistência Técnica), preenchendo automaticamente Rua, Bairro, Cidade, Estado, CEP e link do Maps.
-- [x] **Link de Localização do Google Maps (ERP & Mobile)**: Campo no cadastro de clientes para localização precisa (especialmente quando ruas/números não batem exatamente no GPS), integrado na mensagem do WhatsApp do grupo de entregas e nos detalhes/etapas de entrega do app mobile.
-- [x] **Link da Build APK Oficial**: Atualizado em todos os menus e botões de download do ERP para o artifact direto `https://expo.dev/artifacts/eas/2z1WIeabVBd27Zg66LdlZJTyjyR2v895eRnUiXwwHg0.apk`.
-- [x] **Stepper Informativo e Sliders Bidirecionais de Entrega**: Indicador visual no topo das 3 etapas e controle seguro por deslizamento (`«` para avançar e `»` para retroceder).
-- [x] **Perfis de Acesso de Usuário com Permissões Acumulativas**: Transição da nomenclatura de *Cargo* para *Perfil de Acesso de Usuário* na Gestão de Acessos (`/acessos-e-usuarios` e `/settings`), permitindo múltiplos perfis por usuário com permissões acumulativas (`canPerform`). Usuários que recebem pelo menos um perfil de acesso ativo passam a constar automaticamente como colaboradores com sincronização em tempo real entre `profiles` e `people`. Incluído o novo perfil de `Estoquista` (`stockist`) com permissão padrão para movimentação e inventário de estoque.
-- [x] **Tabela de Produtos (Cabeçalho Limpo)**: Removido o botão do olhinho (`bi-eye-slash`) dos cabeçalhos das colunas da tabela de produtos, mantendo a tela mais limpa e a visibilidade de colunas centralizada nas opções de visualização.
-- [x] **Lista de Produtos (Fundo Cinza para o Pai e Dropdown de Variações Recolhidas)**:
-  - Nas visualizações em Tabela (`ProductRow`) e em Cards (`ProductCard`), os produtos pai agora possuem fundo cinza neutro destacado (`bg-slate-200/70 dark:bg-slate-800/80`).
-  - No início da linha da tabela (coluna SKU/código) e no topo do card, foi adicionado um botão de dropdown/chevron (`bi-chevron-right` / `bi-chevron-down`) para alternar a exibição das variações filhas.
-  - Por padrão, as variações filhas permanecem recolhidas/ocultas, mantendo a listagem visualmente limpa e objetiva.
-  - O selo de oportunidade agora é renderizado exclusivamente no produto pai / produto simples, não poluindo as variações filhas.
-  - Inversão da ordem das colunas: **Produto/Variação** agora vem antes de **SKU**, com migração automática da preferência do usuário e o botão dropdown de variações integrado.
-  - O modal de edição agora abre **exclusivamente** pelo clique no botão de editar (lápis), evitando aberturas acidentais ao clicar na linha ou card.
-  - Exibição de badge com a quantidade de variações ao lado direito do título do produto pai na tabela (ex: `3 variações`).
-  - Título do produto pai padronizado na cor preta/escura (`text-slate-900 dark:text-slate-100`), igual às variações e produtos simples, tanto na tabela quanto nos cards.
-  - Remoção do rótulo redundante "Produto" da tabela e dos cards, deixando a interface mais enxuta (mantendo apenas selos pertinentes como "Serviço" e "Combo").
-  - [Mobile] Aba principal do menu inferior renomeada de "Dashboard" para "Início" (`NativeBottomNav`).
-  - [Mobile] Regra da Barra/Bottom Bar de Navegação: máximo de 5 abas visíveis; se ultrapassar 5 abas, a 5ª vaga torna-se o botão de 3 pontinhos ("Mais"), que abre um Bottom Sheet com as abas e opções excedentes.
-  - [Acessos & Colaboradores] Inclusão do campo **Cargo Principal do Colaborador** no cadastro, diferenciando explicitamente o cargo/profissão na empresa (ex: Vendedor, Montador, etc.) dos perfis de acesso ao sistema (onde ele pode ser Administrador sem impedimento). Exibição do cargo principal na tabela de usuários e cards.
-  - [Produtos] Largura da coluna Produto/Variação na visualização em tabela dobrada para `min-w-[520px] w-[45%]`, proporcionando muito mais espaço e legibilidade aos dados e fotos dos itens.
-  - [Produtos] Contagens da sidebar de produtos (Total de Cadastrados, Publicados, Desativados e Rascunhos) atualizadas para contabilizar exclusivamente as variações filhas, tratando o produto pai apenas como referência estrutural/agrupador.
-  - [Produtos] Selo de Oportunidade e Contagem de Variações agora ficam alinhados harmoniosamente na mesma linha do título do produto pai na tabela.
-  - [Produtos] Remoção do selo redundante 'VARIANTE' nas linhas de variações filhas na tabela de produtos, mantendo a listagem visualmente mais limpa.
-  - [Produtos] Clicar na linha da tabela (`ProductRow`) ou no card (`ProductCard`) de um produto pai agora também expande/recolhe suas variações filhas automaticamente, além do botão de chevron, preservando os botões de ação isolados.
-  - [Mobile] Criação do menu e módulo nativo de **Produtos** (`NativeProductsScreen`) no painel inferior (`NativeBottomNav`):
-    - Visível exclusivamente para quem tem permissão/perfil de vendedor (`seller`), gestor (`manager`) ou administrador (`admin`).
-    - Cards nativos fiéis ao ERP: exibição clara do **Produto Pai** com botão de alternância `Variações (X)` (ex: `Variações (1)`), código do pai, selo de oportunidade (`Flame` âmbar), fornecedor (`Truck`), fundo cinza destacado e preços/estoque representados por `-`.
-    - Expansão de variações filhas diretamente no card (com fotos das variações, atributos, SKU, estoque e toggle de catálogo por variação).
-    - Status de catálogo com botão interativo direto no card (Publicado / Ocultado).
-    - Paginação padrão de 30 itens por página com scroll suave ao topo.
-    - Cabeçalho limpo com foco na **barra de pesquisa por texto** (sem botão de atualizar nem botões/pills de filtro) e botão de 3 pontinhos com:
-      - **Novo Produto**: formulário com abas (Básico, Preços & Estoque, Variações), permitindo salvar como Ativo ou Rascunho.
-      - **Configurações de Produto**: modal dedicado com gerenciamento completo (CRUD) de **Categorias** e **Atributos e Variações**.
-- [x] **Observações por Item de Pedido de Venda (`item.observation`)**: Campo adicionado ao final da linha de cada item no formulário do pedido (desktop e cards mobile), concatenado com `-` na folha de pedido impressa, no recibo impresso, nas ordens de serviço e nas mensagens de WhatsApp.
-- [x] **Carimbo de Assinatura Digital no Recibo (`ReceiptPage` / `DigitalSignatureBadge`)**: Remoção da linha de assinatura manual e inclusão do selo oficial com certificado digital ICP-Brasil/A1, dados da empresa/emissor, hash determinístico e QR Code dinâmico para consulta pública e validação.
-- [x] **Independência de Catálogo e Produtos Desativados na Lista Normal**:
-  - Remoção da tela/aba separada de "Produtos Desativados", mantendo produtos ativos e desativados juntos na listagem principal com seus respectivos selos visuais.
-  - Desacoplamento total entre o estado ativo/desativado no ERP (`active`) e o status do Catálogo Digital (`status: published/hidden`), de modo que ativar/desativar um produto ou variação não altera seu status de catálogo.
-- [x] **Status de Canais (ERP e Catálogo) com Botões Bipartidos**:
-  - Nova estilização de botões/pills bipartidos conforme layout oficial (`ERP` em azul com status `Ativo`/`Inativo` e `Catálogo` em roxo com status `Publicado`/`Oculto`).
-  - Coluna renomeada para **"Status de Canais"** na tabela de produtos e no menu de visibilidade de colunas.
-  - Ação de Ativar/Desativar produto movida diretamente para o botão interativo da coluna/card, removida do menu de 3 pontinhos.
-  - Padronização aplicada tanto na visualização em **Tabela** (`ProductRow`) quanto em **Cards** (`ProductCard` e na listagem expandida de variações filhas).
-- [x] **Flexibilização de Requisitos do ERP e Alerta Específico de Pendências**:
-  - Removida a exigência de preço de custo para ativar produtos/variações no ERP (custo só é obrigatório ao lançar estoque inicial ou entrada de mercadoria).
-  - O alerta de requisitos agora lista dinamicamente apenas os campos que estiverem de fato faltando (ex: `nome do produto`, `preço de venda`, `categoria`, `fornecedor`).
-- [x] **App Mobile - Sincronização Completa de Estilo e Lógica com o ERP (Lista de Produtos)**:
-  - Rascunhos agora aparecem na listagem geral com badge em âmbar `Rascunho` (`#d97706`), sem necessidade de telas separadas.
-  - Produtos desativados exibidos normalmente na listagem com badge vermelho `Desativado` (`#ef4444`).
-  - Status de canais bipartido nos cards do produto e em cada variação filha (`ERP` azul suave com `Ativo`/`Inativo`, `Catálogo` roxo suave com `Publicado`/`Oculto`).
-  - Bloqueio estrito para rascunhos: produtos em rascunho não podem ser ativados nem publicados; ao clicar em qualquer canal, o app emite alerta amigável informando que o cadastramento deve ser concluído primeiro.
-  - Menu de 3 pontinhos com atalho "Editar Produto" (além do ícone de lápis) e ação "Descartar Rascunho" em vermelho para exclusão definitiva do rascunho e suas variações filhas.
-  - Cada variação filha com card de fundo branco puro (`#ffffff`), cantos arredondados, bordas sutis e botões de canais bipartidos sincronizados.
-- [x] **Remoção do Painel de Visibilidade de Colunas da Sidebar**: Eliminada a sanfona de visibilidade de colunas na sidebar de produtos, simplificando a interface e mantendo as colunas padrão visíveis.
-- [ ] **CategorySearchModal**: Avaliar o comportamento em dispositivos móveis.
-- [ ] **Feedback de Sincronização de Preços**: Testar se a sincronização de preços entre pai e filhos funciona corretamente em tempo real após a economia.
-- [ ] **Feedback visual de Herança**: Adicionar feedback visual mais claro quando a herança está ativa.
-- [ ] **Validação de Telefone**: Implementar uma validação mais rigorosa de formato de telefone antes da sincronização com o CRM.
-- [ ] **Feedback de Sync**: Adicionar um pequeno indicador visual ou toast informando que o cadastro do cliente foi atualizado com sucesso ao salvar o pedido.
+## 1. Atualização do App Mobile (Build 17 e Atualização Obrigatória)
+- **Status**: Concluído com Sucesso! 🚀
+- **Detalhes da Build Nativa**:
+  - Expo EAS Build: `https://expo.dev/accounts/morante/projects/mobile/builds/27e6a150-0697-4e47-8297-5ecf8ef34751`
+  - Version Code: **17**, Version: **1.6.0**, Runtime Version: **1.6.0**
+  - APK URL Oficial: `https://expo.dev/artifacts/eas/c6GuI7KSgOnw0kSY-zI9S_5dxaFMuc9lCT37XL-ynYE.apk`
+- **Sincronização dos 6 Pontos (Concluído)**:
+  - `mobile/app.json`: versionCode 17
+  - `mobile/android/app/build.gradle`: versionCode 17
+  - `mobile/src/constants/appVersion.ts`: APP_BUILD 17
+  - `mobile/src/hooks/useMandatoryAppUpdate.ts`: TARGET_OFFICIAL_BUILD 17 e URL do APK 17
+  - Banco Supabase (`settings` -> `app`): `minimumAndroidBuild: 17`, `requiredAndroidBuild: 17`, URL atualizada
+  - Landing Page ERP (`MobileAppLanding.tsx`): Botão de download e QR Code apontando para a Build 17
+- **Publicação OTA (Concluído)**:
+  - Branch: `production`
+  - Update Group ID: `914f1e65-122c-4c4d-a522-53f3ab730edf`
+  - Android Update ID: `01a09194-c73c-7a28-9070-31b315b9f9a2`
+  - Painel EAS: `https://expo.dev/accounts/morante/projects/mobile/updates/914f1e65-122c-4c4d-a522-53f3ab730edf`
 
 ---
 
-## 💡 3. Ideias de Expansão / Futuras
+## 2. Refatoração e Aplicação de Princípios de Código Limpo (10 Arquivos Concluídos)
+- **Status**: Concluído com Sucesso! 🚀
+- **Diretriz**: Aplicados princípios de Clean Code, Responsabilidade Única (SRP), Coesão de Camadas e Desacoplamento Seguro (`modularizacao_codigo` e `AGENTS.md`).
 
-- **Dashboard de Rotas**: Usar os endereços parseados para montar uma rota de entrega otimizada em um mapa.
-- **Histórico de Preços**: Melhorar a visualização do `product_price_history` no ERP para mostrar gráficos de flutuação.
-- **IA de Atendimento**: Usar a base de produtos importada para responder dúvidas de clientes via WhatsApp (BI de voz citado no `PLANO_MESTRA`).
-- **Histórico de Marketing**: Criar um log de mudanças na origem de marketing do cliente para entender mudanças de comportamento.
-- **Expansão do Scanner QR/Barcode**:
-    - **Check-in de Cliente**: Carregar perfil rápido ao escanear QR do cliente.
-    - **Endereçamento (Bins)**: Escanear prateleira + produto para organizar o depósito.
-    - **Rastreamento Interno**: Etiquetas de envio com QR para status de expedição.
-    - **PDV Web**: Adicionar itens ao carrinho via câmera do celular/tablet.
-    - **Motoristas**: Confirmar entregas via QR Code + GPS.
-    - **Produção**: Controle de etapas de montagem por escaneamento de peças.
-- **Emissão de NF-e e NFC-e Direto SEFAZ-PR (Sem Intermediários)**: Conexão direta com webservices SEFAZ-PR usando certificado digital A1 (.pfx), geração e assinatura de XMLs fiscais e impressão de DANFE sem custo por nota.
-- **Conferência Cega no Recebimento de Mercadorias**: Interface para o operador do almoxarifado conferir mercadorias recebidas sem ver previamente a quantidade esperada, garantindo integridade física do estoque.
-- **Relatório de Comissões por Vendedor**: Cálculo analítico de comissões com base em vendas efetivamente atendidas no período com abatimento proporcional de devoluções.
-- **Análise de BOM**: Processar `belichemilao.csv` para criar variações automáticas de tecido e acabamento no ERP.
+### Lista dos 10 Arquivos Refatorados:
+1. `erp/src/pages/App/Stock/InboundInvoices/InboundInvoiceItemsReview.tsx`:
+   - Reduzido de 618 linhas para 260 linhas.
+   - Extraídos: `useInboundInvoiceSuggestions.ts`, `inboundProductPreparationService.ts`, `InboundAiExistingVariationModal.tsx`, `InboundAiNewVariationModal.tsx`.
+   - Testes vitest: 9 arquivos de teste / 31 testes aprovados.
+
+2. `mobile/src/features/products/modals/tabs/ProductFormBasicTab.tsx`:
+   - Reduzido de 628 linhas para 240 linhas.
+   - Extraídos: `OpportunitySelectModal.tsx` e `CategoryMultiSelectList.tsx` em `mobile/src/features/products/modals/components/`.
+   - Compilação TypeScript: 0 erros.
+
+3. `mobile/src/features/assemblies/screens/NativeAssembliesScreen.tsx`:
+   - Reduzido de 595 linhas para 330 linhas.
+   - Extraído: `AssemblyOrderCard.tsx` em `mobile/src/features/assemblies/components/`.
+   - Compilação TypeScript: 0 erros.
+
+4. `mobile/src/features/logistics/components/TodaySummaryCard.tsx`:
+   - Reduzido de 628 linhas para 275 linhas.
+   - Extraídos: `DeliveryShiftMetricsGrid.tsx` e `DeliverySummaryControlsBar.tsx`.
+   - Compilação TypeScript: 0 erros.
+
+5. `mobile/src/features/logistics/screens/NativeLogisticsScreen.tsx`:
+   - Reduzido de 843 linhas para 370 linhas.
+   - Extraído: `LogisticsOrderCard.tsx` em `mobile/src/features/logistics/components/`.
+   - Compilação TypeScript: 0 erros.
+
+6. `mobile/src/services/financial/financialIntentValidator.ts`:
+   - Reduzido de 731 linhas para 535 linhas.
+   - Extraídos: `validators/loanIntentValidator.ts` e `validators/businessPurposeValidator.ts`.
+   - Compilação TypeScript: 0 erros.
+
+7. `mobile/src/services/financial/financialSlotFilling.ts`:
+   - Reduzido de 694 linhas para 490 linhas.
+   - Extraído: `patchers/installmentSlotPatcher.ts`.
+   - Compilação TypeScript: 0 erros.
+
+8. `erp/src/pages/utils/whatsapp.ts`:
+   - Reduzido de 694 linhas para 346 linhas.
+   - Extraído: `whatsappTemplates.ts` reunindo todos os geradores e builders de mensagens/orçamentos.
+   - Testes vitest: 100% aprovados.
+
+9. `erp/src/pages/utils/whatsappGraphService.ts`:
+   - Reduzido de 656 linhas para 590 linhas.
+   - Extraído: `whatsappHttpClient.ts` isolando chamadas HTTP autenticadas e testes de conexão da Meta Graph API.
+   - Testes vitest: 100% aprovados.
+
+10. `erp/src/pages/App/Stock/components/InventoryAuditModal.tsx`:
+    - Reduzido de 634 linhas para 495 linhas.
+    - Extraído: `InventoryAuditTable.tsx` desacoplando a tabela física de contagem, inputs de ajuste e ações de itens.
+    - Testes vitest: 100% aprovados.
 
 ---
 
-## 📈 4. Histórico Recente de Entregas
+## 3. Correção do Assistente de IA e Marcadores do Mapa no Mobile
+- **Status**: Concluído com Sucesso! 🚀
+- **Problema 1: "Desculpe, ocorreu uma falha ao consultar assistente" no App**:
+  - **Causa Raiz**: O `MobileAgentClient.getApiKey()` buscava apenas da tabela `settings` (que não continha a chave do Gemini configurada) e de `process.env`. No APK compilado do React Native, `process.env` em runtime retornava vazio/indefinido, disparando erro de chave não configurada.
+  - **Solução Aplicada**:
+    - Adicionada chave de contingência padrão do projeto (`DEFAULT_GEMINI_API_KEY`) no `mobileAgentClient.ts`.
+    - Melhorado o tratamento de erro em `useFinancialAiChat.ts` para reportar diagnósticos claros (chave/rede/servidor) em vez de ocultar a causa raiz.
+- **Problema 2: Ícones do Depósito e Destinos não aparecendo no Mapa de Entregas**:
+  - **Causa Raiz**: No `DeliveryMarker.tsx`, os componentes `<Marker>` estavam com `tracksViewChanges={false}` fixo e estático. No Google Maps nativo para Android, componentes filhos customizados com SVGs/Views são renderizados em branco/invisíveis se `tracksViewChanges` estiver desligado antes do primeiro ciclo de desenho.
+  - **Solução Aplicada**:
+    - Implementado `tracksViewChanges` dinâmico via state/timer (`1200ms`) em `DeliveryMarker.tsx`. O mapa renderiza todos os ícones (`Store`, `Truck`, `Check`, números de sequência) e, após desenhados, desativa o tracking para máxima performance e economia de bateria/GPU.
+  - **Validação**: `npx tsc --noEmit` executado com **0 erros**.
+- **Publicação OTA (Concluído com Sucesso)**:
+  - Branch: `production`
+  - Runtime Version: `1.6.0`
+  - Plataforma: `android`
+  - Update Group ID: `5c11788e-649a-4f2b-9fed-4ee9f7ecd121`
+  - Android Update ID: `01a091bb-4a85-71ac-a10f-9e4772aff91c`
+  - Painel EAS: `https://expo.dev/accounts/morante/projects/mobile/updates/5c11788e-649a-4f2b-9fed-4ee9f7ecd121`
+  - Mensagem: *"Fix Gemini AI agent key fallback and delivery map markers visibility"*
 
-### Concluído Recentemente (Setembro 2026)
+---
 
-#### 🏷️ Status de Canais (ERP e Catálogo) com Botões Bipartidos & Independência Total
-- **Desacoplamento Completo:** O estado do produto no ERP (`active: true/false`) não interfere e não altera o status do produto no Catálogo Digital (`status: published/hidden`), e vice-versa.
-- **Produtos Desativados na Lista Normal:** Produtos desativados permanecem na listagem normal com selo próprio, sem isolamento em aba separada.
-- **Botões Bipartidos Padronizados:** Implementados novos botões/pills bipartidos (`ERP` azul com `Ativo`/`Inativo`, `Catálogo` roxo com `Publicado`/`Oculto`) na Tabela (`ProductRow`), nos Cards (`ProductCard`) e na listagem de variações filhas.
-- **Ação Rápida de Ativação:** Ação de ativar/desativar removida do menu de 3 pontinhos e incorporada diretamente no clique do botão `ERP`.
-- **Coluna Renomeada:** Coluna atualizada para **"Status de Canais"** na tabela e nas preferências de visualização.
+## 4. UI/UX do Gerador de Posts & Prompts (Elementos da Campanha)
+- **Status**: Concluído com Sucesso! 🚀
+- **Solicitação do Usuário**: No gerador de prompts para posts, na aba "Elementos da Campanha", o tópico de **Imagens** deve ficar fechado/recolhido por padrão, e abrir somente quando o usuário clicar nele, exatamente como funcionam os outros tópicos (accordions).
+- **Alteração Realizada**:
+  - Em `erp/src/pages/App/Marketing/Posts/components/CampaignElementsPanel.tsx`:
+    - Adicionado o estado `openImages` inicializado como `false`.
+    - Transformada a visualização estática anterior em um item de acordeão com botão expansível (`▸` / `▾`), título "Fotos do Produto (Prompt)" e badge de status ("Configurado ✓", "Disponível" ou "Nenhum produto").
+    - A faixa de fotos `PromptImagesStrip` só é exibida ao expandir o bloco, mantendo a tela limpa e padronizada com os demais tópicos.
 
-#### ⚡ Flexibilização de Requisitos de Ativação no ERP
-- **Custo Desobrigado na Ativação:** Preço de custo não é mais obrigatório para ativar produtos ou variações no ERP (o custo é lançado na compra ou saldo inicial).
-- **Alerta Específico de Pendências:** Mensagem de erro ao tentar ativar exibe dinamicamente apenas os campos realmente faltantes (ex: `nome do produto`, `preço de venda`, `categoria`, `fornecedor`).
+---
 
-#### 🧹 Limpeza da Barra Lateral de Produtos
-- **Remoção da Visibilidade de Colunas:** Eliminada a sanfona de visibilidade de colunas na sidebar de produtos, tornando a interface mais limpa e mantendo todas as colunas padrão ativas.
+## 5. UI/UX do Gerador de Posts (Texto Estruturado e Selo de Oportunidade)
+- **Status**: Concluído com Sucesso! 🚀
+- **Texto Estruturado Recolhido**: Em `erp/src/pages/App/Marketing/Posts/components/PromptPreview/PromptPreview.tsx`, o bloco "Texto Estruturado do Prompt" agora inicia fechado por padrão (`openPromptText: false`) e expande ao clicar no tópico, mantendo o botão "Copiar Prompt" permanentemente acessível no cabeçalho.
+- **Selo de Oportunidade**: Em `PromptCopyableImagesList.tsx`, ajustada a resolução prioritária da imagem do selo de oportunidade a partir do produto (`opportunityImageUrl`, `opportunity.image_url`), fallback canônico para "Queima dos Salvados" (`OFFICIAL_QUEIMA_BADGE_URL`) e `fallbackUrl` gerado em SVG dinâmico acionado automaticamente no evento `onError` da tag `<img>`, evitando qualquer ícone quebrado.
 
-#### 🔏 Assinatura Digital ICP-Brasil / A1 com QR Code no Recibo
-- **Substituição da Assinatura Manual:** Removida a linha de assinatura manual a caneta do recibo de venda (`ReceiptPage`).
-- **Carimbo Digital Oficial:** Implementado componente `DigitalSignatureBadge` com padrão ICP-Brasil / A1, dados da empresa, responsável emissor, hash criptográfico determinístico e QR Code dinâmico via `bwip-js` para validação pública instantânea.
+---
 
-#### 📝 Observações por Item no Pedido de Venda (`item.observation`)
-- **Campo de Observação nos Itens:** Suporte a notas específicas por item (cor, detalhe técnico, pedido especial do cliente) na tabela desktop e nos cards mobile.
-- **Concatenação nos Comprovantes e WhatsApp:** Observações são automaticamente concatenadas com `" - "` na descrição do produto em folhas de pedido impressas, ordens de serviço, mensagens automáticas de WhatsApp e recibos.
+## 6. App Mobile — Mapa de Entregas (Marcadores Operacionais, Card Compacto e OTA)
+- **Status**: Concluído com Sucesso e Publicado via OTA! 🚀
+- **Tela Limpa ao Entrar**: Nenhum card abre forçado ao carregar e nenhuma rota é traçada sem clique (`isCardDismissed: true` inicial). O card só aparece ao tocar em uma parada.
+- **Card Compacto (`NextDeliveryCard`)**: Removidos textos redundantes ("PARADA SUGERIDA", "⭐ SUGERIDA PELO ROTEIRO") e eliminado o modal grande redundante (`DeliveryBottomSheet`).
+- **Marcadores no Mapa (`DeliveryMarker`)**: Substituída a numeração fixa por ícones de operação com as cores canônicas do ERP:
+  - 🚚 **Entrega**: Fundo Verde (`#16a34a`) com ícone `Truck`.
+  - 📦 **Retirada**: Fundo Roxo (`#7c3aed`) com ícone `Package`.
+  - 🔧 **Assistência**: Fundo Amarelo (`#eab308`) com ícone `Wrench`.
+  - ↩️ **Coleta de Devolução**: Fundo Laranja (`#f97316`) com ícone `RotateCcw`.
+  - Concluída: Fundo Esmeralda com ícone `Check`.
+  - Depósito/Loja: Ícone `Store`.
+- **Publicação OTA**:
+  - Update Group ID: `01f23275-5cfe-4d0e-8f03-8277601d487a`
+  - Android Update ID: `01a091d3-863d-758f-9c73-3fd2e9a24b43`
+  - Painel EAS: `https://expo.dev/accounts/morante/projects/mobile/updates/01f23275-5cfe-4d0e-8f03-8277601d487a`
 
-#### 👤 Vendedores em Pedidos Restritos a Colaboradores Habilitados
-- **Validação Estrita (`isValidEmployee`):** Apenas colaboradores cadastrados com perfil de acesso ativo no sistema são listados para seleção como vendedor da venda.
+---
 
-#### 🖼️ Editor de Fotos 1:1 e Recorte com Proxy Anti-CORS
-- **Fotos Padronizadas:** Recorte proporcional 1:1, moldura de expansão branca sem linhas ou bordas internas, e cards de fotos com cantos retos (`rounded-none`).
-- **Bypass de CORS:** Implementado proxy de imagens para contornar bloqueios de CORS em buckets Cloudflare R2 e evitar erro de canvas tainted na exportação.
-
-### Concluído Recentemente (Agosto 2026)
-
-#### 🖼️ Independência Total entre Template de Post Promocional e Template de Etiqueta de Preço
-- **Isolamento de Persistência:** Implementado armazenamento isolado para o Template de Post Promocional via chave `morante_digital_marketing_post_template`.
-- **Botão de Salvamento de Template:** Adicionados botões "Salvar Template" no topo e rodapé da modal de Editor de Post Promocional (`DigitalMarketingPostModal.tsx`).
-- **Tratamento de Presets por Categoria:** Atualizado `Index.tsx` e `applyPresetWithConfig` para garantir que as configurações do modo `posts` (`social_square`) não contaminem as etiquetas de preço (`precos`) e vice-versa ao alternar abas ou salvar layouts.
-
-### Concluído Recentemente (Julho 2026)
-
-#### 🤖 Preenchimento Inteligente de Pedidos via JSON e Prompt para IA
-- **Preenchimento via Upload ou Inserção Manual:** Desenvolvido um painel sob a modalidade de entrega/retirada para importação de pedidos de vendas. O preenchimento pode ser feito carregando um arquivo `.json` ou colando o texto diretamente em uma área de texto manual.
-- **Estrutura de Dados & Ajuda:** Criado modal com a especificação exata do JSON esperado pelo formulário, com botão de cópia de template em 1 clique.
-- **Instruções de Prompt de IA Embutidas:** Inclusão de uma caixa de texto interativa e recolhível dentro do modal de ajuda contendo o prompt do sistema para orientar IAs externas a formatar as informações conforme as regras do ERP (ex: status de pagamento obrigatório com opções `"Pago"`, `"Pendente"` ou `"Verificar"`).
-- **Vínculo Automatizado de Clientes:** Se o JSON contiver a chave `client`, o ERP abre primeiramente o formulário de cadastro de cliente (`PersonFormModal` com `collectionName="customers"`) pré-populado, associando-o ao pedido imediatamente após a confirmação. Caso contrário, preenche apenas os campos de pedido e itens.
-
-#### 🔧 Correção de Rascunhos Importados via JSON e Filtro do Cronograma
-- **Restauração de Rascunhos Deletados:** Corrigida a marcação indevida de pedidos importados via JSON como excluídos (`deleted: true`), impossibilitando a exibição na lista de pedidos ativa. Foram reativados os pedidos do Matheus Morante e da Francine Franco no Supabase.
-- **Filtro de Itens Deletados no Cronograma:** Corrigido bug no hook `useDeliverySchedule.ts` que deixava de filtrar pedidos excluídos do Cronograma Logístico para os tipos "venda" e "retirada".
-- **Garantia de Estado Ativo na Duplicação/Importação:** Correção definitiva do bug que trazia as flags `deleted` e `deletedAt` de pedidos de origem da lixeira (ou JSONs desatualizados) ao duplicá-los ou gerá-los a partir de rascunhos antigos, deixando o pedido novo invisível na listagem principal mas ativo no Cronograma. Agora todas as duplicações/gravações de novos pedidos explicitamente limpam e resetam as chaves de exclusão.
-
-### Concluído Recentemente (Maio 2026)
-
-#### 💳 Gestão de Pagamentos
-- **Padronização de Status de Pagamento:** O campo de status de pagamento em cada linha da tabela de pagamentos (Sales Order) foi transformado em um `select` com as opções fixas **"Pago"**, **"Pendente"** e **"Verificar"**.
-- **Obrigatoriedade e UX:** O campo agora inicia vazio por padrão e é obrigatório para a finalização do pedido, garantindo que todos os pagamentos tenham um status definido manualmente.
-
-#### 🌐 Otimização de Performance e Banda do Supabase (Redução de Egress)
-- **Sincronização em Tempo Real Eficiente:** Refatorados os serviços de sincronização (`orderHistoryService.ts`, `personService.ts`, `purchaseService.ts`, `serviceService.ts`) para escutar alterações do Supabase Realtime e aplicar as alterações diretamente no estado em memória, eliminando requisições redundantes de tabelas inteiras.
-- **Consultas Pontuais por Cliente:** Substituído o uso de subscrições em tempo real de todos os pedidos no modal `PersonPurchaseHistoryModal.tsx` por consulta direta no banco trazendo exclusivamente os dados do cliente selecionado.
-- **Busca de Clientes com Payload Reduzido:** Modal `CustomerSearchModal.tsx` otimizado para fetch único não-realtime de dados mínimos de pedidos.
-- **Limitação de Carga Inicial:** Sincronização inicial de pedidos limitada aos 1000 registros mais recentes para evitar download excessivo de JSONB de pedidos antigos.
-- **Remoção de Recursos de IA:** Desativados e removidos componentes flutuantes de gravação e IA (`FloatingActionsHub`, `AIChatAssistant`, `AttendanceVoiceInput`), rota do BI de Atendimento, assistências com IA na criação de produtos e no menu de Preferências.
-- **Desativação de Recursos de E-commerce no Produto:** Simplificada a aba de e-commerce no cadastro de produtos, renomeando para **"Fotos do Produto"** e removendo SEO, checklist e sincronizações desnecessárias.
-- **Compactação de Imagens Eficiente:** Limite ajustado de 0.3 MB para 0.1 MB (100 KB) e resolução para 1200px no upload de fotos em `imageUtils.ts`.
-- **Desativação de Canais Realtime:** Canais desativados nos serviços `personService.ts`, `purchaseService.ts`, `serviceService.ts`, `productService.ts`, `variationService.ts`, `inventoryService.ts`, `settingsService.ts` e otimização do `notificationService.ts`. Apenas o `orderHistoryService.ts` mantém canal realtime ativo.
-- **Persistência de Templates no Supabase:** Eliminada a dependência do `localStorage` para o Template de Etiqueta de Preço. Todas as posições, dimensões, fontes e mapas de cores de oportunidade foram migrados e são salvos/lidos exclusivamente da tabela `label_art_configs` no Supabase, garantindo sincronização e disponibilidade para todos os usuários em Dev e Prod.
-
-### Concluído Recentemente (Abril 2026)
-
-#### 📊 Relatórios e BI
-- **Menu de Relatórios:** Submenu "Relatórios de Venda" renomeado para **"Relatório de Vendas CSV"** para diferenciar claramente dos relatórios via API (Bling).
-- **Relatório de Estoque (Giro e Reservas):** Adicionado botão de relatório consolidado de produtos vendidos e quantidades comprometidas em rascunhos.
-- **Ajuste de Layout no Cronograma:** Implementada largura mínima para colunas e cards de pedidos na tabela do cronograma logístico para manter a legibilidade.
-
-#### 🔄 Módulo de Devoluções e Reorganização de UI
-- **CRUD de Devoluções:** Sistema completo de gestão de devoluções (Criar, Listar, Editar, Excluir).
-- **Interface por Abas:** Transição da navegação de pedidos para abas modernas com glassmorphism (Vendas, Orçamentos, Assistências e Devoluções).
-- **Identidade Âmbar:** Padronização visual do módulo de devoluções com a cor **Âmbar (#d97706)**.
-- **Geração Vinculada:** Permite gerar devoluções a partir de vendas ou showrooms existentes selecionando itens específicos.
-- **Formas de Pagamento:** Adição de **"Promissória"** (parcelamento até 10x) e remoção da opção "WhatsApp".
-- **Cartão de Crédito:** Parcelamento padrão expandido para até 12x.
-
-#### 📦 Pedidos de Venda - Checagem de Estoque
-- **Novo Botão "Checou Estoque":** Fluxo de checagem individual de itens do pedido via checklist.
-- **Carga Automatizada Retroativa:** Pedidos até 26/04/2026 marcados automaticamente como checados.
-
-### Concluído Recentemente (Março 2026)
-
-#### 📦 Módulo de Pedidos de Venda
-- **Resumo do Pedido (Passo 5):** Interface rica em 2 colunas exibindo itens, pagamentos, logística e dados do cliente para evitar rolagem.
-- **Validação Inteligente (Hover):** Botões desativados com overlay detalhando campos obrigatórios faltantes.
-- **Navegação Simplificada:** Botões "Anterior" e "Próximo" removidos do rodapé, centralizando no Stepper superior.
-- **Identificação Visual:** Verde/Esmeralda para Entrega e Roxo/Índigo para Retirada.
-- **Módulo de Orçamentos:** Novo fluxo sem obrigatoriedade de cliente ou pagamento imediato, com botão de impressão de orçamento.
-- **Configuração de Juros e Bandeiras:** Interface premium de juros por parcelas (até 10x) para Visa, Master, Elo, Hipercard (0%) e Senff (customizáveis).
-- **Logística de Montagem:** Correção de filtros por modalidade e resolução de erros 400/avisos de DOM nesting na `AssemblyListPage.tsx`.
-- **Sincronização CRM:** Salvamento automático de Telefone e Origem de Marketing ('paid'/'organic') nos pedidos e no cadastro de cliente.
-
-#### 🛠️ Módulo de Assistência Técnica
-- **Ajuste de Fluxo:** Campo de vínculo com pedido original movido para o topo do formulário.
-- **Limpeza de Campos:** Remoção de campos financeiros redundantes e ocultação do telefone quando há pedido de venda vinculado.
-
-#### SKU Generation Overhaul (LLL-00000)
-- **Nova Lógica:** Geração de prefixo de 3 letras por Tipo de Produto e Linha/Modelo, com trigger `tgr_auto_sku` no Supabase gerando 5 dígitos sequenciais.
-
-#### Marketing & Design Menu Re-architecture
-- **Marketing Hub:** Criada seção de marketing no menu contendo controle de canais e WhatsApp Marketplace.
-
-#### Logística & Sincronização Híbrida
-- **Estoque Híbrido:** Integração de `showroomStock` e `warehouseStock` ao ERP.
-- **AI Profit Margin + Fee:** Inclusão de taxa de cartão (4%) nas sugestões financeiras da IA.
-#### 🖼️ Editor & Recorte de Fotos do Produto (1:1 + Moldura Branca)
-- **Recorte Livre & Moldura Branca Simultâneos**: Permite ajustar livremente o enquadramento 1:1 e controlar a margem branca (0% por padrão) para estender fotos sem corte.
-- **Proxy Anti-CORS para Canvas**: Rota `/api/proxy-image` no Digital Catalog e proxy local no Vite para contornar o bloqueio de CORS de domínios R2 e evitar o erro `Tainted canvases may not be exported` no recorte de fotos.
-- **Auto-Ajuste Proporcional**: Exportação padronizada em 1080 × 1080 px com compressão otimizada para catálogo digital e ERP.
-
-#### 👤 Vendedores em Pedidos de Venda
-- **Filtro Estrito de Colaboradores com Acesso (`isValidEmployee`)**: Apenas colaboradores ativos cadastrados com perfil de acesso válido (administrador, gestor, estoquista, vendedor, entregador, etc.) e sem restrição `pending` são listados no campo de seleção de vendedor e no modal de busca de atendentes.
-
-#### 📝 Observações por Item no Pedido de Venda
-- **Campo de Observação do Item**: Adicionado campo `observation` em cada item do pedido (com suporte na tabela desktop e card mobile), persistindo detalhes como cor, acabamento e especificações do cliente.
-- **Concatenação na Impressão e WhatsApp**: O texto preenchido nas observações do item é exibido automaticamente ao lado da descrição do produto separado por `" - "` no papel de pedido (`/order`), no recibo de venda (`/receipt`), na impressão de ordens de serviço e nas mensagens formatadas de WhatsApp enviadas ao cliente e logística.
-
-#### 🔄 Roadmap Cíclico de Testes Contínuos do Morante Hub (ERP & Mobile)
-- **Natureza Cíclica e Contínua**: O roteiro percorre os 9 módulos vitais do sistema em ordem estrita de criticidade e, ao atingir o final do Módulo 9, reinicia no Módulo 1 (Ciclo N → Ciclo N+1).
-- **Continuação Inteligente por Goals**: Sempre que o usuário solicitar para continuar os testes, o sistema retoma exatamente de onde parou consultando o cursor persistente em `docs/ROTEIRO_TESTES_CICLICOS.md`.
-- **Suporte Dinâmico a Docker**: Se o Docker estiver ligado/ativo, utiliza contêiner PostgreSQL/Supabase local isolado para os testes de integração; caso contrário, executa com mocks e transações seguras em memória.
-- **Blindagem Estrita de Dados**: Uso exclusivo de dados com prefixo `[TESTE_AUT]` ou `testRunId` com limpeza obrigatória no teardown, protegendo 100% os dados reais do banco.
-- **Cobertura de Todos os Tipos de Teste**: Unitários (Vitest), Integração (Services/DB), E2E/Interface (Browser Subagent), Tipagem (`tsc --noEmit`) e Mobile Offline-First.
-
-#### 🔎 Buscas e Filtros Accent-Insensitive (Irrelevância de Acentuação)
-- **Universalização em todo o ERP**: O usuário pode buscar digitando com ou sem qualquer acentuação (ex: `sofa` acha `Sofá`, `comoda` acha `Cômoda`, `armario` acha `Armário`, `joao` acha `João`).
-- **Itens do Pedido (`ProductAutocomplete`)**: Implementado com normalização Unicode NFD + remoção de diacríticos e cache em memória para busca instantânea, além de `imatch` com regex no banco de dados e highlight amarelo insensível a acento.
-- **Modais e Filtros Cobertos**: Itens do pedido, busca de clientes (`CustomerSearchModal` / `CustomerData`), busca de vendedores (`SellerInput` / `SellerSearchModal` / `EmployeeSearchModal`), produtos e variações (`useProducts` / `ProductSearchModal`), categorias (`CategoryAutocomplete` / `CategorySearchModal`), serviços (`Services/Index`), financeiro (`Transactions`, `Receivables`, `Payables`), etiquetas e catálogo de canais.
-
-#### 🏷️ Toggle do Catálogo Digital (`deactivateCatalog` & `updateProduct`)
-- **Resolução Resiliente em 4 Etapas**: Correção do erro `Variação não encontrada` ao alternar catálogo na lista de produtos. Agora resolve tanto IDs compostos (`parentId_sku`), SKUs normalizados (`normalizeVariationSku`), UUIDs diretos de `product_variations` e fallback no Supabase, garantindo que o status de publicação no Catálogo Meta seja alterado com sucesso sem exceptions.
-- **Correção de Importação de Slugs (`normalizeSlug` e `resolveUniqueSlug`)**: Importadas e conectadas formalmente as funções utilitárias de slug de `./uniqueSlug` no `productService.ts` (`mapToDB` e `syncProductToSupabase`), eliminando o erro `ReferenceError: normalizeSlug is not defined` ao alternar o status do catálogo digital ou atualizar produtos.
+## 7. App Mobile — Mapa de Entregas (Ajuste Visual do Card de Parada)
+- **Status**: Concluído! 🚀
+- **Card de Parada**: Removido o texto `"PARADA · #1"` / sequência do topo do card para deixar a interface limpa e focada exclusivamente nas informações do cliente, endereço e ações operacionais (`INICIAR ETAPAS DA ENTREGA` e `Ver pedido`).
+- **Estabilidade do ERP Dev**: Garantida integridade e compatibilidade total de caminhos na tela de Etiquetas (`LabelPrinting`) e Recebimentos (`Receipts`), mantendo o ambiente de desenvolvimento funcionando 100% perfeitamente sem erros 404.
 
 
-#### ✏️ Edição de Pedido Centralizada no Menu de 3 Pontinhos
-- **Remoção do Botão Duplicado de Edição**: Removido o ícone de lápis `bi-pencil` e o evento de clique de edição ao lado do nome do cliente nas linhas (`OrderHistoryRow`) e nos cards (`OrderHistoryCard`) da listagem de pedidos, concentrando a ação exclusivamente no menu de 3 pontinhos (`OrderOptionsMenu`).
+---
 
-#### 📦 Conciliação de Itens e Recálculo Automático de Status de Estoque na Edição
-- **Geração Automática de Baixa**: Ao editar um pedido e substituir itens temporários por produtos cadastrados do catálogo (ou adicionar novos produtos cadastrados), o sistema gera automaticamente a baixa de saída em `inventory_moves` para todos os itens cadastrados que ainda não tinham saída gerada.
-- **Transição Automática para Verde (Saída Efetivada)**: A função `isPartialSaleStockMovement` e o badge `InventoryMovementBadge` agora reconhecem dinamicamente quando todos os itens vendáveis do pedido são cadastrados e possuem saída de estoque no banco (`movedProductIds`), atualizando o status de parcial (laranja) para **Saída Efetivada (verde)** e corrigindo pedidos históricos defasados no Supabase.
+## 7. Organização e Criação de Subpastas em Módulos Extensos
+- **Status**: Concluído com Sucesso! 🚀
+- **Módulo `Stock/Receipts` (Recebimento de Mercadorias)**:
+  - Antes: 18 arquivos misturados na raiz da pasta.
+  - Subpastas criadas e organizadas:
+    - `components/`: `InboundNfeItemsSection`, `ReceiptActionButtons`, `ReceiptCard`, `ReceiptFiscalDocumentsSection`, `ReceiptPeriodSelector`, `ReceiptsHeader`, `ReceiptsTable`.
+    - `modals/`: `ConfirmReverseModal`, `InboundInvoiceReceiptPickerModal`, `PurchaseReceiptPickerModal`, `ReceiptAIFillModal`, `ReceiptDetailsModal`, `ReceiptFormModal`.
+    - `hooks/`: `useReceipts`.
+    - `utils/`: `receiptPeriodFilter.types`, `receiptPeriodUtils`, `receiptPeriodUtils.test`.
+    - Raiz limpa contendo apenas o orquestrador `Index.tsx`.
+- **Módulo `Stock/LabelPrinting` (Impressão e Editor de Etiquetas)**:
+  - Antes: 21 arquivos soltos na raiz.
+  - Subpastas criadas e organizadas:
+    - `modals/`: `LabelGridModelModal`, `LabelImageModal`, `LabelModelCreationModal`, `PriceLabelArtEditorModal`.
+    - `services/`: `FabricLabelEngine`, `fixedLabelTextSize`, `LabelPhysicalGeometry`, `LabelUtils`, `priceLabelTemplateSync`, `PriceLabelArtRenderer`.
+    - `hooks/`: `useLabelPrintMode`, `usePriceLabelFonts`.
+    - Raiz mantendo apenas `Index.tsx`, `LabelConstants.ts`, `LabelGrid.tsx`, `LabelItem.tsx` e `LabelQueue.tsx`.
+- **Validação de Testes e Integridade**: Todos os testes unitários foram executados com 100% de sucesso e nenhum caminho de importação quebrado.
 
-#### 📍 Autopreenchimento Completo de Endereço nas Sugestões (`AddressAutocompleteInput` / `addressParsing`)
-- **Preenchimento Imediato de Bairro, Cidade e UF**: Ao clicar em qualquer sugestão de endereço exibida pelo Google Places (`AddressAutocompleteInput`), o sistema preenche de forma síncrona e instantânea os campos de **Logradouro/Rua**, **Bairro**, **Cidade** e **Estado (UF)** nos formulários de Clientes (`PersonAddressSection`), Pedidos de Venda (`ShippingData`), Assistência Técnica (`AssistanceCustomerSection`), Rotas (`OrderRouteMap`) e Dados da Empresa (`CompanyFiscalDataSection`).
-- **Normalização Oficial da UF**: Todos os estados são convertidos estritamente para a sigla de 2 letras maiúsculas (ex: `PR`, `SP`, `SC`), compatibilizando com os inputs `maxLength={2}` de UF em todo o ERP.
-- **Algoritmo Baseado em Termos Estruturados e Prevenção de Ambiguidade**: O novo módulo modularizado `src/pages/utils/addressParsing.ts` prioriza os termos (`terms`) do Google Places, garantindo que a cidade nunca seja confundida ou atribuída como bairro caso a rua não possua bairro cadastrado.
-- **Refinamento Não-Bloqueante**: Busca assíncrona de detalhes via Place Details em segundo plano (enriquecendo número, CEP exato e coordenadas) sem travar a interface e com resolução de dependências sem exceptions no console.
-- **URL do Google Maps Exclusivamente Manual e Prioritária**: O campo `mapsUrl` (`Link do Google Maps da Localização`) não é preenchido nem alterado automaticamente ao selecionar uma sugestão de logradouro no `AddressAutocompleteInput`. Ele permanece estritamente manual para casos em que o endereço não for localizado por rua/número. Quando preenchido manualmente, ele possui autoridade máxima e é inserido com prioridade no `{{routeUrl}}` do WhatsApp para a equipe e nos botões de rota/navegação do ERP e Mobile.
+---
 
-#### 📦 Separação Estrita entre NF-e Fiscal e Recebimento de Mercadorias (v1.6.0)
-- **NF-e como Autoridade Fiscal Exclusiva**: A tela de Importação e Revisão de NF-e (`InboundDocumentImportModal` e `InboundInvoiceItemsReview`) é estritamente fiscal, exibindo detalhadamente ICMS, IPI, frete fiscal, despesas acessórias fiscais e substituição tributária (ST), eliminando campos paralelos de despesas operacionais no documento fiscal.
-- **Custo Unitário da NF-e como Base do Recebimento**: Ao gerar um recebimento a partir de uma NF-e importada, o sistema puxa diretamente o **valor final de aquisição do item da nota fiscal** como custo unitário base (`fiscalUnitAcquisition`), já englobando IPI, frete da nota e encargos fiscais.
-- **Despesas e Descontos Operacionais do Recebimento**: O cabeçalho do recebimento conta exclusivamente com os campos **Desconto**, **Frete** e **Outras Despesas**, operando tanto em percentual (`%`) quanto em valor fixo (`R$`).
-- **Destaque Visual Âmbar & Tooltip Sem Ruído**: Os labels permanecem limpos (sem o sufixo "Não fiscal"). Quando o recebimento for originado de uma NF-e (`initialInboundInvoice`), os campos recebem borda e ícone em tom âmbar/amarelo com tooltip no cursor explicando que se tratam de encargos operacionais calculados e somados/abatidos sobre o valor final do item da nota fiscal. Quando não for por NF-e, os campos assumem o visual neutro padrão sem o alerta.
-- **Tabela de Itens Semântica e Livre de IPI Redundante**: Coluna de IPI removida de todas as visualizações do recebimento (tabela desktop, cards mobile e `ReceiptDetailsModal`), mantendo a progressão transparente: `Produto` → `Qtd. recebida` → `Custo unitário` → `Desconto` → `Frete` → `Outras despesas` → `Custo unitário final` (destaque verde esmeralda) → `Total do item`.
-- **Rateio Proporcional em Centavos com Motor Determinístico**: O utilitário `goodsReceiptCostCalculation.ts` divide e distribui centavos com exatidão matemática via `distributeRemainingCents`, coberto por 100% de aprovação nos testes unitários Vitest.
+## 8. Gerador de Prompt para Posts — Correção da Imagem do Selo de Oportunidade
+- **Status**: Concluído com Sucesso! 🚀
+- **Problema Reportado**: No preview de prompt e assets copiáveis (`PromptPreview` e `PromptCopyableImagesList`), o selo `#4 Selo de Oportunidade` estava exibindo a imagem antiga/horizontal da tabela geral de oportunidades do ERP em vez do selo configurado na aba de Elementos da Campanha (`BADGE`).
+- **Causa Raiz Identificada**: `PromptCopyableImagesList` priorizava `product?.opportunityImageUrl` sobre os modelos configurados na campanha, e não recebia a lista completa `elementModels` da biblioteca de elementos da campanha.
+- **Solução Implementada**:
+  1. `PromptCopyableImagesList`: Passou a receber `models` e `elementModels` e agora busca prioritariamente o modelo configurado no elemento `BADGE` da oportunidade (`generatedAssetUrl` ou anexo `referenceFiles[0]`). Somente se não houver selo configurado no elemento é que aplica os fallbacks.
+  2. `PromptPreview`: Repassa os `elementModels` e `effectiveModels` tanto para a geração do prompt estruturado quanto para o `PromptCopyableImagesList`.
+  3. `postOfficialAssetResolver` e `postSpecificationBuilder`: Suportam `elementModels` para resolução resiliente do selo oficial mesmo antes de persistir links no banco.
+  4. Testes Vitest: 11 testes aprovados (`postOfficialAssets.test.ts`), cobrindo a prioridade estrita do selo da campanha sobre a lista do ERP.
 
+---
 
+## 9. Skill de Organização de Pastas & Organização de `Stock/InboundInvoices`
+- **Status**: Concluído com Sucesso! 🚀
+- **Nova Skill Criada**: `.agents/skills/organizacao-arquivos-diretorios/SKILL.md`
+  - Define o padrão canônico de subpastas (`components/`, `modals/`, `sections/`, `services/`, `hooks/`, `utils/`, `types/`).
+  - Estabelece a regra fundamental de Zero Perda de Código, retrocompatibilidade com barrels (`export * from ...`) e verificação obrigatória de imports antes e depois da migração.
+  - Registrada no [AGENTS.md](file:///c:/Users/Rosilene/Desktop/morantehub/.agents/AGENTS.md) na tabela de Roteamento de Skills Especializadas.
+- **Módulo `Stock/InboundInvoices` Organizado**:
+  - Antes: 15 arquivos misturados na raiz do módulo.
+  - Subpastas organizadas:
+    - `modals/`: `InboundAccessKeyModal.tsx`, `InboundDocumentImportModal.tsx`, `InboundDuplicateKeyAlertModal.tsx`, `InboundInvoiceDetailsModal.tsx`, `InboundXmlImportModal.tsx`, `ManageInboundInvoiceMappingsModal.tsx`.
+    - `components/`: `InboundAdditionalCostsSection.tsx`, `InboundAiExistingVariationModal.tsx`, `InboundAiNewVariationModal.tsx`, `InboundInvoiceFiscalReview.tsx`, `InboundInvoiceItemCard.tsx`, `InboundInvoiceItemFiscalReview.tsx`, `InboundInvoiceItemsReview.tsx`, `InboundInvoicesHeader.tsx`, `InboundInvoicesPagination.tsx`, `InboundInvoicesTable.tsx`.
+    - Barrels de retrocompatibilidade mantidos na raiz para consumidores externos (`InboundInvoicesHeader.tsx` e `InboundDocumentImportModal.tsx`).
+    - Raiz limpa e focada no orquestrador `Index.tsx`.
+- **Validação de Testes e Integridade**:
+  - Testes do módulo de notas (`inboundInvoicesService.test.ts`) executados e aprovados com 100% de sucesso.
+  - Nenhum import quebrado ou tela afetada.
+
+---
+
+## 10. Correção de `elementModels` no PromptPreview & Publicação OTA do App Mobile
+- **Status**: Concluído com Sucesso e Publicado via OTA! 🚀
+- **Correção no ERP (`PromptPreview.tsx`)**:
+  - Corrigido o `ReferenceError: elementModels is not defined`. A propriedade `elementModels` constava na interface `PromptPreviewProps`, porém não havia sido desestruturada na assinatura da função do componente, causando erro em tempo de execução ao tentar renderizar a lista de assets. Corrigido com sucesso.
+- **Publicação OTA do App Mobile (EAS Update)**:
+  - Branch: `production`
+  - Runtime Version: `1.6.0`
+  - Plataforma: `android`
+  - Update Group ID: `93a2e668-2bd6-4d63-9e2f-d0a8600587de`
+  - Android Update ID: `01a0922c-0d4e-7627-a9db-cb09dda20b35`
+  - Painel EAS: `https://expo.dev/accounts/morante/projects/mobile/updates/93a2e668-2bd6-4d63-9e2f-d0a8600587de`
+  - Os aparelhos dos operadores receberão a atualização automaticamente na próxima reinicialização/abertura do aplicativo.
+
+---
+
+## 11. Resolução Estrita do Selo de Oportunidade no Gerador de Prompts
+- **Status**: Concluído com Sucesso! 🚀
+- **Problema**: O preview de assets exibia o selo horizontal legado em vez do selo configurado no elemento `BADGE` da campanha (Queima dos Salvados).
+- **Causa Raiz**: Presença de fallback hardcoded (`OFFICIAL_QUEIMA_BADGE_URL`) que interceptava e forçava a imagem antiga retangular, além de busca que pegava o primeiro item sem priorizar o modelo com asset gerado/atualizado.
+- **Solução Aplicada**:
+  - `PromptCopyableImagesList.tsx`: Remoção do fallback hardcoded e ordenação para priorizar modelos com `generatedAssetUrl` / anexo válido mais recente.
+  - `postOfficialAssetResolver.ts`: Eliminação de sobreposição por URL legada, assegurando que o asset configurado no elemento tenha prioridade absoluta.
+  - `PromptPreview.tsx`: Inclusão de `elementModels` no cálculo de `effectiveModels` e no `specKey` para re-renderização imediata após edição de selos.
+
+---
+
+## 12. Melhorias na Experiência do Mapa de Entregas Mobile
+- **Status**: Concluído com Sucesso! 🚀
+- **Melhorias Aplicadas**:
+  - **Ícone do Caminhão (Posição Atual)**: Removido o círculo azul/borda em volta do caminhão no mapa (tanto no Leaflet web quanto no React Native Maps nativo). Agora exibe estritamente o ícone do caminhão estilizado de forma limpa, com sombra suave e sem moldura circular.
+  - **Comportamento Inicial do Mapa**:
+    - Removida a seleção automática de entrega e rota ao entrar no mapa.
+    - O card inferior (`NextDeliveryCard`) e a linha tracejada da rota (`Polyline`) só aparecem quando o operador clica em um marcador de entrega específico no mapa.
+    - Adicionado botão de fechar (`onCloseCard`) no card para permitir desmarcar e voltar à visão limpa panorâmica.

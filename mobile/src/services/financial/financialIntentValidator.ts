@@ -1,5 +1,8 @@
 import type { ParsedFinancialIntent } from './financialTypes';
 import { fallbackHeuristicParser, parsePtBrNumber } from './financialTextParser';
+import { isBankFinancialInstitution } from './bankKeywords';
+import { applyLoanValidationRules } from './validators/loanIntentValidator';
+import { applyBusinessPurposeRules } from './validators/businessPurposeValidator';
 
 /**
  * Validador determinístico do Backend para Intenções Financeiras.
@@ -75,205 +78,15 @@ export function validateParsedIntent(
   }
 
   // 4. REGRA DE NEGÓCIO — EMPRÉSTIMOS E FORMA DE RECEBIMENTO
-  const isLoan = Boolean(
-    result.isLoan ||
-    (result.categoryName && /empréstimo|emprestimo/i.test(result.categoryName)) ||
-    (result.description && /empréstimo|emprestimo|emprestado|emprestei/i.test(result.description))
-  );
-
-  if (isLoan) {
-    result.isLoan = true;
-    if (!result.categoryName) result.categoryName = 'Empréstimos';
-    if (!result.type) result.type = 'income';
-
-    const creditorRaw = (result.creditor || result.supplier || result.counterparty || '').trim();
-    const lowerCreditor = creditorRaw.toLowerCase();
-    const lowerDesc = (result.description || '').toLowerCase();
-
-    const bankKeywords = [
-      'banco', 'itaú', 'itau', 'bradesco', 'santander', 'nubank', 'caixa',
-      'inter', 'sicoob', 'sicredi', 'safra', 'btg', 'c6', 'financeira', 'cooperativa'
-    ];
-
-    const isBank =
-      bankKeywords.some(k => lowerCreditor.includes(k)) ||
-      lowerDesc.includes('do banco') ||
-      lowerDesc.includes('no banco') ||
-      lowerDesc.includes('do itau') ||
-      lowerDesc.includes('do itaú') ||
-      lowerDesc.includes('pelo banco') ||
-      lowerDesc.includes('da financeira');
-
-    const isPersonOrOther =
-      !isBank &&
-      creditorRaw.length > 0 &&
-      !['banco', 'financeira', 'cooperativa', 'empréstimo', 'emprestimo'].includes(lowerCreditor);
-
-    if (isBank) {
-      result.creditorType = 'FINANCIAL_INSTITUTION';
-      if (!result.creditor || result.creditor === 'Empréstimo' || result.creditor === 'Empréstimos') {
-        const match = lowerDesc.match(/(?:do|no|na|pelo|da)?\s*(banco(?:\s+[a-z0-9]+)?|itaú|itau|bradesco|santander|nubank|caixa|inter|sicoob|sicredi|safra|btg|c6|financeira|cooperativa)/i);
-        result.creditor = match ? match[1].charAt(0).toUpperCase() + match[1].slice(1) : (creditorRaw || 'Banco');
-      }
-      result.supplier = result.creditor;
-      result.counterparty = result.creditor;
-    } else if (isPersonOrOther) {
-      result.creditorType = 'PERSON_OR_OTHER';
-      result.creditor = creditorRaw;
-      result.supplier = creditorRaw;
-      result.counterparty = creditorRaw;
-    } else {
-      result.creditorType = 'UNKNOWN';
-    }
-
-    // A) Se o credor for UNKNOWN: perguntar primeiro "De quem foi o empréstimo?"
-    if (result.creditorType === 'UNKNOWN') {
-      if (!result.missingFields) result.missingFields = [];
-      if (!result.missingFields.includes('creditor')) result.missingFields.push('creditor');
-      result.isReadyForConfirmation = false;
-      result.questionToUser = 'De quem foi o empréstimo?';
-      return result;
-    }
-
-    // B) Se for FINANCIAL_INSTITUTION: inferência autorizada 'Transferência bancária' se paymentMethod for UNKNOWN/ausente
-    if (result.creditorType === 'FINANCIAL_INSTITUTION') {
-      const hasExplicitPayment = Boolean(
-        result.paymentMethod &&
-        result.paymentMethod !== 'UNKNOWN' &&
-        result.paymentMethod !== 'UNKNOWN_BY_USER' &&
-        result.paymentMethod.trim() !== ''
-      );
-
-      if (!hasExplicitPayment) {
-        result.paymentMethod = 'Transferência bancária';
-      }
-    }
-
-    // C) Se for PERSON_OR_OTHER: NÃO infere. Se paymentMethod for UNKNOWN, pergunta como recebeu.
-    if (result.creditorType === 'PERSON_OR_OTHER') {
-      const hasExplicitPayment = Boolean(
-        result.paymentMethod &&
-        result.paymentMethod !== 'UNKNOWN' &&
-        result.paymentMethod !== 'UNKNOWN_BY_USER' &&
-        result.paymentMethod.trim() !== ''
-      );
-
-      if (!hasExplicitPayment) {
-        result.paymentMethod = 'UNKNOWN';
-        if (!result.missingFields) result.missingFields = [];
-        if (!result.missingFields.includes('paymentMethod')) result.missingFields.push('paymentMethod');
-        result.isReadyForConfirmation = false;
-        const amt = result.amount || result.totalAmount;
-        const formattedAmount = amt
-          ? `R$ ${amt.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
-          : '';
-        result.questionToUser = formattedAmount
-          ? `Como você recebeu os ${formattedAmount} do ${result.creditor}?`
-          : `Qual foi a forma de recebimento do empréstimo de ${result.creditor}?`;
-        return result;
-      }
-    }
+  const loanValidation = applyLoanValidationRules(result);
+  if (loanValidation.handled && loanValidation.result) {
+    return loanValidation.result;
   }
 
   // 5. REGRA DE NEGÓCIO — DESPESA EMPRESARIAL x GASTO PESSOAL / PRÓ-LABORE
-  if (result.type === 'expense') {
-    const descLower = (result.description || '').toLowerCase();
-    const catLower = (result.categoryName || '').toLowerCase();
-    const combinedText = `${descLower} ${catLower}`;
-
-    const isFuel = /combustível|combustivel|gasolina|etanol|diesel|abasteci|abastecimento|abastecendo|posto/i.test(combinedText);
-    const isVehicleMaintenance = /manutenção|manutencao|oficina|óleo|oleo|pneu|pneus|peças|pecas|revisão|revisao|reparos|mecanico|mecânico|bateria|alinhamento|balanceamento|lavagem|conserto|reparo/i.test(combinedText);
-    const isPayroll = /salário|salario|folha de pagamento|adiantamento salarial|comissão|comissao|vale transporte|férias|ferias|décimo terceiro|decimo terceiro|13º/i.test(combinedText);
-    const isTax = /imposto|tributo|\bdas\b|simples nacional|icms|darf|fgts|inss|\bgps\b/i.test(combinedText);
-    const isFreight = /frete|carreto/i.test(combinedText);
-    const isStock = /estoque|mercadoria|fornecedor|matéria-prima|materia-prima/i.test(combinedText);
-
-    if (isFuel) {
-      result.categoryName = 'Combustível';
-      result.businessPurpose = 'BUSINESS';
-    } else if (isVehicleMaintenance) {
-      result.categoryName = 'Manutenção de Veículos';
-      result.businessPurpose = 'BUSINESS';
-    } else if (isPayroll) {
-      result.categoryName = 'Salários';
-      result.businessPurpose = 'BUSINESS';
-    } else if (isTax) {
-      result.categoryName = 'Impostos e Tributos';
-      result.businessPurpose = 'BUSINESS';
-    } else if (isFreight) {
-      result.categoryName = 'Frete';
-      result.businessPurpose = 'BUSINESS';
-    } else if (isStock) {
-      result.categoryName = 'Compra de estoque';
-      result.businessPurpose = 'BUSINESS';
-    } else {
-      const isElectricity = /luz|energia|eletricidade/i.test(combinedText);
-      const isWater = /água|agua|sanepar/i.test(combinedText);
-      const isInternetPhone = /internet|telefone|telefonia/i.test(combinedText);
-      const isRentCondo = /aluguel|condomínio|condominio/i.test(combinedText);
-      const isDomesticService = /compras domésticas|compras domesticas|serviços residenciais|servicos residenciais|assinatura/i.test(combinedText);
-      const dualItemMatch = combinedText.match(/\b(televisão|televisao|tv|geladeira|refrigerador|freezer|micro-ondas|microondas|ar-condicionado|ar\s+condicionado|computador|notebook|laptop|celular|smartphone|impressora|móveis|moveis|móvel|movel|eletrodoméstico|eletrodomesticos|eletrônico|eletronicos|equipamento|equipamentos|utensílio|utensilios|fogão|fogao|filtro|mesa|cadeira)\b/i);
-
-      const isDualItem = Boolean(dualItemMatch);
-      const isOtherAmbiguous = /material|materiais|compras|despesas/i.test(combinedText);
-      const isUtilityBill = isElectricity || isWater || isInternetPhone || isRentCondo || isDomesticService;
-      const isAmbiguousExpense = isUtilityBill || isDualItem || isOtherAmbiguous;
-
-      if (isAmbiguousExpense) {
-        const isExplicitStore = /da loja|do depósito|do deposito|da fábrica|da fabrica|da empresa|do comércio|do comercio|loja|escritório|escritorio|pra loja|para a loja|na loja|para o negócio|para o negocio/i.test(combinedText);
-        const isExplicitPersonal = /da minha casa|para minha casa|pra casa|minha casa|da casa|minha|pessoal|uso pessoal|para mim|pra mim|pra minha mãe|pra minha mae|minha mãe|minha mae|para o gerente|do sócio|do socio|casa/i.test(combinedText);
-        const isResale = /para revender|para revenda|para vender|revenda|revender/i.test(combinedText);
-
-        const hasKnownCategory = Boolean(
-          result.categoryName &&
-          result.categoryName !== 'UNKNOWN' &&
-          result.categoryName !== 'Despesa não classificada' &&
-          result.categoryName !== 'Contas de Consumo' &&
-          result.categoryName !== 'Equipamentos da Empresa' &&
-          result.categoryName !== 'Pró-labore'
-        );
-
-        if (isResale && (!result.categoryName || result.categoryName === 'UNKNOWN' || result.categoryName === 'Despesa não classificada')) {
-          result.businessPurpose = 'BUSINESS';
-          result.categoryName = 'Compra de estoque';
-        } else if (isExplicitStore || result.businessPurpose === 'BUSINESS' || hasKnownCategory) {
-          result.businessPurpose = 'BUSINESS';
-          if (!result.categoryName || result.categoryName === 'UNKNOWN' || result.categoryName === 'Despesa não classificada') {
-            result.categoryName = isDualItem ? 'Equipamentos da Empresa' : 'Contas de Consumo';
-          }
-        } else if (isExplicitPersonal || result.businessPurpose === 'PERSONAL') {
-          result.businessPurpose = 'PERSONAL';
-          result.categoryName = 'Pró-labore';
-        } else if (!result.businessPurpose || result.businessPurpose === 'UNKNOWN') {
-          result.businessPurpose = 'UNKNOWN';
-          result.categoryName = 'UNKNOWN';
-          if (!result.missingFields) result.missingFields = [];
-          if (!result.missingFields.includes('businessPurpose')) {
-            result.missingFields.push('businessPurpose');
-          }
-          result.isReadyForConfirmation = false;
-
-          if (isDualItem && dualItemMatch) {
-            const rawItemName = dualItemMatch[1].toLowerCase();
-            let itemName = rawItemName;
-            if (rawItemName === 'tv') itemName = 'televisão';
-            else if (rawItemName === 'ar condicionado') itemName = 'ar-condicionado';
-
-            const isMasculine = /notebook|laptop|computador|celular|smartphone|freezer|micro-ondas|microondas|ar-condicionado|ar\s+condicionado|eletrodoméstico|eletrodomesticos|eletrônico|eletronicos|equipamento|equipamentos|utensílio|utensilios|fogão|fogao|filtro/i.test(itemName);
-            const demonstrative = isMasculine ? 'Esse' : 'Essa';
-            result.questionToUser = `${demonstrative} ${itemName} é para a loja ou é uma compra pessoal?`;
-          } else {
-            let kindName = 'de luz';
-            if (isWater) kindName = 'de água';
-            else if (isInternetPhone) kindName = 'de internet';
-            else if (isRentCondo) kindName = 'de aluguel';
-
-            result.questionToUser = `Essa conta ${kindName} é da loja ou é uma conta pessoal?`;
-          }
-          return result;
-        }
-      }
-    }
+  const businessPurposeValidation = applyBusinessPurposeRules(result);
+  if (businessPurposeValidation.handled && businessPurposeValidation.result) {
+    return businessPurposeValidation.result;
   }
 
   // 6. DECISION-002: Cartão Genérico -> Perguntar se foi no Débito ou no Crédito

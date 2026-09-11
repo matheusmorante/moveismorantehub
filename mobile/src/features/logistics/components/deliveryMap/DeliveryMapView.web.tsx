@@ -85,13 +85,12 @@ export const DeliveryMapView: React.FC<Props> = ({
     .leaflet-container { background: ${isDarkMode ? '#0f172a' : '#f1f5f9'}; }
     .custom-pin { display: flex; align-items: center; justify-content: center; border-radius: 50%; color: #ffffff; font-weight: 900; font-size: 13px; box-shadow: 0 4px 10px rgba(0,0,0,0.3); cursor: pointer; }
     .pin-store { background: #0f172a; border: 2.5px solid #38bdf8; width: 34px; height: 34px; font-size: 16px; }
-    .pin-driver { background: #2563eb; border: 2.5px solid #ffffff; width: 36px; height: 36px; font-size: 17px; animation: pulse 2s infinite; }
+    .pin-driver { background: transparent; border: none; width: 34px; height: 34px; font-size: 28px; line-height: 1; box-shadow: none; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.35)); }
     .pin-current { background: #2563eb; border: 3px solid #bfdbfe; width: 34px; height: 34px; font-size: 14px; transform: scale(1.1); }
     .pin-next { background: #0284c7; border: 2.5px solid #ffffff; width: 30px; height: 30px; }
     .pin-completed { background: #10b981; border: 2px solid #ffffff; width: 28px; height: 28px; }
     .pin-unattended { background: #ef4444; border: 2px solid #ffffff; width: 28px; height: 28px; }
     .pin-pending { background: #334155; border: 2px solid #ffffff; width: 28px; height: 28px; }
-    @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(37, 99, 235, 0.7); } 70% { box-shadow: 0 0 0 12px rgba(37, 99, 235, 0); } 100% { box-shadow: 0 0 0 0 rgba(37, 99, 235, 0); } }
   </style>
 </head>
 <body>
@@ -174,12 +173,10 @@ export const DeliveryMapView: React.FC<Props> = ({
         bounds.push([p.lat, p.lng]);
       });
 
-      // Polyline da rota (linha tracejada com o trajeto recomendado)
+      // Polyline da rota: desenha apenas quando houver trajeto explícito da parada selecionada
       const polyCoords = ${JSON.stringify(polyData)};
       if (polyCoords.length > 1) {
         L.polyline(polyCoords, { color: '#2563eb', weight: 4.5, dashArray: '7, 9', opacity: 0.85 }).addTo(map);
-      } else if (bounds.length > 1) {
-        L.polyline(bounds, { color: '#2563eb', weight: 3.5, dashArray: '7, 9', opacity: 0.65 }).addTo(map);
       }
 
       if (bounds.length > 0) {

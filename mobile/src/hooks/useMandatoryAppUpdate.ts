@@ -6,7 +6,7 @@ import { supabase } from '../services/supabaseClient';
 
 export type RequiredUpdate = { required: boolean; url: string };
 
-const TARGET_OFFICIAL_BUILD = 16;
+const TARGET_OFFICIAL_BUILD = 17;
 
 function getInstalledAndroidBuild(): number {
   try {
@@ -36,10 +36,10 @@ export function useMandatoryAppUpdate(): RequiredUpdate {
 
         const config = data?.data?.mobileSettings;
         const requiredBuild = Number(config?.requiredAndroidBuild || config?.minimumAndroidBuild || TARGET_OFFICIAL_BUILD);
-        const url = config?.androidUpdateUrl || 'https://expo.dev/artifacts/eas/GoCr7Fvu_0gV7-45jS-MLYYX7Yax7xwcWxpGuxQfNyM.apk';
+        const url = config?.androidUpdateUrl || 'https://expo.dev/artifacts/eas/c6GuI7KSgOnw0kSY-zI9S_5dxaFMuc9lCT37XL-ynYE.apk';
         const installedBuild = getInstalledAndroidBuild();
 
-        // Se a build instalada for diferente da build requerida oficial (13), bloqueia para atualização obrigatória
+        // Se a build instalada for diferente da build requerida oficial (17), bloqueia para atualização obrigatória
         const isOutdated = installedBuild !== requiredBuild;
 
         if (url && isOutdated) {

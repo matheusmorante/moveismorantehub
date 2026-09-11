@@ -146,27 +146,15 @@ export const generateVariationSku = (
  */
 export const getNextSequentialProductCode = async (): Promise<string> => {
     try {
-        const { data, error } = await supabase.from(TABLE_NAME).select('id');
         let maxNum = 0;
+
+        // 1. Consulta códigos de produtos do Supabase
+        const { data: productsData } = await supabase
+            .from(TABLE_NAME)
+            .select('code, sku');
         
-        if (!error && Array.isArray(data)) {
-            maxNum = data.length;
-            data.forEach((p: any) => {
-                const raw = String(p.code || p.sku || '').trim();
-                const match = raw.match(/^(\d+)/);
-                if (match) {
-                    const num = parseInt(match[1], 10);
-                    if (!isNaN(num) && num > maxNum) {
-                        maxNum = num;
-                    }
-                }
-            });
-        }
-        
-        const local = getLocalProducts();
-        if (local && Array.isArray(local)) {
-            if (local.length > maxNum) maxNum = local.length;
-            local.forEach((p: any) => {
+        if (Array.isArray(productsData)) {
+            productsData.forEach((p: any) => {
                 const raw = String(p.code || p.sku || '').trim();
                 const match = raw.match(/^(\d+)/);
                 if (match) {
@@ -178,9 +166,53 @@ export const getNextSequentialProductCode = async (): Promise<string> => {
             });
         }
 
+        // 2. Consulta SKUs de variações existentes para evitar colisão com prefixos de variações
+        const { data: variationsData } = await supabase
+            .from('product_variations')
+            .select('sku');
+
+        if (Array.isArray(variationsData)) {
+            variationsData.forEach((v: any) => {
+                const raw = String(v.sku || '').trim();
+                const match = raw.match(/^(\d+)/);
+                if (match) {
+                    const num = parseInt(match[1], 10);
+                    if (!isNaN(num) && num > maxNum) {
+                        maxNum = num;
+                    }
+                }
+            });
+        }
+        
+        // 3. Consulta cache local
+        const local = getLocalProducts();
+        if (local && Array.isArray(local)) {
+            local.forEach((p: any) => {
+                const raw = String(p.code || p.sku || '').trim();
+                const match = raw.match(/^(\d+)/);
+                if (match) {
+                    const num = parseInt(match[1], 10);
+                    if (!isNaN(num) && num > maxNum) {
+                        maxNum = num;
+                    }
+                }
+                (p.variations || []).forEach((v: any) => {
+                    const vRaw = String(v.sku || '').trim();
+                    const vMatch = vRaw.match(/^(\d+)/);
+                    if (vMatch) {
+                        const vNum = parseInt(vMatch[1], 10);
+                        if (!isNaN(vNum) && vNum > maxNum) {
+                            maxNum = vNum;
+                        }
+                    }
+                });
+            });
+        }
+
         return String(maxNum + 1).padStart(6, '0');
     } catch (err) {
         console.error("Erro ao calcular próximo SKU sequencial:", err);
         return '000001';
     }
 };
+

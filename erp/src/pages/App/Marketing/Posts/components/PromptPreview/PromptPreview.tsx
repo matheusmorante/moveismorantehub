@@ -42,6 +42,7 @@ export function PromptPreview({
   campaign,
   activeModels,
   models,
+  elementModels,
   globalRules = 'Regras de Marca Móveis Morante',
   product,
   productSlug: propProductSlug,
@@ -62,8 +63,20 @@ export function PromptPreview({
   const [imagesValidation, setImagesValidation] = useState<PostProductImagesValidation | null>(null);
   const [manualSelection, setManualSelection] = useState<ProductImageSelectionState | null>(null);
   const [downloadingZip, setDownloadingZip] = useState(false);
+  const [openPromptText, setOpenPromptText] = useState(false);
 
-  const effectiveModels = useMemo(() => activeModels || models || [], [activeModels, models]);
+  const effectiveModels = useMemo(() => {
+    const list = activeModels || models || [];
+    const elements = (elementModels as ElementModel[]) || [];
+    // Mescla garantindo que modelos com o mesmo ID ou configurados para o elemento estejam disponíveis
+    const combined = [...list];
+    for (const em of elements) {
+      if (!combined.some(c => c.id === em.id)) {
+        combined.push(em);
+      }
+    }
+    return combined;
+  }, [activeModels, models, elementModels]);
   const effectiveProductId = product?.id || propProductId;
   const effectiveProductSlug = product?.slug || product?.id || propProductSlug;
   const isEmpty = !campaign || !effectiveProductSlug;
@@ -82,7 +95,7 @@ export function PromptPreview({
 
   // Reconstruir o prompt localmente sempre que os dados mudarem
   const specKey = useMemo(
-    () => `${campaign?.id}|${effectiveProductSlug}|${variationId}|${product?.opportunity_id || product?.opportunityId || 'none'}|${JSON.stringify(manualSelection)}|${product?.images?.length || 0}|${product?.variations?.length || 0}|${effectiveModels.map(m => `${m.id}:${m.updatedAt}`).join(',')}`,
+    () => `${campaign?.id}|${effectiveProductSlug}|${variationId}|${product?.opportunity_id || product?.opportunityId || 'none'}|${JSON.stringify(manualSelection)}|${product?.images?.length || 0}|${product?.variations?.length || 0}|${effectiveModels.map(m => `${m.id}:${m.updatedAt || ''}`).join(',')}`,
     [campaign?.id, effectiveProductSlug, variationId, product, manualSelection, effectiveModels],
   );
 
@@ -121,6 +134,7 @@ export function PromptPreview({
       productCatalogUrl: url,
       campaign,
       activeModels: effectiveModels,
+      elementModels: (elementModels as ElementModel[]) || (models as ElementModel[]) || effectiveModels,
       globalRules,
       product,
       selectedVariationId: variationId || undefined,
@@ -280,38 +294,62 @@ export function PromptPreview({
             productImages={resolvedImages}
             officialAssets={officialAssets}
             product={product}
+            models={effectiveModels}
+            elementModels={(elementModels as ElementModel[]) || (models as ElementModel[]) || []}
           />
 
-          {/* 4. Texto Estruturado do Prompt para IA */}
-          <div className="rounded-xl border border-slate-800 bg-slate-950 p-4 space-y-2">
-            <div className="flex items-center justify-between text-xs font-bold text-slate-200">
-              <span className="flex items-center gap-1.5">
-                <span>📄</span>
-                <span>Texto Estruturado do Prompt</span>
-              </span>
-              <button
-                type="button"
-                onClick={() => {
-                  if (!promptText) return;
-                  navigator.clipboard.writeText(promptText).then(() => {
-                    toast.success('Prompt copiado para a área de transferência!');
-                  });
-                }}
-                className="inline-flex items-center gap-1 text-xs font-bold text-indigo-400 hover:text-indigo-300 underline cursor-pointer"
-              >
-                <span>📋</span>
-                <span>Copiar Prompt</span>
-              </button>
+          {/* 4. Texto Estruturado do Prompt para IA (Tópico Retrátil / Fechado por Padrão) */}
+          <div className="rounded-xl border border-slate-800 bg-slate-950 overflow-hidden shadow-sm">
+            <div
+              role="button"
+              tabIndex={0}
+              onClick={() => setOpenPromptText(prev => !prev)}
+              onKeyDown={e => {
+                if (e.key === 'Enter' || e.key === ' ') setOpenPromptText(prev => !prev);
+              }}
+              className="flex w-full items-center justify-between p-3.5 sm:p-4 text-xs font-bold text-slate-200 hover:bg-slate-900/60 transition cursor-pointer select-none"
+            >
+              <div className="flex items-center gap-2 min-w-0 pr-2">
+                <span className="text-slate-500 text-xs transition">
+                  {openPromptText ? '▾' : '▸'}
+                </span>
+                <span className="flex items-center gap-1.5 truncate">
+                  <span>📄</span>
+                  <span>Texto Estruturado do Prompt</span>
+                </span>
+              </div>
+
+              <div className="flex items-center gap-2 shrink-0">
+                <button
+                  type="button"
+                  onClick={e => {
+                    e.stopPropagation();
+                    if (!promptText) return;
+                    navigator.clipboard.writeText(promptText).then(() => {
+                      toast.success('Prompt copiado para a área de transferência!');
+                    });
+                  }}
+                  className="inline-flex items-center gap-1.5 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-500 active:scale-95 border border-indigo-400/40 px-3 py-1 rounded-lg shadow-sm transition"
+                  title="Copiar prompt completo para a área de transferência"
+                >
+                  <span>📋</span>
+                  <span>Copiar Prompt</span>
+                </button>
+              </div>
             </div>
 
-            {!promptText ? (
-              <div className="flex h-40 items-center justify-center">
-                <div className="h-5 w-5 animate-spin rounded-full border-2 border-indigo-400 border-t-transparent" />
+            {openPromptText && (
+              <div className="p-4 border-t border-slate-800/80 space-y-2 bg-slate-950/70">
+                {!promptText ? (
+                  <div className="flex h-40 items-center justify-center">
+                    <div className="h-5 w-5 animate-spin rounded-full border-2 border-indigo-400 border-t-transparent" />
+                  </div>
+                ) : (
+                  <pre className="max-h-[500px] overflow-y-auto rounded-lg p-3 text-[11px] leading-relaxed text-emerald-300 font-mono scrollbar-thin scrollbar-thumb-slate-700 whitespace-pre-wrap break-words select-all bg-slate-900/80 border border-slate-800">
+                    {promptText}
+                  </pre>
+                )}
               </div>
-            ) : (
-              <pre className="max-h-[500px] overflow-y-auto rounded-lg p-3 text-[11px] leading-relaxed text-emerald-300 font-mono scrollbar-thin scrollbar-thumb-slate-700 whitespace-pre-wrap break-words select-all bg-slate-900/80 border border-slate-800">
-                {promptText}
-              </pre>
             )}
           </div>
         </div>

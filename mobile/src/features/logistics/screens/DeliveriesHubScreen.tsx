@@ -48,10 +48,10 @@ export const DeliveriesHubScreen: React.FC<Props> = ({
     longitude: -49.169,
   }), []);
 
-  // Alvo ativo da rota (próxima entrega ou entrega em andamento)
-  const activeDeliveryTarget = currentDelivery || nextDelivery;
+  // Alvo ativo da rota: SOMENTE a parada clicada pelo motorista no mapa (sem rota forçada por padrão)
+  const activeDeliveryTarget = selectedMarkerItem;
 
-  // Polyline e métricas da Routes API entre motorista e próxima parada
+  // Polyline e métricas da Routes API entre motorista e parada selecionada (somente quando houver seleção explícita)
   const { polylineCoords } = useRoutesApi({
     origin: driverCoords || storeCoords,
     destination: activeDeliveryTarget?.coords || null,
@@ -171,18 +171,22 @@ export const DeliveriesHubScreen: React.FC<Props> = ({
                 />
               </MapErrorBoundary>
 
-              {/* Card Flutuante Inferior */}
-              <View style={styles.floatingCardContainer}>
-                <NextDeliveryCard
-                  currentDelivery={currentDelivery}
-                  nextDelivery={nextDelivery}
-                  allCompleted={stats.total > 0 && stats.pending === 0}
-                  onStartDelivery={handleStartDelivery}
-                  onViewOrder={handleViewOrder}
-                  onRegisterService={handleViewOrder}
-                  isDarkMode={isDarkMode}
-                />
-              </View>
+              {/* Card Flutuante Inferior (Apenas quando o usuário clicar em um marcador) */}
+              {selectedMarkerItem && (
+                <View style={styles.floatingCardContainer}>
+                  <NextDeliveryCard
+                    currentDelivery={currentDelivery}
+                    nextDelivery={nextDelivery}
+                    selectedDelivery={selectedMarkerItem}
+                    allCompleted={stats.total > 0 && stats.pending === 0}
+                    onCloseCard={() => setSelectedMarkerItem(null)}
+                    onStartDelivery={handleStartDelivery}
+                    onViewOrder={handleViewOrder}
+                    onRegisterService={handleViewOrder}
+                    isDarkMode={isDarkMode}
+                  />
+                </View>
+              )}
             </View>
           )}
         </View>
