@@ -47,7 +47,7 @@ export function invoiceFromDocumentAnalysis(analysis: InboundDocumentAnalysis): 
     const subtotal = Number(invoice.totalProducts || 0);
     const freight = Number(invoice.freight || 0);
     return {
-        id: `draft_${crypto.randomUUID()}`, nfeKey: String(invoice.accessKey || ''), nfeNumber: String(invoice.number || ''), series: String(invoice.series || ''),
+        id: crypto.randomUUID(), nfeKey: String(invoice.accessKey || ''), nfeNumber: String(invoice.number || ''), series: String(invoice.series || ''),
         issuedAt: invoice.issuedAt || new Date().toISOString(), entryExitAt: invoice.entryExitAt || undefined, operationNature: invoice.operationNature || undefined, model: invoice.model || undefined, protocol: invoice.protocol || undefined, additionalInfo: invoice.additionalInfo || undefined,
         emitterCnpj: String(issuer.taxId || ''), emitterName: String(issuer.legalName || ''), emitterTradeName: issuer.tradeName || undefined, emitterIe: issuer.stateRegistration || undefined, emitterAddress: issuer.address || {},
         recipientCnpj: String(recipient?.taxId || ''), recipientName: String(recipient?.legalName || ''), totalProducts: subtotal, totalFreight: freight, totalIpi: Number(invoice.ipi || 0), totalDiscount: Number(invoice.discount || 0), totalInsurance: Number(invoice.insurance || 0), totalOtherExpenses: Number(invoice.otherExpenses || 0), totalIcms: Number(invoice.icms || 0), freightPercent: subtotal > 0 ? Number(((freight / subtotal) * 100).toFixed(4)) : 0,

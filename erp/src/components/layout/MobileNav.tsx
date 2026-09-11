@@ -83,12 +83,8 @@ const menuItems = [
         icon: 'bi-wallet2',
         color: 'text-amber-500',
         bg: 'bg-amber-50 dark:bg-amber-900/20',
-        beta: true,
         links: [
-            { to: '/finance/dashboard', icon: 'bi-cash-coin', iconColor: 'text-amber-500', label: 'Gestão de Caixa' },
-            { to: '/finance/payables', icon: 'bi-arrow-up-circle-fill', iconColor: 'text-rose-500', label: 'Contas a Pagar' },
-            { to: '/finance/receivables', icon: 'bi-arrow-down-circle-fill', iconColor: 'text-emerald-500', label: 'Contas a Receber' },
-            { to: '/finance/transactions', icon: 'bi-bank2', iconColor: 'text-blue-500', label: 'Extrato' },
+            { to: '/finance/transactions', icon: 'bi-arrow-left-right', iconColor: 'text-amber-500', label: 'Movimentações' },
         ]
     },
     {
@@ -142,15 +138,21 @@ const MobileNav = ({ isOpen, onClose, activeMenu, setActiveMenu }: MobileNavProp
                     </button>
                 </div>
 
-                {/* Atalho: Dashboard */}
-                <div className="px-4 pt-4">
+                {/* Atalho: Dashboard & Documentação */}
+                <div className="grid grid-cols-2 gap-2 px-4 pt-4">
                     <button
                         onClick={() => handleLink('/')}
-                        className="w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl bg-gradient-to-r from-blue-600 to-blue-500 text-white font-black text-sm shadow-lg hover:from-blue-700 hover:to-blue-600 transition-all active:scale-95"
+                        className="flex items-center justify-center gap-2 px-3 py-3 rounded-2xl bg-gradient-to-r from-blue-600 to-blue-500 text-white font-black text-xs shadow-md hover:from-blue-700 hover:to-blue-600 transition-all active:scale-95"
                     >
-                        <i className="bi bi-grid-fill text-lg"></i>
-                        Dashboard Principal
-                        <i className="bi bi-arrow-right ml-auto text-blue-200"></i>
+                        <i className="bi bi-grid-fill text-base"></i>
+                        Dashboard
+                    </button>
+                    <button
+                        onClick={() => handleLink('/system-docs')}
+                        className="flex items-center justify-center gap-2 px-3 py-3 rounded-2xl bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800 text-indigo-700 dark:text-indigo-300 font-black text-xs shadow-sm hover:bg-indigo-100 transition-all active:scale-95"
+                    >
+                        <i className="bi bi-book-half text-base text-indigo-500"></i>
+                        Documentação
                     </button>
                 </div>
 

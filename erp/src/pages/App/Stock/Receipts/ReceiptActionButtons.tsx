@@ -50,8 +50,8 @@ export const ReceiptActionButtons: React.FC<ReceiptActionButtonsProps> = ({
                                 <i className="bi bi-pencil-square text-sm" />
                             </div>
                             <div>
-                                <p className="font-black text-slate-800 dark:text-slate-100">Recebimento manual</p>
-                                <p className="text-[11px] text-slate-400 font-normal">Registrar os itens manualmente</p>
+                                <p className="font-black text-slate-800 dark:text-slate-100">Sem nota fiscal</p>
+                                <p className="text-[11px] text-slate-400 font-normal">Registrar recebimento sem nota fiscal</p>
                             </div>
                         </button>
 
@@ -64,7 +64,7 @@ export const ReceiptActionButtons: React.FC<ReceiptActionButtonsProps> = ({
                                 <i className="bi bi-file-earmark-arrow-down-fill text-sm" />
                             </div>
                             <div>
-                                <p className="font-black text-slate-800 dark:text-slate-100">Por Nota Fiscal de Entrada</p>
+                                <p className="font-black text-slate-800 dark:text-slate-100">Com nota fiscal de entrada</p>
                                 <p className="text-[11px] text-slate-400 font-normal">Importar/preencher a partir da NF-e</p>
                             </div>
                         </button>
@@ -78,7 +78,7 @@ export const ReceiptActionButtons: React.FC<ReceiptActionButtonsProps> = ({
                                 <i className="bi bi-cart-check text-sm" />
                             </div>
                             <div>
-                                <p className="font-black text-slate-800 dark:text-slate-100">Por Pedido de Compra</p>
+                                <p className="font-black text-slate-800 dark:text-slate-100">Com pedido de compra</p>
                                 <p className="text-[11px] text-slate-400 font-normal">Receber itens de um pedido existente</p>
                             </div>
                         </button>

@@ -34,27 +34,22 @@ export const FinanceTopTabsBar: React.FC<Props> = ({
         </Text>
       </TouchableOpacity>
 
-      {isAdmin ? (
-        <TouchableOpacity
-          style={[styles.topTabBtn, activeTab === 'assistant' && styles.activeTopTabBtn]}
-          onPress={() => onSelectTab('assistant')}
-          activeOpacity={0.7}
+      <TouchableOpacity
+        style={[styles.topTabBtn, activeTab === 'assistant' && styles.activeTopTabBtn]}
+        onPress={() => onSelectTab('assistant')}
+        activeOpacity={0.7}
+      >
+        <Sparkles size={15} color={activeTab === 'assistant' ? '#7c3aed' : isDarkMode ? '#94a3b8' : '#64748b'} />
+        <Text
+          style={[
+            styles.topTabText,
+            activeTab === 'assistant' && styles.activeTopTabTextAssistant,
+            isDarkMode && activeTab !== 'assistant' && styles.topTabTextDark,
+          ]}
         >
-          <Sparkles size={15} color={activeTab === 'assistant' ? '#7c3aed' : isDarkMode ? '#94a3b8' : '#64748b'} />
-          <Text
-            style={[
-              styles.topTabText,
-              activeTab === 'assistant' && styles.activeTopTabTextAssistant,
-              isDarkMode && activeTab !== 'assistant' && styles.topTabTextDark,
-            ]}
-          >
-            Agente ERP
-          </Text>
-          <View style={styles.betaBadge}>
-            <Text style={styles.betaBadgeText}>BETA</Text>
-          </View>
-        </TouchableOpacity>
-      ) : null}
+          Agente ERP
+        </Text>
+      </TouchableOpacity>
     </View>
   );
 };

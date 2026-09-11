@@ -108,9 +108,11 @@ describe('postZipPackageService — Pacote post-context.zip para IA', () => {
       const unzipped = await JSZip.loadAsync(arrayBuffer);
       const fileNames = Object.keys(unzipped.files);
 
-      // 1. Arquivos raiz obrigatórios
+      // 1. Arquivos raiz obrigatórios (10 arquivos MD organizados + alias prompt.md)
       expect(fileNames).toContain('prompt.md');
-      expect(fileNames.filter(name => name.endsWith('.md'))).toEqual(['prompt.md']);
+      expect(fileNames).toContain('01_INDEX_INSTRUCOES_GERAIS.md');
+      expect(fileNames).toContain('10_PROMPT_CONSOLIDADO.md');
+      expect(fileNames.filter(name => name.endsWith('.md'))).toHaveLength(11);
       expect(fileNames).not.toContain('specification.json');
 
       // 2. Pasta product/ (com arquivos reais em formato PNG)
@@ -149,7 +151,7 @@ describe('postZipPackageService — Pacote post-context.zip para IA', () => {
       expect(promptContent).toContain('product/secondary.png');
       expect(promptContent).toContain('official-assets/logo.png');
 
-      const packagedAssets = fileNames.filter(name => !unzipped.files[name].dir && name !== 'prompt.md');
+      const packagedAssets = fileNames.filter(name => !unzipped.files[name].dir && !name.endsWith('.md'));
       for (const assetName of packagedAssets) {
         expect(promptContent).toContain(`\`${assetName}\``);
       }

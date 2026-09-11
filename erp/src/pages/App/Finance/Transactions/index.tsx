@@ -103,10 +103,10 @@ export default function Transactions() {
                         </div>
                         <div>
                             <h1 className="text-2xl xl:text-4xl font-black text-slate-800 dark:text-slate-100 tracking-tight transition-colors">
-                                Movimentações (Extrato)
+                                Movimentações
                             </h1>
                             <p className="text-slate-500 dark:text-slate-400 font-medium text-sm xl:text-lg hidden sm:block">
-                                Histórico completo de entradas e saídas do caixa.
+                                Histórico completo de entradas e saídas de caixa.
                             </p>
                         </div>
                     </div>
@@ -174,7 +174,7 @@ export default function Transactions() {
                         </div>
                         <div className="flex gap-2 border border-slate-100 dark:border-slate-800 p-1 rounded-xl bg-slate-50 dark:bg-slate-950">
                             {[
-                              { id: 'all', label: 'Tudo' },
+                              { id: 'all', label: 'Todos' },
                               { id: 'income', label: 'Entradas' },
                               { id: 'expense', label: 'Saídas' }
                             ].map(filter => (

@@ -84,12 +84,12 @@ export default function ReceiptFiscalDocumentsSection({ attachments, fiscalKey, 
     };
 
     return (
-        <section className="grid grid-cols-1 gap-6 border-t border-slate-100 pt-6 dark:border-slate-800 md:grid-cols-2">
+        <section className="border-t border-slate-100 pt-6 dark:border-slate-800">
             <div className="flex flex-col gap-2">
-                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Anexos do documento (PDF ou imagem · máx. 5)</label>
+                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Anexos (PDF ou imagens, máximo 5)</label>
                 <label className={`flex cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed p-4 text-center transition-all ${attachments.length >= MAX_FILES ? 'pointer-events-none border-slate-200 opacity-50' : 'border-slate-300 hover:border-emerald-500 dark:border-slate-800'}`}>
                     <i className={`bi ${isUploading ? 'bi-arrow-repeat animate-spin' : 'bi-cloud-arrow-up-fill'} mb-1 text-2xl text-emerald-600`} />
-                    <span className="text-xs font-bold text-slate-700 dark:text-slate-300">{isUploading ? 'Enviando arquivos...' : 'Clique para anexar documento'}</span>
+                    <span className="text-xs font-bold text-slate-700 dark:text-slate-300">{isUploading ? 'Enviando arquivos...' : 'Clique para anexar documento (ex: comprovante, pedido)'}</span>
                     <span className="mt-0.5 text-[10px] text-slate-400">PDF, PNG ou JPG ({attachments.length}/{MAX_FILES})</span>
                     <input type="file" multiple accept="application/pdf,image/*" disabled={isUploading || attachments.length >= MAX_FILES} onChange={upload} className="hidden" />
                 </label>
@@ -113,30 +113,6 @@ export default function ReceiptFiscalDocumentsSection({ attachments, fiscalKey, 
                         </div>
                     );
                 })}
-            </div>
-
-            <div className="flex flex-col gap-2 self-start">
-                <label className={`text-[10px] font-black uppercase tracking-widest transition-colors ${isInvalidKey ? 'text-red-500' : 'text-slate-400'}`}>
-                    Chave de acesso (NF-e · 44 dígitos)
-                </label>
-                <input
-                    type="text"
-                    value={formattedDisplay}
-                    maxLength={54}
-                    onChange={handleKeyChange}
-                    placeholder="0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000"
-                    className={`border-b-2 bg-transparent p-2 text-sm font-mono font-bold tracking-wider outline-none transition-colors ${
-                        isInvalidKey
-                            ? 'border-red-500 text-red-600 dark:text-red-400 focus:border-red-600'
-                            : 'border-slate-200 text-slate-700 focus:border-emerald-600 dark:border-slate-700 dark:text-slate-200'
-                    }`}
-                />
-                {isInvalidKey && (
-                    <p className="text-[10px] font-bold text-red-500 flex items-center gap-1 mt-0.5">
-                        <i className="bi bi-exclamation-circle-fill text-xs" />
-                        A chave de acesso deve conter exatamente 44 dígitos ({rawKey.length}/44).
-                    </p>
-                )}
             </div>
         </section>
     );

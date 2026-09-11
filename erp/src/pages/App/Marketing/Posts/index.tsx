@@ -13,6 +13,17 @@ import { PromptPreview } from './components/PromptPreview/PromptPreview';
 import { PostsLibraryPage } from './components/PostsLibrary/PostsLibraryPage';
 import { postCreatorService } from './services/postCreatorService';
 import { CampaignElementModel, ElementModel, ElementType, PostCampaign } from './types/postCreator';
+import {
+  getProductImageSelection,
+  saveProductImageSelection,
+  clearProductImageSelection,
+  ProductImageSelectionState,
+} from './services/postProductImageSelections';
+import { resolveProductImages } from './services/postProductImageResolver';
+import {
+  OFFICIAL_QUEIMA_BADGE_URL,
+  OFFICIAL_LIQUIDACAO_BADGE_URL,
+} from './services/postOfficialAssetConstants';
 
 export default function MarketingPostsManager() {
   const editor = usePostEditor();
@@ -30,7 +41,8 @@ export default function MarketingPostsManager() {
   const [creating, setCreating] = useState<{ type: ElementType; opportunityId?: string }>();
   const [editing, setEditing] = useState<ElementModel>();
   const [viewing, setViewing] = useState<ElementModel>();
-  const [opportunities, setOpportunities] = useState<Array<{ id: string; name: string }>>([]);
+  const [opportunities, setOpportunities] = useState<any[]>([]);
+  const [manualSelection, setManualSelection] = useState<ProductImageSelectionState | null>(null);
 
   const loadGlobalRules = useCallback(() => postCreatorService.globalGuidelines(), []);
   const saveGlobalRules = useCallback(async (value: string) => {
@@ -65,10 +77,8 @@ export default function MarketingPostsManager() {
       opportunity_id: matchedOpportunity.id,
       opportunityId: matchedOpportunity.id,
       opportunityName: matchedOpportunity.name,
-      opportunity: {
-        id: matchedOpportunity.id,
-        name: matchedOpportunity.name,
-      },
+      opportunityImageUrl: matchedOpportunity.image_url,
+      opportunity: matchedOpportunity,
     };
   }, [editor.product, matchedOpportunity]);
 
@@ -89,6 +99,74 @@ export default function MarketingPostsManager() {
       return true;
     });
 
+  useEffect(() => {
+    if (effectiveProductForPreview?.id) {
+      const saved = getProductImageSelection(effectiveProductForPreview.id);
+      setManualSelection(saved);
+    } else {
+      setManualSelection(null);
+    }
+  }, [effectiveProductForPreview?.id]);
+
+  const { productImages: resolvedImages, validation: imagesValidation } = useMemo(() => {
+    if (!effectiveProductForPreview) return { productImages: null, validation: null };
+    return resolveProductImages({
+      product: effectiveProductForPreview,
+      selectedVariationId: undefined,
+      manualOverrides: manualSelection,
+    });
+  }, [effectiveProductForPreview, manualSelection]);
+
+  const handleChangePrimary = (url: string) => {
+    if (!effectiveProductForPreview?.id) return;
+    const next: ProductImageSelectionState = {
+      ...manualSelection,
+      primaryUrl: url,
+    };
+    setManualSelection(next);
+    saveProductImageSelection(effectiveProductForPreview.id, next);
+    toast.success('Imagem principal selecionada e salva!');
+  };
+
+  const handleChangeOpenView = (url: string | null) => {
+    if (!effectiveProductForPreview?.id) return;
+    const next: ProductImageSelectionState = {
+      ...manualSelection,
+      openViewUrl: url,
+    };
+    setManualSelection(next);
+    saveProductImageSelection(effectiveProductForPreview.id, next);
+    toast.success(url ? 'Imagem secundária selecionada e salva!' : 'Imagem secundária removida.');
+  };
+
+  const handleChangeVariation = (varId: string, url: string) => {
+    if (!effectiveProductForPreview?.id) return;
+    const next: ProductImageSelectionState = {
+      ...manualSelection,
+      variationUrls: {
+        ...(manualSelection?.variationUrls || {}),
+        [varId]: url,
+      },
+    };
+    setManualSelection(next);
+    saveProductImageSelection(effectiveProductForPreview.id, next);
+    toast.success('Foto da variação selecionada e salva!');
+  };
+
+  const handleResetOverrides = () => {
+    if (!effectiveProductForPreview?.id) return;
+    clearProductImageSelection(effectiveProductForPreview.id);
+    setManualSelection(null);
+    toast.info('Seleção de imagens restaurada para o padrão.');
+  };
+
+  const oppBadgeModel = activeModels.find(m => m.elementType === 'BADGE');
+  const oppBadgeUrl =
+    (oppBadgeModel ? oppBadgeModel.generatedAssetUrl || oppBadgeModel.referenceFiles?.[0]?.fileUrl : null) ||
+    matchedOpportunity?.image_url ||
+    (/queima|salvado/i.test(matchedOpportunity?.name || '') ? OFFICIAL_QUEIMA_BADGE_URL : null) ||
+    (/liquida/i.test(matchedOpportunity?.name || '') ? OFFICIAL_LIQUIDACAO_BADGE_URL : null);
+
   const reload = async (id = campaignId) => {
     const [nextCampaigns, nextModels] = await Promise.all([postCreatorService.campaigns(), postCreatorService.models()]);
     const nextId = id || nextCampaigns[0]?.id || '';
@@ -102,7 +180,12 @@ export default function MarketingPostsManager() {
 
   useEffect(() => {
     void reload();
-    void supabase.from('opportunities').select('id, name').eq('active', true).order('name').then(({ data }) => setOpportunities(data || []));
+    void supabase
+      .from('opportunities')
+      .select('id, name, slug, badge_color, border_color, image_url')
+      .eq('active', true)
+      .order('name')
+      .then(({ data }) => setOpportunities(data || []));
   }, []);
 
   // Abre direto na aba "Preview de Prompt + Assets" com o produto pré-selecionado
@@ -267,6 +350,16 @@ export default function MarketingPostsManager() {
                   onCreate={(type, opportunityId) => setCreating({ type, opportunityId })}
                   onEdit={setEditing}
                   onView={setViewing}
+                  product={effectiveProductForPreview}
+                  productImages={resolvedImages}
+                  imagesValidation={imagesValidation}
+                  opportunityName={matchedOpportunity?.name}
+                  opportunityBadgeUrl={oppBadgeUrl}
+                  onChangePrimary={handleChangePrimary}
+                  onChangeOpenView={handleChangeOpenView}
+                  onChangeVariation={handleChangeVariation}
+                  onResetOverrides={handleResetOverrides}
+                  hasManualOverrides={Boolean(manualSelection && Object.keys(manualSelection).length > 0)}
                 />
                 <GeneralCampaignRules load={loadGlobalRules} save={saveGlobalRules} onSavingChange={handleSavingChange} />
               </div>
@@ -281,6 +374,9 @@ export default function MarketingPostsManager() {
                   elementModels={models}
                   isFocused={isFocused}
                   onToggleFocus={() => setIsFocused(prev => !prev)}
+                  manualSelection={manualSelection}
+                  resolvedImages={resolvedImages}
+                  imagesValidation={imagesValidation}
                 />
               </main>
             )}

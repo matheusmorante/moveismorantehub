@@ -287,7 +287,9 @@ export default function ReceiptFormModal({ isOpen, onClose, initialReceipt, init
         <section className="relative flex h-full w-full flex-col overflow-hidden bg-white shadow-2xl dark:bg-slate-900 xl:h-auto xl:max-h-[90vh] xl:max-w-7xl xl:rounded-[2.5rem]">
             <header className="flex shrink-0 items-center justify-between bg-emerald-600 px-5 py-2.5 text-white xl:px-8 xl:py-3">
                 <div className="flex items-center gap-3">
-                    <h2 className="text-lg font-black uppercase">Registrar recebimento</h2>
+                    <h2 className="text-lg font-black uppercase">
+                        {initialInboundInvoice ? 'Registrar recebimento com NF-e' : initialPurchase ? 'Registrar recebimento com Pedido de Compra' : 'Registrar recebimento sem Nota Fiscal'}
+                    </h2>
                     {isDraftSaved && (
                         <span className="flex items-center gap-1.5 rounded-full bg-white/20 px-2.5 py-1 text-[9px] font-black uppercase tracking-wider text-white border border-white/30 animate-pulse">
                             <i className="bi bi-cloud-check-fill text-emerald-300" /> Rascunho salvo
@@ -299,29 +301,21 @@ export default function ReceiptFormModal({ isOpen, onClose, initialReceipt, init
             <div className="flex-1 space-y-7 overflow-y-auto p-5 xl:p-8">
                 <div className="grid grid-cols-1 items-end gap-5 md:grid-cols-5">
                     <div className="md:col-span-2">
-                        <label className="flex flex-col gap-2 text-[10px] font-black uppercase tracking-widest text-slate-400">
-                            <span className="flex items-center gap-1.5">
-                                Fornecedor
-                                {supplier && (
-                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300 text-[9px] font-bold tracking-wider">
-                                        <i className="bi bi-check2-circle text-[10px]" /> Selecionado
-                                    </span>
-                                )}
-                            </span>
-                            <div className="relative">
-                                <input
-                                    type="text"
-                                    readOnly
-                                    disabled
-                                    value={supplier?.fullName || supplier?.tradeName || (supplierId ? 'Fornecedor selecionado' : 'Selecione um fornecedor na tela inicial')}
-                                    className="w-full border-b-2 border-emerald-500 bg-emerald-50/30 p-2 pr-9 text-sm font-bold text-emerald-900 cursor-not-allowed outline-none dark:border-emerald-500 dark:bg-emerald-950/20 dark:text-emerald-100"
-                                    title="Fornecedor selecionado na tela inicial."
-                                />
-                                <div className="absolute right-3 top-1/2 -translate-y-1/2 text-emerald-600 dark:text-emerald-400">
-                                    <i className="bi bi-check-circle-fill text-base" />
-                                </div>
-                            </div>
-                        </label>
+                        <SupplierAutocomplete
+                            suppliers={suppliers}
+                            selectedSupplierId={supplierId}
+                            onSelect={(id) => setSupplierId(id)}
+                            disabled={Boolean(initialInboundInvoice) || Boolean(initialPurchase) || Boolean(initialReceipt) || items.length > 0}
+                            disabledReason={
+                                (initialInboundInvoice || initialPurchase || initialReceipt)
+                                    ? "O fornecedor foi pré-definido pelo documento/pedido de origem."
+                                    : items.length > 0
+                                    ? "Para alterar o fornecedor, remova os itens adicionados ao recebimento."
+                                    : undefined
+                            }
+                            customLabel="Fornecedor"
+                            placeholder="Pesquise o fornecedor por nome ou CNPJ..."
+                        />
                     </div>
                     <label className="flex flex-col gap-2 text-[10px] font-black uppercase tracking-widest text-slate-400">Data do recebimento<input type="date" value={receiptDate} onChange={(event) => setReceiptDate(event.target.value)} className="border-b-2 border-slate-200 bg-transparent p-2 text-sm font-bold text-slate-700 outline-none focus:border-emerald-600 dark:border-slate-700 dark:text-slate-200" /></label>
                     <NumberField label="IPI (%)" value={ipiPercent} onChange={setIpiPercent} />

@@ -14,11 +14,9 @@ import {
 import { resolveProductImages } from '../../services/postProductImageResolver';
 import {
   getProductImageSelection,
-  saveProductImageSelection,
-  clearProductImageSelection,
   ProductImageSelectionState,
 } from '../../services/postProductImageSelections';
-import { PromptImagesStrip } from './PromptImagesStrip';
+import { PromptCopyableImagesList } from './PromptCopyableImagesList';
 import { PostCreationSpecification } from '../../types/postSpecification';
 import { downloadPostContextZip } from '../../services/postZipPackageService';
 
@@ -35,6 +33,9 @@ interface PromptPreviewProps {
   productId?: string | undefined;
   isFocused?: boolean;
   onToggleFocus?: () => void;
+  manualSelection?: ProductImageSelectionState | null;
+  resolvedImages?: PostProductImagesSpec | null;
+  imagesValidation?: PostProductImagesValidation | null;
 }
 
 export function PromptPreview({
@@ -49,8 +50,10 @@ export function PromptPreview({
   productId: propProductId,
   isFocused,
   onToggleFocus,
+  manualSelection: propManualSelection,
+  resolvedImages: propResolvedImages,
+  imagesValidation: propImagesValidation,
 }: PromptPreviewProps) {
-  const [previewSubTab, setPreviewSubTab] = useState<'overview' | 'raw'>('overview');
   const [currentSpec, setCurrentSpec] = useState<PostCreationSpecification | null>(null);
   const [promptText, setPromptText] = useState<string>('');
   const [catalogUrl, setCatalogUrl] = useState<string>('');
@@ -64,61 +67,18 @@ export function PromptPreview({
   const effectiveProductId = product?.id || propProductId;
   const effectiveProductSlug = product?.slug || product?.id || propProductSlug;
   const isEmpty = !campaign || !effectiveProductSlug;
-  const oppName = product?.opportunity_name || product?.opportunityName || null;
 
-  // Carregar seleção manual persistida quando mudar de produto
+  // Sincronizar com seleção manual externa ou persistida
   useEffect(() => {
-    if (effectiveProductId) {
+    if (propManualSelection !== undefined) {
+      setManualSelection(propManualSelection);
+    } else if (effectiveProductId) {
       const saved = getProductImageSelection(effectiveProductId);
       setManualSelection(saved);
     } else {
       setManualSelection(null);
     }
-  }, [effectiveProductId]);
-
-  // Handlers para troca manual de fotos
-  const handleChangePrimary = (url: string) => {
-    if (!effectiveProductId) return;
-    const next: ProductImageSelectionState = {
-      ...manualSelection,
-      primaryUrl: url,
-    };
-    setManualSelection(next);
-    saveProductImageSelection(effectiveProductId, next);
-    toast.success('Imagem principal selecionada e salva!');
-  };
-
-  const handleChangeOpenView = (url: string | null) => {
-    if (!effectiveProductId) return;
-    const next: ProductImageSelectionState = {
-      ...manualSelection,
-      openViewUrl: url,
-    };
-    setManualSelection(next);
-    saveProductImageSelection(effectiveProductId, next);
-    toast.success(url ? 'Imagem secundária selecionada e salva!' : 'Imagem secundária removida.');
-  };
-
-  const handleChangeVariation = (varId: string, url: string) => {
-    if (!effectiveProductId) return;
-    const next: ProductImageSelectionState = {
-      ...manualSelection,
-      variationUrls: {
-        ...(manualSelection?.variationUrls || {}),
-        [varId]: url,
-      },
-    };
-    setManualSelection(next);
-    saveProductImageSelection(effectiveProductId, next);
-    toast.success('Foto da variação selecionada e salva!');
-  };
-
-  const handleResetOverrides = () => {
-    if (!effectiveProductId) return;
-    clearProductImageSelection(effectiveProductId);
-    setManualSelection(null);
-    toast.info('Seleção de imagens restaurada para o padrão.');
-  };
+  }, [effectiveProductId, propManualSelection]);
 
   // Reconstruir o prompt localmente sempre que os dados mudarem
   const specKey = useMemo(
@@ -141,7 +101,10 @@ export function PromptPreview({
     setCatalogUrl(url);
 
     // Resolver imagens estruturadas
-    if (product) {
+    if (propResolvedImages !== undefined) {
+      setResolvedImages(propResolvedImages);
+      setImagesValidation(propImagesValidation || null);
+    } else if (product) {
       const { productImages, validation } = resolveProductImages({
         product,
         selectedVariationId: variationId || undefined,
@@ -168,7 +131,7 @@ export function PromptPreview({
       setPromptText(renderSpecificationAsPrompt(spec));
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [specKey, globalRules]);
+  }, [specKey, globalRules, propResolvedImages, propImagesValidation]);
 
   const handleDownloadZip = async () => {
     if (!currentSpec || !campaign) {
@@ -194,38 +157,35 @@ export function PromptPreview({
     }
   };
 
-  const oppBadgeUrl = currentSpec?.officialAssets?.badge?.url || null;
+  const handleOpenChatGptInBackground = (e: React.MouseEvent) => {
+    e.preventDefault();
+    const url = 'https://chatgpt.com/g/g-p-6a9d93e0c74c8191ade047ff2bc6c334-criador-de-post/project';
+    
+    // Abre a URL em nova aba e preserva o foco nesta aba do ERP
+    const win = window.open(url, '_blank');
+    if (win) {
+      try {
+        win.blur();
+      } catch {
+        // ignora se cross-origin
+      }
+    }
+    window.focus();
+
+    toast.info('Projeto ChatGPT aberto em segundo plano! Você continua aqui para copiar as imagens e o prompt.', {
+      autoClose: 3500,
+    });
+  };
 
   return (
     <div className="flex h-full flex-col gap-3 min-w-0">
-      {/* Cabeçalho do Preview com Navegação Visão Geral | Prompt Completo e Ação Baixar ZIP */}
+      {/* Cabeçalho do Preview: Preview de Prompt e Assets usados + Botão Baixar ZIP */}
       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-800 pb-3">
         <div className="flex items-center gap-2">
-          {/* Segmented control: Visão Geral vs Prompt Completo */}
-          <div className="flex items-center rounded-lg bg-slate-950 p-1 border border-slate-800">
-            <button
-              type="button"
-              onClick={() => setPreviewSubTab('overview')}
-              className={`rounded px-3 py-1.5 text-xs font-bold transition-colors ${
-                previewSubTab === 'overview'
-                  ? 'bg-indigo-600 text-white shadow-sm'
-                  : 'text-slate-400 hover:text-white'
-              }`}
-            >
-              👁️ Visão Geral
-            </button>
-            <button
-              type="button"
-              onClick={() => setPreviewSubTab('raw')}
-              className={`rounded px-3 py-1.5 text-xs font-bold transition-colors ${
-                previewSubTab === 'raw'
-                  ? 'bg-indigo-600 text-white shadow-sm'
-                  : 'text-slate-400 hover:text-white'
-              }`}
-            >
-              📄 Prompt Completo
-            </button>
-          </div>
+          <h3 className="text-xs sm:text-sm font-black uppercase tracking-wider text-white flex items-center gap-1.5">
+            <span>🖼️</span>
+            <span>Preview de Prompt e Assets usados</span>
+          </h3>
 
           {/* Botão Modo Foco (Expandir/Restaurar) */}
           {onToggleFocus && (
@@ -240,14 +200,24 @@ export function PromptPreview({
           )}
         </div>
 
-        {/* Botão de Ação Principal: Baixar Pacote ZIP (prompt.txt + fotos + assets) */}
+        {/* Botões de Ação Principal: Projeto ChatGPT e Baixar Pacote ZIP */}
         <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={handleOpenChatGptInBackground}
+            className="flex items-center gap-1.5 rounded-lg border border-emerald-500/60 bg-emerald-950/60 hover:bg-emerald-900/80 px-3.5 py-1.5 text-xs font-bold text-emerald-200 shadow transition active:scale-95"
+            title="Abrir o Projeto Criador de Post no ChatGPT em segundo plano (sem sair desta página)"
+          >
+            <span>🤖</span>
+            <span>Projeto ChatGPT</span>
+          </button>
+
           <button
             type="button"
             onClick={() => void handleDownloadZip()}
             disabled={!currentSpec || downloadingZip}
             className="flex items-center gap-1.5 rounded-lg border border-indigo-500/70 bg-indigo-600 hover:bg-indigo-500 px-3.5 py-1.5 text-xs font-bold text-white shadow transition disabled:cursor-not-allowed disabled:opacity-40"
-            title="Baixar arquivo ZIP com prompt.txt, INSTRUCOES.txt e todas as fotos do produto e assets para anexar no ChatGPT/Gemini"
+            title="Baixar arquivo ZIP com o pacote do prompt e assets para o ChatGPT/Gemini"
           >
             {downloadingZip ? (
               <span className="inline-block h-3.5 w-3.5 animate-spin rounded-full border-2 border-white border-t-transparent" />
@@ -269,11 +239,8 @@ export function PromptPreview({
             </p>
           </div>
         </div>
-      ) : previewSubTab === 'overview' ? (
-        /* =========================================================================
-         * MODO 1: VISÃO GERAL (Amigável, visual, rápido para conferência diária)
-         * ========================================================================= */
-        <div className="flex-1 space-y-3.5 overflow-y-auto pr-1">
+      ) : (
+        <div className="flex-1 space-y-4 overflow-y-auto pr-1">
           {/* 1. Resumo do Contexto Comercial */}
           <div className="flex flex-wrap items-center justify-between gap-2 bg-slate-950/70 border border-slate-800/80 p-3 rounded-xl text-xs">
             <div className="min-w-0">
@@ -308,61 +275,41 @@ export function PromptPreview({
             </div>
           </div>
 
-          {/* Imagens do Produto para IA (Seleção visual de Foto Principal, Foto Secundária e Demais Variações) */}
-          {resolvedImages && (
-            <PromptImagesStrip
-              product={product}
-              productImages={resolvedImages}
-              validation={imagesValidation}
-              opportunityName={oppName}
-              opportunityBadgeUrl={oppBadgeUrl}
-              onChangePrimary={handleChangePrimary}
-              onChangeOpenView={handleChangeOpenView}
-              onChangeVariation={handleChangeVariation}
-              onResetOverrides={handleResetOverrides}
-              hasManualOverrides={Boolean(manualSelection && Object.keys(manualSelection).length > 0)}
-            />
-          )}
+          {/* 2. Lista de Todos os Assets e Fotos com botão "Copiar Imagem" (Logo, Selo de Oportunidade, Imagens) */}
+          <PromptCopyableImagesList
+            productImages={resolvedImages}
+            officialAssets={officialAssets}
+            product={product}
+          />
 
-          {/* Botão de Atalho para ver o prompt bruto */}
-          <div className="pt-2 text-center">
-            <button
-              type="button"
-              onClick={() => setPreviewSubTab('raw')}
-              className="inline-flex items-center gap-1.5 text-xs text-slate-400 hover:text-indigo-300 font-medium underline transition"
-            >
-              <span>Ver texto completo do Prompt Estruturado</span> ➔
-            </button>
-          </div>
-        </div>
-      ) : (
-        /* =========================================================================
-         * MODO 2: PROMPT COMPLETO (Texto bruto formatado para inspeção/cópia)
-         * ========================================================================= */
-        <div className="flex-1 flex flex-col min-h-0 space-y-3 overflow-y-auto pr-1">
-          <div className="flex items-center justify-between text-xs text-slate-400 shrink-0">
-            <span>Texto exato contido no prompt.txt do pacote ZIP:</span>
-            <button
-              type="button"
-              onClick={() => {
-                if (!promptText) return;
-                navigator.clipboard.writeText(promptText).then(() => {
-                  toast.success('Prompt copiado para a área de transferência!');
-                });
-              }}
-              className="text-xs font-bold text-indigo-400 hover:text-indigo-300 underline cursor-pointer"
-            >
-              Copiar texto acima
-            </button>
-          </div>
+          {/* 4. Texto Estruturado do Prompt para IA */}
+          <div className="rounded-xl border border-slate-800 bg-slate-950 p-4 space-y-2">
+            <div className="flex items-center justify-between text-xs font-bold text-slate-200">
+              <span className="flex items-center gap-1.5">
+                <span>📄</span>
+                <span>Texto Estruturado do Prompt</span>
+              </span>
+              <button
+                type="button"
+                onClick={() => {
+                  if (!promptText) return;
+                  navigator.clipboard.writeText(promptText).then(() => {
+                    toast.success('Prompt copiado para a área de transferência!');
+                  });
+                }}
+                className="inline-flex items-center gap-1 text-xs font-bold text-indigo-400 hover:text-indigo-300 underline cursor-pointer"
+              >
+                <span>📋</span>
+                <span>Copiar Prompt</span>
+              </button>
+            </div>
 
-          <div className="relative rounded-xl border border-slate-800 bg-slate-950 min-h-[250px] shrink-0">
             {!promptText ? (
-              <div className="flex h-full min-h-[200px] items-center justify-center">
+              <div className="flex h-40 items-center justify-center">
                 <div className="h-5 w-5 animate-spin rounded-full border-2 border-indigo-400 border-t-transparent" />
               </div>
             ) : (
-              <pre className="max-h-[500px] overflow-y-auto rounded-xl p-4 text-[11px] leading-relaxed text-emerald-300 font-mono scrollbar-thin scrollbar-thumb-slate-700 whitespace-pre-wrap break-words select-all">
+              <pre className="max-h-[500px] overflow-y-auto rounded-lg p-3 text-[11px] leading-relaxed text-emerald-300 font-mono scrollbar-thin scrollbar-thumb-slate-700 whitespace-pre-wrap break-words select-all bg-slate-900/80 border border-slate-800">
                 {promptText}
               </pre>
             )}

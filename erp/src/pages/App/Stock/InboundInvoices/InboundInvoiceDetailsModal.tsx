@@ -6,13 +6,11 @@ import { InboundInvoiceFiscalReview } from './InboundInvoiceFiscalReview';
 interface InboundInvoiceDetailsModalProps {
     invoice: InboundInvoice | null;
     onClose: () => void;
-    onReceiveGoods: (invoice: InboundInvoice) => void;
 }
 
 export const InboundInvoiceDetailsModal: React.FC<InboundInvoiceDetailsModalProps> = ({
     invoice,
-    onClose,
-    onReceiveGoods
+    onClose
 }) => {
     if (!invoice) return null;
 
@@ -100,20 +98,10 @@ export const InboundInvoiceDetailsModal: React.FC<InboundInvoiceDetailsModalProp
                     </div>
                 </div>
 
-                <footer className="flex items-center justify-between border-t border-slate-100 bg-slate-50/50 p-4 dark:border-slate-800 dark:bg-slate-950/40">
+                <footer className="flex items-center justify-end border-t border-slate-100 bg-slate-50/50 p-4 dark:border-slate-800 dark:bg-slate-950/40">
                     <button type="button" onClick={onClose} className="rounded-xl px-4 py-2.5 text-xs font-black uppercase text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800">
                         Fechar
                     </button>
-                    {invoice.status !== 'received' && (
-                        <button
-                            type="button"
-                            onClick={() => { onClose(); onReceiveGoods(invoice); }}
-                            className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-5 py-2.5 text-xs font-black uppercase tracking-wider text-white shadow-md shadow-emerald-600/20 hover:bg-emerald-700"
-                        >
-                            <i className="bi bi-box-arrow-in-down text-sm" />
-                            Receber no Estoque
-                        </button>
-                    )}
                 </footer>
             </div>
         </div>

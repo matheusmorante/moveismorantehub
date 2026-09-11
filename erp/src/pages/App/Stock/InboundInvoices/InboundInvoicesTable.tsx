@@ -1,26 +1,39 @@
-import React from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { InboundInvoice } from '@/pages/utils/inboundNfe/inboundNfeTypes';
 import { formatCurrency } from '@/pages/utils/formatters';
 
 interface InboundInvoicesTableProps {
     invoices: InboundInvoice[];
     onViewDetails: (invoice: InboundInvoice) => void;
-    onReceiveGoods: (invoice: InboundInvoice) => void;
     onDownloadXml: (invoice: InboundInvoice) => void;
+    onManageMappings: (invoice: InboundInvoice) => void;
 }
 
 export const InboundInvoicesTable: React.FC<InboundInvoicesTableProps> = ({
     invoices,
     onViewDetails,
-    onReceiveGoods,
-    onDownloadXml
+    onDownloadXml,
+    onManageMappings,
 }) => {
+    const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+    const menuRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+                setOpenMenuId(null);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
+
     if (invoices.length === 0) {
         return (
             <div className="rounded-[2rem] border border-slate-100 bg-white p-12 text-center shadow-xl dark:border-slate-800 dark:bg-slate-900">
                 <i className="bi bi-file-earmark-check text-4xl text-slate-300 dark:text-slate-700" />
                 <p className="mt-3 text-sm font-bold text-slate-500 dark:text-slate-400">Nenhuma nota fiscal de entrada encontrada</p>
-                <p className="mt-1 text-xs text-slate-400">As notas são consultadas automaticamente a cada hora. Você também pode importar um XML recebido do fornecedor.</p>
+                <p className="mt-1 text-xs text-slate-400">Você pode adicionar novas notas fiscais ou importar XMLs recebidos de fornecedores.</p>
             </div>
         );
     }
@@ -43,7 +56,11 @@ export const InboundInvoicesTable: React.FC<InboundInvoicesTableProps> = ({
                     </thead>
                     <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                         {invoices.map((inv) => (
-                            <tr key={inv.id} className="hover:bg-slate-50/70 transition-colors dark:hover:bg-slate-800/40">
+                            <tr
+                                key={inv.id}
+                                onClick={() => onViewDetails(inv)}
+                                className="hover:bg-slate-50/70 transition-colors cursor-pointer dark:hover:bg-slate-800/40"
+                            >
                                 <td className="py-4 pl-6 pr-3 font-mono font-bold text-slate-800 dark:text-slate-200">
                                     <div>#{inv.nfeNumber}</div>
                                     <span className="text-[10px] text-slate-400 font-sans font-normal">Série {inv.series}</span>
@@ -72,33 +89,47 @@ export const InboundInvoicesTable: React.FC<InboundInvoicesTableProps> = ({
                                         </span>
                                     )}
                                 </td>
-                                <td className="py-4 pl-3 pr-6 text-right space-x-2">
-                                    <button
-                                        type="button"
-                                        onClick={() => onViewDetails(inv)}
-                                        className="rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-700 shadow-sm hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-200"
-                                    >
-                                        <i className="bi bi-eye mr-1 text-slate-400" /> Ver Itens
-                                    </button>
-                                    {inv.status !== 'received' && (
+                                <td className="py-4 pl-3 pr-6 text-right" onClick={(e) => e.stopPropagation()}>
+                                    <div className="relative inline-block text-left" ref={openMenuId === inv.id ? menuRef : null}>
                                         <button
                                             type="button"
-                                            onClick={() => onReceiveGoods(inv)}
-                                            className="rounded-xl bg-emerald-600 px-3 py-1.5 text-xs font-black uppercase tracking-wider text-white shadow-sm hover:bg-emerald-700"
+                                            onClick={() => setOpenMenuId(openMenuId === inv.id ? null : inv.id)}
+                                            className="rounded-xl p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-800 dark:hover:text-slate-200 cursor-pointer"
+                                            title="Mais opções"
                                         >
-                                            <i className="bi bi-box-arrow-in-down mr-1" /> Receber
+                                            <i className="bi bi-three-dots-vertical text-base" />
                                         </button>
-                                    )}
-                                    {inv.rawXml && (
-                                        <button
-                                            type="button"
-                                            title="Baixar XML"
-                                            onClick={() => onDownloadXml(inv)}
-                                            className="rounded-xl p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
-                                        >
-                                            <i className="bi bi-download" />
-                                        </button>
-                                    )}
+
+                                        {openMenuId === inv.id && (
+                                            <div className="absolute right-0 z-50 mt-1 w-48 rounded-2xl border border-slate-100 bg-white py-1.5 shadow-xl dark:border-slate-800 dark:bg-slate-900 animate-in fade-in zoom-in-95">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => {
+                                                        setOpenMenuId(null);
+                                                        onManageMappings(inv);
+                                                    }}
+                                                    className="flex w-full items-center gap-2.5 px-4 py-2 text-left text-xs font-bold text-slate-700 hover:bg-slate-50 dark:text-slate-200 dark:hover:bg-slate-800 cursor-pointer"
+                                                >
+                                                    <i className="bi bi-link-45deg text-blue-600 text-sm" />
+                                                    Gerenciar Vínculos
+                                                </button>
+
+                                                {inv.rawXml && (
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => {
+                                                            setOpenMenuId(null);
+                                                            onDownloadXml(inv);
+                                                        }}
+                                                        className="flex w-full items-center gap-2.5 px-4 py-2 text-left text-xs font-bold text-slate-700 hover:bg-slate-50 dark:text-slate-200 dark:hover:bg-slate-800 cursor-pointer"
+                                                    >
+                                                        <i className="bi bi-download text-slate-400 text-sm" />
+                                                        Baixar XML
+                                                    </button>
+                                                )}
+                                            </div>
+                                        )}
+                                    </div>
                                 </td>
                             </tr>
                         ))}
@@ -109,21 +140,68 @@ export const InboundInvoicesTable: React.FC<InboundInvoicesTableProps> = ({
             {/* Cards para telas menores que XL (< 1280px) */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 xl:hidden">
                 {invoices.map((inv) => (
-                    <div key={inv.id} className="rounded-2xl border border-slate-100 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+                    <div
+                        key={inv.id}
+                        onClick={() => onViewDetails(inv)}
+                        className="rounded-2xl border border-slate-100 bg-white p-4 shadow-sm hover:shadow-md transition-all cursor-pointer dark:border-slate-800 dark:bg-slate-900 relative"
+                    >
                         <div className="flex justify-between items-start mb-2">
                             <div>
                                 <span className="text-xs font-bold text-slate-800 dark:text-slate-100">NF-e #{inv.nfeNumber}</span>
                                 <span className="ml-2 text-[10px] text-slate-400 font-mono">Série {inv.series}</span>
                             </div>
-                            {inv.status === 'received' ? (
-                                <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[9px] font-black uppercase text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300">
-                                    Recebida
-                                </span>
-                            ) : (
-                                <span className="rounded-full bg-blue-100 px-2 py-0.5 text-[9px] font-black uppercase text-blue-700 dark:bg-blue-950/60 dark:text-blue-300">
-                                    Disponível
-                                </span>
-                            )}
+                            <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                                {inv.status === 'received' ? (
+                                    <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[9px] font-black uppercase text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300">
+                                        Recebida
+                                    </span>
+                                ) : (
+                                    <span className="rounded-full bg-blue-100 px-2 py-0.5 text-[9px] font-black uppercase text-blue-700 dark:bg-blue-950/60 dark:text-blue-300">
+                                        Disponível
+                                    </span>
+                                )}
+
+                                <div className="relative inline-block text-left" ref={openMenuId === inv.id ? menuRef : null}>
+                                    <button
+                                        type="button"
+                                        onClick={() => setOpenMenuId(openMenuId === inv.id ? null : inv.id)}
+                                        className="rounded-xl p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-800 dark:hover:text-slate-200 cursor-pointer"
+                                        title="Mais opções"
+                                    >
+                                        <i className="bi bi-three-dots-vertical text-sm" />
+                                    </button>
+
+                                    {openMenuId === inv.id && (
+                                        <div className="absolute right-0 z-50 mt-1 w-48 rounded-2xl border border-slate-100 bg-white py-1.5 shadow-xl dark:border-slate-800 dark:bg-slate-900 animate-in fade-in zoom-in-95">
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    setOpenMenuId(null);
+                                                    onManageMappings(inv);
+                                                }}
+                                                className="flex w-full items-center gap-2.5 px-4 py-2 text-left text-xs font-bold text-slate-700 hover:bg-slate-50 dark:text-slate-200 dark:hover:bg-slate-800 cursor-pointer"
+                                            >
+                                                <i className="bi bi-link-45deg text-blue-600 text-sm" />
+                                                Gerenciar Vínculos
+                                            </button>
+
+                                            {inv.rawXml && (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => {
+                                                        setOpenMenuId(null);
+                                                        onDownloadXml(inv);
+                                                    }}
+                                                    className="flex w-full items-center gap-2.5 px-4 py-2 text-left text-xs font-bold text-slate-700 hover:bg-slate-50 dark:text-slate-200 dark:hover:bg-slate-800 cursor-pointer"
+                                                >
+                                                    <i className="bi bi-download text-slate-400 text-sm" />
+                                                    Baixar XML
+                                                </button>
+                                            )}
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
                         </div>
 
                         <p className="text-xs font-bold text-slate-700 dark:text-slate-200 truncate">{inv.emitterName}</p>
@@ -133,28 +211,10 @@ export const InboundInvoicesTable: React.FC<InboundInvoicesTableProps> = ({
                             <span className="text-slate-400">{inv.itemsCount || inv.items.length} itens</span>
                             <span className="font-black text-emerald-600 dark:text-emerald-400">{formatCurrency(inv.totalInvoice)}</span>
                         </div>
-
-                        <div className="flex gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
-                            <button
-                                type="button"
-                                onClick={() => onViewDetails(inv)}
-                                className="flex-1 rounded-xl border border-slate-200 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200"
-                            >
-                                Detalhes
-                            </button>
-                            {inv.status !== 'received' && (
-                                <button
-                                    type="button"
-                                    onClick={() => onReceiveGoods(inv)}
-                                    className="flex-1 rounded-xl bg-emerald-600 py-2 text-xs font-black uppercase text-white hover:bg-emerald-700"
-                                >
-                                    Receber
-                                </button>
-                            )}
-                        </div>
                     </div>
                 ))}
             </div>
         </div>
     );
 };
+

@@ -3,64 +3,67 @@ name: governanca-skills
 description: Governança, seleção, composição e manutenção de Skills no Morante Hub. Consulte esta skill para descobrir quais skills usar para uma tarefa, resolver conflitos entre regras, compor múltiplas skills ou auditar/manter as instruções do agente.
 ---
 
-# Skill: Governança e Composição de Skills
+# Skill: Governança, Composição e Arquitetura de Instruções
 
-## Objetivo
+## Quando aplicar esta Skill
+Aplicar quando a tarefa envolver:
+- Seleção e composição de múltiplas Skills para uma tarefa complexa;
+- Resolução de conflitos de regras entre código, documentação e instruções do agente;
+- Auditoria, criação, divisão, fusão ou manutenção de Skills no diretório `.agents/skills/`;
+- Organização das 4 camadas de instruções (Rules, AGENTS.md, Skills e Documentação).
 
-Garantir que o agente:
-* descubra corretamente quais Skills são relevantes para cada tarefa;
-* combine múltiplas Skills quando necessário;
-* não carregue Skills sem relação com a tarefa;
-* não ignore regras críticas;
-* não duplique regras entre Skills;
-* não crie novas Skills desnecessariamente;
-* mantenha as Skills pequenas, especializadas e coerentes;
-* trate cada Skill como uma fonte canônica de instruções dentro de seu escopo.
-
-Esta Skill governa **como as outras Skills devem ser usadas e mantidas**.
+## Quando NÃO aplicar
+- Para tarefas de implementação direta sem dúvidas de composição de skills;
+- Para consultas exclusivas a regras de negócio de estoque ou vendas (consultar `regras-de-negocio-erp`).
 
 ---
 
-## 1. Regra Principal de Seleção
+## 1. Princípio Geral de Classificação em 4 Camadas
 
-Antes de implementar qualquer alteração relevante, determine:
-1. Qual é a tarefa?
-2. Quais áreas do projeto serão afetadas?
-3. Quais tecnologias estão envolvidas?
-4. Quais domínios de negócio estão envolvidos?
-5. Quais Skills correspondem a essas áreas?
+A arquitetura de instruções do Morante Hub é organizada em quatro níveis de responsabilidade:
 
-> [!IMPORTANT]
-> **Nunca escolha automaticamente apenas uma Skill.** Uma tarefa comumente exige a composição de várias Skills simultâneas (ex: banco + regra de negócio + frontend).
+1. **CAMADA 1 — RULES (Regras Permanentes do Agente)**:
+   - *"O que o agente DEVE ou NÃO DEVE fazer em qualquer tarefa"*.
+   - Princípios permanentes, restrições universais, prevenções contra erros recorrentes.
+2. **CAMADA 2 — AGENTS.MD (Mapa Operacional do Agente)**:
+   - *"Como o agente descobre e orquestra o trabalho"*.
+   - Hierarquia oficial, mapa pré-flight em 3 níveis e matriz de roteamento de Skills e Documentação.
+3. **CAMADA 3 — SKILLS ESPECIALIZADAS (`.agents/skills/`)**:
+   - *"Como executar um trabalho especializado quando acionado"*.
+   - Conhecimento metodológico especializado: workflows, checklists, estratégias, anti-patterns, testes e ferramentas.
+4. **CAMADA 4 — DOCUMENTAÇÃO OFICIAL (`docs/`)**:
+   - *"Como o sistema funciona atualmente (Estado, Schemas, Fluxos e Decisões)"*.
+   - Fonte de verdade sobre entidades, máquinas de estado, diagramas Mermaid, ERDs, APIs e ADRs.
 
 ---
 
-## 2. Modelo de Composição em 3 Camadas
+## 2. Modelo de Composição em Camadas por Tarefa
 
-As Skills devem ser interpretadas em camadas:
+Nenhuma tarefa relevante deve ser executada utilizando apenas uma Skill. O agente deve compor as instruções em camadas:
 
 ```text
 ┌────────────────────────────────────────────────────────┐
-│  CAMADA GLOBAL (Universal - AGENTS.md)                 │
+│  CAMADA 1 & 2: GLOBAL (Universal - AGENTS.md)          │
 │  - Entenda antes de alterar                            │
 │  - Menor mudança necessária (sem refatoração inútil)   │
 │  - Investigação de causa raiz                          │
-│  - Proibição de inventar arquitetura                   │
 └───────────────────────────┬────────────────────────────┘
                             │
 ┌───────────────────────────▼────────────────────────────┐
-│  CAMADA TÉCNICA (Especializada por Tecnologia)         │
+│  CAMADA TÉCNICA (Skills Especializadas)                │
 │  - `modularizacao_codigo` (SOLID, coesão, 30-100 lin)  │
-│  - `eficiencia-dados-egress` (Supabase, paginação)     │
+│  - `database-supabase` (Paginação server-side, Egress) │
 │  - `testes-seguros-erp` (Vitest, Playwright, E2E)      │
 │  - `cloud-free-tier-guard` (APIs externas, Maps, AI)   │
 │  - `mobile-offline-first` (SQLite, fila de eventos)    │
 │  - `arquitetura-agente-gemini` (Function Calling)      │
+│  - `analise-compatibilidade-mudancas` (Fallbacks)      │
 └───────────────────────────┬────────────────────────────┘
                             │
 ┌───────────────────────────▼────────────────────────────┐
-│  CAMADA DE DOMÍNIO (Regras Oficiais de Negócio)        │
+│  CAMADA DE DOMÍNIO E DOCUMENTAÇÃO (`docs/`)            │
 │  - `regras-de-negocio-erp` (CMPM, estoque, devoluções) │
+│  - `modelagem-negocio-arquitetura` (Diagramas, Docs)   │
 │  - `nfe-sefaz-direto` (Fiscal, SEFAZ-PR, impostos)     │
 │  - `auditoria-e2e-assistente-financeiro` (Transações)  │
 └────────────────────────────────────────────────────────┘
@@ -68,77 +71,24 @@ As Skills devem ser interpretadas em camadas:
 
 ---
 
-## 3. Classificação Interna Obrigatória Pré-Implementação
+## 3. Resolução de Conflitos e Precedência de Fontes
 
-Antes de modificar qualquer código, confirme mentalmente:
+Quando houver divergência entre código, documentação e skills:
 
-```text
-Tarefa:
-Arquivos/módulos provavelmente afetados:
-Tecnologias envolvidas:
-Domínios envolvidos:
-Skills globais:
-Skills técnicas:
-Skills de domínio:
-```
-
----
-
-## 4. Regra de Resolução de Conflitos e Precedência
-
-Quando duas Skills, documentos ou trechos de código parecerem conflitantes, adote estritamente a seguinte ordem de análise:
-
-1. **Integridade e segurança dos dados** (prevenção contra perda, corrupção, inconsistência ou vazamento);
-2. **Regra de negócio canônica** (fórmulas oficiais de CMV, CMPM, estoque e fluxos de negócio registrados nas skills de domínio);
-3. **Investigação criteriosa de divergências (`Regra Oficial × Código em Produção`)**:
-   > [!IMPORTANT]
-   > O código em produção pode conter um bug silencioso ou legado, e a documentação pode estar desatualizada. **Divergência entre regra oficial e código significa INVESTIGAR A CAUSA RAIZ, e NUNCA adaptar automaticamente um ao outro.** Verifique se o código possui desvio de comportamento ou se a regra de produto evoluiu com aval do usuário.
-4. **Regras técnicas específicas da tecnologia** (TypeScript, Supabase, React, Expo);
+1. **Integridade e segurança dos dados** (prevenção contra corrupção ou perda irreversível de dados);
+2. **Regra de negócio canônica** (fórmulas e processos oficiais registrados nas skills de domínio e `docs/negocio/`);
+3. **Investigação de causa raiz (`Regra Oficial × Código em Produção`)**:
+   > Divergência entre regra oficial e código significa **INVESTIGAR A CAUSA RAIZ, e NUNCA adaptar automaticamente um ao outro.** Verifique se o código possui um bug silencioso ou se a regra evoluiu com aval do usuário.
+4. **Regras técnicas específicas** (TypeScript, React, Supabase, Expo);
 5. **Boas práticas genéricas de engenharia**.
 
-> [!WARNING]
-> Nunca escolha silenciosamente uma regra contraditória. Se houver divergência entre regra oficial, intenção de negócio e código que represente decisão ambígua de produto, consulte o usuário antes de prosseguir.
-
 ---
 
-## 5. Fonte Canônica Única (Single Source of Truth)
+## 4. Manutenção e Qualidade das Skills
 
-- Cada regra importante possui **um único local canônico**.
-- É proibido copiar fórmulas ou regras inteiras para outras Skills; use referências explícitas (ex: *"Para cálculo do CMV e CMPM, consulte a skill regras-de-negocio-erp"*).
-- Skills **não devem virar changelog** (*"Em agosto corrigimos..."*). A Skill deve documentar exclusivamente **como o sistema deve funcionar agora**.
-
----
-
-## 6. Critérios para Manutenção de Skills
-
-### Quando Criar Nova Skill
-- Existe um conjunto consistente e coeso de regras;
-- São reutilizadas frequentemente em tarefas futuras;
-- Possuem gatilhos de consulta claros e objetivos;
-- Misturá-las com outra Skill tornaria a existente excessivamente ampla.
-
-### Quando Dividir uma Skill
-- Mistura múltiplos domínios independentes;
-- Cresce excessivamente (> 500-800 linhas sem justificativa);
-- Precisa ser carregada frequentemente por causa de apenas uma pequena seção isolada.
-
-### Quando Fundir Skills
-- Possuem praticamente os mesmos gatilhos operacionais;
-- São normalmente utilizadas juntas em 100% dos casos;
-- Repetem regras ou tratam partes inseparáveis da mesma arquitetura.
-
----
-
-## 7. Gatilhos Obrigatórios em Toda Skill
-
-Toda Skill deve manter declarados no topo:
-1. `## Quando aplicar esta Skill` (lista de gatilhos acionadores objetivos);
-2. `## Quando NÃO aplicar` (cenários comuns onde a skill não deve ser carregada por engano);
-3. `## Skills relacionadas` (dependências cruzadas sem replicação de texto).
-
----
-
-## 8. Regra de Ouro Final
-
-> **Carregue o menor conjunto completo de instruções necessário para compreender corretamente a tarefa.**  
-> Nem o menor número possível (ignorando regras essenciais), nem todas as Skills por garantia (causando poluição e perda de foco).
+- **Princípio da Fonte Canônica Única**: Cada regra possui um único local oficial. Não duplicar regras de negócio no `AGENTS.md` ou em múltiplas skills.
+- **Estrutura Obrigatória de Toda Skill**:
+  - Frontmatter com `name` e `description` orientada a gatilhos;
+  - `## Quando aplicar esta Skill`;
+  - `## Quando NÃO aplicar`;
+  - `## Referências e Fonte Canônica de Documentação`.

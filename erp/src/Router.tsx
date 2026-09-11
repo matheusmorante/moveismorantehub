@@ -181,12 +181,13 @@ function Router() {
             <Route path='/users' element={<AdminRoute><AccessAndUsersPage /></AdminRoute>} />
             <Route path='/profile' element={<ProfilePage />} />
 
-            {/* Módulo Financeiro */}
-            <Route path='/finance/dashboard' element={<AdminRoute><FinanceDashboard /></AdminRoute>} />
-            <Route path='/finance/payables' element={<AdminRoute><Payables /></AdminRoute>} />
-            <Route path='/finance/receivables' element={<AdminRoute><Receivables /></AdminRoute>} />
-            <Route path='/finance/transactions' element={<AdminRoute><Transactions /></AdminRoute>} />
-            <Route path='/finance/settings' element={<AdminRoute><FinanceSettings /></AdminRoute>} />
+            {/* Módulo Financeiro (Movimentações) */}
+            <Route path='/finance' element={<Navigate to="/finance/transactions" replace />} />
+            <Route path='/finance/dashboard' element={<Navigate to="/finance/transactions" replace />} />
+            <Route path='/finance/payables' element={<Navigate to="/finance/transactions" replace />} />
+            <Route path='/finance/receivables' element={<Navigate to="/finance/transactions" replace />} />
+            <Route path='/finance/transactions' element={<Transactions />} />
+            <Route path='/finance/settings' element={<FinanceSettings />} />
             <Route path='/logistics/assembly-list' element={<AssemblyListPage />} />
             <Route path='/mobile-app' element={<MobileAppLanding />} />
             <Route path='/system-docs' element={<SystemDocs />} />

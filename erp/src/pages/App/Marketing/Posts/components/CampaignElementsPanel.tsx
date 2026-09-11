@@ -1,5 +1,10 @@
-import React, { useMemo, useState } from 'react';
-import { ELEMENT_TYPES, ElementModel, ElementType, elementLabel } from '../types/postCreator';
+import React, { useState } from 'react';
+import { ElementModel, ElementType, elementLabel } from '../types/postCreator';
+import {
+  PostProductImagesSpec,
+  PostProductImagesValidation,
+} from '../../types/postSpecification';
+import { PromptImagesStrip } from './PromptPreview/PromptImagesStrip';
 
 type Opportunity = { id: string; name: string };
 
@@ -11,6 +16,16 @@ type Props = {
   onEdit: (model: ElementModel) => void;
   onView: (model: ElementModel) => void;
   hasProductOpportunity?: boolean;
+  product?: any | null;
+  productImages?: PostProductImagesSpec | null;
+  imagesValidation?: PostProductImagesValidation | null;
+  opportunityName?: string | null;
+  opportunityBadgeUrl?: string | null;
+  onChangePrimary?: (url: string) => void;
+  onChangeOpenView?: (url: string | null) => void;
+  onChangeVariation?: (variationId: string, url: string) => void;
+  onResetOverrides?: () => void;
+  hasManualOverrides?: boolean;
 };
 
 // Agrupamento visual conceitual (sem alterar regras de negócio)
@@ -31,9 +46,10 @@ const ELEMENT_GROUPS = [
     types: ['POST_REFERENCE', 'COLOR_THEME', 'BACKGROUND', 'LOGO', 'HEADER', 'FOOTER'] as ElementType[],
   },
   {
-    name: 'Estrutura do Produto',
-    icon: '📦',
-    types: ['OPEN_VIEW', 'VARIATION_GALLERY'] as ElementType[],
+    name: 'Imagens',
+    icon: '🖼️',
+    types: [] as ElementType[],
+    isImagesGroup: true,
   },
   {
     name: 'Ação',
@@ -93,21 +109,18 @@ export function CampaignElementsPanel({
   onEdit,
   onView,
   hasProductOpportunity = true,
+  product,
+  productImages,
+  imagesValidation,
+  opportunityName,
+  opportunityBadgeUrl,
+  onChangePrimary,
+  onChangeOpenView,
+  onChangeVariation,
+  onResetOverrides,
+  hasManualOverrides,
 }: Props) {
   const [open, setOpen] = useState<ElementType | null>(null);
-  const [searchQuery, setSearchQuery] = useState('');
-
-  // Busca rápida de elementos
-  const filteredTypes = useMemo(() => {
-    const query = searchQuery.trim().toLowerCase();
-    if (!query) return null;
-    return ELEMENT_TYPES.filter(type => {
-      const label = elementLabel[type].toLowerCase();
-      const matchLabel = label.includes(query);
-      const matchModel = models.some(m => m.elementType === type && m.name.toLowerCase().includes(query));
-      return matchLabel || matchModel;
-    });
-  }, [searchQuery, models]);
 
   // Contagem para o cabeçalho compacto
   const totalConfigured = models.length;
@@ -115,63 +128,68 @@ export function CampaignElementsPanel({
   return (
     <aside className="rounded-xl border border-slate-800 bg-slate-900/70 overflow-hidden shadow-lg">
       {/* Cabeçalho da Biblioteca */}
-      <div className="border-b border-slate-800 p-3.5 sm:p-4 space-y-2">
-        <div className="flex items-center justify-between gap-2">
-          <h2 className="text-xs sm:text-sm font-black uppercase tracking-wider text-white truncate">
-            Biblioteca de elementos{campaignName ? ` — ${campaignName}` : ''}
-          </h2>
-          <span className="text-[10px] font-bold text-slate-400 bg-slate-800 px-2 py-0.5 rounded shrink-0">
-            {totalConfigured} configurados
-          </span>
-        </div>
-
-        {/* Input de Busca de Elementos */}
-        <div className="relative">
-          <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs text-slate-500">🔍</span>
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={e => setSearchQuery(e.target.value)}
-            placeholder="Buscar elemento na campanha..."
-            className="w-full rounded-lg bg-slate-950 border border-slate-800 pl-8 pr-7 py-1.5 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-indigo-500"
-          />
-          {searchQuery && (
-            <button
-              type="button"
-              onClick={() => setSearchQuery('')}
-              className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-slate-400 hover:text-white"
-            >
-              ✕
-            </button>
-          )}
-        </div>
+      <div className="border-b border-slate-800 p-3.5 sm:p-4 flex items-center justify-between gap-2">
+        <h2 className="text-xs sm:text-sm font-black uppercase tracking-wider text-white truncate">
+          Biblioteca de elementos{campaignName ? ` — ${campaignName}` : ''}
+        </h2>
+        <span className="text-[10px] font-bold text-slate-400 bg-slate-800 px-2 py-0.5 rounded shrink-0">
+          {totalConfigured} configurados
+        </span>
       </div>
 
       {/* Lista com Grupos Conceituais e Accordions */}
       <div className="divide-y divide-slate-800 max-h-[700px] overflow-y-auto scrollbar-thin scrollbar-thumb-slate-700">
-        {filteredTypes ? (
-          // Modo busca ativa (lista direta dos resultados)
-          <div className="p-2 space-y-1">
-            {filteredTypes.length === 0 ? (
-              <p className="p-4 text-center text-xs text-slate-500">Nenhum elemento encontrado para &quot;{searchQuery}&quot;.</p>
-            ) : (
-              filteredTypes.map(type => renderElementRow(type))
-            )}
-          </div>
-        ) : (
-          // Modo normal por grupos conceituais
-          ELEMENT_GROUPS.map(group => {
+        {ELEMENT_GROUPS.map(group => {
+          if (group.isImagesGroup) {
             return (
               <div key={group.name} className="py-1">
-                <div className="px-3.5 py-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-400 bg-slate-950/40 flex items-center gap-1.5">
-                  <span>{group.icon}</span>
-                  <span>{group.name}</span>
+                <div className="px-3.5 py-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-400 bg-slate-950/40 flex items-center justify-between">
+                  <div className="flex items-center gap-1.5">
+                    <span>{group.icon}</span>
+                    <span>{group.name}</span>
+                  </div>
+                  <span className="text-[10px] font-bold text-indigo-400">
+                    Fotos reais do produto
+                  </span>
                 </div>
-                {group.types.map(type => renderElementRow(type))}
+                <div className="p-3">
+                  {product ? (
+                    <PromptImagesStrip
+                      product={product}
+                      productImages={productImages}
+                      validation={imagesValidation}
+                      opportunityName={opportunityName}
+                      opportunityBadgeUrl={opportunityBadgeUrl}
+                      onChangePrimary={onChangePrimary}
+                      onChangeOpenView={onChangeOpenView}
+                      onChangeVariation={onChangeVariation}
+                      onResetOverrides={onResetOverrides}
+                      hasManualOverrides={hasManualOverrides}
+                    />
+                  ) : (
+                    <div className="rounded-lg border border-dashed border-slate-800 bg-slate-950/50 p-6 text-center text-xs text-slate-400">
+                      <span className="text-xl block mb-1">📸</span>
+                      <p className="font-semibold text-slate-300">Nenhum produto selecionado</p>
+                      <p className="text-[11px] text-slate-500 mt-0.5">
+                        Selecione um produto no topo da página para escolher a foto principal, secundária e variações para a IA.
+                      </p>
+                    </div>
+                  )}
+                </div>
               </div>
             );
-          })
-        )}
+          }
+
+          return (
+            <div key={group.name} className="py-1">
+              <div className="px-3.5 py-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-400 bg-slate-950/40 flex items-center gap-1.5">
+                <span>{group.icon}</span>
+                <span>{group.name}</span>
+              </div>
+              {group.types.map(type => renderElementRow(type))}
+            </div>
+          );
+        })}
       </div>
     </aside>
   );

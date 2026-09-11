@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Link, Outlet, useLocation } from "react-router-dom";
 import { ToastContainer, toast } from "react-toastify";
 import { useTheme } from "./context/ThemeContext";
@@ -21,10 +21,29 @@ export default function AppLayout() {
   const [activeMenu, setActiveMenu] = useState<MenuKey>(null);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isAgentOpen, setIsAgentOpen] = useState(false);
+  const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
+  const profileCloseTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const { theme, toggleTheme } = useTheme();
   const { user, profile, logout, isAdmin } = useAuth();
   const [isAssistanceModalOpen, setIsAssistanceModalOpen] = useState(false);
   const [assistanceInitialData, setAssistanceInitialData] = useState<any>(null);
+
+  const handleProfileMouseEnter = () => {
+    if (profileCloseTimeoutRef.current) {
+      clearTimeout(profileCloseTimeoutRef.current);
+      profileCloseTimeoutRef.current = null;
+    }
+    setIsProfileMenuOpen(true);
+  };
+
+  const handleProfileMouseLeave = () => {
+    if (profileCloseTimeoutRef.current) {
+      clearTimeout(profileCloseTimeoutRef.current);
+    }
+    profileCloseTimeoutRef.current = setTimeout(() => {
+      setIsProfileMenuOpen(false);
+    }, 500);
+  };
 
   useEffect(() => {
     const handleOpenAssistance = (e: any) => {
@@ -94,7 +113,7 @@ export default function AppLayout() {
 
       {/* Header (Oculto no App Mobile e telas menores para evitar cabeçalho duplo) */}
       {!isMobileAppView && !isTemplateEditor && (
-        <header className={`w-full glass-header px-4 lg:px-8 xl:px-12 h-14 xl:h-16 flex items-center justify-between sticky top-0 ${activeMenu ? 'z-[99999]' : 'z-50 hover:z-[99999] focus-within:z-[99999]'} shadow-premium transition-all duration-500`}>
+        <header className={`w-full glass-header px-4 lg:px-8 xl:px-12 h-14 xl:h-16 flex items-center justify-between sticky top-0 ${activeMenu || isProfileMenuOpen ? 'z-[99999]' : 'z-50 hover:z-[99999] focus-within:z-[99999]'} shadow-premium transition-all duration-500`}>
           <div className="flex items-center gap-6 xl:gap-12 h-full">
             <button
               className="block xl:hidden p-2.5 text-slate-500 hover:text-blue-600 dark:text-slate-400 dark:hover:text-blue-400 transition-all rounded-xl hover:bg-white dark:hover:bg-slate-900 shadow-premium-sm"
@@ -122,9 +141,16 @@ export default function AppLayout() {
               <i className={`bi ${theme === 'dark' ? 'bi-sun-fill text-amber-500' : 'bi-moon-stars-fill text-blue-600'} text-lg`}></i>
             </button>
 
-            {/* User Profile */}
-            <div className="relative group">
-              <button className="flex items-center gap-2 p-1 pl-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full transition-all border border-transparent hover:border-slate-200 dark:hover:border-slate-700">
+            {/* User Profile Container com hover seguro (delay de 500ms antes de fechar) */}
+            <div
+              className="relative"
+              onMouseEnter={handleProfileMouseEnter}
+              onMouseLeave={handleProfileMouseLeave}
+            >
+              <button
+                onClick={() => setIsProfileMenuOpen((prev) => !prev)}
+                className="flex items-center gap-2 p-1 pl-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full transition-all border border-transparent hover:border-slate-200 dark:hover:border-slate-700 cursor-pointer"
+              >
                 <div className="w-8 h-8 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold text-xs uppercase shadow-md shadow-blue-500/20">
                   {profile?.full_name?.charAt(0) || user?.email?.charAt(0) || 'U'}
                 </div>
@@ -133,71 +159,93 @@ export default function AppLayout() {
                     {profile?.full_name || user?.email?.split('@')[0]}
                   </span>
                   <span className="text-[10px] text-slate-400 dark:text-slate-500 uppercase tracking-wider font-semibold">
-                    {isAdmin ? 'Admin' : 'Usuário'}
+                    {isAdmin ? 'Administrador' : 'Usuário'}
                   </span>
                 </div>
-                <i className="bi bi-chevron-down text-xs text-slate-400"></i>
+                <i className={`bi bi-chevron-down text-xs text-slate-400 transition-transform duration-200 ${isProfileMenuOpen ? 'rotate-180' : ''}`}></i>
               </button>
 
               {/* Profile Dropdown */}
-              <div className="absolute right-0 top-full mt-2 w-64 bg-white dark:bg-slate-900 rounded-[2rem] shadow-premium-hover border border-slate-100 dark:border-slate-800 p-2 hidden group-hover:block transition-all z-50">
-                <div className="p-4 border-b border-slate-100 dark:border-slate-800">
-                  <p className="text-sm font-black text-slate-900 dark:text-slate-100 truncate">{profile?.full_name || 'Usuário'}</p>
-                  <p className="text-xs text-slate-400 truncate">{user?.email}</p>
-                  <span className="inline-block mt-2 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400">
-                    {isAdmin ? 'Administrador' : 'Colaborador'}
-                  </span>
-                </div>
+              {isProfileMenuOpen && (
+                <div
+                  className="absolute right-0 top-full mt-2 w-64 max-h-[85vh] overflow-y-auto bg-white dark:bg-slate-900 rounded-[2rem] shadow-premium-hover border border-slate-100 dark:border-slate-800 p-2 transition-all z-[99999] animate-slide-up"
+                  onMouseEnter={handleProfileMouseEnter}
+                  onMouseLeave={handleProfileMouseLeave}
+                >
+                  <div className="p-4 border-b border-slate-100 dark:border-slate-800">
+                    <p className="text-sm font-black text-slate-900 dark:text-slate-100 truncate">{profile?.full_name || 'Usuário'}</p>
+                    <p className="text-xs text-slate-400 truncate">{user?.email}</p>
+                    <span className="inline-block mt-2 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400">
+                      {isAdmin ? 'Administrador' : 'Colaborador'}
+                    </span>
+                  </div>
 
-                <div className="p-2 space-y-1">
-                  <Link
-                    to="/profile"
-                    className="w-full flex items-center gap-3 px-4 py-2.5 text-xs font-bold text-slate-600 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-slate-50 dark:hover:bg-slate-800/50 rounded-xl transition-all"
-                  >
-                    <i className="bi bi-person text-base"></i>
-                    Meu Perfil
-                  </Link>
+                  <div className="p-2 space-y-1">
+                    <Link
+                      to="/profile"
+                      onClick={() => setIsProfileMenuOpen(false)}
+                      className="w-full flex items-center gap-3 px-4 py-2.5 text-xs font-bold text-slate-600 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-slate-50 dark:hover:bg-slate-800/50 rounded-xl transition-all"
+                    >
+                      <i className="bi bi-person text-base"></i>
+                      Meu Perfil
+                    </Link>
 
-                  {isAdmin && (
-                    <>
-                      <Link
-                        to="/settings"
-                        className="w-full flex items-center gap-3 px-4 py-2.5 text-xs font-bold text-slate-600 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-slate-50 dark:hover:bg-slate-800/50 rounded-xl transition-all"
-                      >
-                        <i className="bi bi-gear-fill text-base"></i>
-                        Configurações do ERP
-                      </Link>
-                      <Link
-                        to="/finance/dashboard"
-                        className="w-full flex items-center gap-3 px-4 py-2.5 text-xs font-bold text-slate-600 dark:text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-slate-50 dark:hover:bg-slate-800/50 rounded-xl transition-all"
-                      >
-                        <i className="bi bi-bank2 text-lg"></i>
-                        Financeiro e Rede
-                      </Link>
-                      
-                      <a
+                    <Link
+                      to="/system-docs"
+                      onClick={() => setIsProfileMenuOpen(false)}
+                      className="w-full flex items-center gap-3 px-4 py-2.5 text-xs font-bold text-slate-600 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-slate-50 dark:hover:bg-slate-800/50 rounded-xl transition-all"
+                    >
+                      <i className="bi bi-book-half text-base text-indigo-500"></i>
+                      Documentação do Sistema
+                    </Link>
+
+                    {isAdmin && (
+                      <>
+                        <Link
+                          to="/settings"
+                          onClick={() => setIsProfileMenuOpen(false)}
+                          className="w-full flex items-center gap-3 px-4 py-2.5 text-xs font-bold text-slate-600 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-slate-50 dark:hover:bg-slate-800/50 rounded-xl transition-all"
+                        >
+                          <i className="bi bi-gear-fill text-base"></i>
+                          Configurações do ERP
+                        </Link>
+                        <Link
+                          to="/finance/dashboard"
+                          onClick={() => setIsProfileMenuOpen(false)}
+                          className="w-full flex items-center gap-3 px-4 py-2.5 text-xs font-bold text-slate-600 dark:text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-slate-50 dark:hover:bg-slate-800/50 rounded-xl transition-all"
+                        >
+                          <i className="bi bi-bank2 text-lg"></i>
+                          Financeiro e Rede
+                        </Link>
+                        
+                        <a
                           href="https://expo.dev/artifacts/eas/2z1WIeabVBd27Zg66LdlZJTyjyR2v895eRnUiXwwHg0.apk"
                           target="_blank"
                           rel="noopener noreferrer"
+                          onClick={() => setIsProfileMenuOpen(false)}
                           className="flex items-center gap-3 px-4 py-3 rounded-2xl text-xs font-black uppercase tracking-wider text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500 hover:text-white transition-all shadow-sm group"
                         >
-                        <i className="bi bi-android2 text-blue-400"></i>
-                        <span>Baixar App Android</span>
-                      </a>
-                    </>
-                  )}
+                          <i className="bi bi-android2 text-blue-400"></i>
+                          <span>Baixar App Android</span>
+                        </a>
+                      </>
+                    )}
+                  </div>
+
+                  <div className="h-px bg-slate-100 dark:bg-slate-800 my-2 mx-4"></div>
+
+                  <button
+                    onClick={() => {
+                      setIsProfileMenuOpen(false);
+                      logout();
+                    }}
+                    className="w-full flex items-center gap-4 p-3 text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/20 rounded-[1.5rem] transition-all font-bold text-[10px] uppercase tracking-widest cursor-pointer"
+                  >
+                    <i className="bi bi-box-arrow-right text-lg"></i>
+                    Encerrar Sessão
+                  </button>
                 </div>
-
-                <div className="h-px bg-slate-100 dark:bg-slate-800 my-3 mx-4"></div>
-
-                <button
-                  onClick={logout}
-                  className="w-full flex items-center gap-4 p-4 text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/20 rounded-[1.5rem] transition-all font-bold text-[10px] uppercase tracking-widest"
-                >
-                  <i className="bi bi-box-arrow-right text-lg"></i>
-                  Encerrar Sessão
-                </button>
-              </div>
+              )}
             </div>
           </div>
         </header>

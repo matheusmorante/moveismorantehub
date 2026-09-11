@@ -12,6 +12,7 @@ import { aiService } from '@/pages/utils/aiService';
 import { fetchSupplierProductsForContext, buildSupplierContextSummary, SupplierProductSummary } from '@/pages/utils/inboundNfe/inboundSupplierProductContext';
 import { toast } from 'react-toastify';
 import { formatCurrency } from '@/pages/utils/formatters';
+import ProductFormModal from '@/pages/App/Products/ProductFormModal';
 import { InboundInvoiceItemFiscalReview } from './InboundInvoiceItemFiscalReview';
 import { itemCostRate, itemCostWithAdditionalCosts, itemFiscalOtherExpensesCost, itemFreightCost, itemIpiCost, itemNonFiscalOtherExpensesCost } from '@/pages/utils/inboundNfe/inboundItemCosts';
 
@@ -42,10 +43,10 @@ export function InboundInvoiceItemsReview({ items, supplierId, suppliers, onChan
     const [isSuggestingName, setIsSuggestingName] = useState(false);
     const [searchingItemNumber, setSearchingItemNumber] = useState<number | null>(null);
     const [individualItem, setIndividualItem] = useState<InboundInvoiceItem | null>(null);
-    const [individualCountdown, setIndividualCountdown] = useState(5);
     const [individualMarkup, setIndividualMarkup] = useState('');
     const [suggestedCategory, setSuggestedCategory] = useState<{ id: string; name: string } | null>(null);
     const [isPreparingProduct, setIsPreparingProduct] = useState(false);
+    const [isProductModalOpen, setIsProductModalOpen] = useState(false);
     // IA com contexto de fornecedor
     const [isClassifying, setIsClassifying] = useState(false);
     const [aiClassification, setAiClassification] = useState<AiClassification | null>(null);
@@ -59,21 +60,6 @@ export function InboundInvoiceItemsReview({ items, supplierId, suppliers, onChan
     const supplier = suppliers.find((person) => person.id === supplierId);
     const effectiveMarkup = individualMarkup;
     const setEffectiveMarkup = setIndividualMarkup;
-
-    useEffect(() => {
-        if (!individualItem) return;
-        setIndividualCountdown(5);
-        const timer = window.setInterval(() => {
-            setIndividualCountdown((current) => {
-                if (current <= 1) {
-                    window.clearInterval(timer);
-                    return 0;
-                }
-                return current - 1;
-            });
-        }, 1000);
-        return () => window.clearInterval(timer);
-    }, [individualItem]);
 
     /** Obtém os produtos do fornecedor, usando cache quando disponível. */
     const getSupplierProducts = async (): Promise<SupplierProductSummary[]> => {
@@ -95,7 +81,7 @@ export function InboundInvoiceItemsReview({ items, supplierId, suppliers, onChan
      * Passo 1: classifica o item com IA antes de abrir o fluxo de criação.
      * Se não houver produtos do fornecedor, vai direto para o fluxo normal.
      */
-    const classifyAndStart = async (item: InboundInvoiceItem, queue: number[] = []) => {
+    const classifyAndStart = async (item: InboundInvoiceItem, queue: number[] = [], markupInput?: string) => {
         if (!supplierId) return toast.info('Vincule o fornecedor para identificar ou cadastrar os produtos.');
         // Vínculo confirmado por código do fornecedor tem prioridade máxima
         if (item.productCode) {
@@ -114,7 +100,7 @@ export function InboundInvoiceItemsReview({ items, supplierId, suppliers, onChan
             const supplierProducts = await getSupplierProducts();
             if (!supplierProducts.length) {
                 setIsClassifying(false);
-                void startCreation(item, queue);
+                void startCreation(item, queue, undefined, markupInput);
                 return;
             }
             const contextSummary = buildSupplierContextSummary(supplierProducts);
@@ -125,17 +111,17 @@ export function InboundInvoiceItemsReview({ items, supplierId, suppliers, onChan
             });
             setIsClassifying(false);
             if (classification.decision === 'NEW_PRODUCT' || classification.decision === 'UNSURE' || !classification.matchedProductId) {
-                void startCreation(item, queue);
+                void startCreation(item, queue, undefined, markupInput);
                 return;
             }
             setAiClassification(classification);
         } catch {
             setIsClassifying(false);
-            void startCreation(item, queue);
+            void startCreation(item, queue, undefined, markupInput);
         }
     };
 
-    const startCreation = async (item: InboundInvoiceItem, queue: number[] = [], family?: { id: string; name: string }) => {
+    const startCreation = async (item: InboundInvoiceItem, queue: number[] = [], family?: { id: string; name: string }, markupInput?: string) => {
         if (!supplierId) return toast.info('Vincule o fornecedor para identificar ou cadastrar os produtos.');
         setCreationQueue(queue);
         setCreatingItemNumber(item.itemNumber);
@@ -148,21 +134,43 @@ export function InboundInvoiceItemsReview({ items, supplierId, suppliers, onChan
             const categorySuggestion = await aiService.suggestCategory(suggestion.title, categoryNames);
             const category = categories.find((candidate) => candidate.name.toLocaleLowerCase() === String(categorySuggestion.category || '').toLocaleLowerCase()) || categories[0];
             if (!category) throw new Error('Nenhuma categoria existente foi encontrada para o produto.');
+            
+            const finalCost = finalItemCost(item);
+            const markup = markupInput ? Number(markupInput.replace(',', '.')) : 0;
+            const salePrice = Number.isFinite(markup) && markup > 0 ? Number((finalCost * (1 + markup / 100)).toFixed(2)) : 0;
+
             setSuggestedCategory({ id: category.id, name: category.name });
             setInitialProductData({
-                name: suggestion.title, title: suggestion.title, description: item.productDescription,
-                unit: item.unit || 'UN', itemType: 'product', active: true, isDraft: false, status: 'hidden',
-                mainSupplierId: supplierId, supplierId, supplierIds: [supplierId],
-                supplierRef: item.productCode || undefined, categoryIds: [category.id],
+                name: suggestion.title,
+                title: suggestion.title,
+                description: '', // Descrição vazia para gerar/aperfeiçoar via IA no formulário se desejar
+                unit: item.unit || 'UN',
+                itemType: 'product',
+                active: true,
+                isDraft: false,
+                status: 'hidden',
+                mainSupplierId: supplierId,
+                supplierId,
+                supplierIds: [supplierId],
+                supplierRef: item.productCode || undefined,
+                categoryIds: [category.id],
                 parentId: family?.id,
+                costPrice: finalCost,
+                finalPurchasePrice: finalCost,
+                unitPrice: salePrice,
+                stock: item.quantity || 0,
                 fiscal: { ncm: item.ncm || undefined, cest: item.cest || undefined, cfop: item.cfop || undefined },
-                unitPrice: 0, ecommerceSync: false, whatsappSync: false,
+                ecommerceSync: false,
+                whatsappSync: false,
             });
+            setIsProductModalOpen(true);
         } catch (error: any) {
-            setInitialProductData(null); setCreatingItemNumber(null);
+            setInitialProductData(null);
+            setCreatingItemNumber(null);
             toast.error(error.message || 'Não foi possível preparar categoria e dados obrigatórios do produto.');
         } finally {
-            setIsSuggestingName(false); setIsPreparingProduct(false);
+            setIsSuggestingName(false);
+            setIsPreparingProduct(false);
         }
     };
 
@@ -223,27 +231,36 @@ export function InboundInvoiceItemsReview({ items, supplierId, suppliers, onChan
         if (item) void startCreation(item, queue);
     };
 
-    const createProductDirectly = async (markupInput: string) => {
-        if (!creatingItem || !supplierId || !initialProductData) return;
-        const markup = Number(markupInput.replace(',', '.'));
-        if (!Number.isFinite(markup) || markup < 0) return toast.error('Informe um acréscimo válido sobre o custo final.');
-        const finalCost = finalItemCost(creatingItem);
-        const salePrice = Number((finalCost * (1 + markup / 100)).toFixed(2));
-        const prepared = ensureDefaultVariation({ ...initialProductData, unitPrice: salePrice, costPrice: finalCost, finalPurchasePrice: finalCost, active: true, isDraft: false, status: 'hidden', categoryIds: suggestedCategory ? [suggestedCategory.id] : initialProductData.categoryIds, mainSupplierId: supplierId, supplierId, supplierIds: [supplierId] } as Product);
-        try {
-            const productId = await saveProduct(prepared, true);
-            const createdProduct = { ...prepared, id: productId };
-            await saveProductSupplierCode({ supplierId, productId, productVariationId: createdProduct.variations?.[0]?.id, supplierProductCode: creatingItem.productCode, supplierDescription: creatingItem.productDescription });
-            onChange(creatingItem.itemNumber, { matchedProductId: productId, matchedVariationId: createdProduct.variations?.[0]?.id, linkedProductCode: createdProduct.variations?.[0]?.sku || createdProduct.code || '', productErpName: createdProduct.name || createdProduct.title || creatingItem.productDescription });
-            handleCreated(createdProduct);
-        } catch (error: any) {
-            toast.error(error.message || 'Não foi possível cadastrar o produto.');
-        }
-    };
+    const handleCreatedProductFromModal = async (createdProduct: Product) => {
+        setIsProductModalOpen(false);
+        if (!creatingItemNumber || !supplierId) return;
 
-    const handleCreated = (product: Product) => {
-        const nextQueue = creationQueue.filter((itemNumber) => itemNumber !== creatingItem.itemNumber);
-        setCreatingItemNumber(null); setInitialProductData(null); setSuggestedCategory(null); setIndividualMarkup('');
+        const currentItem = items.find((item) => item.itemNumber === creatingItemNumber);
+        if (currentItem) {
+            try {
+                await saveProductSupplierCode({
+                    supplierId,
+                    productId: createdProduct.id,
+                    productVariationId: createdProduct.variations?.[0]?.id,
+                    supplierProductCode: currentItem.productCode,
+                    supplierDescription: currentItem.productDescription,
+                });
+                onChange(currentItem.itemNumber, {
+                    matchedProductId: createdProduct.id,
+                    matchedVariationId: createdProduct.variations?.[0]?.id,
+                    linkedProductCode: createdProduct.variations?.[0]?.sku || createdProduct.code || '',
+                    productErpName: createdProduct.name || createdProduct.title || currentItem.productDescription,
+                });
+                toast.success(`Produto "${createdProduct.name || createdProduct.title}" cadastrado e vinculado.`);
+            } catch (error: any) {
+                toast.error('Produto cadastrado, mas não foi possível vincular o código do fornecedor.');
+            }
+        }
+        const nextQueue = creationQueue.filter((itemNumber) => itemNumber !== creatingItemNumber);
+        setCreatingItemNumber(null);
+        setInitialProductData(null);
+        setSuggestedCategory(null);
+        setIndividualMarkup('');
         advanceQueue(nextQueue);
     };
 
@@ -263,8 +280,9 @@ export function InboundInvoiceItemsReview({ items, supplierId, suppliers, onChan
     const confirmIndividualCreation = () => {
         if (!individualItem) return;
         const item = individualItem;
+        const markup = individualMarkup;
         setIndividualItem(null);
-        void classifyAndStart(item);
+        void classifyAndStart(item, [], markup);
     };
 
     return (
@@ -322,12 +340,14 @@ export function InboundInvoiceItemsReview({ items, supplierId, suppliers, onChan
                     <h3 className="text-base font-black text-slate-800 dark:text-slate-100">Cadastrar produto</h3>
                     <p className="mt-3 text-sm leading-6 text-slate-600 dark:text-slate-300">Confirme que este produto ainda não existe no ERP. Antes de cadastrar, utilize “Vincular existente” para pesquisar possíveis correspondências.</p>
                     <p className="mt-4 rounded-xl bg-slate-50 p-3 text-xs font-bold text-slate-700 dark:bg-slate-950 dark:text-slate-200">{individualItem.productDescription}</p>
-                    <label className="mt-4 block text-xs font-black text-slate-600 dark:text-slate-300">Acréscimo sobre o custo final (%)<input type="number" min="0" step="0.01" required value={individualMarkup} onChange={(event) => setIndividualMarkup(event.target.value)} className="mt-1 w-full rounded-lg border px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-950" /></label>
-                    <p className="mt-3 text-xs text-slate-500">Custo final estimado: <b>{formatCurrency(finalItemCost(individualItem))}</b> · Preço estimado: <b>{individualMarkup.trim() ? formatCurrency(finalItemCost(individualItem) * (1 + Number(individualMarkup.replace(',', '.')) / 100)) : 'Informe o acréscimo'}</b></p>
-                    <div className="mt-5 flex justify-end gap-2"><button type="button" onClick={() => setIndividualItem(null)} className="rounded-lg px-3 py-2 text-xs font-black text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800">Cancelar</button><button type="button" disabled={individualCountdown > 0 || !individualMarkup.trim()} onClick={confirmIndividualCreation} className="rounded-lg bg-emerald-600 px-3 py-2 text-xs font-black text-white disabled:cursor-not-allowed disabled:opacity-50">{individualCountdown > 0 ? `Confirmar cadastro em ${individualCountdown}s` : 'Confirmar cadastro'}</button></div>
+                    <label className="mt-4 block text-xs font-black text-slate-600 dark:text-slate-300">Acréscimo sobre o custo final (%)<input type="number" min="0" step="0.01" value={individualMarkup} onChange={(event) => setIndividualMarkup(event.target.value)} className="mt-1 w-full rounded-lg border px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-950" /></label>
+                    <p className="mt-3 text-xs text-slate-500">Custo final unitário: <b>{formatCurrency(finalItemCost(individualItem))}</b> · Preço estimado: <b>{individualMarkup.trim() ? formatCurrency(finalItemCost(individualItem) * (1 + Number(individualMarkup.replace(',', '.')) / 100)) : 'Informe o acréscimo (opcional)'}</b></p>
+                    <div className="mt-5 flex justify-end gap-2"><button type="button" onClick={() => setIndividualItem(null)} className="rounded-lg px-3 py-2 text-xs font-black text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800">Cancelar</button><button type="button" onClick={confirmIndividualCreation} className="rounded-lg bg-emerald-600 px-3.5 py-2 text-xs font-black text-white hover:bg-emerald-700">Abrir cadastro</button></div>
                 </section>
             </div>}
-            {creatingItemNumber && initialProductData && !isPreparingProduct && <div className="fixed inset-0 z-[1000006] flex items-center justify-center bg-slate-950/60 p-4"><section className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl dark:bg-slate-900"><h3 className="text-base font-black text-slate-800 dark:text-slate-100">Confirmar cadastro inteligente</h3><p className="mt-2 text-sm text-slate-600 dark:text-slate-300">A categoria foi selecionada automaticamente entre as categorias existentes. O nome foi sugerido pelo Gemini e pode ser revisado antes do cadastro.</p><div className="mt-4 space-y-2 rounded-xl bg-slate-50 p-3 text-xs dark:bg-slate-950"><p><b>Nome:</b> {initialProductData.name}</p><p><b>Categoria:</b> {suggestedCategory?.name || 'Não encontrada'}</p><p><b>NCM:</b> {initialProductData.fiscal?.ncm || 'Não informado na NF'}</p><p><b>Custo final:</b> {creatingItem ? formatCurrency(finalItemCost(creatingItem)) : '—'}</p></div><label className="mt-4 block text-xs font-black text-slate-600 dark:text-slate-300">Acréscimo sobre o custo final (%)<input type="number" min="0" step="0.01" value={individualMarkup} onChange={(event) => setIndividualMarkup(event.target.value)} className="mt-1 w-full rounded-lg border px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-950" /></label><p className="mt-2 text-xs text-slate-500">Preço de venda estimado: <b>{creatingItem && individualMarkup.trim() ? formatCurrency(finalItemCost(creatingItem) * (1 + Number(individualMarkup.replace(',', '.')) / 100)) : 'Informe o acréscimo'}</b></p><div className="mt-5 flex justify-end gap-2"><button type="button" onClick={() => { setCreatingItemNumber(null); setInitialProductData(null); setCreationQueue([]); }} className="rounded-lg px-3 py-2 text-xs font-black text-slate-500">Cancelar</button><button type="button" onClick={() => void createProductDirectly(individualMarkup)} className="rounded-lg bg-emerald-600 px-3 py-2 text-xs font-black text-white">Cadastrar e vincular</button></div></section></div>}
+            {isPreparingProduct && <div className="fixed inset-0 z-[1000006] flex items-center justify-center bg-slate-950/60 p-4"><section className="w-full max-w-sm rounded-2xl bg-white p-6 text-center shadow-2xl dark:bg-slate-900"><i className="bi bi-arrow-repeat text-3xl text-emerald-600 animate-spin inline-block" /><h3 className="mt-3 text-base font-black text-slate-800 dark:text-slate-100">Preparando formulário...</h3><p className="mt-2 text-xs text-slate-500 dark:text-slate-400">Classificando categoria e estruturando dados do produto com IA.</p></section></div>}
+            {/* Modal de Formulário Completo de Produtos */}
+            <ProductFormModal isOpen={isProductModalOpen} onClose={() => { setIsProductModalOpen(false); setCreatingItemNumber(null); setInitialProductData(null); }} initialData={initialProductData} onSuccess={handleCreatedProductFromModal} />
             {/* Loading: classificando item com IA */}
             {isClassifying && classifyingItem && <div className="fixed inset-0 z-[1000005] flex items-center justify-center bg-slate-950/60 p-4">
                 <section className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl dark:bg-slate-900 text-center">
@@ -372,7 +392,7 @@ export function InboundInvoiceItemsReview({ items, supplierId, suppliers, onChan
                     <label className="mt-4 block text-xs font-black text-slate-600 dark:text-slate-300">Acréscimo sobre o custo final (%)
                         <input type="number" min="0" step="0.01" required value={effectiveMarkup} onChange={(event) => setEffectiveMarkup(event.target.value)} className="mt-1 w-full rounded-lg border px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-950" />
                     </label>
-                    <p className="mt-2 text-xs text-slate-500">Custo final: <b>{formatCurrency(finalItemCost(classifyingItem))}</b> · Preço estimado: <b>{effectiveMarkup.trim() ? formatCurrency(finalItemCost(classifyingItem) * (1 + Number(effectiveMarkup.replace(',', '.')) / 100)) : 'Informe o acréscimo'}</b></p>
+                    <p className="mt-2 text-xs text-slate-500">Custo final unitário: <b>{formatCurrency(finalItemCost(classifyingItem))}</b> · Preço estimado: <b>{effectiveMarkup.trim() ? formatCurrency(finalItemCost(classifyingItem) * (1 + Number(effectiveMarkup.replace(',', '.')) / 100)) : 'Informe o acréscimo'}</b></p>
                     <div className="mt-5 flex justify-end gap-2">
                         <button type="button" onClick={discardClassificationAndCreateNew} className="rounded-lg px-3 py-2 text-xs font-black text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800">Criar como produto independente</button>
                         <button type="button" onClick={confirmNewVariationInFamily} className="rounded-lg bg-indigo-600 px-3 py-2 text-xs font-black text-white">Cadastrar variação no produto pai</button>

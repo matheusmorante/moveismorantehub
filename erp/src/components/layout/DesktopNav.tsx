@@ -203,8 +203,25 @@ const DesktopNav = ({ activeMenu, setActiveMenu }: DesktopNavProps) => {
                 )}
             </div>
 
-
-
+            {/* Financeiro */}
+            <div
+                className="relative h-full flex items-center"
+                onMouseEnter={() => setActiveMenu('finance')}
+                onMouseLeave={() => setActiveMenu(null)}
+            >
+                <button onClick={() => toggle('finance')} className={menuBtnClass(activeMenu === 'finance', false)}>
+                    <i className="bi bi-wallet2"></i>
+                    <span>Financeiro</span>
+                    <i className={chevronClass(activeMenu === 'finance')}></i>
+                </button>
+                {activeMenu === 'finance' && (
+                    <div className={dropdownClass}>
+                        <Link to="/finance/transactions" onClick={() => setActiveMenu(null)} className={dropdownItemClass}>
+                            <i className="bi bi-arrow-left-right mr-1 text-amber-500"></i> Movimentações
+                        </Link>
+                    </div>
+                )}
+            </div>
         </nav>
     );
 };

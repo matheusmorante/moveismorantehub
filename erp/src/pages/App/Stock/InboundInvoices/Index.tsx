@@ -1,108 +1,77 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useEffect, useCallback } from 'react';
 import { toast } from 'react-toastify';
-import { useAuth } from '@/context/AuthContext';
-import { InboundInvoicesHeader } from './InboundInvoicesHeader';
+import { InboundInvoicesHeader, DateFilterConfig } from './InboundInvoicesHeader';
 import { InboundInvoicesTable } from './InboundInvoicesTable';
 import { InboundInvoiceDetailsModal } from './InboundInvoiceDetailsModal';
 import { InboundDocumentImportModal } from './InboundDocumentImportModal';
-import { fetchInboundInvoices, getLastInboundInvoiceSyncAt, syncSefazDfe } from '@/pages/utils/inboundNfe/inboundInvoicesService';
+import { ManageInboundInvoiceMappingsModal } from './ManageInboundInvoiceMappingsModal';
+import { InboundInvoicesPagination } from './InboundInvoicesPagination';
+import { fetchInboundInvoicesPage } from '@/pages/utils/inboundNfe/inboundInvoicesService';
 import { InboundInvoice } from '@/pages/utils/inboundNfe/inboundNfeTypes';
 
+const getCurrentYearMonth = (): string => {
+    const d = new Date();
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    return `${y}-${m}`;
+};
+
+const getPreviousYearMonth = (): string => {
+    const d = new Date();
+    d.setMonth(d.getMonth() - 1);
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    return `${y}-${m}`;
+};
+
 export default function InboundInvoicesPage() {
-    const navigate = useNavigate();
-    const { isAdmin } = useAuth();
     const [invoices, setInvoices] = useState<InboundInvoice[]>([]);
     const [searchTerm, setSearchTerm] = useState('');
-    const [isSyncing, setIsSyncing] = useState(false);
-    const [selectedInvoice, setSelectedInvoice] = useState<InboundInvoice | null>(null);
-    const [isImportModalOpen, setIsImportModalOpen] = useState(false);
-    const [lastSyncAt, setLastSyncAt] = useState<string | null>(getLastInboundInvoiceSyncAt);
-    const isSyncInProgressRef = useRef(false);
+    const [dateFilter, setDateFilter] = useState<DateFilterConfig>(() => ({
+        mode: 'current_month',
+        customMonth: getCurrentYearMonth(),
+        startMonth: getPreviousYearMonth(),
+        endMonth: getCurrentYearMonth(),
+    }));
 
-    const loadInvoices = async () => {
+    const [currentPage, setCurrentPage] = useState(1);
+    const [totalCount, setTotalCount] = useState(0);
+    const [totalPages, setTotalPages] = useState(1);
+    const [isLoading, setIsLoading] = useState(false);
+
+    const [selectedInvoice, setSelectedInvoice] = useState<InboundInvoice | null>(null);
+    const [selectedMappingInvoice, setSelectedMappingInvoice] = useState<InboundInvoice | null>(null);
+    const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+
+    const loadInvoices = useCallback(async (pageToLoad = 1) => {
+        setIsLoading(true);
         try {
-            const list = await fetchInboundInvoices();
-            setInvoices(list);
+            const res = await fetchInboundInvoicesPage({
+                page: pageToLoad,
+                pageSize: 30,
+                searchTerm,
+                dateFilter,
+            });
+            setInvoices(res.invoices);
+            setTotalCount(res.totalCount);
+            setTotalPages(res.totalPages);
+            setCurrentPage(res.page);
         } catch (err) {
             console.error('Erro ao carregar notas fiscais de entrada:', err);
-        }
-    };
-
-    const synchronizeInvoices = async () => {
-        if (isSyncInProgressRef.current) return;
-        isSyncInProgressRef.current = true;
-        setIsSyncing(true);
-        try {
-            await syncSefazDfe();
-            setLastSyncAt(getLastInboundInvoiceSyncAt());
-            await loadInvoices();
-        } catch (error) {
-            console.error('Erro na atualização automática das NF-e:', error);
+            toast.error('Erro ao carregar lista de notas fiscais.');
         } finally {
-            setIsSyncing(false);
-            isSyncInProgressRef.current = false;
+            setIsLoading(false);
         }
-    };
+    }, [searchTerm, dateFilter]);
 
     useEffect(() => {
-        void loadInvoices();
-        void synchronizeInvoices();
-        const intervalId = window.setInterval(() => void synchronizeInvoices(), 60 * 60 * 1000);
-        return () => window.clearInterval(intervalId);
-    }, []);
+        setCurrentPage(1);
+        void loadInvoices(1);
+    }, [searchTerm, dateFilter, loadInvoices]);
 
-    const filteredInvoices = useMemo(() => {
-        if (!searchTerm.trim()) return invoices;
-        const term = searchTerm.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-        return invoices.filter((inv) => {
-            const emitter = (inv.emitterName || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-            const key = inv.nfeKey || '';
-            const num = inv.nfeNumber || '';
-            const cnpj = inv.emitterCnpj || '';
-            return emitter.includes(term) || key.includes(term) || num.includes(term) || cnpj.includes(term);
-        });
-    }, [invoices, searchTerm]);
-
-    const handleManualSync = async () => {
-        if (isSyncing || isSyncInProgressRef.current) return;
-        isSyncInProgressRef.current = true;
-        setIsSyncing(true);
-        toast.info('Consultando webservice da SEFAZ por novos documentos fiscais...');
-        try {
-            const result = await syncSefazDfe();
-            setLastSyncAt(getLastInboundInvoiceSyncAt());
-            await loadInvoices();
-
-            if (result.newInvoicesCount > 0) {
-                toast.success(`${result.newInvoicesCount} nova(s) NF-e importada(s) com sucesso da SEFAZ!`);
-            } else if (result.message && (
-                result.message.toLowerCase().includes('error') ||
-                result.message.toLowerCase().includes('erro') ||
-                result.message.toLowerCase().includes('falha') ||
-                result.message.toLowerCase().includes('indispon') ||
-                result.message.toLowerCase().includes('http') ||
-                result.message.toLowerCase().includes('ponte') ||
-                result.message.toLowerCase().includes('404') ||
-                result.message.toLowerCase().includes('500') ||
-                result.message.toLowerCase().includes('502')
-            )) {
-                toast.warning(`Aviso SEFAZ: ${result.message}`);
-            } else {
-                toast.success(result.message || 'Consulta SEFAZ finalizada. Nenhuma nova nota fiscal disponível no momento.');
-            }
-        } catch (error: any) {
-            console.error('Erro na sincronização manual com a SEFAZ:', error);
-            toast.error(`Não foi possível sincronizar com a SEFAZ: ${error?.message || 'Verifique o certificado digital.'}`);
-        } finally {
-            setIsSyncing(false);
-            isSyncInProgressRef.current = false;
-        }
-    };
-
-    const handleReceiveGoods = (invoice: InboundInvoice) => {
-        // Redireciona para recebimentos passando a chave da nota para pré-carregamento imediato
-        navigate(`/stock/receipts?inboundKey=${invoice.nfeKey}`);
+    const handlePageChange = (newPage: number) => {
+        if (newPage < 1 || newPage > totalPages || newPage === currentPage) return;
+        void loadInvoices(newPage);
     };
 
     const handleDownloadXml = (invoice: InboundInvoice) => {
@@ -121,31 +90,47 @@ export default function InboundInvoicesPage() {
             <InboundInvoicesHeader
                 searchTerm={searchTerm}
                 onSearchChange={setSearchTerm}
+                dateFilter={dateFilter}
+                onDateFilterChange={setDateFilter}
                 onOpenAddInvoice={() => setIsImportModalOpen(true)}
-                isSyncing={isSyncing}
-                lastSyncAt={lastSyncAt}
-                isAdmin={isAdmin}
-                onSyncNow={handleManualSync}
             />
 
             <InboundInvoicesTable
-                invoices={filteredInvoices}
+                invoices={invoices}
                 onViewDetails={setSelectedInvoice}
-                onReceiveGoods={handleReceiveGoods}
                 onDownloadXml={handleDownloadXml}
+                onManageMappings={setSelectedMappingInvoice}
+            />
+
+            <InboundInvoicesPagination
+                currentPage={currentPage}
+                totalPages={totalPages}
+                totalItems={totalCount}
+                itemsPerPage={30}
+                onPageChange={handlePageChange}
+                loading={isLoading}
             />
 
             <InboundInvoiceDetailsModal
                 invoice={selectedInvoice}
                 onClose={() => setSelectedInvoice(null)}
-                onReceiveGoods={handleReceiveGoods}
+            />
+
+            <ManageInboundInvoiceMappingsModal
+                isOpen={Boolean(selectedMappingInvoice)}
+                invoice={selectedMappingInvoice}
+                onClose={() => setSelectedMappingInvoice(null)}
+                onSaveSuccess={() => { void loadInvoices(currentPage); }}
             />
 
             <InboundDocumentImportModal
                 isOpen={isImportModalOpen}
                 onClose={() => setIsImportModalOpen(false)}
-                onImportSuccess={(invoice) => { void loadInvoices(); setSelectedInvoice(invoice); }}
+                onImportSuccess={() => { void loadInvoices(currentPage); }}
             />
         </div>
     );
 }
+
+
+

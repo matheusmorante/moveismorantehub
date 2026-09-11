@@ -12,6 +12,9 @@ export const OFFICIAL_MORANTE_LOGO_URL = 'https://www.moveismorante.com.br/logo-
 export const OFFICIAL_QUEIMA_BADGE_URL =
   'https://hkoxhourxwlddgsfdgws.supabase.co/storage/v1/object/public/products/marketing/seals/9d8bedae-b366-4f8c-ac49-74b85b882bde-1787790409290.png';
 
+export const OFFICIAL_LIQUIDACAO_BADGE_URL =
+  'https://hkoxhourxwlddgsfdgws.supabase.co/storage/v1/object/public/products/marketing/seals/344ad767-a385-4854-8042-52c2623f4aef-1787791058007.png';
+
 export const OFFICIAL_ASSET_MASTER_RULE = `OFFICIAL_ASSET não é inspiração visual.
 É um arquivo gráfico oficial que deve ser utilizado fielmente.
 Não gere uma versão semelhante.

@@ -66,6 +66,16 @@ export const ChatGptProjectModal: React.FC<ChatGptProjectModalProps> = ({ isOpen
             Configuração permanente: a IA sempre descompactará os ZIPs e ancorará as fotos reais sem inventar produtos.
           </p>
           <div className="flex items-center gap-2">
+            <a
+              href="https://chatgpt.com/g/g-p-6a9d93e0c74c8191ade047ff2bc6c334-criador-de-post/project"
+              target="_blank"
+              rel="noreferrer"
+              className="flex items-center gap-1.5 rounded-lg border border-emerald-500/60 bg-emerald-950/60 hover:bg-emerald-900/80 px-3 py-1.5 text-xs font-bold text-emerald-200 transition"
+              title="Abrir o Projeto no ChatGPT em nova aba"
+            >
+              <span>🔗</span>
+              <span>Abrir Projeto</span>
+            </a>
             <button
               type="button"
               onClick={onClose}

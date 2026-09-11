@@ -19,14 +19,21 @@ export const useSupplierAutocomplete = ({
     const [showSuggestions, setShowSuggestions] = useState(false);
     const wrapperRef = useRef<HTMLDivElement>(null);
 
+    const prevSelectedIdRef = useRef<string>(selectedSupplierId);
+
     // Sincronizar query se o fornecedor selecionado mudar externamente
     useEffect(() => {
-        if (selectedSupplier) {
+        if (selectedSupplierId !== prevSelectedIdRef.current) {
+            prevSelectedIdRef.current = selectedSupplierId;
+            if (selectedSupplier) {
+                setQuery(selectedSupplier.fullName);
+            } else if (!selectedSupplierId) {
+                setQuery("");
+            }
+        } else if (selectedSupplier && !query) {
             setQuery(selectedSupplier.fullName);
-        } else {
-            setQuery("");
         }
-    }, [selectedSupplierId, suppliers]);
+    }, [selectedSupplierId, selectedSupplier, query]);
 
     // Fechar dropdown ao clicar fora
     useEffect(() => {
@@ -35,14 +42,14 @@ export const useSupplierAutocomplete = ({
                 setShowSuggestions(false);
                 if (selectedSupplier) {
                     setQuery(selectedSupplier.fullName);
-                } else {
+                } else if (!selectedSupplierId) {
                     setQuery("");
                 }
             }
         };
         document.addEventListener('mousedown', handleClickOutside);
         return () => document.removeEventListener('mousedown', handleClickOutside);
-    }, [selectedSupplier]);
+    }, [selectedSupplier, selectedSupplierId]);
 
     const normalize = (str: string) => 
         (str || "").trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
@@ -83,8 +90,8 @@ export const useSupplierAutocomplete = ({
             );
             if (exactMatch && exactMatch.id) {
                 onSelect(exactMatch.id);
-            } else {
-                onSelect(val);
+            } else if (selectedSupplierId) {
+                onSelect("");
             }
         }
     };

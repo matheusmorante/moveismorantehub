@@ -4,6 +4,11 @@ import {
   PostOfficialAssetsSpec,
 } from '../../types/postSpecification';
 import { copyImageUrlToClipboard } from '../../services/imageClipboardUtils';
+import {
+  OFFICIAL_QUEIMA_BADGE_URL,
+  OFFICIAL_LIQUIDACAO_BADGE_URL,
+} from '../../services/postOfficialAssetConstants';
+import { createOpportunitySealImage } from '../../opportunitySealImage';
 
 interface PromptCopyableImagesListProps {
   productImages: PostProductImagesSpec | null;
@@ -80,31 +85,65 @@ export const PromptCopyableImagesList: React.FC<PromptCopyableImagesListProps> =
     });
   }
 
-  // 4. Selo de Oportunidade (resolvido de officialAssets ou diretamente do produto)
-  const oppNameRaw =
-    officialAssets?.badge?.name ||
-    product?.opportunityName ||
-    product?.opportunity?.name ||
-    (typeof product?.opportunity === 'string' ? product.opportunity : '');
+  // 4. Selo de Oportunidade (SOMENTE se o produto tiver oportunidade vinculada)
+  const oppId =
+    product?.opportunity_id ??
+    product?.opportunityId ??
+    (typeof product?.opportunity === 'object' ? product?.opportunity?.id : null) ??
+    (typeof product?.opportunity === 'string' && product.opportunity.trim() ? product.opportunity.trim() : null);
 
-  const badgeUrl = officialAssets?.badge?.url || null;
+  if (oppId) {
+    const oppNameRaw =
+      product?.opportunityName ||
+      (typeof product?.opportunity === 'object' ? product?.opportunity?.name : null) ||
+      officialAssets?.badge?.opportunityName ||
+      (typeof product?.opportunity === 'string' ? product.opportunity : '');
 
-  if (badgeUrl) {
-    const titleText = oppNameRaw
-      ? (oppNameRaw.startsWith('Selo') ? oppNameRaw : `Selo Oficial ${oppNameRaw}`)
-      : 'Selo Oficial de Oportunidade';
+    let badgeUrl = officialAssets?.badge?.url || null;
 
-    items.push({
-      id: 'badge',
-      order: orderIndex++,
-      label: 'Selo Oficial',
-      badge: '4. SELO OFICIAL',
-      badgeColor: 'bg-rose-500/20 text-rose-300 border-rose-500/40',
-      title: titleText,
-      subtitle: 'Selo oficial da campanha (copiar para o ChatGPT)',
-      url: badgeUrl,
-      aspectClass: 'object-contain p-1 bg-slate-900 rounded',
-    });
+    if (!badgeUrl) {
+      const oppObj = typeof product?.opportunity === 'object' ? product?.opportunity : null;
+      if (oppObj?.image_url) {
+        badgeUrl = oppObj.image_url;
+      } else if (product?.opportunityImageUrl) {
+        badgeUrl = product.opportunityImageUrl;
+      }
+    }
+
+    if (!badgeUrl) {
+      const isQueima = /queima|salvado/i.test(`${oppNameRaw} ${oppId}`);
+      const isLiquida = /liquida/i.test(`${oppNameRaw} ${oppId}`);
+      if (isQueima) {
+        badgeUrl = OFFICIAL_QUEIMA_BADGE_URL;
+      } else if (isLiquida) {
+        badgeUrl = OFFICIAL_LIQUIDACAO_BADGE_URL;
+      }
+    }
+
+    if (!badgeUrl && oppNameRaw) {
+      const oppObj = typeof product?.opportunity === 'object' ? product?.opportunity : null;
+      badgeUrl = createOpportunitySealImage({
+        id: String(oppId),
+        name: oppNameRaw,
+        slug: oppObj?.slug,
+        badge_color: oppObj?.badge_color,
+        border_color: oppObj?.border_color,
+      });
+    }
+
+    if (badgeUrl) {
+      items.push({
+        id: 'badge',
+        order: orderIndex++,
+        label: 'Selo de Oportunidade',
+        badge: 'SELO DE OPORTUNIDADE',
+        badgeColor: 'bg-rose-500/20 text-rose-300 border-rose-500/40',
+        title: 'Selo de Oportunidade',
+        subtitle: oppNameRaw ? `Oportunidade: ${oppNameRaw}` : 'Selo oficial da oportunidade',
+        url: badgeUrl,
+        aspectClass: 'object-contain p-1 bg-slate-900 rounded',
+      });
+    }
   }
 
   // 5. Demais Variações (excluindo categoricamente a variação 1 principal)
@@ -140,7 +179,7 @@ export const PromptCopyableImagesList: React.FC<PromptCopyableImagesListProps> =
           <span className="text-base">📸</span>
           <div>
             <h4 className="text-xs font-bold text-white uppercase tracking-wider">
-              Fotos e Assets para Colar no ChatGPT / Gemini
+              Assets para colar no ChatGPT/Gemini
             </h4>
             <p className="text-[11px] text-slate-400">
               Clique em <strong>Copiar Imagem</strong> e cole com <strong>Ctrl+V</strong> no chat. O prompt já informa à IA o que cada foto colada é.

@@ -1,9 +1,69 @@
 import { supabase } from '../supabaseConfig';
 import { InboundInvoice } from './inboundNfeTypes';
 import { parseInboundNfeXml } from './inboundXmlParser';
+import { DateFilterConfig } from '../../App/Stock/InboundInvoices/InboundInvoicesHeader';
 
 const STORAGE_KEY = 'morante_inbound_invoices_cache';
 const LAST_SYNC_KEY = 'morante_inbound_invoices_last_sync_at';
+
+export interface FetchInboundInvoicesOptions {
+    page?: number;
+    pageSize?: number;
+    searchTerm?: string;
+    dateFilter?: DateFilterConfig;
+}
+
+export interface FetchInboundInvoicesResult {
+    invoices: InboundInvoice[];
+    totalCount: number;
+    page: number;
+    pageSize: number;
+    totalPages: number;
+}
+
+const getCurrentYearStr = (): string => {
+    return String(new Date().getFullYear());
+};
+
+const getPreviousYearStr = (): string => {
+    return String(new Date().getFullYear() - 1);
+};
+
+const getYearDateBounds = (yearStr: string) => {
+    const y = parseInt(yearStr, 10);
+    if (isNaN(y)) return null;
+    const start = `${yearStr}-01-01T00:00:00.000Z`;
+    const end = `${yearStr}-12-31T23:59:59.999Z`;
+    return { start, end };
+};
+
+const getCurrentYearMonthStr = (): string => {
+    const d = new Date();
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    return `${y}-${m}`;
+};
+
+const getPreviousYearMonthStr = (): string => {
+    const d = new Date();
+    d.setMonth(d.getMonth() - 1);
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    return `${y}-${m}`;
+};
+
+const getMonthDateBounds = (yearMonth: string) => {
+    if (!yearMonth || !yearMonth.includes('-')) return null;
+    const [yStr, mStr] = yearMonth.split('-');
+    const y = parseInt(yStr, 10);
+    const m = parseInt(mStr, 10);
+    if (isNaN(y) || isNaN(m)) return null;
+    const paddedM = String(m).padStart(2, '0');
+    const start = `${yStr}-${paddedM}-01T00:00:00.000Z`;
+    const lastDay = new Date(Date.UTC(y, m, 0)).getUTCDate();
+    const end = `${yStr}-${paddedM}-${String(lastDay).padStart(2, '0')}T23:59:59.999Z`;
+    return { start, end };
+};
 
 const toInboundInvoiceStatus = (value: string | null | undefined): InboundInvoice['status'] => {
     if (value === 'recebida' || value === 'received') return 'received';
@@ -60,81 +120,290 @@ const saveLocalInvoices = (invoices: InboundInvoice[]) => {
     }
 };
 
-export const fetchInboundInvoices = async (): Promise<InboundInvoice[]> => {
-    try {
-        const { data, error } = await supabase
-            .from('inbound_invoices')
-            .select('*')
-            .order('data_emissao', { ascending: false });
+const isValidUuid = (str?: string) => Boolean(str && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str));
 
-        if (!error && data && data.length > 0) {
-            const mapped: InboundInvoice[] = data.map((row: any) => ({
-                id: row.id,
-                nfeKey: row.chave_acesso,
-                nfeNumber: String(row.numero_nfe),
-                series: row.series,
-                issuedAt: row.data_emissao,
-                emitterCnpj: row.emitente_cnpj,
-                emitterName: row.emitente_nome,
-                emitterTradeName: row.emitente_fantasia,
-                emitterIe: row.emitente_ie || undefined,
-                emitterAddress: row.emitente_endereco || {},
-                supplierId: row.supplier_id || undefined,
-                recipientCnpj: row.destinatario_cnpj,
-                recipientName: row.destinatario_nome,
-                totalProducts: Number(row.valor_produtos || 0),
-                totalFreight: Number(row.valor_frete || 0),
-                totalIpi: Number(row.valor_ipi || 0),
-                totalDiscount: Number(row.valor_desconto || 0),
-                totalInsurance: Number(row.valor_seguro || 0),
-                totalOtherExpenses: Number(row.outras_despesas || 0),
-                additionalFreight: row.additional_freight ? normalizeAdditionalCost(row.additional_freight) : undefined,
-                additionalCosts: normalizeAdditionalCosts(row.additional_costs),
-                additionalCostsTotal: Number(row.additional_costs_total || 0),
-                additionalCostAllocations: Array.isArray(row.additional_cost_allocations) ? row.additional_cost_allocations : [],
-                totalIcms: Number(row.valor_icms || 0),
-                totalIcmsSt: Number(row.valor_icms_st || 0),
-                freightPercent: Number(row.valor_produtos || 0) > 0 ? Number((Number(row.valor_frete || 0) / Number(row.valor_produtos || 0) * 100).toFixed(4)) : 0,
-                entryExitAt: row.data_saida_entrada || undefined,
-                operationNature: row.natureza_operacao || undefined,
-                model: row.modelo || undefined,
-                protocol: row.protocolo || undefined,
-                additionalInfo: row.informacoes_adicionais || undefined,
-                originalDocumentPath: row.documento_original_path || undefined,
-                originalDocumentMime: row.documento_original_mime || undefined,
-                extractionWarnings: Array.isArray(row.extraction_warnings) ? row.extraction_warnings : [],
-                extractionConfidence: row.extraction_confidence || {},
-                extractionStatus: row.extraction_status || 'completed',
-                processedAt: row.extraction_processed_at || undefined,
-                aiModel: row.extraction_ai_model || undefined,
-                rawExtraction: row.raw_extraction || undefined,
-                totalInvoice: Number(row.valor_total || 0),
-                status: toInboundInvoiceStatus(row.status_recebimento),
-                itemsCount: Array.isArray(row.itens) ? row.itens.length : 0,
-                receiptId: row.receipt_id,
-                receivedAt: row.updated_at,
-                rawXml: row.xml_conteudo,
-                items: Array.isArray(row.itens) ? row.itens : [],
-                createdAt: row.created_at
-            }));
-            saveLocalInvoices(mapped);
-            return mapped;
+const isSampleInvoice = (inv: { id?: string; nfeKey?: string; nfeNumber?: string; emitterCnpj?: string }) => {
+    return inv.id === 'inbound_41260944512248000107550010000012341000012345' ||
+        inv.nfeKey === '41260944512248000107550010000012341000012345' ||
+        (inv.nfeNumber === '1234' && inv.emitterCnpj === '12.345.678/0001-90');
+};
+
+export const deleteInboundInvoice = async (invoiceIdOrKey: string): Promise<void> => {
+    const local = getLocalInvoices().filter((inv) => inv.id !== invoiceIdOrKey && inv.nfeKey !== invoiceIdOrKey && !isSampleInvoice(inv));
+    saveLocalInvoices(local);
+    try {
+        await supabase.from('inbound_invoices').delete().or(`id.eq.${invoiceIdOrKey},chave_acesso.eq.${invoiceIdOrKey}`);
+    } catch (err) {
+        console.warn('Erro ao deletar NF no Supabase:', err);
+    }
+};
+
+export const fetchInboundInvoicesPage = async (options?: FetchInboundInvoicesOptions): Promise<FetchInboundInvoicesResult> => {
+    const page = options?.page ?? 1;
+    const pageSize = options?.pageSize ?? 30;
+    const searchTerm = (options?.searchTerm || '').trim();
+    const dateFilter = options?.dateFilter;
+
+    let startDate: string | null = null;
+    let endDate: string | null = null;
+
+    if (dateFilter) {
+        if (dateFilter.mode === 'current_month') {
+            const bounds = getMonthDateBounds(getCurrentYearMonthStr());
+            if (bounds) { startDate = bounds.start; endDate = bounds.end; }
+        } else if (dateFilter.mode === 'previous_month') {
+            const bounds = getMonthDateBounds(getPreviousYearMonthStr());
+            if (bounds) { startDate = bounds.start; endDate = bounds.end; }
+        } else if (dateFilter.mode === 'current_year') {
+            const bounds = getYearDateBounds(getCurrentYearStr());
+            if (bounds) { startDate = bounds.start; endDate = bounds.end; }
+        } else if (dateFilter.mode === 'previous_year') {
+            const bounds = getYearDateBounds(getPreviousYearStr());
+            if (bounds) { startDate = bounds.start; endDate = bounds.end; }
+        } else if (dateFilter.mode === 'custom_month') {
+            const bounds = getMonthDateBounds(dateFilter.customMonth || getCurrentYearMonthStr());
+            if (bounds) { startDate = bounds.start; endDate = bounds.end; }
+        } else if (dateFilter.mode === 'custom_range') {
+            const startBounds = getMonthDateBounds(dateFilter.startMonth || getPreviousYearMonthStr());
+            const endBounds = getMonthDateBounds(dateFilter.endMonth || getCurrentYearMonthStr());
+            if (startBounds) startDate = startBounds.start;
+            if (endBounds) endDate = endBounds.end;
+        }
+    }
+
+    const local = getLocalInvoices().filter((inv) => !isSampleInvoice(inv));
+
+    try {
+        let query = supabase
+            .from('inbound_invoices')
+            .select('*', { count: 'exact' });
+
+        if (startDate) {
+            query = query.gte('data_emissao', startDate);
+        }
+        if (endDate) {
+            query = query.lte('data_emissao', endDate);
+        }
+
+        if (searchTerm) {
+            const cleanNum = searchTerm.replace(/\D/g, '');
+            if (cleanNum.length > 0) {
+                query = query.or(`emitente_nome.ilike.%${searchTerm}%,chave_acesso.ilike.%${cleanNum}%,numero_nfe.ilike.%${searchTerm}%,emitente_cnpj.ilike.%${searchTerm}%`);
+            } else {
+                query = query.ilike('emitente_nome', `%${searchTerm}%`);
+            }
+        }
+
+        query = query.order('data_emissao', { ascending: false });
+
+        const from = (page - 1) * pageSize;
+        const to = from + pageSize - 1;
+        query = query.range(from, to);
+
+        const { data, error, count } = await query;
+
+        if (!error && data) {
+            const mapped: InboundInvoice[] = data
+                .filter((row: any) => !isSampleInvoice({ id: row.id, nfeKey: row.chave_acesso, nfeNumber: String(row.numero_nfe || ''), emitterCnpj: row.emitente_cnpj }))
+                .map((row: any) => ({
+                    id: row.id,
+                    nfeKey: row.chave_acesso || '',
+                    nfeNumber: String(row.numero_nfe || ''),
+                    series: row.series || row.serie || '1',
+                    issuedAt: row.data_emissao,
+                    emitterCnpj: row.emitente_cnpj || '',
+                    emitterName: row.emitente_nome || '',
+                    emitterTradeName: row.emitente_fantasia,
+                    emitterIe: row.emitente_ie || undefined,
+                    emitterAddress: row.emitente_endereco || {},
+                    supplierId: row.supplier_id || undefined,
+                    recipientCnpj: row.destinatario_cnpj || '',
+                    recipientName: row.destinatario_nome || '',
+                    totalProducts: Number(row.valor_produtos || 0),
+                    totalFreight: Number(row.valor_frete || 0),
+                    totalIpi: Number(row.valor_ipi || 0),
+                    totalDiscount: Number(row.valor_desconto || 0),
+                    totalInsurance: Number(row.valor_seguro || 0),
+                    totalOtherExpenses: Number(row.outras_despesas || 0),
+                    additionalFreight: row.additional_freight ? normalizeAdditionalCost(row.additional_freight) : undefined,
+                    additionalCosts: normalizeAdditionalCosts(row.additional_costs),
+                    additionalCostsTotal: Number(row.additional_costs_total || 0),
+                    additionalCostAllocations: Array.isArray(row.additional_cost_allocations) ? row.additional_cost_allocations : [],
+                    totalIcms: Number(row.valor_icms || 0),
+                    totalIcmsSt: Number(row.valor_icms_st || 0),
+                    freightPercent: Number(row.valor_produtos || 0) > 0 ? Number((Number(row.valor_frete || 0) / Number(row.valor_produtos || 0) * 100).toFixed(4)) : 0,
+                    entryExitAt: row.data_saida_entrada || undefined,
+                    operationNature: row.natureza_operacao || undefined,
+                    model: row.modelo || undefined,
+                    protocol: row.protocolo || undefined,
+                    additionalInfo: row.informacoes_adicionais || undefined,
+                    originalDocumentPath: row.documento_original_path || undefined,
+                    originalDocumentMime: row.documento_original_mime || undefined,
+                    extractionWarnings: Array.isArray(row.extraction_warnings) ? row.extraction_warnings : [],
+                    extractionConfidence: row.extraction_confidence || {},
+                    extractionStatus: row.extraction_status || 'completed',
+                    processedAt: row.extraction_processed_at || undefined,
+                    aiModel: row.extraction_ai_model || undefined,
+                    rawExtraction: row.raw_extraction || undefined,
+                    totalInvoice: Number(row.valor_total || 0),
+                    status: toInboundInvoiceStatus(row.status_recebimento),
+                    itemsCount: Array.isArray(row.itens) ? row.itens.length : 0,
+                    receiptId: row.receipt_id,
+                    receivedAt: row.updated_at,
+                    rawXml: row.xml_conteudo,
+                    items: Array.isArray(row.itens) ? row.itens : [],
+                    createdAt: row.created_at
+                }));
+
+            const remoteKeysAndIds = new Set(mapped.flatMap((inv) => [inv.nfeKey, inv.id].filter(Boolean)));
+            let localOnly = local.filter((inv) => (inv.nfeKey ? !remoteKeysAndIds.has(inv.nfeKey) : !remoteKeysAndIds.has(inv.id)));
+
+            if (startDate) {
+                localOnly = localOnly.filter((inv) => !inv.issuedAt || inv.issuedAt >= startDate!);
+            }
+            if (endDate) {
+                localOnly = localOnly.filter((inv) => !inv.issuedAt || inv.issuedAt <= endDate!);
+            }
+            if (searchTerm) {
+                const term = searchTerm.toLowerCase();
+                localOnly = localOnly.filter((inv) =>
+                    (inv.emitterName || '').toLowerCase().includes(term) ||
+                    (inv.nfeKey || '').includes(term) ||
+                    (inv.nfeNumber || '').includes(term)
+                );
+            }
+
+            const combined = [...mapped, ...localOnly];
+            const totalItemsCount = (count ?? mapped.length) + localOnly.length;
+            const calculatedTotalPages = Math.ceil(totalItemsCount / pageSize) || 1;
+
+            return {
+                invoices: combined,
+                totalCount: totalItemsCount,
+                page,
+                pageSize,
+                totalPages: calculatedTotalPages,
+            };
         }
     } catch (err) {
         console.warn('Fallback para cache local de notas fiscais de entrada:', err);
     }
 
-    return getLocalInvoices();
+    // Fallback Local Cache
+    let filteredLocal = local;
+    if (startDate) {
+        filteredLocal = filteredLocal.filter((inv) => !inv.issuedAt || inv.issuedAt >= startDate!);
+    }
+    if (endDate) {
+        filteredLocal = filteredLocal.filter((inv) => !inv.issuedAt || inv.issuedAt <= endDate!);
+    }
+    if (searchTerm) {
+        const term = searchTerm.toLowerCase();
+        filteredLocal = filteredLocal.filter((inv) =>
+            (inv.emitterName || '').toLowerCase().includes(term) ||
+            (inv.nfeKey || '').includes(term) ||
+            (inv.nfeNumber || '').includes(term)
+        );
+    }
+
+    const totalCount = filteredLocal.length;
+    const totalPages = Math.ceil(totalCount / pageSize) || 1;
+    const startIndex = (page - 1) * pageSize;
+    const paginatedInvoices = filteredLocal.slice(startIndex, startIndex + pageSize);
+
+    return {
+        invoices: paginatedInvoices,
+        totalCount,
+        page,
+        pageSize,
+        totalPages,
+    };
+};
+
+export const fetchInboundInvoices = async (): Promise<InboundInvoice[]> => {
+    const res = await fetchInboundInvoicesPage({ page: 1, pageSize: 1000 });
+    return res.invoices;
+};
+
+export const checkInboundInvoiceKeyExists = async (
+    nfeKey: string,
+    currentInvoiceId?: string
+): Promise<InboundInvoice | null> => {
+    const cleanKey = (nfeKey || '').replace(/\D/g, '');
+    if (cleanKey.length !== 44) return null;
+
+    const local = getLocalInvoices().filter((inv) => !isSampleInvoice(inv));
+    const localMatch = local.find(
+        (inv) => inv.nfeKey === cleanKey && (!currentInvoiceId || inv.id !== currentInvoiceId)
+    );
+    if (localMatch) return localMatch;
+
+    try {
+        let query = supabase
+            .from('inbound_invoices')
+            .select('*')
+            .eq('chave_acesso', cleanKey);
+
+        if (currentInvoiceId) {
+            query = query.neq('id', currentInvoiceId);
+        }
+
+        const { data, error } = await query.maybeSingle();
+        if (!error && data) {
+            return {
+                id: data.id,
+                nfeKey: data.chave_acesso || '',
+                nfeNumber: String(data.numero_nfe || ''),
+                series: data.series || data.serie || '1',
+                issuedAt: data.data_emissao,
+                emitterCnpj: data.emitente_cnpj || '',
+                emitterName: data.emitente_nome || '',
+                emitterTradeName: data.emitente_fantasia,
+                emitterIe: data.emitente_ie || undefined,
+                emitterAddress: data.emitente_endereco || {},
+                supplierId: data.supplier_id || undefined,
+                recipientCnpj: data.destinatario_cnpj || '',
+                recipientName: data.destinatario_nome || '',
+                totalProducts: Number(data.valor_produtos || 0),
+                totalFreight: Number(data.valor_frete || 0),
+                totalIpi: Number(data.valor_ipi || 0),
+                totalDiscount: Number(data.valor_desconto || 0),
+                totalInsurance: Number(data.valor_seguro || 0),
+                totalOtherExpenses: Number(data.outras_despesas || 0),
+                totalIcms: Number(data.valor_icms || 0),
+                totalIcmsSt: Number(data.valor_icms_st || 0),
+                freightPercent: Number(data.valor_produtos || 0) > 0 ? Number((Number(data.valor_frete || 0) / Number(data.valor_produtos || 0) * 100).toFixed(4)) : 0,
+                entryExitAt: data.data_saida_entrada || undefined,
+                operationNature: data.natureza_operacao || undefined,
+                model: data.modelo || undefined,
+                protocol: data.protocolo || undefined,
+                additionalInfo: data.informacoes_adicionais || undefined,
+                totalInvoice: Number(data.valor_total || 0),
+                status: toInboundInvoiceStatus(data.status_recebimento),
+                itemsCount: Array.isArray(data.itens) ? data.itens.length : 0,
+                receiptId: data.receipt_id,
+                receivedAt: data.updated_at,
+                rawXml: data.xml_conteudo,
+                items: Array.isArray(data.itens) ? data.itens : [],
+                createdAt: data.created_at,
+            };
+        }
+    } catch (err) {
+        console.warn('Erro ao consultar duplicidade de chave de acesso:', err);
+    }
+
+    return null;
 };
 
 export const saveInboundInvoice = async (invoice: InboundInvoice): Promise<InboundInvoice> => {
-    const accessKey = invoice.nfeKey.replace(/\D/g, '');
-    const invoiceToSave = { ...invoice, nfeKey: accessKey };
-    const local = getLocalInvoices();
-    // Sem uma chave confirmada, cada importação continua sendo um rascunho distinto.
+    if (isSampleInvoice(invoice)) return invoice;
+    const accessKey = (invoice.nfeKey || '').replace(/\D/g, '');
+    const validId = isValidUuid(invoice.id) ? invoice.id : crypto.randomUUID();
+    const invoiceToSave: InboundInvoice = { ...invoice, id: validId, nfeKey: accessKey };
+    const local = getLocalInvoices().filter((inv) => !isSampleInvoice(inv));
     const existingIndex = accessKey
         ? local.findIndex((inv) => inv.nfeKey === accessKey)
-        : local.findIndex((inv) => inv.id === invoice.id);
+        : local.findIndex((inv) => inv.id === validId);
     if (existingIndex >= 0) {
         local[existingIndex] = invoiceToSave;
     } else {
@@ -143,29 +412,26 @@ export const saveInboundInvoice = async (invoice: InboundInvoice): Promise<Inbou
     saveLocalInvoices(local);
 
     try {
-        const { error } = await supabase.from('inbound_invoices').upsert({
+        const payload: Record<string, any> = {
+            id: validId,
             chave_acesso: accessKey || null,
-            numero_nfe: Number(invoice.nfeNumber),
-            series: invoice.series,
-            data_emissao: invoice.issuedAt,
-            emitente_cnpj: invoice.emitterCnpj,
-            emitente_nome: invoice.emitterName,
-            emitente_fantasia: invoice.emitterTradeName,
+            numero_nfe: Number((invoice.nfeNumber || '').replace(/\D/g, '')) || 0,
+            serie: invoice.series || '1',
+            data_emissao: invoice.issuedAt || new Date().toISOString(),
+            emitente_cnpj: invoice.emitterCnpj || '',
+            emitente_nome: invoice.emitterName || '',
+            emitente_fantasia: invoice.emitterTradeName || null,
             emitente_ie: invoice.emitterIe || null,
             emitente_endereco: invoice.emitterAddress || {},
             supplier_id: invoice.supplierId || null,
-            destinatario_cnpj: invoice.recipientCnpj,
-            destinatario_nome: invoice.recipientName,
-            valor_produtos: invoice.totalProducts,
-            valor_frete: invoice.totalFreight,
-            valor_ipi: invoice.totalIpi,
+            destinatario_cnpj: invoice.recipientCnpj || '',
+            destinatario_nome: invoice.recipientName || '',
+            valor_produtos: invoice.totalProducts || 0,
+            valor_frete: invoice.totalFreight || 0,
+            valor_ipi: invoice.totalIpi || 0,
             valor_desconto: invoice.totalDiscount || 0,
             valor_seguro: invoice.totalInsurance || 0,
             outras_despesas: invoice.totalOtherExpenses || 0,
-            additional_freight: {},
-            additional_costs: invoice.additionalCosts || [],
-            additional_costs_total: invoice.additionalCostsTotal || 0,
-            additional_cost_allocations: [],
             valor_icms: invoice.totalIcms || 0,
             valor_icms_st: invoice.totalIcmsSt || 0,
             data_saida_entrada: invoice.entryExitAt || null,
@@ -182,14 +448,19 @@ export const saveInboundInvoice = async (invoice: InboundInvoice): Promise<Inbou
             extraction_processed_at: invoice.processedAt || null,
             extraction_ai_model: invoice.aiModel || null,
             raw_extraction: invoice.rawExtraction || null,
-            valor_total: invoice.totalInvoice,
+            valor_total: invoice.totalInvoice || 0,
             status_recebimento: invoice.status === 'received' ? 'recebida' : invoice.status === 'manifested' ? 'manifestada' : 'pendente',
-            receipt_id: invoice.receiptId,
-            xml_conteudo: invoice.rawXml,
-            itens: invoice.items,
+            receipt_id: invoice.receiptId || null,
+            xml_conteudo: invoice.rawXml || null,
+            itens: invoice.items || [],
             updated_at: new Date().toISOString(),
-        }, { onConflict: 'chave_acesso' });
-        if (error) throw error;
+        };
+
+        const onConflict = accessKey.length === 44 ? 'chave_acesso' : 'id';
+        const { error } = await supabase.from('inbound_invoices').upsert(payload, { onConflict });
+        if (error) {
+            console.warn('Alerta upsert Supabase:', error);
+        }
     } catch (err) {
         console.warn('Erro ao salvar no Supabase, mantido em cache local:', err);
     }
@@ -214,93 +485,27 @@ export const markInvoiceAsReceived = async (nfeKey: string, receiptId: string): 
 };
 
 export const syncSefazDfe = async (options?: { forceMock?: boolean }): Promise<{ newInvoicesCount: number; updatedInvoicesCount: number; message: string }> => {
-    // 1. Tentar invocar a Edge Function sefaz-inbound-sync no Supabase
     try {
         const { data, error } = await supabase.functions.invoke('sefaz-inbound-sync', {
             body: { environment: 'production' }
         });
 
-        if (error) {
-            console.warn('[sefaz-inbound-sync] Edge Function respondeu com mensagem:', error);
-        } else if (data?.success) {
+        if (!error && data?.success) {
             saveLastInboundInvoiceSyncAt(new Date().toISOString());
             return {
                 newInvoicesCount: data.newDocsCount || 0,
                 updatedInvoicesCount: 0,
-                message: data.message || 'Sincronização SEFAZ DF-e executada com sucesso.'
-            };
-        } else if (data?.message || data?.error) {
-            return {
-                newInvoicesCount: 0,
-                updatedInvoicesCount: 0,
-                message: data.message || data.error
+                message: data.message || 'Sincronização executada com sucesso.'
             };
         }
     } catch (edgeError) {
-        console.warn('Edge Function sefaz-inbound-sync indisponível ou em configuração inicial, aplicando fallback:', edgeError);
+        console.warn('Sincronização SEFAZ indisponível:', edgeError);
     }
 
-    // 2. Fallback resiliente para operação contínua
-    const companyCnpj = '44.512.248/0001-07';
-    const mockSample: InboundInvoice = {
-        id: 'inbound_41260944512248000107550010000012341000012345',
-        nfeKey: '41260944512248000107550010000012341000012345',
-        nfeNumber: '1234',
-        series: '1',
-        issuedAt: new Date(Date.now() - 3600000 * 4).toISOString(),
-        emitterCnpj: '12.345.678/0001-90',
-        emitterName: 'Indústria e Comércio de Estofados Silva Ltda',
-        emitterTradeName: 'Estofados Silva',
-        recipientCnpj: companyCnpj,
-        recipientName: 'MOVEIS MORANTE LTDA',
-        totalProducts: 4850.00,
-        totalFreight: 150.00,
-        totalIpi: 0.00,
-        totalInvoice: 5000.00,
-        status: 'pending',
-        itemsCount: 2,
-        items: [
-            {
-                itemNumber: 1,
-                productCode: 'SOF-RET-01',
-                productDescription: 'Sofá Retrátil e Reclinável 3 Lugares Suede Grafite',
-                ncm: '94014010',
-                cfop: '5102',
-                unit: 'UN',
-                quantity: 2,
-                unitCost: 1750.00,
-                totalCost: 3500.00,
-                freightValue: 100.00,
-                ipiValue: 0.00
-            },
-            {
-                itemNumber: 2,
-                productCode: 'POL-GIR-02',
-                productDescription: 'Poltrona Giratória Base Madeira Linho Cru',
-                ncm: '94016100',
-                cfop: '5102',
-                unit: 'UN',
-                quantity: 2,
-                unitCost: 675.00,
-                totalCost: 1350.00,
-                freightValue: 50.00,
-                ipiValue: 0.00
-            }
-        ],
-        createdAt: new Date().toISOString()
-    };
-
-    const local = getLocalInvoices();
-    const alreadyExists = local.some((inv) => inv.nfeKey === mockSample.nfeKey);
-    
-    await saveInboundInvoice(mockSample);
-    saveLastInboundInvoiceSyncAt(new Date().toISOString());
-
     return {
-        newInvoicesCount: alreadyExists ? 0 : 1,
-        updatedInvoicesCount: alreadyExists ? 1 : 0,
-        message: alreadyExists
-            ? 'Consulta automática concluída. NF-e existente atualizada sem duplicação.'
-            : 'Consulta automática concluída. 1 nova NF-e adicionada.'
+        newInvoicesCount: 0,
+        updatedInvoicesCount: 0,
+        message: 'Consulta SEFAZ finalizada.'
     };
 };
+

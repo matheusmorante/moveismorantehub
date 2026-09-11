@@ -11,6 +11,8 @@ import { OrderCardDeliveryFooter } from '../../../components/cards/OrderCardDeli
 import { getOperationalScheduleDate } from '../../../utils/operationalSchedule';
 import { offlineStorageService } from '../../../services/offline/offlineStorageService';
 import { TodayDeliveriesScreen } from './TodayDeliveriesScreen';
+import { LogisticsPeriodModal, PERIOD_OPTIONS } from '../components/LogisticsPeriodModal';
+import { LogisticsOrderSectionHeader } from '../components/LogisticsOrderSectionHeader';
 
 interface Props {
   isDarkMode: boolean;
@@ -531,104 +533,6 @@ export const NativeLogisticsScreen: React.FC<Props> = ({
           <Text style={{ fontSize: 12, fontWeight: '700', color: '#64748b', marginTop: 10 }}>Carregando cronograma logístico...</Text>
         </View>
       ) : (
-        <SectionList
-          sections={sections}
-          keyExtractor={(item, index) => item?.id ? String(item.id) : String(index)}
-          stickySectionHeadersEnabled={true}
-          ListHeaderComponent={renderHeader}
-          ListEmptyComponent={
-            <View style={styles.emptyBox}>
-              <Truck size={40} color="#cbd5e1" />
-              <Text style={{ fontSize: 14, fontWeight: '800', color: '#64748b', marginTop: 12 }}>Nenhum agendamento logístico encontrado</Text>
-            </View>
-          }
-          contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 24, gap: 12 }}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
-          renderSectionHeader={({ section }) => {
-            const todayStr = new Date().toLocaleDateString('en-CA');
-            const isCollapsed = collapsedSections[section.key] === undefined
-              ? section.key !== todayStr
-              : !!collapsedSections[section.key];
-            const isPending = section.isPending;
-            const isEmpty = section.count === 0;
-
-            let headerStyle = styles.stickySectionHeaderDefault;
-            if (isPending) {
-              headerStyle = styles.stickySectionHeaderPending;
-            } else if (isEmpty) {
-              headerStyle = styles.stickySectionHeaderEmpty;
-            }
-
-            return (
-              <TouchableOpacity
-                activeOpacity={0.8}
-                onPress={() => toggleSection(section.key)}
-                style={[
-                  styles.stickySectionHeader,
-                  headerStyle,
-                  isDarkMode && styles.stickySectionHeaderDark
-                ]}
-              >
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1 }}>
-                  {isPending ? (
-                    <AlertCircle size={16} color="#d97706" />
-                  ) : (
-                    <Calendar size={16} color={isEmpty ? (isDarkMode ? '#475569' : '#94a3b8') : '#2563eb'} />
-                  )}
-                  <Text style={[
-                    styles.stickySectionTitle,
-                    isPending && { color: '#92400e' },
-                    isEmpty && { color: isDarkMode ? '#64748b' : '#94a3b8' },
-                    isDarkMode && styles.textDark
-                  ]}>
-                    {section.title}
-                  </Text>
-                </View>
-
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                  <View style={[
-                    styles.stickySectionBadge,
-                    isPending && { backgroundColor: '#d97706' },
-                    isEmpty && { backgroundColor: isDarkMode ? '#334155' : '#e2e8f0' }
-                  ]}>
-                    <Text style={[
-                      styles.stickySectionBadgeText,
-                      isEmpty && { color: isDarkMode ? '#cbd5e1' : '#64748b' }
-                    ]}>
-                      {section.count} {section.count === 1 ? 'item' : 'itens'}
-                    </Text>
-                  </View>
-                  {isCollapsed ? (
-                    <ChevronRight size={18} color={isPending ? '#d97706' : (isEmpty ? '#94a3b8' : '#2563eb')} />
-                  ) : (
-                    <ChevronDown size={18} color={isPending ? '#d97706' : (isEmpty ? '#94a3b8' : '#2563eb')} />
-                  )}
-                </View>
-              </TouchableOpacity>
-            );
-          }}
-          renderItem={({ item }) => {
-            if (item.isEmptyPlaceholder) {
-              return (
-                <View style={[styles.emptyDayBox, isDarkMode && styles.emptyDayBoxDark]}>
-                  <Text style={styles.emptyDayText}>Nenhuma entrega agendada</Text>
-                </View>
-              );
-            }
-            return renderCard(item);
-          }}
-        />
-      )}
-    </View>
-  );
-};
-
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f8fafc' },
-  containerDark: { backgroundColor: '#0f172a' },
-  headerPadding: {
-    paddingVertical: 12,
-    gap: 10
   },
   topRow: { 
     flexDirection: 'row', 
