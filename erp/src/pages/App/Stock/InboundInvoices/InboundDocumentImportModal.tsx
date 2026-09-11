@@ -11,8 +11,6 @@ import { saveProductSupplierCode } from '@/pages/utils/productSupplierCodesServi
 import { findProductSupplierCodes } from '@/pages/utils/productSupplierCodesService';
 import { recordProductResolutionFeedback } from '@/pages/utils/inboundNfe/productResolutionFeedbackService';
 import Person from '@/pages/types/person.type';
-import { calculateAdditionalCosts, getLegacyCompatibleCosts, isBlankAdditionalCost } from '@/pages/utils/inboundNfe/additionalCosts';
-import { InboundAdditionalCostsSection } from './InboundAdditionalCostsSection';
 import { InboundInvoiceFiscalReview } from './InboundInvoiceFiscalReview';
 import { InboundInvoiceItemsReview } from './InboundInvoiceItemsReview';
 import { InboundDuplicateKeyAlertModal } from './InboundDuplicateKeyAlertModal';
@@ -182,16 +180,8 @@ export function InboundDocumentImportModal({ isOpen, onClose, onImportSuccess }:
                 return;
             }
         }
-        const additionalCosts = getLegacyCompatibleCosts(invoice.additionalCosts || [], invoice.additionalFreight).filter((cost) => !isBlankAdditionalCost(cost));
-        if (additionalCosts.some((cost) => !cost.description.trim() || cost.inputValue === null || !Number.isFinite(cost.inputValue) || cost.inputValue < 0)) return toast.error('Preencha descrição e valor de todas as outras despesas não fiscais.');
-
-        const calculation = calculateAdditionalCosts(invoice.items, additionalCosts);
         const invoiceToSave: InboundInvoice = {
             ...invoice,
-            additionalCosts: calculation.costs,
-            additionalCostsTotal: calculation.totalAdditionalCosts,
-            additionalFreight: undefined,
-            additionalCostAllocations: undefined,
         };
 
         try {
@@ -256,7 +246,6 @@ export function InboundDocumentImportModal({ isOpen, onClose, onImportSuccess }:
                         {invoice && <div className="space-y-4">
                             {invoice.extractionWarnings?.length ? <section className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900"><b>Confira os dados extraídos</b><ul className="mt-2 list-disc pl-5 text-xs">{invoice.extractionWarnings.map((warning) => <li key={warning}>{warning === 'access_key_missing' ? 'A chave de acesso não foi localizada; ela pode ser preenchida depois.' : warning === 'access_key_needs_review' || warning === 'access_key_check_digit_invalid' ? 'Confira a chave de acesso lida; você pode corrigir ou deixar em branco.' : warning}</li>)}</ul></section> : null}
                             <InboundInvoiceFiscalReview invoice={invoice} />
-                            <InboundAdditionalCostsSection invoice={invoice} onChange={(update) => setInvoice((current) => current ? { ...current, ...update } : current)} />
                             <section className="rounded-2xl border p-4"><h3 className="text-xs font-black uppercase text-slate-500">Dados da NF</h3><label className="mt-3 block text-xs font-bold text-slate-600">Chave de acesso <span className="font-normal text-slate-400">(opcional)</span><input value={invoice.nfeKey} onChange={(event) => setInvoice((current) => current ? ({ ...current, nfeKey: event.target.value.replace(/\D/g, '') }) : current)} inputMode="numeric" placeholder="Ex.: 3524 0511 1111 1111..." className="mt-1 w-full rounded-xl border p-2 text-sm" /></label><p className="mt-1 text-[11px] text-slate-500">No DANFE ela costuma aparecer em grupos de quatro dígitos sob “Chave de Acesso”.</p></section>
                             
                             {(() => {

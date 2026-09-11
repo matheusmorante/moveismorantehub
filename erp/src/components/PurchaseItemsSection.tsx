@@ -72,16 +72,9 @@ export const PurchaseItemsSection = ({
     const handleQtyChange = (idx: number, newQty: number) => {
         const item = items[idx];
         const validQty = Math.max(1, newQty);
-        const baseCost = item.baseCost || item.unitCost;
-        const itemIpi = baseCost * (ipiPercent / 100);
-        const itemFreight = baseCost * (freightPercent / 100);
-        const itemUnitCost = baseCost + itemIpi + itemFreight;
-
         const updated: PurchaseItem = {
             ...item,
             quantity: validQty,
-            unitCost: itemUnitCost,
-            totalCost: validQty * itemUnitCost
         };
 
         if (onUpdateItem) {
@@ -92,15 +85,9 @@ export const PurchaseItemsSection = ({
     const handleCostChange = (idx: number, newCost: number) => {
         const item = items[idx];
         const validCost = Math.max(0, newCost);
-        const itemIpi = validCost * (ipiPercent / 100);
-        const itemFreight = validCost * (freightPercent / 100);
-        const itemUnitCost = validCost + itemIpi + itemFreight;
-
         const updated: PurchaseItem = {
             ...item,
             baseCost: validCost,
-            unitCost: itemUnitCost,
-            totalCost: item.quantity * itemUnitCost
         };
 
         if (onUpdateItem) {
@@ -108,25 +95,11 @@ export const PurchaseItemsSection = ({
         }
     };
 
-    // Calcular valores dos itens da lista (com rateio dinâmico)
-    const processedItems = items.map(item => {
-        const baseCost = item.baseCost || item.unitCost;
-        const itemIpi = baseCost * (ipiPercent / 100);
-        const itemFreight = baseCost * (freightPercent / 100);
-        const itemUnitCost = baseCost + itemIpi + itemFreight;
-        const itemSubtotal = baseCost * item.quantity;
-        const itemTotalCost = item.quantity * itemUnitCost;
-
-        return {
-            ...item,
-            baseCost,
-            unitCost: itemUnitCost,
-            subtotal: itemSubtotal,
-            totalCost: itemTotalCost
-        };
-    });
-
-    const totalValue = processedItems.reduce((sum, item) => sum + item.totalCost, 0);
+    // Os itens que chegam aqui já vêm calculados pelo ReceiptFormModal via calculateReceiptItems,
+    // ou são calculados como fallback se usados fora do modal de recebimento
+    const hasAnyOtherExpenses = items.some((item) => (item.otherExpensesUnit || 0) > 0 || (item.additionalCostUnit || 0) > 0);
+    const hasAnyDiscount = items.some((item) => (item.discountUnit || 0) > 0);
+    const totalValue = items.reduce((sum, item) => sum + item.totalCost, 0);
 
     return (
         <div className="space-y-6">
@@ -187,7 +160,7 @@ export const PurchaseItemsSection = ({
 
                             {/* Campo Custo Base */}
                             <div className="sm:col-span-3 flex flex-col gap-1.5">
-                                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 text-center">Custo Base (R$)</label>
+                                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 text-center">Custo unitário</label>
                                 <input 
                                     type="number"
                                     placeholder="0.00"
@@ -199,8 +172,8 @@ export const PurchaseItemsSection = ({
                         </>
                     )}
 
-                    {/* Botão Adicionar (Apenas ícone de + no modo recebimento) */}
-                    <div className={`${isReceiptMode ? 'sm:col-span-1' : 'sm:col-span-1'} flex justify-end`}>
+                    {/* Botão Adicionar */}
+                    <div className="sm:col-span-1 flex justify-end">
                         <button 
                             type="button"
                             onClick={handleAddItemClick}
@@ -223,87 +196,101 @@ export const PurchaseItemsSection = ({
                 <table className="w-full text-left border-collapse">
                     <thead className="bg-slate-50 dark:bg-slate-900 border-b border-slate-100 dark:border-slate-800">
                         <tr>
-                            <th className="px-6 py-4 text-[9px] font-black uppercase tracking-widest text-slate-400">Item</th>
-                            <th className="px-6 py-4 text-[9px] font-black uppercase tracking-widest text-slate-400 text-center">Qtd Recebida</th>
-                            <th className="px-6 py-4 text-[9px] font-black uppercase tracking-widest text-slate-400 text-right">Custo Base (R$)</th>
-                            <th className="px-6 py-4 text-[9px] font-black uppercase tracking-widest text-slate-400 text-right">IPI (R$)</th>
-                            <th className="px-6 py-4 text-[9px] font-black uppercase tracking-widest text-slate-400 text-right">Frete (R$)</th>
-                            <th className="px-6 py-4 text-[9px] font-black uppercase tracking-widest text-slate-400 text-right">Total Unitário</th>
-                            <th className="px-6 py-4 text-[9px] font-black uppercase tracking-widest text-slate-400 text-right">Total Final</th>
-                            <th className="px-6 py-4"></th>
+                            <th className="px-5 py-3.5 text-[9px] font-black uppercase tracking-widest text-slate-400">Produto</th>
+                            <th className="px-3 py-3.5 text-[9px] font-black uppercase tracking-widest text-slate-400 text-center w-28">Qtd. recebida</th>
+                            <th className="px-4 py-3.5 text-[9px] font-black uppercase tracking-widest text-slate-400 text-right">Custo unitário</th>
+                            <th className="px-4 py-3.5 text-[9px] font-black uppercase tracking-widest text-slate-400 text-right">Desconto</th>
+                            <th className="px-4 py-3.5 text-[9px] font-black uppercase tracking-widest text-slate-400 text-right">Frete</th>
+                            {hasAnyOtherExpenses && (
+                                <th className="px-4 py-3.5 text-[9px] font-black uppercase tracking-widest text-slate-400 text-right">Outras despesas</th>
+                            )}
+                            <th className="px-4 py-3.5 text-[9px] font-black uppercase tracking-widest text-emerald-700 dark:text-emerald-400 text-right bg-emerald-50/40 dark:bg-emerald-950/20">Custo unitário final</th>
+                            <th className="px-5 py-3.5 text-[9px] font-black uppercase tracking-widest text-slate-700 dark:text-slate-200 text-right">Total do item</th>
+                            <th className="px-3 py-3.5 w-10"></th>
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-50 dark:divide-slate-800">
-                        {processedItems.map((item, idx) => (
-                            <tr key={idx} className="group hover:bg-slate-50/30 dark:hover:bg-slate-900/15 transition-colors">
-                                <td className="px-6 py-4">
-                                    <span className="text-sm font-bold text-slate-700 dark:text-slate-200">{item.description}</span>
-                                </td>
-                                <td className="px-6 py-4 text-center">
-                                    <div className="flex items-center justify-center gap-1 bg-slate-100 dark:bg-slate-800/80 rounded-xl p-1 w-32 mx-auto border border-slate-200/60 dark:border-slate-700">
-                                        <button
-                                            type="button"
-                                            onClick={() => handleQtyChange(idx, item.quantity - 1)}
-                                            className="w-7 h-7 rounded-lg bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-200 font-black hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors flex items-center justify-center text-xs shadow-sm"
-                                        >
-                                            -
-                                        </button>
+                        {items.map((item, idx) => {
+                            const unitDiscount = item.discountUnit || 0;
+                            const unitFreight = item.freightUnit ?? ((item.baseCost || 0) * (freightPercent / 100));
+                            const unitOther = item.otherExpensesUnit ?? (item.additionalCostUnit || 0);
+
+                            return (
+                                <tr key={idx} className="group hover:bg-slate-50/30 dark:hover:bg-slate-900/15 transition-colors">
+                                    <td className="px-5 py-3.5">
+                                        <span className="text-sm font-bold text-slate-700 dark:text-slate-200">{item.description}</span>
+                                    </td>
+                                    <td className="px-3 py-3.5 text-center">
+                                        <div className="flex items-center justify-center gap-1 bg-slate-100 dark:bg-slate-800/80 rounded-xl p-1 w-28 mx-auto border border-slate-200/60 dark:border-slate-700">
+                                            <button
+                                                type="button"
+                                                onClick={() => handleQtyChange(idx, item.quantity - 1)}
+                                                className="w-6 h-6 rounded-lg bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-200 font-black hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors flex items-center justify-center text-xs shadow-sm"
+                                            >
+                                                -
+                                            </button>
+                                            <input
+                                                type="number"
+                                                min="1"
+                                                value={item.quantity}
+                                                onChange={(e) => handleQtyChange(idx, Number(e.target.value))}
+                                                className="w-10 bg-transparent text-center font-black text-sm text-slate-800 dark:text-slate-100 outline-none p-0 border-none"
+                                            />
+                                            <button
+                                                type="button"
+                                                onClick={() => handleQtyChange(idx, item.quantity + 1)}
+                                                className="w-6 h-6 rounded-lg bg-emerald-600 text-white font-black hover:bg-emerald-700 transition-colors flex items-center justify-center text-xs shadow-sm"
+                                            >
+                                                +
+                                            </button>
+                                        </div>
+                                    </td>
+                                    <td className="px-4 py-3.5 text-right">
                                         <input
                                             type="number"
-                                            min="1"
-                                            value={item.quantity}
-                                            onChange={(e) => handleQtyChange(idx, Number(e.target.value))}
-                                            className="w-12 bg-transparent text-center font-black text-sm text-slate-800 dark:text-slate-100 outline-none p-0 border-none"
+                                            step="0.01"
+                                            min="0"
+                                            value={item.baseCost || ''}
+                                            onChange={(e) => handleCostChange(idx, Number(e.target.value))}
+                                            className="w-24 border-b-2 border-slate-200 dark:border-slate-700 bg-transparent px-1 py-0.5 text-right text-sm font-bold text-slate-800 dark:text-slate-100 outline-none focus:border-emerald-600"
                                         />
-                                        <button
-                                            type="button"
-                                            onClick={() => handleQtyChange(idx, item.quantity + 1)}
-                                            className="w-7 h-7 rounded-lg bg-emerald-600 text-white font-black hover:bg-emerald-700 transition-colors flex items-center justify-center text-xs shadow-sm"
-                                        >
-                                            +
+                                    </td>
+                                    <td className="px-4 py-3.5 text-right text-xs font-medium text-amber-600 dark:text-amber-400">
+                                        {unitDiscount > 0 ? `- ${formatCurrency(unitDiscount)}` : '—'}
+                                    </td>
+                                    <td className="px-4 py-3.5 text-right text-xs font-medium text-slate-600 dark:text-slate-400">
+                                        {unitFreight > 0 ? formatCurrency(unitFreight) : '—'}
+                                    </td>
+                                    {hasAnyOtherExpenses && (
+                                        <td className="px-4 py-3.5 text-right text-xs font-medium text-slate-600 dark:text-slate-400">
+                                            {unitOther > 0 ? formatCurrency(unitOther) : '—'}
+                                        </td>
+                                    )}
+                                    <td className="px-4 py-3.5 text-right text-sm font-black text-emerald-600 dark:text-emerald-400 bg-emerald-50/30 dark:bg-emerald-950/15">
+                                        {formatCurrency(item.unitCost || 0)}
+                                    </td>
+                                    <td className="px-5 py-3.5 text-right text-sm font-black text-slate-800 dark:text-slate-100">
+                                        {formatCurrency(item.totalCost || 0)}
+                                    </td>
+                                    <td className="px-3 py-3.5 text-right">
+                                        <button onClick={() => onRemoveItem(idx)} className="text-slate-400 hover:text-red-500 transition-all p-1">
+                                            <i className="bi bi-trash text-sm"></i>
                                         </button>
-                                    </div>
-                                </td>
-                                <td className="px-6 py-4 text-right">
-                                    <input
-                                        type="number"
-                                        step="0.01"
-                                        min="0"
-                                        value={item.baseCost || ''}
-                                        onChange={(e) => handleCostChange(idx, Number(e.target.value))}
-                                        className="w-24 border-b-2 border-slate-200 dark:border-slate-700 bg-transparent px-2 py-1 text-right text-sm font-bold text-slate-800 dark:text-slate-100 outline-none focus:border-emerald-600"
-                                    />
-                                </td>
-                                <td className="px-6 py-4 text-right text-sm font-bold text-slate-600 dark:text-slate-400">
-                                    {formatCurrency((item.baseCost || 0) * (ipiPercent / 100))}
-                                </td>
-                                <td className="px-6 py-4 text-right text-sm font-bold text-slate-600 dark:text-slate-400">
-                                    {formatCurrency((item.baseCost || 0) * (freightPercent / 100))}
-                                </td>
-                                <td className="px-6 py-4 text-right text-sm font-bold text-emerald-600 dark:text-emerald-400">
-                                    {formatCurrency(item.unitCost || 0)}
-                                </td>
-                                <td className="px-6 py-4 text-right text-sm font-black text-blue-600 dark:text-blue-400">
-                                    {formatCurrency(item.totalCost || 0)}
-                                </td>
-                                <td className="px-6 py-4 text-right">
-                                    <button onClick={() => onRemoveItem(idx)} className="text-slate-400 hover:text-red-500 transition-all p-1">
-                                        <i className="bi bi-trash text-sm"></i>
-                                    </button>
-                                </td>
-                            </tr>
-                        ))}
-                        {processedItems.length === 0 && (
+                                    </td>
+                                </tr>
+                            );
+                        })}
+                        {items.length === 0 && (
                             <tr>
-                                <td colSpan={8} className="px-6 py-10 text-center text-xs font-bold text-slate-300 uppercase tracking-widest">Nenhum item adicionado</td>
+                                <td colSpan={hasAnyOtherExpenses ? 10 : 9} className="px-6 py-10 text-center text-xs font-bold text-slate-300 uppercase tracking-widest">Nenhum item adicionado</td>
                             </tr>
                         )}
                     </tbody>
-                    {processedItems.length > 0 && (
+                    {items.length > 0 && (
                         <tfoot className="bg-slate-900 text-white">
                             <tr>
-                                <td colSpan={6} className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-emerald-400">Valor Total do Recebimento</td>
-                                <td className="px-6 py-4 text-right text-xl font-black text-emerald-400">{formatCurrency(totalValue)}</td>
+                                <td colSpan={hasAnyOtherExpenses ? 8 : 7} className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-emerald-400">Valor Total do Recebimento</td>
+                                <td className="px-5 py-4 text-right text-xl font-black text-emerald-400">{formatCurrency(totalValue)}</td>
                                 <td></td>
                             </tr>
                         </tfoot>
@@ -313,10 +300,11 @@ export const PurchaseItemsSection = ({
 
             {/* Items Card List (Visible on mobile/tablet < lg) */}
             <div className="block lg:hidden space-y-4">
-                {processedItems.map((item, idx) => {
-                    const baseCost = item.baseCost || 0;
-                    const itemIpi = baseCost * (ipiPercent / 100);
-                    const itemFreight = baseCost * (freightPercent / 100);
+                {items.map((item, idx) => {
+                    const unitDiscount = item.discountUnit || 0;
+                    const unitFreight = item.freightUnit ?? ((item.baseCost || 0) * (freightPercent / 100));
+                    const unitOther = item.otherExpensesUnit ?? (item.additionalCostUnit || 0);
+
                     return (
                         <div key={idx} className="bg-white dark:bg-slate-950 p-4 sm:p-5 rounded-2xl sm:rounded-3xl border border-slate-100 dark:border-slate-800 space-y-4 relative shadow-sm">
                             <div className="flex justify-between items-start gap-4">
@@ -330,9 +318,9 @@ export const PurchaseItemsSection = ({
                                 </button>
                             </div>
 
-                            {/* Campo de Quantidade em Destaque ocupando a largura */}
+                            {/* Campo de Quantidade em Destaque */}
                             <div className="p-3 bg-slate-50 dark:bg-slate-900/60 rounded-2xl border border-slate-200/80 dark:border-slate-800 space-y-1.5">
-                                <span className="text-slate-400 uppercase tracking-widest text-[9px] font-black block">Quantidade Recebida</span>
+                                <span className="text-slate-400 uppercase tracking-widest text-[9px] font-black block">Qtd. recebida</span>
                                 <div className="flex items-center gap-2">
                                     <button
                                         type="button"
@@ -361,7 +349,7 @@ export const PurchaseItemsSection = ({
                             {/* Grid de Valores e Métricas */}
                             <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-xs border-t border-slate-100 dark:border-slate-800/50 pt-3">
                                 <div className="p-2.5 bg-slate-50 dark:bg-slate-900/40 rounded-xl border border-slate-100 dark:border-slate-800/60 flex flex-col justify-center">
-                                    <span className="text-slate-400 uppercase tracking-wider text-[9px] font-black block mb-0.5">Custo Base (R$)</span>
+                                    <span className="text-slate-400 uppercase tracking-wider text-[9px] font-black block mb-0.5">Custo unitário</span>
                                     <input
                                         type="number"
                                         step="0.01"
@@ -373,29 +361,38 @@ export const PurchaseItemsSection = ({
                                 </div>
 
                                 <div className="p-2.5 bg-slate-50 dark:bg-slate-900/40 rounded-xl border border-slate-100 dark:border-slate-800/60">
-                                    <span className="text-slate-400 uppercase tracking-wider text-[9px] font-black block mb-0.5">IPI (R$)</span>
-                                    <span className="font-bold text-slate-800 dark:text-slate-200 block text-xs leading-normal">{formatCurrency(itemIpi)}</span>
+                                    <span className="text-slate-400 uppercase tracking-wider text-[9px] font-black block mb-0.5">Desconto</span>
+                                    <span className="font-bold text-amber-600 dark:text-amber-400 block text-xs leading-normal">
+                                        {unitDiscount > 0 ? `- ${formatCurrency(unitDiscount)}` : '—'}
+                                    </span>
                                 </div>
 
                                 <div className="p-2.5 bg-slate-50 dark:bg-slate-900/40 rounded-xl border border-slate-100 dark:border-slate-800/60">
-                                    <span className="text-slate-400 uppercase tracking-wider text-[9px] font-black block mb-0.5">Frete (R$)</span>
-                                    <span className="font-bold text-slate-800 dark:text-slate-200 block text-xs leading-normal">{formatCurrency(itemFreight)}</span>
+                                    <span className="text-slate-400 uppercase tracking-wider text-[9px] font-black block mb-0.5">Frete</span>
+                                    <span className="font-bold text-slate-800 dark:text-slate-200 block text-xs leading-normal">{formatCurrency(unitFreight)}</span>
                                 </div>
 
+                                {unitOther > 0 && (
+                                    <div className="p-2.5 bg-slate-50 dark:bg-slate-900/40 rounded-xl border border-slate-100 dark:border-slate-800/60">
+                                        <span className="text-slate-400 uppercase tracking-wider text-[9px] font-black block mb-0.5">Outras despesas</span>
+                                        <span className="font-bold text-slate-800 dark:text-slate-200 block text-xs leading-normal">{formatCurrency(unitOther)}</span>
+                                    </div>
+                                )}
+
                                 <div className="p-2.5 bg-emerald-50/50 dark:bg-emerald-950/20 rounded-xl border border-emerald-100/60 dark:border-emerald-900/40">
-                                    <span className="text-emerald-600/70 dark:text-emerald-400/70 uppercase tracking-wider text-[9px] font-black block mb-0.5">Total Unitário</span>
+                                    <span className="text-emerald-600/70 dark:text-emerald-400/70 uppercase tracking-wider text-[9px] font-black block mb-0.5">Custo unitário final</span>
                                     <span className="font-black text-emerald-600 dark:text-emerald-400 block text-xs leading-normal">{formatCurrency(item.unitCost || 0)}</span>
                                 </div>
 
                                 <div className="p-2.5 bg-slate-50 dark:bg-slate-900/40 rounded-xl border border-slate-100 dark:border-slate-800/60 col-span-2 sm:col-span-2">
-                                    <span className="text-slate-400 uppercase tracking-wider text-[9px] font-black block mb-0.5">Total Final do Item</span>
-                                    <span className="font-black text-blue-600 dark:text-blue-400 block text-sm leading-normal">{formatCurrency(item.totalCost || 0)}</span>
+                                    <span className="text-slate-400 uppercase tracking-wider text-[9px] font-black block mb-0.5">Total do item</span>
+                                    <span className="font-black text-slate-800 dark:text-slate-100 block text-sm leading-normal">{formatCurrency(item.totalCost || 0)}</span>
                                 </div>
                             </div>
                         </div>
                     );
                 })}
-                {processedItems.length === 0 && (
+                {items.length === 0 && (
                     <div className="text-center py-10 bg-white dark:bg-slate-950 border border-dashed border-slate-200 dark:border-slate-800 rounded-3xl text-xs font-bold text-slate-300 uppercase tracking-widest animate-pulse">
                         Nenhum item adicionado
                     </div>

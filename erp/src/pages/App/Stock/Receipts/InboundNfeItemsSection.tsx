@@ -65,18 +65,19 @@ export default function InboundNfeItemsSection({ items, supplierId, onChange, fo
                                 {linked && <p className="text-[10px] font-mono text-slate-400">Cód. ERP: {item.linkedProductCode || '—'}</p>}
                             </div>
 
-                            <label className="flex flex-col gap-1.5 text-[10px] font-black uppercase tracking-widest text-slate-400">Qtd recebida
+                            <label className="flex flex-col gap-1.5 text-[10px] font-black uppercase tracking-widest text-slate-400">Qtd. recebida
                                 <span className="normal-case font-medium tracking-normal text-slate-400">Esperada: {item.expectedQuantity ?? item.quantity}</span>
                                 <input type="number" min="1" value={item.quantity} onChange={(event) => onChange(item.itemNumber, { quantity: Math.max(1, Number(event.target.value)) })} className="border-b-2 border-slate-200 bg-transparent p-2 text-sm font-bold text-slate-700 outline-none focus:border-emerald-600 dark:border-slate-700 dark:text-slate-200" />
                             </label>
-                            <label className="flex flex-col gap-1.5 text-[10px] font-black uppercase tracking-widest text-slate-400">Custo base
+                            <label className="flex flex-col gap-1.5 text-[10px] font-black uppercase tracking-widest text-slate-400">Custo unitário
                                 <input type="number" min="0" step="0.01" value={item.unitCost} onChange={(event) => onChange(item.itemNumber, { unitCost: Math.max(0, Number(event.target.value)) })} className="border-b-2 border-slate-200 bg-transparent p-2 text-sm font-bold text-slate-700 outline-none focus:border-emerald-600 dark:border-slate-700 dark:text-slate-200" />
-                                <span className="normal-case font-medium tracking-normal text-amber-700 dark:text-amber-300">Adicionais rateados: {formatCurrency(item.totalAdditionalCosts || 0)}</span>
+                                <span className="normal-case font-medium tracking-normal text-amber-700 dark:text-amber-300">Desp. rateadas: {formatCurrency(item.totalAdditionalCosts || 0)}</span>
                             </label>
                             <div className="space-y-1.5 text-xs font-bold text-slate-600 dark:text-slate-300">
-                                <span className="block text-[10px] font-black uppercase tracking-widest text-slate-400">Total unitário</span>
-                                <p>{formatCurrency(totalUnit)}</p>
-                                <p className="text-emerald-600">{formatCurrency(totalUnit * item.quantity)}</p>
+                                <span className="block text-[10px] font-black uppercase tracking-widest text-emerald-600 dark:text-emerald-400">Custo unitário final</span>
+                                <p className="text-emerald-600 font-black">{formatCurrency(totalUnit)}</p>
+                                <span className="block text-[10px] font-black uppercase tracking-widest text-slate-400">Total do item</span>
+                                <p className="text-slate-800 dark:text-slate-100 font-black">{formatCurrency(totalUnit * item.quantity)}</p>
                             </div>
                         </div>
                     );

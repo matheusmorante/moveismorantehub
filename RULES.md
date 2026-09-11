@@ -92,3 +92,14 @@ Este arquivo consolida as regras de ouro e diretrizes de desenvolvimento para o 
     - **Prioridade Absoluta nos Botões de Rota e WhatsApp**: Quando a URL manual do Google Maps (`mapsUrl`) estiver preenchida no cliente ou no pedido, ela possui autoridade e prioridade máxima sobre o endereço textual:
       - Na **mensagem do pedido para a equipe no WhatsApp**, ela é inserida na variável `{{routeUrl}}` e destacada no bloco de endereço (`📍 Localização (Google Maps)`).
       - Nos **botões de rota do ERP e do Aplicativo Mobile** (detalhes do pedido, preparação de saída, em rota e etapas de atendimento), a navegação externa abre diretamente o link manual informado.
+12. **Separação Fiscal Estrita e Nova Semântica no Recebimento de Mercadorias (v1.6.0)**:
+    - **Cadastro de NF-e (`InboundDocumentImportModal`)**: É a autoridade fiscal exclusiva. Focado estritamente nos dados oficiais da nota fiscal emitida pelo fornecedor (ICMS, IPI, frete fiscal, despesas acessórias fiscais e ST). Não possui campos paralelos de despesas operacionais.
+    - **Recebimento de Mercadorias (`ReceiptFormModal`)**:
+      - **Custo Unitário Base da NF-e**: Ao importar uma NF-e, o recebimento puxa diretamente o **valor final de aquisição do item da nota fiscal** como custo unitário base (`fiscalUnitAcquisition`), já embutindo IPI, frete da nota e impostos fiscais.
+      - **Sem Duplicidade de Dados Fiscais**: O formulário de recebimento não repete blocos nem colunas de IPI ou frete fiscal da nota.
+      - **Encargos Operacionais Adicionais**: Campos dedicados para **Desconto**, **Frete** e **Outras Despesas** com botão/toggle para alternar entre **Porcentagem (%)** e **Reais (R$)**, com rateio proporcional exato em centavos (`goodsReceiptCostCalculation.ts`).
+      - **Destaque Visual Âmbar & Tooltip Sem Ruído**: Os labels permanecem limpos (sem a palavra "Não fiscal"). Quando o recebimento for gerado por NF-e (`initialInboundInvoice`), os campos recebem borda/ícone âmbar com tooltip explicativo no cursor esclarecendo que são despesas/descontos operacionais calculados sobre o valor final da nota. Quando não for por NF-e, o estilo visual é padrão e neutro.
+    - **Semântica e Hierarquia Visual nas Tabelas de Itens (Desktop, Mobile e Detalhes)**:
+      - `Produto` → `Qtd. recebida` → `Custo unitário` → `Desconto` → `Frete` → `Outras despesas` → `Custo unitário final` (destaque verde esmeralda) → `Total do item` (destaque negrito).
+      - Fórmula: $\text{Custo unitário final} = \text{Custo unitário} - \text{Desconto} + \text{Frete} + \text{Outras despesas}$.
+      - $\text{Total do item} = \text{Custo unitário final} \times \text{Qtd. recebida}$.

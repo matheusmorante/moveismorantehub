@@ -76,7 +76,7 @@ export default function ReceiptDetailsModal({ isOpen, onClose, receipt, onRevers
                         </div>
                     </div>
 
-                    {/* Fiscal Key & Taxes */}
+                    {/* Fiscal Key & Encargos */}
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <div className="md:col-span-2 rounded-2xl border border-slate-100 bg-white p-4 dark:border-slate-800 dark:bg-slate-900 shadow-sm">
                             <span className="block text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">Chave de Acesso (NF-e)</span>
@@ -91,14 +91,29 @@ export default function ReceiptDetailsModal({ isOpen, onClose, receipt, onRevers
 
                         <div className="rounded-2xl border border-slate-100 bg-white p-4 dark:border-slate-800 dark:bg-slate-900 shadow-sm flex items-center justify-around">
                             <div>
-                                <span className="block text-[10px] font-black uppercase tracking-widest text-slate-400">IPI</span>
-                                <span className="text-sm font-black text-slate-700 dark:text-slate-200">{receipt.ipiPercent || 0}%</span>
+                                <span className="block text-[10px] font-black uppercase tracking-widest text-slate-400">Desconto</span>
+                                <span className="text-sm font-black text-amber-600 dark:text-amber-400">
+                                    {receipt.discountValue ? formatCurrency(receipt.discountValue) : (receipt.discountPercent ? `${receipt.discountPercent}%` : '—')}
+                                </span>
                             </div>
                             <div className="h-8 w-px bg-slate-100 dark:bg-slate-800" />
                             <div>
                                 <span className="block text-[10px] font-black uppercase tracking-widest text-slate-400">Frete</span>
-                                <span className="text-sm font-black text-slate-700 dark:text-slate-200">{receipt.freightPercent || 0}%</span>
+                                <span className="text-sm font-black text-slate-700 dark:text-slate-200">
+                                    {receipt.freightValue ? formatCurrency(receipt.freightValue) : (receipt.freightPercent ? `${receipt.freightPercent}%` : '—')}
+                                </span>
                             </div>
+                            {(receipt.otherExpensesValue || receipt.otherExpensesPercent) ? (
+                                <>
+                                    <div className="h-8 w-px bg-slate-100 dark:bg-slate-800" />
+                                    <div>
+                                        <span className="block text-[10px] font-black uppercase tracking-widest text-slate-400">Outras Desp.</span>
+                                        <span className="text-sm font-black text-slate-700 dark:text-slate-200">
+                                            {receipt.otherExpensesValue ? formatCurrency(receipt.otherExpensesValue) : `${receipt.otherExpensesPercent}%`}
+                                        </span>
+                                    </div>
+                                </>
+                            ) : null}
                         </div>
                     </div>
 
@@ -127,37 +142,67 @@ export default function ReceiptDetailsModal({ isOpen, onClose, receipt, onRevers
                     <div className="space-y-3">
                         <h3 className="text-xs font-black uppercase tracking-widest text-slate-400">Itens Recebidos ({receipt.items.length})</h3>
                         <div className="overflow-hidden rounded-2xl border border-slate-100 dark:border-slate-800">
-                            <table className="w-full text-left text-xs">
-                                <thead>
-                                    <tr className="bg-slate-50 dark:bg-slate-800/60 text-slate-400 font-black uppercase tracking-wider text-[9px]">
-                                        <th className="px-4 py-3">Produto / Descrição</th>
-                                        <th className="px-4 py-3 text-center">Qtd</th>
-                                        <th className="px-4 py-3 text-right">Custo Base</th>
-                                        <th className="px-4 py-3 text-right">Custo Unit. Final</th>
-                                        <th className="px-4 py-3 text-right">Total Item</th>
-                                    </tr>
-                                </thead>
-                                <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                                    {receipt.items.map((item, index) => (
-                                        <tr key={index} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30">
-                                            <td className="px-4 py-3">
-                                                <p className="font-bold text-slate-800 dark:text-slate-100">{item.description}</p>
-                                                {item.code && <p className="text-[10px] text-slate-400 font-mono">Cód: {item.code}</p>}
-                                            </td>
-                                            <td className="px-4 py-3 text-center font-black text-slate-700 dark:text-slate-200">{item.quantity}</td>
-                                            <td className="px-4 py-3 text-right font-medium text-slate-600 dark:text-slate-400">
-                                                {formatCurrency(item.baseCost || item.unitCost)}
-                                            </td>
-                                            <td className="px-4 py-3 text-right font-bold text-slate-700 dark:text-slate-300">
-                                                {formatCurrency(item.unitCost)}
-                                            </td>
-                                            <td className="px-4 py-3 text-right font-black text-emerald-600 dark:text-emerald-400">
-                                                {formatCurrency(item.totalCost || item.quantity * item.unitCost)}
-                                            </td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
+                            {(() => {
+                                const hasAnyOtherExpenses = receipt.items.some(
+                                    (item) => (item.otherExpensesUnit || 0) > 0 || (item.additionalCostUnit || 0) > 0
+                                ) || Boolean(receipt.otherExpensesValue || receipt.otherExpensesPercent);
+
+                                return (
+                                    <table className="w-full text-left text-xs">
+                                        <thead>
+                                            <tr className="bg-slate-50 dark:bg-slate-800/60 text-slate-400 font-black uppercase tracking-wider text-[9px]">
+                                                <th className="px-4 py-3">Produto</th>
+                                                <th className="px-3 py-3 text-center">Qtd. recebida</th>
+                                                <th className="px-4 py-3 text-right">Custo unitário</th>
+                                                <th className="px-4 py-3 text-right">Desconto</th>
+                                                <th className="px-4 py-3 text-right">Frete</th>
+                                                {hasAnyOtherExpenses && (
+                                                    <th className="px-4 py-3 text-right">Outras despesas</th>
+                                                )}
+                                                <th className="px-4 py-3 text-right bg-emerald-50/40 dark:bg-emerald-950/20 text-emerald-700 dark:text-emerald-400">Custo unitário final</th>
+                                                <th className="px-4 py-3 text-right text-slate-700 dark:text-slate-200">Total do item</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                                            {receipt.items.map((item, index) => {
+                                                const unitDiscount = item.discountUnit || 0;
+                                                const unitFreight = item.freightUnit ?? ((item.baseCost || 0) * ((receipt.freightPercent || 0) / 100));
+                                                const unitOther = item.otherExpensesUnit ?? (item.additionalCostUnit || 0);
+
+                                                return (
+                                                    <tr key={index} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30">
+                                                        <td className="px-4 py-3">
+                                                            <p className="font-bold text-slate-800 dark:text-slate-100">{item.description}</p>
+                                                            {(item as any).code && <p className="text-[10px] text-slate-400 font-mono">Cód: {(item as any).code}</p>}
+                                                        </td>
+                                                        <td className="px-3 py-3 text-center font-black text-slate-700 dark:text-slate-200">{item.quantity}</td>
+                                                        <td className="px-4 py-3 text-right font-medium text-slate-600 dark:text-slate-400">
+                                                            {formatCurrency(item.baseCost || item.unitCost)}
+                                                        </td>
+                                                        <td className="px-4 py-3 text-right font-medium text-amber-600 dark:text-amber-400">
+                                                            {unitDiscount > 0 ? `- ${formatCurrency(unitDiscount)}` : '—'}
+                                                        </td>
+                                                        <td className="px-4 py-3 text-right font-medium text-slate-600 dark:text-slate-400">
+                                                            {unitFreight > 0 ? formatCurrency(unitFreight) : '—'}
+                                                        </td>
+                                                        {hasAnyOtherExpenses && (
+                                                            <td className="px-4 py-3 text-right font-medium text-slate-600 dark:text-slate-400">
+                                                                {unitOther > 0 ? formatCurrency(unitOther) : '—'}
+                                                            </td>
+                                                        )}
+                                                        <td className="px-4 py-3 text-right font-black text-emerald-600 dark:text-emerald-400 bg-emerald-50/30 dark:bg-emerald-950/15">
+                                                            {formatCurrency(item.unitCost)}
+                                                        </td>
+                                                        <td className="px-4 py-3 text-right font-black text-slate-800 dark:text-slate-100">
+                                                            {formatCurrency(item.totalCost || item.quantity * item.unitCost)}
+                                                        </td>
+                                                    </tr>
+                                                );
+                                            })}
+                                        </tbody>
+                                    </table>
+                                );
+                            })()}
                         </div>
                     </div>
                 </div>

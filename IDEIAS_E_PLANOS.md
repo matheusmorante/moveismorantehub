@@ -88,6 +88,15 @@ Este documento unifica todo o planejamento estratégico, ideias futuras, tarefas
   - Puxa notas fiscais emitidas por fornecedores via webservice SEFAZ DF-e (`NFeDistribuicaoDFe`) ou através de upload e leitura determinística de arquivos XML (Layout 4.00 da SEFAZ).
   - Tabela e cards responsivos exibindo chave de acesso (44 dígitos), número da NF-e, emitente (razão social e CNPJ), total da nota e lista de itens detalhados com NCM, CFOP, quantidade e custos unitários.
   - Ação direta "Receber no Estoque" vinculada ao recebimento de mercadorias.
+- [x] **Nova Semântica Contábil, Descontos Globais e Separação Fiscal vs Não Fiscal no Recebimento**:
+  - **Remoção de Despesas Não Fiscais da Importação de NF-e**: Cadastro da NF focado exclusivamente nos dados oficiais da nota fiscal.
+  - **Duas Camadas Estruturadas no Recebimento de Mercadorias (`ReceiptFormModal`)**:
+    - *Camada Fiscal*: IPI, Frete Fiscal, Desconto Fiscal e Outras Despesas Fiscais extraídas da NF (somente leitura para evitar divergências fiscais).
+    - *Camada Não Fiscal*: Desconto Não Fiscal, Frete Não Fiscal e Outras Despesas Não Fiscais informadas no ato do recebimento, com alternância `%` e `R$` e rateio ponderado centavo a centavo entre os itens.
+  - **Nova Nomenclatura Semântica Unificada**:
+    - `Produto` → `Qtd. recebida` → `Custo unitário` → `Desconto` → `IPI` → `Frete` → `Outras despesas` → `Custo unitário final` (destaque verde esmeralda) → `Total do item` (destaque negrito).
+    - $\text{Custo unitário final} = \text{Custo unitário} - \text{Descontos} + \text{IPI} + \text{Frete} + \text{Outras despesas}$.
+    - $\text{Total do item} = \text{Custo unitário final} \times \text{Qtd. recebida}$.
 - [x] **Botão Triplo no Recebimento de Mercadorias (`/stock/receipts`)**:
   - O botão de criar novo recebimento foi transformado em um botão triplo com 3 opções claras e destacadas:
     1. **Nota Fiscal de Entrada** (ícone `bi-file-earmark-arrow-down-fill`): seleciona uma NF-e de fornecedor disponível ou importa XML na hora, pré-carregando fornecedor, chave de 44 dígitos, frete, IPI e itens no recebimento.
@@ -428,5 +437,13 @@ Este documento unifica todo o planejamento estratégico, ideias futuras, tarefas
 - **Algoritmo Baseado em Termos Estruturados e Prevenção de Ambiguidade**: O novo módulo modularizado `src/pages/utils/addressParsing.ts` prioriza os termos (`terms`) do Google Places, garantindo que a cidade nunca seja confundida ou atribuída como bairro caso a rua não possua bairro cadastrado.
 - **Refinamento Não-Bloqueante**: Busca assíncrona de detalhes via Place Details em segundo plano (enriquecendo número, CEP exato e coordenadas) sem travar a interface e com resolução de dependências sem exceptions no console.
 - **URL do Google Maps Exclusivamente Manual e Prioritária**: O campo `mapsUrl` (`Link do Google Maps da Localização`) não é preenchido nem alterado automaticamente ao selecionar uma sugestão de logradouro no `AddressAutocompleteInput`. Ele permanece estritamente manual para casos em que o endereço não for localizado por rua/número. Quando preenchido manualmente, ele possui autoridade máxima e é inserido com prioridade no `{{routeUrl}}` do WhatsApp para a equipe e nos botões de rota/navegação do ERP e Mobile.
+
+#### 📦 Separação Estrita entre NF-e Fiscal e Recebimento de Mercadorias (v1.6.0)
+- **NF-e como Autoridade Fiscal Exclusiva**: A tela de Importação e Revisão de NF-e (`InboundDocumentImportModal` e `InboundInvoiceItemsReview`) é estritamente fiscal, exibindo detalhadamente ICMS, IPI, frete fiscal, despesas acessórias fiscais e substituição tributária (ST), eliminando campos paralelos de despesas operacionais no documento fiscal.
+- **Custo Unitário da NF-e como Base do Recebimento**: Ao gerar um recebimento a partir de uma NF-e importada, o sistema puxa diretamente o **valor final de aquisição do item da nota fiscal** como custo unitário base (`fiscalUnitAcquisition`), já englobando IPI, frete da nota e encargos fiscais.
+- **Despesas e Descontos Operacionais do Recebimento**: O cabeçalho do recebimento conta exclusivamente com os campos **Desconto**, **Frete** e **Outras Despesas**, operando tanto em percentual (`%`) quanto em valor fixo (`R$`).
+- **Destaque Visual Âmbar & Tooltip Sem Ruído**: Os labels permanecem limpos (sem o sufixo "Não fiscal"). Quando o recebimento for originado de uma NF-e (`initialInboundInvoice`), os campos recebem borda e ícone em tom âmbar/amarelo com tooltip no cursor explicando que se tratam de encargos operacionais calculados e somados/abatidos sobre o valor final do item da nota fiscal. Quando não for por NF-e, os campos assumem o visual neutro padrão sem o alerta.
+- **Tabela de Itens Semântica e Livre de IPI Redundante**: Coluna de IPI removida de todas as visualizações do recebimento (tabela desktop, cards mobile e `ReceiptDetailsModal`), mantendo a progressão transparente: `Produto` → `Qtd. recebida` → `Custo unitário` → `Desconto` → `Frete` → `Outras despesas` → `Custo unitário final` (destaque verde esmeralda) → `Total do item`.
+- **Rateio Proporcional em Centavos com Motor Determinístico**: O utilitário `goodsReceiptCostCalculation.ts` divide e distribui centavos com exatidão matemática via `distributeRemainingCents`, coberto por 100% de aprovação nos testes unitários Vitest.
 
 

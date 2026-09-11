@@ -35,6 +35,20 @@ export default function ReceiptFormModal({ isOpen, onClose, initialReceipt, init
     const [inboundItems, setInboundItems] = useState<InboundReceiptItem[] | null>(null);
     const [ipiPercent, setIpiPercent] = useState(0);
     const [freightPercent, setFreightPercent] = useState(0);
+    // Dados Não Fiscais (com toggle % e R$)
+    const [nonFiscalDiscountMode, setNonFiscalDiscountMode] = useState<'percent' | 'fixed'>('percent');
+    const [nonFiscalDiscountValue, setNonFiscalDiscountValue] = useState<number>(0);
+    const [nonFiscalFreightMode, setNonFiscalFreightMode] = useState<'percent' | 'fixed'>('fixed');
+    const [nonFiscalFreightValue, setNonFiscalFreightValue] = useState<number>(0);
+    const [nonFiscalOtherExpensesMode, setNonFiscalOtherExpensesMode] = useState<'percent' | 'fixed'>('fixed');
+    const [nonFiscalOtherExpensesValue, setNonFiscalOtherExpensesValue] = useState<number>(0);
+
+    // Dados Fiscais de Referência (extraídos da NF-e)
+    const [fiscalIpi, setFiscalIpi] = useState<number>(0);
+    const [fiscalFreight, setFiscalFreight] = useState<number>(0);
+    const [fiscalDiscount, setFiscalDiscount] = useState<number>(0);
+    const [fiscalOtherExpenses, setFiscalOtherExpenses] = useState<number>(0);
+
     const [receiptDate, setReceiptDate] = useState(new Date().toISOString().slice(0, 10));
     const [invoiceNumber, setInvoiceNumber] = useState('');
     const [invoiceDate, setInvoiceDate] = useState('');
@@ -53,6 +67,16 @@ export default function ReceiptFormModal({ isOpen, onClose, initialReceipt, init
             setInboundItems(null);
             setIpiPercent(initialReceipt.ipiPercent || 0);
             setFreightPercent(initialReceipt.freightPercent || 0);
+            setNonFiscalDiscountMode(initialReceipt.nonFiscalDiscountMode || 'percent');
+            setNonFiscalDiscountValue(initialReceipt.nonFiscalDiscountValue || 0);
+            setNonFiscalFreightMode(initialReceipt.nonFiscalFreightMode || 'fixed');
+            setNonFiscalFreightValue(initialReceipt.nonFiscalFreightValue || 0);
+            setNonFiscalOtherExpensesMode(initialReceipt.nonFiscalOtherExpensesMode || 'fixed');
+            setNonFiscalOtherExpensesValue(initialReceipt.nonFiscalOtherExpensesValue || 0);
+            setFiscalIpi(initialReceipt.fiscalIpi || 0);
+            setFiscalFreight(initialReceipt.fiscalFreight || 0);
+            setFiscalDiscount(initialReceipt.fiscalDiscount || 0);
+            setFiscalOtherExpenses(initialReceipt.fiscalOtherExpenses || 0);
             setReceiptDate(initialReceipt.receivedAt ? initialReceipt.receivedAt.slice(0, 10) : new Date().toISOString().slice(0, 10));
             setInvoiceNumber(initialReceipt.invoiceNumber || '');
             setInvoiceDate(initialReceipt.invoiceDate || '');
@@ -72,13 +96,23 @@ export default function ReceiptFormModal({ isOpen, onClose, initialReceipt, init
             void applyInboundInvoice(initialInboundInvoice);
         } else {
             setDraftId(''); setSupplierId(''); setItems([]); setIpiPercent(0); setFreightPercent(0);
+            setNonFiscalDiscountMode('percent'); setNonFiscalDiscountValue(0);
+            setNonFiscalFreightMode('fixed'); setNonFiscalFreightValue(0);
+            setNonFiscalOtherExpensesMode('fixed'); setNonFiscalOtherExpensesValue(0);
+            setFiscalIpi(0); setFiscalFreight(0); setFiscalDiscount(0); setFiscalOtherExpenses(0);
             setInboundItems(null);
             setReceiptDate(new Date().toISOString().slice(0, 10)); setInvoiceNumber(''); setInvoiceDate(''); setFiscalKey(''); setAttachments([]); setIsDraftSaved(false);
         }
         return subscribeToPeople('suppliers', (data) => setSuppliers(data.filter((person) => !person.deleted && person.type === 'suppliers')));
     }, [isOpen, initialReceipt, initialInboundInvoice, initialPurchase]);
 
-    const processedItems = calculateReceiptItems(items, ipiPercent, freightPercent);
+    const processedItems = calculateReceiptItems(items, {
+        fallbackIpiPercent: ipiPercent,
+        fallbackFreightPercent: freightPercent,
+        nonFiscalDiscount: { mode: nonFiscalDiscountMode, value: nonFiscalDiscountValue },
+        nonFiscalFreight: { mode: nonFiscalFreightMode, value: nonFiscalFreightValue },
+        nonFiscalOtherExpenses: { mode: nonFiscalOtherExpensesMode, value: nonFiscalOtherExpensesValue },
+    });
     const totalValue = processedItems.reduce((sum, item) => sum + item.totalCost, 0);
 
     // Auto-save rascunho de forma contínua quando fornecedor e pelo menos 1 item estão selecionados
@@ -103,6 +137,16 @@ export default function ReceiptFormModal({ isOpen, onClose, initialReceipt, init
                     attachments,
                     ipiPercent,
                     freightPercent,
+                    nonFiscalDiscountMode,
+                    nonFiscalDiscountValue,
+                    nonFiscalFreightMode,
+                    nonFiscalFreightValue,
+                    nonFiscalOtherExpensesMode,
+                    nonFiscalOtherExpensesValue,
+                    fiscalIpi,
+                    fiscalFreight,
+                    fiscalDiscount,
+                    fiscalOtherExpenses,
                 });
                 if (!draftId && savedDraft.id) setDraftId(savedDraft.id);
                 setIsDraftSaved(true);
@@ -114,7 +158,7 @@ export default function ReceiptFormModal({ isOpen, onClose, initialReceipt, init
         return () => {
             if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
         };
-    }, [isOpen, supplierId, items, ipiPercent, freightPercent, receiptDate, invoiceNumber, invoiceDate, fiscalKey, attachments]);
+    }, [isOpen, supplierId, items, ipiPercent, freightPercent, nonFiscalDiscountMode, nonFiscalDiscountValue, nonFiscalFreightMode, nonFiscalFreightValue, nonFiscalOtherExpensesMode, nonFiscalOtherExpensesValue, fiscalIpi, fiscalFreight, fiscalDiscount, fiscalOtherExpenses, receiptDate, invoiceNumber, invoiceDate, fiscalKey, attachments]);
 
     if (!isOpen) return null;
     const supplier = suppliers.find((person) => person.id === supplierId);
@@ -149,6 +193,16 @@ export default function ReceiptFormModal({ isOpen, onClose, initialReceipt, init
                 attachments,
                 ipiPercent,
                 freightPercent,
+                nonFiscalDiscountMode,
+                nonFiscalDiscountValue,
+                nonFiscalFreightMode,
+                nonFiscalFreightValue,
+                nonFiscalOtherExpensesMode,
+                nonFiscalOtherExpensesValue,
+                fiscalIpi,
+                fiscalFreight,
+                fiscalDiscount,
+                fiscalOtherExpenses,
                 status: 'received',
                 isDraft: false,
             });
@@ -198,6 +252,13 @@ export default function ReceiptFormModal({ isOpen, onClose, initialReceipt, init
         setIpiPercent(calcIpi);
         setFreightPercent(calcFreight);
 
+        // Dados Fiscais Oficiais da NF
+        setFiscalIpi(invoice.totalIpi || 0);
+        setFiscalFreight(invoice.totalFreight || 0);
+        setFiscalDiscount(invoice.totalDiscount || 0);
+        const calcFiscalOther = (invoice.totalOtherExpenses || 0) + (invoice.totalInsurance || 0) + (invoice.totalIcmsSt || 0);
+        setFiscalOtherExpenses(calcFiscalOther);
+
         let references = new Map();
         try {
             references = resolvedSupplierId ? await findProductSupplierCodes(resolvedSupplierId, invoice.items.map((item) => item.productCode)) : new Map();
@@ -236,19 +297,24 @@ export default function ReceiptFormModal({ isOpen, onClose, initialReceipt, init
                 linkStatus: reference || item.matchedProductId ? 'automatic' : 'pending',
             };
         });
-        const convertedItems: PurchaseItem[] = linkedItems.map((item) => ({
-            productId: item.linkedProductId || '', variationId: item.linkedVariationId || '', description: item.productDescription,
-            quantity: item.quantity,
-            baseCost: item.unitCost,
-            unitCost: item.unitCost,
-            totalCost: item.totalCost,
-            ipiValue: item.ipiValue, ipiPercent: item.ipiPercent, freightValue: item.freightValue,
-            allocatedAdditionalCosts: item.allocatedAdditionalCosts,
-            totalAdditionalCosts: item.totalAdditionalCosts,
-            acquisitionCost: item.acquisitionCost,
-            fiscalBaseCost: item.unitCost,
-            additionalCostUnit: Number(((item.totalAdditionalCosts || 0) / Math.max(1, item.expectedQuantity || item.quantity)).toFixed(4)),
-        }));
+        const convertedItems: PurchaseItem[] = linkedItems.map((item) => {
+            const quantity = Math.max(1, item.expectedQuantity || item.quantity);
+            // O valor final do item na nota fiscal já engloba IPI, ICMS-ST, Frete e Despesas Fiscais
+            const fiscalUnitAcquisition = Number((item.unitCost + ((item.ipiValue || 0) + (item.freightValue || 0) + (item.insuranceValue || 0) + (item.otherExpensesValue || 0) + (item.icmsStValue || 0) - (item.discountValue || 0)) / quantity).toFixed(2));
+            const fiscalTotalItem = Number((fiscalUnitAcquisition * item.quantity).toFixed(2));
+
+            return {
+                productId: item.linkedProductId || '',
+                variationId: item.linkedVariationId || '',
+                description: item.productDescription,
+                quantity: item.quantity,
+                baseCost: fiscalUnitAcquisition,
+                unitCost: fiscalUnitAcquisition,
+                totalCost: fiscalTotalItem,
+                fiscalBaseCost: fiscalUnitAcquisition,
+                additionalCostUnit: 0,
+            };
+        });
 
         setInboundItems(linkedItems);
         setItems(convertedItems);
@@ -260,15 +326,18 @@ export default function ReceiptFormModal({ isOpen, onClose, initialReceipt, init
             if (!current) return current;
             const updated = current.map((item) => item.itemNumber === itemNumber ? { ...item, ...update } : item);
             setItems(updated.map((item) => {
-                const fiscalBaseCost = item.unitCost;
-                const additionalCostUnit = Number(((item.totalAdditionalCosts || 0) / Math.max(1, item.expectedQuantity || item.quantity)).toFixed(4));
+                const quantity = Math.max(1, item.expectedQuantity || item.quantity);
+                const fiscalUnitAcquisition = Number((item.unitCost + ((item.ipiValue || 0) + (item.freightValue || 0) + (item.insuranceValue || 0) + (item.otherExpensesValue || 0) + (item.icmsStValue || 0) - (item.discountValue || 0)) / quantity).toFixed(2));
                 return {
-                    productId: item.linkedProductId || '', variationId: item.linkedVariationId || '', description: item.productDescription,
-                    quantity: item.quantity, baseCost: fiscalBaseCost, unitCost: fiscalBaseCost, totalCost: Number((fiscalBaseCost * item.quantity).toFixed(2)),
-                    ipiValue: item.ipiValue, ipiPercent: item.ipiPercent, freightValue: item.freightValue,
-                    allocatedAdditionalCosts: item.allocatedAdditionalCosts,
-                    totalAdditionalCosts: item.totalAdditionalCosts, acquisitionCost: Number(((fiscalBaseCost + additionalCostUnit) * item.quantity).toFixed(2)),
-                    fiscalBaseCost, additionalCostUnit,
+                    productId: item.linkedProductId || '',
+                    variationId: item.linkedVariationId || '',
+                    description: item.productDescription,
+                    quantity: item.quantity,
+                    baseCost: fiscalUnitAcquisition,
+                    unitCost: fiscalUnitAcquisition,
+                    totalCost: Number((fiscalUnitAcquisition * item.quantity).toFixed(2)),
+                    fiscalBaseCost: fiscalUnitAcquisition,
+                    additionalCostUnit: 0,
                 };
             }));
             return updated;
@@ -299,7 +368,8 @@ export default function ReceiptFormModal({ isOpen, onClose, initialReceipt, init
                 <button type="button" onClick={onClose} className="rounded-xl p-2 hover:bg-white/10"><i className="bi bi-x-lg text-lg" /></button>
             </header>
             <div className="flex-1 space-y-7 overflow-y-auto p-5 xl:p-8">
-                <div className="grid grid-cols-1 items-end gap-5 md:grid-cols-5">
+                {/* Barra Principal: Fornecedor e Data */}
+                <div className="grid grid-cols-1 items-end gap-4 md:grid-cols-3">
                     <div className="md:col-span-2">
                         <SupplierAutocomplete
                             suppliers={suppliers}
@@ -318,22 +388,65 @@ export default function ReceiptFormModal({ isOpen, onClose, initialReceipt, init
                         />
                     </div>
                     <label className="flex flex-col gap-2 text-[10px] font-black uppercase tracking-widest text-slate-400">Data do recebimento<input type="date" value={receiptDate} onChange={(event) => setReceiptDate(event.target.value)} className="border-b-2 border-slate-200 bg-transparent p-2 text-sm font-bold text-slate-700 outline-none focus:border-emerald-600 dark:border-slate-700 dark:text-slate-200" /></label>
-                    <NumberField label="IPI (%)" value={ipiPercent} onChange={setIpiPercent} />
-                    <NumberField label="Frete (%)" value={freightPercent} onChange={setFreightPercent} />
                 </div>
-                <ReceiptFiscalDocumentsSection attachments={attachments} fiscalKey={fiscalKey} onAttachmentsChange={setAttachments} onFiscalKeyChange={setFiscalKey} />
-                {initialInboundInvoice && (
-                    <section className="rounded-2xl border border-amber-200 bg-amber-50/40 p-4 dark:border-amber-900/50 dark:bg-amber-950/10">
-                        <h3 className="text-xs font-black uppercase tracking-widest text-amber-900 dark:text-amber-200">Custos adicionais da compra</h3>
-                        <div className="mt-3 grid gap-2 text-xs sm:grid-cols-3">
-                            <span>Custos não fiscais: <b>{formatCurrency(initialInboundInvoice.additionalCostsTotal || 0)}</b></span>
-                            <span>Itens com rateio: <b>{formatCurrency(inboundItems?.reduce((sum, item) => sum + (item.totalAdditionalCosts || 0), 0) || 0)}</b></span>
-                            <span className="font-black text-amber-800 dark:text-amber-200">Base fiscal dos produtos: {formatCurrency(initialInboundInvoice.totalProducts)}</span>
+
+                {/* Parâmetros do Recebimento (Desconto, Frete e Outras Despesas com rateio dinâmico) */}
+                <div className="rounded-2xl border border-slate-200/80 bg-slate-50/50 p-4 dark:border-slate-800 dark:bg-slate-900/30 space-y-3">
+                    <div className="flex items-center justify-between border-b border-slate-200/60 pb-2 dark:border-slate-800">
+                        <div className="flex items-center gap-2">
+                            <i className="bi bi-calculator-fill text-emerald-600 text-sm" />
+                            <h3 className="text-xs font-black uppercase tracking-widest text-slate-700 dark:text-slate-200">
+                                Despesas e Descontos do Recebimento
+                            </h3>
                         </div>
-                    </section>
-                )}
+                        {initialInboundInvoice && (
+                            <span className="group relative inline-flex items-center gap-1 px-2.5 py-1 text-[10px] font-black uppercase tracking-wider bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300 rounded-lg border border-amber-300 dark:border-amber-800 cursor-help">
+                                <i className="bi bi-exclamation-triangle-fill text-amber-600 text-xs" />
+                                Despesas não fiscais
+                                <span className="absolute right-0 top-full mt-1.5 hidden w-72 rounded-xl bg-slate-900 p-2.5 text-[11px] font-medium normal-case tracking-normal text-white shadow-xl group-hover:block z-50 border border-slate-800">
+                                    Esses valores são não fiscais e serão calculados e somados/abatidos sobre o valor final do item da nota fiscal.
+                                </span>
+                            </span>
+                        )}
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                        <ToggleValueField
+                            label="Desconto"
+                            mode={nonFiscalDiscountMode}
+                            value={nonFiscalDiscountValue}
+                            onModeChange={setNonFiscalDiscountMode}
+                            onValueChange={setNonFiscalDiscountValue}
+                            color="amber"
+                            isWarning={Boolean(initialInboundInvoice)}
+                            warningTooltip="Desconto operacional rateado sobre o valor da nota fiscal."
+                        />
+                        <ToggleValueField
+                            label="Frete"
+                            mode={nonFiscalFreightMode}
+                            value={nonFiscalFreightValue}
+                            onModeChange={setNonFiscalFreightMode}
+                            onValueChange={setNonFiscalFreightValue}
+                            color="blue"
+                            isWarning={Boolean(initialInboundInvoice)}
+                            warningTooltip="Frete operacional adicional somado sobre o valor da nota fiscal."
+                        />
+                        <ToggleValueField
+                            label="Outras Despesas"
+                            mode={nonFiscalOtherExpensesMode}
+                            value={nonFiscalOtherExpensesValue}
+                            onModeChange={setNonFiscalOtherExpensesMode}
+                            onValueChange={setNonFiscalOtherExpensesValue}
+                            color="slate"
+                            isWarning={Boolean(initialInboundInvoice)}
+                            warningTooltip="Outras despesas adicionais somadas sobre o valor da nota fiscal."
+                        />
+                    </div>
+                </div>
+
+                <ReceiptFiscalDocumentsSection attachments={attachments} fiscalKey={fiscalKey} onAttachmentsChange={setAttachments} onFiscalKeyChange={setFiscalKey} />
                 {inboundItems ? <InboundNfeItemsSection items={inboundItems} supplierId={supplierId} onChange={handleInboundItemChange} formatCurrency={formatCurrency} /> : <PurchaseItemsSection
-                    items={items}
+                    items={processedItems}
                     onAddItem={(item) => setItems((current) => [...current, item])}
                     onRemoveItem={(index) => setItems((current) => current.filter((_, itemIndex) => itemIndex !== index))}
                     onUpdateItem={(index, updatedItem) => setItems((current) => current.map((item, i) => (i === index ? updatedItem : item)))}
@@ -354,3 +467,81 @@ export default function ReceiptFormModal({ isOpen, onClose, initialReceipt, init
 function NumberField({ label, value, onChange }: { label: string; value: number; onChange: (value: number) => void }) {
     return <label className="flex flex-col gap-2 text-[10px] font-black uppercase tracking-widest text-slate-400">{label}<input type="number" min="0" value={value || ''} onChange={(event) => onChange(Math.max(0, Number(event.target.value)))} className="border-b-2 border-slate-200 bg-transparent p-2 text-sm font-bold text-slate-700 outline-none focus:border-emerald-600 dark:border-slate-700 dark:text-slate-200" placeholder="0" /></label>;
 }
+
+interface ToggleValueFieldProps {
+    label: string;
+    mode: 'percent' | 'fixed';
+    value: number;
+    onModeChange: (mode: 'percent' | 'fixed') => void;
+    onValueChange: (value: number) => void;
+    color?: 'amber' | 'blue' | 'slate' | 'emerald';
+    isWarning?: boolean;
+    warningTooltip?: string;
+}
+
+function ToggleValueField({ label, mode, value, onModeChange, onValueChange, color = 'amber', isWarning, warningTooltip }: ToggleValueFieldProps) {
+    const isPercent = mode === 'percent';
+    const activeBtnClass = color === 'amber'
+        ? 'bg-amber-600 text-white shadow-sm'
+        : color === 'blue'
+        ? 'bg-blue-600 text-white shadow-sm'
+        : color === 'emerald'
+        ? 'bg-emerald-600 text-white shadow-sm'
+        : 'bg-slate-700 text-white shadow-sm';
+
+    return (
+        <div className={`p-3 bg-white dark:bg-slate-900 rounded-xl border flex flex-col justify-between gap-1.5 shadow-sm transition-colors ${isWarning ? 'border-amber-300 dark:border-amber-800/80 ring-1 ring-amber-400/20' : 'border-slate-200/80 dark:border-slate-800'}`}>
+            <div className="flex items-center justify-between gap-2">
+                <div className="group relative flex items-center gap-1.5 min-w-0">
+                    <span className={`text-[9px] font-black uppercase tracking-wider truncate ${isWarning ? 'text-amber-700 dark:text-amber-400 font-black' : 'text-slate-400'}`} title={label}>
+                        {label}
+                    </span>
+                    {isWarning && (
+                        <>
+                            <i className="bi bi-info-circle-fill text-[11px] text-amber-500 cursor-help" />
+                            {warningTooltip && (
+                                <span className="absolute left-0 bottom-full mb-1.5 hidden w-64 rounded-xl bg-slate-900 p-2 text-[10px] font-medium normal-case tracking-normal text-white shadow-xl group-hover:block z-50 border border-slate-800">
+                                    {warningTooltip}
+                                </span>
+                            )}
+                        </>
+                    )}
+                </div>
+                <div className="flex items-center rounded-lg bg-slate-100 p-0.5 dark:bg-slate-800 border border-slate-200/60 dark:border-slate-700 shrink-0">
+                    <button
+                        type="button"
+                        onClick={() => onModeChange('percent')}
+                        className={`px-1.5 py-0.5 rounded-md text-[10px] font-black transition-all ${isPercent ? activeBtnClass : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'}`}
+                        title="Calcular em porcentagem (%)"
+                    >
+                        %
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => onModeChange('fixed')}
+                        className={`px-1.5 py-0.5 rounded-md text-[10px] font-black transition-all ${!isPercent ? activeBtnClass : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'}`}
+                        title="Calcular em reais (R$)"
+                    >
+                        R$
+                    </button>
+                </div>
+            </div>
+
+            <div className="relative flex items-center">
+                <input
+                    type="number"
+                    min="0"
+                    step={isPercent ? '0.1' : '0.01'}
+                    value={value || ''}
+                    onChange={(e) => onValueChange(Math.max(0, Number(e.target.value)))}
+                    placeholder={isPercent ? '0 %' : '0,00'}
+                    className="w-full border-b-2 border-slate-200 dark:border-slate-700 bg-transparent py-1.5 pr-8 text-sm font-bold text-slate-800 dark:text-slate-100 outline-none focus:border-emerald-600 transition-colors"
+                />
+                <span className="absolute right-1 text-[11px] font-black text-slate-400 pointer-events-none">
+                    {isPercent ? '%' : 'R$'}
+                </span>
+            </div>
+        </div>
+    );
+}
+

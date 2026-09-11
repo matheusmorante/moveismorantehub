@@ -92,7 +92,17 @@ if (expoAppConfigFile.exists()) {
     configuredGoogleMapsApiKey = new groovy.json.JsonSlurper()
         .parse(expoAppConfigFile)?.expo?.android?.config?.googleMaps?.apiKey ?: ""
 }
-def googleMapsApiKey = System.getenv("GOOGLE_MAPS_ANDROID_API_KEY") ?: (findProperty("GOOGLE_MAPS_ANDROID_API_KEY") ?: configuredGoogleMapsApiKey)
+def envFile = new File(projectRoot, ".env")
+def envFileApiKey = ""
+if (envFile.exists()) {
+    envFile.eachLine { line ->
+        def trimmed = line.trim()
+        if (trimmed.startsWith("GOOGLE_MAPS_ANDROID_API_KEY=")) {
+            envFileApiKey = trimmed.substring("GOOGLE_MAPS_ANDROID_API_KEY=".length()).trim()
+        }
+    }
+}
+def googleMapsApiKey = System.getenv("GOOGLE_MAPS_ANDROID_API_KEY") ?: (findProperty("GOOGLE_MAPS_ANDROID_API_KEY") ?: (envFileApiKey ?: configuredGoogleMapsApiKey))
 if (!googleMapsApiKey?.trim() || googleMapsApiKey.startsWith("__REDACTED")) {
     throw new GradleException("Configure GOOGLE_MAPS_ANDROID_API_KEY before generating an Android build with the delivery map.")
 }

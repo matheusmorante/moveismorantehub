@@ -23,6 +23,18 @@ export type GoodsReceipt = {
     isDraft: boolean;
     ipiPercent?: number;
     freightPercent?: number;
+    // Dados não fiscais
+    nonFiscalDiscountMode?: 'percent' | 'fixed';
+    nonFiscalDiscountValue?: number;
+    nonFiscalFreightMode?: 'percent' | 'fixed';
+    nonFiscalFreightValue?: number;
+    nonFiscalOtherExpensesMode?: 'percent' | 'fixed';
+    nonFiscalOtherExpensesValue?: number;
+    // Dados fiscais espelhados
+    fiscalIpi?: number;
+    fiscalFreight?: number;
+    fiscalDiscount?: number;
+    fiscalOtherExpenses?: number;
     createdAt?: string;
     updatedAt?: string;
 };
@@ -73,6 +85,16 @@ const map = (row: any): GoodsReceipt => ({
     isDraft: row.is_draft ?? (row.status !== 'received' && row.status !== 'estornado'),
     ipiPercent: Number(row.ipi_percent || 0),
     freightPercent: Number(row.freight_percent || 0),
+    nonFiscalDiscountMode: row.non_fiscal_discount_mode || undefined,
+    nonFiscalDiscountValue: typeof row.non_fiscal_discount_value === 'number' ? row.non_fiscal_discount_value : undefined,
+    nonFiscalFreightMode: row.non_fiscal_freight_mode || undefined,
+    nonFiscalFreightValue: typeof row.non_fiscal_freight_value === 'number' ? row.non_fiscal_freight_value : undefined,
+    nonFiscalOtherExpensesMode: row.non_fiscal_other_expenses_mode || undefined,
+    nonFiscalOtherExpensesValue: typeof row.non_fiscal_other_expenses_value === 'number' ? row.non_fiscal_other_expenses_value : undefined,
+    fiscalIpi: typeof row.fiscal_ipi === 'number' ? row.fiscal_ipi : undefined,
+    fiscalFreight: typeof row.fiscal_freight === 'number' ? row.fiscal_freight : undefined,
+    fiscalDiscount: typeof row.fiscal_discount === 'number' ? row.fiscal_discount : undefined,
+    fiscalOtherExpenses: typeof row.fiscal_other_expenses === 'number' ? row.fiscal_other_expenses : undefined,
     createdAt: row.created_at || new Date().toISOString(),
     updatedAt: row.updated_at || new Date().toISOString(),
 });
@@ -104,6 +126,16 @@ export const saveGoodsReceiptDraft = async (draftData: Partial<GoodsReceipt>): P
         isDraft: true,
         ipiPercent: draftData.ipiPercent ?? existing?.ipiPercent ?? 0,
         freightPercent: draftData.freightPercent ?? existing?.freightPercent ?? 0,
+        nonFiscalDiscountMode: draftData.nonFiscalDiscountMode ?? existing?.nonFiscalDiscountMode,
+        nonFiscalDiscountValue: draftData.nonFiscalDiscountValue ?? existing?.nonFiscalDiscountValue,
+        nonFiscalFreightMode: draftData.nonFiscalFreightMode ?? existing?.nonFiscalFreightMode,
+        nonFiscalFreightValue: draftData.nonFiscalFreightValue ?? existing?.nonFiscalFreightValue,
+        nonFiscalOtherExpensesMode: draftData.nonFiscalOtherExpensesMode ?? existing?.nonFiscalOtherExpensesMode,
+        nonFiscalOtherExpensesValue: draftData.nonFiscalOtherExpensesValue ?? existing?.nonFiscalOtherExpensesValue,
+        fiscalIpi: draftData.fiscalIpi ?? existing?.fiscalIpi,
+        fiscalFreight: draftData.fiscalFreight ?? existing?.fiscalFreight,
+        fiscalDiscount: draftData.fiscalDiscount ?? existing?.fiscalDiscount,
+        fiscalOtherExpenses: draftData.fiscalOtherExpenses ?? existing?.fiscalOtherExpenses,
         createdAt: existing?.createdAt || now,
         updatedAt: now,
     };

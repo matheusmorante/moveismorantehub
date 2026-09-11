@@ -16,6 +16,17 @@ export type PurchaseItem = {
     acquisitionCost?: number;
     fiscalBaseCost?: number;
     additionalCostUnit?: number;
+    // Campos discriminados de desconto, frete e despesas
+    discountFiscalUnit?: number;
+    discountNonFiscalUnit?: number;
+    discountUnit?: number;
+    freightFiscalUnit?: number;
+    freightNonFiscalUnit?: number;
+    freightUnit?: number;
+    otherExpensesFiscalUnit?: number;
+    otherExpensesNonFiscalUnit?: number;
+    otherExpensesUnit?: number;
+    netBaseCost?: number;
 };
 
 export type Purchase = {
