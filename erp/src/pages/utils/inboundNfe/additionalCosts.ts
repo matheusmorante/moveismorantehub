@@ -1,3 +1,9 @@
+import {
+    allocateAmountProportionally,
+    fromCents,
+    toCents,
+} from '../proportionalAllocation';
+
 export type AdditionalCostCalculationType = 'percentage' | 'fixed';
 
 export interface AdditionalCostInput {
@@ -31,8 +37,6 @@ export interface AdditionalCostsCalculation {
 
 type BaseItem = { itemNumber: number; totalCost: number };
 
-const toCents = (value: number) => Math.round((Number.isFinite(value) ? value : 0) * 100);
-const fromCents = (value: number) => Number((value / 100).toFixed(2));
 const safeAmount = (value: number | null | undefined) => Math.max(0, Number.isFinite(Number(value)) ? Number(value) : 0);
 
 export const emptyAdditionalCost = (index = 0): AdditionalCostInput => ({
@@ -69,7 +73,7 @@ export const isBlankAdditionalCost = (cost: AdditionalCostInput) => !cost.descri
 const calculateCost = (cost: AdditionalCostInput, productsBaseValue: number): AdditionalCost => {
     const inputValue = cost.inputValue === null ? null : safeAmount(cost.inputValue);
     const calculatedAmount = cost.calculationType === 'percentage'
-        ? fromCents(toCents(productsBaseValue) * (inputValue || 0) / 100)
+        ? fromCents(Math.round((toCents(productsBaseValue) * (inputValue || 0)) / 100))
         : fromCents(toCents(inputValue || 0));
     const calculatedRate = productsBaseValue > 0 ? calculatedAmount / productsBaseValue : 0;
 
@@ -82,24 +86,9 @@ const calculateCost = (cost: AdditionalCostInput, productsBaseValue: number): Ad
     };
 };
 
-const allocate = (totalAmount: number, items: BaseItem[]) => {
-    const totalCents = toCents(totalAmount);
-    const baseCents = items.map((item) => Math.max(0, toCents(item.totalCost)));
-    const baseTotalCents = baseCents.reduce((sum, value) => sum + value, 0);
-    const allocations = items.map(() => 0);
-    if (!totalCents || !baseTotalCents) return allocations;
-
-    let allocated = 0;
-    let lastEligible = -1;
-    baseCents.forEach((base, index) => {
-        if (base <= 0) return;
-        lastEligible = index;
-        const amount = Math.floor(totalCents * base / baseTotalCents);
-        allocations[index] = amount;
-        allocated += amount;
-    });
-    if (lastEligible >= 0) allocations[lastEligible] += totalCents - allocated;
-    return allocations;
+const allocate = (totalAmount: number, items: BaseItem[]): number[] => {
+    const bases = items.map((item) => item.totalCost);
+    return allocateAmountProportionally(totalAmount, bases).map((val) => Math.round(val * 100));
 };
 
 export const calculateAdditionalCosts = (

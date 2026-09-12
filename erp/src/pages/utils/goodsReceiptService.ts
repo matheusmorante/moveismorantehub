@@ -167,6 +167,16 @@ export const saveGoodsReceiptDraft = async (draftData: Partial<GoodsReceipt>): P
             is_draft: true,
             ipi_percent: draftReceipt.ipiPercent,
             freight_percent: draftReceipt.freightPercent,
+            non_fiscal_discount_mode: draftReceipt.nonFiscalDiscountMode || null,
+            non_fiscal_discount_value: draftReceipt.nonFiscalDiscountValue ?? 0,
+            non_fiscal_freight_mode: draftReceipt.nonFiscalFreightMode || null,
+            non_fiscal_freight_value: draftReceipt.nonFiscalFreightValue ?? 0,
+            non_fiscal_other_expenses_mode: draftReceipt.nonFiscalOtherExpensesMode || null,
+            non_fiscal_other_expenses_value: draftReceipt.nonFiscalOtherExpensesValue ?? 0,
+            fiscal_ipi: draftReceipt.fiscalIpi ?? 0,
+            fiscal_freight: draftReceipt.fiscalFreight ?? 0,
+            fiscal_discount: draftReceipt.fiscalDiscount ?? 0,
+            fiscal_other_expenses: draftReceipt.fiscalOtherExpenses ?? 0,
             updated_at: now,
         });
     } catch {}
@@ -236,6 +246,16 @@ export const finalizeGoodsReceipt = async (receipt: GoodsReceipt): Promise<void>
             is_draft: false,
             ipi_percent: finalizedReceipt.ipiPercent,
             freight_percent: finalizedReceipt.freightPercent,
+            non_fiscal_discount_mode: finalizedReceipt.nonFiscalDiscountMode || null,
+            non_fiscal_discount_value: finalizedReceipt.nonFiscalDiscountValue ?? 0,
+            non_fiscal_freight_mode: finalizedReceipt.nonFiscalFreightMode || null,
+            non_fiscal_freight_value: finalizedReceipt.nonFiscalFreightValue ?? 0,
+            non_fiscal_other_expenses_mode: finalizedReceipt.nonFiscalOtherExpensesMode || null,
+            non_fiscal_other_expenses_value: finalizedReceipt.nonFiscalOtherExpensesValue ?? 0,
+            fiscal_ipi: finalizedReceipt.fiscalIpi ?? 0,
+            fiscal_freight: finalizedReceipt.fiscalFreight ?? 0,
+            fiscal_discount: finalizedReceipt.fiscalDiscount ?? 0,
+            fiscal_other_expenses: finalizedReceipt.fiscalOtherExpenses ?? 0,
             updated_at: now,
         });
     } catch {}

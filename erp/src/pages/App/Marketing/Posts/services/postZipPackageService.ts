@@ -1,23 +1,16 @@
 /**
  * postZipPackageService.ts — Gerador do pacote post-context.zip para IA.
  *
- * Estrutura gerada:
+ * Estrutura gerada: CAMADA ÚNICA (FLAT, SEM SUBPASTAS)
  * post-context.zip
- * ├── prompt.md
- * ├── product/
- * │   ├── primary.<formato-real>
- * │   ├── secondary.<formato-real>
- * │   └── variations/
- * │       ├── variacao-01-branco.png
- * │       └── variacao-02-freijo.png
- * ├── official-assets/
- * │   ├── logo.<formato-real>
- * │   └── badge.<formato-real>
- * └── references/
- *     ├── title/
- *     ├── price/
- *     ├── background/
- *     └── ...
+ * ├── prompt.md (Instruções completas consolidadas em arquivo único)
+ * ├── foto-principal-var-01.<ext> (Foto principal da Variação 1)
+ * ├── foto-secundaria-var-01.<ext> (Foto secundária da Variação 1 - se houver)
+ * ├── variacao-02-<slug>.<ext> (Primeira variação adicional - se houver foto)
+ * ├── variacao-03-<slug>.<ext> (Segunda variação adicional - se houver foto)
+ * ├── logo-moveis-morante.<ext> (se houver)
+ * ├── selo-oficial.<ext> (se houver)
+ * └── referencia-01-<slug>.<ext> (se houver anexos de modelo)
  */
 
 import JSZip from 'jszip';
@@ -100,8 +93,8 @@ export interface GenerateZipOptions {
 }
 
 /**
- * Gera o arquivo ZIP contendo as fotos baixadas, assets, prompt.txt e instruções.
- * Organizado em exatamente 10 arquivos MD de texto e no máximo 10 imagens (respeitando o limite de 20 arquivos do ChatGPT).
+ * Gera o arquivo ZIP contendo as fotos baixadas, assets e o prompt.md.
+ * Organizado em camada única plana (flat, sem pastas nem subpastas) e no máximo 10 imagens.
  */
 export async function generatePostContextZip(options: GenerateZipOptions): Promise<Blob> {
   const { specification, activeModels = [], onProgress } = options;
@@ -121,10 +114,9 @@ export async function generatePostContextZip(options: GenerateZipOptions): Promi
     const url = specClone.officialAssets.logo.url;
     const asset = await tryFetchValidatedImage(url);
     if (asset) {
-      const filename = `logo.${asset.extension}`;
-      const relativePath = `official-assets/${filename}`;
-      zip.file(relativePath, asset.buffer);
-      specClone.officialAssets.logo.file = relativePath;
+      const filename = `logo-moveis-morante.${asset.extension}`;
+      zip.file(filename, asset.buffer);
+      specClone.officialAssets.logo.file = filename;
       totalImageCount++;
     }
   }
@@ -160,11 +152,10 @@ export async function generatePostContextZip(options: GenerateZipOptions): Promi
     }
 
     if (resolvedBadge) {
-      const filename = `badge.${resolvedBadge.asset.extension}`;
-      const relativePath = `official-assets/${filename}`;
-      zip.file(relativePath, resolvedBadge.asset.buffer);
+      const filename = `selo-oficial.${resolvedBadge.asset.extension}`;
+      zip.file(filename, resolvedBadge.asset.buffer);
       badge.url = resolvedBadge.source;
-      badge.file = relativePath;
+      badge.file = filename;
       totalImageCount++;
     } else {
       onProgress?.(30, 'Selo indisponível; continuando o pacote sem esse asset.');
@@ -173,35 +164,33 @@ export async function generatePostContextZip(options: GenerateZipOptions): Promi
     }
   }
 
-  // 3. Baixar imagem principal do produto (Prioridade 3)
+  // 3. Baixar imagem principal do produto (Variação 1) (Prioridade 3)
   if (specClone.productImages?.primary?.url && totalImageCount < MAX_IMAGES) {
     onProgress?.(40, 'Baixando foto principal do produto...');
     const url = specClone.productImages.primary.url;
     const asset = await tryFetchValidatedImage(url);
     if (asset) {
-      const filename = `primary.${asset.extension}`;
-      const relativePath = `product/${filename}`;
-      zip.file(relativePath, asset.buffer);
-      specClone.productImages.primary.file = relativePath;
+      const filename = `foto-principal-var-01.${asset.extension}`;
+      zip.file(filename, asset.buffer);
+      specClone.productImages.primary.file = filename;
       totalImageCount++;
     }
   }
 
-  // 4. Baixar imagem secundária do produto (Foto 2 da variação principal) (Prioridade 4)
+  // 4. Baixar imagem secundária do produto (Foto 2 da Variação 1) (Prioridade 4)
   if (specClone.productImages?.openView?.url && totalImageCount < MAX_IMAGES) {
     onProgress?.(50, 'Baixando imagem secundária...');
     const url = specClone.productImages.openView.url;
     const asset = await tryFetchValidatedImage(url);
     if (asset) {
-      const filename = `secondary.${asset.extension}`;
-      const relativePath = `product/${filename}`;
-      zip.file(relativePath, asset.buffer);
-      specClone.productImages.openView.file = relativePath;
+      const filename = `foto-secundaria-var-01.${asset.extension}`;
+      zip.file(filename, asset.buffer);
+      specClone.productImages.openView.file = filename;
       totalImageCount++;
     }
   }
 
-  // 5. Baixar imagens das variações (Prioridade 5, respeitando teto de 10 imagens)
+  // 5. Baixar imagens das variações adicionais (Prioridade 5, numerando Variação 02 em diante)
   if (specClone.productImages?.variations && specClone.productImages.variations.length > 0) {
     onProgress?.(65, 'Baixando fotos das variações...');
     for (let i = 0; i < specClone.productImages.variations.length; i++) {
@@ -211,10 +200,10 @@ export async function generatePostContextZip(options: GenerateZipOptions): Promi
       const asset = await tryFetchValidatedImage(v.url);
       if (asset) {
         const slug = sanitizeFilename(v.variationName || 'variacao') || 'variacao';
-        const filename = `variation-${String(i + 1).padStart(2, '0')}-${slug}.${asset.extension}`;
-        const relativePath = `product/variations/${filename}`;
-        zip.file(relativePath, asset.buffer);
-        v.file = relativePath;
+        const varNumber = String(i + 2).padStart(2, '0');
+        const filename = `variacao-${varNumber}-${slug}.${asset.extension}`;
+        zip.file(filename, asset.buffer);
+        v.file = filename;
         totalImageCount++;
       }
     }
@@ -225,10 +214,10 @@ export async function generatePostContextZip(options: GenerateZipOptions): Promi
   const centralizedAssetUrls = new Set(
     [specClone.officialAssets?.logo?.url, specClone.officialAssets?.badge?.url].filter(Boolean),
   );
+  let refCount = 0;
   for (let elementIndex = 0; elementIndex < specClone.campaign.elements.length; elementIndex++) {
     if (totalImageCount >= MAX_IMAGES) break;
     const element = specClone.campaign.elements[elementIndex];
-    const elementSlug = sanitizeFilename(element.elementType) || `element-${elementIndex + 1}`;
     for (let resourceIndex = 0; resourceIndex < element.resources.length; resourceIndex++) {
       if (totalImageCount >= MAX_IMAGES) break;
       const resource = element.resources[resourceIndex];
@@ -238,24 +227,18 @@ export async function generatePostContextZip(options: GenerateZipOptions): Promi
       const asset = await tryFetchValidatedImage(resource.url);
       if (!asset) continue;
 
+      refCount++;
       const resourceSlug = sanitizeFilename(resource.name) || 'anexo';
-      const filename = `${String(resourceIndex + 1).padStart(2, '0')}-${resourceSlug}.${asset.extension}`;
-      const relativePath = `references/${String(elementIndex + 1).padStart(2, '0')}-${elementSlug}/${filename}`;
-      zip.file(relativePath, asset.buffer);
-      resource.file = relativePath;
+      const filename = `referencia-${String(refCount).padStart(2, '0')}-${resourceSlug}.${asset.extension}`;
+      zip.file(filename, asset.buffer);
+      resource.file = filename;
       totalImageCount++;
     }
   }
 
-  // 7. Gerar prompt consolidado e os 10 arquivos .md organizados de instrução
-  onProgress?.(85, 'Gerando 10 arquivos MD organizados de instrução...');
+  // 7. Gerar prompt consolidado em arquivo único prompt.md
+  onProgress?.(85, 'Gerando arquivo prompt.md de instruções...');
   const promptBody = renderSpecificationAsPrompt(specClone, { localFilesOnly: true });
-
-  const mdFiles = generate10StructuredMdFiles(specClone, promptBody);
-  for (const [filename, content] of Object.entries(mdFiles)) {
-    zip.file(filename, content);
-  }
-  // Alias prompt.md para suporte e retrocompatibilidade
   zip.file('prompt.md', promptBody);
 
   validatePackageReferences(zip, promptBody);
@@ -272,163 +255,6 @@ export async function generatePostContextZip(options: GenerateZipOptions): Promi
   return content;
 }
 
-function generate10StructuredMdFiles(
-  spec: PostCreationSpecification,
-  fullPromptText: string,
-): Record<string, string> {
-  const brandName = spec.brand?.name || 'Móveis Morante';
-  const productName = spec.product?.name || 'Produto';
-  const campaignName = spec.campaign?.name || 'Campanha Padrão';
-  const sep = '='.repeat(50);
-
-  const md01 = `# 01 — ÍNDICE E INSTRUÇÕES GERAIS DE EXECUÇÃO
-
-${sep}
-${brandName.toUpperCase()} — INSTRUÇÕES DE CRIAÇÃO DE POST
-${sep}
-
-Este pacote contém os arquivos oficiais de instrução e assets visuais para a criação da arte publicitária do produto: **${productName}**.
-
-## REGRAS DE EXECUÇÃO EM UMA ETAPA:
-1. **Formato Padrão**: FEED (Aspect Ratio 4:5 — 1080 × 1350).
-2. **Execução Contínua**: NÃO interrompa o fluxo para perguntar qual formato ou layout usar. Execute diretamente.
-3. **Leitura dos Arquivos**: Leia todos os 10 arquivos Markdown deste pacote e utilize as fotos em \`product/\` e \`official-assets/\`.
-4. **Fidelidade Total ao Produto**: Preserve rigorosamente o design, a cor e os detalhes da fotografia real do produto. Zero alucinação.
-
-## ESTRUTURA DESTE PACOTE (10 ARQUIVOS MD):
-- \`01_INDEX_INSTRUCOES_GERAIS.md\` — Guia principal e regras de execução.
-- \`02_IDENTIDADE_E_REGRAS_MARCA.md\` — Diretrizes de marca e paleta de cores.
-- \`03_PRODUTO_E_PRECO_ERP.md\` — Dados comerciais e informações do produto.
-- \`04_FOTOS_PRODUTO_E_VARIACOES.md\` — Especificações de fotos do produto e variações.
-- \`05_ASSETS_OFICIAIS_LOGO_E_SELO.md\` — Diretrizes de uso do Logo e Selo Oficial.
-- \`06_ELEMENTOS_CONTEUDO_E_TITULO.md\` — Regras para Título e Slogans.
-- \`07_ELEMENTOS_COMERCIAIS_E_PRECO.md\` — Regras para Preço, Parcelamento e Selo Comercial.
-- \`08_ELEMENTOS_VISUAIS_E_BACKGROUND.md\` — Diretrizes de Fundo e Referências Visuais.
-- \`09_ELEMENTOS_IMAGENS_E_ACAO.md\` — Regras para Foto Secundária, Galeria de Cores e CTA.
-- \`10_PROMPT_CONSOLIDADO.md\` — Prompt completo unificado em texto único.
-`;
-
-  const md02 = `# 02 — IDENTIDADE E REGRAS DA MARCA
-
-${sep}
-IDENTIDADE VISUAL DA MÓVEIS MORANTE
-${sep}
-
-- **Nome da Marca**: Móveis Morante
-- **Cores Principais**:
-  - Azul Marinho (#002B49) — Utilizado em faixas de destaque, blocos de preço e rodapé.
-  - Amarelo Ouro (#F7B731 / #FFC107) — Utilizado em bordas, destaques caligráficos e ícones.
-  - Branco (#FFFFFF) — Utilizado em textos primários sobre fundo escuro.
-- **Estilo de Composição**: Direção de arte publicitária premium para varejo de móveis.
-- **Proibição de Simplicidade**: NUNCA crie composições chapadas do tipo "produto cortado + fundo branco liso + texto em caixa branca".
-- **Ambientação Comercial**: Crie iluminação publicitária com sombras reais no móvel e profundidade de cena.
-`;
-
-  const md03 = `# 03 — DADOS COMERCIAIS DO PRODUTO (ERP)
-
-${sep}
-FONTE DE VERDADE DOS DADOS
-${sep}
-Link do Catálogo Digital: ${spec.product?.catalogUrl || 'https://www.moveismorante.com.br'}
-Nome do Produto: ${spec.product?.name || 'Produto'}
-Preço ERP: R$ ${spec.product?.price ?? 'N/A'}
-
-## REGRAS LITERAIS DOS DADOS:
-- Copie valores exatamente como informados pelo ERP.
-- Diferencie sem ambiguidade o PREÇO ANTERIOR (riscado) do PREÇO PROMOCIONAL (em destaque).
-- Não invente descontos ou características não verificadas.
-`;
-
-  const md04 = `# 04 — FOTOS DO PRODUTO E VARIAÇÕES
-
-${sep}
-ESTRUTURA DE IMAGENS DO PRODUTO
-${sep}
-
-1. **Foto Principal (PRIMARY)**: \`${spec.productImages?.primary?.file || 'product/primary.png'}\`
-   - Opcional: móvel fechado em destaque protagonizando o post.
-   - SEM borda branca.
-
-2. **Imagem Secundária (OPEN_VIEW)**: \`${spec.productImages?.openView?.file || 'product/secondary.png'}\`
-   - Foto secundária da Variação 1 (ex: móvel aberto, outro ângulo ou detalhe interno).
-   - Exibida de forma flutuante, sem borda e sem textos/rótulos sobrepostos.
-
-3. **Demais Variações (VARIATION_GALLERY)**:
-   - Exiba apenas as DEMAIS variações/cores em miniatura.
-   - Apenas estas miniaturas de cores adicionais recebem borda branca.
-`;
-
-  const md05 = `# 05 — ASSETS OFICIAIS (LOGO E SELO)
-
-${sep}
-DIRETRIZES DE ASSETS GRÁFICOS OFICIAIS
-${sep}
-
-- **Logo Oficial**: \`${spec.officialAssets?.logo?.file || 'official-assets/logo.png'}\`
-  - Arquivo gráfico pronto. NUNCA redesenhe, recrie ou altere as cores da marca.
-- **Selo Oficial**: \`${spec.officialAssets?.badge?.file || 'official-assets/badge.png'}\`
-  - Selo oficial da campanha (ex: Queima dos Salvados, Oportunidade). NUNCA invente selos parecidos.
-`;
-
-  const titleElements = spec.campaign?.elements?.filter(e =>
-    ['TITLE', 'PRODUCT_NAME', 'PRODUCT_SLOGAN_TITLE', 'PRODUCT_SLOGAN_SIDE', 'PRODUCT_SLOGAN'].includes(e.elementType),
-  ) || [];
-  const md06 = `# 06 — ELEMENTOS DE CONTEÚDO E TÍTULO
-
-Campanha: ${campaignName}
-
-${titleElements.map(e => `### Elemento: ${e.elementType}\n${e.prompt || ''}\n${e.instructions || ''}`).join('\n\n') || 'Siga o título e slogans cadastrados na campanha.'}
-`;
-
-  const commercialElements = spec.campaign?.elements?.filter(e =>
-    ['PRICE', 'OLD_PRICE', 'INSTALLMENT', 'BADGE'].includes(e.elementType),
-  ) || [];
-  const md07 = `# 07 — ELEMENTOS COMERCIAIS E PREÇO
-
-Campanha: ${campaignName}
-
-${commercialElements.map(e => `### Elemento: ${e.elementType}\n${e.prompt || ''}\n${e.instructions || ''}`).join('\n\n') || 'Posicione o bloco de preço em destaque no container azul marinho com borda amarela.'}
-`;
-
-  const visualElements = spec.campaign?.elements?.filter(e =>
-    ['POST_REFERENCE', 'COLOR_THEME', 'BACKGROUND', 'LOGO'].includes(e.elementType),
-  ) || [];
-  const md08 = `# 08 — ELEMENTOS VISUAIS E BACKGROUND
-
-Campanha: ${campaignName}
-
-${visualElements.map(e => `### Elemento: ${e.elementType}\n${e.prompt || ''}\n${e.instructions || ''}`).join('\n\n') || 'Siga a referência visual de layout e iluminação da Móveis Morante.'}
-`;
-
-  const actionElements = spec.campaign?.elements?.filter(e =>
-    ['OPEN_VIEW', 'VARIATION_GALLERY', 'CTA'].includes(e.elementType),
-  ) || [];
-  const md09 = `# 09 — ELEMENTOS DE IMAGENS E AÇÃO
-
-Campanha: ${campaignName}
-
-${actionElements.map(e => `### Elemento: ${e.elementType}\n${e.prompt || ''}\n${e.instructions || ''}`).join('\n\n') || 'Posicione a imagem secundária flutuante e a galeria de variações no canto inferior.'}
-`;
-
-  const md10 = `# 10 — PROMPT COMPLETO UNIFICADO
-
-${fullPromptText}
-`;
-
-  return {
-    '01_INDEX_INSTRUCOES_GERAIS.md': md01,
-    '02_IDENTIDADE_E_REGRAS_MARCA.md': md02,
-    '03_PRODUTO_E_PRECO_ERP.md': md03,
-    '04_FOTOS_PRODUTO_E_VARIACOES.md': md04,
-    '05_ASSETS_OFICIAIS_LOGO_E_SELO.md': md05,
-    '06_ELEMENTOS_CONTEUDO_E_TITULO.md': md06,
-    '07_ELEMENTOS_COMERCIAIS_E_PRECO.md': md07,
-    '08_ELEMENTOS_VISUAIS_E_BACKGROUND.md': md08,
-    '09_ELEMENTOS_IMAGENS_E_ACAO.md': md09,
-    '10_PROMPT_CONSOLIDADO.md': md10,
-  };
-}
-
 function validatePackageReferences(zip: JSZip, prompt: string): void {
   const urls = prompt.match(/https?:\/\/[^\s)]+/gi) ?? [];
   const allowedCatalogUrl = /^https:\/\/(?:www\.)?moveismorante\.com\.br\/produto\/[a-z0-9][a-z0-9-]*(?:\?var=[^\s)]+)?$/i;
@@ -436,11 +262,22 @@ function validatePackageReferences(zip: JSZip, prompt: string): void {
     throw new Error('O prompt do pacote contém URL externa não permitida; somente a página pública do produto pode permanecer.');
   }
 
+  // Validação estrita: subpastas e diretórios são terminantemente proibidos no pacote ZIP (camada única flat)
+  for (const entry of Object.values(zip.files)) {
+    if (entry.dir || entry.name.includes('/')) {
+      throw new Error(`Subpastas são proibidas no pacote ZIP: ${entry.name}`);
+    }
+  }
+
   const fileNames = Object.values(zip.files)
     .filter(entry => !entry.dir && !entry.name.endsWith('.md'))
     .map(entry => entry.name);
+
   const referencedFiles = new Set(
-    Array.from(prompt.matchAll(/`((?:product|official-assets|references)\/[^`]+)`/g), match => match[1]),
+    Array.from(
+      prompt.matchAll(/`([a-z0-9_-]+\.(?:png|jpg|jpeg|webp|svg|gif))`|`((?:foto-|variacao-|logo-|selo-|referencia-)[^`]+)`/gi),
+      match => match[1] || match[2],
+    ),
   );
 
   for (const fileName of fileNames) {

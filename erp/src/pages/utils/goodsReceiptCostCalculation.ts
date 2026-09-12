@@ -1,4 +1,14 @@
 import { PurchaseItem } from '../types/purchase.type';
+import {
+    allocateAmountProportionally,
+    allocateParameterProportionally,
+    fromCents,
+    round2,
+    round4,
+    toCents,
+} from './proportionalAllocation';
+
+export { allocateAmountProportionally };
 
 export type CalculationMode = 'percent' | 'fixed';
 
@@ -19,41 +29,6 @@ export interface ReceiptCalculationOptions {
     fiscalOtherExpenses?: RateioParameter;
 }
 
-const toCents = (val: number) => Math.round((Number.isFinite(val) ? val : 0) * 100);
-const fromCents = (val: number) => Number((val / 100).toFixed(2));
-const round4 = (val: number) => Number(val.toFixed(4));
-const round2 = (val: number) => Number(val.toFixed(2));
-
-/**
- * Rateia um valor total em R$ proporcionalmente ao subtotal de custo base de cada item,
- * garantindo fechamento perfeito em centavos.
- */
-function allocateAmountProportionally(totalAmount: number, itemsBase: number[]): number[] {
-    const totalCents = toCents(totalAmount);
-    const baseCentsList = itemsBase.map((b) => Math.max(0, toCents(b)));
-    const totalBaseCents = baseCentsList.reduce((sum, c) => sum + c, 0);
-    const allocations = itemsBase.map(() => 0);
-
-    if (totalCents <= 0 || totalBaseCents <= 0) return allocations;
-
-    let allocated = 0;
-    let lastEligible = -1;
-
-    baseCentsList.forEach((base, idx) => {
-        if (base <= 0) return;
-        lastEligible = idx;
-        const share = Math.floor((totalCents * base) / totalBaseCents);
-        allocations[idx] = share;
-        allocated += share;
-    });
-
-    if (lastEligible >= 0) {
-        allocations[lastEligible] += totalCents - allocated;
-    }
-
-    return allocations.map(fromCents);
-}
-
 export const calculateReceiptItems = (
     items: PurchaseItem[],
     fallbackIpiPercentOrOptions: number | ReceiptCalculationOptions = 0,
@@ -66,63 +41,39 @@ export const calculateReceiptItems = (
     const fallbackIpiPercent = options.fallbackIpiPercent || 0;
     const fallbackFreightPercent = options.fallbackFreightPercent || 0;
 
+    // Base padrão de rateio: valorBrutoItem = quantidade * valorUnitario
     const itemsBaseSubtotals = items.map((item) => {
         const baseCost = item.fiscalBaseCost ?? item.baseCost ?? item.unitCost;
         const quantity = Math.max(1, item.quantity);
-        return baseCost * quantity;
+        return round2(baseCost * quantity);
     });
 
     const productsTotalBase = itemsBaseSubtotals.reduce((sum, val) => sum + val, 0);
 
-    // 1. Rateio do Desconto Não Fiscal
-    let nonFiscalDiscountAllocations = items.map(() => 0);
-    if (options.nonFiscalDiscount && options.nonFiscalDiscount.value > 0) {
-        if (options.nonFiscalDiscount.mode === 'percent') {
-            nonFiscalDiscountAllocations = items.map((_, i) => round2(itemsBaseSubtotals[i] * (options.nonFiscalDiscount!.value / 100)));
-        } else {
-            nonFiscalDiscountAllocations = allocateAmountProportionally(options.nonFiscalDiscount.value, itemsBaseSubtotals);
-        }
-    }
+    // 1. Rateio do Desconto Não Fiscal (independente sobre valor bruto dos itens)
+    const nonFiscalDiscountAllocations = options.nonFiscalDiscount && options.nonFiscalDiscount.value > 0
+        ? allocateParameterProportionally(options.nonFiscalDiscount.mode, options.nonFiscalDiscount.value, itemsBaseSubtotals)
+        : items.map(() => 0);
 
-    // 2. Rateio do Frete Não Fiscal
-    let nonFiscalFreightAllocations = items.map(() => 0);
-    if (options.nonFiscalFreight && options.nonFiscalFreight.value > 0) {
-        if (options.nonFiscalFreight.mode === 'percent') {
-            nonFiscalFreightAllocations = items.map((_, i) => round2(itemsBaseSubtotals[i] * (options.nonFiscalFreight!.value / 100)));
-        } else {
-            nonFiscalFreightAllocations = allocateAmountProportionally(options.nonFiscalFreight.value, itemsBaseSubtotals);
-        }
-    }
+    // 2. Rateio do Frete Não Fiscal (independente sobre valor bruto dos itens)
+    const nonFiscalFreightAllocations = options.nonFiscalFreight && options.nonFiscalFreight.value > 0
+        ? allocateParameterProportionally(options.nonFiscalFreight.mode, options.nonFiscalFreight.value, itemsBaseSubtotals)
+        : items.map(() => 0);
 
-    // 3. Rateio de Outras Despesas Não Fiscais
-    let nonFiscalOtherExpensesAllocations = items.map(() => 0);
-    if (options.nonFiscalOtherExpenses && options.nonFiscalOtherExpenses.value > 0) {
-        if (options.nonFiscalOtherExpenses.mode === 'percent') {
-            nonFiscalOtherExpensesAllocations = items.map((_, i) => round2(itemsBaseSubtotals[i] * (options.nonFiscalOtherExpenses!.value / 100)));
-        } else {
-            nonFiscalOtherExpensesAllocations = allocateAmountProportionally(options.nonFiscalOtherExpenses.value, itemsBaseSubtotals);
-        }
-    }
+    // 3. Rateio de Outras Despesas Não Fiscais (independente sobre valor bruto dos itens)
+    const nonFiscalOtherExpensesAllocations = options.nonFiscalOtherExpenses && options.nonFiscalOtherExpenses.value > 0
+        ? allocateParameterProportionally(options.nonFiscalOtherExpenses.mode, options.nonFiscalOtherExpenses.value, itemsBaseSubtotals)
+        : items.map(() => 0);
 
     // 4. Rateio de Desconto Fiscal Global (quando a nota vem com vDesc global)
-    let fiscalDiscountAllocations = items.map(() => 0);
-    if (options.fiscalDiscount && options.fiscalDiscount.value > 0) {
-        if (options.fiscalDiscount.mode === 'percent') {
-            fiscalDiscountAllocations = items.map((_, i) => round2(itemsBaseSubtotals[i] * (options.fiscalDiscount!.value / 100)));
-        } else {
-            fiscalDiscountAllocations = allocateAmountProportionally(options.fiscalDiscount.value, itemsBaseSubtotals);
-        }
-    }
+    const fiscalDiscountAllocations = options.fiscalDiscount && options.fiscalDiscount.value > 0
+        ? allocateParameterProportionally(options.fiscalDiscount.mode, options.fiscalDiscount.value, itemsBaseSubtotals)
+        : items.map(() => 0);
 
     // 5. Rateio de Outras Despesas Fiscais Globais
-    let fiscalOtherExpensesAllocations = items.map(() => 0);
-    if (options.fiscalOtherExpenses && options.fiscalOtherExpenses.value > 0) {
-        if (options.fiscalOtherExpenses.mode === 'percent') {
-            fiscalOtherExpensesAllocations = items.map((_, i) => round2(itemsBaseSubtotals[i] * (options.fiscalOtherExpenses!.value / 100)));
-        } else {
-            fiscalOtherExpensesAllocations = allocateAmountProportionally(options.fiscalOtherExpenses.value, itemsBaseSubtotals);
-        }
-    }
+    const fiscalOtherExpensesAllocations = options.fiscalOtherExpenses && options.fiscalOtherExpenses.value > 0
+        ? allocateParameterProportionally(options.fiscalOtherExpenses.mode, options.fiscalOtherExpenses.value, itemsBaseSubtotals)
+        : items.map(() => 0);
 
     return items.map((item, index) => {
         const baseCost = item.fiscalBaseCost ?? item.baseCost ?? item.unitCost;

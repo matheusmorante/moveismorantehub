@@ -28,42 +28,21 @@ type Props = {
   hasManualOverrides?: boolean;
 };
 
-// Agrupamento visual conceitual (sem alterar regras de negócio)
-const ELEMENT_GROUPS = [
-  {
-    name: 'Conteúdo',
-    icon: '✍️',
-    types: ['TITLE', 'PRODUCT_NAME', 'PRODUCT_SLOGAN_TITLE', 'PRODUCT_SLOGAN_SIDE', 'PRODUCT_SLOGAN'] as ElementType[],
-  },
-  {
-    name: 'Comercial',
-    icon: '🏷️',
-    types: ['PRICE', 'OLD_PRICE', 'INSTALLMENT', 'BADGE'] as ElementType[],
-  },
-  {
-    name: 'Visual, Cores & Marca',
-    icon: '🎨',
-    types: ['POST_REFERENCE', 'COLOR_THEME', 'BACKGROUND', 'LOGO', 'HEADER', 'FOOTER'] as ElementType[],
-  },
-  {
-    name: 'Imagens',
-    icon: '🖼️',
-    types: [] as ElementType[],
-    isImagesGroup: true,
-  },
-  {
-    name: 'Ação',
-    icon: '⚡',
-    types: ['CTA'] as ElementType[],
-  },
+// Elementos mantidos na aba de Elementos da Campanha
+const CAMPAIGN_ELEMENTS: Array<{ type: ElementType; icon: string }> = [
+  { type: 'BADGE', icon: '🏷️' },
+  { type: 'LOGO', icon: '🏢' },
+  { type: 'INSTALLMENT', icon: '💳' },
+  { type: 'FOOTER', icon: '📋' },
 ];
 
 const card = (
   model: ElementModel | undefined,
   onEdit: (model: ElementModel) => void,
   onView: (model: ElementModel) => void,
-) =>
-  model ? (
+) => {
+  const imageUrl = model?.generatedAssetUrl || model?.referenceFiles?.[0]?.fileUrl;
+  return model ? (
     <article
       role="button"
       tabIndex={0}
@@ -73,8 +52,8 @@ const card = (
       }}
       className="flex cursor-pointer items-center gap-3 rounded-lg border border-slate-750 bg-slate-900 p-2.5 hover:border-slate-600 transition"
     >
-      {model.generatedAssetUrl ? (
-        <img src={model.generatedAssetUrl} alt="" className="h-12 w-16 rounded object-contain bg-slate-950 p-0.5" />
+      {imageUrl ? (
+        <img src={imageUrl} alt="" className="h-12 w-16 rounded object-contain bg-slate-950 p-0.5" />
       ) : (
         <div className="flex h-12 w-16 items-center justify-center rounded bg-slate-800 text-[10px] text-slate-500">
           Sem foto
@@ -100,6 +79,7 @@ const card = (
       </button>
     </article>
   ) : null;
+};
 
 export function CampaignElementsPanel({
   campaignName,
@@ -109,127 +89,32 @@ export function CampaignElementsPanel({
   onEdit,
   onView,
   hasProductOpportunity = true,
-  product,
-  productImages,
-  imagesValidation,
-  opportunityName,
-  opportunityBadgeUrl,
-  onChangePrimary,
-  onChangeOpenView,
-  onChangeVariation,
-  onResetOverrides,
-  hasManualOverrides,
 }: Props) {
   const [open, setOpen] = useState<ElementType | null>(null);
-  const [openImages, setOpenImages] = useState(false);
 
-  // Contagem para o cabeçalho compacto
-  const totalConfigured = models.length;
+  // Contagem restrita aos 3 elementos oficiais
+  const totalConfigured = models.filter(m => CAMPAIGN_ELEMENTS.some(e => e.type === m.elementType)).length;
 
   return (
     <aside className="rounded-xl border border-slate-800 bg-slate-900/70 overflow-hidden shadow-lg">
       {/* Cabeçalho da Biblioteca */}
       <div className="border-b border-slate-800 p-3.5 sm:p-4 flex items-center justify-between gap-2">
         <h2 className="text-xs sm:text-sm font-black uppercase tracking-wider text-white truncate">
-          Biblioteca de elementos{campaignName ? ` — ${campaignName}` : ''}
+          Elementos da campanha{campaignName ? ` — ${campaignName}` : ''}
         </h2>
         <span className="text-[10px] font-bold text-slate-400 bg-slate-800 px-2 py-0.5 rounded shrink-0">
-          {totalConfigured} configurados
+          {totalConfigured} de {CAMPAIGN_ELEMENTS.length} configurados
         </span>
       </div>
 
-      {/* Lista com Grupos Conceituais e Accordions */}
-      <div className="divide-y divide-slate-800 max-h-[700px] overflow-y-auto scrollbar-thin scrollbar-thumb-slate-700">
-        {ELEMENT_GROUPS.map(group => {
-          if (group.isImagesGroup) {
-            const hasImages = Boolean(productImages?.primaryUrl);
-            return (
-              <div key={group.name} className="py-1">
-                <div className="px-3.5 py-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-400 bg-slate-950/40 flex items-center justify-between">
-                  <div className="flex items-center gap-1.5">
-                    <span>{group.icon}</span>
-                    <span>{group.name}</span>
-                  </div>
-                  <span className="text-[10px] font-bold text-indigo-400">
-                    Fotos reais do produto
-                  </span>
-                </div>
-                <section className="border-b border-slate-800/60 last:border-0">
-                  <button
-                    type="button"
-                    onClick={() => setOpenImages(prev => !prev)}
-                    className="flex w-full items-center justify-between px-3.5 py-2.5 text-left text-xs sm:text-sm hover:bg-slate-800/50 transition group"
-                  >
-                    <div className="flex items-center gap-2 min-w-0 pr-2">
-                      <span className="text-slate-500 group-hover:text-indigo-400 text-xs transition">
-                        {openImages ? '▾' : '▸'}
-                      </span>
-                      <span className="font-semibold text-slate-200 truncate">Fotos do Produto (Prompt)</span>
-                    </div>
-
-                    <div className="shrink-0 text-right">
-                      {hasImages ? (
-                        <span className="text-[10px] font-bold text-emerald-400 bg-emerald-950/40 border border-emerald-800/40 px-2 py-0.5 rounded">
-                          Configurado ✓
-                        </span>
-                      ) : product ? (
-                        <span className="text-[10px] text-amber-400 bg-amber-950/40 border border-amber-800/40 px-2 py-0.5 rounded">
-                          Disponível
-                        </span>
-                      ) : (
-                        <span className="text-[10px] text-slate-500 bg-slate-800/30 px-2 py-0.5 rounded">
-                          Nenhum produto
-                        </span>
-                      )}
-                    </div>
-                  </button>
-
-                  {openImages && (
-                    <div className="bg-slate-950/50 p-3 border-t border-slate-800/60">
-                      {product ? (
-                        <PromptImagesStrip
-                          product={product}
-                          productImages={productImages}
-                          validation={imagesValidation}
-                          opportunityName={opportunityName}
-                          opportunityBadgeUrl={opportunityBadgeUrl}
-                          onChangePrimary={onChangePrimary}
-                          onChangeOpenView={onChangeOpenView}
-                          onChangeVariation={onChangeVariation}
-                          onResetOverrides={onResetOverrides}
-                          hasManualOverrides={hasManualOverrides}
-                        />
-                      ) : (
-                        <div className="rounded-lg border border-dashed border-slate-800 bg-slate-950/50 p-6 text-center text-xs text-slate-400">
-                          <span className="text-xl block mb-1">📸</span>
-                          <p className="font-semibold text-slate-300">Nenhum produto selecionado</p>
-                          <p className="text-[11px] text-slate-500 mt-0.5">
-                            Selecione um produto no topo da página para escolher a foto principal, secundária e variações para a IA.
-                          </p>
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </section>
-              </div>
-            );
-          }
-
-          return (
-            <div key={group.name} className="py-1">
-              <div className="px-3.5 py-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-400 bg-slate-950/40 flex items-center gap-1.5">
-                <span>{group.icon}</span>
-                <span>{group.name}</span>
-              </div>
-              {group.types.map(type => renderElementRow(type))}
-            </div>
-          );
-        })}
+      {/* Lista com os 3 Elementos da Campanha */}
+      <div className="divide-y divide-slate-800">
+        {CAMPAIGN_ELEMENTS.map(item => renderElementRow(item.type, item.icon))}
       </div>
     </aside>
   );
 
-  function renderElementRow(type: ElementType) {
+  function renderElementRow(type: ElementType, icon: string) {
     const items = models.filter(item => item.elementType === type);
     const expanded = open === type;
     const isConfigured = items.length > 0;
@@ -243,10 +128,11 @@ export function CampaignElementsPanel({
           onClick={() => setOpen(expanded ? null : type)}
           className="flex w-full items-center justify-between px-3.5 py-2.5 text-left text-xs sm:text-sm hover:bg-slate-800/50 transition group"
         >
-          <div className="flex items-center gap-2 min-w-0 pr-2">
+          <div className="flex items-center gap-2.5 min-w-0 pr-2">
             <span className="text-slate-500 group-hover:text-indigo-400 text-xs transition">
               {expanded ? '▾' : '▸'}
             </span>
+            <span className="text-base shrink-0">{icon}</span>
             <span className="font-semibold text-slate-200 truncate">{elementLabel[type]}</span>
           </div>
 

@@ -89,7 +89,10 @@ export default function ReceiptDetailsModal({ isOpen, onClose, receipt, onRevers
                             )}
                         </div>
 
-                        <div className="rounded-2xl border border-slate-100 bg-white p-4 dark:border-slate-800 dark:bg-slate-900 shadow-sm flex items-center justify-around">
+                        <div className="relative rounded-2xl border border-slate-100 bg-white p-4 dark:border-slate-800 dark:bg-slate-900 shadow-sm flex items-center justify-around">
+                            <span className="absolute top-2 right-2 text-[9px] font-black uppercase tracking-wider bg-slate-100 dark:bg-slate-800 text-slate-500 px-1.5 py-0.5 rounded">
+                                Não fiscal
+                            </span>
                             <div>
                                 <span className="block text-[10px] font-black uppercase tracking-widest text-slate-400">Desconto</span>
                                 <span className="text-sm font-black text-amber-600 dark:text-amber-400">
@@ -138,6 +141,27 @@ export default function ReceiptDetailsModal({ isOpen, onClose, receipt, onRevers
                         </div>
                     )}
 
+                    {/* Observations Section */}
+                    {Boolean(receipt.observation?.trim()) && (
+                        <div className="rounded-2xl border border-slate-100 bg-white p-4 dark:border-slate-800 dark:bg-slate-900 shadow-sm space-y-2">
+                            <span className="block text-[10px] font-black uppercase tracking-widest text-slate-400">Observações do Recebimento</span>
+                            <div className="flex flex-wrap gap-2">
+                                {receipt.observation!
+                                    .split('\n')
+                                    .map((obs) => obs.trim())
+                                    .filter(Boolean)
+                                    .map((obs, idx) => (
+                                        <span
+                                            key={`${obs}-${idx}`}
+                                            className="inline-flex items-center rounded-lg bg-blue-100 dark:bg-blue-900/40 px-2.5 py-1 text-xs font-semibold text-blue-700 dark:text-blue-200"
+                                        >
+                                            {obs}
+                                        </span>
+                                    ))}
+                            </div>
+                        </div>
+                    )}
+
                     {/* Items Table */}
                     <div className="space-y-3">
                         <h3 className="text-xs font-black uppercase tracking-widest text-slate-400">Itens Recebidos ({receipt.items.length})</h3>
@@ -156,9 +180,7 @@ export default function ReceiptDetailsModal({ isOpen, onClose, receipt, onRevers
                                                 <th className="px-4 py-3 text-right">Custo unitário</th>
                                                 <th className="px-4 py-3 text-right">Desconto</th>
                                                 <th className="px-4 py-3 text-right">Frete</th>
-                                                {hasAnyOtherExpenses && (
-                                                    <th className="px-4 py-3 text-right">Outras despesas</th>
-                                                )}
+                                                <th className="px-4 py-3 text-right">Outras despesas</th>
                                                 <th className="px-4 py-3 text-right bg-emerald-50/40 dark:bg-emerald-950/20 text-emerald-700 dark:text-emerald-400">Custo unitário final</th>
                                                 <th className="px-4 py-3 text-right text-slate-700 dark:text-slate-200">Total do item</th>
                                             </tr>
@@ -185,11 +207,9 @@ export default function ReceiptDetailsModal({ isOpen, onClose, receipt, onRevers
                                                         <td className="px-4 py-3 text-right font-medium text-slate-600 dark:text-slate-400">
                                                             {unitFreight > 0 ? formatCurrency(unitFreight) : '—'}
                                                         </td>
-                                                        {hasAnyOtherExpenses && (
-                                                            <td className="px-4 py-3 text-right font-medium text-slate-600 dark:text-slate-400">
-                                                                {unitOther > 0 ? formatCurrency(unitOther) : '—'}
-                                                            </td>
-                                                        )}
+                                                        <td className="px-4 py-3 text-right font-medium text-slate-600 dark:text-slate-400">
+                                                            {unitOther > 0 ? formatCurrency(unitOther) : '—'}
+                                                        </td>
                                                         <td className="px-4 py-3 text-right font-black text-emerald-600 dark:text-emerald-400 bg-emerald-50/30 dark:bg-emerald-950/15">
                                                             {formatCurrency(item.unitCost)}
                                                         </td>

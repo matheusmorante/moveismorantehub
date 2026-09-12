@@ -33,7 +33,7 @@ export const fetchAllProductSearchResults = async (search: string, supplierId?: 
     const pageSize = 100;
 
     while (true) {
-        const result = await fetchProductsPage(page, pageSize, { search, activeOnly: true, supplierId });
+        const result = await fetchProductsPage(page, pageSize, { search, activeOnly: true, isDraft: false, supplierId });
         products.push(...result.data);
         if (!result.data.length || products.length >= result.total) break;
         page += 1;
@@ -47,7 +47,7 @@ export const fetchAllProductSearchResults = async (search: string, supplierId?: 
             return cachedActiveProducts.data;
         }
 
-        const fallback = await fetchProductsPage(1, 500, { activeOnly: true, supplierId });
+        const fallback = await fetchProductsPage(1, 500, { activeOnly: true, isDraft: false, supplierId });
         cachedActiveProducts = { data: fallback.data, timestamp: now };
         return fallback.data;
     }

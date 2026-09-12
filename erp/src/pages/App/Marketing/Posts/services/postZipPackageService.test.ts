@@ -108,35 +108,26 @@ describe('postZipPackageService — Pacote post-context.zip para IA', () => {
       const unzipped = await JSZip.loadAsync(arrayBuffer);
       const fileNames = Object.keys(unzipped.files);
 
-      // 1. Arquivos raiz obrigatórios (10 arquivos MD organizados + alias prompt.md)
+      // 1. Arquivo de instrução único obrigatório (exatamente 1 arquivo MD: prompt.md)
       expect(fileNames).toContain('prompt.md');
-      expect(fileNames).toContain('01_INDEX_INSTRUCOES_GERAIS.md');
-      expect(fileNames).toContain('10_PROMPT_CONSOLIDADO.md');
-      expect(fileNames.filter(name => name.endsWith('.md'))).toHaveLength(11);
+      expect(fileNames.filter(name => name.endsWith('.md'))).toHaveLength(1);
+      expect(fileNames).not.toContain('01_INDEX_INSTRUCOES_GERAIS.md');
       expect(fileNames).not.toContain('specification.json');
 
-      // 2. Pasta product/ (com arquivos reais em formato PNG)
-      expect(fileNames).toContain('product/primary.png');
-      expect(fileNames).toContain('product/secondary.png');
-      expect(fileNames).toContain('product/variations/variation-01-branco.png');
-      expect(fileNames).toContain('product/variations/variation-02-freijo-grafite.png');
-
-      // 3. Pasta official-assets/ (com arquivos reais)
-      expect(fileNames).toContain('official-assets/logo.png');
-
-      // 4. Pastas vazias terminantemente proibidas:
-      // Como activeModels estava vazio, NENHUMA entrada references/ deve existir
-      const referenceEntries = fileNames.filter(f => f.startsWith('references'));
-      expect(referenceEntries).toHaveLength(0);
-
-      // Todas as pastas existentes no ZIP devem conter pelo menos 1 arquivo real dentro
+      // 2. Proibição absoluta de pastas e subpastas (Camada única flat)
+      expect(fileNames.some(name => name.includes('/'))).toBe(false);
       const folders = fileNames.filter(f => unzipped.files[f].dir);
-      for (const folder of folders) {
-        const filesInFolder = fileNames.filter(f => !unzipped.files[f].dir && f.startsWith(folder));
-        expect(filesInFolder.length).toBeGreaterThan(0);
-      }
+      expect(folders).toHaveLength(0);
 
-      // 5. Conteúdo do prompt.md (prompt completo centralizado)
+      // 3. Imagens na raiz com nomenclatura semântica e precisa
+      expect(fileNames).toContain('foto-principal-var-01.png');
+      expect(fileNames).toContain('foto-secundaria-var-01.png');
+      // A primeira variação complementar recebe o identificador de Variação 02!
+      expect(fileNames).toContain('variacao-02-branco.png');
+      expect(fileNames).toContain('variacao-03-freijo-grafite.png');
+      expect(fileNames).toContain('logo-moveis-morante.png');
+
+      // 4. Conteúdo do prompt.md (instruções completas estruturadas)
       const promptContent = await unzipped.file('prompt.md')?.async('text');
       expect(promptContent).toBeDefined();
       expect(promptContent).toContain('MÓVEIS MORANTE — INSTRUÇÕES DE CRIAÇÃO DE POST');
@@ -147,9 +138,11 @@ describe('postZipPackageService — Pacote post-context.zip para IA', () => {
       expect(promptContent).toContain('IMAGEM SECUNDÁRIA');
       expect(promptContent).toContain('flutuando, sem borda');
       expect(promptContent).toContain('borda branca SOMENTE');
-      expect(promptContent).toContain('product/primary.png');
-      expect(promptContent).toContain('product/secondary.png');
-      expect(promptContent).toContain('official-assets/logo.png');
+      expect(promptContent).toContain('foto-principal-var-01.png');
+      expect(promptContent).toContain('foto-secundaria-var-01.png');
+      expect(promptContent).toContain('variacao-02-branco.png');
+      expect(promptContent).toContain('variacao-03-freijo-grafite.png');
+      expect(promptContent).toContain('logo-moveis-morante.png');
 
       const packagedAssets = fileNames.filter(name => !unzipped.files[name].dir && !name.endsWith('.md'));
       for (const assetName of packagedAssets) {
@@ -185,15 +178,16 @@ describe('postZipPackageService — Pacote post-context.zip para IA', () => {
       const unzipped = await JSZip.loadAsync(arrayBuffer);
       const fileNames = Object.keys(unzipped.files);
 
-      // Deve conter o arquivo da referência em PNG
-      expect(fileNames).toContain('references/01-title/01-referencia.png');
-      expect(fileNames).toContain('references/01-title/02-referencia.png');
+      // Deve conter os anexos na camada raiz (sem pastas)
+      expect(fileNames).toContain('referencia-01-referencia.png');
+      expect(fileNames).toContain('referencia-02-referencia.png');
+      expect(fileNames.some(name => name.includes('/'))).toBe(false);
 
       const promptContent = await unzipped.file('prompt.md')?.async('text');
       expect(promptContent).toContain(dummySpec.product.catalogUrl);
       expect(promptContent?.match(/https?:\/\//gi)).toHaveLength(1);
-      expect(promptContent).toContain('`references/01-title/01-referencia.png`');
-      expect(promptContent).toContain('`references/01-title/02-referencia.png`');
+      expect(promptContent).toContain('`referencia-01-referencia.png`');
+      expect(promptContent).toContain('`referencia-02-referencia.png`');
     } finally {
       global.fetch = originalFetch;
     }
@@ -238,12 +232,12 @@ describe('postZipPackageService — Pacote post-context.zip para IA', () => {
       const fileNames = Object.keys(unzipped.files);
       const promptContent = await unzipped.file('prompt.md')?.async('text') || '';
 
-      expect(fileNames).toContain('official-assets/badge.png');
-      expect(fileNames.filter(name => name.includes('badge') && !unzipped.files[name].dir)).toEqual([
-        'official-assets/badge.png',
+      expect(fileNames).toContain('selo-oficial.png');
+      expect(fileNames.filter(name => name.includes('selo-oficial') && !unzipped.files[name].dir)).toEqual([
+        'selo-oficial.png',
       ]);
-      expect(fileNames.some(name => name.startsWith('references/') && name.endsWith('.png'))).toBe(false);
-      expect(promptContent.split('`official-assets/badge.png`')).toHaveLength(2);
+      expect(fileNames.some(name => name.includes('/'))).toBe(false);
+      expect(promptContent.split('`selo-oficial.png`')).toHaveLength(2);
       expect(promptContent).not.toContain('Selo duplicado legado');
     } finally {
       global.fetch = originalFetch;
@@ -273,13 +267,14 @@ describe('postZipPackageService — Pacote post-context.zip para IA', () => {
     try {
       const zipBlob = await generatePostContextZip({ specification: badgeOnlySpec(source) });
       const unzipped = await JSZip.loadAsync(await zipBlob.arrayBuffer());
-      const badgePath = `official-assets/badge.${extension}`;
+      const badgePath = `selo-oficial.${extension}`;
       const packagedBytes = await unzipped.file(badgePath)?.async('uint8array');
       const promptContent = await unzipped.file('prompt.md')?.async('text') || '';
 
       expect(packagedBytes).toEqual(bytes);
       expect(promptContent).toContain(`\`${badgePath}\``);
       expect(promptContent.split(`\`${badgePath}\``)).toHaveLength(2);
+      expect(Object.keys(unzipped.files).some(name => name.includes('/'))).toBe(false);
     } finally {
       global.fetch = originalFetch;
     }
@@ -298,8 +293,8 @@ describe('postZipPackageService — Pacote post-context.zip para IA', () => {
       const fileNames = Object.keys(unzipped.files);
       const promptContent = await unzipped.file('prompt.md')?.async('text') || '';
 
-      expect(fileNames.some(name => name.startsWith('official-assets/badge.'))).toBe(false);
-      expect(promptContent).not.toContain('official-assets/badge.');
+      expect(fileNames.some(name => name.startsWith('selo-oficial.'))).toBe(false);
+      expect(promptContent).not.toContain('selo-oficial.');
       expect(promptContent).not.toContain('ELEMENTO: BADGE');
     } finally {
       global.fetch = originalFetch;
@@ -324,8 +319,8 @@ describe('postZipPackageService — Pacote post-context.zip para IA', () => {
       const promptContent = await unzipped.file('prompt.md')?.async('text') || '';
 
       expect(fileNames).toContain('prompt.md');
-      expect(fileNames.some(name => name.startsWith('official-assets/badge.'))).toBe(false);
-      expect(promptContent).not.toContain('official-assets/badge.');
+      expect(fileNames.some(name => name.startsWith('selo-oficial.'))).toBe(false);
+      expect(promptContent).not.toContain('selo-oficial.');
     } finally {
       global.fetch = originalFetch;
     }
@@ -360,11 +355,11 @@ describe('postZipPackageService — Pacote post-context.zip para IA', () => {
         }],
       });
       const unzipped = await JSZip.loadAsync(await zipBlob.arrayBuffer());
-      const badgeBytes = await unzipped.file('official-assets/badge.png')?.async('uint8array');
+      const badgeBytes = await unzipped.file('selo-oficial.png')?.async('uint8array');
       const promptContent = await unzipped.file('prompt.md')?.async('text') || '';
 
       expect(badgeBytes).toEqual(pngBytes);
-      expect(promptContent.split('`official-assets/badge.png`')).toHaveLength(2);
+      expect(promptContent.split('`selo-oficial.png`')).toHaveLength(2);
       expect(global.fetch).not.toHaveBeenCalled();
     } finally {
       global.fetch = originalFetch;

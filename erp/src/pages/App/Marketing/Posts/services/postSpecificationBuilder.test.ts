@@ -192,4 +192,67 @@ describe('postSpecificationBuilder — Prompt Estruturado de Posts para IA', () 
     expect(specB.productImages?.primary?.url).toBe('https://example.com/cama-b.jpg');
     expect(specB.productImages?.primary?.url).not.toBe(specA.productImages?.primary?.url);
   });
+
+  it('deve proibir expressamente galeria de cores e variações fictícias quando o produto tiver apenas 1 variação', async () => {
+    const mockCampaign: any = {
+      id: 'camp-1',
+      name: 'Campanha Padrão',
+      elements: [],
+    };
+
+    const mockActiveModels: any[] = [
+      {
+        id: 'mod-ref',
+        elementType: 'POST_REFERENCE',
+        prompt: 'Seguir referência',
+        referenceFiles: [],
+      },
+    ];
+
+    const singleVarProduct: any = {
+      id: 'prod-single',
+      name: 'Mesa de Centro Rústica',
+      variations: [{
+        id: 'var-1',
+        name: 'Madeira Natural',
+        images: ['https://example.com/mesa.jpg'],
+      }],
+    };
+
+    const spec = await buildSingleSpecification({
+      productCatalogUrl: 'https://moveismorante.com.br/produto/mesa-centro',
+      campaign: mockCampaign,
+      activeModels: mockActiveModels,
+      globalRules: '',
+      product: singleVarProduct,
+    });
+
+    const prompt = renderSpecificationAsPrompt(spec);
+
+    // Deve conter instrução de produto de cor única
+    expect(prompt).toContain('PRODUTO DE COR ÚNICA (SEM OUTRAS VARIAÇÕES DISPONÍVEIS)');
+    expect(prompt).toContain('É ESTRITAMENTE PROIBIDO criar galeria de cores, miniaturas adicionais ou escrever "DISPONÍVEL NAS CORES"');
+    expect(prompt).toContain('PRODUTO DE COR ÚNICA (SEM OUTRAS CORES)');
+    expect(prompt).toContain('OMITA integralmente a galeria de cores');
+
+    // Não deve conter instrução ativa de galeria nem citar que há variações complementares
+    expect(prompt).not.toContain('VARIAÇÕES DISPONÍVEIS (DEMAIS OPÇÕES DE CORES)');
+    expect(prompt).not.toContain('Galeria secundária de cores: apresente EXCLUSIVAMENTE');
+  });
+
+  it('deve proibir expressamente efeito de esfumaçado branco, glow ou halo ao redor do móvel', async () => {
+    const mockCampaign: any = { id: 'camp-1', name: 'Campanha Padrão', elements: [] };
+    const spec = await buildSingleSpecification({
+      productCatalogUrl: 'https://moveismorante.com.br/produto/mesa-centro',
+      campaign: mockCampaign,
+      activeModels: [],
+      globalRules: '',
+    });
+
+    const prompt = renderSpecificationAsPrompt(spec);
+
+    expect(prompt).toContain('É TERMINANTEMENTE PROIBIDO criar esfumaçado branco, névoa, glow, halo de luz');
+    expect(prompt).toContain('Proibição de esfumaçado ou halo luminoso');
+    expect(prompt).not.toContain('luz de recorte (rim light)');
+  });
 });

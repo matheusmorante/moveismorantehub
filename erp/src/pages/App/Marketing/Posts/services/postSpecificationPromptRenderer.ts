@@ -27,7 +27,10 @@ function escapeMarkdownCell(value: string): string {
   return value.replace(/\|/g, '\\|').replace(/\r?\n/g, '<br>');
 }
 
-export function renderBenefitsPromptSection(benefits: PostBenefitSpec[]): string {
+export function renderBenefitsPromptSection(
+  benefits: PostBenefitSpec[],
+  options: PromptRenderOptions = {},
+): string {
   if (benefits.length === 0) {
     return `${SEPARATOR}
 CONTEÚDO LITERAL OBRIGATÓRIO — BENEFÍCIOS DO RODAPÉ
@@ -43,15 +46,25 @@ OMITA integralmente o rodapé de benefícios. Não crie benefícios, ícones, se
   );
   const sources = [...new Set(benefits.map(benefit => benefit.source))].join(', ');
 
+  const footerRefVisual = options.localFilesOnly
+    ? 'Guia de estilo do rodapé: faixa contínua azul marinho com ícones amarelos, textos em branco e logotipo da loja à direita.'
+    : 'Referência visual oficial do rodapé: /images/footer-benefits-morante-official.png';
+
   return `${SEPARATOR}
-CONTEÚDO LITERAL OBRIGATÓRIO — BENEFÍCIOS DO RODAPÉ
+CONTEÚDO LITERAL OBRIGATÓRIO — BENEFÍCIOS DO RODAPÉ (FOOTER)
 ${SEPARATOR}
 Fonte estruturada: ${sources}
 Quantidade exata: ${benefits.length}
+${footerRefVisual}
 
 | Ordem | ID estável | Texto principal literal | Texto secundário literal | Fonte |
 | ---: | --- | --- | --- | --- |
 ${rows.join('\n')}
+
+ESTRUTURA VISUAL DO RODAPÉ OFICIAL:
+- Faixa retangular contínua azul marinho escuro (#002B49) fixada na base do post.
+- À esquerda e centro: 3 blocos verticais separados por linhas divisórias sutis, contendo ícone amarelo + título em branco negrito + subtítulo em branco/cinza claro.
+- À direita: Logo oficial da Móveis Morante em destaque, com sua casinha amarela e o slogan "QUALIDADE QUE CABE NO SEU BOLSO".
 
 REGRAS NEGATIVAS OBRIGATÓRIAS — APLICAR DIRETAMENTE À LISTA ACIMA:
 - Renderize exatamente ${benefits.length} benefício(s), na mesma ordem da tabela.
@@ -117,10 +130,17 @@ function renderCampaignSection(campaign: PostCampaignSpec, options: PromptRender
   const lines: string[] = [SEPARATOR, `CAMPANHA: ${campaign.name}`, SEPARATOR];
   if (campaign.description) lines.push(`Descrição: ${campaign.description}`);
   if (campaign.instructions) lines.push(`\nInstruções gerais:\n${campaign.instructions}`);
+  const hasVariations = Boolean(
+    campaign.elements.some(e => e.elementType === 'VARIATION_GALLERY'),
+  );
 
   for (const element of campaign.elements) {
     lines.push('');
     if (element.elementType === 'POST_REFERENCE') {
+      const galleryInstruction = hasVariations
+        ? '5. Inferior direito com a galeria de outras cores (exclusivamente as variações adicionais fornecidas); '
+        : '5. Inferior direito: produto de cor única/sem fotos de outras variações, portanto OMITA integralmente a galeria de cores (NÃO crie miniaturas nem o título "DISPONÍVEL NAS CORES"); ';
+
       lines.push('--- ELEMENTO: POST_REFERENCE (POST DE EXEMPLO / REFERÊNCIA VISUAL DE SUCESSO) ---');
       lines.push(
         'INSTRUÇÃO OBRIGATÓRIA DE COMPOSIÇÃO: O arquivo de referência anexado representa a estrutura e o padrão visual oficial aprovado da Móveis Morante. ' +
@@ -129,9 +149,21 @@ function renderCampaignSection(campaign: PostCampaignSpec, options: PromptRender
           '2. Topo direito com slogan caligráfico sublinhado em amarelo; ' +
           '3. Meio esquerdo com imagem secundária flutuante, limpa e sem borda; ' +
           '4. Inferior esquerdo com o container de preço em degradê azul marinho e borda dourada destacada; ' +
-          '5. Inferior direito com a galeria de outras cores; ' +
+          galleryInstruction +
           '6. Quando a lista estruturada de benefícios não estiver vazia, use rodapé em faixa azul contínua na base, com o logo oficial à direita e EXCLUSIVAMENTE os benefícios literais daquela lista à esquerda/centro. ' +
           'A referência visual define somente composição; nunca copie dela textos, selos ou benefícios.',
+      );
+    } else if (element.elementType === 'INSTALLMENT') {
+      lines.push('--- ELEMENTO: INSTALLMENT (PRECIFICAÇÃO E PARCELAMENTO) ---');
+      lines.push(
+        'DIRETRIZ VISUAL OBRIGATÓRIA DE PRECIFICAÇÃO E PARCELAMENTO:\n' +
+          '- Layout: Siga como modelo visual o container de preço oficial da Móveis Morante (cartão em fundo azul marinho escuro #002B49 com cantos arredondados e borda amarela/dourada fina contínua #FFC107).\n' +
+          '- Linha 1: "DE [PREÇO ANTERIOR]" em branco com traço riscado vermelho vivo atravessando o valor.\n' +
+          '- Linha 2: "POR APENAS" em branco maiúsculo destacado.\n' +
+          '- Linha 3 (Protagonista): "R$ [PREÇO ATUAL]" com algarismos grandes e grossos em amarelo solar/dourado vibrante (#FFC107).\n' +
+          '- Linha divisória: Traço horizontal fino e discreto em branco/cinza separando o preço do parcelamento.\n' +
+          '- Linha 4 (Condições): Ícone de cartão de crédito à esquerda em traço branco + texto "EM ATÉ 10X SEM JUROS" em amarelo/branco e abaixo "NAS BANDEIRAS VISA, MASTER, ELO E HIPER" em branco nítido.\n' +
+          'IMPORTANTE: Os valores numéricos de preço e parcelamento devem ser extraídos fielmente da tabela oficial de DADOS DO PRODUTO (nunca inventados ou copiados da imagem de exemplo).',
       );
     } else {
       lines.push(`--- ELEMENTO: ${element.elementType} ---`);
@@ -157,7 +189,7 @@ function appendSharedPromptSections(
   if (spec.officialAssets) {
     lines.push(renderOfficialAssetsPromptSection(spec.officialAssets, options), '');
   }
-  lines.push(renderBenefitsPromptSection(spec.benefits ?? SYSTEM_OFFICIAL_BENEFITS), '');
+  lines.push(renderBenefitsPromptSection(spec.benefits ?? SYSTEM_OFFICIAL_BENEFITS, options), '');
   lines.push(GLOBAL_ART_DIRECTION_SECTION, '');
 }
 
@@ -167,6 +199,8 @@ function appendFormatAndFinalRules(
   includeGalleryRules: boolean,
   options: PromptRenderOptions = {},
 ): void {
+  const hasRealVariations = Boolean(spec.productImages?.variations && spec.productImages.variations.length > 0);
+
   lines.push(SEPARATOR, 'FORMATOS', SEPARATOR);
   lines.push(...spec.formats.map(format => `${format.name.toUpperCase()}\n${format.aspectRatio}\n${format.referenceSize}\n`));
   lines.push(DIRECT_WORKFLOW_FORMAT_INSTRUCTION, '', SEPARATOR, 'REGRAS FINAIS', SEPARATOR);
@@ -180,14 +214,17 @@ function appendFormatAndFinalRules(
   lines.push('- Assets oficiais (logo, selos) são arquivos gráficos prontos: NUNCA redesenhe, recrie ou estilize;');
   lines.push('- Se a IA não puder inserir o asset fielmente, deixe o espaço reservado em vez de inventar uma marca;');
   lines.push('- Direção de arte profissional ao redor do móvel: crie ambientação comercial elegante, iluminação publicitária com sombras reais e bloco de preço destacado;');
+  lines.push('- Proibição de esfumaçado ou halo luminoso: É TERMINANTEMENTE PROIBIDO criar esfumaçado branco, névoa, glow ou halo ao redor ou atrás do produto. A integração com o cenário deve ser limpa e realista unicamente via sombras de contato no piso;');
   lines.push('- Separar conceitos: Fidelidade do Produto (estritamente fiel às fotos reais) vs. Direção de Arte (rica, sofisticada e profissional, sem aspecto de catálogo simplista ou fundo chapado);');
-  if (includeGalleryRules) {
-    lines.push('- Galeria secundária de cores: apresente EXCLUSIVAMENTE as DEMAIS variações/cores, NUNCA duplicando a Variação 1 (a cor principal já é o móvel em destaque no post);');
+  if (includeGalleryRules && hasRealVariations) {
+    lines.push('- Galeria secundária de cores: apresente EXCLUSIVAMENTE as DEMAIS variações/cores listadas, NUNCA duplicando a Variação 1 (a cor principal já é o móvel em destaque no post);');
     lines.push('- Borda branca: aplique SOMENTE nas imagens das variações adicionais; a imagem principal e a imagem secundária da Variação 1 ficam sem borda;');
-    lines.push('- Slogans e rótulos proibidos: NUNCA invente slogans da empresa/loja (a logo da Móveis Morante já carrega a identidade oficial) nem insira slogans no canto inferior direito. NUNCA insira rótulos ou tags na imagem secundária como "material de qualidade", "amplo espaço interno" ou "design moderno";');
-    lines.push('- Slogans autorizados: permitidos apenas 2 destaques do produto (um abaixo do título do produto e outro ao lado do móvel em estilo caligráfico com traçado amarelo);');
-    lines.push('- Proibição de elementos extras: NUNCA adicione caixas, selos, textos ou elementos gráficos adicionais que não tenham sido solicitados;');
+  } else {
+    lines.push('- PRODUTO DE COR ÚNICA (SEM OUTRAS CORES): O produto fornecido NÃO possui outras cores com fotos disponíveis. É TERMINANTEMENTE PROIBIDO criar galeria de cores, miniaturas extras, inventar Variação 2 ou 3 ou escrever "DISPONÍVEL NAS CORES". O post deve conter exclusivamente o produto principal (e a secundária, se enviada);');
   }
+  lines.push('- Slogans e rótulos proibidos: NUNCA invente slogans da empresa/loja (a logo da Móveis Morante já carrega a identidade oficial) nem insira slogans no canto inferior direito. NUNCA insira rótulos ou tags na imagem secundária como "material de qualidade", "amplo espaço interno" ou "design moderno";');
+  lines.push('- Slogans autorizados: permitidos apenas 2 destaques do produto (um abaixo do título do produto e outro ao lado do móvel em estilo caligráfico com traçado amarelo);');
+  lines.push('- Proibição de elementos extras: NUNCA adicione caixas, selos, textos ou elementos gráficos adicionais que não tenham sido solicitados;');
   lines.push('- Respeite o formato solicitado (aspecto e dimensões);');
   lines.push('- Componha todos os elementos como uma única peça coerente;');
   lines.push('- Não trate cada elemento como arte independente.', '');

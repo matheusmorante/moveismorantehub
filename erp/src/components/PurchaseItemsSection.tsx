@@ -97,8 +97,6 @@ export const PurchaseItemsSection = ({
 
     // Os itens que chegam aqui já vêm calculados pelo ReceiptFormModal via calculateReceiptItems,
     // ou são calculados como fallback se usados fora do modal de recebimento
-    const hasAnyOtherExpenses = items.some((item) => (item.otherExpensesUnit || 0) > 0 || (item.additionalCostUnit || 0) > 0);
-    const hasAnyDiscount = items.some((item) => (item.discountUnit || 0) > 0);
     const totalValue = items.reduce((sum, item) => sum + item.totalCost, 0);
 
     return (
@@ -114,11 +112,19 @@ export const PurchaseItemsSection = ({
                 <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 items-end">
                     {/* Campo Produto */}
                     <div className={`${isReceiptMode ? 'sm:col-span-11' : 'sm:col-span-6'} flex flex-col gap-1.5`}>
-                        <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Produto</label>
+                        <div className="flex items-center justify-between">
+                            <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Produto</label>
+                            {isReceiptMode && !supplierId && (
+                                <span className="text-[10px] font-bold text-amber-500">
+                                    Selecione o fornecedor acima primeiro
+                                </span>
+                            )}
+                        </div>
                         <ProductAutocomplete
                             supplierId={supplierId || undefined}
                             value={currentDescription}
                             onChange={setCurrentDescription}
+                            disabled={Boolean(isReceiptMode && !supplierId)}
                             onSelect={(p, v) => {
                                 setCurrentProductId(p.id!);
                                 setCurrentVariationId(v?.id);
@@ -135,8 +141,14 @@ export const PurchaseItemsSection = ({
                                 }
                             }}
                             onSelectDescription={setCurrentDescription}
-                            placeholder={supplierId ? "Buscar produto deste fornecedor..." : "Buscar produto..."}
-                            inputClassName="w-full bg-transparent border-0 border-b-2 border-slate-200 dark:border-slate-700 p-2 focus:border-emerald-600 dark:focus:border-emerald-500 outline-none text-sm font-bold text-slate-700 dark:text-slate-300 transition-all focus:ring-0 focus:shadow-sm rounded-none"
+                            placeholder={
+                                isReceiptMode && !supplierId
+                                    ? "Selecione o fornecedor acima para liberar a busca de produtos..."
+                                    : supplierId
+                                    ? "Buscar produto deste fornecedor..."
+                                    : "Buscar produto..."
+                            }
+                            inputClassName="w-full bg-transparent border-0 border-b-2 border-slate-200 dark:border-slate-700 p-2 focus:border-emerald-600 dark:focus:border-emerald-500 outline-none text-sm font-bold text-slate-700 dark:text-slate-300 transition-all focus:ring-0 focus:shadow-sm rounded-none disabled:opacity-50 disabled:cursor-not-allowed"
                         />
                     </div>
 
@@ -177,12 +189,13 @@ export const PurchaseItemsSection = ({
                         <button 
                             type="button"
                             onClick={handleAddItemClick}
+                            disabled={Boolean(isReceiptMode && !supplierId)}
                             className={`w-full ${
                                 isReceiptMode
-                                    ? 'h-10 rounded-xl bg-emerald-600 text-white hover:bg-emerald-700 active:scale-95 flex items-center justify-center shadow-md transition-all'
-                                    : 'py-2.5 bg-emerald-600 text-white rounded-xl hover:bg-emerald-700 transition-all active:scale-95 flex items-center justify-center gap-1.5 font-bold shadow-md text-xs'
+                                    ? 'h-10 rounded-xl bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed active:scale-95 flex items-center justify-center shadow-md transition-all'
+                                    : 'py-2.5 bg-emerald-600 text-white rounded-xl hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all active:scale-95 flex items-center justify-center gap-1.5 font-bold shadow-md text-xs'
                             }`}
-                            title="Adicionar Item"
+                            title={isReceiptMode && !supplierId ? "Selecione o fornecedor primeiro" : "Adicionar Item"}
                         >
                             <i className="bi bi-plus-lg text-lg font-black"></i>
                             {!isReceiptMode && <span className="font-black uppercase tracking-wider">Adicionar</span>}
@@ -201,9 +214,7 @@ export const PurchaseItemsSection = ({
                             <th className="px-4 py-3.5 text-[9px] font-black uppercase tracking-widest text-slate-400 text-right">Custo unitário</th>
                             <th className="px-4 py-3.5 text-[9px] font-black uppercase tracking-widest text-slate-400 text-right">Desconto</th>
                             <th className="px-4 py-3.5 text-[9px] font-black uppercase tracking-widest text-slate-400 text-right">Frete</th>
-                            {hasAnyOtherExpenses && (
-                                <th className="px-4 py-3.5 text-[9px] font-black uppercase tracking-widest text-slate-400 text-right">Outras despesas</th>
-                            )}
+                            <th className="px-4 py-3.5 text-[9px] font-black uppercase tracking-widest text-slate-400 text-right">Outras despesas</th>
                             <th className="px-4 py-3.5 text-[9px] font-black uppercase tracking-widest text-emerald-700 dark:text-emerald-400 text-right bg-emerald-50/40 dark:bg-emerald-950/20">Custo unitário final</th>
                             <th className="px-5 py-3.5 text-[9px] font-black uppercase tracking-widest text-slate-700 dark:text-slate-200 text-right">Total do item</th>
                             <th className="px-3 py-3.5 w-10"></th>
@@ -261,11 +272,9 @@ export const PurchaseItemsSection = ({
                                     <td className="px-4 py-3.5 text-right text-xs font-medium text-slate-600 dark:text-slate-400">
                                         {unitFreight > 0 ? formatCurrency(unitFreight) : '—'}
                                     </td>
-                                    {hasAnyOtherExpenses && (
-                                        <td className="px-4 py-3.5 text-right text-xs font-medium text-slate-600 dark:text-slate-400">
-                                            {unitOther > 0 ? formatCurrency(unitOther) : '—'}
-                                        </td>
-                                    )}
+                                    <td className="px-4 py-3.5 text-right text-xs font-medium text-slate-600 dark:text-slate-400">
+                                        {unitOther > 0 ? formatCurrency(unitOther) : '—'}
+                                    </td>
                                     <td className="px-4 py-3.5 text-right text-sm font-black text-emerald-600 dark:text-emerald-400 bg-emerald-50/30 dark:bg-emerald-950/15">
                                         {formatCurrency(item.unitCost || 0)}
                                     </td>
@@ -282,14 +291,14 @@ export const PurchaseItemsSection = ({
                         })}
                         {items.length === 0 && (
                             <tr>
-                                <td colSpan={hasAnyOtherExpenses ? 10 : 9} className="px-6 py-10 text-center text-xs font-bold text-slate-300 uppercase tracking-widest">Nenhum item adicionado</td>
+                                <td colSpan={9} className="px-6 py-10 text-center text-xs font-bold text-slate-300 uppercase tracking-widest">Nenhum item adicionado</td>
                             </tr>
                         )}
                     </tbody>
                     {items.length > 0 && (
                         <tfoot className="bg-slate-900 text-white">
                             <tr>
-                                <td colSpan={hasAnyOtherExpenses ? 8 : 7} className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-emerald-400">Valor Total do Recebimento</td>
+                                <td colSpan={7} className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-emerald-400">Valor Total do Recebimento</td>
                                 <td className="px-5 py-4 text-right text-xl font-black text-emerald-400">{formatCurrency(totalValue)}</td>
                                 <td></td>
                             </tr>
@@ -372,12 +381,10 @@ export const PurchaseItemsSection = ({
                                     <span className="font-bold text-slate-800 dark:text-slate-200 block text-xs leading-normal">{formatCurrency(unitFreight)}</span>
                                 </div>
 
-                                {unitOther > 0 && (
-                                    <div className="p-2.5 bg-slate-50 dark:bg-slate-900/40 rounded-xl border border-slate-100 dark:border-slate-800/60">
-                                        <span className="text-slate-400 uppercase tracking-wider text-[9px] font-black block mb-0.5">Outras despesas</span>
-                                        <span className="font-bold text-slate-800 dark:text-slate-200 block text-xs leading-normal">{formatCurrency(unitOther)}</span>
-                                    </div>
-                                )}
+                                <div className="p-2.5 bg-slate-50 dark:bg-slate-900/40 rounded-xl border border-slate-100 dark:border-slate-800/60">
+                                    <span className="text-slate-400 uppercase tracking-wider text-[9px] font-black block mb-0.5">Outras despesas</span>
+                                    <span className="font-bold text-slate-800 dark:text-slate-200 block text-xs leading-normal">{unitOther > 0 ? formatCurrency(unitOther) : '—'}</span>
+                                </div>
 
                                 <div className="p-2.5 bg-emerald-50/50 dark:bg-emerald-950/20 rounded-xl border border-emerald-100/60 dark:border-emerald-900/40">
                                     <span className="text-emerald-600/70 dark:text-emerald-400/70 uppercase tracking-wider text-[9px] font-black block mb-0.5">Custo unitário final</span>

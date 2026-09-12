@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { toast } from 'react-toastify';
 import SupplierAutocomplete from '@/components/SupplierAutocomplete';
@@ -13,6 +13,7 @@ import { markInvoiceAsReceived } from '../../../utils/inboundNfe/inboundInvoices
 import Purchase from '../../../types/purchase.type';
 import Product from '../../../types/product.type';
 import ReceiptFiscalDocumentsSection from './ReceiptFiscalDocumentsSection';
+import ReturnObservationTags from '../../SalesOrder/OrderActions/ReturnObservationTags';
 import InboundNfeItemsSection, { InboundReceiptItem } from './InboundNfeItemsSection';
 import { findProductSupplierCodes, saveProductSupplierCode } from '../../../utils/productSupplierCodesService';
 import { getProductsByIds } from '../../../utils/productService';
@@ -38,9 +39,9 @@ export default function ReceiptFormModal({ isOpen, onClose, initialReceipt, init
     // Dados Não Fiscais (com toggle % e R$)
     const [nonFiscalDiscountMode, setNonFiscalDiscountMode] = useState<'percent' | 'fixed'>('percent');
     const [nonFiscalDiscountValue, setNonFiscalDiscountValue] = useState<number>(0);
-    const [nonFiscalFreightMode, setNonFiscalFreightMode] = useState<'percent' | 'fixed'>('fixed');
+    const [nonFiscalFreightMode, setNonFiscalFreightMode] = useState<'percent' | 'fixed'>('percent');
     const [nonFiscalFreightValue, setNonFiscalFreightValue] = useState<number>(0);
-    const [nonFiscalOtherExpensesMode, setNonFiscalOtherExpensesMode] = useState<'percent' | 'fixed'>('fixed');
+    const [nonFiscalOtherExpensesMode, setNonFiscalOtherExpensesMode] = useState<'percent' | 'fixed'>('percent');
     const [nonFiscalOtherExpensesValue, setNonFiscalOtherExpensesValue] = useState<number>(0);
 
     // Dados Fiscais de Referência (extraídos da NF-e)
@@ -55,6 +56,7 @@ export default function ReceiptFormModal({ isOpen, onClose, initialReceipt, init
     const [isSaving, setIsSaving] = useState(false);
     const [fiscalKey, setFiscalKey] = useState('');
     const [attachments, setAttachments] = useState<string[]>([]);
+    const [observations, setObservations] = useState<string[]>([]);
     const [isDraftSaved, setIsDraftSaved] = useState(false);
     const autoSaveTimerRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -69,9 +71,9 @@ export default function ReceiptFormModal({ isOpen, onClose, initialReceipt, init
             setFreightPercent(initialReceipt.freightPercent || 0);
             setNonFiscalDiscountMode(initialReceipt.nonFiscalDiscountMode || 'percent');
             setNonFiscalDiscountValue(initialReceipt.nonFiscalDiscountValue || 0);
-            setNonFiscalFreightMode(initialReceipt.nonFiscalFreightMode || 'fixed');
+            setNonFiscalFreightMode(initialReceipt.nonFiscalFreightMode || 'percent');
             setNonFiscalFreightValue(initialReceipt.nonFiscalFreightValue || 0);
-            setNonFiscalOtherExpensesMode(initialReceipt.nonFiscalOtherExpensesMode || 'fixed');
+            setNonFiscalOtherExpensesMode(initialReceipt.nonFiscalOtherExpensesMode || 'percent');
             setNonFiscalOtherExpensesValue(initialReceipt.nonFiscalOtherExpensesValue || 0);
             setFiscalIpi(initialReceipt.fiscalIpi || 0);
             setFiscalFreight(initialReceipt.fiscalFreight || 0);
@@ -82,6 +84,7 @@ export default function ReceiptFormModal({ isOpen, onClose, initialReceipt, init
             setInvoiceDate(initialReceipt.invoiceDate || '');
             setFiscalKey(initialReceipt.fiscalKey || '');
             setAttachments(initialReceipt.attachments || []);
+            setObservations(initialReceipt.observation ? initialReceipt.observation.split('\n').map((s) => s.trim()).filter(Boolean) : []);
             setIsDraftSaved(initialReceipt.isDraft);
         } else if (initialPurchase) {
             setDraftId('');
@@ -89,19 +92,26 @@ export default function ReceiptFormModal({ isOpen, onClose, initialReceipt, init
             setInboundItems(null);
             setReceiptDate(new Date().toISOString().slice(0, 10));
             setInvoiceNumber(''); setInvoiceDate('');
-            setFiscalKey(''); setAttachments([]); setIsDraftSaved(false);
+            setFiscalKey(''); setAttachments([]); setObservations([]); setIsDraftSaved(false);
+            setNonFiscalDiscountMode('percent'); setNonFiscalDiscountValue(0);
+            setNonFiscalFreightMode('percent'); setNonFiscalFreightValue(0);
+            setNonFiscalOtherExpensesMode('percent'); setNonFiscalOtherExpensesValue(0);
         } else if (initialInboundInvoice) {
             setDraftId('');
             setSupplierId('');
+            setObservations([]);
+            setNonFiscalDiscountMode('percent'); setNonFiscalDiscountValue(0);
+            setNonFiscalFreightMode('percent'); setNonFiscalFreightValue(0);
+            setNonFiscalOtherExpensesMode('percent'); setNonFiscalOtherExpensesValue(0);
             void applyInboundInvoice(initialInboundInvoice);
         } else {
             setDraftId(''); setSupplierId(''); setItems([]); setIpiPercent(0); setFreightPercent(0);
             setNonFiscalDiscountMode('percent'); setNonFiscalDiscountValue(0);
-            setNonFiscalFreightMode('fixed'); setNonFiscalFreightValue(0);
-            setNonFiscalOtherExpensesMode('fixed'); setNonFiscalOtherExpensesValue(0);
+            setNonFiscalFreightMode('percent'); setNonFiscalFreightValue(0);
+            setNonFiscalOtherExpensesMode('percent'); setNonFiscalOtherExpensesValue(0);
             setFiscalIpi(0); setFiscalFreight(0); setFiscalDiscount(0); setFiscalOtherExpenses(0);
             setInboundItems(null);
-            setReceiptDate(new Date().toISOString().slice(0, 10)); setInvoiceNumber(''); setInvoiceDate(''); setFiscalKey(''); setAttachments([]); setIsDraftSaved(false);
+            setReceiptDate(new Date().toISOString().slice(0, 10)); setInvoiceNumber(''); setInvoiceDate(''); setFiscalKey(''); setAttachments([]); setObservations([]); setIsDraftSaved(false);
         }
         return subscribeToPeople('suppliers', (data) => setSuppliers(data.filter((person) => !person.deleted && person.type === 'suppliers')));
     }, [isOpen, initialReceipt, initialInboundInvoice, initialPurchase]);
@@ -114,6 +124,25 @@ export default function ReceiptFormModal({ isOpen, onClose, initialReceipt, init
         nonFiscalOtherExpenses: { mode: nonFiscalOtherExpensesMode, value: nonFiscalOtherExpensesValue },
     });
     const totalValue = processedItems.reduce((sum, item) => sum + item.totalCost, 0);
+
+    // Base de cálculo para conversão dinâmica entre % e R$ (valor da NF ou dos produtos)
+    const baseValueForRateio = useMemo(() => {
+        if (initialInboundInvoice?.totalInvoice && initialInboundInvoice.totalInvoice > 0) {
+            return initialInboundInvoice.totalInvoice;
+        }
+        if (initialInboundInvoice?.totalProducts && initialInboundInvoice.totalProducts > 0) {
+            return initialInboundInvoice.totalProducts;
+        }
+        if (inboundItems && inboundItems.length > 0) {
+            const sumInbound = inboundItems.reduce((acc, item) => acc + ((item.unitCost || 0) * Math.max(1, item.quantity)), 0);
+            if (sumInbound > 0) return sumInbound;
+        }
+        if (items && items.length > 0) {
+            const sumItems = items.reduce((acc, item) => acc + ((item.fiscalBaseCost ?? item.baseCost ?? item.unitCost ?? 0) * Math.max(1, item.quantity)), 0);
+            if (sumItems > 0) return sumItems;
+        }
+        return 0;
+    }, [initialInboundInvoice, inboundItems, items]);
 
     // Auto-save rascunho de forma contínua quando fornecedor e pelo menos 1 item estão selecionados
     useEffect(() => {
@@ -133,6 +162,7 @@ export default function ReceiptFormModal({ isOpen, onClose, initialReceipt, init
                     invoiceDate,
                     items: processedItems,
                     totalValue,
+                    observation: observations.join('\n'),
                     fiscalKey,
                     attachments,
                     ipiPercent,
@@ -158,7 +188,7 @@ export default function ReceiptFormModal({ isOpen, onClose, initialReceipt, init
         return () => {
             if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
         };
-    }, [isOpen, supplierId, items, ipiPercent, freightPercent, nonFiscalDiscountMode, nonFiscalDiscountValue, nonFiscalFreightMode, nonFiscalFreightValue, nonFiscalOtherExpensesMode, nonFiscalOtherExpensesValue, fiscalIpi, fiscalFreight, fiscalDiscount, fiscalOtherExpenses, receiptDate, invoiceNumber, invoiceDate, fiscalKey, attachments]);
+    }, [isOpen, supplierId, items, ipiPercent, freightPercent, nonFiscalDiscountMode, nonFiscalDiscountValue, nonFiscalFreightMode, nonFiscalFreightValue, nonFiscalOtherExpensesMode, nonFiscalOtherExpensesValue, fiscalIpi, fiscalFreight, fiscalDiscount, fiscalOtherExpenses, receiptDate, invoiceNumber, invoiceDate, fiscalKey, attachments, observations]);
 
     if (!isOpen) return null;
     const supplier = suppliers.find((person) => person.id === supplierId);
@@ -189,6 +219,7 @@ export default function ReceiptFormModal({ isOpen, onClose, initialReceipt, init
                 invoiceDate,
                 items: processedItems,
                 totalValue,
+                observation: observations.join('\n'),
                 fiscalKey,
                 attachments,
                 ipiPercent,
@@ -299,19 +330,27 @@ export default function ReceiptFormModal({ isOpen, onClose, initialReceipt, init
         });
         const convertedItems: PurchaseItem[] = linkedItems.map((item) => {
             const quantity = Math.max(1, item.expectedQuantity || item.quantity);
-            // O valor final do item na nota fiscal já engloba IPI, ICMS-ST, Frete e Despesas Fiscais
-            const fiscalUnitAcquisition = Number((item.unitCost + ((item.ipiValue || 0) + (item.freightValue || 0) + (item.insuranceValue || 0) + (item.otherExpensesValue || 0) + (item.icmsStValue || 0) - (item.discountValue || 0)) / quantity).toFixed(2));
-            const fiscalTotalItem = Number((fiscalUnitAcquisition * item.quantity).toFixed(2));
+            const itemBaseUnit = item.unitCost;
+            const itemBaseTotal = Number((itemBaseUnit * item.quantity).toFixed(2));
+            const unitFreightFiscal = item.freightValue ? Number((item.freightValue / quantity).toFixed(4)) : 0;
+            const unitOtherFiscal = Number((((item.insuranceValue || 0) + (item.otherExpensesValue || 0) + (item.icmsStValue || 0)) / quantity).toFixed(4));
+            const unitDiscountFiscal = item.discountValue ? Number((item.discountValue / quantity).toFixed(4)) : 0;
 
             return {
                 productId: item.linkedProductId || '',
                 variationId: item.linkedVariationId || '',
                 description: item.productDescription,
                 quantity: item.quantity,
-                baseCost: fiscalUnitAcquisition,
-                unitCost: fiscalUnitAcquisition,
-                totalCost: fiscalTotalItem,
-                fiscalBaseCost: fiscalUnitAcquisition,
+                baseCost: itemBaseUnit,
+                unitCost: itemBaseUnit,
+                totalCost: itemBaseTotal,
+                fiscalBaseCost: itemBaseUnit,
+                freightValue: item.freightValue,
+                freightFiscalUnit: unitFreightFiscal,
+                otherExpensesFiscalUnit: unitOtherFiscal,
+                discountFiscalUnit: unitDiscountFiscal,
+                ipiValue: item.ipiValue,
+                ipiPercent: item.ipiPercent,
                 additionalCostUnit: 0,
             };
         });
@@ -327,16 +366,27 @@ export default function ReceiptFormModal({ isOpen, onClose, initialReceipt, init
             const updated = current.map((item) => item.itemNumber === itemNumber ? { ...item, ...update } : item);
             setItems(updated.map((item) => {
                 const quantity = Math.max(1, item.expectedQuantity || item.quantity);
-                const fiscalUnitAcquisition = Number((item.unitCost + ((item.ipiValue || 0) + (item.freightValue || 0) + (item.insuranceValue || 0) + (item.otherExpensesValue || 0) + (item.icmsStValue || 0) - (item.discountValue || 0)) / quantity).toFixed(2));
+                const itemBaseUnit = item.unitCost;
+                const itemBaseTotal = Number((itemBaseUnit * item.quantity).toFixed(2));
+                const unitFreightFiscal = item.freightValue ? Number((item.freightValue / quantity).toFixed(4)) : 0;
+                const unitOtherFiscal = Number((((item.insuranceValue || 0) + (item.otherExpensesValue || 0) + (item.icmsStValue || 0)) / quantity).toFixed(4));
+                const unitDiscountFiscal = item.discountValue ? Number((item.discountValue / quantity).toFixed(4)) : 0;
+
                 return {
                     productId: item.linkedProductId || '',
                     variationId: item.linkedVariationId || '',
                     description: item.productDescription,
                     quantity: item.quantity,
-                    baseCost: fiscalUnitAcquisition,
-                    unitCost: fiscalUnitAcquisition,
-                    totalCost: Number((fiscalUnitAcquisition * item.quantity).toFixed(2)),
-                    fiscalBaseCost: fiscalUnitAcquisition,
+                    baseCost: itemBaseUnit,
+                    unitCost: itemBaseUnit,
+                    totalCost: itemBaseTotal,
+                    fiscalBaseCost: itemBaseUnit,
+                    freightValue: item.freightValue,
+                    freightFiscalUnit: unitFreightFiscal,
+                    otherExpensesFiscalUnit: unitOtherFiscal,
+                    discountFiscalUnit: unitDiscountFiscal,
+                    ipiValue: item.ipiValue,
+                    ipiPercent: item.ipiPercent,
                     additionalCostUnit: 0,
                 };
             }));
@@ -399,15 +449,13 @@ export default function ReceiptFormModal({ isOpen, onClose, initialReceipt, init
                                 Despesas e Descontos do Recebimento
                             </h3>
                         </div>
-                        {initialInboundInvoice && (
-                            <span className="group relative inline-flex items-center gap-1 px-2.5 py-1 text-[10px] font-black uppercase tracking-wider bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300 rounded-lg border border-amber-300 dark:border-amber-800 cursor-help">
-                                <i className="bi bi-exclamation-triangle-fill text-amber-600 text-xs" />
-                                Despesas não fiscais
-                                <span className="absolute right-0 top-full mt-1.5 hidden w-72 rounded-xl bg-slate-900 p-2.5 text-[11px] font-medium normal-case tracking-normal text-white shadow-xl group-hover:block z-50 border border-slate-800">
-                                    Esses valores são não fiscais e serão calculados e somados/abatidos sobre o valor final do item da nota fiscal.
-                                </span>
+                        <span className="group relative inline-flex items-center gap-1 px-2.5 py-1 text-[10px] font-black uppercase tracking-wider bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300 rounded-lg border border-slate-200 dark:border-slate-700 cursor-help">
+                            <i className="bi bi-info-circle text-slate-500 text-xs" />
+                            Rateio Operacional
+                            <span className="absolute right-0 top-full mt-1.5 hidden w-72 rounded-xl bg-slate-900 p-2.5 text-[11px] font-medium normal-case tracking-normal text-white shadow-xl group-hover:block z-50 border border-slate-800">
+                                Estes valores são operacionais e serão rateados proporcionalmente entre os itens, ajustando o custo unitário final e o estoque.
                             </span>
-                        )}
+                        </span>
                     </div>
 
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -415,48 +463,62 @@ export default function ReceiptFormModal({ isOpen, onClose, initialReceipt, init
                             label="Desconto"
                             mode={nonFiscalDiscountMode}
                             value={nonFiscalDiscountValue}
+                            baseTotal={baseValueForRateio}
                             onModeChange={setNonFiscalDiscountMode}
                             onValueChange={setNonFiscalDiscountValue}
                             color="amber"
-                            isWarning={Boolean(initialInboundInvoice)}
-                            warningTooltip="Desconto operacional rateado sobre o valor da nota fiscal."
                         />
                         <ToggleValueField
                             label="Frete"
                             mode={nonFiscalFreightMode}
                             value={nonFiscalFreightValue}
+                            baseTotal={baseValueForRateio}
                             onModeChange={setNonFiscalFreightMode}
                             onValueChange={setNonFiscalFreightValue}
                             color="blue"
-                            isWarning={Boolean(initialInboundInvoice)}
-                            warningTooltip="Frete operacional adicional somado sobre o valor da nota fiscal."
                         />
                         <ToggleValueField
                             label="Outras Despesas"
                             mode={nonFiscalOtherExpensesMode}
                             value={nonFiscalOtherExpensesValue}
+                            baseTotal={baseValueForRateio}
                             onModeChange={setNonFiscalOtherExpensesMode}
                             onValueChange={setNonFiscalOtherExpensesValue}
                             color="slate"
-                            isWarning={Boolean(initialInboundInvoice)}
-                            warningTooltip="Outras despesas adicionais somadas sobre o valor da nota fiscal."
                         />
                     </div>
                 </div>
 
                 <ReceiptFiscalDocumentsSection attachments={attachments} fiscalKey={fiscalKey} onAttachmentsChange={setAttachments} onFiscalKeyChange={setFiscalKey} />
-                {inboundItems ? <InboundNfeItemsSection items={inboundItems} supplierId={supplierId} onChange={handleInboundItemChange} formatCurrency={formatCurrency} /> : <PurchaseItemsSection
-                    items={processedItems}
-                    onAddItem={(item) => setItems((current) => [...current, item])}
-                    onRemoveItem={(index) => setItems((current) => current.filter((_, itemIndex) => itemIndex !== index))}
-                    onUpdateItem={(index, updatedItem) => setItems((current) => current.map((item, i) => (i === index ? updatedItem : item)))}
-                    ipiPercent={ipiPercent}
-                    freightPercent={freightPercent}
-                    formatCurrency={formatCurrency}
-                    supplierId={supplierId}
-                    onSupplierAutoSelect={setSupplierId}
-                    isReceiptMode={true}
-                />}
+                <div className="rounded-2xl border border-slate-100 bg-slate-50/50 p-4 dark:border-slate-800 dark:bg-slate-900/30">
+                    <ReturnObservationTags
+                        label="Observações do Recebimento"
+                        observations={observations}
+                        onChange={setObservations}
+                    />
+                </div>
+                {inboundItems ? (
+                    <InboundNfeItemsSection
+                        items={inboundItems}
+                        processedItems={processedItems}
+                        supplierId={supplierId}
+                        onChange={handleInboundItemChange}
+                        formatCurrency={formatCurrency}
+                    />
+                ) : (
+                    <PurchaseItemsSection
+                        items={processedItems}
+                        onAddItem={(item) => setItems((current) => [...current, item])}
+                        onRemoveItem={(index) => setItems((current) => current.filter((_, itemIndex) => itemIndex !== index))}
+                        onUpdateItem={(index, updatedItem) => setItems((current) => current.map((item, i) => (i === index ? updatedItem : item)))}
+                        ipiPercent={ipiPercent}
+                        freightPercent={freightPercent}
+                        formatCurrency={formatCurrency}
+                        supplierId={supplierId}
+                        onSupplierAutoSelect={setSupplierId}
+                        isReceiptMode={true}
+                    />
+                )}
             </div>
             <footer className="flex shrink-0 flex-col items-center justify-between gap-3 border-t border-slate-100 bg-slate-50 p-5 dark:border-slate-800 dark:bg-slate-955/40 sm:flex-row xl:px-8"><p className="text-sm font-black text-slate-700 dark:text-slate-100">Total final: <span className="text-emerald-600">{formatCurrency(totalValue)}</span></p><div className="flex w-full gap-3 sm:w-auto"><button type="button" onClick={onClose} className="flex-1 rounded-2xl px-5 py-3 text-xs font-black uppercase text-slate-500">Cancelar</button><button type="button" disabled={isSaving} onClick={handleFinalize} className="flex-1 rounded-2xl bg-emerald-600 px-6 py-3 text-xs font-black uppercase text-white hover:bg-emerald-700 disabled:opacity-50 transition-all shadow-md">{isSaving ? 'Confirmando...' : 'Confirmar recebimento'}</button></div></footer>
         </section>
@@ -472,6 +534,7 @@ interface ToggleValueFieldProps {
     label: string;
     mode: 'percent' | 'fixed';
     value: number;
+    baseTotal?: number;
     onModeChange: (mode: 'percent' | 'fixed') => void;
     onValueChange: (value: number) => void;
     color?: 'amber' | 'blue' | 'slate' | 'emerald';
@@ -479,7 +542,17 @@ interface ToggleValueFieldProps {
     warningTooltip?: string;
 }
 
-function ToggleValueField({ label, mode, value, onModeChange, onValueChange, color = 'amber', isWarning, warningTooltip }: ToggleValueFieldProps) {
+function ToggleValueField({
+    label,
+    mode,
+    value,
+    baseTotal = 0,
+    onModeChange,
+    onValueChange,
+    color = 'amber',
+    isWarning,
+    warningTooltip,
+}: ToggleValueFieldProps) {
     const isPercent = mode === 'percent';
     const activeBtnClass = color === 'amber'
         ? 'bg-amber-600 text-white shadow-sm'
@@ -488,6 +561,24 @@ function ToggleValueField({ label, mode, value, onModeChange, onValueChange, col
         : color === 'emerald'
         ? 'bg-emerald-600 text-white shadow-sm'
         : 'bg-slate-700 text-white shadow-sm';
+
+    const handleSwitchMode = (newMode: 'percent' | 'fixed') => {
+        if (newMode === mode) return;
+
+        // Se houver valor base positivo e valor preenchido, converte dinamicamente
+        if (baseTotal > 0 && value > 0) {
+            if (newMode === 'fixed' && mode === 'percent') {
+                // De % para R$: calcula a porcentagem equivalente sobre o valor da nota/base
+                const convertedToReais = Number(((baseTotal * value) / 100).toFixed(2));
+                onValueChange(convertedToReais);
+            } else if (newMode === 'percent' && mode === 'fixed') {
+                // De R$ para %: calcula quantos % esse valor representa sobre o valor da nota/base
+                const convertedToPercent = Number(((value / baseTotal) * 100).toFixed(2));
+                onValueChange(convertedToPercent);
+            }
+        }
+        onModeChange(newMode);
+    };
 
     return (
         <div className={`p-3 bg-white dark:bg-slate-900 rounded-xl border flex flex-col justify-between gap-1.5 shadow-sm transition-colors ${isWarning ? 'border-amber-300 dark:border-amber-800/80 ring-1 ring-amber-400/20' : 'border-slate-200/80 dark:border-slate-800'}`}>
@@ -510,7 +601,7 @@ function ToggleValueField({ label, mode, value, onModeChange, onValueChange, col
                 <div className="flex items-center rounded-lg bg-slate-100 p-0.5 dark:bg-slate-800 border border-slate-200/60 dark:border-slate-700 shrink-0">
                     <button
                         type="button"
-                        onClick={() => onModeChange('percent')}
+                        onClick={() => handleSwitchMode('percent')}
                         className={`px-1.5 py-0.5 rounded-md text-[10px] font-black transition-all ${isPercent ? activeBtnClass : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'}`}
                         title="Calcular em porcentagem (%)"
                     >
@@ -518,7 +609,7 @@ function ToggleValueField({ label, mode, value, onModeChange, onValueChange, col
                     </button>
                     <button
                         type="button"
-                        onClick={() => onModeChange('fixed')}
+                        onClick={() => handleSwitchMode('fixed')}
                         className={`px-1.5 py-0.5 rounded-md text-[10px] font-black transition-all ${!isPercent ? activeBtnClass : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'}`}
                         title="Calcular em reais (R$)"
                     >

@@ -216,9 +216,23 @@ export default function MarketingPostsManager() {
   };
 
   const createModel = async (model: ElementModel) => {
-    if (!campaign || allCampaignModels.some(item => item.elementType === model.elementType && item.opportunityId === model.opportunityId)) return;
+    if (!campaign) return;
+    const existingModel = allCampaignModels.find(
+      item => item.elementType === model.elementType && item.opportunityId === model.opportunityId
+    );
+    if (existingModel) {
+      await updateModel({ ...existingModel, ...model, id: existingModel.id });
+      return;
+    }
     const saved = await postCreatorService.saveModel(model);
-    await postCreatorService.linkModel({ campaignId: campaign.id, elementModelId: saved.id, elementType: saved.elementType, opportunityId: saved.opportunityId, active: true, createdAt: new Date().toISOString() });
+    await postCreatorService.linkModel({
+      campaignId: campaign.id,
+      elementModelId: saved.id,
+      elementType: saved.elementType,
+      opportunityId: saved.opportunityId,
+      active: true,
+      createdAt: new Date().toISOString()
+    });
     await reload(campaign.id);
     setConfigurationRevision(revision => revision + 1);
   };
@@ -243,26 +257,6 @@ export default function MarketingPostsManager() {
           <p className="text-xs text-slate-400 mt-0.5">
             Geração de especificações estruturadas para ChatGPT/Gemini e Biblioteca de Artes.
           </p>
-        </div>
-
-        {/* Chaveador de Abas Principal */}
-        <div className="flex items-center gap-1.5 bg-slate-900 border border-slate-800 p-1 rounded-xl w-full md:w-auto">
-          <button
-            onClick={() => setActiveTab('generator')}
-            className={`flex-1 md:flex-initial px-3.5 py-1.5 text-xs font-bold rounded-lg transition-colors flex items-center justify-center gap-1.5 ${
-              activeTab === 'generator' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-400 hover:text-white'
-            }`}
-          >
-            <span>📝 Gerador de Prompt</span>
-          </button>
-          <button
-            onClick={() => setActiveTab('library')}
-            className={`flex-1 md:flex-initial px-3.5 py-1.5 text-xs font-bold rounded-lg transition-colors flex items-center justify-center gap-1.5 ${
-              activeTab === 'library' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-400 hover:text-white'
-            }`}
-          >
-            <span>🖼️ Biblioteca de Posts</span>
-          </button>
         </div>
       </header>
 

@@ -1,9 +1,10 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { fetchInboundInvoices } from '@/pages/utils/inboundNfe/inboundInvoicesService';
 import { InboundInvoice } from '@/pages/utils/inboundNfe/inboundNfeTypes';
-import { formatCurrency } from '@/pages/utils/formatters';
+import { formatCurrency, formatToBRDate } from '@/pages/utils/formatters';
 import { normalizeSearchTerm } from '@/pages/utils/textUtils';
 import { InboundDocumentImportModal } from '../InboundInvoices/InboundDocumentImportModal';
+import { DateFilterConfig, DateFilterMode } from '../InboundInvoices/components/InboundInvoicesHeader';
 
 interface Props {
     isOpen: boolean;
@@ -12,36 +13,64 @@ interface Props {
     onCreate: (invoice: InboundInvoice) => void;
 }
 
-type PeriodFilter = 'this_month' | 'last_3_months' | 'this_year' | 'custom';
-type StatusFilter = 'available' | 'all' | 'pending' | 'manifested' | 'received';
-
 const normalizeDigits = (value: string) => value.replace(/\D/g, '');
-const parseDate = (value?: string) => {
-    if (!value) return null;
+
+const getCurrentYearMonth = (): string => {
+    const d = new Date();
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    return `${y}-${m}`;
+};
+
+const getPreviousYearMonth = (): string => {
+    const d = new Date();
+    d.setMonth(d.getMonth() - 1);
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    return `${y}-${m}`;
+};
+
+const statusLabel = (status?: string) => {
+    switch (status) {
+        case 'received':
+            return 'Recebida no Estoque';
+        case 'manifested':
+            return 'Manifestada';
+        case 'pending':
+        default:
+            return 'Disponível';
+    }
+};
+
+const isInDateFilter = (value: string | undefined, filter: DateFilterConfig) => {
+    if (!value) return false;
     const date = new Date(value);
-    return Number.isNaN(date.getTime()) ? null : date;
-};
-
-const isInPeriod = (value: string | undefined, period: PeriodFilter, start: string, end: string) => {
-    const date = parseDate(value);
-    if (!date) return false;
+    if (Number.isNaN(date.getTime())) return false;
     const now = new Date();
-    if (period === 'custom') {
-        const dateOnly = date.toISOString().slice(0, 10);
-        return (!start || dateOnly >= start) && (!end || dateOnly <= end);
-    }
-    if (period === 'this_year') return date.getFullYear() === now.getFullYear();
-    if (period === 'last_3_months') {
-        const minimum = new Date(now.getFullYear(), now.getMonth() - 2, 1);
-        return date >= minimum;
-    }
-    return date.getFullYear() === now.getFullYear() && date.getMonth() === now.getMonth();
-};
+    const y = date.getFullYear();
+    const m = date.getMonth() + 1;
+    const ym = `${y}-${String(m).padStart(2, '0')}`;
 
-const statusLabel = (status: InboundInvoice['status']) => {
-    if (status === 'received') return 'Recebida integralmente';
-    if (status === 'manifested') return 'Manifestada';
-    return 'Sem recebimento';
+    if (filter.mode === 'current_month') {
+        return y === now.getFullYear() && date.getMonth() === now.getMonth();
+    }
+    if (filter.mode === 'previous_month') {
+        const prevMonthDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+        return y === prevMonthDate.getFullYear() && date.getMonth() === prevMonthDate.getMonth();
+    }
+    if (filter.mode === 'current_year') {
+        return y === now.getFullYear();
+    }
+    if (filter.mode === 'previous_year') {
+        return y === now.getFullYear() - 1;
+    }
+    if (filter.mode === 'custom_month') {
+        return ym === filter.customMonth;
+    }
+    if (filter.mode === 'custom_range') {
+        return (!filter.startMonth || ym >= filter.startMonth) && (!filter.endMonth || ym <= filter.endMonth);
+    }
+    return true;
 };
 
 export default function InboundInvoiceReceiptPickerModal({
@@ -55,10 +84,12 @@ export default function InboundInvoiceReceiptPickerModal({
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
     const [loadError, setLoadError] = useState('');
-    const [period, setPeriod] = useState<PeriodFilter>('this_month');
-    const [status, setStatus] = useState<StatusFilter>('available');
-    const [customStartDate, setCustomStartDate] = useState('');
-    const [customEndDate, setCustomEndDate] = useState('');
+    const [dateFilter, setDateFilter] = useState<DateFilterConfig>(() => ({
+        mode: 'current_month',
+        customMonth: getCurrentYearMonth(),
+        startMonth: getPreviousYearMonth(),
+        endMonth: getCurrentYearMonth(),
+    }));
 
     const loadInvoices = async () => {
         setIsLoading(true);
@@ -84,11 +115,8 @@ export default function InboundInvoiceReceiptPickerModal({
         const term = normalizeSearchTerm(searchTerm);
         const termDigits = normalizeDigits(searchTerm);
         return invoices
-            .filter((inv) => {
-                if (status === 'available' && inv.status === 'received') return false;
-                if (status !== 'all' && status !== 'available' && inv.status !== status) return false;
-                return isInPeriod(inv.issuedAt, period, customStartDate, customEndDate);
-            })
+            .filter((inv) => inv.status !== 'received')
+            .filter((inv) => isInDateFilter(inv.issuedAt, dateFilter))
             .filter((inv) => {
                 if (!term) return true;
                 const emitter = normalizeSearchTerm(inv.emitterName || '');
@@ -98,7 +126,7 @@ export default function InboundInvoiceReceiptPickerModal({
                 return emitter.includes(term) || (termDigits.length > 0 && (cnpj.includes(termDigits) || number.includes(termDigits) || key.includes(termDigits)));
             })
             .sort((left, right) => Number(new Date(right.issuedAt)) - Number(new Date(left.issuedAt)));
-    }, [invoices, searchTerm, period, status, customStartDate, customEndDate]);
+    }, [invoices, searchTerm, dateFilter]);
 
     if (!isOpen) return null;
 
@@ -145,22 +173,84 @@ export default function InboundInvoiceReceiptPickerModal({
                             className="w-full rounded-xl border border-slate-200 bg-slate-50 py-2 pl-9 pr-4 text-xs font-medium text-slate-700 outline-none focus:bg-white focus:border-indigo-500 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-200"
                         />
                     </div>
-                    <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-4">
-                        <select value={period} onChange={(event) => setPeriod(event.target.value as PeriodFilter)} className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-bold dark:border-slate-800 dark:bg-slate-950 dark:text-slate-200">
-                            <option value="this_month">Este mês</option>
-                            <option value="last_3_months">Últimos 3 meses</option>
-                            <option value="this_year">Este ano</option>
-                            <option value="custom">Personalizado</option>
-                        </select>
-                        <select value={status} onChange={(event) => setStatus(event.target.value as StatusFilter)} className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-bold dark:border-slate-800 dark:bg-slate-950 dark:text-slate-200">
-                            <option value="available">Disponíveis para recebimento</option>
-                            <option value="all">Todos os status</option>
-                            <option value="pending">Sem recebimento</option>
-                            <option value="manifested">Manifestadas</option>
-                            <option value="received">Recebidas integralmente</option>
-                        </select>
-                        {period === 'custom' && <input type="date" value={customStartDate} onChange={(event) => setCustomStartDate(event.target.value)} className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs dark:border-slate-800 dark:bg-slate-950 dark:text-slate-200" />}
-                        {period === 'custom' && <input type="date" value={customEndDate} onChange={(event) => setCustomEndDate(event.target.value)} className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs dark:border-slate-800 dark:bg-slate-950 dark:text-slate-200" />}
+                    <div className="flex flex-wrap items-center gap-2">
+                        <div className="flex flex-wrap items-center gap-2 rounded-xl border border-slate-200 bg-white p-1.5 text-xs font-bold text-slate-700 shadow-sm dark:border-slate-800 dark:bg-slate-900 dark:text-slate-200">
+                            <div className="flex items-center gap-1.5 px-2 py-1">
+                                <i className="bi bi-calendar-event text-blue-600 dark:text-blue-400 text-sm" />
+                                <span className="text-slate-500 font-semibold">Período:</span>
+                            </div>
+
+                            <select
+                                value={dateFilter.mode}
+                                onChange={(e) => setDateFilter({ ...dateFilter, mode: e.target.value as DateFilterMode })}
+                                className="rounded-lg bg-slate-100 px-3 py-1.5 text-xs font-bold text-slate-800 outline-none cursor-pointer border border-transparent focus:border-blue-500 dark:bg-slate-800 dark:text-slate-100"
+                            >
+                                <option value="current_month">Mês Atual</option>
+                                <option value="previous_month">Mês Anterior</option>
+                                <option value="current_year">Este Ano</option>
+                                <option value="previous_year">Ano Passado</option>
+                                <option value="custom_month">Outro Mês</option>
+                                <option value="custom_range">Intervalo Personalizado</option>
+                            </select>
+
+                            {dateFilter.mode === 'custom_month' && (
+                                <div className="flex items-center gap-1.5 pl-1">
+                                    <input
+                                        type="month"
+                                        required
+                                        value={dateFilter.customMonth}
+                                        onChange={(e) => {
+                                            if (e.target.value) {
+                                                setDateFilter({
+                                                    ...dateFilter,
+                                                    customMonth: e.target.value,
+                                                });
+                                            }
+                                        }}
+                                        className="rounded-lg bg-slate-100 px-2.5 py-1 text-xs font-bold text-slate-800 outline-none cursor-pointer border border-slate-200 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
+                                    />
+                                </div>
+                            )}
+
+                            {dateFilter.mode === 'custom_range' && (
+                                <div className="flex items-center gap-2 pl-1">
+                                    <div className="flex items-center gap-1">
+                                        <span className="text-[11px] text-slate-400">De:</span>
+                                        <input
+                                            type="month"
+                                            required
+                                            value={dateFilter.startMonth}
+                                            onChange={(e) => {
+                                                if (e.target.value) {
+                                                    setDateFilter({
+                                                        ...dateFilter,
+                                                        startMonth: e.target.value,
+                                                    });
+                                                }
+                                            }}
+                                            className="rounded-lg bg-slate-100 px-2.5 py-1 text-xs font-bold text-slate-800 outline-none cursor-pointer border border-slate-200 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
+                                        />
+                                    </div>
+                                    <div className="flex items-center gap-1">
+                                        <span className="text-[11px] text-slate-400">Até:</span>
+                                        <input
+                                            type="month"
+                                            required
+                                            value={dateFilter.endMonth}
+                                            onChange={(e) => {
+                                                if (e.target.value) {
+                                                    setDateFilter({
+                                                        ...dateFilter,
+                                                        endMonth: e.target.value,
+                                                    });
+                                                }
+                                            }}
+                                            className="rounded-lg bg-slate-100 px-2.5 py-1 text-xs font-bold text-slate-800 outline-none cursor-pointer border border-slate-200 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
+                                        />
+                                    </div>
+                                </div>
+                            )}
+                        </div>
                     </div>
                 </div>
 
@@ -194,7 +284,7 @@ export default function InboundInvoiceReceiptPickerModal({
                                     <p className="text-xs font-semibold text-slate-700 dark:text-slate-300 truncate">
                                         {inv.emitterName}
                                     </p>
-                                    <p className="text-[10px] text-slate-500">CNPJ: {inv.emitterCnpj || 'Não informado'} · Emissão: {parseDate(inv.issuedAt)?.toLocaleDateString('pt-BR') || '—'}</p>
+                                    <p className="text-[10px] text-slate-500">CNPJ: {inv.emitterCnpj || 'Não informado'} · Emissão: {formatToBRDate(inv.issuedAt)}</p>
                                     <p className="text-[10px] font-mono text-slate-400 truncate">
                                         Chave: {inv.nfeKey}
                                     </p>

@@ -366,12 +366,25 @@ export function renderProductImagesPromptSection(
         ? { label: 'Arquivo', value: v.file }
         : (!options.localFilesOnly && v.url ? { label: 'URL', value: v.url } : null);
       if (!vRef) continue;
-      lines.push(`**${v.variationName}**`);
-      lines.push(`${vRef.label}: \`${vRef.value}\``);
+      lines.push(`**Variação: ${v.variationName}**`);
+      lines.push(`- Atributo (Cor / Acabamento): "${v.variationName}"`);
+      lines.push(`- Reconhecimento visual: identifique a foto correspondente observando o móvel com cor/acabamento "${v.variationName}".`);
+      lines.push(`- ${vRef.label}: \`${vRef.value}\``);
       lines.push('');
     }
-    lines.push('Cada arquivo acima pertence à respectiva variação.');
+    lines.push('Cada imagem/arquivo acima pertence à respectiva variação indicada pelo atributo de cor/acabamento.');
     lines.push('NÃO misture cores, acabamento, portas, puxadores ou estrutura entre variações diferentes.');
+    lines.push('');
+  } else {
+    lines.push(subSep);
+    lines.push('');
+    lines.push('PRODUTO DE COR ÚNICA (SEM OUTRAS VARIAÇÕES DISPONÍVEIS)');
+    lines.push('');
+    lines.push('REGRA MANDATÓRIA:');
+    lines.push('- Este produto NÃO possui outras cores disponíveis e nenhuma outra fotografia de variação foi enviada.');
+    lines.push('- É ESTRITAMENTE PROIBIDO criar galeria de cores, miniaturas adicionais ou escrever "DISPONÍVEL NAS CORES".');
+    lines.push('- É ESTRITAMENTE PROIBIDO inventar variações 2 ou 3 fictícias na arte ou no texto.');
+    lines.push('- A composição deve exibir EXCLUSIVAMENTE a fotografia da Variação 1 (e a secundária flutuante, se enviada).');
     lines.push('');
   }
 

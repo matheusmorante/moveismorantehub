@@ -54,7 +54,7 @@ export const elementLabel: Record<ElementType, string> = {
   PRODUCT_NAME: 'Nome do produto',
   PRICE: 'Preço',
   OLD_PRICE: 'Preço anterior',
-  INSTALLMENT: 'Parcelamento',
+  INSTALLMENT: 'Precificação e Parcelamento',
   BADGE: 'Selo de Oportunidade',
   BACKGROUND: 'Fundo/Decoração',
   LOGO: 'Logo',

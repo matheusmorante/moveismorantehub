@@ -9,39 +9,97 @@
 
 import { toast } from 'react-toastify';
 import { PostProductImagesSpec } from '../types/postSpecification';
+import { buildImageFetchCandidates } from '@/pages/utils/imageFetchCandidates';
 
 /**
  * Converte qualquer imagem (JPG, WebP, PNG) em um Blob PNG
- * através de um elemento Canvas para compatibilidade total com o ClipboardItem da Clipboard API.
+ * com suporte a múltiplos candidatos de fetch (incluindo proxies/R2) e conversão via Bitmap/Canvas.
  */
 export async function fetchImageAsPngBlob(url: string): Promise<Blob> {
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-    img.crossOrigin = 'anonymous';
-    img.onload = () => {
-      try {
-        const canvas = document.createElement('canvas');
-        canvas.width = img.naturalWidth || img.width;
-        canvas.height = img.naturalHeight || img.height;
-        const ctx = canvas.getContext('2d');
-        if (!ctx) {
-          throw new Error('Não foi possível obter contexto 2D do canvas.');
+  // 1. Se já for data URL PNG
+  if (url.startsWith('data:image/png')) {
+    const res = await fetch(url);
+    return await res.blob();
+  }
+
+  // 2. Coletar candidatos de URL para contornar problemas de CORS / CDN
+  const candidates = (url.startsWith('data:') || url.startsWith('blob:'))
+    ? [url]
+    : buildImageFetchCandidates(url);
+
+  // 3. Tenta via fetch nos candidatos
+  for (const candidate of candidates) {
+    try {
+      const res = await fetch(candidate, { mode: 'cors' });
+      if (res.ok) {
+        const blob = await res.blob();
+        if (blob.type === 'image/png') {
+          return blob;
         }
-        ctx.drawImage(img, 0, 0);
-        canvas.toBlob(blob => {
-          if (blob) {
-            resolve(blob);
-          } else {
-            reject(new Error('Falha ao converter canvas para blob PNG.'));
+
+        // Converte para PNG via createImageBitmap ou ImageBitmap / OffscreenCanvas / Canvas
+        if (typeof createImageBitmap === 'function') {
+          try {
+            const bmp = await createImageBitmap(blob);
+            const canvas = document.createElement('canvas');
+            canvas.width = bmp.width;
+            canvas.height = bmp.height;
+            const ctx = canvas.getContext('2d');
+            if (ctx) {
+              ctx.drawImage(bmp, 0, 0);
+              const pngBlob = await new Promise<Blob | null>(r => canvas.toBlob(r, 'image/png'));
+              if (pngBlob) return pngBlob;
+            }
+          } catch {
+            // Se createImageBitmap falhar com este blob específico, tenta fallback de elemento Image abaixo
           }
-        }, 'image/png');
-      } catch (err) {
-        reject(err);
+        }
       }
-    };
-    img.onerror = () => reject(new Error('Não foi possível carregar a imagem para o canvas.'));
-    img.src = url;
-  });
+    } catch {
+      // Candidato falhou, tenta o próximo
+    }
+  }
+
+  // 4. Fallback: carregar via elemento Image clássico nos candidatos
+  for (const candidate of candidates) {
+    try {
+      const blob = await new Promise<Blob>((resolve, reject) => {
+        const img = new Image();
+        if (!candidate.startsWith('data:')) {
+          img.crossOrigin = 'anonymous';
+        }
+        img.onload = () => {
+          try {
+            const canvas = document.createElement('canvas');
+            canvas.width = img.naturalWidth || img.width;
+            canvas.height = img.naturalHeight || img.height;
+            const ctx = canvas.getContext('2d');
+            if (!ctx) {
+              throw new Error('Falha ao processar dimensões da imagem.');
+            }
+            ctx.drawImage(img, 0, 0);
+            canvas.toBlob(b => {
+              if (b) {
+                resolve(b);
+              } else {
+                reject(new Error('Falha ao gerar formato PNG da imagem.'));
+              }
+            }, 'image/png');
+          } catch (err) {
+            reject(err);
+          }
+        };
+        img.onerror = () => reject(new Error('Falha ao carregar a imagem na resolução solicitada.'));
+        img.src = candidate;
+      });
+
+      if (blob) return blob;
+    } catch {
+      // Continua para o próximo candidato se falhar
+    }
+  }
+
+  throw new Error('Não foi possível carregar a imagem para cópia direta. Verifique a conexão com a imagem.');
 }
 
 /**
@@ -62,9 +120,7 @@ export async function copyImageUrlToClipboard(url: string, name = 'Foto'): Promi
     return true;
   } catch (err: any) {
     console.error('Erro ao copiar imagem para clipboard:', err);
-    // Fallback: abrir em nova aba para salvar manualmente se o clipboard for bloqueado por CORS
-    toast.warn('Não foi possível colar direto via Clipboard. Abrindo a imagem em nova aba...');
-    window.open(url, '_blank');
+    toast.error(`Não foi possível copiar a imagem: ${err?.message || 'Erro no clipboard'}`);
     return false;
   }
 }

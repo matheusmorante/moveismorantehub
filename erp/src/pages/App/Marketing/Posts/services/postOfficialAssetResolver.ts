@@ -109,9 +109,15 @@ export function resolveOfficialAssets(params: {
     });
 
     const exactBadgeModel = sortedBadgeModels[0] || null;
+    const isQueimaSalvados = /queima|salvad/i.test(`${oppName} ${oppId}`);
 
     if (exactBadgeModel) {
       let badgeUrl = resolveConfiguredBadgeAssetUrl(exactBadgeModel);
+
+      // Se o asset for a imagem antiga retangular sem fogo ou nulo para Queima dos Salvados:
+      if (isQueimaSalvados && (!badgeUrl || badgeUrl.includes('1787790409290.png') || badgeUrl.includes('1787790000192.png'))) {
+        badgeUrl = OFFICIAL_QUEIMA_BADGE_URL;
+      }
 
       // Se ainda não houver asset no modelo, usa o asset da oportunidade do produto (sem forçar imagem legada)
       if (!badgeUrl) {
@@ -123,21 +129,13 @@ export function resolveOfficialAssets(params: {
 
       if (badgeUrl) {
         badge = {
-          name: exactBadgeModel.name || 'Selo de Oportunidade',
+          name: exactBadgeModel.name || (isQueimaSalvados ? 'Selo Queima dos Salvados' : 'Selo de Oportunidade'),
           url: badgeUrl,
           role: 'OFFICIAL_ASSET',
           opportunityId: oppId,
           opportunityName: oppName,
         };
       }
-    } else if (product?.opportunityImageUrl || (typeof product?.opportunity === 'object' && product?.opportunity?.image_url)) {
-      badge = {
-        name: 'Selo de Oportunidade',
-        url: product?.opportunityImageUrl || product?.opportunity?.image_url,
-        role: 'OFFICIAL_ASSET',
-        opportunityId: oppId,
-        opportunityName: oppName,
-      };
     }
   }
 

@@ -175,16 +175,34 @@ export function PromptPreview({
     e.preventDefault();
     const url = 'https://chatgpt.com/g/g-p-6a9d93e0c74c8191ade047ff2bc6c334-criador-de-post/project';
     
-    // Abre a URL em nova aba e preserva o foco nesta aba do ERP
-    const win = window.open(url, '_blank');
-    if (win) {
-      try {
-        win.blur();
-      } catch {
-        // ignora se cross-origin
+    // Dispara clique com ctrlKey (ou metaKey no Mac) para que o navegador abra a aba em segundo plano (background tab)
+    const isMac = typeof navigator !== 'undefined' && /Mac/i.test(navigator.userAgent || navigator.platform);
+    const link = document.createElement('a');
+    link.href = url;
+    link.target = '_blank';
+    link.rel = 'noopener noreferrer';
+
+    const event = new MouseEvent('click', {
+      bubbles: true,
+      cancelable: true,
+      view: window,
+      ctrlKey: !isMac,
+      metaKey: isMac,
+      button: 0,
+    });
+
+    const dispatched = link.dispatchEvent(event);
+    if (!dispatched) {
+      const win = window.open(url, '_blank');
+      if (win) {
+        try { win.blur(); } catch { /* ignore */ }
       }
     }
+
+    // Reforça o foco para manter o usuário permanentemente nesta aba do ERP
     window.focus();
+    setTimeout(() => window.focus(), 50);
+    setTimeout(() => window.focus(), 200);
 
     toast.info('Projeto ChatGPT aberto em segundo plano! Você continua aqui para copiar as imagens e o prompt.', {
       autoClose: 3500,
