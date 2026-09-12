@@ -27,7 +27,7 @@ export default function DeliveryMap({ orders, onOrderClick, onOrderEdit }: Deliv
     const map = useRef<maplibregl.Map | null>(null);
     const markers = useRef<maplibregl.Marker[]>([]);
     const settings = getSettings();
-    const storeOrigin = useMemo(() => settings.storeOriginCoords || [-49.16948, -25.35205], [settings.storeOriginCoords?.[0], settings.storeOriginCoords?.[1]]); // [lng, lat]
+    const storeOrigin = useMemo(() => settings.storeOriginCoords || [-49.16933, -25.35212], [settings.storeOriginCoords?.[0], settings.storeOriginCoords?.[1]]); // [lng, lat] calibrado na loja física
 
     const [routeInfo, setRouteInfo] = useState<Record<string, { distance: string, duration: string }>>({});
 

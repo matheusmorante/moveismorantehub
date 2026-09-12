@@ -1,6 +1,11 @@
 const normalize = (value: unknown) => String(value || '').trim().toLowerCase();
 
 export const getOperationalScheduleDate = (order: any): string => {
+  // 1. Fonte de verdade primária: Coluna física normalizada no PostgreSQL
+  const directDate = order?.scheduled_date || order?.scheduledDate;
+  if (directDate) return String(directDate).substring(0, 10);
+
+  // 2. Fallback temporário para registros legados no JSONB
   const data = order?.order_data || {};
   const shipping = data.shipping || order?.shipping || {};
   const scheduling = shipping.scheduling || data.schedule || data.scheduling || order?.schedule || {};
@@ -12,8 +17,6 @@ export const getOperationalScheduleDate = (order: any): string => {
     || data.scheduledDate
     || data.scheduled_date
     || data.date
-    || order?.scheduledDate
-    || order?.scheduled_date
     || order?.date
     || '';
 };

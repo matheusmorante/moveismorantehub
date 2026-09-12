@@ -77,19 +77,56 @@ export const buildOrderPersistencePayload = (order: Order) => {
     const customerName = order.customerData?.fullName || (order as any).customerName || '';
     const sellerId = (order as any).sellerId || null;
     const sellerName = (order as any).seller || '';
+    const orderIndex = Number(order.orderIndex || order.orderNumber || 0) || null;
     const orderNumber = String(order.orderIndex || order.orderNumber || '');
     const status = order.status || 'draft';
     const totalAmount = order.paymentsSummary?.totalOrderValue ?? (order.total_amount ?? 0);
+    const orderType = order.orderType || 'sale';
+    const scheduledDate = order.shipping?.scheduling?.date || (order as any).scheduledDate || null;
+    const scheduledStartTime = order.shipping?.scheduling?.startTime || null;
+    const scheduledEndTime = order.shipping?.scheduling?.endTime || null;
+    const deliveryMethod = order.shipping?.deliveryMethod || null;
+    const deliveryStatus = (order as any).deliveryStatus || null;
+    const marketingOrigin = order.marketingOrigin || order.customerData?.marketingOrigin || null;
+    const itemsSubtotal = order.itemsSummary?.itemsSubtotal ?? 0;
+    const totalDiscount = order.itemsSummary?.totalFixedDiscount ?? 0;
+    const totalCost = order.itemsSummary?.totalItemsCost ?? 0;
+    const stockProcessed = Boolean(order.stockProcessed);
+    const isStockChecked = Boolean(order.isStockChecked);
+    const isRegisteredInBling = Boolean(order.isRegisteredInBling);
+    const deleted = Boolean(order.deleted);
+    const deletedAt = order.deletedAt ? new Date(order.deletedAt).toISOString() : null;
+    const returnOrderId = (order as any).returnOrderId || null;
+    const linkedOrderId = (order as any).linkedOrderId || null;
 
     return {
         order_data: order,
+        items: order.items || [],
         order_number: orderNumber,
+        order_index: orderIndex,
+        order_type: orderType,
         status: status,
         customer_id: customerId,
         customer_name: customerName,
         seller_id: sellerId,
         seller_name: sellerName,
         total_amount: totalAmount,
+        scheduled_date: scheduledDate ? String(scheduledDate).slice(0, 10) : null,
+        scheduled_start_time: scheduledStartTime,
+        scheduled_end_time: scheduledEndTime,
+        delivery_method: deliveryMethod,
+        delivery_status: deliveryStatus,
+        marketing_origin: marketingOrigin,
+        items_subtotal: itemsSubtotal,
+        total_discount: totalDiscount,
+        total_cost: totalCost,
+        stock_processed: stockProcessed,
+        is_stock_checked: isStockChecked,
+        is_registered_in_bling: isRegisteredInBling,
+        deleted: deleted,
+        deleted_at: deletedAt,
+        return_order_id: returnOrderId,
+        linked_order_id: linkedOrderId,
         updated_at: new Date().toISOString()
     };
 };

@@ -6,6 +6,7 @@ import { openDanfePrintWindow } from '@/pages/utils/nfe/danfeGenerator';
 import { canCancelFiscalDocument, canIssueCce } from '@/pages/utils/nfe/nfeService';
 import { getSettings } from '@/pages/utils/settingsService';
 import { toast } from 'react-toastify';
+import { mapOrderFromDatabase } from '@/pages/utils/orderMapper';
 
 export interface NfeDocumentRecord {
     id: string;
@@ -110,11 +111,11 @@ export default function FiscalDocumentsPage() {
             if (doc.order_id) {
                 const { data: orderRow } = await supabase
                     .from('orders')
-                    .select('*')
+                    .select('id, status, order_type, customer_name, total_amount, order_data')
                     .eq('id', doc.order_id)
                     .maybeSingle();
-                if (orderRow?.order_data) {
-                    orderMock = { ...orderRow.order_data, id: orderRow.id };
+                if (orderRow) {
+                    orderMock = mapOrderFromDatabase(orderRow);
                 }
             }
 

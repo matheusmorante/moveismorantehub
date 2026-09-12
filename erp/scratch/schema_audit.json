@@ -1,0 +1,120 @@
+{
+  "tables": [
+    {
+      "t": "orders",
+      "tot": "849"
+    },
+    {
+      "t": "products",
+      "tot": "302"
+    },
+    {
+      "t": "people",
+      "tot": "1849"
+    },
+    {
+      "t": "profiles",
+      "tot": "0"
+    },
+    {
+      "t": "inventory_moves",
+      "tot": "191"
+    },
+    {
+      "t": "goods_receipts",
+      "tot": "0"
+    },
+    {
+      "t": "purchases",
+      "tot": "8"
+    },
+    {
+      "t": "categories",
+      "tot": "44"
+    },
+    {
+      "t": "settings",
+      "tot": "1"
+    },
+    {
+      "t": "team_locations",
+      "tot": "2"
+    },
+    {
+      "t": "inbound_invoices",
+      "tot": "1"
+    },
+    {
+      "t": "financial_transactions",
+      "tot": "0"
+    },
+    {
+      "t": "product_supplier_codes",
+      "tot": "0"
+    },
+    {
+      "t": "push_tokens",
+      "tot": "22"
+    },
+    {
+      "t": "product_images",
+      "tot": "1644"
+    }
+  ],
+  "schemas": {
+    "settings": [
+      "id",
+      "data",
+      "created_at",
+      "updated_at"
+    ],
+    "inbound_invoices": [
+      "id",
+      "chave_acesso",
+      "numero_nfe",
+      "serie",
+      "data_emissao",
+      "emitente_cnpj",
+      "emitente_nome",
+      "emitente_fantasia",
+      "emitente_uf",
+      "destinatario_cnpj",
+      "destinatario_nome",
+      "valor_produtos",
+      "valor_total",
+      "valor_frete",
+      "valor_ipi",
+      "status_sefaz",
+      "status_recebimento",
+      "receipt_id",
+      "xml_conteudo",
+      "itens",
+      "nsu",
+      "created_at",
+      "updated_at",
+      "series",
+      "data_saida_entrada",
+      "natureza_operacao",
+      "modelo",
+      "protocolo",
+      "valor_desconto",
+      "valor_seguro",
+      "outras_despesas",
+      "valor_icms",
+      "emitente_ie",
+      "emitente_endereco",
+      "supplier_id",
+      "documento_original_path",
+      "documento_original_mime",
+      "origem_importacao",
+      "extraction_warnings",
+      "extraction_confidence",
+      "valor_icms_st",
+      "extraction_status",
+      "extraction_processed_at",
+      "extraction_ai_model",
+      "raw_extraction",
+      "informacoes_adicionais"
+    ]
+  }
+}

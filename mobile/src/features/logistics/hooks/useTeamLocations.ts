@@ -11,12 +11,16 @@ interface UseTeamLocationsOptions {
   userProfile?: { id: string; fullName?: string; role?: string } | null;
   myCoords?: DriverCoordinates | null;
   isGpsActive?: boolean;
+  isDelivering?: boolean;
+  activeOrder?: { id: string; code?: string } | null;
 }
 
 export function useTeamLocations({
   userProfile,
   myCoords,
   isGpsActive = true,
+  isDelivering = false,
+  activeOrder = null,
 }: UseTeamLocationsOptions = {}) {
   const [teamMembers, setTeamMembers] = useState<TeamMemberLocation[]>([]);
   const [loading, setLoading] = useState(true);
@@ -30,21 +34,20 @@ export function useTeamLocations({
     setLoading(false);
   }, [myUserId]);
 
-  // Transmissão da localização do usuário atual
+  // Transmissão da localização do usuário atual (incluindo se está em entrega ativa)
   const syncMyLocation = useCallback(async () => {
     if (!userProfile?.id) return;
 
     const lat = myCoords?.latitude;
     const lng = myCoords?.longitude;
 
-    // Só envia se mudou de posição significativa ou se o estado do GPS mudou
     if (lat && lng && isGpsActive) {
       lastBroadcastCoordsRef.current = { lat, lng };
-      await broadcastMyLocation(userProfile, { latitude: lat, longitude: lng }, true);
+      await broadcastMyLocation(userProfile, { latitude: lat, longitude: lng }, true, isDelivering, activeOrder);
     } else if (!isGpsActive) {
-      await broadcastMyLocation(userProfile, null, false);
+      await broadcastMyLocation(userProfile, null, false, isDelivering, activeOrder);
     }
-  }, [userProfile, myCoords?.latitude, myCoords?.longitude, isGpsActive]);
+  }, [userProfile, myCoords?.latitude, myCoords?.longitude, isGpsActive, isDelivering, activeOrder]);
 
   // Broadcast imediato quando as coordenadas mudarem
   useEffect(() => {

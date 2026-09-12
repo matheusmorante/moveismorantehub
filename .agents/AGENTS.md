@@ -14,8 +14,9 @@ Ele define a hierarquia de instruções do agente, seus princípios fundamentais
 2. **Regra da Causa Raiz**: Nunca corrija sintomas antes de investigar e identificar a causa raiz. É proibido adicionar retries, timeouts, sleeps artificiais, mascarar assertions ou duplicar lógica para contornar um problema de origem.
 3. **Menor Alteração Necessária (Anti-Refatoração Desnecessária)**: Modifique apenas o necessário para cumprir a tarefa. Não realize "limpeza geral", renomeações em massa ou reestruturações não solicitadas. Se uma refatoração for genuinamente indispensável, justifique previamente ao usuário.
 4. **Resolução de Divergências (`Regra Oficial × Código`)**: O código em produção pode conter bugs silenciosos ou legados, e documentações podem desatualizar. **Divergência entre regra de negócio e código significa INVESTIGAR A CAUSA RAIZ, e NUNCA adaptar automaticamente um ao outro.** Consulte o usuário em caso de dúvida de negócio.
-5. **Git Push**: Nunca executar `git push` automaticamente. Aguardar solicitação explícita do usuário.
-6. **Idioma**: Falar apenas em português brasileiro.
+5. **Identificador Único Obrigatório de Testes (`testRunId` / `[TESTE_AUT]`)**: Qualquer dado criado para fins de teste automatizado ou manual (pedidos, clientes, pessoas, produtos, itens, notas) DEVE OBRIGATORIAMENTE conter identificador único explícito e padronizado (`testRunId`, ex: `TEST_AUT_<timestamp>_<uuid>` ou prefixo `[TESTE_AUT]`). É expressamente proibido criar dados de teste ambíguos ou indistinguíveis de registros reais de produção, garantindo rastreabilidade imediata e exclusão completa pós-execução (teardown).
+6. **Git Push**: Nunca executar `git push` automaticamente. Aguardar solicitação explícita do usuário.
+7. **Idioma**: Falar apenas em português brasileiro.
 
 ---
 

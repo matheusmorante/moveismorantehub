@@ -1,7 +1,9 @@
 import type Order from '../types/order.type';
 import { supabase } from './supabaseConfig';
 
-const MAX_ORDER_CODE = 999999;
+// Faixa reservada para testes automatizados (800000 a 999999). Nunca computada na sequência de pedidos reais.
+export const TEST_ORDER_CODE_THRESHOLD = 800000;
+const MAX_ORDER_CODE = 799999;
 
 export const getOrderIndex = (order?: Partial<Order> | Record<string, any>): number | null => {
     if (!order) return null;
@@ -14,7 +16,7 @@ export const getOrderIndex = (order?: Partial<Order> | Record<string, any>): num
         (order as any).order_number;
 
     const value = Number(rawValue);
-    return Number.isInteger(value) && value > 0 && value <= MAX_ORDER_CODE ? value : null;
+    return Number.isInteger(value) && value > 0 && value <= 999999 ? value : null;
 };
 
 /**
@@ -37,8 +39,8 @@ export const formatOrderCode = (order?: Partial<Order> | Record<string, any>): s
 };
 
 /**
- * Retorna o próximo número sequencial de 6 dígitos para o pedido de venda.
- * Garante unicidade e nunca permite pedidos sem código.
+ * Retorna o próximo número sequencial de 6 dígitos para o pedido de venda real.
+ * Garante unicidade e NUNCA permite que pedidos de teste (>= 800000) influenciem a sequência real.
  * Gera de forma ultrarrápida e direta no banco.
  */
 export const getNextOrderIndex = async (): Promise<number> => {
@@ -47,7 +49,7 @@ export const getNextOrderIndex = async (): Promise<number> => {
             .from('orders')
             .select('id, order_data, order_number, created_at')
             .order('created_at', { ascending: false })
-            .limit(100);
+            .limit(200);
 
         if (fetchErr) {
             throw new Error(`Erro ao consultar pedidos existentes: ${fetchErr.message}`);
@@ -56,7 +58,8 @@ export const getNextOrderIndex = async (): Promise<number> => {
         let maxCode = 0;
         for (const o of (orders || [])) {
             const num = getOrderIndex(o.order_data || o) || getOrderIndex({ order_number: o.order_number });
-            if (num && num > maxCode) {
+            // Blindagem: pedidos de teste (>= 800000) são estritamente ignorados
+            if (num && num < TEST_ORDER_CODE_THRESHOLD && num > maxCode) {
                 maxCode = num;
             }
         }
@@ -69,13 +72,15 @@ export const getNextOrderIndex = async (): Promise<number> => {
             if (allErr) throw allErr;
             for (const o of (allOrders || [])) {
                 const num = getOrderIndex(o.order_data || o) || getOrderIndex({ order_number: o.order_number });
-                if (num && num > maxCode) maxCode = num;
+                if (num && num < TEST_ORDER_CODE_THRESHOLD && num > maxCode) {
+                    maxCode = num;
+                }
             }
         }
 
         const nextCode = maxCode + 1;
         if (nextCode <= 0 || nextCode > MAX_ORDER_CODE) {
-            throw new Error('Limite máximo de código de pedidos (999999) excedido.');
+            throw new Error('Limite máximo de código sequencial de pedidos legítimos (799999) excedido.');
         }
 
         return nextCode;

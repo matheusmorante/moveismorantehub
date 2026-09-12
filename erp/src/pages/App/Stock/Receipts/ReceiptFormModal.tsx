@@ -61,7 +61,7 @@ export default function ReceiptFormModal({ isOpen, onClose, initialReceipt, init
     const [attachments, setAttachments] = useState<string[]>([]);
     const [observations, setObservations] = useState<string[]>([]);
     const [isDraftSaved, setIsDraftSaved] = useState(false);
-    const autoSaveTimerRef = useRef<NodeJS.Timeout | null>(null);
+    const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     useEffect(() => {
         if (!isOpen) return;
@@ -153,7 +153,9 @@ export default function ReceiptFormModal({ isOpen, onClose, initialReceipt, init
     // Auto-save rascunho de forma contínua quando fornecedor e pelo menos 1 item estão selecionados
     useEffect(() => {
         if (!isOpen) return;
-        if (!supplierId || !items.length) return;
+        // UX 10: auto-save funciona tanto no fluxo normal quanto no fluxo com NF-e (inboundItems)
+        const hasItems = items.length > 0 || (inboundItems !== null && inboundItems.length > 0);
+        if (!supplierId || !hasItems) return;
 
         if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
         autoSaveTimerRef.current = setTimeout(async () => {
@@ -196,7 +198,8 @@ export default function ReceiptFormModal({ isOpen, onClose, initialReceipt, init
         return () => {
             if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
         };
-    }, [isOpen, supplierId, items, ipiPercent, freightPercent, nonFiscalDiscountMode, nonFiscalDiscountValue, nonFiscalFreightMode, nonFiscalFreightValue, nonFiscalOtherExpensesMode, nonFiscalOtherExpensesValue, fiscalIpi, fiscalFreight, fiscalDiscount, fiscalOtherExpenses, receiptDate, invoiceNumber, invoiceDate, fiscalKey, attachments, observations]);
+    // BUG 2: draftId e receiptIndex adicionados às dependências para evitar duplicatas de rascunho
+    }, [isOpen, supplierId, items, inboundItems, draftId, receiptIndex, ipiPercent, freightPercent, nonFiscalDiscountMode, nonFiscalDiscountValue, nonFiscalFreightMode, nonFiscalFreightValue, nonFiscalOtherExpensesMode, nonFiscalOtherExpensesValue, fiscalIpi, fiscalFreight, fiscalDiscount, fiscalOtherExpenses, receiptDate, invoiceNumber, invoiceDate, fiscalKey, attachments, observations]);
 
     if (!isOpen) return null;
     const supplier = suppliers.find((person) => person.id === supplierId);
@@ -513,7 +516,8 @@ export default function ReceiptFormModal({ isOpen, onClose, initialReceipt, init
                                     (initialPurchase || initialReceipt)
                                         ? "O fornecedor foi pré-definido pelo documento/pedido de origem."
                                         : items.length > 0
-                                        ? "Para alterar o fornecedor, remova os itens adicionados ao recebimento."
+                                        // UX 9: mensagem orientativa clara sobre como trocar o fornecedor
+                                        ? "Para alterar o fornecedor, remova os itens adicionados e selecione o fornecedor correto."
                                         : undefined
                                 }
                                 customLabel="Fornecedor"

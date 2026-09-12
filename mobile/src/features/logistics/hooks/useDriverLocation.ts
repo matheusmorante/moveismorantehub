@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { getCurrentDriverLocation, DriverCoordinates } from '../../../services/locationService';
+import { getCurrentDriverLocation, watchDriverLocation, DriverCoordinates } from '../../../services/locationService';
 
 export function useDriverLocation() {
   const [coords, setCoords] = useState<DriverCoordinates | null>(null);
@@ -10,7 +10,9 @@ export function useDriverLocation() {
   const fetchLocation = useCallback(async () => {
     setLoading(true);
     const result = await getCurrentDriverLocation();
-    setCoords(result.coords);
+    if (result.coords) {
+      setCoords(result.coords);
+    }
     setPermissionGranted(result.permissionGranted);
     setError(result.error || null);
     setLoading(false);
@@ -18,6 +20,35 @@ export function useDriverLocation() {
 
   useEffect(() => {
     fetchLocation();
+
+    let stopWatcher: (() => void) | null = null;
+    let isMounted = true;
+
+    void watchDriverLocation(
+      (newCoords) => {
+        if (!isMounted) return;
+        setCoords(newCoords);
+        setLoading(false);
+        setError(null);
+      },
+      (err) => {
+        if (!isMounted) return;
+        setError(err);
+      }
+    ).then((cleanup) => {
+      if (!isMounted && cleanup) {
+        cleanup();
+      } else {
+        stopWatcher = cleanup;
+      }
+    });
+
+    return () => {
+      isMounted = false;
+      if (stopWatcher) {
+        stopWatcher();
+      }
+    };
   }, [fetchLocation]);
 
   return {

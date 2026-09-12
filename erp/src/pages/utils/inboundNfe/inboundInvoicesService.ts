@@ -387,6 +387,36 @@ export const checkInboundInvoiceKeyExists = async (
                 items: Array.isArray(data.itens) ? data.itens : [],
                 createdAt: data.created_at,
             };
+
+            // Leitura de itens estruturados de inbound_invoice_items com fallback no JSONB legado
+            try {
+                const { data: itemRows, error: itemError } = await supabase
+                    .from('inbound_invoice_items')
+                    .select('*')
+                    .eq('inbound_invoice_id', data.id)
+                    .order('item_index', { ascending: true });
+
+                if (!itemError && itemRows && itemRows.length > 0) {
+                    result.items = itemRows.map(r => r.item_snapshot || {
+                        numeroItem: r.item_index,
+                        codigo: r.codigo_produto,
+                        descricao: r.descricao,
+                        ncm: r.ncm,
+                        cfop: r.cfop,
+                        unidade: r.unidade,
+                        quantidade: Number(r.quantidade),
+                        valorUnitario: Number(r.valor_unitario),
+                        valorTotal: Number(r.valor_total),
+                        valorDesconto: Number(r.valor_desconto || 0),
+                        valorFrete: Number(r.valor_frete || 0),
+                    });
+                    result.itemsCount = itemRows.length;
+                }
+            } catch (err) {
+                console.warn('Fallback ativado para itens de inbound_invoice:', err);
+            }
+
+            return result;
         }
     } catch (err) {
         console.warn('Erro ao consultar duplicidade de chave de acesso:', err);
@@ -460,6 +490,30 @@ export const saveInboundInvoice = async (invoice: InboundInvoice): Promise<Inbou
         const { error } = await supabase.from('inbound_invoices').upsert(payload, { onConflict });
         if (error) {
             console.warn('Alerta upsert Supabase:', error);
+        } else if (Array.isArray(invoice.items) && invoice.items.length > 0) {
+            // Sincronizar itens na tabela normalizada inbound_invoice_items
+            try {
+                const itemRows = invoice.items.map((item, idx) => ({
+                    inbound_invoice_id: validId,
+                    item_index: Number(item.numeroItem || idx + 1),
+                    codigo_produto: String(item.codigo || ''),
+                    descricao: String(item.descricao || 'Item sem descrição'),
+                    ncm: item.ncm || null,
+                    cfop: item.cfop || null,
+                    unidade: item.unidade || 'UN',
+                    quantidade: Number(item.quantidade || 0),
+                    valor_unitario: Number(item.valorUnitario || 0),
+                    valor_total: Number(item.valorTotal || 0),
+                    valor_desconto: Number(item.valorDesconto || 0),
+                    valor_frete: Number(item.valorFrete || 0),
+                    valor_seguro: Number(item.valorSeguro || 0),
+                    outras_despesas: Number(item.outrasDespesas || 0),
+                    item_snapshot: item,
+                }));
+                await supabase.from('inbound_invoice_items').upsert(itemRows, { onConflict: 'inbound_invoice_id,item_index' });
+            } catch (itemErr) {
+                console.warn('Alerta ao persistir itens normalizados em inbound_invoice_items:', itemErr);
+            }
         }
     } catch (err) {
         console.warn('Erro ao salvar no Supabase, mantido em cache local:', err);

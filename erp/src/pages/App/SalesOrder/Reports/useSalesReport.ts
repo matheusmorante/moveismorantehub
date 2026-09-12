@@ -296,9 +296,69 @@ export const useSalesReport = () => {
     };
 
     const fetchFromERP = async (): Promise<SaleItem[]> => {
+        // 1. Consulta primária na tabela normalizada order_items com inner join em orders indexada
+        try {
+            const { data: itemRows, error: itemError } = await supabase
+                .from('order_items')
+                .select(`
+                    id,
+                    description,
+                    quantity,
+                    unit_price,
+                    cost_price,
+                    variation_id,
+                    item_snapshot,
+                    orders!inner (
+                        id,
+                        status,
+                        order_type,
+                        deleted,
+                        scheduled_date,
+                        created_at
+                    )
+                `)
+                .eq('orders.deleted', false)
+                .neq('orders.order_type', 'budget')
+                .neq('orders.status', 'draft')
+                .neq('orders.status', 'cancelled');
+
+            if (!itemError && itemRows && itemRows.length > 0) {
+                const items: SaleItem[] = itemRows.map((row: any) => {
+                    const orderObj = row.orders;
+                    const rawDate = orderObj?.scheduled_date || orderObj?.created_at;
+                    const date = rawDate ? new Date(rawDate) : new Date();
+                    const qty = Number(row.quantity) || 0;
+                    const unitPrice = Number(row.unit_price) || 0;
+                    const salesVal = qty * unitPrice;
+                    const costPrice = Number(row.cost_price);
+                    const hasCost = Number.isFinite(costPrice) && costPrice > 0;
+                    const cost = hasCost ? costPrice : undefined;
+                    const profit = cost === undefined ? undefined : salesVal - (cost * qty);
+                    const snapshot = row.item_snapshot || {};
+
+                    return {
+                        date,
+                        product: row.description || snapshot.description || 'Sem Descrição',
+                        supplier: snapshot.mainSupplierName || 'Sem Fornecedor',
+                        quantity: qty,
+                        cost: cost,
+                        salesValue: salesVal,
+                        profit: profit,
+                        variationId: row.variation_id || snapshot.variationId || undefined,
+                    };
+                });
+
+                return resolveCanonicalVariationReportItems(items);
+            }
+        } catch (err) {
+            console.warn('Falha ao carregar relatório via order_items, ativando fallback JSONB:', err);
+        }
+
+        // LEGACY FALLBACK:
+        // remover após validação completa da migração JSONB
         const { data, error } = await supabase
             .from('orders')
-            .select('*')
+            .select('id, status, order_type, deleted, order_data')
             .is('order_data->deleted', null);
 
         if (error) throw error;
@@ -306,9 +366,9 @@ export const useSalesReport = () => {
         const items: SaleItem[] = [];
         data.forEach((row: any) => {
             const order = row.order_data;
+            if (!order) return;
             
             // FILTRO CRÍTICO: Ignorar deletados, orçamentos, rascunhos e cancelados
-            // Rascunhos costumam ser duplicados devido ao auto-save e não devem compor relatórios de performance real
             if (
                 order.deleted || 
                 order.orderType === 'budget' || 
@@ -320,7 +380,7 @@ export const useSalesReport = () => {
 
             order.items?.forEach((item: any) => {
                 const qty = Number(item.quantity) || 0;
-                const salesVal = Number(item.totalPrice) || 0;
+                const salesVal = Number(item.totalPrice) || (qty * (Number(item.unitPrice) || 0));
                 const hasCost = Number.isFinite(Number(item.unitCost)) && Number(item.unitCost) > 0;
                 const cost = hasCost ? Number(item.unitCost) : undefined;
                 const profit = cost === undefined ? undefined : salesVal - (cost * qty);

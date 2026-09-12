@@ -15,14 +15,18 @@ import { areDeliveryPaymentsPaid } from '../components/delivery/DeliveryPaymentS
 import { offlineSyncManager } from '../../../services/offline/offlineSyncManager';
 import { hasDeliveryExceeded12Hours, autoFulfillOrderIfExceeded12Hours } from '../utils/deliveryAutoFulfillment';
 
-type Props = { order: any; isDarkMode: boolean; onBack: (started?: boolean) => void };
+import { DeliveryStartConfirmModal } from '../components/delivery/DeliveryStartConfirmModal';
+import { broadcastMyLocation, stopDeliveringBroadcast } from '../../../services/teamLocationService';
 
-export function DeliveryPreparationScreen({ order, isDarkMode, onBack }: Props) {
+type Props = { order: any; isDarkMode: boolean; onBack: (started?: boolean) => void; userProfile?: any };
+
+export function DeliveryPreparationScreen({ order, isDarkMode, onBack, userProfile }: Props) {
   const [checked, setChecked] = useState<Record<string, boolean>>({});
   const [saving, setSaving] = useState(false);
   const [cancelling, setCancelling] = useState(false);
   const [showUnattendedModal, setShowUnattendedModal] = useState(false);
   const [showCancelModal, setShowCancelModal] = useState(false);
+  const [showStartConfirmModal, setShowStartConfirmModal] = useState(false);
   const [deliveryData, setDeliveryData] = useState(() => order.order_data || order);
   const [payments, setPayments] = useState<any[]>(() => {
     const data = order.order_data || order;
@@ -92,8 +96,16 @@ export function DeliveryPreparationScreen({ order, isDarkMode, onBack }: Props) 
       payload
     );
 
+    // Notifica Supabase imediatamente que o entregador iniciou a rota e está compartilhando localização
+    if (userProfile?.id) {
+      void broadcastMyLocation(userProfile, null, true, true, {
+        id: order.id,
+        code: formatOrderCode(order),
+      });
+    }
+
     setSaving(false);
-    Alert.alert('Em Rota', 'A saída para entrega foi registrada.');
+    Alert.alert('Em Rota', 'A saída para entrega foi registrada. Sua localização agora está visível para a equipe.');
   };
 
   // 2. Cheguei no Destino
@@ -162,6 +174,11 @@ export function DeliveryPreparationScreen({ order, isDarkMode, onBack }: Props) 
       payload
     );
 
+    // Encerra imediatamente o compartilhamento de localização da equipe
+    if (userProfile?.id) {
+      void stopDeliveringBroadcast(userProfile.id);
+    }
+
     setSaving(false);
     Alert.alert(
       '🎉 Entrega Finalizada!',
@@ -199,6 +216,11 @@ export function DeliveryPreparationScreen({ order, isDarkMode, onBack }: Props) 
       payload
     );
 
+    // Encerra imediatamente o compartilhamento de localização da equipe
+    if (userProfile?.id) {
+      void stopDeliveringBroadcast(userProfile.id);
+    }
+
     Alert.alert(
       'Insucesso Registrado',
       `O não atendimento foi registrado (${reason}).`,
@@ -223,6 +245,11 @@ export function DeliveryPreparationScreen({ order, isDarkMode, onBack }: Props) 
       order.id,
       updatedData
     );
+
+    // Encerra compartilhamento ao voltar para preparação
+    if (userProfile?.id) {
+      void stopDeliveringBroadcast(userProfile.id);
+    }
 
     setSaving(false);
     Alert.alert('Etapa Retrocedida', 'O pedido voltou para a etapa de Preparação e Conferência.');
@@ -282,6 +309,11 @@ export function DeliveryPreparationScreen({ order, isDarkMode, onBack }: Props) 
         return;
       }
 
+      // Encerra compartilhamento de localização da equipe
+      if (userProfile?.id) {
+        void stopDeliveringBroadcast(userProfile.id);
+      }
+
       order.status = 'scheduled';
       order.order_data = updatedData;
       setDeliveryData(updatedData);
@@ -292,6 +324,11 @@ export function DeliveryPreparationScreen({ order, isDarkMode, onBack }: Props) 
       setShowCancelModal(false);
       Alert.alert('Erro', err?.message || 'Falha ao cancelar entrega');
     }
+  };
+
+  const handleConfirmStartRoute = async () => {
+    setShowStartConfirmModal(false);
+    await handleStartRoute();
   };
 
   const currentStep = isInService ? 3 : isInTransit ? 2 : 1;
@@ -351,12 +388,23 @@ export function DeliveryPreparationScreen({ order, isDarkMode, onBack }: Props) 
             checklist={checklist}
             checked={checked}
             onToggleChecklist={id => setChecked(c => ({ ...c, [id]: !c[id] }))}
-            onStartDelivery={handleStartRoute}
+            onStartDelivery={() => setShowStartConfirmModal(true)}
             saving={saving}
             isDarkMode={isDarkMode}
           />
         )}
       </ScrollView>
+
+      {/* Modal de Confirmação & Aviso de Compartilhamento de Localização ao Iniciar Entrega */}
+      <DeliveryStartConfirmModal
+        visible={showStartConfirmModal}
+        orderNumber={formatOrderCode(order)}
+        customerName={customer.fullName || 'Cliente'}
+        loading={saving}
+        isDarkMode={isDarkMode}
+        onConfirm={handleConfirmStartRoute}
+        onCancel={() => setShowStartConfirmModal(false)}
+      />
 
       <UnattendedModal
         visible={showUnattendedModal}

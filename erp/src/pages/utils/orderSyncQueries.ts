@@ -2,15 +2,15 @@ import Order from "../types/order.type";
 import { supabase } from '@/pages/utils/supabaseConfig';
 import { capitalizeOrder } from "./formatters";
 import { getOrderIndex } from './orderCode';
+import { mapOrderFromDatabase } from './orderMapper';
 
 const TABLE_NAME = "orders";
 
 export const isValidOrderRow = (row: any) =>
-    row?.id != null &&
-    row.order_data &&
-    typeof row.order_data === 'object' &&
-    !Array.isArray(row.order_data) &&
-    Object.keys(row.order_data).length > 0;
+    row?.id != null && (
+        (row.order_data && typeof row.order_data === 'object' && !Array.isArray(row.order_data) && Object.keys(row.order_data).length > 0) ||
+        (row.order_number != null || row.status != null)
+    );
 
 export const enrichOrdersWithPeopleOrigins = async (orders: Order[]): Promise<Order[]> => {
     if (!orders || orders.length === 0) return [];
@@ -69,15 +69,15 @@ export const fetchOrdersPage = async (
 
     let query = supabase
         .from(TABLE_NAME)
-        .select('id, status, created_at, updated_at, order_data', { count: 'exact' });
+        .select('id, order_number, status, order_type, customer_name, total_amount, created_at, updated_at, order_data', { count: 'exact' });
 
     const showTrash = filters?.showTrash || false;
     const isDraft = filters?.isDraft || false;
 
     if (showTrash) {
-        query = query.eq('order_data->>deleted', 'true');
+        query = query.eq('deleted', true);
     } else {
-        query = query.or('order_data->>deleted.is.null,order_data->>deleted.eq.false');
+        query = query.or('deleted.is.null,deleted.eq.false');
         if (isDraft) {
             query = query.eq('status', 'draft');
         }
@@ -88,20 +88,20 @@ export const fetchOrdersPage = async (
     }
 
     if (filters?.isBudgetView) {
-        query = query.eq('order_data->>orderType', 'budget');
+        query = query.eq('order_type', 'budget');
     } else if (filters?.isAssistanceView) {
-        query = query.eq('order_data->>orderType', 'assistance');
+        query = query.eq('order_type', 'assistance');
     } else if (filters?.isReturnView) {
-        query = query.eq('order_data->>orderType', 'return');
+        query = query.eq('order_type', 'return');
     } else if (filters?.orderType) {
-        query = query.eq('order_data->>orderType', filters.orderType);
+        query = query.eq('order_type', filters.orderType);
     } else {
-        query = query.not('order_data->>orderType', 'in', '(budget,assistance,return)');
+        query = query.not('order_type', 'in', '(budget,assistance,return)');
     }
 
     const customerName = String(filters?.customerName || '').trim();
     if (customerName) {
-        query = query.ilike('order_data->customerData->>fullName', `%${customerName}%`);
+        query = query.ilike('customer_name', `%${customerName}%`);
     }
 
     query = query.order('created_at', { ascending: false }).range(firstRow, lastRow);
@@ -114,11 +114,7 @@ export const fetchOrdersPage = async (
 
     const rawOrders = (data || [])
         .filter(isValidOrderRow)
-        .map((row: any) => {
-            const idx = row.order_data?.orderIndex ?? row.order_data?.order_index ?? row.order_index ?? row.order_number ?? row.orderNumber;
-            const raw = { ...(row.order_data || {}), id: String(row.id), ...(idx != null ? { orderIndex: Number(idx) } : {}) } as Order;
-            return capitalizeOrder(raw);
-        });
+        .map(mapOrderFromDatabase);
 
     const returnOrderIds = rawOrders
         .filter((order) => order.orderType !== 'return')
@@ -166,7 +162,7 @@ export const subscribeToOrders = (callback: (orders: Order[]) => void) => {
         try {
             const { data, error } = await supabase
                 .from(TABLE_NAME)
-                .select('id, status, created_at, updated_at, order_data')
+                .select('id, order_number, status, order_type, customer_name, total_amount, created_at, updated_at, order_data')
                 .order('created_at', { ascending: false })
                 .limit(300);
 
@@ -181,14 +177,7 @@ export const subscribeToOrders = (callback: (orders: Order[]) => void) => {
             if (data && Array.isArray(data)) {
                 const mappedOrders = data.filter(isValidOrderRow).map((row: any) => {
                     try {
-                        const idx = row.order_data?.orderIndex ?? row.order_data?.order_index ?? row.order_index ?? row.order_number ?? row.orderNumber;
-                        const rawData = { ...(row.order_data || {}), id: String(row.id), ...(idx != null ? { orderIndex: Number(idx) } : {}) } as Order;
-                        const resolvedIndex = getOrderIndex({ ...rawData, id: row.id });
-                        if (resolvedIndex && !rawData.orderIndex) {
-                            rawData.orderIndex = resolvedIndex;
-                            rawData.orderNumber = resolvedIndex;
-                        }
-                        return capitalizeOrder(rawData);
+                        return mapOrderFromDatabase(row);
                     } catch (_e) {
                         const raw = { ...(row.order_data || {}), id: String(row.id) } as Order;
                         return capitalizeOrder(raw);
@@ -214,13 +203,7 @@ export const subscribeToOrders = (callback: (orders: Order[]) => void) => {
                 const newRow = payload.new;
                 if (!isValidOrderRow(newRow)) return;
                 try {
-                    const rawData = { ...(newRow.order_data || {}), id: String(newRow.id) } as Order;
-                    const resolvedIndex = getOrderIndex({ ...rawData, id: newRow.id });
-                    if (resolvedIndex && !rawData.orderIndex) {
-                        rawData.orderIndex = resolvedIndex;
-                        rawData.orderNumber = resolvedIndex;
-                    }
-                    const formatted = capitalizeOrder(rawData);
+                    const formatted = mapOrderFromDatabase(newRow);
                     currentOrders = [formatted, ...currentOrders];
                     callback(currentOrders);
                 } catch (e) {
@@ -235,13 +218,7 @@ export const subscribeToOrders = (callback: (orders: Order[]) => void) => {
                     return;
                 }
                 try {
-                    const rawData = { ...(updatedRow.order_data || {}), id: String(updatedRow.id) } as Order;
-                    const resolvedIndex = getOrderIndex({ ...rawData, id: updatedRow.id });
-                    if (resolvedIndex && !rawData.orderIndex) {
-                        rawData.orderIndex = resolvedIndex;
-                        rawData.orderNumber = resolvedIndex;
-                    }
-                    const formatted = capitalizeOrder(rawData);
+                    const formatted = mapOrderFromDatabase(updatedRow);
                     currentOrders = currentOrders.map(o => o.id === formatted.id ? formatted : o);
                     callback(currentOrders);
                 } catch (e) {

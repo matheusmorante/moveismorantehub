@@ -36,7 +36,9 @@ const StockReportModal = ({ isOpen, onClose }: StockReportModalProps) => {
         try {
             const { data, error } = await supabase
                 .from('orders')
-                .select('order_data');
+                .select('id, status, order_type, deleted, order_data')
+                .eq('deleted', false)
+                .neq('order_type', 'budget');
 
             if (error) throw error;
 
@@ -48,18 +50,16 @@ const StockReportModal = ({ isOpen, onClose }: StockReportModalProps) => {
 
             if (data) {
                 data.forEach((row: any) => {
-                    const order = row.order_data as Order;
-                    if (order.deleted) return;
-                    if (order.orderType === 'budget') return;
+                    const status = row.status ?? row.order_data?.status ?? 'draft';
+                    const items = row.order_data?.items || [];
+                    const itemsQty = items.reduce((acc: number, item: any) => acc + (Number(item.quantity) || 0), 0);
 
-                    const itemsQty = order.items?.reduce((acc, item) => acc + (Number(item.quantity) || 0), 0) || 0;
-
-                    if (order.status === 'fulfilled') {
+                    if (status === 'fulfilled') {
                         totalSold += itemsQty;
-                    } else if (order.status === 'scheduled') {
+                    } else if (status === 'scheduled') {
                         scheduledCount++;
                         schedItems += itemsQty;
-                    } else if (order.status === 'draft' || !order.status) {
+                    } else if (status === 'draft' || !status) {
                         draftCount++;
                         draftItems += itemsQty;
                     }

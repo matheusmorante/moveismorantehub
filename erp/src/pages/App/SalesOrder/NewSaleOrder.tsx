@@ -63,6 +63,7 @@ const NewSaleOrder = ({
 
     const applyOrderData = useCallback((migrated: any) => {
         if (migrated.seller) form.actions.setSeller(migrated.seller);
+        if (migrated.customerData) form.actions.setCustomerData(migrated.customerData);
         if (migrated.observation) form.actions.setObservation(migrated.observation);
         if (migrated.marketingOrigin) form.actions.setMarketingOrigin(migrated.marketingOrigin);
         if (migrated.shipping) {

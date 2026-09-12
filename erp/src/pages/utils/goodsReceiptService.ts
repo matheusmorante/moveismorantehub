@@ -201,12 +201,15 @@ export const finalizeGoodsReceipt = async (receipt: GoodsReceipt): Promise<void>
     };
 
     // 1. Processar entradas no estoque para cada item recebido
+    // CORRECAO PROBLEMA #3: rastreia itens com falha e loga aviso ao final
+    const failedItems: string[] = [];
     for (const item of finalizedReceipt.items) {
         if (!item.productId) continue;
         try {
             await saveInventoryMove({
                 productId: item.productId,
                 variationId: item.variationId,
+                productDescription: item.description || 'Mercadoria recebida',
                 type: 'entry',
                 quantity: Number(item.quantity || 0),
                 unitCost: Number(item.unitCost || 0) || undefined,
@@ -217,8 +220,12 @@ export const finalizeGoodsReceipt = async (receipt: GoodsReceipt): Promise<void>
                 observation: finalizedReceipt.observation || `Recebimento de ${item.description || 'mercadoria'} - Fornecedor: ${finalizedReceipt.supplierName}`,
             }, 0);
         } catch (err) {
-            console.error('Erro ao registrar lançamento de estoque do item recebido:', item, err);
+            console.error('[Recebimento] Falha ao lançar estoque do item:', item.description, err);
+            failedItems.push(item.description || item.productId);
         }
+    }
+    if (failedItems.length > 0) {
+        console.warn(`[Recebimento #${receiptIndex}] ${failedItems.length} item(ns) não foram lançados no estoque: ${failedItems.join(', ')}. Verifique o inventário manualmente.`);
     }
 
     // 2. Atualizar localmente
@@ -262,8 +269,13 @@ export const finalizeGoodsReceipt = async (receipt: GoodsReceipt): Promise<void>
             fiscal_other_expenses: finalizedReceipt.fiscalOtherExpenses ?? 0,
             updated_at: now,
         });
-    } catch {}
+    } catch (err) {
+        console.error('[Recebimento] Falha ao persistir no Supabase:', err);
+    }
 };
+
+// Hierarquia de status para merge: draft < received < estornado
+const STATUS_RANK: Record<GoodsReceiptStatus, number> = { draft: 0, received: 1, estornado: 2 };
 
 // Estorna o recebimento: muda status para 'estornado', desfaz o lançamento de estoque
 export const reverseGoodsReceipt = async (id: string): Promise<GoodsReceipt> => {
@@ -275,21 +287,25 @@ export const reverseGoodsReceipt = async (id: string): Promise<GoodsReceipt> => 
     if (receipt.status === 'estornado') return receipt;
 
     const now = new Date().toISOString();
+    // CORRECAO BUG #1: remover referência inválida a 'existing' — o receiptIndex já existe em 'receipt'
     const estornadoReceipt: GoodsReceipt = {
         ...receipt,
-        receiptIndex: receipt.receiptIndex || existing?.receiptIndex,
+        receiptIndex: receipt.receiptIndex,
         status: 'estornado',
         isDraft: false,
         updatedAt: now,
     };
 
     // 1. Reverter estoque de cada item (lançamento de saída/estorno)
+    // CORRECAO PROBLEMA #3: rastreia itens com falha
+    const failedItems: string[] = [];
     for (const item of receipt.items) {
         if (!item.productId) continue;
         try {
             await saveInventoryMove({
                 productId: item.productId,
                 variationId: item.variationId,
+                productDescription: item.description || 'Mercadoria estornada',
                 type: 'exit',
                 quantity: Number(item.quantity || 0),
                 date: now,
@@ -299,8 +315,12 @@ export const reverseGoodsReceipt = async (id: string): Promise<GoodsReceipt> => 
                 observation: `Estorno de recebimento de ${item.description || 'mercadoria'} - Fornecedor: ${receipt.supplierName}`,
             }, 0);
         } catch (err) {
-            console.error('Erro ao registrar estorno de estoque do item:', item, err);
+            console.error('[Estorno] Falha ao reverter estoque do item:', item.description, err);
+            failedItems.push(item.description || item.productId);
         }
+    }
+    if (failedItems.length > 0) {
+        console.warn(`[Estorno #${receipt.receiptIndex}] ${failedItems.length} item(ns) não foram revertidos no estoque: ${failedItems.join(', ')}. Verifique o inventário manualmente.`);
     }
 
     // 2. Atualizar localmente
@@ -308,7 +328,7 @@ export const reverseGoodsReceipt = async (id: string): Promise<GoodsReceipt> => 
     saveStoredReceipts(localList);
     notifyListeners(localList);
 
-    // 3. Persistir no Supabase
+    // 3. Persistir no Supabase com todos os campos fiscais
     try {
         await supabase.from('goods_receipts').upsert({
             id: estornadoReceipt.id,
@@ -328,9 +348,21 @@ export const reverseGoodsReceipt = async (id: string): Promise<GoodsReceipt> => 
             is_draft: false,
             ipi_percent: estornadoReceipt.ipiPercent,
             freight_percent: estornadoReceipt.freightPercent,
+            non_fiscal_discount_mode: estornadoReceipt.nonFiscalDiscountMode || null,
+            non_fiscal_discount_value: estornadoReceipt.nonFiscalDiscountValue ?? 0,
+            non_fiscal_freight_mode: estornadoReceipt.nonFiscalFreightMode || null,
+            non_fiscal_freight_value: estornadoReceipt.nonFiscalFreightValue ?? 0,
+            non_fiscal_other_expenses_mode: estornadoReceipt.nonFiscalOtherExpensesMode || null,
+            non_fiscal_other_expenses_value: estornadoReceipt.nonFiscalOtherExpensesValue ?? 0,
+            fiscal_ipi: estornadoReceipt.fiscalIpi ?? 0,
+            fiscal_freight: estornadoReceipt.fiscalFreight ?? 0,
+            fiscal_discount: estornadoReceipt.fiscalDiscount ?? 0,
+            fiscal_other_expenses: estornadoReceipt.fiscalOtherExpenses ?? 0,
             updated_at: now,
         });
-    } catch {}
+    } catch (err) {
+        console.error('[Estorno] Falha ao persistir no Supabase:', err);
+    }
 
     return estornadoReceipt;
 };
@@ -407,12 +439,22 @@ export const subscribeToGoodsReceipts = (callback: (items: GoodsReceipt[]) => vo
                 const dbItems = data.map(map);
                 const mergedMap = new Map<string, GoodsReceipt>();
                 localItems.forEach((item) => mergedMap.set(item.id, item));
+                // CORRECAO PROBLEMA #4: merge respeita o status mais avançado (local ou DB)
+                // Nunca rebaixa um 'received' local para 'draft' do Supabase
                 dbItems.forEach((item) => {
                     const existingLocal = mergedMap.get(item.id);
-                    mergedMap.set(item.id, {
-                        ...item,
-                        receiptIndex: item.receiptIndex || existingLocal?.receiptIndex,
-                    });
+                    if (existingLocal) {
+                        const localRank = STATUS_RANK[existingLocal.status] ?? 0;
+                        const dbRank = STATUS_RANK[item.status] ?? 0;
+                        // Prevalece o status mais avançado; em empate prevalece o DB (mais recente na nuvem)
+                        const winner = localRank > dbRank ? existingLocal : item;
+                        mergedMap.set(item.id, {
+                            ...winner,
+                            receiptIndex: winner.receiptIndex || existingLocal?.receiptIndex || item.receiptIndex,
+                        });
+                    } else {
+                        mergedMap.set(item.id, item);
+                    }
                 });
                 const mergedList = Array.from(mergedMap.values()).sort((a, b) => new Date(b.updatedAt || b.receivedAt).getTime() - new Date(a.updatedAt || a.receivedAt).getTime());
                 const finalizedList = ensureReceiptIndexes(mergedList);

@@ -103,9 +103,64 @@ export const useABCReport = () => {
     };
 
     const fetchFromERP = async (): Promise<SaleItem[]> => {
+        try {
+            const { data: itemRows, error: itemError } = await supabase
+                .from('order_items')
+                .select(`
+                    id,
+                    description,
+                    quantity,
+                    unit_price,
+                    cost_price,
+                    variation_id,
+                    item_snapshot,
+                    orders!inner (
+                        id,
+                        status,
+                        order_type,
+                        deleted,
+                        order_date,
+                        created_at
+                    )
+                `)
+                .eq('orders.deleted', false)
+                .neq('orders.order_type', 'budget');
+
+            if (!itemError && itemRows && itemRows.length > 0) {
+                const items: SaleItem[] = itemRows.map((row: any) => {
+                    const orderObj = row.orders;
+                    const rawDate = orderObj?.order_date || orderObj?.created_at;
+                    const date = rawDate ? new Date(rawDate) : new Date();
+                    const qty = Number(row.quantity) || 0;
+                    const unitPrice = Number(row.unit_price) || 0;
+                    const salesVal = qty * unitPrice;
+                    const cost = Number(row.cost_price) || 0;
+                    const profit = salesVal - (cost * qty);
+                    const snapshot = row.item_snapshot || {};
+
+                    return {
+                        date,
+                        product: row.description || snapshot.description || 'Sem Descrição',
+                        supplier: snapshot.mainSupplierName || 'Sem Fornecedor',
+                        quantity: qty,
+                        cost: cost,
+                        salesValue: salesVal,
+                        profit: profit,
+                        variationId: row.variation_id || snapshot.variationId || undefined
+                    };
+                });
+
+                return resolveCanonicalVariationReportItems(items);
+            }
+        } catch (err) {
+            console.warn('Falha ao carregar curva ABC via order_items, ativando fallback JSONB:', err);
+        }
+
+        // LEGACY FALLBACK:
+        // remover após validação completa da migração JSONB
         const { data, error } = await supabase
             .from('orders')
-            .select('*')
+            .select('id, status, order_type, deleted, order_data')
             .is('order_data->deleted', null);
 
         if (error) throw error;
@@ -113,13 +168,13 @@ export const useABCReport = () => {
         const items: SaleItem[] = [];
         data.forEach((row: any) => {
             const order = row.order_data;
-            if (order.deleted || order.orderType === 'budget') return;
+            if (!order || order.deleted || order.orderType === 'budget') return;
 
             const date = order.date ? (order.date.includes('/') ? parse(order.date.split(',')[0], 'dd/MM/yyyy', new Date()) : new Date(order.date)) : new Date();
 
             order.items?.forEach((item: any) => {
                 const qty = item.quantity || 0;
-                const salesVal = item.totalPrice || 0;
+                const salesVal = item.totalPrice || (qty * (item.unitPrice || 0));
                 const cost = item.unitCost || 0;
                 const profit = salesVal - (cost * qty);
 

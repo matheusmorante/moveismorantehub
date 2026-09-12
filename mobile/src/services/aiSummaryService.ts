@@ -37,8 +37,8 @@ export const generateDeliveryAISummary = async (
     if (!rawOrders || rawOrders.length === 0) {
       const { data } = await supabase
         .from('orders')
-        .select('id, status, created_at, order_data')
-        .or('order_data->>deleted.is.null,order_data->>deleted.eq.false')
+        .select('id, status, deleted, scheduled_date, created_at, order_data')
+        .or('deleted.is.null,deleted.eq.false,order_data->>deleted.is.null,order_data->>deleted.eq.false')
         .order('created_at', { ascending: false })
         .limit(300);
       rawOrders = data || [];

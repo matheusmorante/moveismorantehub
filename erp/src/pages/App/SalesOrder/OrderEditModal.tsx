@@ -68,6 +68,9 @@ const OrderEditModal = ({ order, orderId, onClose: propOnClose, onSaveSuccess: p
         if (migrated.seller) {
             form.actions.setSeller(migrated.seller);
         }
+        if (migrated.customerData) {
+            form.actions.setCustomerData(migrated.customerData);
+        }
         if (migrated.observation) {
             form.actions.setObservation(migrated.observation);
         }

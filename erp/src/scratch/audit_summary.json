@@ -1,0 +1,452 @@
+{
+  "orders": {
+    "stats": {
+      "orders_with_items": "835",
+      "total_items_count": "1508",
+      "total_orders": "849"
+    },
+    "itemKeys": [
+      {
+        "key": "handlingType",
+        "count": "1508"
+      },
+      {
+        "key": "quantity",
+        "count": "1508"
+      },
+      {
+        "key": "description",
+        "count": "1508"
+      },
+      {
+        "key": "unitPrice",
+        "count": "1508"
+      },
+      {
+        "key": "unitDiscount",
+        "count": "1506"
+      },
+      {
+        "key": "discountType",
+        "count": "1503"
+      },
+      {
+        "key": "condition",
+        "count": "199"
+      },
+      {
+        "key": "costPrice",
+        "count": "197"
+      },
+      {
+        "key": "code",
+        "count": "196"
+      },
+      {
+        "key": "isStockChecked",
+        "count": "189"
+      },
+      {
+        "key": "productId",
+        "count": "180"
+      },
+      {
+        "key": "isTemporaryProduct",
+        "count": "133"
+      },
+      {
+        "key": "variationId",
+        "count": "119"
+      },
+      {
+        "key": "observation",
+        "count": "7"
+      },
+      {
+        "key": "includeInAssembly",
+        "count": "6"
+      },
+      {
+        "key": "unitCost",
+        "count": "2"
+      },
+      {
+        "key": "totalValue",
+        "count": "1"
+      }
+    ],
+    "orderDataKeys": [
+      {
+        "key": "shipping",
+        "count": "849"
+      },
+      {
+        "key": "orderNumber",
+        "count": "849"
+      },
+      {
+        "key": "payments",
+        "count": "849"
+      },
+      {
+        "key": "orderIndex",
+        "count": "849"
+      },
+      {
+        "key": "assistanceItems",
+        "count": "849"
+      },
+      {
+        "key": "items",
+        "count": "849"
+      },
+      {
+        "key": "customerData",
+        "count": "849"
+      },
+      {
+        "key": "date",
+        "count": "845"
+      },
+      {
+        "key": "orderType",
+        "count": "843"
+      },
+      {
+        "key": "itemsSummary",
+        "count": "843"
+      },
+      {
+        "key": "seller",
+        "count": "843"
+      },
+      {
+        "key": "status",
+        "count": "843"
+      },
+      {
+        "key": "observation",
+        "count": "843"
+      },
+      {
+        "key": "paymentsSummary",
+        "count": "843"
+      },
+      {
+        "key": "assistanceCost",
+        "count": "842"
+      },
+      {
+        "key": "assistanceServiceValue",
+        "count": "842"
+      },
+      {
+        "key": "marketingOrigin",
+        "count": "837"
+      },
+      {
+        "key": "linkedOrderId",
+        "count": "807"
+      },
+      {
+        "key": "isRegisteredInBling",
+        "count": "671"
+      },
+      {
+        "key": "isButtonsClicked",
+        "count": "631"
+      },
+      {
+        "key": "sellerData",
+        "count": "406"
+      },
+      {
+        "key": "sellerPhone",
+        "count": "406"
+      },
+      {
+        "key": "reviewRequested",
+        "count": "398"
+      },
+      {
+        "key": "isStockChecked",
+        "count": "349"
+      },
+      {
+        "key": "stockProcessed",
+        "count": "305"
+      },
+      {
+        "key": "deleted",
+        "count": "248"
+      },
+      {
+        "key": "deletedAt",
+        "count": "248"
+      },
+      {
+        "key": "taskType",
+        "count": "179"
+      },
+      {
+        "key": "_taskKey",
+        "count": "179"
+      },
+      {
+        "key": "hasLinkedAssembly",
+        "count": "179"
+      },
+      {
+        "key": "isPartialStockProcessed",
+        "count": "146"
+      },
+      {
+        "key": "stockReversed",
+        "count": "102"
+      },
+      {
+        "key": "assemblyItems",
+        "count": "82"
+      },
+      {
+        "key": "movedProductIds",
+        "count": "80"
+      },
+      {
+        "key": "sellerId",
+        "count": "38"
+      },
+      {
+        "key": "scheduledTime",
+        "count": "10"
+      },
+      {
+        "key": "scheduledDate",
+        "count": "10"
+      },
+      {
+        "key": "assistanceDescription",
+        "count": "10"
+      },
+      {
+        "key": "deliveryChecklist",
+        "count": "3"
+      },
+      {
+        "key": "returnStockProcessed",
+        "count": "3"
+      },
+      {
+        "key": "collectionObservation",
+        "count": "2"
+      },
+      {
+        "key": "deliveryStartedAt",
+        "count": "2"
+      },
+      {
+        "key": "lastSyncEventId",
+        "count": "2"
+      },
+      {
+        "key": "nfeData",
+        "count": "2"
+      },
+      {
+        "key": "linkedOrderCode",
+        "count": "2"
+      },
+      {
+        "key": "deliveryStatus",
+        "count": "2"
+      },
+      {
+        "key": "isDraft",
+        "count": "2"
+      },
+      {
+        "key": "returnOrderId",
+        "count": "2"
+      },
+      {
+        "key": "returnKind",
+        "count": "2"
+      },
+      {
+        "key": "autoFulfilledAt",
+        "count": "1"
+      },
+      {
+        "key": "deletedReason",
+        "count": "1"
+      },
+      {
+        "key": "autoFulfilledAfter12h",
+        "count": "1"
+      },
+      {
+        "key": "customer",
+        "count": "1"
+      },
+      {
+        "key": "deliveryFinishedAt",
+        "count": "1"
+      }
+    ]
+  },
+  "inboundInvoices": {
+    "stats": {
+      "invoices_with_items": "1",
+      "total_inbound_items": "21",
+      "total_invoices": "1"
+    },
+    "itemKeys": [
+      {
+        "key": "icmsStBaseValue",
+        "count": "21"
+      },
+      {
+        "key": "otherExpensesValue",
+        "count": "21"
+      },
+      {
+        "key": "icmsStValue",
+        "count": "21"
+      },
+      {
+        "key": "discountValue",
+        "count": "21"
+      },
+      {
+        "key": "ipiValue",
+        "count": "21"
+      },
+      {
+        "key": "cest",
+        "count": "21"
+      },
+      {
+        "key": "ncm",
+        "count": "21"
+      },
+      {
+        "key": "productCode",
+        "count": "21"
+      },
+      {
+        "key": "icmsStPercent",
+        "count": "21"
+      },
+      {
+        "key": "icmsPercent",
+        "count": "21"
+      },
+      {
+        "key": "insuranceValue",
+        "count": "21"
+      },
+      {
+        "key": "totalCost",
+        "count": "21"
+      },
+      {
+        "key": "cfop",
+        "count": "21"
+      },
+      {
+        "key": "detectedSupplierCodeFamily",
+        "count": "21"
+      },
+      {
+        "key": "ean",
+        "count": "21"
+      },
+      {
+        "key": "itemNumber",
+        "count": "21"
+      },
+      {
+        "key": "icmsBaseValue",
+        "count": "21"
+      },
+      {
+        "key": "unitCost",
+        "count": "21"
+      },
+      {
+        "key": "quantity",
+        "count": "21"
+      },
+      {
+        "key": "normalizedParentName",
+        "count": "21"
+      },
+      {
+        "key": "extractedAttributes",
+        "count": "21"
+      },
+      {
+        "key": "unit",
+        "count": "21"
+      },
+      {
+        "key": "productDescription",
+        "count": "21"
+      },
+      {
+        "key": "freightValue",
+        "count": "21"
+      },
+      {
+        "key": "ipiPercent",
+        "count": "21"
+      },
+      {
+        "key": "icmsValue",
+        "count": "21"
+      }
+    ]
+  },
+  "purchases": {
+    "stats": {
+      "purchases_with_items": "6",
+      "total_purchase_items": "6",
+      "total_purchases": "8"
+    },
+    "itemKeys": [
+      {
+        "key": "quantity",
+        "count": "6"
+      },
+      {
+        "key": "productId",
+        "count": "6"
+      },
+      {
+        "key": "totalCost",
+        "count": "6"
+      },
+      {
+        "key": "baseCost",
+        "count": "6"
+      },
+      {
+        "key": "description",
+        "count": "6"
+      },
+      {
+        "key": "unitCost",
+        "count": "6"
+      },
+      {
+        "key": "variationId",
+        "count": "1"
+      }
+    ]
+  },
+  "finance": {
+    "accountsPayableCount": 0,
+    "accountsReceivableCount": 468,
+    "financialTransactionsCount": 0
+  }
+}

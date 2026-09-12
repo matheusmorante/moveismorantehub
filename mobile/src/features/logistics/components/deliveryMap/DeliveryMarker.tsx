@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { Marker } from 'react-native-maps';
-import { Check, AlertTriangle, Store, Truck, Wrench, Package, RotateCcw } from 'lucide-react-native';
+import { Check, AlertTriangle, Store, Truck, Wrench, Package, RotateCcw, Navigation } from 'lucide-react-native';
 import { DeliveryRouteItem } from '../../hooks/useDeliveryRoute';
 import { getOperationActivityType } from '../../../schedule/utils/operationActivity';
 import { TeamMemberLocation } from '../../../../services/teamLocationService';
@@ -30,6 +30,8 @@ export const DeliveryMarker: React.FC<Props> = ({
   // tracksViewChanges dinâmico: necessário no Android para permitir que ícones e badges
   // renderizem na tela nativa antes de congelar a visualização do Marker
   const [tracksViewChanges, setTracksViewChanges] = useState(true);
+  // Visibilidade do nome do membro da equipe (revelado ao tocar/interagir)
+  const [showTeamName, setShowTeamName] = useState(false);
 
   useEffect(() => {
     // Permite que o mapa capture a visualização inicial dos componentes filhos
@@ -51,6 +53,7 @@ export const DeliveryMarker: React.FC<Props> = ({
     teamMember?.coords?.latitude,
     teamMember?.coords?.longitude,
     teamMember?.isDisconnectedOrNoGps,
+    showTeamName,
   ]);
 
   const isValidCoord = (c?: { latitude?: number; longitude?: number } | null): boolean => {
@@ -66,23 +69,29 @@ export const DeliveryMarker: React.FC<Props> = ({
     );
   };
 
+  // Minha Posição Atual: Apenas a seta azul pura (estilo navegação)
   if (isDriver && isValidCoord(driverCoords)) {
     return (
       <Marker
         coordinate={driverCoords!}
-        title="Posição Atual"
-        description="Você (Motorista / Entregador em Rota)"
+        title="Sua Posição"
+        description="Você (Navegação em Rota)"
         anchor={{ x: 0.5, y: 0.5 }}
         tracksViewChanges={tracksViewChanges}
       >
-        <View style={styles.driverPin}>
-          <Text style={styles.driverEmoji}>🚚</Text>
+        <View style={styles.googleMapsNavWrapper}>
+          <Navigation
+            size={28}
+            color="#1d4ed8"
+            fill="#2563eb"
+            style={styles.googleMapsNavArrow}
+          />
         </View>
       </Marker>
     );
   }
 
-  // Marcador de Outro Membro da Equipe (com badge e alerta de '?' em vermelho se desligado/sem GPS)
+  // Marcador de Outro Membro da Equipe em Processo de Entrega (Caminhão com nome no hover/toque)
   if (isTeamMember && teamMember && isValidCoord(teamMember.coords)) {
     const lastSeenTime = teamMember.lastSeen
       ? new Date(teamMember.lastSeen).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
@@ -96,21 +105,26 @@ export const DeliveryMarker: React.FC<Props> = ({
         coordinate={teamMember.coords}
         title={teamMember.userName}
         description={statusDesc}
-        anchor={{ x: 0.5, y: 0.5 }}
+        anchor={{ x: 0.5, y: 0.72 }}
         tracksViewChanges={tracksViewChanges}
-        onPress={onPress}
+        onPress={() => {
+          setShowTeamName((prev) => !prev);
+          onPress?.();
+        }}
       >
         <View style={styles.teamMemberContainer}>
-          <View
-            style={[
-              styles.teamMemberNameBadge,
-              teamMember.isDisconnectedOrNoGps && styles.teamMemberNameBadgeOffline,
-            ]}
-          >
-            <Text style={styles.teamMemberNameText} numberOfLines={1}>
-              {teamMember.userName.split(' ')[0]}
-            </Text>
-          </View>
+          {showTeamName && (
+            <View
+              style={[
+                styles.teamMemberNameBadge,
+                teamMember.isDisconnectedOrNoGps && styles.teamMemberNameBadgeOffline,
+              ]}
+            >
+              <Text style={styles.teamMemberNameText} numberOfLines={1}>
+                {teamMember.userName.split(' ')[0]}
+              </Text>
+            </View>
+          )}
           <View style={styles.teamMemberTruckWrapper}>
             <Text style={styles.driverEmoji}>🚚</Text>
             {teamMember.isDisconnectedOrNoGps ? (
@@ -270,6 +284,20 @@ const styles = StyleSheet.create({
     borderTopColor: '#0f172a',
     marginTop: -1,
     alignSelf: 'center',
+  },
+  googleMapsNavWrapper: {
+    width: 36,
+    height: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.4,
+    shadowRadius: 3,
+    elevation: 6,
+  },
+  googleMapsNavArrow: {
+    transform: [{ rotate: '-45deg' }],
   },
   driverPin: {
     alignItems: 'center',

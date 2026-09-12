@@ -93,26 +93,37 @@ export default function ReceiptDetailsModal({ isOpen, onClose, receipt, onRevers
                             <span className="absolute top-2 right-2 text-[9px] font-black uppercase tracking-wider bg-slate-100 dark:bg-slate-800 text-slate-500 px-1.5 py-0.5 rounded">
                                 Não fiscal
                             </span>
+                            {/* UX 6: corrigido para usar os campos corretos do tipo GoodsReceipt */}
                             <div>
                                 <span className="block text-[10px] font-black uppercase tracking-widest text-slate-400">Desconto</span>
                                 <span className="text-sm font-black text-amber-600 dark:text-amber-400">
-                                    {receipt.discountValue ? formatCurrency(receipt.discountValue) : (receipt.discountPercent ? `${receipt.discountPercent}%` : '—')}
+                                    {receipt.nonFiscalDiscountValue && receipt.nonFiscalDiscountValue > 0
+                                        ? (receipt.nonFiscalDiscountMode === 'percent'
+                                            ? `${receipt.nonFiscalDiscountValue}%`
+                                            : formatCurrency(receipt.nonFiscalDiscountValue))
+                                        : '—'}
                                 </span>
                             </div>
                             <div className="h-8 w-px bg-slate-100 dark:bg-slate-800" />
                             <div>
                                 <span className="block text-[10px] font-black uppercase tracking-widest text-slate-400">Frete</span>
                                 <span className="text-sm font-black text-slate-700 dark:text-slate-200">
-                                    {receipt.freightValue ? formatCurrency(receipt.freightValue) : (receipt.freightPercent ? `${receipt.freightPercent}%` : '—')}
+                                    {receipt.nonFiscalFreightValue && receipt.nonFiscalFreightValue > 0
+                                        ? (receipt.nonFiscalFreightMode === 'percent'
+                                            ? `${receipt.nonFiscalFreightValue}%`
+                                            : formatCurrency(receipt.nonFiscalFreightValue))
+                                        : (receipt.freightPercent && receipt.freightPercent > 0 ? `${receipt.freightPercent}% (IPI/fiscal)` : '—')}
                                 </span>
                             </div>
-                            {(receipt.otherExpensesValue || receipt.otherExpensesPercent) ? (
+                            {(receipt.nonFiscalOtherExpensesValue && receipt.nonFiscalOtherExpensesValue > 0) ? (
                                 <>
                                     <div className="h-8 w-px bg-slate-100 dark:bg-slate-800" />
                                     <div>
                                         <span className="block text-[10px] font-black uppercase tracking-widest text-slate-400">Outras Desp.</span>
                                         <span className="text-sm font-black text-slate-700 dark:text-slate-200">
-                                            {receipt.otherExpensesValue ? formatCurrency(receipt.otherExpensesValue) : `${receipt.otherExpensesPercent}%`}
+                                            {receipt.nonFiscalOtherExpensesMode === 'percent'
+                                                ? `${receipt.nonFiscalOtherExpensesValue}%`
+                                                : formatCurrency(receipt.nonFiscalOtherExpensesValue)}
                                         </span>
                                     </div>
                                 </>
@@ -169,7 +180,9 @@ export default function ReceiptDetailsModal({ isOpen, onClose, receipt, onRevers
                             {(() => {
                                 const hasAnyOtherExpenses = receipt.items.some(
                                     (item) => (item.otherExpensesUnit || 0) > 0 || (item.additionalCostUnit || 0) > 0
-                                ) || Boolean(receipt.otherExpensesValue || receipt.otherExpensesPercent);
+                                        || ((item as any).otherExpensesFiscalUnit || 0) > 0
+                                        || ((item as any).otherExpensesNonFiscalUnit || 0) > 0
+                                ) || Boolean(receipt.nonFiscalOtherExpensesValue);
 
                                 return (
                                     <table className="w-full text-left text-xs">
@@ -188,8 +201,13 @@ export default function ReceiptDetailsModal({ isOpen, onClose, receipt, onRevers
                                         <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                                             {receipt.items.map((item, index) => {
                                                 const unitDiscount = item.discountUnit || 0;
-                                                const unitFreight = item.freightUnit ?? ((item.baseCost || 0) * ((receipt.freightPercent || 0) / 100));
-                                                const unitOther = item.otherExpensesUnit ?? (item.additionalCostUnit || 0);
+                                                // UX 7: usar campos corretos para frete por item
+                                                const unitFreight = (item as any).freightUnit
+                                                    ?? ((item as any).freightFiscalUnit ?? 0) + ((item as any).freightNonFiscalUnit ?? 0);
+                                                // UX 8: usar campos corretos para outras despesas por item
+                                                const unitOther = ((item as any).otherExpensesUnit
+                                                    ?? (((item as any).otherExpensesFiscalUnit ?? 0) + ((item as any).otherExpensesNonFiscalUnit ?? 0)))
+                                                    || (item.additionalCostUnit || 0);
 
                                                 return (
                                                     <tr key={index} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30">

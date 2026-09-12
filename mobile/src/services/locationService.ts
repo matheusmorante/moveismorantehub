@@ -50,8 +50,8 @@ export async function getCurrentDriverLocation(): Promise<LocationResult> {
       }
     }
 
-    // Tenta obter última posição conhecida primeiro para resposta instantânea
-    const lastKnown = await Location.getLastKnownPositionAsync({ maxAge: 60000 });
+    // Tenta obter última posição conhecida recente (máx 10 segundos)
+    const lastKnown = await Location.getLastKnownPositionAsync({ maxAge: 10000 });
     if (lastKnown?.coords) {
       return {
         coords: {
@@ -62,9 +62,9 @@ export async function getCurrentDriverLocation(): Promise<LocationResult> {
       };
     }
 
-    // Se não houver cache recente, obtém localização ativa com timeout de 6s
+    // Obtém localização ativa com alta precisão (GPS fino de satélite)
     const position = await Location.getCurrentPositionAsync({
-      accuracy: Location.Accuracy.Balanced,
+      accuracy: Location.Accuracy.High,
     });
 
     return {
@@ -81,5 +81,48 @@ export async function getCurrentDriverLocation(): Promise<LocationResult> {
       permissionGranted: true,
       error: error?.message || 'Localização indisponível',
     };
+  }
+}
+
+/**
+ * Monitora a localização em tempo real com alta precisão e calibração contínua de GPS.
+ */
+export async function watchDriverLocation(
+  onLocation: (coords: DriverCoordinates) => void,
+  onError?: (error: string) => void
+): Promise<(() => void) | null> {
+  try {
+    const isGranted = await hasLocationPermission();
+    if (!isGranted) {
+      const requested = await requestLocationPermission();
+      if (!requested) {
+        onError?.('Permissão de localização não concedida');
+        return null;
+      }
+    }
+
+    const subscription = await Location.watchPositionAsync(
+      {
+        accuracy: Location.Accuracy.High,
+        timeInterval: 3000,
+        distanceInterval: 2,
+      },
+      (location) => {
+        if (location?.coords) {
+          onLocation({
+            latitude: location.coords.latitude,
+            longitude: location.coords.longitude,
+          });
+        }
+      }
+    );
+
+    return () => {
+      subscription.remove();
+    };
+  } catch (err: any) {
+    console.warn('[LocationService] Falha ao iniciar monitoramento contínuo de GPS:', err);
+    onError?.(err?.message || 'Falha ao monitorar GPS');
+    return null;
   }
 }

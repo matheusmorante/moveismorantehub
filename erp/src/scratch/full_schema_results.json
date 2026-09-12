@@ -1,0 +1,1047 @@
+{
+  "orders": {
+    "status": "ok",
+    "count": 849,
+    "columnCount": 15,
+    "columns": {
+      "id": {
+        "type": "string",
+        "preview": "1734"
+      },
+      "order_number": {
+        "type": "string",
+        "preview": "1734"
+      },
+      "status": {
+        "type": "string",
+        "preview": "fulfilled"
+      },
+      "customer_id": {
+        "type": "string",
+        "preview": "2109"
+      },
+      "customer_name": {
+        "type": "string",
+        "preview": " Isabela Maria Palhano Zanela"
+      },
+      "seller_id": {
+        "type": "null (type unknown)",
+        "preview": ""
+      },
+      "seller_name": {
+        "type": "string",
+        "preview": "Liliane Cristine Morante"
+      },
+      "items": {
+        "type": "array[1]",
+        "preview": "item sample keys: code, quantity, condition, costPrice, productId, unitPrice, description, variationId, discountType, handlingType"
+      },
+      "total_amount": {
+        "type": "number",
+        "preview": "417"
+      },
+      "payment_method": {
+        "type": "string",
+        "preview": "Pix"
+      },
+      "channel": {
+        "type": "string",
+        "preview": "Catálogo Digital"
+      },
+      "notes": {
+        "type": "null (type unknown)",
+        "preview": ""
+      },
+      "created_at": {
+        "type": "string",
+        "preview": "2026-03-30T15:09:59.768032+00:00"
+      },
+      "updated_at": {
+        "type": "string",
+        "preview": "2026-04-03T19:13:09.519+00:00"
+      },
+      "order_data": {
+        "type": "jsonb/object",
+        "preview": "keys: date, items, seller, status, payments, shipping, orderType, orderIndex, observation, orderNumber"
+      }
+    },
+    "hasSample": true
+  },
+  "products": {
+    "status": "ok",
+    "count": 302,
+    "columnCount": 83,
+    "columns": {
+      "id": {
+        "type": "string",
+        "preview": "44c04a7a-64df-4e85-a256-12b7037e5f39"
+      },
+      "name": {
+        "type": "string",
+        "preview": "Balcão para Pia"
+      },
+      "slug": {
+        "type": "string",
+        "preview": "wdwdw"
+      },
+      "description": {
+        "type": "string",
+        "preview": "em mdp 15mm, pés de plastico co mregulag"
+      },
+      "price": {
+        "type": "number",
+        "preview": "300"
+      },
+      "category_id": {
+        "type": "string",
+        "preview": "ba076524-c8f1-494e-a055-cf5881c4d906"
+      },
+      "featured": {
+        "type": "boolean",
+        "preview": "false"
+      },
+      "measures": {
+        "type": "string",
+        "preview": "Altura: 80cm | Largura: 120cm | Profundi"
+      },
+      "material": {
+        "type": "string",
+        "preview": ""
+      },
+      "created_at": {
+        "type": "string",
+        "preview": "2026-08-19T23:33:36.778351+00:00"
+      },
+      "promo_price": {
+        "type": "number",
+        "preview": "250"
+      },
+      "status": {
+        "type": "string",
+        "preview": "hidden"
+      },
+      "is_salvado": {
+        "type": "boolean",
+        "preview": "false"
+      },
+      "opportunity_id": {
+        "type": "string",
+        "preview": "344ad767-a385-4854-8042-52c2623f4aef"
+      },
+      "width": {
+        "type": "string",
+        "preview": "120"
+      },
+      "depth": {
+        "type": "string",
+        "preview": "50"
+      },
+      "height": {
+        "type": "string",
+        "preview": "80"
+      },
+      "material_id": {
+        "type": "null (type unknown)",
+        "preview": ""
+      },
+      "technical_specs": {
+        "type": "null (type unknown)",
+        "preview": ""
+      },
+      "deleted_at": {
+        "type": "null (type unknown)",
+        "preview": ""
+      },
+      "depth_use_length": {
+        "type": "boolean",
+        "preview": "false"
+      },
+      "images": {
+        "type": "array[14]",
+        "preview": ""
+      },
+      "is_draft": {
+        "type": "boolean",
+        "preview": "false"
+      },
+      "active": {
+        "type": "boolean",
+        "preview": "false"
+      },
+      "code": {
+        "type": "string",
+        "preview": "000204"
+      },
+      "unit_price": {
+        "type": "number",
+        "preview": "300"
+      },
+      "cost_price": {
+        "type": "number",
+        "preview": "0"
+      },
+      "freight_type": {
+        "type": "string",
+        "preview": "fixed"
+      },
+      "freight_cost": {
+        "type": "number",
+        "preview": "0"
+      },
+      "ipi_percent": {
+        "type": "number",
+        "preview": "0"
+      },
+      "final_purchase_price": {
+        "type": "number",
+        "preview": "0"
+      },
+      "initial_stock": {
+        "type": "number",
+        "preview": "0"
+      },
+      "stock": {
+        "type": "number",
+        "preview": "0"
+      },
+      "min_stock": {
+        "type": "number",
+        "preview": "0"
+      },
+      "unit": {
+        "type": "string",
+        "preview": "UN"
+      },
+      "deleted": {
+        "type": "boolean",
+        "preview": "true"
+      },
+      "supplier_id": {
+        "type": "null (type unknown)",
+        "preview": ""
+      },
+      "item_type": {
+        "type": "string",
+        "preview": "product"
+      },
+      "fiscal": {
+        "type": "jsonb/object",
+        "preview": "keys: ncm, cest, cfop, icmsPercent, ncmDescription"
+      },
+      "notification_config": {
+        "type": "jsonb/object",
+        "preview": "keys: "
+      },
+      "is_combo": {
+        "type": "boolean",
+        "preview": "false"
+      },
+      "combo_items": {
+        "type": "array[0]",
+        "preview": ""
+      },
+      "initial_stock_entries": {
+        "type": "null (type unknown)",
+        "preview": ""
+      },
+      "whatsapp_sync": {
+        "type": "boolean",
+        "preview": "false"
+      },
+      "ecommerce_sync": {
+        "type": "boolean",
+        "preview": "false"
+      },
+      "whatsapp_auto_sync": {
+        "type": "boolean",
+        "preview": "false"
+      },
+      "last_whatsapp_sync": {
+        "type": "null (type unknown)",
+        "preview": ""
+      },
+      "pkg_width": {
+        "type": "number",
+        "preview": "0"
+      },
+      "pkg_height": {
+        "type": "number",
+        "preview": "0"
+      },
+      "pkg_depth": {
+        "type": "number",
+        "preview": "0"
+      },
+      "extra_dimensions": {
+        "type": "array[0]",
+        "preview": ""
+      },
+      "line": {
+        "type": "string",
+        "preview": ""
+      },
+      "main_differential": {
+        "type": "string",
+        "preview": ""
+      },
+      "colors": {
+        "type": "string",
+        "preview": ""
+      },
+      "not_included": {
+        "type": "string",
+        "preview": ""
+      },
+      "main_supplier_id": {
+        "type": "null (type unknown)",
+        "preview": ""
+      },
+      "supplier_ref": {
+        "type": "string",
+        "preview": ""
+      },
+      "observations": {
+        "type": "string",
+        "preview": ""
+      },
+      "parent_id": {
+        "type": "null (type unknown)",
+        "preview": ""
+      },
+      "is_variation": {
+        "type": "boolean",
+        "preview": "false"
+      },
+      "no_width": {
+        "type": "boolean",
+        "preview": "false"
+      },
+      "no_height": {
+        "type": "boolean",
+        "preview": "false"
+      },
+      "no_depth": {
+        "type": "boolean",
+        "preview": "false"
+      },
+      "no_brand": {
+        "type": "boolean",
+        "preview": "false"
+      },
+      "no_colors": {
+        "type": "boolean",
+        "preview": "false"
+      },
+      "has_no_line": {
+        "type": "boolean",
+        "preview": "false"
+      },
+      "product_type_id": {
+        "type": "null (type unknown)",
+        "preview": ""
+      },
+      "product_type_name": {
+        "type": "string",
+        "preview": ""
+      },
+      "environment": {
+        "type": "string",
+        "preview": "Cozinha"
+      },
+      "include_environment": {
+        "type": "boolean",
+        "preview": "true"
+      },
+      "include_line": {
+        "type": "boolean",
+        "preview": "true"
+      },
+      "include_brand": {
+        "type": "boolean",
+        "preview": "true"
+      },
+      "include_type": {
+        "type": "boolean",
+        "preview": "true"
+      },
+      "include_supplier_ref": {
+        "type": "boolean",
+        "preview": "false"
+      },
+      "title_complement": {
+        "type": "string",
+        "preview": ""
+      },
+      "include_complement": {
+        "type": "boolean",
+        "preview": "true"
+      },
+      "title_order": {
+        "type": "array[5]",
+        "preview": ""
+      },
+      "brand": {
+        "type": "null (type unknown)",
+        "preview": ""
+      },
+      "category": {
+        "type": "null (type unknown)",
+        "preview": ""
+      },
+      "has_variations": {
+        "type": "boolean",
+        "preview": "true"
+      },
+      "updated_at": {
+        "type": "string",
+        "preview": "2026-08-28T19:40:51.732+00:00"
+      },
+      "condition": {
+        "type": "string",
+        "preview": "novo"
+      },
+      "supplier_ids": {
+        "type": "array[0]",
+        "preview": ""
+      }
+    },
+    "hasSample": true
+  },
+  "inbound_invoices": {
+    "status": "ok",
+    "count": 1,
+    "columnCount": 46,
+    "columns": {
+      "id": {
+        "type": "string",
+        "preview": "5606b49f-b3f1-43dd-9f9e-f4d860817e73"
+      },
+      "chave_acesso": {
+        "type": "string",
+        "preview": "4125110286976300516855001000125472105065"
+      },
+      "numero_nfe": {
+        "type": "number",
+        "preview": "125472"
+      },
+      "serie": {
+        "type": "string",
+        "preview": "001"
+      },
+      "data_emissao": {
+        "type": "string",
+        "preview": "2025-10-11T00:00:00+00:00"
+      },
+      "emitente_cnpj": {
+        "type": "string",
+        "preview": "02869763005168"
+      },
+      "emitente_nome": {
+        "type": "string",
+        "preview": "HORFRAN COMERCIAL ELETRO MOVEIS LTDA"
+      },
+      "emitente_fantasia": {
+        "type": "string",
+        "preview": "MULTILOJA"
+      },
+      "emitente_uf": {
+        "type": "string",
+        "preview": "PR"
+      },
+      "destinatario_cnpj": {
+        "type": "string",
+        "preview": "44512248000107"
+      },
+      "destinatario_nome": {
+        "type": "string",
+        "preview": "MOVEIS MORANTE"
+      },
+      "valor_produtos": {
+        "type": "number",
+        "preview": "1582.92"
+      },
+      "valor_total": {
+        "type": "number",
+        "preview": "1582.92"
+      },
+      "valor_frete": {
+        "type": "number",
+        "preview": "0"
+      },
+      "valor_ipi": {
+        "type": "number",
+        "preview": "0"
+      },
+      "status_sefaz": {
+        "type": "string",
+        "preview": "autorizada"
+      },
+      "status_recebimento": {
+        "type": "string",
+        "preview": "pendente"
+      },
+      "receipt_id": {
+        "type": "null (type unknown)",
+        "preview": ""
+      },
+      "xml_conteudo": {
+        "type": "null (type unknown)",
+        "preview": ""
+      },
+      "itens": {
+        "type": "array[21]",
+        "preview": "item sample keys: ean, ncm, cest, cfop, unit, ipiValue, quantity, unitCost, icmsValue, totalCost"
+      },
+      "nsu": {
+        "type": "null (type unknown)",
+        "preview": ""
+      },
+      "created_at": {
+        "type": "string",
+        "preview": "2026-09-11T00:44:36.062432+00:00"
+      },
+      "updated_at": {
+        "type": "string",
+        "preview": "2026-09-11T00:44:34.424+00:00"
+      },
+      "series": {
+        "type": "string",
+        "preview": "1"
+      },
+      "data_saida_entrada": {
+        "type": "null (type unknown)",
+        "preview": ""
+      },
+      "natureza_operacao": {
+        "type": "string",
+        "preview": "Venda merc. adquirida/recebida terceiros"
+      },
+      "modelo": {
+        "type": "string",
+        "preview": "55"
+      },
+      "protocolo": {
+        "type": "null (type unknown)",
+        "preview": ""
+      },
+      "valor_desconto": {
+        "type": "number",
+        "preview": "0"
+      },
+      "valor_seguro": {
+        "type": "number",
+        "preview": "0"
+      },
+      "outras_despesas": {
+        "type": "number",
+        "preview": "0"
+      },
+      "valor_icms": {
+        "type": "number",
+        "preview": "308.65"
+      },
+      "emitente_ie": {
+        "type": "string",
+        "preview": "9029854332"
+      },
+      "emitente_endereco": {
+        "type": "jsonb/object",
+        "preview": "keys: "
+      },
+      "supplier_id": {
+        "type": "string",
+        "preview": "b466542a-6bbb-4d16-84ee-4236fcffe49f"
+      },
+      "documento_original_path": {
+        "type": "string",
+        "preview": "13eab361-be48-4e49-be4b-4ad79813b812/9f4"
+      },
+      "documento_original_mime": {
+        "type": "string",
+        "preview": "application/pdf"
+      },
+      "origem_importacao": {
+        "type": "string",
+        "preview": "documento"
+      },
+      "extraction_warnings": {
+        "type": "array[0]",
+        "preview": ""
+      },
+      "extraction_confidence": {
+        "type": "jsonb/object",
+        "preview": "keys: accessKey"
+      },
+      "valor_icms_st": {
+        "type": "number",
+        "preview": "0"
+      },
+      "extraction_status": {
+        "type": "string",
+        "preview": "completed"
+      },
+      "extraction_processed_at": {
+        "type": "string",
+        "preview": "2026-09-11T00:40:34.78+00:00"
+      },
+      "extraction_ai_model": {
+        "type": "string",
+        "preview": "gemini-2.5-flash"
+      },
+      "raw_extraction": {
+        "type": "jsonb/object",
+        "preview": "keys: items, issuer, invoice, warnings, recipient, confidence"
+      },
+      "informacoes_adicionais": {
+        "type": "null (type unknown)",
+        "preview": ""
+      }
+    },
+    "hasSample": true
+  },
+  "goods_receipts": {
+    "status": "ok",
+    "count": 0,
+    "columnCount": 0,
+    "columns": {},
+    "hasSample": false
+  },
+  "purchases": {
+    "status": "ok",
+    "count": 8,
+    "columnCount": 21,
+    "columns": {
+      "id": {
+        "type": "string",
+        "preview": "32de3639-d4dc-4775-a579-40f895a38b12"
+      },
+      "supplier_id": {
+        "type": "string",
+        "preview": "b7b21873-2f9b-484d-9cf6-95eeadd56cf6"
+      },
+      "supplier_name": {
+        "type": "string",
+        "preview": "Mopar"
+      },
+      "date": {
+        "type": "string",
+        "preview": "2026-08-28T00:00:00+00:00"
+      },
+      "items": {
+        "type": "array[1]",
+        "preview": "item sample keys: baseCost, quantity, unitCost, productId, totalCost, description"
+      },
+      "total_value": {
+        "type": "number",
+        "preview": "579.48"
+      },
+      "observation": {
+        "type": "string",
+        "preview": ""
+      },
+      "status": {
+        "type": "string",
+        "preview": "cancelled"
+      },
+      "invoice_number": {
+        "type": "null (type unknown)",
+        "preview": ""
+      },
+      "invoice_date": {
+        "type": "null (type unknown)",
+        "preview": ""
+      },
+      "invoice_status": {
+        "type": "string",
+        "preview": "pending"
+      },
+      "fiscal_key": {
+        "type": "null (type unknown)",
+        "preview": ""
+      },
+      "attachments": {
+        "type": "array[0]",
+        "preview": ""
+      },
+      "ipi_value": {
+        "type": "number",
+        "preview": "0"
+      },
+      "freight_percent": {
+        "type": "number",
+        "preview": "0"
+      },
+      "stockProcessed": {
+        "type": "boolean",
+        "preview": "false"
+      },
+      "created_at": {
+        "type": "string",
+        "preview": "2026-08-28T20:20:52.294+00:00"
+      },
+      "updated_at": {
+        "type": "string",
+        "preview": "2026-08-28T20:20:52.55997+00:00"
+      },
+      "ipi_type": {
+        "type": "string",
+        "preview": "percentage"
+      },
+      "freight_value": {
+        "type": "number",
+        "preview": "0"
+      },
+      "freight_type": {
+        "type": "string",
+        "preview": "percentage"
+      }
+    },
+    "hasSample": true
+  },
+  "inventory_moves": {
+    "status": "ok",
+    "count": 191,
+    "columnCount": 18,
+    "columns": {
+      "id": {
+        "type": "string",
+        "preview": "b16886fc-cd4a-4e04-82d3-48396d9f0467"
+      },
+      "product_id": {
+        "type": "string",
+        "preview": "a7702fbe-0f84-4f37-903a-bdffe69cf4dc"
+      },
+      "product_name": {
+        "type": "null (type unknown)",
+        "preview": ""
+      },
+      "variation_id": {
+        "type": "string",
+        "preview": "a8425c12-8f90-427e-bc4c-46913adbeedd"
+      },
+      "type": {
+        "type": "string",
+        "preview": "exit"
+      },
+      "quantity": {
+        "type": "number",
+        "preview": "1"
+      },
+      "previous_stock": {
+        "type": "number",
+        "preview": "0"
+      },
+      "new_stock": {
+        "type": "number",
+        "preview": "0"
+      },
+      "reason": {
+        "type": "string",
+        "preview": "Item alterado no pedido de venda #002550"
+      },
+      "order_id": {
+        "type": "string",
+        "preview": "d0f8dadf-746b-4ff9-8766-ad9e273672a2"
+      },
+      "user_name": {
+        "type": "null (type unknown)",
+        "preview": ""
+      },
+      "created_at": {
+        "type": "string",
+        "preview": "2026-09-10T16:59:27.009485+00:00"
+      },
+      "unit_price": {
+        "type": "number",
+        "preview": "459"
+      },
+      "product_description": {
+        "type": "string",
+        "preview": "MULTIUSO JADE PARA LAVANDEIRA COM PÉS"
+      },
+      "date": {
+        "type": "string",
+        "preview": "2026-09-10T16:59:26.759+00:00"
+      },
+      "label": {
+        "type": "string",
+        "preview": "Saída - Pedido #002550 - Elaine Cristina"
+      },
+      "unit_cost": {
+        "type": "null (type unknown)",
+        "preview": ""
+      },
+      "observation": {
+        "type": "string",
+        "preview": "{\"note\":\"Pedido de venda #002550 - Elain"
+      }
+    },
+    "hasSample": true
+  },
+  "people": {
+    "status": "ok",
+    "count": 1849,
+    "columnCount": 22,
+    "columns": {
+      "id": {
+        "type": "string",
+        "preview": "2070"
+      },
+      "person_type": {
+        "type": "string",
+        "preview": "customers"
+      },
+      "person_type_pf_pj": {
+        "type": "string",
+        "preview": "PF"
+      },
+      "full_name": {
+        "type": "string",
+        "preview": "Cleusa Regina Martins"
+      },
+      "social_name": {
+        "type": "string",
+        "preview": ""
+      },
+      "nickname": {
+        "type": "null (type unknown)",
+        "preview": ""
+      },
+      "cpf_cnpj": {
+        "type": "string",
+        "preview": ""
+      },
+      "rg_ie": {
+        "type": "null (type unknown)",
+        "preview": ""
+      },
+      "email": {
+        "type": "string",
+        "preview": ""
+      },
+      "phone": {
+        "type": "string",
+        "preview": "(41) 96231-333 "
+      },
+      "observation": {
+        "type": "null (type unknown)",
+        "preview": ""
+      },
+      "position": {
+        "type": "null (type unknown)",
+        "preview": ""
+      },
+      "active": {
+        "type": "boolean",
+        "preview": "true"
+      },
+      "is_draft": {
+        "type": "boolean",
+        "preview": "false"
+      },
+      "lead_time": {
+        "type": "null (type unknown)",
+        "preview": ""
+      },
+      "deleted": {
+        "type": "boolean",
+        "preview": "false"
+      },
+      "marketing_origin": {
+        "type": "null (type unknown)",
+        "preview": ""
+      },
+      "full_address": {
+        "type": "jsonb/object",
+        "preview": "keys: "
+      },
+      "created_at": {
+        "type": "string",
+        "preview": "2026-03-19T19:02:15.234514+00:00"
+      },
+      "updated_at": {
+        "type": "string",
+        "preview": "2026-03-19T19:02:16.990872+00:00"
+      },
+      "address": {
+        "type": "string",
+        "preview": "{\"cep\":\"\",\"city\":\"Colombo \",\"number\":\"12"
+      },
+      "deleted_at": {
+        "type": "null (type unknown)",
+        "preview": ""
+      }
+    },
+    "hasSample": true
+  },
+  "financial_transactions": {
+    "status": "ok",
+    "count": 0,
+    "columnCount": 0,
+    "columns": {},
+    "hasSample": false
+  },
+  "categories": {
+    "status": "ok",
+    "count": 44,
+    "columnCount": 10,
+    "columns": {
+      "id": {
+        "type": "string",
+        "preview": "6d702b44-6633-4fb4-808b-967ea6090dec"
+      },
+      "name": {
+        "type": "string",
+        "preview": "Cabeceiras"
+      },
+      "slug": {
+        "type": "string",
+        "preview": "cabeceiras"
+      },
+      "image_url": {
+        "type": "null (type unknown)",
+        "preview": ""
+      },
+      "created_at": {
+        "type": "string",
+        "preview": "2026-08-10T00:58:21.843122+00:00"
+      },
+      "type": {
+        "type": "string",
+        "preview": "category"
+      },
+      "parent_id": {
+        "type": "null (type unknown)",
+        "preview": ""
+      },
+      "meta_title": {
+        "type": "null (type unknown)",
+        "preview": ""
+      },
+      "meta_description": {
+        "type": "null (type unknown)",
+        "preview": ""
+      },
+      "seo_description": {
+        "type": "null (type unknown)",
+        "preview": ""
+      }
+    },
+    "hasSample": true
+  },
+  "product_images": {
+    "status": "ok",
+    "count": 1644,
+    "columnCount": 5,
+    "columns": {
+      "id": {
+        "type": "string",
+        "preview": "d94f0e64-b55b-48ae-82c8-c3f687d815b4"
+      },
+      "product_id": {
+        "type": "string",
+        "preview": "46e448fa-ed38-4c76-9986-4494f39df174"
+      },
+      "image_url": {
+        "type": "string",
+        "preview": "https://pub-389127050a434f568c29dc66bdce"
+      },
+      "is_main": {
+        "type": "boolean",
+        "preview": "true"
+      },
+      "created_at": {
+        "type": "string",
+        "preview": "2026-07-25T01:15:54.261532+00:00"
+      }
+    },
+    "hasSample": true
+  },
+  "product_supplier_codes": {
+    "status": "ok",
+    "count": 0,
+    "columnCount": 0,
+    "columns": {},
+    "hasSample": false
+  },
+  "team_locations": {
+    "status": "ok",
+    "count": 2,
+    "columnCount": 12,
+    "columns": {
+      "user_id": {
+        "type": "string",
+        "preview": "00000000-0000-0000-0000-000000000000"
+      },
+      "user_name": {
+        "type": "string",
+        "preview": "Matheus Morante"
+      },
+      "role": {
+        "type": "string",
+        "preview": "admin"
+      },
+      "latitude": {
+        "type": "number",
+        "preview": "-25.3522001879918"
+      },
+      "longitude": {
+        "type": "number",
+        "preview": "-49.1692096642447"
+      },
+      "is_gps_active": {
+        "type": "boolean",
+        "preview": "true"
+      },
+      "last_seen": {
+        "type": "string",
+        "preview": "2026-09-12T16:35:14.091+00:00"
+      },
+      "created_at": {
+        "type": "string",
+        "preview": "2026-09-12T14:01:03.94392+00:00"
+      },
+      "updated_at": {
+        "type": "string",
+        "preview": "2026-09-12T16:35:14.091+00:00"
+      },
+      "is_delivering": {
+        "type": "boolean",
+        "preview": "false"
+      },
+      "active_order_id": {
+        "type": "null (type unknown)",
+        "preview": ""
+      },
+      "active_order_code": {
+        "type": "null (type unknown)",
+        "preview": ""
+      }
+    },
+    "hasSample": true
+  },
+  "settings": {
+    "status": "ok",
+    "count": 1,
+    "columnCount": 4,
+    "columns": {
+      "id": {
+        "type": "string",
+        "preview": "app"
+      },
+      "data": {
+        "type": "jsonb/object",
+        "preview": "keys: cscId, speed, cscToken, nfeSerie, aiPrompts, companyIE, companyIM, companyUF, threshold, autoScroll"
+      },
+      "created_at": {
+        "type": "string",
+        "preview": "2026-08-18T21:56:04.034+00:00"
+      },
+      "updated_at": {
+        "type": "string",
+        "preview": "2026-09-12T15:42:54.587+00:00"
+      }
+    },
+    "hasSample": true
+  }
+}

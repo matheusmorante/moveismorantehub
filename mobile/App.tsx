@@ -810,6 +810,7 @@ export default function App() {
           onClose={() => setAppSelectedOrder(null)}
           isDarkMode={isDarkMode}
           userRole={userProfile?.role}
+          userProfile={userProfile}
         />
 
         <MandatoryUpdateModal

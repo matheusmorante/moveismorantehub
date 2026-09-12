@@ -2,6 +2,7 @@ import Order from "../types/order.type";
 import { supabase } from '@/pages/utils/supabaseConfig';
 import { assertDeletedOrderId, canPermanentlyDeleteDraft } from './orderDeletionRules';
 import { buildCancelledReturn, clearReturnLink } from './returnCancellation';
+import { mapOrderFromDatabase } from './orderMapper';
 
 const TABLE_NAME = "orders";
 
@@ -38,20 +39,24 @@ export const restoreOrder = async (
 export const permanentDeleteDraftOrder = async (id: string): Promise<void> => {
     const { data: row, error: fetchError } = await supabase
         .from(TABLE_NAME)
-        .select('order_data')
+        .select('status, order_data')
         .eq('id', id)
         .single();
     if (fetchError) throw fetchError;
-    if (!canPermanentlyDeleteDraft(row?.order_data?.status)) {
+    const orderStatus = row?.status || row?.order_data?.status;
+    if (!canPermanentlyDeleteDraft(orderStatus)) {
         throw new Error('Somente pedidos em rascunho podem ser excluídos.');
     }
 
-    const deletedAt = new Date().toLocaleString('pt-BR');
+    const deletedAt = new Date().toISOString();
+    const rawLegacy = row.order_data || {};
     const { data, error } = await supabase
         .from(TABLE_NAME)
         .update({
-            order_data: { ...row.order_data, deleted: true, deletedAt },
-            updated_at: new Date().toISOString(),
+            deleted: true,
+            deleted_at: deletedAt,
+            order_data: { ...rawLegacy, deleted: true, deletedAt: new Date().toLocaleString('pt-BR') },
+            updated_at: deletedAt,
         })
         .eq('id', id)
         .select('id');
@@ -84,7 +89,7 @@ export const undoReturn = async (
             if (origError || !origRow) {
                 throw new Error("Pedido original não encontrado.");
             }
-            originalOrder = { ...origRow.order_data, id: String(origRow.id) } as Order;
+            originalOrder = mapOrderFromDatabase(origRow);
         } else {
             originalOrder = order;
             let returnId = originalOrder.returnOrderId;
@@ -93,8 +98,8 @@ export const undoReturn = async (
                 const { data: linkedReturns } = await supabase
                     .from(TABLE_NAME)
                     .select('id')
-                    .eq('order_data->>linkedOrderId', originalOrder.id)
-                    .eq('order_data->>orderType', 'return')
+                    .or(`linked_order_id.eq.${originalOrder.id},order_data->>linkedOrderId.eq.${originalOrder.id}`)
+                    .eq('order_type', 'return')
                     .limit(1);
                 
                 if (linkedReturns && linkedReturns.length > 0) {
@@ -115,7 +120,7 @@ export const undoReturn = async (
             if (fetchError || !returnRow) {
                 throw new Error("Pedido de devolução não encontrado.");
             }
-            returnOrder = { ...returnRow.order_data, id: String(returnRow.id) } as Order;
+            returnOrder = mapOrderFromDatabase(returnRow);
         }
 
         await updateOrderFn(returnOrder.id!, buildCancelledReturn(returnOrder), returnOrder);

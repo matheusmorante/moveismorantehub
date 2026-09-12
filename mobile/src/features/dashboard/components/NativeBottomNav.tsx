@@ -13,7 +13,8 @@ import {
   MoreHorizontal, 
   X, 
   ChevronRight,
-  Sparkles 
+  Sparkles,
+  Route
 } from 'lucide-react-native';
 
 export interface NavItemConfig {
@@ -61,8 +62,8 @@ export const NativeBottomNav: React.FC<Props> = ({
     },
     {
       key: 'entregas',
-      label: 'Entregas',
-      icon: Truck,
+      label: 'Operações',
+      icon: Route,
       url: `${WEB_URL}/schedule`,
       visible: true,
     },

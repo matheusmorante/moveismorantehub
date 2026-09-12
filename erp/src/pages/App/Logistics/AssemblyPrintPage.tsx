@@ -6,6 +6,7 @@ import { getShowcaseAssemblies } from '@/pages/utils/showcaseAssemblyService';
 import { formatToBRDate } from '@/pages/utils/formatters';
 import { formatOrderCode } from '@/pages/utils/orderCode';
 import Order from '@/pages/types/order.type';
+import { mapOrderFromDatabase } from '@/pages/utils/orderMapper';
 
 const AssemblyPrintPage = () => {
     const [searchParams] = useSearchParams();
@@ -21,16 +22,15 @@ const AssemblyPrintPage = () => {
         try {
             const settings = getSettings();
             
-            // 1. Fetch Orders
+            // 1. Fetch Orders com filtro server-side e mapeador estruturado
             const { data: dbOrders } = await supabase
                 .from('orders')
-                .select('id, order_data')
+                .select('id, status, order_type, deleted, order_data')
+                .eq('deleted', false)
+                .neq('status', 'cancelled')
                 .order('created_at', { ascending: false });
 
-            const allOrders = (dbOrders as any[] || []).map(row => ({
-                ...(row.order_data || {}),
-                id: String(row.id)
-            })) as Order[];
+            const allOrders = (dbOrders || []).map(row => mapOrderFromDatabase(row));
 
             const orderTasks = allOrders.filter(order => {
                 if (order.deleted || order.status === 'cancelled') return false;

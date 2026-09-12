@@ -111,15 +111,38 @@ export const saveOrder = async (order: Order): Promise<string> => {
         }
 
         const insertPayload = buildOrderPersistencePayload(orderToSave);
-        const { data, error } = await supabase
-            .from(TABLE_NAME)
-            .insert([insertPayload])
-            .select('id, order_data')
-            .single();
+        const orderItemsPayload = orderToSave.items || [];
+        const orderPaymentsPayload = orderToSave.payments || [];
 
-        if (error) throw error;
-        const rowId = (data as any)?.id;
-        const persistedIndex = getOrderIndex((data as any)?.order_data);
+        let rowId: string | null = null;
+        let persistedIndex: number | undefined = undefined;
+
+        // Persistência Transacional Atômica (orders + order_items + order_payments + order_data)
+        try {
+            const { data: rpcData, error: rpcError } = await supabase.rpc('save_order_transaction', {
+                p_order_id: null,
+                p_order_payload: insertPayload,
+                p_items: orderItemsPayload,
+                p_payments: orderPaymentsPayload,
+                p_is_update: false
+            });
+
+            if (rpcError) throw rpcError;
+            rowId = (rpcData as any)?.id;
+            persistedIndex = Number((rpcData as any)?.order_index || getOrderIndex((rpcData as any)?.order_data));
+        } catch (rpcErr) {
+            console.warn('[OrderCreate] Falha na RPC transacional, executando fallback padrão:', rpcErr);
+            const { data, error } = await supabase
+                .from(TABLE_NAME)
+                .insert([insertPayload])
+                .select('id, order_data')
+                .single();
+
+            if (error) throw error;
+            rowId = (data as any)?.id;
+            persistedIndex = getOrderIndex((data as any)?.order_data);
+        }
+
         if (!rowId || persistedIndex !== orderToSave.orderIndex) {
             throw new Error('O banco não confirmou o código do pedido. O cadastro foi interrompido.');
         }
@@ -283,12 +306,29 @@ export const updateOrder = async (
         }
 
         const updatePayload = buildOrderPersistencePayload(merged);
-        const { error } = await supabase
-            .from(TABLE_NAME)
-            .update(updatePayload)
-            .eq('id', id);
+        const orderItemsPayload = merged.items || [];
+        const orderPaymentsPayload = merged.payments || [];
 
-        if (error) throw error;
+        // Atualização Transacional Atômica (orders + order_items + order_payments + order_data)
+        try {
+            const { error: rpcError } = await supabase.rpc('save_order_transaction', {
+                p_order_id: String(id),
+                p_order_payload: updatePayload,
+                p_items: orderItemsPayload,
+                p_payments: orderPaymentsPayload,
+                p_is_update: true
+            });
+
+            if (rpcError) throw rpcError;
+        } catch (rpcErr) {
+            console.warn('[OrderUpdate] Falha na RPC transacional, executando fallback de update padrão:', rpcErr);
+            const { error } = await supabase
+                .from(TABLE_NAME)
+                .update(updatePayload)
+                .eq('id', id);
+
+            if (error) throw error;
+        }
 
         if (merged.orderType === 'sale' && canMaintainSaleStock(merged) && merged.status !== 'cancelled') {
             const orderCode = formatOrderCode(merged);

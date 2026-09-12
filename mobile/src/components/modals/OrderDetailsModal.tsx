@@ -11,9 +11,10 @@ interface Props {
   onClose: () => void;
   isDarkMode: boolean;
   userRole?: string;
+  userProfile?: any;
 }
 
-export const OrderDetailsModal: React.FC<Props> = ({ order, onClose, isDarkMode, userRole }) => {
+export const OrderDetailsModal: React.FC<Props> = ({ order, onClose, isDarkMode, userRole, userProfile }) => {
   const insets = useSafeAreaInsets();
   const [preparingDelivery, setPreparingDelivery] = useState(false);
   const [canStartDelivery, setCanStartDelivery] = useState(false);
@@ -55,10 +56,15 @@ export const OrderDetailsModal: React.FC<Props> = ({ order, onClose, isDarkMode,
     >
       <View style={[styles.modalContainer, { paddingTop: topInset }, isDarkMode && styles.modalContainerDark]}>
         {preparingDelivery ? (
-          <DeliveryPreparationScreen order={order} isDarkMode={isDarkMode} onBack={started => {
-            setPreparingDelivery(false);
-            if (started) onClose();
-          }} />
+          <DeliveryPreparationScreen
+            order={order}
+            isDarkMode={isDarkMode}
+            userProfile={userProfile}
+            onBack={started => {
+              setPreparingDelivery(false);
+              if (started) onClose();
+            }}
+          />
         ) : <>
         {/* Full-Screen Header */}
         <View style={[styles.headerRow, isDarkMode && styles.headerRowDark]}>

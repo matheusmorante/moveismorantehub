@@ -96,18 +96,17 @@ const PersonList = forwardRef<PersonListRef, PersonListProps>(({
             const loadCustomerOrderCounts = async () => {
                 const { data, error } = await supabase
                     .from('orders')
-                    .select('id, deleted, order_data');
+                    .select('id, deleted, customer_id, customer_name, customer_phone, customer_email, order_data')
+                    .eq('deleted', false);
                 if (error || !data) return;
 
                 const counts: Record<string, number> = {};
                 data.forEach((row: any) => {
-                    if (row.deleted) return;
-                    const orderData = row.order_data || {};
-                    const cData = orderData.customerData || {};
-                    const cId = cData.id || orderData.customerId;
-                    const cName = (cData.fullName || '').trim().toLowerCase();
-                    const cPhone = (cData.phone || '').trim();
-                    const cEmail = (cData.email || '').trim().toLowerCase();
+                    const cData = row.order_data?.customerData || {};
+                    const cId = row.customer_id || cData.id || row.order_data?.customerId;
+                    const cName = (row.customer_name || cData.fullName || '').trim().toLowerCase();
+                    const cPhone = (row.customer_phone || cData.phone || '').trim();
+                    const cEmail = (row.customer_email || cData.email || '').trim().toLowerCase();
 
                     people.forEach(person => {
                         const pId = String(person.id);

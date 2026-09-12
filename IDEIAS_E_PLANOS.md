@@ -4,7 +4,141 @@ Este arquivo centraliza planos, ideias e tarefas pendentes do projeto Morante Hu
 
 ---
 
-## 0. Centralização do Modal de Pedido no Meio da Tela & Botões Verticais
+## 0. Desligamento do READ Legado e Paridade 100% de Pedidos
+- **Status**: Concluído com Sucesso! 🚀
+- **Data**: 12/09/2026
+- **Solicitação**: Desligamento operacional da leitura legada (`order_data` e `orders.items`) no ERP e Mobile, mantendo integridade com as tabelas normalizadas (`orders`, `order_items`, `order_payments`), mantendo dual-write ativo e limpando dados residuais de teste.
+- **Implementações Executadas**:
+  1. **Auditoria Definitiva de Paridade Executada**:
+     - 875 de 875 pedidos de produção auditados e 100% equivalentes.
+     - 1.539 itens e 974 pagamentos perfeitamente mapeados e correspondentes.
+     - Relatório formal gerado em `docs/auditorias/order-normalization-parity-report.md`.
+     - Matriz canônica de paridade gerada em `erp/src/types/orderParityMapping.ts`.
+  2. **Desligamento do READ Legado**:
+     - `orderMapper.ts`: Mapeamento de itens migrado para priorizar `order_items` vindo do join relacional, mapeando colunas físicas (`product_id`, `variation_id`, `unit_price`, `unit_discount`, `cost_price`, `handling_type`) com fallback de segurança.
+     - `orderSearchQueries.ts`: `fetchOrderById` atualizado para fazer join explícito com `order_items (*)` e `order_payments (*)`.
+     - `orderSyncQueries.ts`: `subscribeToOrders` e queries de listagem padronizadas para consumir via `mapOrderFromDatabase` com colunas físicas normalizadas.
+     - `orderLifecycleOperations.ts`: `permanentDeleteDraftOrder` e `undoReturn` atualizados para consumir e alterar o status relacional físico de `orders`.
+  3. **Limpeza de Dados de Teste no Banco de Dados**:
+     - Pedidos de teste (`id LIKE 'test_%'` e `order_number LIKE '99000%'`) excluídos com sucesso das tabelas `orders`, `order_items` e `order_payments`.
+     - Zero pedidos de teste e zero clientes de teste remanescentes no banco de dados em produção.
+     - Preservação estrita das regras de negócio (sem exclusão física indevida de produtos para não violar integridade referencial).
+  4. **Garantia de Regras Invioláveis**:
+     - WRITE (dual-write na RPC `save_order_transaction`) mantido 100% ativo.
+     - Snapshots históricos autorizados (`item_snapshot`, `fullAddress`, `routeGeoJSON`) intactos.
+  5. **Diretriz de Identificador Único Obrigatório de Testes**:
+     - Qualquer rotina de teste (Playwright, E2E, Vitest de integração ou testes manuais) que persista dados no banco deve usar obrigatoriamente um identificador único padronizado (`testRunId`, prefixo `[TESTE_AUT]` ou sufixo `_test_<runId>`).
+     - É estritamente proibido criar dados de teste com identificação ambígua.
+     - O teardown / cleanup no `finally` deve referenciar esse ID único para garantir 100% de remoção sem resíduos na interface.
+
+---
+
+## 0. Auditoria e Normalização Segura do Banco Supabase / PostgreSQL
+- **Status**: Concluído com Sucesso! 🚀
+- **Data**: 12/09/2026
+- **Solicitação**: Auditoria completa e normalização segura de campos JSONB em entidades de negócio (pedidos, itens de pedido, recebimentos, notas fiscais, compras, financeiro, produtos e variações), seguindo boas práticas de PostgreSQL, sem perda de dados, com estratégia incremental e preservação de snapshots históricos.
+- **Implementações e Migrações Executadas**:
+  1. **Auditoria Real do Catálogo**:
+     - `orders`: 849 registros históricos totalmente preservados.
+     - `inbound_invoices`: 1 nota com 21 itens.
+     - `purchases`: 8 compras com 6 itens.
+     - `product_variations`: 269 variações já consolidadas em tabela própria com FK.
+     - `products`: 83 colunas estruturadas já existentes; JSONBs remanescentes mantidos para metadados fiscais e atributos dinâmicos.
+  2. **Novas Tabelas Relacionadas Criadas (Categoria B)**:
+     - `inbound_invoice_items`: Normalização de 1:N de itens de NF-e (21 itens migrados, FK para `inbound_invoices`, índices em `ean`, `ncm`, `product_id`, `variation_id`).
+     - `purchase_items`: Normalização 1:N de compras (6 itens migrados, FK para `purchases`).
+     - `goods_receipt_items`: Normalização 1:N de recebimentos físicos de mercadorias (tabela criada com FK, RLS e índices para CMPM/CMV).
+     - `order_items`: Normalização 1:N de pedidos de venda (1.508 itens migrados, FK para `orders`, índices B-Tree e RLS).
+     - `order_payments`: Normalização 1:N de formas de pagamento e parcelas (949 pagamentos migrados, FK para `orders`).
+  3. **Colunas Estruturadas Adicionadas em `orders` (Categoria A)**:
+     - `order_type`, `order_index`, `scheduled_date`, `scheduled_start_time`, `scheduled_end_time`, `delivery_method`, `delivery_status`, `delivery_arrived_at`, `delivery_started_at`, `delivery_finished_at`, `marketing_origin`, `items_subtotal`, `total_discount`, `total_cost`, `stock_processed`, `is_stock_checked`, `is_registered_in_bling`, `deleted`, `deleted_at`, `return_order_id`, `linked_order_id`.
+     - Índices B-Tree especializados em `status`, `order_type`, `order_number`, `order_index`, `customer_id`, `seller_id`, `scheduled_date`, `delivery_method`, `delivery_status`, `stock_processed`, `deleted` e `created_at DESC`.
+  4. **View `order_list_items` Otimizada**:
+     - Atualizada para ler preferencialmente das novas colunas físicas, acelerando a listagem de pedidos no ERP e no Mobile sem full scan JSONB.
+  5. **Arquitetura Definitiva Transacional (RPC `save_order_transaction`)**:
+     - Implementada a RPC atômica `public.save_order_transaction` no PostgreSQL.
+     - Persiste em uma única transação: `orders` (cabeçalho), `order_items` (itens normalizados com `item_snapshot`), `order_payments` (parcelas) e `order_data` (snapshot de compatibilidade temporário).
+     - Garantia de `ROLLBACK` total caso qualquer etapa falhe, impedindo pedidos parcialmente salvos.
+     - `orderHistoryService.ts` atualizado para invocar a RPC com fallback resiliente.
+  6. **Trigger de Fallback Legado Anti-Colisão (`sync_order_items_fallback`)**:
+     - Trigger temporário `AFTER INSERT OR UPDATE ON orders` que só atua se a requisição vier de clientes legados e se `order_items` estiver vazio para o pedido.
+     - Detecta automaticamente quando a RPC moderna já executou (`morante.in_order_transaction = true`), evitando duplicação, concorrência e trabalho redundante no banco.
+  7. **Migração de Readers e Writers Operacionais (Etapa 2 Concluída)**:
+     - `orderMapper.ts`: Migrado para priorizar a leitura de pagamentos da tabela normalizada `order_payments`, com fallback seguro e não-duplicante para `order_data.payments`.
+     - `orderSearchQueries.ts`: `fetchOrderById` atualizado para carregar `order_payments(*)` de forma eficiente via PostgREST join relacional.
+     - `operationalSchedule.ts`: `getOperationalScheduleDate` migrado para priorizar as colunas normalizadas `scheduled_date`, `scheduled_start_time` e `scheduled_end_time` com fallback para JSONB.
+     - `AgendaScreen.tsx`: Query ajustada para carregar colunas estruturadas de agendamento e filtrar por `deleted` relacional.
+     - `aiSummaryService.ts`: Migrado para filtrar primariamente por `orders.deleted` relacional.
+     - `order_fallback_telemetry`: Criada tabela leve de telemetria no PostgreSQL que monitora se e quando o fallback precisa atuar (`execution_count`, `items_fallback_count`, `payments_fallback_count`, `last_triggered_at`, `last_order_id`).
+     - **Comprovado em Banco:** Updates operacionais leves de campo (ex: `delivery_status = 'in_service'`) são 100% no-op para o trigger e não acionam telemetria nem reconstroem filhos.
+     - **Preservação Categoria C:** Mantidos permanentemente como JSONB: `item_snapshot`, endereço histórico da entrega, checklists operacionais com fotos e `payment_details` de adquirentes.
+  8. **Otimização de Egress e Eliminação de `select('*')`**:
+     - `fetchOrderById` migrado de `select('*, order_payments(*)')` para projeção explícita estrita de 34 colunas físicas de `orders` + 8 campos estruturais de `order_payments`, preservando `order_data` exclusivamente para os snapshots históricos e metadados Categoria C.
+  9. **Critérios para Descontinuação Futura do Fallback**:
+     - Somente após a telemetria do trigger registrar 0 acionamentos por 30+ dias em produção e a fila offline do mobile adotar o contrato direto de persistência.
+
+---
+
+## 0. Renomeação da Aba de Entregas para 'Operações' com Ícone Route
+- **Status**: Concluído com Sucesso! 🚀
+- **Data**: 12/09/2026
+- **Solicitação**: Na barra inferior de abas do app mobile, mudar o nome da aba de "Entregas" para "Operações" e utilizar o ícone `Route` da Lucide (`https://lucide.dev/icons/route`).
+- **Implementações Realizadas**:
+  - Em `mobile/src/features/dashboard/components/NativeBottomNav.tsx`:
+    - Importado o ícone `Route` de `lucide-react-native`.
+    - Atualizado o item da aba com `label: 'Operações'` e `icon: Route`.
+    - Preservada a chave interna `key: 'entregas'` e as rotas operacionais sem quebra de estado ou navegação existente.
+
+---
+
+## 0.1. Ícones de Navegação no Mapa: Seta Azul Pura & Equipe com Nome no Hover
+- **Status**: Concluído com Sucesso! 🚀
+- **Data**: 12/09/2026
+- **Solicitação**:
+  1. O ícone da minha posição (usuário logado / motorista) no mapa deve ser **apenas a seta mesmo, na cor azul**, sem círculo em volta nem halo.
+  2. A localização de quem está em processo de entrega (membros da equipe) deve continuar sendo o **caminhão (`🚚`)**, com o nome do usuário sendo mostrado **apenas quando houver hover** em cima do ícone do caminhão (e toque no nativo).
+- **Implementações Realizadas**:
+  1. **Minha Posição (Apenas a Seta Azul Pura)**:
+     - Removidos círculo azul de fundo, borda branca e halo.
+     - Marcador agora renderiza **apenas o glifo da seta de navegação** (`Navigation` de `lucide-react-native` rotacionado em -45° para apontar para o Norte/trajeto) em azul royal (`#2563eb` preenchido com contorno `#1d4ed8` e drop shadow suave de profundidade).
+     - Aplicado no app nativo ([DeliveryMarker.tsx](file:///c:/Users/Rosilene/Desktop/morantehub/mobile/src/features/logistics/components/deliveryMap/DeliveryMarker.tsx)) e no mapa Web/Leaflet ([DeliveryMapView.web.tsx](file:///c:/Users/Rosilene/Desktop/morantehub/mobile/src/features/logistics/components/deliveryMap/DeliveryMapView.web.tsx)).
+  2. **Equipe com Nome Apenas no Hover/Toque**:
+     - No web (`DeliveryMapView.web.tsx`): a badge do nome do entregador (`.team-member-badge`) oculta por padrão (`opacity: 0; visibility: hidden;`), revelando-se sob hover (`.team-member-container:hover .team-member-badge`).
+     - No app nativo (`DeliveryMarker.tsx`): o nome agora é condicionado a interação/toque no marcador (`showTeamName`), mantendo o mapa limpo.
+  3. **Manutenção de Status Operacional**: O indicador de integridade (bolinha verde se ativo ou `?` vermelho se sem sinal de GPS) continua presente no topo do caminhãozinho da equipe.
+
+---
+
+## 0.1. Calibração da Posição da Loja e Precisão Contínua do GPS no Mapa
+- **Status**: Concluído com Sucesso! 🚀
+- **Data**: 12/09/2026
+- **Problema**: Usuários dentro da loja física apareciam deslocados/afastados do pin da loja e sobre a rua.
+- **Causa Raiz**:
+  1. A coordenada da loja (`storeOriginCoords`) estava em `[-49.16948, -25.35205]`, cerca de 20 metros recuada no fundo do lote, longe do salão e da frente da loja.
+  2. O serviço de localização (`locationService.ts`) utilizava `Location.Accuracy.Balanced` (baseado em triangulação de Wi-Fi/torres celulares), que tem margem de erro de 30-50m, provocando drift para a rua.
+  3. O hook `useDriverLocation.ts` capturava a posição uma única vez na inicialização sem monitoramento ativo por satélite.
+  4. O âncora visual do marcador do membro da equipe (`anchor: { x: 0.5, y: 0.5 }`) projetava o caminhão 14px abaixo da coordenada real de GPS devido à etiqueta com o nome.
+- **Soluções Aplicadas**:
+  1. **Calibração da Loja Física (R. Cascavel, 306)**: Atualizadas as coordenadas da loja para `latitude: -25.35212, longitude: -49.16933` no Supabase (`settings.storeOriginCoords`), no ERP e no Mobile.
+  2. **GPS de Alta Precisão (Satélite GNSS)**: Alterado `accuracy` para `Location.Accuracy.High` e reduzido o tempo de cache para 10s.
+  3. **Monitoramento Contínuo com Calibração Ativa**: Implementado `watchDriverLocation` com `Location.watchPositionAsync`, atualizando a posição em tempo real a cada 2 metros ou 3 segundos conforme os satélites refinam a posição.
+  4. **Correção de Âncora Visual**: Ajustado `anchor: { x: 0.5, y: 0.72 }` para alinhar o corpo do caminhãozinho perfeitamente no ponto exato do GPS.
+
+---
+
+## 0.1. Compartilhamento de Localização Condicional à Entrega & Modal de Confirmação de Privacidade
+- **Status**: Concluído com Sucesso! 🚀
+- **Data**: 12/09/2026
+- **Melhorias Aplicadas**:
+  1. **Privacidade Operacional (Visibilidade Condicional)**: A localização de um usuário só fica visível para os outros membros no mapa quando ele estiver ativamente com uma entrega em andamento (`is_delivering = true`), da 1ª etapa até a finalização do pedido.
+  2. **Encerramento Imediato**: Ao finalizar o pedido (`DELIVERY_FINISH`), registrar insucesso (`unattended`) ou cancelar a rota, o app aciona `stopDeliveringBroadcast` e o usuário é ocultado imediatamente do mapa dos colegas.
+  3. **Modal de Confirmação de Privacidade**: Criado `DeliveryStartConfirmModal.tsx`, que intercepta o início da saída e esclarece: *"Ao iniciar a entrega, a sua posição em tempo real ficará visível no mapa para os outros membros da equipe até que todas as etapas deste pedido sejam finalizadas."*
+  4. **Banco Supabase**: Aplicada migration `20260912123500_add_delivering_state_to_team_locations.sql` adicionando `is_delivering`, `active_order_id` e `active_order_code` com índice condicional.
+  5. **Testes Unitários**: Criada suíte `teamLocationPrivacy.test.ts` com 3 testes aprovados (100%).
+
+---
+
+## 0.1. Centralização do Modal de Pedido no Meio da Tela & Botões Verticais
 - **Status**: Concluído com Sucesso! 🚀
 - **Data**: 12/09/2026
 - **Melhorias Aplicadas**:
@@ -83,11 +217,15 @@ Este arquivo centraliza planos, ideias e tarefas pendentes do projeto Morante Hu
   - Perfil do Usuário ERP (`erp/src/pages/App/Profile/Index.tsx`): Botão "Baixar App Android Oficial"
   - Menu de Perfil no Topo do ERP (`erp/src/AppLayout.tsx`): Botão "Baixar App Android"
   - Menu de Logística do ERP (`erp/src/components/layout/DesktopNav.tsx`): Botão "Baixar App Android"
-- **Publicação OTA (Concluído)**:
+- **Publicação OTA (Concluído com Sucesso)**:
+  - Data: 12/09/2026
+  - Mensagem: *"Ajustes layout operacao e botoes mapa"*
   - Branch: `production`
-  - Update Group ID: `914f1e65-122c-4c4d-a522-53f3ab730edf`
-  - Android Update ID: `01a09194-c73c-7a28-9070-31b315b9f9a2`
-  - Painel EAS: `https://expo.dev/accounts/morante/projects/mobile/updates/914f1e65-122c-4c4d-a522-53f3ab730edf`
+  - Runtime Version: `1.6.0`
+  - Plataforma: `android`
+  - Update Group ID: `a37f10fd-05e9-4e09-b678-5d0f3d8ee131`
+  - Android Update ID: `01a09638-87b4-7e32-9c2d-595bca816de0`
+  - Painel EAS: `https://expo.dev/accounts/morante/projects/mobile/updates/a37f10fd-05e9-4e09-b678-5d0f3d8ee131`
 
 ---
 

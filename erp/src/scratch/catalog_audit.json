@@ -1,0 +1,852 @@
+{
+  "jsonCols": [
+    {
+      "table_name": "app_notifications",
+      "column_name": "order_data",
+      "data_type": "jsonb",
+      "udt_name": "jsonb",
+      "is_nullable": "YES",
+      "column_default": null
+    },
+    {
+      "table_name": "attendance_logs",
+      "column_name": "structured_data",
+      "data_type": "jsonb",
+      "udt_name": "jsonb",
+      "is_nullable": "YES",
+      "column_default": null
+    },
+    {
+      "table_name": "facebook_catalog_settings",
+      "column_name": "column_mappings",
+      "data_type": "jsonb",
+      "udt_name": "jsonb",
+      "is_nullable": "NO",
+      "column_default": "'{}'::jsonb"
+    },
+    {
+      "table_name": "goods_receipts",
+      "column_name": "items",
+      "data_type": "jsonb",
+      "udt_name": "jsonb",
+      "is_nullable": "NO",
+      "column_default": "'[]'::jsonb"
+    },
+    {
+      "table_name": "inbound_invoices",
+      "column_name": "emitente_endereco",
+      "data_type": "jsonb",
+      "udt_name": "jsonb",
+      "is_nullable": "NO",
+      "column_default": "'{}'::jsonb"
+    },
+    {
+      "table_name": "inbound_invoices",
+      "column_name": "extraction_confidence",
+      "data_type": "jsonb",
+      "udt_name": "jsonb",
+      "is_nullable": "NO",
+      "column_default": "'{}'::jsonb"
+    },
+    {
+      "table_name": "inbound_invoices",
+      "column_name": "extraction_warnings",
+      "data_type": "jsonb",
+      "udt_name": "jsonb",
+      "is_nullable": "NO",
+      "column_default": "'[]'::jsonb"
+    },
+    {
+      "table_name": "inbound_invoices",
+      "column_name": "itens",
+      "data_type": "jsonb",
+      "udt_name": "jsonb",
+      "is_nullable": "NO",
+      "column_default": "'[]'::jsonb"
+    },
+    {
+      "table_name": "inbound_invoices",
+      "column_name": "raw_extraction",
+      "data_type": "jsonb",
+      "udt_name": "jsonb",
+      "is_nullable": "YES",
+      "column_default": null
+    },
+    {
+      "table_name": "label_art_configs",
+      "column_name": "art_config",
+      "data_type": "jsonb",
+      "udt_name": "jsonb",
+      "is_nullable": "NO",
+      "column_default": "'{}'::jsonb"
+    },
+    {
+      "table_name": "label_layouts",
+      "column_name": "art_config",
+      "data_type": "jsonb",
+      "udt_name": "jsonb",
+      "is_nullable": "NO",
+      "column_default": "'{}'::jsonb"
+    },
+    {
+      "table_name": "label_layouts",
+      "column_name": "extra_fields",
+      "data_type": "jsonb",
+      "udt_name": "jsonb",
+      "is_nullable": "YES",
+      "column_default": null
+    },
+    {
+      "table_name": "label_layouts",
+      "column_name": "extra_fields_promo",
+      "data_type": "jsonb",
+      "udt_name": "jsonb",
+      "is_nullable": "YES",
+      "column_default": null
+    },
+    {
+      "table_name": "orders",
+      "column_name": "items",
+      "data_type": "jsonb",
+      "udt_name": "jsonb",
+      "is_nullable": "YES",
+      "column_default": "'[]'::jsonb"
+    },
+    {
+      "table_name": "orders",
+      "column_name": "order_data",
+      "data_type": "jsonb",
+      "udt_name": "jsonb",
+      "is_nullable": "YES",
+      "column_default": "'{}'::jsonb"
+    },
+    {
+      "table_name": "people",
+      "column_name": "full_address",
+      "data_type": "jsonb",
+      "udt_name": "jsonb",
+      "is_nullable": "YES",
+      "column_default": "'{}'::jsonb"
+    },
+    {
+      "table_name": "post_creator_element_models",
+      "column_name": "reference_files",
+      "data_type": "jsonb",
+      "udt_name": "jsonb",
+      "is_nullable": "NO",
+      "column_default": "'[]'::jsonb"
+    },
+    {
+      "table_name": "post_templates",
+      "column_name": "assets",
+      "data_type": "jsonb",
+      "udt_name": "jsonb",
+      "is_nullable": "YES",
+      "column_default": "'[]'::jsonb"
+    },
+    {
+      "table_name": "post_templates",
+      "column_name": "extras",
+      "data_type": "jsonb",
+      "udt_name": "jsonb",
+      "is_nullable": "YES",
+      "column_default": "'[]'::jsonb"
+    },
+    {
+      "table_name": "post_templates",
+      "column_name": "fields",
+      "data_type": "jsonb",
+      "udt_name": "jsonb",
+      "is_nullable": "YES",
+      "column_default": "'[]'::jsonb"
+    },
+    {
+      "table_name": "post_templates",
+      "column_name": "formats",
+      "data_type": "jsonb",
+      "udt_name": "jsonb",
+      "is_nullable": "YES",
+      "column_default": "'[\"4:5\"]'::jsonb"
+    },
+    {
+      "table_name": "post_templates",
+      "column_name": "generation_config",
+      "data_type": "jsonb",
+      "udt_name": "jsonb",
+      "is_nullable": "YES",
+      "column_default": "'{}'::jsonb"
+    },
+    {
+      "table_name": "post_templates",
+      "column_name": "image_rules",
+      "data_type": "jsonb",
+      "udt_name": "jsonb",
+      "is_nullable": "YES",
+      "column_default": "'{}'::jsonb"
+    },
+    {
+      "table_name": "post_templates",
+      "column_name": "layout",
+      "data_type": "jsonb",
+      "udt_name": "jsonb",
+      "is_nullable": "YES",
+      "column_default": "'[]'::jsonb"
+    },
+    {
+      "table_name": "post_templates",
+      "column_name": "reserved_areas",
+      "data_type": "jsonb",
+      "udt_name": "jsonb",
+      "is_nullable": "YES",
+      "column_default": "'[]'::jsonb"
+    },
+    {
+      "table_name": "product_variations",
+      "column_name": "attributes",
+      "data_type": "jsonb",
+      "udt_name": "jsonb",
+      "is_nullable": "NO",
+      "column_default": "'{}'::jsonb"
+    },
+    {
+      "table_name": "products",
+      "column_name": "combo_items",
+      "data_type": "jsonb",
+      "udt_name": "jsonb",
+      "is_nullable": "YES",
+      "column_default": null
+    },
+    {
+      "table_name": "products",
+      "column_name": "extra_dimensions",
+      "data_type": "jsonb",
+      "udt_name": "jsonb",
+      "is_nullable": "YES",
+      "column_default": null
+    },
+    {
+      "table_name": "products",
+      "column_name": "fiscal",
+      "data_type": "jsonb",
+      "udt_name": "jsonb",
+      "is_nullable": "YES",
+      "column_default": null
+    },
+    {
+      "table_name": "products",
+      "column_name": "images",
+      "data_type": "jsonb",
+      "udt_name": "jsonb",
+      "is_nullable": "YES",
+      "column_default": "'[]'::jsonb"
+    },
+    {
+      "table_name": "products",
+      "column_name": "initial_stock_entries",
+      "data_type": "jsonb",
+      "udt_name": "jsonb",
+      "is_nullable": "YES",
+      "column_default": null
+    },
+    {
+      "table_name": "products",
+      "column_name": "notification_config",
+      "data_type": "jsonb",
+      "udt_name": "jsonb",
+      "is_nullable": "YES",
+      "column_default": null
+    },
+    {
+      "table_name": "products",
+      "column_name": "supplier_ids",
+      "data_type": "ARRAY",
+      "udt_name": "_uuid",
+      "is_nullable": "YES",
+      "column_default": "'{}'::uuid[]"
+    },
+    {
+      "table_name": "products",
+      "column_name": "technical_specs",
+      "data_type": "jsonb",
+      "udt_name": "jsonb",
+      "is_nullable": "YES",
+      "column_default": null
+    },
+    {
+      "table_name": "products",
+      "column_name": "title_order",
+      "data_type": "jsonb",
+      "udt_name": "jsonb",
+      "is_nullable": "YES",
+      "column_default": null
+    },
+    {
+      "table_name": "profiles",
+      "column_name": "roles",
+      "data_type": "ARRAY",
+      "udt_name": "_text",
+      "is_nullable": "YES",
+      "column_default": null
+    },
+    {
+      "table_name": "purchases",
+      "column_name": "attachments",
+      "data_type": "jsonb",
+      "udt_name": "jsonb",
+      "is_nullable": "YES",
+      "column_default": "'[]'::jsonb"
+    },
+    {
+      "table_name": "purchases",
+      "column_name": "items",
+      "data_type": "jsonb",
+      "udt_name": "jsonb",
+      "is_nullable": "YES",
+      "column_default": "'[]'::jsonb"
+    },
+    {
+      "table_name": "push_tokens",
+      "column_name": "device_info",
+      "data_type": "jsonb",
+      "udt_name": "jsonb",
+      "is_nullable": "YES",
+      "column_default": null
+    },
+    {
+      "table_name": "rede_transactions",
+      "column_name": "raw_response",
+      "data_type": "jsonb",
+      "udt_name": "jsonb",
+      "is_nullable": "YES",
+      "column_default": null
+    },
+    {
+      "table_name": "settings",
+      "column_name": "data",
+      "data_type": "jsonb",
+      "udt_name": "jsonb",
+      "is_nullable": "NO",
+      "column_default": null
+    },
+    {
+      "table_name": "store_style_settings",
+      "column_name": "marketing_defaults",
+      "data_type": "jsonb",
+      "udt_name": "jsonb",
+      "is_nullable": "NO",
+      "column_default": "'{}'::jsonb"
+    }
+  ],
+  "fks": [
+    {
+      "table_name": "accounts_payable",
+      "column_name": "category_id",
+      "foreign_table_name": "financial_categories",
+      "foreign_column_name": "id"
+    },
+    {
+      "table_name": "attribute_values",
+      "column_name": "attribute_id",
+      "foreign_table_name": "attributes",
+      "foreign_column_name": "id"
+    },
+    {
+      "table_name": "categories",
+      "column_name": "parent_id",
+      "foreign_table_name": "categories",
+      "foreign_column_name": "id"
+    },
+    {
+      "table_name": "category_relationships",
+      "column_name": "child_id",
+      "foreign_table_name": "categories",
+      "foreign_column_name": "id"
+    },
+    {
+      "table_name": "category_relationships",
+      "column_name": "parent_id",
+      "foreign_table_name": "categories",
+      "foreign_column_name": "id"
+    },
+    {
+      "table_name": "desire_matches",
+      "column_name": "desire_id",
+      "foreign_table_name": "customer_desires",
+      "foreign_column_name": "id"
+    },
+    {
+      "table_name": "desire_matches",
+      "column_name": "product_id",
+      "foreign_table_name": "products",
+      "foreign_column_name": "id"
+    },
+    {
+      "table_name": "inbound_invoices",
+      "column_name": "receipt_id",
+      "foreign_table_name": "goods_receipts",
+      "foreign_column_name": "id"
+    },
+    {
+      "table_name": "inbound_invoices",
+      "column_name": "supplier_id",
+      "foreign_table_name": "people",
+      "foreign_column_name": "id"
+    },
+    {
+      "table_name": "order_status_history",
+      "column_name": "order_id",
+      "foreign_table_name": "orders",
+      "foreign_column_name": "id"
+    },
+    {
+      "table_name": "post_creator_campaign_element_models",
+      "column_name": "campaign_id",
+      "foreign_table_name": "post_creator_campaigns",
+      "foreign_column_name": "id"
+    },
+    {
+      "table_name": "post_creator_campaign_element_models",
+      "column_name": "element_model_id",
+      "foreign_table_name": "post_creator_element_models",
+      "foreign_column_name": "id"
+    },
+    {
+      "table_name": "post_creator_campaign_element_models",
+      "column_name": "opportunity_id",
+      "foreign_table_name": "opportunities",
+      "foreign_column_name": "id"
+    },
+    {
+      "table_name": "post_creator_element_models",
+      "column_name": "opportunity_id",
+      "foreign_table_name": "opportunities",
+      "foreign_column_name": "id"
+    },
+    {
+      "table_name": "post_creator_previews",
+      "column_name": "campaign_id",
+      "foreign_table_name": "post_creator_campaigns",
+      "foreign_column_name": "id"
+    },
+    {
+      "table_name": "product_analytics",
+      "column_name": "product_id",
+      "foreign_table_name": "products",
+      "foreign_column_name": "id"
+    },
+    {
+      "table_name": "product_categories",
+      "column_name": "category_id",
+      "foreign_table_name": "categories",
+      "foreign_column_name": "id"
+    },
+    {
+      "table_name": "product_categories",
+      "column_name": "product_id",
+      "foreign_table_name": "products",
+      "foreign_column_name": "id"
+    },
+    {
+      "table_name": "product_images",
+      "column_name": "product_id",
+      "foreign_table_name": "products",
+      "foreign_column_name": "id"
+    },
+    {
+      "table_name": "product_price_history",
+      "column_name": "product_id",
+      "foreign_table_name": "products",
+      "foreign_column_name": "id"
+    },
+    {
+      "table_name": "product_supplier_codes",
+      "column_name": "product_id",
+      "foreign_table_name": "products",
+      "foreign_column_name": "id"
+    },
+    {
+      "table_name": "product_supplier_codes",
+      "column_name": "product_variation_id",
+      "foreign_table_name": "product_variations",
+      "foreign_column_name": "id"
+    },
+    {
+      "table_name": "product_variations",
+      "column_name": "product_id",
+      "foreign_table_name": "products",
+      "foreign_column_name": "id"
+    },
+    {
+      "table_name": "products",
+      "column_name": "category_id",
+      "foreign_table_name": "categories",
+      "foreign_column_name": "id"
+    },
+    {
+      "table_name": "products",
+      "column_name": "material_id",
+      "foreign_table_name": "materials",
+      "foreign_column_name": "id"
+    },
+    {
+      "table_name": "products",
+      "column_name": "opportunity_id",
+      "foreign_table_name": "opportunities",
+      "foreign_column_name": "id"
+    }
+  ],
+  "indexes": [
+    {
+      "tablename": "goods_receipts",
+      "indexname": "goods_receipts_pkey",
+      "indexdef": "CREATE UNIQUE INDEX goods_receipts_pkey ON public.goods_receipts USING btree (id)"
+    },
+    {
+      "tablename": "inbound_invoices",
+      "indexname": "idx_inbound_invoices_chave",
+      "indexdef": "CREATE INDEX idx_inbound_invoices_chave ON public.inbound_invoices USING btree (chave_acesso)"
+    },
+    {
+      "tablename": "inbound_invoices",
+      "indexname": "idx_inbound_invoices_data_emissao",
+      "indexdef": "CREATE INDEX idx_inbound_invoices_data_emissao ON public.inbound_invoices USING btree (data_emissao DESC)"
+    },
+    {
+      "tablename": "inbound_invoices",
+      "indexname": "idx_inbound_invoices_extraction_status",
+      "indexdef": "CREATE INDEX idx_inbound_invoices_extraction_status ON public.inbound_invoices USING btree (extraction_status, updated_at DESC)"
+    },
+    {
+      "tablename": "inbound_invoices",
+      "indexname": "idx_inbound_invoices_supplier_id",
+      "indexdef": "CREATE INDEX idx_inbound_invoices_supplier_id ON public.inbound_invoices USING btree (supplier_id)"
+    },
+    {
+      "tablename": "inbound_invoices",
+      "indexname": "inbound_invoices_chave_acesso_key",
+      "indexdef": "CREATE UNIQUE INDEX inbound_invoices_chave_acesso_key ON public.inbound_invoices USING btree (chave_acesso)"
+    },
+    {
+      "tablename": "inbound_invoices",
+      "indexname": "inbound_invoices_pkey",
+      "indexdef": "CREATE UNIQUE INDEX inbound_invoices_pkey ON public.inbound_invoices USING btree (id)"
+    },
+    {
+      "tablename": "inventory_moves",
+      "indexname": "inventory_moves_pkey",
+      "indexdef": "CREATE UNIQUE INDEX inventory_moves_pkey ON public.inventory_moves USING btree (id)"
+    },
+    {
+      "tablename": "orders",
+      "indexname": "orders_pkey",
+      "indexdef": "CREATE UNIQUE INDEX orders_pkey ON public.orders USING btree (id)"
+    },
+    {
+      "tablename": "people",
+      "indexname": "people_pkey",
+      "indexdef": "CREATE UNIQUE INDEX people_pkey ON public.people USING btree (id)"
+    },
+    {
+      "tablename": "product_variations",
+      "indexname": "idx_product_variations_product_id",
+      "indexdef": "CREATE INDEX idx_product_variations_product_id ON public.product_variations USING btree (product_id)"
+    },
+    {
+      "tablename": "product_variations",
+      "indexname": "product_variations_pkey",
+      "indexdef": "CREATE UNIQUE INDEX product_variations_pkey ON public.product_variations USING btree (id)"
+    },
+    {
+      "tablename": "product_variations",
+      "indexname": "product_variations_sku_key",
+      "indexdef": "CREATE UNIQUE INDEX product_variations_sku_key ON public.product_variations USING btree (sku)"
+    },
+    {
+      "tablename": "products",
+      "indexname": "idx_products_category_id",
+      "indexdef": "CREATE INDEX idx_products_category_id ON public.products USING btree (category_id)"
+    },
+    {
+      "tablename": "products",
+      "indexname": "idx_products_created_at",
+      "indexdef": "CREATE INDEX idx_products_created_at ON public.products USING btree (created_at DESC)"
+    },
+    {
+      "tablename": "products",
+      "indexname": "idx_products_is_salvado",
+      "indexdef": "CREATE INDEX idx_products_is_salvado ON public.products USING btree (is_salvado) WHERE (is_salvado = true)"
+    },
+    {
+      "tablename": "products",
+      "indexname": "idx_products_name_trgm",
+      "indexdef": "CREATE INDEX idx_products_name_trgm ON public.products USING gin (name gin_trgm_ops)"
+    },
+    {
+      "tablename": "products",
+      "indexname": "idx_products_price",
+      "indexdef": "CREATE INDEX idx_products_price ON public.products USING btree (price)"
+    },
+    {
+      "tablename": "products",
+      "indexname": "idx_products_status",
+      "indexdef": "CREATE INDEX idx_products_status ON public.products USING btree (status)"
+    },
+    {
+      "tablename": "products",
+      "indexname": "products_pkey",
+      "indexdef": "CREATE UNIQUE INDEX products_pkey ON public.products USING btree (id)"
+    },
+    {
+      "tablename": "products",
+      "indexname": "products_slug_key",
+      "indexdef": "CREATE UNIQUE INDEX products_slug_key ON public.products USING btree (slug)"
+    },
+    {
+      "tablename": "purchases",
+      "indexname": "purchases_pkey",
+      "indexdef": "CREATE UNIQUE INDEX purchases_pkey ON public.purchases USING btree (id)"
+    }
+  ],
+  "tables": [
+    {
+      "table_name": "accounts_payable",
+      "table_type": "BASE TABLE"
+    },
+    {
+      "table_name": "accounts_receivable",
+      "table_type": "BASE TABLE"
+    },
+    {
+      "table_name": "admins",
+      "table_type": "BASE TABLE"
+    },
+    {
+      "table_name": "api_configurations",
+      "table_type": "BASE TABLE"
+    },
+    {
+      "table_name": "api_usage_daily",
+      "table_type": "BASE TABLE"
+    },
+    {
+      "table_name": "api_usage_logs",
+      "table_type": "BASE TABLE"
+    },
+    {
+      "table_name": "app_notifications",
+      "table_type": "BASE TABLE"
+    },
+    {
+      "table_name": "assemblies",
+      "table_type": "BASE TABLE"
+    },
+    {
+      "table_name": "attendance_logs",
+      "table_type": "BASE TABLE"
+    },
+    {
+      "table_name": "attribute_values",
+      "table_type": "BASE TABLE"
+    },
+    {
+      "table_name": "attributes",
+      "table_type": "BASE TABLE"
+    },
+    {
+      "table_name": "banners",
+      "table_type": "BASE TABLE"
+    },
+    {
+      "table_name": "catalog_identity_repair_log",
+      "table_type": "BASE TABLE"
+    },
+    {
+      "table_name": "catalog_variation_repair_map",
+      "table_type": "BASE TABLE"
+    },
+    {
+      "table_name": "categories",
+      "table_type": "BASE TABLE"
+    },
+    {
+      "table_name": "category_relationships",
+      "table_type": "BASE TABLE"
+    },
+    {
+      "table_name": "customer_desires",
+      "table_type": "BASE TABLE"
+    },
+    {
+      "table_name": "delivery_summaries",
+      "table_type": "BASE TABLE"
+    },
+    {
+      "table_name": "delivery_summary_audio_cache",
+      "table_type": "BASE TABLE"
+    },
+    {
+      "table_name": "desire_matches",
+      "table_type": "BASE TABLE"
+    },
+    {
+      "table_name": "facebook_catalog_settings",
+      "table_type": "BASE TABLE"
+    },
+    {
+      "table_name": "financial_categories",
+      "table_type": "BASE TABLE"
+    },
+    {
+      "table_name": "financial_transactions",
+      "table_type": "BASE TABLE"
+    },
+    {
+      "table_name": "goods_receipts",
+      "table_type": "BASE TABLE"
+    },
+    {
+      "table_name": "inbound_invoices",
+      "table_type": "BASE TABLE"
+    },
+    {
+      "table_name": "inventory_move_identity_audit",
+      "table_type": "VIEW"
+    },
+    {
+      "table_name": "inventory_moves",
+      "table_type": "BASE TABLE"
+    },
+    {
+      "table_name": "label_art_configs",
+      "table_type": "BASE TABLE"
+    },
+    {
+      "table_name": "label_layouts",
+      "table_type": "BASE TABLE"
+    },
+    {
+      "table_name": "materials",
+      "table_type": "BASE TABLE"
+    },
+    {
+      "table_name": "opportunities",
+      "table_type": "BASE TABLE"
+    },
+    {
+      "table_name": "order_status_history",
+      "table_type": "BASE TABLE"
+    },
+    {
+      "table_name": "orders",
+      "table_type": "BASE TABLE"
+    },
+    {
+      "table_name": "people",
+      "table_type": "BASE TABLE"
+    },
+    {
+      "table_name": "post_creator_campaign_element_models",
+      "table_type": "BASE TABLE"
+    },
+    {
+      "table_name": "post_creator_campaigns",
+      "table_type": "BASE TABLE"
+    },
+    {
+      "table_name": "post_creator_element_models",
+      "table_type": "BASE TABLE"
+    },
+    {
+      "table_name": "post_creator_global_rules",
+      "table_type": "BASE TABLE"
+    },
+    {
+      "table_name": "post_creator_previews",
+      "table_type": "BASE TABLE"
+    },
+    {
+      "table_name": "post_share_tokens",
+      "table_type": "BASE TABLE"
+    },
+    {
+      "table_name": "post_templates",
+      "table_type": "BASE TABLE"
+    },
+    {
+      "table_name": "product_analytics",
+      "table_type": "BASE TABLE"
+    },
+    {
+      "table_name": "product_categories",
+      "table_type": "BASE TABLE"
+    },
+    {
+      "table_name": "product_images",
+      "table_type": "BASE TABLE"
+    },
+    {
+      "table_name": "product_materials",
+      "table_type": "BASE TABLE"
+    },
+    {
+      "table_name": "product_price_history",
+      "table_type": "BASE TABLE"
+    },
+    {
+      "table_name": "product_supplier_codes",
+      "table_type": "BASE TABLE"
+    },
+    {
+      "table_name": "product_variations",
+      "table_type": "BASE TABLE"
+    },
+    {
+      "table_name": "products",
+      "table_type": "BASE TABLE"
+    },
+    {
+      "table_name": "profiles",
+      "table_type": "BASE TABLE"
+    },
+    {
+      "table_name": "purchases",
+      "table_type": "BASE TABLE"
+    },
+    {
+      "table_name": "push_tokens",
+      "table_type": "BASE TABLE"
+    },
+    {
+      "table_name": "rede_config",
+      "table_type": "BASE TABLE"
+    },
+    {
+      "table_name": "rede_transactions",
+      "table_type": "BASE TABLE"
+    },
+    {
+      "table_name": "sefaz_nsu_control",
+      "table_type": "BASE TABLE"
+    },
+    {
+      "table_name": "settings",
+      "table_type": "BASE TABLE"
+    },
+    {
+      "table_name": "showcase_assemblies",
+      "table_type": "BASE TABLE"
+    },
+    {
+      "table_name": "showroom_assemblies",
+      "table_type": "BASE TABLE"
+    },
+    {
+      "table_name": "store_style_settings",
+      "table_type": "BASE TABLE"
+    },
+    {
+      "table_name": "team_locations",
+      "table_type": "BASE TABLE"
+    }
+  ]
+}
