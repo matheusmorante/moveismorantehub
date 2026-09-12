@@ -13,6 +13,7 @@ import { LogisticsOrderCard } from '../components/LogisticsOrderCard';
 interface Props {
   isDarkMode: boolean;
   isAdmin: boolean;
+  userProfile?: any;
   onSelectOrder?: (order: any) => void;
   isEmbeddedInHub?: boolean;
   title?: string;
@@ -21,6 +22,8 @@ interface Props {
 
 export const NativeLogisticsScreen: React.FC<Props> = ({
   isDarkMode,
+  isAdmin,
+  userProfile,
   onSelectOrder,
   isEmbeddedInHub = false,
   title,
@@ -276,6 +279,7 @@ export const NativeLogisticsScreen: React.FC<Props> = ({
     return (
       <TodayDeliveriesScreen
         isDarkMode={isDarkMode}
+        userProfile={userProfile}
         onBack={() => setShowTodayMap(false)}
         onSelectOrder={(o) => onSelectOrder && onSelectOrder(o)}
       />

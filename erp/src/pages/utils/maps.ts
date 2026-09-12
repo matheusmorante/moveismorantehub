@@ -214,16 +214,8 @@ export const geocodeAddress = async (address: CustomerData['fullAddress'] | stri
         });
     }
 
-    // Fallback secundário por coordenadas de bairro/cidade conhecidas se geocoder não retornar
-    const fallbackCoords = getNeighborhoodCoords(neighborhood, city);
-    if (fallbackCoords) {
-        console.info("[geocodeAddress] Utilizando coordenadas de aproximação por bairro/cidade:", fallbackCoords);
-        return {
-            coords: [fallbackCoords.lng, fallbackCoords.lat] as [number, number],
-            isPrecision: false
-        };
-    }
-
+    // Se a geocodificação direta falhar, não aplicar fallback cego de bairro/cidade
+    // para evitar que entregas sejam marcadas em localizações incorretas.
     return null;
 };
 
@@ -306,7 +298,7 @@ export const autoCalculateRouteDistance = async (address: CustomerData['fullAddr
     try {
         const settings = getSettings();
         const apiKey = getEffectiveGoogleMapsApiKey();
-        const origin: [number, number] = settings.storeOriginCoords || [-49.16928181659719, -25.352030536045138];
+        const origin: [number, number] = settings.storeOriginCoords || [-49.16948, -25.35205];
 
         console.info("[autoCalculateRouteDistance] Iniciando cálculo de distância para:", address);
 
@@ -410,7 +402,7 @@ export const searchAddressSuggestions = async (query: string, city?: string, sta
         if (google?.maps?.places?.AutocompleteService) {
             try {
                 const autocompleteService = new google.maps.places.AutocompleteService();
-                const originCoords = settings.storeOriginCoords || [-49.1692, -25.3520];
+                const originCoords = settings.storeOriginCoords || [-49.16948, -25.35205];
                 const locationLatLng = google?.maps?.LatLng ? new google.maps.LatLng(originCoords[1], originCoords[0]) : undefined;
 
                 const searchInput = city ? `${query.trim()}, ${city}, ${stateLabel}` : `${query.trim()}, ${stateLabel}`;

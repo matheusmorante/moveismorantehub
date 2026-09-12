@@ -186,9 +186,15 @@ export const saveGoodsReceiptDraft = async (draftData: Partial<GoodsReceipt>): P
 
 // Finaliza o recebimento: muda status para 'received', lança as entradas no estoque
 export const finalizeGoodsReceipt = async (receipt: GoodsReceipt): Promise<void> => {
+    const localList = getStoredReceipts();
+    const existingIndex = localList.findIndex((item) => item.id === receipt.id);
+    const existing = existingIndex !== -1 ? localList[existingIndex] : null;
+
+    const receiptIndex = receipt.receiptIndex || existing?.receiptIndex || await getNextGoodsReceiptIndex(localList);
     const now = new Date().toISOString();
     const finalizedReceipt: GoodsReceipt = {
         ...receipt,
+        receiptIndex,
         status: 'received',
         isDraft: false,
         updatedAt: now,
@@ -216,10 +222,8 @@ export const finalizeGoodsReceipt = async (receipt: GoodsReceipt): Promise<void>
     }
 
     // 2. Atualizar localmente
-    const localList = getStoredReceipts();
-    const idx = localList.findIndex((item) => item.id === finalizedReceipt.id);
-    if (idx !== -1) {
-        localList[idx] = finalizedReceipt;
+    if (existingIndex !== -1) {
+        localList[existingIndex] = finalizedReceipt;
     } else {
         localList.unshift(finalizedReceipt);
     }
@@ -273,6 +277,7 @@ export const reverseGoodsReceipt = async (id: string): Promise<GoodsReceipt> => 
     const now = new Date().toISOString();
     const estornadoReceipt: GoodsReceipt = {
         ...receipt,
+        receiptIndex: receipt.receiptIndex || existing?.receiptIndex,
         status: 'estornado',
         isDraft: false,
         updatedAt: now,
@@ -339,21 +344,80 @@ export const deleteGoodsReceipt = async (id: string): Promise<void> => {
     } catch {}
 };
 
+export const saveGoodsReceipt = async (data: Partial<GoodsReceipt>): Promise<GoodsReceipt> => {
+    const localList = getStoredReceipts();
+    const id = data.id || `rcpt_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+    const receiptIndex = data.receiptIndex || await getNextGoodsReceiptIndex(localList);
+    const fullReceipt: GoodsReceipt = {
+        id,
+        receiptIndex,
+        supplierName: data.supplierName || 'Fornecedor',
+        receivedAt: data.receivedAt || new Date().toISOString(),
+        items: data.items || [],
+        totalValue: data.totalValue || 0,
+        observation: data.observation || '',
+        status: data.status || 'received',
+        isDraft: data.isDraft ?? false,
+        ...data,
+    };
+    await finalizeGoodsReceipt(fullReceipt);
+    return fullReceipt;
+};
+
+/**
+ * Garante que todos os recebimentos possuam um receiptIndex válido sequencial.
+ * Atua como auto-cura transparente para registros legados ou criados sem código.
+ */
+const ensureReceiptIndexes = (items: GoodsReceipt[]): GoodsReceipt[] => {
+    let needsSave = false;
+    let highest = items.reduce((max, item) => Math.max(max, Number(item.receiptIndex) || 0), 0);
+
+    // Percorrer ordenando por data de criação para atribuir sequencial cronológico
+    const list = [...items].sort((a, b) => new Date(a.createdAt || a.receivedAt).getTime() - new Date(b.createdAt || b.receivedAt).getTime());
+
+    list.forEach((item) => {
+        if (!item.receiptIndex || item.receiptIndex <= 0) {
+            highest += 1;
+            item.receiptIndex = highest;
+            needsSave = true;
+            try {
+                supabase.from('goods_receipts')
+                    .update({ receipt_index: highest })
+                    .eq('id', item.id)
+                    .then(() => {});
+            } catch {}
+        }
+    });
+
+    const result = list.sort((a, b) => new Date(b.updatedAt || b.receivedAt).getTime() - new Date(a.updatedAt || a.receivedAt).getTime());
+    if (needsSave) {
+        saveStoredReceipts(result);
+    }
+    return result;
+};
+
 export const subscribeToGoodsReceipts = (callback: (items: GoodsReceipt[]) => void) => {
     listeners.push(callback);
 
     const load = async () => {
-        const localItems = getStoredReceipts();
+        const localItems = ensureReceiptIndexes(getStoredReceipts());
         try {
             const { data, error } = await supabase.from('goods_receipts').select('*').order('updated_at', { ascending: false });
             if (!error && data?.length) {
                 const dbItems = data.map(map);
                 const mergedMap = new Map<string, GoodsReceipt>();
                 localItems.forEach((item) => mergedMap.set(item.id, item));
-                dbItems.forEach((item) => mergedMap.set(item.id, item));
+                dbItems.forEach((item) => {
+                    const existingLocal = mergedMap.get(item.id);
+                    mergedMap.set(item.id, {
+                        ...item,
+                        receiptIndex: item.receiptIndex || existingLocal?.receiptIndex,
+                    });
+                });
                 const mergedList = Array.from(mergedMap.values()).sort((a, b) => new Date(b.updatedAt || b.receivedAt).getTime() - new Date(a.updatedAt || a.receivedAt).getTime());
-                saveStoredReceipts(mergedList);
-                callback(mergedList);
+                const finalizedList = ensureReceiptIndexes(mergedList);
+                saveStoredReceipts(finalizedList);
+                callback(finalizedList);
                 return;
             }
         } catch {}

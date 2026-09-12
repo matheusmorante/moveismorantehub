@@ -13,8 +13,8 @@ interface Props {
   onRefresh: () => void;
   onStartDelivery: (item: DeliveryRouteItem) => void;
   onViewOrder: (item: DeliveryRouteItem) => void;
-  dateScope: DeliveryRouteDateScope;
-  onChangeDateScope: (scope: DeliveryRouteDateScope) => void;
+  dateScope?: DeliveryRouteDateScope;
+  onChangeDateScope?: (scope: DeliveryRouteDateScope) => void;
   isDarkMode?: boolean;
 }
 
@@ -24,8 +24,7 @@ export const DeliveryTimelineView: React.FC<Props> = ({
   onRefresh,
   onStartDelivery,
   onViewOrder,
-  dateScope,
-  onChangeDateScope,
+  dateScope = 'today',
   isDarkMode = false,
 }) => {
   const [periodFilter, setPeriodFilter] = useState<'all' | 'morning' | 'afternoon'>('all');
@@ -66,24 +65,6 @@ export const DeliveryTimelineView: React.FC<Props> = ({
 
   return (
     <View style={[styles.container, isDarkMode && styles.containerDark]}>
-      {/* Filtro de datas: hoje ou próximos dias */}
-      <View style={styles.dateScopeRow}>
-        <TouchableOpacity
-          style={[styles.dateScopeButton, dateScope === 'today' && styles.dateScopeButtonActive]}
-          onPress={() => onChangeDateScope('today')}
-          activeOpacity={0.8}
-        >
-          <Text style={[styles.dateScopeText, dateScope === 'today' && styles.dateScopeTextActive]}>Hoje</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.dateScopeButton, dateScope === 'next_days' && styles.dateScopeButtonActive]}
-          onPress={() => onChangeDateScope('next_days')}
-          activeOpacity={0.8}
-        >
-          <Text style={[styles.dateScopeText, dateScope === 'next_days' && styles.dateScopeTextActive]}>Dias seguintes</Text>
-        </TouchableOpacity>
-      </View>
-
       {/* Pílulas de Período: [ Todas ] [ Manhã ] [ Tarde ] */}
       <View style={styles.periodFilterRow}>
         <TouchableOpacity

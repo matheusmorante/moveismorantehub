@@ -41,7 +41,22 @@ Este documento especifica os **padrões visuais canônicos de componentes e elem
 
 ---
 
-## 6. Referência no Código
+---
+
+## 6. Padrão de Inputs e Formulários (Editáveis vs Não-Editáveis)
+- **Campos Editáveis**:
+  - **Fundo**: Obrigatoriamente **Fundo Branco** (`bg-white dark:bg-slate-900` ou `dark:bg-slate-800`).
+  - **Borda**: Apenas na parte inferior (borda de baixo), na cor **Cinza** (`border-0 border-b-2 border-slate-200 dark:border-slate-700 rounded-none`).
+  - **Foco (Focus)**: Ao receber foco, a borda inferior fica **Azul** (`focus:border-blue-600 dark:focus:border-blue-500 outline-none`).
+- **Campos Não-Editáveis (Calculados, Bloqueados ou Somente Leitura)**:
+  - **Fundo**: Obrigatoriamente **Fundo Cinza** (`bg-slate-100` / `bg-slate-50` / `dark:bg-slate-800/60`).
+  - Sinalizam imediatamente ao operador que os dados são gerados pelo sistema, fixados por documento ou não interativos.
+
+---
+
+## 7. Referência no Código
 - **ERP Icons**: `erp/src/components/shared/DrillIcon.tsx`
 - **Mobile Icons**: `mobile/src/components/MobileDrill.tsx`
 - **Numeric Inputs**: `erp/src/components/CurrencyInput.tsx`, `erp/src/components/CurrencyOrPercentInput.tsx`
+- **Supplier & Product Autocomplete**: `erp/src/components/SupplierAutocomplete.tsx`, `erp/src/components/ProductAutocomplete.tsx`
+- **Items Section**: `erp/src/components/PurchaseItemsSection.tsx`

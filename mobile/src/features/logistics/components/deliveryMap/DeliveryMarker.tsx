@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { View, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet } from 'react-native';
 import { Marker } from 'react-native-maps';
 import { Check, AlertTriangle, Store, Truck, Wrench, Package, RotateCcw } from 'lucide-react-native';
 import { DeliveryRouteItem } from '../../hooks/useDeliveryRoute';
 import { getOperationActivityType } from '../../../schedule/utils/operationActivity';
+import { TeamMemberLocation } from '../../../../services/teamLocationService';
 
 interface Props {
   item?: DeliveryRouteItem;
@@ -11,6 +12,8 @@ interface Props {
   storeCoords?: { latitude: number; longitude: number };
   isDriver?: boolean;
   driverCoords?: { latitude: number; longitude: number };
+  isTeamMember?: boolean;
+  teamMember?: TeamMemberLocation;
   onPress?: () => void;
 }
 
@@ -20,6 +23,8 @@ export const DeliveryMarker: React.FC<Props> = ({
   storeCoords,
   isDriver = false,
   driverCoords,
+  isTeamMember = false,
+  teamMember,
   onPress,
 }) => {
   // tracksViewChanges dinâmico: necessário no Android para permitir que ícones e badges
@@ -42,6 +47,10 @@ export const DeliveryMarker: React.FC<Props> = ({
     isDriver,
     driverCoords?.latitude,
     driverCoords?.longitude,
+    isTeamMember,
+    teamMember?.coords?.latitude,
+    teamMember?.coords?.longitude,
+    teamMember?.isDisconnectedOrNoGps,
   ]);
 
   const isValidCoord = (c?: { latitude?: number; longitude?: number } | null): boolean => {
@@ -62,12 +71,56 @@ export const DeliveryMarker: React.FC<Props> = ({
       <Marker
         coordinate={driverCoords!}
         title="Posição Atual"
-        description="Motorista / Entregador em Rota"
+        description="Você (Motorista / Entregador em Rota)"
         anchor={{ x: 0.5, y: 0.5 }}
         tracksViewChanges={tracksViewChanges}
       >
         <View style={styles.driverPin}>
-          <Truck size={28} color="#2563eb" fill="#2563eb" />
+          <Text style={styles.driverEmoji}>🚚</Text>
+        </View>
+      </Marker>
+    );
+  }
+
+  // Marcador de Outro Membro da Equipe (com badge e alerta de '?' em vermelho se desligado/sem GPS)
+  if (isTeamMember && teamMember && isValidCoord(teamMember.coords)) {
+    const lastSeenTime = teamMember.lastSeen
+      ? new Date(teamMember.lastSeen).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+      : '';
+    const statusDesc = teamMember.isDisconnectedOrNoGps
+      ? `Última localização às ${lastSeenTime} • Sem sinal de GPS / Desligado`
+      : `Em rota • GPS Ativo (${lastSeenTime})`;
+
+    return (
+      <Marker
+        coordinate={teamMember.coords}
+        title={teamMember.userName}
+        description={statusDesc}
+        anchor={{ x: 0.5, y: 0.5 }}
+        tracksViewChanges={tracksViewChanges}
+        onPress={onPress}
+      >
+        <View style={styles.teamMemberContainer}>
+          <View
+            style={[
+              styles.teamMemberNameBadge,
+              teamMember.isDisconnectedOrNoGps && styles.teamMemberNameBadgeOffline,
+            ]}
+          >
+            <Text style={styles.teamMemberNameText} numberOfLines={1}>
+              {teamMember.userName.split(' ')[0]}
+            </Text>
+          </View>
+          <View style={styles.teamMemberTruckWrapper}>
+            <Text style={styles.driverEmoji}>🚚</Text>
+            {teamMember.isDisconnectedOrNoGps ? (
+              <View style={styles.questionBadge}>
+                <Text style={styles.questionBadgeText}>?</Text>
+              </View>
+            ) : (
+              <View style={styles.activeDotBadge} />
+            )}
+          </View>
         </View>
       </Marker>
     );
@@ -226,5 +279,76 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.35,
     shadowRadius: 4,
     elevation: 4,
+  },
+  driverEmoji: {
+    fontSize: 28,
+    lineHeight: 32,
+  },
+  teamMemberContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  teamMemberNameBadge: {
+    backgroundColor: '#1e293b',
+    paddingHorizontal: 7,
+    paddingVertical: 2.5,
+    borderRadius: 8,
+    borderWidth: 1.5,
+    borderColor: '#38bdf8',
+    marginBottom: 2,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.35,
+    shadowRadius: 3,
+    elevation: 4,
+  },
+  teamMemberNameBadgeOffline: {
+    backgroundColor: '#7f1d1d',
+    borderColor: '#ef4444',
+  },
+  teamMemberNameText: {
+    fontSize: 10,
+    fontWeight: '900',
+    color: '#ffffff',
+  },
+  teamMemberTruckWrapper: {
+    position: 'relative',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  questionBadge: {
+    position: 'absolute',
+    top: -4,
+    right: -10,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: '#ef4444',
+    borderWidth: 2,
+    borderColor: '#ffffff',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.45,
+    shadowRadius: 3,
+    elevation: 6,
+  },
+  questionBadgeText: {
+    fontSize: 12,
+    fontWeight: '900',
+    color: '#ffffff',
+    lineHeight: 14,
+  },
+  activeDotBadge: {
+    position: 'absolute',
+    bottom: 2,
+    right: -4,
+    width: 9,
+    height: 9,
+    borderRadius: 4.5,
+    backgroundColor: '#22c55e',
+    borderWidth: 1.5,
+    borderColor: '#ffffff',
   },
 });

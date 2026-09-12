@@ -23,7 +23,7 @@ const AddressVerificationMap = ({ address }: AddressVerificationMapProps) => {
     const routeLayerRef = useRef<boolean>(false);
     
     const settings = getSettings();
-    const storeOrigin = useMemo(() => settings.storeOriginCoords || [-49.16928, -25.35203], [settings.storeOriginCoords?.[0], settings.storeOriginCoords?.[1]]);
+    const storeOrigin = useMemo(() => settings.storeOriginCoords || [-49.16948, -25.35205], [settings.storeOriginCoords?.[0], settings.storeOriginCoords?.[1]]);
 
     const [coords, setCoords] = useState<[number, number] | null>(null);
     const [isPrecision, setIsPrecision] = useState(true);

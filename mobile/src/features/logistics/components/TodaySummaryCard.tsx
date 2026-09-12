@@ -32,13 +32,15 @@ interface TodaySummaryCardProps {
   orders: OrderItem[];
   onSelectOrder?: (order: any) => void;
   isDarkMode?: boolean;
+  periodFilter?: DeliveryPeriodFilter;
 }
 
 export const TodaySummaryCard: React.FC<TodaySummaryCardProps> = ({
   orders,
+  onSelectOrder,
   isDarkMode = false,
+  periodFilter = 'today',
 }) => {
-  const [periodFilter, setPeriodFilter] = useState<DeliveryPeriodFilter>('today');
   const [voiceEngine, setVoiceEngine] = useState<VoiceEngineType>('gemini');
   const [isGeminiQuotaExceeded] = useState<boolean>(false);
   const [isPlayingAudio, setIsPlayingAudio] = useState(false);
@@ -253,12 +255,9 @@ export const TodaySummaryCard: React.FC<TodaySummaryCardProps> = ({
 
       <DeliverySummaryControlsBar
         voiceEngine={voiceEngine}
-        periodFilter={periodFilter}
         isGeminiQuotaExceeded={isGeminiQuotaExceeded}
         onSelectGeminiVoice={handleSelectGeminiVoice}
         onSelectNativeVoice={() => setVoiceEngine('native')}
-        onSelectPeriodToday={() => setPeriodFilter('today')}
-        onSelectPeriodNextDays={() => setPeriodFilter('next_days')}
       />
 
       <DeliveryShiftMetricsGrid

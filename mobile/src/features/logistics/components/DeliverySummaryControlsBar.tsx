@@ -6,22 +6,16 @@ import type { VoiceEngineType } from './TodaySummaryCard';
 
 interface DeliverySummaryControlsBarProps {
   voiceEngine: VoiceEngineType;
-  periodFilter: DeliveryPeriodFilter;
   isGeminiQuotaExceeded: boolean;
   onSelectGeminiVoice: () => void;
   onSelectNativeVoice: () => void;
-  onSelectPeriodToday: () => void;
-  onSelectPeriodNextDays: () => void;
 }
 
 export const DeliverySummaryControlsBar: React.FC<DeliverySummaryControlsBarProps> = ({
   voiceEngine,
-  periodFilter,
   isGeminiQuotaExceeded,
   onSelectGeminiVoice,
   onSelectNativeVoice,
-  onSelectPeriodToday,
-  onSelectPeriodNextDays,
 }) => {
   return (
     <View style={styles.controlsRow}>
@@ -60,41 +54,6 @@ export const DeliverySummaryControlsBar: React.FC<DeliverySummaryControlsBarProp
             voiceEngine === 'native' ? styles.toggleSwitchTextActive : styles.toggleSwitchTextInactive
           ]}>
             Voz Nativa
-          </Text>
-        </TouchableOpacity>
-      </View>
-
-      {/* Alternância de Período: Hoje vs Dias Seguintes */}
-      <View style={styles.toggleSwitchContainer}>
-        <TouchableOpacity
-          style={[
-            styles.toggleSwitchOption,
-            periodFilter === 'today' && styles.toggleSwitchOptionActive
-          ]}
-          onPress={onSelectPeriodToday}
-          activeOpacity={0.85}
-        >
-          <Text style={[
-            styles.toggleSwitchText,
-            periodFilter === 'today' ? styles.toggleSwitchTextActive : styles.toggleSwitchTextInactive
-          ]}>
-            Hoje
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[
-            styles.toggleSwitchOption,
-            periodFilter === 'next_days' && styles.toggleSwitchOptionActive
-          ]}
-          onPress={onSelectPeriodNextDays}
-          activeOpacity={0.85}
-        >
-          <Text style={[
-            styles.toggleSwitchText,
-            periodFilter === 'next_days' ? styles.toggleSwitchTextActive : styles.toggleSwitchTextInactive
-          ]}>
-            Dias Seguintes
           </Text>
         </TouchableOpacity>
       </View>

@@ -5,6 +5,7 @@ import { Crosshair, Maximize2 } from 'lucide-react-native';
 import { DeliveryMarker } from './DeliveryMarker';
 import { DeliveryRouteItem } from '../../hooks/useDeliveryRoute';
 import { DriverCoordinates } from '../../../../services/locationService';
+import { TeamMemberLocation } from '../../../../services/teamLocationService';
 
 interface Props {
   items: DeliveryRouteItem[];
@@ -14,6 +15,7 @@ interface Props {
   selectedItem: DeliveryRouteItem | null;
   onSelectMarker: (item: DeliveryRouteItem) => void;
   isDarkMode?: boolean;
+  teamMembers?: TeamMemberLocation[];
 }
 
 export const DeliveryMapView: React.FC<Props> = ({
@@ -24,6 +26,7 @@ export const DeliveryMapView: React.FC<Props> = ({
   selectedItem,
   onSelectMarker,
   isDarkMode = false,
+  teamMembers = [],
 }) => {
   const mapRef = useRef<MapView | null>(null);
 
@@ -40,10 +43,10 @@ export const DeliveryMapView: React.FC<Props> = ({
     );
   };
 
-  // Região padrão inicial (Curitiba / RMC)
+  // Região padrão inicial (Curitiba / RMC - R. Cascavel, 306, lado esquerdo)
   const initialRegion = {
-    latitude: isValidCoord(storeCoords) ? storeCoords!.latitude : -25.352,
-    longitude: isValidCoord(storeCoords) ? storeCoords!.longitude : -49.169,
+    latitude: isValidCoord(storeCoords) ? storeCoords!.latitude : -25.35205,
+    longitude: isValidCoord(storeCoords) ? storeCoords!.longitude : -49.16948,
     latitudeDelta: 0.12,
     longitudeDelta: 0.12,
   };
@@ -135,6 +138,17 @@ export const DeliveryMapView: React.FC<Props> = ({
               key={item.id}
               item={item}
               onPress={() => onSelectMarker(item)}
+            />
+          ) : null
+        ))}
+
+        {/* Marcadores dos Outros Membros da Equipe (com ? vermelho se desligado/sem GPS) */}
+        {teamMembers.map((member) => (
+          isValidCoord(member.coords) ? (
+            <DeliveryMarker
+              key={`team-${member.userId}`}
+              isTeamMember
+              teamMember={member}
             />
           ) : null
         ))}

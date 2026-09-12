@@ -219,14 +219,18 @@ export function InboundDocumentImportModal({ isOpen, onClose, onImportSuccess }:
 
     return (
         <>
-            <div className="fixed inset-0 z-[1000002] flex items-center justify-center p-3">
-                <button className="absolute inset-0 bg-slate-950/60" onClick={onClose} />
-                <section className="relative flex max-h-[92vh] w-full max-w-5xl flex-col overflow-hidden rounded-3xl bg-white dark:bg-slate-900">
-                    <header className="flex items-center justify-between border-b p-5">
-                        <div><h2 className="font-black text-slate-800 dark:text-slate-100">Adicionar Nota Fiscal de Entrada</h2><p className="text-xs text-slate-500">Importe, selecione o fornecedor e vincule os produtos.</p></div>
-                        <button onClick={onClose}><i className="bi bi-x-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200" /></button>
+            <div className="fixed inset-0 z-[1000002] flex flex-col w-screen h-screen bg-white dark:bg-slate-900 overflow-hidden animate-in fade-in">
+                <section className="relative flex h-full w-full flex-col overflow-hidden bg-white dark:bg-slate-900">
+                    <header className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 p-5 px-6 shrink-0 bg-white dark:bg-slate-900">
+                        <div>
+                            <h2 className="text-lg font-black text-slate-800 dark:text-slate-100">Adicionar Nota Fiscal de Entrada</h2>
+                            <p className="text-xs text-slate-500">Importe o documento ou XML, selecione o fornecedor e vincule os produtos ao estoque.</p>
+                        </div>
+                        <button onClick={onClose} className="rounded-xl p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
+                            <i className="bi bi-x-lg text-lg" />
+                        </button>
                     </header>
-                    <main className="space-y-5 overflow-y-auto p-5">
+                    <main className="flex-1 space-y-6 overflow-y-auto p-6 max-w-7xl mx-auto w-full">
                         <input ref={input} type="file" accept={accepted} capture="environment" className="hidden" onChange={(event) => void handleFile(event.target.files?.[0])} />
                         {!invoice && <button
                             type="button"

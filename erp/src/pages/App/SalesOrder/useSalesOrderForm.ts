@@ -49,8 +49,6 @@ export const useSalesOrderForm = (initialDeliveryMethod?: 'delivery' | 'pickup',
     const submissionInFlightRef = useRef(false);
 
     const prevDeliveryMethodRef = useRef(shipping.deliveryMethod);
-    const prevGlobalOrderTypeRef = useRef(shipping.orderType);
-    const prevFirstItemHandlingRef = useRef(items[0]?.handlingType);
 
     const itemsSummary = calcItemsSummary(items);
     const paymentsSummary = calcPaymentsSummary(payments, itemsSummary, shipping.value);
@@ -86,6 +84,7 @@ export const useSalesOrderForm = (initialDeliveryMethod?: 'delivery' | 'pickup',
     const getOrderData = useCallback((newStatus?: 'draft' | 'scheduled' | 'fulfilled' | 'cancelled'): Order => {
         const s = latestState.current;
         const currentItemsSummary = calcItemsSummary(s.items);
+        const firstHandling = (s.items || []).find((i: any) => i.handlingType?.trim())?.handlingType || '';
 
         return {
             id: s.currentOrderId,
@@ -95,7 +94,10 @@ export const useSalesOrderForm = (initialDeliveryMethod?: 'delivery' | 'pickup',
             status: newStatus || s.status,
             items: s.items,
             itemsSummary: currentItemsSummary,
-            shipping: s.shipping,
+            shipping: {
+                ...s.shipping,
+                orderType: firstHandling || s.shipping?.orderType || ''
+            },
             payments: s.payments,
             paymentsSummary: s.paymentsSummary,
             customerData: s.customerData,
@@ -209,23 +211,18 @@ export const useSalesOrderForm = (initialDeliveryMethod?: 'delivery' | 'pickup',
         }
     }, [setItems, setShipping, setPayments, setCustomerData, setOrderIndex, generateCodeForCopyOrNew]);
 
-    // Tratar mudanças de modalidade global
+    // Sincronizar o manuseio operacional (shipping.orderType) a partir dos itens selecionados,
+    // garantindo que as escolhas individuais de manuseio de cada item persistam intactas
+    // e que o manuseio principal do pedido reflita fielmente o que o usuário selecionou.
     useEffect(() => {
-        if (shipping.orderType && shipping.orderType !== prevGlobalOrderTypeRef.current) {
-            prevGlobalOrderTypeRef.current = shipping.orderType;
-            setItems(currentItems => currentItems.map(item => ({
-                ...item,
-                handlingType: shipping.orderType
-            })));
+        const firstHandling = items.find(i => i.handlingType?.trim())?.handlingType || '';
+        if (firstHandling && firstHandling !== shipping.orderType) {
+            setShipping(prev => ({
+                ...prev,
+                orderType: firstHandling
+            }));
         }
-    }, [shipping.orderType, setItems]);
-
-    useEffect(() => {
-        const firstItemHandling = items[0]?.handlingType;
-        if (firstItemHandling && firstItemHandling !== prevFirstItemHandlingRef.current) {
-            prevFirstItemHandlingRef.current = firstItemHandling;
-        }
-    }, [items]);
+    }, [items, shipping.orderType, setShipping]);
 
     useEffect(() => {
         prevDeliveryMethodRef.current = shipping.deliveryMethod;
@@ -347,28 +344,34 @@ export const useSalesOrderForm = (initialDeliveryMethod?: 'delivery' | 'pickup',
         }
     }, []);
 
-    const currentOrder = useMemo((): Order => ({
-        id: currentOrderId,
-        orderIndex: orderIndex || undefined,
-        orderNumber: orderIndex || undefined,
-        orderType,
-        status: status as any,
-        items,
-        itemsSummary,
-        shipping,
-        payments,
-        paymentsSummary,
-        customerData,
-        observation,
-        seller,
-        marketingOrigin,
-        date: formatToStorageDate(orderDate),
-        assistanceItems,
-        assistanceServiceValue,
-        assistanceCost,
-        linkedOrderId,
-        isButtonsClicked,
-    }), [currentOrderId, orderIndex, items, itemsSummary, shipping, payments, paymentsSummary, customerData, observation, seller, marketingOrigin, status, orderDate, assistanceItems, assistanceServiceValue, assistanceCost, linkedOrderId, isButtonsClicked, orderType]);
+    const currentOrder = useMemo((): Order => {
+        const firstHandling = items.find(i => i.handlingType?.trim())?.handlingType || '';
+        return {
+            id: currentOrderId,
+            orderIndex: orderIndex || undefined,
+            orderNumber: orderIndex || undefined,
+            orderType,
+            status: status as any,
+            items,
+            itemsSummary,
+            shipping: {
+                ...shipping,
+                orderType: firstHandling || shipping.orderType || ''
+            },
+            payments,
+            paymentsSummary,
+            customerData,
+            observation,
+            seller,
+            marketingOrigin,
+            date: formatToStorageDate(orderDate),
+            assistanceItems,
+            assistanceServiceValue,
+            assistanceCost,
+            linkedOrderId,
+            isButtonsClicked,
+        };
+    }, [currentOrderId, orderIndex, items, itemsSummary, shipping, payments, paymentsSummary, customerData, observation, seller, marketingOrigin, status, orderDate, assistanceItems, assistanceServiceValue, assistanceCost, linkedOrderId, isButtonsClicked, orderType]);
 
     const isValidForCompletion = useMemo(() => validateBase(getOrderData('scheduled')), [getOrderData]);
 

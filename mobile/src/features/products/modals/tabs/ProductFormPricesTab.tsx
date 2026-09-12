@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   StyleSheet,
   Switch,
@@ -7,7 +7,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { Truck, Package, DollarSign, Calculator } from 'lucide-react-native';
+import { Truck, Package, DollarSign, Calculator, Search, X } from 'lucide-react-native';
 import { supabase } from '../../../../services/supabaseClient';
 
 interface Props {
@@ -26,6 +26,7 @@ const parsePrice = (val: any): number => {
 
 export const ProductFormPricesTab: React.FC<Props> = ({ formData, setFormData, dark }) => {
   const [suppliers, setSuppliers] = useState<any[]>([]);
+  const [supplierSearch, setSupplierSearch] = useState<string>('');
   const [hasInitialStock, setHasInitialStock] = useState<boolean>(Boolean(formData.stock && Number(formData.stock) > 0));
 
   // Carrega fornecedores ativos do banco
@@ -42,9 +43,24 @@ export const ProductFormPricesTab: React.FC<Props> = ({ formData, setFormData, d
       });
   }, []);
 
-  const set = useCallback((field: string, val: any) => {
-    setFormData(prev => ({ ...prev, [field]: val }));
+  const set = useCallback((field: string, value: any) => {
+    setFormData((prev: any) => ({ ...prev, [field]: value }));
   }, [setFormData]);
+
+  // Regra: exige 2 ou mais caracteres para pesquisar fornecedores
+  const visibleSuppliers = useMemo(() => {
+    const q = supplierSearch.trim().toLowerCase();
+    if (q.length < 2) {
+      if (formData.mainSupplierId) {
+        return suppliers.filter(s => s.id === formData.mainSupplierId);
+      }
+      return [];
+    }
+    return suppliers.filter(sup => {
+      const name = (sup.nickname || sup.full_name || '').toLowerCase();
+      return name.includes(q);
+    });
+  }, [suppliers, supplierSearch, formData.mainSupplierId]);
 
   // Recalcula preço final de compra ao mudar custo, IPI ou frete
   const updateFinalCost = useCallback((fields: Record<string, any>) => {
@@ -131,14 +147,43 @@ export const ProductFormPricesTab: React.FC<Props> = ({ formData, setFormData, d
           <Text style={[styles.cardTitle, dark && styles.lightText]}>Fornecedor Principal</Text>
         </View>
 
-        <Text style={[styles.label, dark && styles.dimText]}>Selecione o Fornecedor</Text>
+        <Text style={[styles.label, dark && styles.dimText]}>Buscar Fornecedor</Text>
+        <View style={[styles.searchInputWrapper, dark && styles.darkSearchInputWrapper]}>
+          <Search size={14} color={dark ? "#94a3b8" : "#64748b"} />
+          <TextInput
+            style={[styles.searchInput, dark && styles.darkSearchInput, dark && styles.lightText]}
+            placeholder="Digite 2 ou mais letras para buscar..."
+            placeholderTextColor={dark ? "#64748b" : "#94a3b8"}
+            value={supplierSearch}
+            onChangeText={setSupplierSearch}
+            autoCapitalize="none"
+          />
+          {supplierSearch.length > 0 && (
+            <TouchableOpacity onPress={() => setSupplierSearch('')} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+              <X size={14} color={dark ? "#94a3b8" : "#64748b"} />
+            </TouchableOpacity>
+          )}
+        </View>
+
+        {supplierSearch.trim().length > 0 && supplierSearch.trim().length < 2 && (
+          <Text style={[styles.helperText, dark && styles.dimText]}>
+            Digite pelo menos 2 caracteres para exibir as sugestões.
+          </Text>
+        )}
+
         <View style={styles.supplierGrid}>
           {suppliers.length === 0 ? (
             <Text style={[styles.emptySupplierText, dark && styles.dimText]}>
               Nenhum fornecedor cadastrado
             </Text>
+          ) : visibleSuppliers.length === 0 ? (
+            <Text style={[styles.emptySupplierText, dark && styles.dimText]}>
+              {supplierSearch.trim().length >= 2 
+                ? 'Nenhum fornecedor encontrado com este termo.' 
+                : 'Digite 2 ou mais caracteres acima para buscar fornecedores.'}
+            </Text>
           ) : (
-            suppliers.map(sup => {
+            visibleSuppliers.map(sup => {
               const isSelected = formData.mainSupplierId === sup.id;
               return (
                 <TouchableOpacity
@@ -379,6 +424,11 @@ const styles = StyleSheet.create({
   darkFinalPrice: { backgroundColor: '#1e3a8a20' },
   finalPriceLabel: { fontSize: 11, fontWeight: '800', color: '#475569', textTransform: 'uppercase' },
   finalPriceValue: { fontSize: 16, fontWeight: '900', color: '#2563eb' },
+  searchInputWrapper: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#ffffff', borderRadius: 10, paddingHorizontal: 12, borderWidth: 1, borderColor: '#e2e8f0', height: 42, gap: 8 },
+  darkSearchInputWrapper: { backgroundColor: '#0f172a', borderColor: '#334155' },
+  searchInput: { flex: 1, fontSize: 13, fontWeight: '700', color: '#0f172a', padding: 0 },
+  darkSearchInput: { color: '#f1f5f9' },
+  helperText: { fontSize: 10, fontWeight: '700', color: '#f59e0b', marginTop: -4 },
   supplierGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 4 },
   supplierChip: { paddingHorizontal: 12, paddingVertical: 8, borderRadius: 10, backgroundColor: '#ffffff', borderWidth: 1, borderColor: '#e2e8f0' },
   darkSupplierChip: { backgroundColor: '#0f172a', borderColor: '#334155' },

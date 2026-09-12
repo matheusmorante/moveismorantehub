@@ -3,6 +3,8 @@ import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import { Crosshair, Maximize2 } from 'lucide-react-native';
 import { DeliveryRouteItem } from '../../hooks/useDeliveryRoute';
 import { DriverCoordinates } from '../../../../services/locationService';
+import { getOperationActivityType } from '../../../schedule/utils/operationActivity';
+import { TeamMemberLocation } from '../../../../services/teamLocationService';
 
 interface Props {
   items: DeliveryRouteItem[];
@@ -12,6 +14,7 @@ interface Props {
   selectedItem: DeliveryRouteItem | null;
   onSelectMarker: (item: DeliveryRouteItem) => void;
   isDarkMode?: boolean;
+  teamMembers?: TeamMemberLocation[];
 }
 
 export const DeliveryMapView: React.FC<Props> = ({
@@ -22,10 +25,11 @@ export const DeliveryMapView: React.FC<Props> = ({
   selectedItem,
   onSelectMarker,
   isDarkMode = false,
+  teamMembers = [],
 }) => {
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
-  const defaultLat = storeCoords?.latitude || -25.352;
-  const defaultLng = storeCoords?.longitude || -49.169;
+  const defaultLat = storeCoords?.latitude || -25.35205;
+  const defaultLng = storeCoords?.longitude || -49.16948;
 
   // Escuta cliques nos marcadores enviados do iframe
   useEffect(() => {
@@ -57,21 +61,76 @@ export const DeliveryMapView: React.FC<Props> = ({
   const mapHtml = useMemo(() => {
     const pointsData = items
       .filter((i) => i.coords)
-      .map((i) => ({
-        id: i.id,
-        seq: i.sequence,
-        name: String(i.customerName || 'Consumidor').replace(/'/g, "\\'"),
-        address: String(i.fullAddress || '').replace(/'/g, "\\'"),
-        lat: i.coords!.latitude,
-        lng: i.coords!.longitude,
-        status: i.status,
-        isCurrent: i.isCurrent,
-        isNext: i.isNext,
-      }));
+      .map((i) => {
+        const activityType = getOperationActivityType(i.order);
+        const isPickup = i.order?.shipping?.deliveryMethod === 'pickup';
+
+        let typeLabel = 'Entrega';
+        let bgColor = '#16a34a'; // Padrão: Entrega (Verde)
+        let borderColor = '#ffffff';
+
+        if (isPickup) {
+          typeLabel = 'Retirada';
+          bgColor = '#7c3aed'; // Retirada (Roxo)
+        } else if (activityType === 'assistance') {
+          typeLabel = 'Assistência';
+          bgColor = '#eab308'; // Assistência (Amarelo)
+        } else if (activityType === 'return') {
+          typeLabel = 'Devolução';
+          bgColor = '#f97316'; // Coleta de Devolução (Laranja)
+        }
+
+        if (i.status === 'completed') {
+          typeLabel = 'Concluída';
+          bgColor = '#10b981';
+          borderColor = '#a7f3d0';
+        } else if (i.status === 'unattended') {
+          typeLabel = 'Não Atendida';
+          bgColor = '#ef4444';
+          borderColor = '#fecaca';
+        } else if (i.isCurrent) {
+          borderColor = '#ffffff';
+        }
+
+        let iconType = 'delivery';
+        if (i.status === 'completed') iconType = 'check';
+        else if (i.status === 'unattended') iconType = 'alert';
+        else if (isPickup) iconType = 'pickup';
+        else if (activityType === 'assistance') iconType = 'assistance';
+        else if (activityType === 'return') iconType = 'return';
+
+        return {
+          id: i.id,
+          seq: i.sequence,
+          name: String(i.customerName || 'Consumidor').replace(/'/g, "\\'"),
+          address: String(i.fullAddress || '').replace(/'/g, "\\'"),
+          lat: i.coords!.latitude,
+          lng: i.coords!.longitude,
+          status: i.status,
+          isCurrent: i.isCurrent,
+          isNext: i.isNext,
+          typeLabel,
+          bgColor,
+          borderColor,
+          iconType,
+        };
+      });
 
     const polyData = (polylineCoords && polylineCoords.length > 0)
       ? polylineCoords.map(p => [p.latitude, p.longitude])
       : [];
+
+    const hasDriverLocation = Boolean(driverCoords && driverCoords.latitude && driverCoords.longitude);
+
+    const teamData = (teamMembers || []).map(m => ({
+      userId: m.userId,
+      userName: String(m.userName || 'Membro da Equipe').replace(/'/g, "\\'"),
+      shortName: String((m.userName || 'Membro').split(' ')[0]).replace(/'/g, "\\'"),
+      lat: m.coords.latitude,
+      lng: m.coords.longitude,
+      isDisconnectedOrNoGps: m.isDisconnectedOrNoGps,
+      lastSeenTime: m.lastSeen ? new Date(m.lastSeen).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : '',
+    }));
 
     return `
 <!DOCTYPE html>
@@ -83,20 +142,50 @@ export const DeliveryMapView: React.FC<Props> = ({
   <style>
     body, html, #map { margin: 0; padding: 0; width: 100%; height: 100%; background: ${isDarkMode ? '#0f172a' : '#f8fafc'}; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
     .leaflet-container { background: ${isDarkMode ? '#0f172a' : '#f1f5f9'}; }
-    .custom-pin { display: flex; align-items: center; justify-content: center; border-radius: 50%; color: #ffffff; font-weight: 900; font-size: 13px; box-shadow: 0 4px 10px rgba(0,0,0,0.3); cursor: pointer; }
-    .pin-store { background: #0f172a; border: 2.5px solid #38bdf8; width: 34px; height: 34px; font-size: 16px; }
-    .pin-driver { background: transparent; border: none; width: 34px; height: 34px; font-size: 28px; line-height: 1; box-shadow: none; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.35)); }
-    .pin-current { background: #2563eb; border: 3px solid #bfdbfe; width: 34px; height: 34px; font-size: 14px; transform: scale(1.1); }
-    .pin-next { background: #0284c7; border: 2.5px solid #ffffff; width: 30px; height: 30px; }
-    .pin-completed { background: #10b981; border: 2px solid #ffffff; width: 28px; height: 28px; }
-    .pin-unattended { background: #ef4444; border: 2px solid #ffffff; width: 28px; height: 28px; }
-    .pin-pending { background: #334155; border: 2px solid #ffffff; width: 28px; height: 28px; }
+    
+    .marker-container { display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer; filter: drop-shadow(0 3px 6px rgba(0,0,0,0.3)); }
+    .marker-container.marker-highlight { transform: scale(1.18); z-index: 1000; }
+    .marker-badge { width: 32px; height: 32px; border-radius: 50%; border-width: 2.5px; border-style: solid; display: flex; align-items: center; justify-content: center; box-sizing: border-box; }
+    .pin-tip { width: 0; height: 0; border-left: 5px solid transparent; border-right: 5px solid transparent; border-top-width: 6px; border-top-style: solid; margin-top: -1px; }
+
+    .pin-store-container { display: flex; flex-direction: column; align-items: center; cursor: pointer; filter: drop-shadow(0 3px 6px rgba(0,0,0,0.35)); }
+    .pin-store-badge { width: 32px; height: 32px; border-radius: 50%; background: #0f172a; border: 2.5px solid #38bdf8; display: flex; align-items: center; justify-content: center; box-sizing: border-box; font-size: 15px; color: #ffffff; }
+    .pin-tip-store { width: 0; height: 0; border-left: 5px solid transparent; border-right: 5px solid transparent; border-top-width: 6px; border-top-style: solid; border-top-color: #0f172a; margin-top: -1px; }
+
+    .pin-driver { background: transparent; border: none; font-size: 28px; line-height: 1; filter: drop-shadow(0 2px 5px rgba(0,0,0,0.4)); cursor: pointer; text-align: center; }
+
+    .team-member-container { display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer; filter: drop-shadow(0 3px 6px rgba(0,0,0,0.35)); }
+    .team-member-badge { background-color: #1e293b; color: #ffffff; padding: 2px 6px; border-radius: 6px; font-size: 10px; font-weight: 800; border: 1.5px solid #38bdf8; margin-bottom: 2px; white-space: nowrap; }
+    .team-member-badge.offline { background-color: #7f1d1d; border-color: #ef4444; }
+    .team-truck-wrapper { position: relative; display: flex; align-items: center; justify-content: center; font-size: 28px; line-height: 1; }
+    .team-question-badge { position: absolute; top: -5px; right: -9px; width: 18px; height: 18px; border-radius: 50%; background-color: #ef4444; border: 2px solid #ffffff; color: #ffffff; font-size: 12px; font-weight: 900; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 4px rgba(0,0,0,0.3); }
+    .team-active-dot { position: absolute; bottom: 0; right: -4px; width: 8px; height: 8px; border-radius: 50%; background-color: #22c55e; border: 1.5px solid #ffffff; }
   </style>
 </head>
 <body>
   <div id="map"></div>
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script>
+    function getIconSvg(type) {
+      if (type === 'check') {
+        return '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="#ffffff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
+      }
+      if (type === 'alert') {
+        return '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="#ffffff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>';
+      }
+      if (type === 'pickup') {
+        return '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m7.5 4.27 9 5.15"/><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/></svg>';
+      }
+      if (type === 'assistance') {
+        return '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>';
+      }
+      if (type === 'return') {
+        return '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>';
+      }
+      // delivery (padrão): Caminhãozinho igual ao app
+      return '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 18V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v11a1 1 0 0 0 1 1h2"/><path d="M15 18H9"/><path d="M19 18h2a1 1 0 0 0 1-1v-3.65a1 1 0 0 0-.22-.624l-3.48-4.35A1 1 0 0 0 17.52 8H14"/><circle cx="17" cy="18" r="2"/><circle cx="7" cy="18" r="2"/></svg>';
+    }
+
     function initMap() {
       if (typeof L === 'undefined') {
         setTimeout(initMap, 100);
@@ -106,71 +195,108 @@ export const DeliveryMapView: React.FC<Props> = ({
       const isDark = ${isDarkMode};
       const tileUrl = isDark 
         ? 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png'
-        : 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png';
+        : 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
 
       const map = L.map('map', { zoomControl: false }).setView([${defaultLat}, ${defaultLng}], 13);
       L.tileLayer(tileUrl, { 
         maxZoom: 19, 
-        subdomains: 'abcd',
-        attribution: '© CartoDB © OpenStreetMap' 
+        attribution: '© OpenStreetMap colaboradores' 
       }).addTo(map);
 
       const bounds = [];
 
-      // Depósito Central (🏬)
+      // Depósito Central (🏪 Móveis Morante)
+      const storeHtml = '<div class="pin-store-container"><div class="pin-store-badge"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="#ffffff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m2 7 4.41-4.41A2 2 0 0 1 7.83 2h8.34a2 2 0 0 1 1.42.59L22 7"/><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><path d="M15 22v-4a2 2 0 0 0-2-2h-2a2 2 0 0 0-2 2v4"/><path d="M2 7h20"/><path d="M22 7v3a2 2 0 0 1-2 2v0a2.7 2.7 0 0 1-1.59-.63.7.7 0 0 0-.82 0A2.7 2.7 0 0 1 16 12a2.7 2.7 0 0 1-1.59-.63.7.7 0 0 0-.82 0A2.7 2.7 0 0 1 12 12a2.7 2.7 0 0 1-1.59-.63.7.7 0 0 0-.82 0A2.7 2.7 0 0 1 8 12a2.7 2.7 0 0 1-1.59-.63.7.7 0 0 0-.82 0A2.7 2.7 0 0 1 4 12v0a2 2 0 0 1-2-2V7"/></svg></div><div class="pin-tip-store"></div></div>';
       const storeIcon = L.divIcon({
-        className: 'custom-pin pin-store',
-        html: '🏬',
-        iconSize: [34, 34],
-        iconAnchor: [17, 17]
+        className: '',
+        html: storeHtml,
+        iconSize: [32, 38],
+        iconAnchor: [16, 38]
       });
       L.marker([${defaultLat}, ${defaultLng}], { icon: storeIcon })
         .bindPopup('<div style="font-family:sans-serif;padding:4px;"><b>Móveis Morante — Depósito Central</b><br><span style="color:#64748b;font-size:12px;">Origem do Roteiro</span></div>')
         .addTo(map);
       bounds.push([${defaultLat}, ${defaultLng}]);
 
-      // Motorista (🚚 Posição Atual)
-      const driverLat = ${driverCoords ? driverCoords.latitude : defaultLat};
-      const driverLng = ${driverCoords ? driverCoords.longitude : defaultLng};
-      const driverIcon = L.divIcon({
-        className: 'custom-pin pin-driver',
-        html: '🚚',
-        iconSize: [38, 38],
-        iconAnchor: [19, 19]
-      });
-      const driverMarker = L.marker([driverLat, driverLng], { icon: driverIcon })
-        .bindPopup('<div style="font-family:sans-serif;padding:4px;"><b>Motorista / Entregador</b><br><span style="color:#2563eb;font-weight:700;font-size:12px;">Posição Atual em Rota</span></div>')
-        .addTo(map);
-      bounds.push([driverLat, driverLng]);
-
-      // Paradas do Roteiro
-      const points = ${JSON.stringify(pointsData)};
-      points.forEach(p => {
-        let cls = 'pin-pending';
-        let symbol = p.seq;
-        if (p.status === 'completed') { cls = 'pin-completed'; symbol = '✓'; }
-        else if (p.status === 'unattended') { cls = 'pin-unattended'; symbol = '!'; }
-        else if (p.isCurrent) { cls = 'pin-current'; symbol = p.seq; }
-        else if (p.isNext) { cls = 'pin-next'; symbol = p.seq; }
-
-        const icon = L.divIcon({
-          className: 'custom-pin ' + cls,
-          html: symbol,
+      // Motorista (🚚 Posição Atual) — renderiza somente se houver GPS real do motorista
+      let driverMarker = null;
+      if (${hasDriverLocation}) {
+        const driverLat = ${driverCoords?.latitude || defaultLat};
+        const driverLng = ${driverCoords?.longitude || defaultLng};
+        const driverIcon = L.divIcon({
+          className: 'pin-driver',
+          html: '🚚',
           iconSize: [32, 32],
           iconAnchor: [16, 16]
         });
+        driverMarker = L.marker([driverLat, driverLng], { icon: driverIcon, zIndexOffset: 1200 })
+          .bindPopup('<div style="font-family:sans-serif;padding:4px;"><b>Motorista / Entregador</b><br><span style="color:#2563eb;font-weight:700;font-size:12px;">🚚 Posição Atual em Rota</span></div>')
+          .addTo(map);
+        bounds.push([driverLat, driverLng]);
+      }
 
-        const m = L.marker([p.lat, p.lng], { icon }).addTo(map);
-        m.bindPopup(
-          '<div style="font-family:sans-serif;padding:4px;min-width:180px;">' +
-            '<b style="color:#1e293b;font-size:13px;">Parada ' + p.seq + ' • ' + p.name + '</b><br>' +
-            '<span style="color:#64748b;font-size:11px;">' + p.address + '</span>' +
-          '</div>'
-        );
+      // Paradas do Roteiro (com ícone por tipo de pedido e pinTip idênticos ao App Nativo)
+      const points = ${JSON.stringify(pointsData)};
+      points.forEach(p => {
+        const markerHtml = 
+          '<div class="marker-container ' + (p.isCurrent || p.isNext ? 'marker-highlight' : '') + '">' +
+            '<div class="marker-badge" style="background-color:' + p.bgColor + '; border-color:' + p.borderColor + ';">' +
+              getIconSvg(p.iconType) +
+            '</div>' +
+            '<div class="pin-tip" style="border-top-color:' + p.bgColor + ';"></div>' +
+          '</div>';
+
+        const icon = L.divIcon({
+          className: '',
+          html: markerHtml,
+          iconSize: [32, 38],
+          iconAnchor: [16, 38]
+        });
+
+        const m = L.marker([p.lat, p.lng], { icon, zIndexOffset: p.isCurrent ? 1000 : (p.isNext ? 900 : 500) }).addTo(map);
         m.on('click', () => {
           window.parent.postMessage({ type: 'MARKER_CLICK', id: p.id }, '*');
         });
         bounds.push([p.lat, p.lng]);
+      });
+
+      // Outros Membros da Equipe (com indicador de ? vermelho se desligado ou sem GPS)
+      const team = ${JSON.stringify(teamData)};
+      team.forEach(tm => {
+        const questionHtml = tm.isDisconnectedOrNoGps 
+          ? '<div class="team-question-badge">?</div>' 
+          : '<div class="team-active-dot"></div>';
+        
+        const badgeClass = tm.isDisconnectedOrNoGps ? 'team-member-badge offline' : 'team-member-badge';
+
+        const tmHtml = 
+          '<div class="team-member-container">' +
+            '<div class="' + badgeClass + '">' + tm.shortName + '</div>' +
+            '<div class="team-truck-wrapper">' +
+              '<span>🚚</span>' +
+              questionHtml +
+            '</div>' +
+          '</div>';
+
+        const icon = L.divIcon({
+          className: '',
+          html: tmHtml,
+          iconSize: [44, 48],
+          iconAnchor: [22, 24]
+        });
+
+        const statusText = tm.isDisconnectedOrNoGps
+          ? '<span style="color:#ef4444;font-weight:800;font-size:11px;">⚠️ Sem sinal de GPS / Desligado</span><br><span style="color:#64748b;font-size:11px;">Visto pela última vez às ' + tm.lastSeenTime + '</span>'
+          : '<span style="color:#16a34a;font-weight:800;font-size:11px;">🟢 GPS Ativo em Rota</span><br><span style="color:#64748b;font-size:11px;">Atualizado às ' + tm.lastSeenTime + '</span>';
+
+        L.marker([tm.lat, tm.lng], { icon, zIndexOffset: 1100 }).addTo(map)
+          .bindPopup(
+            '<div style="font-family:sans-serif;padding:4px;min-width:180px;">' +
+              '<b style="color:#0f172a;font-size:13px;">' + tm.userName + '</b><br>' +
+              statusText +
+            '</div>'
+          );
+        bounds.push([tm.lat, tm.lng]);
       });
 
       // Polyline da rota: desenha apenas quando houver trajeto explícito da parada selecionada
@@ -207,7 +333,7 @@ export const DeliveryMapView: React.FC<Props> = ({
 </body>
 </html>
     `;
-  }, [items, driverCoords, storeCoords, polylineCoords, isDarkMode, defaultLat, defaultLng]);
+  }, [items, driverCoords, storeCoords, polylineCoords, isDarkMode, defaultLat, defaultLng, teamMembers]);
 
   return (
     <View style={[styles.container, isDarkMode && styles.containerDark]}>

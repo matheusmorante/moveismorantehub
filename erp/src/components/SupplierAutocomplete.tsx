@@ -15,20 +15,22 @@ export interface SupplierAutocompleteProps {
     hideLabel?: boolean;
     customLabel?: string;
     showSelectedBadge?: boolean;
+    minChars?: number;
 }
 
 const SupplierAutocomplete: React.FC<SupplierAutocompleteProps> = ({
     suppliers,
     selectedSupplierId,
     onSelect,
-    placeholder = "Buscar fornecedor...",
+    placeholder = "Digite 2 ou mais letras para buscar fornecedor...",
     className = "",
-    inputClassName = "w-full bg-transparent border-0 border-b border-slate-200 dark:border-slate-800 p-2 focus:border-blue-600 dark:focus:border-blue-500 outline-none text-sm font-bold text-slate-700 dark:text-slate-300 transition-all focus:ring-0 focus:shadow-sm",
+    inputClassName = "w-full bg-white dark:bg-slate-900 border-0 border-b-2 border-slate-200 dark:border-slate-700 p-2 focus:border-blue-600 dark:focus:border-blue-500 outline-none text-sm font-bold text-slate-700 dark:text-slate-200 transition-all focus:ring-0 rounded-none",
     disabled = false,
     disabledReason = "",
     hideLabel = false,
     customLabel = "Fornecedor",
-    showSelectedBadge = true
+    showSelectedBadge = true,
+    minChars = 2
 }) => {
     const {
         query,
@@ -38,13 +40,15 @@ const SupplierAutocomplete: React.FC<SupplierAutocompleteProps> = ({
         filteredSuggestions,
         isSelected,
         handleClear,
+        handleFocus,
         handleInputChange,
         handleSelectOption
     } = useSupplierAutocomplete({
         suppliers,
         selectedSupplierId,
         onSelect,
-        disabled
+        disabled,
+        minChars
     });
 
     return (
@@ -73,16 +77,14 @@ const SupplierAutocomplete: React.FC<SupplierAutocompleteProps> = ({
                     value={query}
                     disabled={disabled}
                     onChange={(e) => handleInputChange(e.target.value)}
-                    onFocus={() => {
-                        if (!disabled) setShowSuggestions(true);
-                    }}
+                    onFocus={handleFocus}
                     placeholder={disabled ? "Fornecedor fixado para os itens atuais" : placeholder}
                     className={`${inputClassName} ${
                         disabled 
-                            ? 'opacity-70 cursor-not-allowed bg-slate-50/50 dark:bg-slate-800/30' 
+                            ? 'opacity-70 cursor-not-allowed bg-slate-100 dark:bg-slate-800/60' 
                             : isSelected 
-                            ? 'border-emerald-500 dark:border-emerald-500 bg-emerald-50/30 dark:bg-emerald-950/20 text-emerald-900 dark:text-emerald-100 focus:border-emerald-600 focus:ring-emerald-500/20' 
-                            : ''
+                            ? 'border-b-2 border-emerald-500 dark:border-emerald-500 bg-emerald-50/20 dark:bg-emerald-950/20 text-emerald-900 dark:text-emerald-100 focus:border-blue-600' 
+                            : 'bg-white dark:bg-slate-900'
                     }`}
                     title={disabled ? (disabledReason || "Para trocar de fornecedor, remova todos os itens do pedido.") : undefined}
                 />
@@ -109,7 +111,7 @@ const SupplierAutocomplete: React.FC<SupplierAutocompleteProps> = ({
 
             <SupplierSuggestionsList
                 anchorRef={wrapperRef}
-                isOpen={!disabled && showSuggestions && suppliers.length > 0}
+                isOpen={!disabled && showSuggestions && (!minChars || query.trim().length >= minChars) && suppliers.length > 0}
                 suggestions={filteredSuggestions}
                 onSelect={handleSelectOption}
             />

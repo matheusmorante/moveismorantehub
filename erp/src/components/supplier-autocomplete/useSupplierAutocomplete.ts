@@ -6,13 +6,15 @@ interface UseSupplierAutocompleteProps {
     selectedSupplierId: string;
     onSelect: (supplierId: string) => void;
     disabled?: boolean;
+    minChars?: number;
 }
 
 export const useSupplierAutocomplete = ({
     suppliers,
     selectedSupplierId,
     onSelect,
-    disabled = false
+    disabled = false,
+    minChars = 2
 }: UseSupplierAutocompleteProps) => {
     const selectedSupplier = suppliers.find(s => s.id === selectedSupplierId);
     const [query, setQuery] = useState(selectedSupplier?.fullName || "");
@@ -56,10 +58,13 @@ export const useSupplierAutocomplete = ({
 
     const queryNorm = normalize(query);
 
-    // Filtrar sugestões localmente
+    // Filtrar sugestões localmente respeitando a quantidade mínima de caracteres
     const filteredSuggestions = suppliers.filter(s => {
+        if (minChars > 0 && queryNorm.length < minChars) {
+            return false;
+        }
         if (!queryNorm || queryNorm.length === 0 || queryNorm === normalize(selectedSupplier?.fullName || "")) {
-            return true;
+            return minChars === 0;
         }
         const nameNorm = normalize(s.fullName);
         const tradeNorm = normalize(s.tradeName || "");
@@ -77,16 +82,34 @@ export const useSupplierAutocomplete = ({
         setShowSuggestions(false);
     };
 
+    const handleFocus = () => {
+        if (disabled) return;
+        if (minChars > 0 && query.trim().length < minChars) {
+            setShowSuggestions(false);
+            return;
+        }
+        setShowSuggestions(true);
+    };
+
     const handleInputChange = (val: string) => {
         if (disabled) return;
         setQuery(val);
+        const trimmed = val.trim();
+        if (minChars > 0 && trimmed.length < minChars) {
+            setShowSuggestions(false);
+            if (trimmed === "") {
+                onSelect("");
+            }
+            return;
+        }
+
         setShowSuggestions(true);
-        if (val.trim() === "") {
+        if (trimmed === "") {
             onSelect("");
         } else {
             const exactMatch = suppliers.find(s => 
-                (s.fullName || '').trim().toLowerCase() === val.trim().toLowerCase() ||
-                (s.tradeName || '').trim().toLowerCase() === val.trim().toLowerCase()
+                (s.fullName || '').trim().toLowerCase() === trimmed.toLowerCase() ||
+                (s.tradeName || '').trim().toLowerCase() === trimmed.toLowerCase()
             );
             if (exactMatch && exactMatch.id) {
                 onSelect(exactMatch.id);
@@ -111,6 +134,7 @@ export const useSupplierAutocomplete = ({
         selectedSupplier,
         isSelected,
         handleClear,
+        handleFocus,
         handleInputChange,
         handleSelectOption
     };

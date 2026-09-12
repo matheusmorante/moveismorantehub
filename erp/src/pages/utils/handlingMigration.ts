@@ -87,12 +87,12 @@ export const migrateOrderHandlings = <T extends {
     const migratedItems = order.items.map(item => {
         const current = resolveHandlingLabel(item.handlingType);
         if (current) return { ...item, handlingType: current };
-        if (fallbackHandling) return { ...item, handlingType: fallbackHandling };
+        if (fallbackHandling && !item.handlingType?.trim()) return { ...item, handlingType: fallbackHandling };
         return item;
     });
 
     const firstItemHandling = migratedItems.find(i => i.handlingType?.trim())?.handlingType || '';
-    const migratedOrderType = resolveHandlingLabel(order.shipping?.orderType) || firstItemHandling;
+    const migratedOrderType = firstItemHandling || resolveHandlingLabel(order.shipping?.orderType);
 
     return {
         ...order,

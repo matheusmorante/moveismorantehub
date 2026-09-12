@@ -219,7 +219,7 @@ export default function AppLayout() {
                         </Link>
                         
                         <a
-                          href="https://expo.dev/artifacts/eas/2z1WIeabVBd27Zg66LdlZJTyjyR2v895eRnUiXwwHg0.apk"
+                          href="https://expo.dev/artifacts/eas/c6GuI7KSgOnw0kSY-zI9S_5dxaFMuc9lCT37XL-ynYE.apk"
                           target="_blank"
                           rel="noopener noreferrer"
                           onClick={() => setIsProfileMenuOpen(false)}

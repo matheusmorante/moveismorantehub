@@ -223,9 +223,16 @@ const OrderEditModal = ({ order, orderId, onClose: propOnClose, onSaveSuccess: p
     const handleUpdate = useCallback(async (e?: React.MouseEvent) => {
         e?.preventDefault();
         if (!effectiveOrder) return false;
+        const firstHandling = (form.state.items || []).find((i: any) => i.handlingType?.trim())?.handlingType || '';
+        const currentShipping = form.state.shipping || {};
         const updatedOrder = {
             ...form.state.currentOrder,
             id: effectiveOrder.id,
+            items: form.state.items,
+            shipping: {
+                ...currentShipping,
+                orderType: firstHandling || currentShipping.orderType || ''
+            },
             isButtonsClicked: effectiveOrder.isButtonsClicked || form.state.currentOrder.isButtonsClicked
         } as Order;
         const validationErrors = form.actions.validateOrder(updatedOrder);

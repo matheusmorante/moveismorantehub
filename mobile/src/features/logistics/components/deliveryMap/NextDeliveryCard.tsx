@@ -185,7 +185,9 @@ export const NextDeliveryCard: React.FC<Props> = ({
 
         <View style={styles.metricPill}>
           <Package size={11} color="#64748b" />
-          <Text style={[styles.metricText, { color: '#64748b' }]}>{activeItem.itemsCount} vol</Text>
+          <Text style={[styles.metricText, { color: '#64748b' }]}>
+            {activeItem.itemsCount} {activeItem.itemsCount === 1 ? 'item' : 'itens'}
+          </Text>
         </View>
       </View>
 
@@ -208,7 +210,7 @@ export const NextDeliveryCard: React.FC<Props> = ({
               activeOpacity={0.85}
             >
               <Eye size={13} color={isDarkMode ? '#94a3b8' : '#64748b'} />
-              <Text style={[styles.compactSecondaryText, isDarkMode && styles.textMuted]}>Ver pedido</Text>
+              <Text style={[styles.compactSecondaryText, isDarkMode && styles.textMuted]}>Detalhes do pedido</Text>
             </TouchableOpacity>
           </>
         ) : (
@@ -228,7 +230,7 @@ export const NextDeliveryCard: React.FC<Props> = ({
               activeOpacity={0.85}
             >
               <Eye size={13} color={isDarkMode ? '#94a3b8' : '#64748b'} />
-              <Text style={[styles.compactSecondaryText, isDarkMode && styles.textMuted]}>Ver pedido</Text>
+              <Text style={[styles.compactSecondaryText, isDarkMode && styles.textMuted]}>Detalhes do pedido</Text>
             </TouchableOpacity>
           </>
         )}

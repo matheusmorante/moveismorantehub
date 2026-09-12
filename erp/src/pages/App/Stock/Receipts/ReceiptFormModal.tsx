@@ -19,6 +19,8 @@ import { findProductSupplierCodes, saveProductSupplierCode } from '../../../util
 import { getProductsByIds } from '../../../utils/productService';
 import { calculateAdditionalCosts, getLegacyCompatibleCosts } from '../../../utils/inboundNfe/additionalCosts';
 import { calculateReceiptItems } from '../../../utils/goodsReceiptCostCalculation';
+import { formatGoodsReceiptCode } from '../../../utils/goodsReceiptCode';
+import { InboundInvoiceFiscalReview } from '../InboundInvoices/components/InboundInvoiceFiscalReview';
 
 type Props = {
     isOpen: boolean;
@@ -31,7 +33,8 @@ type Props = {
 export default function ReceiptFormModal({ isOpen, onClose, initialReceipt, initialInboundInvoice, initialPurchase }: Props) {
     const [suppliers, setSuppliers] = useState<Person[]>([]);
     const [draftId, setDraftId] = useState<string>('');
-    const [supplierId, setSupplierId] = useState('');
+    const [receiptIndex, setReceiptIndex] = useState<number | undefined>(undefined);
+    const [supplierId, setSupplierId] = useState<string>('');
     const [items, setItems] = useState<PurchaseItem[]>([]);
     const [inboundItems, setInboundItems] = useState<InboundReceiptItem[] | null>(null);
     const [ipiPercent, setIpiPercent] = useState(0);
@@ -64,6 +67,7 @@ export default function ReceiptFormModal({ isOpen, onClose, initialReceipt, init
         if (!isOpen) return;
         if (initialReceipt) {
             setDraftId(initialReceipt.id);
+            setReceiptIndex(initialReceipt.receiptIndex);
             setSupplierId(initialReceipt.supplierId || '');
             setItems(initialReceipt.items || []);
             setInboundItems(null);
@@ -88,6 +92,7 @@ export default function ReceiptFormModal({ isOpen, onClose, initialReceipt, init
             setIsDraftSaved(initialReceipt.isDraft);
         } else if (initialPurchase) {
             setDraftId('');
+            setReceiptIndex(undefined);
             applyPurchase(initialPurchase);
             setInboundItems(null);
             setReceiptDate(new Date().toISOString().slice(0, 10));
@@ -98,6 +103,7 @@ export default function ReceiptFormModal({ isOpen, onClose, initialReceipt, init
             setNonFiscalOtherExpensesMode('percent'); setNonFiscalOtherExpensesValue(0);
         } else if (initialInboundInvoice) {
             setDraftId('');
+            setReceiptIndex(undefined);
             setSupplierId('');
             setObservations([]);
             setNonFiscalDiscountMode('percent'); setNonFiscalDiscountValue(0);
@@ -105,7 +111,7 @@ export default function ReceiptFormModal({ isOpen, onClose, initialReceipt, init
             setNonFiscalOtherExpensesMode('percent'); setNonFiscalOtherExpensesValue(0);
             void applyInboundInvoice(initialInboundInvoice);
         } else {
-            setDraftId(''); setSupplierId(''); setItems([]); setIpiPercent(0); setFreightPercent(0);
+            setDraftId(''); setReceiptIndex(undefined); setSupplierId(''); setItems([]); setIpiPercent(0); setFreightPercent(0);
             setNonFiscalDiscountMode('percent'); setNonFiscalDiscountValue(0);
             setNonFiscalFreightMode('percent'); setNonFiscalFreightValue(0);
             setNonFiscalOtherExpensesMode('percent'); setNonFiscalOtherExpensesValue(0);
@@ -155,6 +161,7 @@ export default function ReceiptFormModal({ isOpen, onClose, initialReceipt, init
                 const currentSupplier = suppliers.find((p) => p.id === supplierId);
                 const savedDraft = await saveGoodsReceiptDraft({
                     id: draftId || undefined,
+                    receiptIndex: receiptIndex || initialReceipt?.receiptIndex,
                     supplierId,
                     supplierName: currentSupplier?.fullName || 'Fornecedor',
                     receivedAt: new Date(`${receiptDate}T12:00:00`).toISOString(),
@@ -179,6 +186,7 @@ export default function ReceiptFormModal({ isOpen, onClose, initialReceipt, init
                     fiscalOtherExpenses,
                 });
                 if (!draftId && savedDraft.id) setDraftId(savedDraft.id);
+                if (savedDraft.receiptIndex) setReceiptIndex(savedDraft.receiptIndex);
                 setIsDraftSaved(true);
             } catch (err) {
                 console.error('Erro ao auto-salvar rascunho:', err);
@@ -196,6 +204,7 @@ export default function ReceiptFormModal({ isOpen, onClose, initialReceipt, init
     const handleFinalize = async () => {
         if (!supplier) return toast.error('Selecione o fornecedor para continuar.');
         if (!items.length) return toast.error('Adicione pelo menos um item para confirmar o recebimento.');
+        if (items.some((item) => !item.productId)) return toast.error('Selecione o produto de todos os itens antes de confirmar o recebimento.');
         if (inboundItems?.some((item) => !item.linkedProductId)) return toast.error('Vincule todos os itens da NF-e a um produto do ERP antes de confirmar.');
         if (fiscalKey && fiscalKey.length !== 44) return toast.error('A chave de acesso da nota fiscal deve conter exatamente 44 dígitos.');
         setIsSaving(true);
@@ -212,6 +221,7 @@ export default function ReceiptFormModal({ isOpen, onClose, initialReceipt, init
             }
             await finalizeGoodsReceipt({
                 id: receiptId,
+                receiptIndex: receiptIndex || initialReceipt?.receiptIndex,
                 supplierId,
                 supplierName: supplier.fullName,
                 receivedAt: new Date(`${receiptDate}T12:00:00`).toISOString(),
@@ -401,44 +411,127 @@ export default function ReceiptFormModal({ isOpen, onClose, initialReceipt, init
         toast.info('Pedido carregado. Confira e ajuste os itens recebidos antes de registrar.');
     };
 
-    const content = <div className="fixed inset-0 z-[999999] flex items-center justify-center p-0 xl:p-6">
-        <button aria-label="Fechar" className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={onClose} />
-        <section className="relative flex h-full w-full flex-col overflow-hidden bg-white shadow-2xl dark:bg-slate-900 xl:h-auto xl:max-h-[90vh] xl:max-w-7xl xl:rounded-[2.5rem]">
-            <header className="flex shrink-0 items-center justify-between bg-emerald-600 px-5 py-2.5 text-white xl:px-8 xl:py-3">
+    const isFullScreen = Boolean(initialInboundInvoice);
+
+    const content = <div className={`fixed inset-0 z-[999999] flex items-center justify-center ${isFullScreen ? 'p-0 bg-white dark:bg-slate-900' : 'p-0 xl:p-6 bg-slate-900/60 backdrop-blur-sm'}`}>
+        {!isFullScreen && <button aria-label="Fechar" className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={onClose} />}
+        <section className={`relative flex flex-col overflow-hidden bg-white shadow-2xl dark:bg-slate-900 ${
+            isFullScreen ? 'h-screen w-screen rounded-none' : 'h-full w-full xl:h-auto xl:max-h-[90vh] xl:max-w-7xl xl:rounded-[2.5rem]'
+        }`}>
+            <header className="flex shrink-0 items-center justify-between bg-emerald-600 px-5 py-3 text-white xl:px-8 shadow-sm">
                 <div className="flex items-center gap-3">
-                    <h2 className="text-lg font-black uppercase">
-                        {initialInboundInvoice ? 'Registrar recebimento com NF-e' : initialPurchase ? 'Registrar recebimento com Pedido de Compra' : 'Registrar recebimento sem Nota Fiscal'}
-                    </h2>
+                    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/20 text-white">
+                        <i className={`bi ${initialInboundInvoice ? 'bi-file-earmark-text-fill' : 'bi-box-seam'} text-lg`} />
+                    </div>
+                    <div>
+                        <h2 className="text-base sm:text-lg font-black uppercase tracking-wide">
+                            {initialInboundInvoice ? 'Registrar Recebimento com NF-e' : initialPurchase ? 'Registrar Recebimento com Pedido de Compra' : 'Registrar Recebimento sem Nota Fiscal'}
+                        </h2>
+                        {initialInboundInvoice ? (
+                            <p className="text-xs text-emerald-100 font-normal">
+                                NF-e #{initialInboundInvoice.nfeNumber || '—'} · {initialInboundInvoice.emitterName || 'Fornecedor'}
+                            </p>
+                        ) : (
+                            <p className="text-xs text-emerald-100 font-normal">
+                                Entrada de mercadorias no estoque e conciliação de custos
+                            </p>
+                        )}
+                    </div>
+                    {(receiptIndex || initialReceipt?.receiptIndex) && (
+                        <span className="font-mono text-xs font-black bg-emerald-800/60 border border-emerald-400/40 px-2.5 py-0.5 rounded-lg text-emerald-100">
+                            #{formatGoodsReceiptCode({ receiptIndex: receiptIndex || initialReceipt?.receiptIndex })}
+                        </span>
+                    )}
                     {isDraftSaved && (
                         <span className="flex items-center gap-1.5 rounded-full bg-white/20 px-2.5 py-1 text-[9px] font-black uppercase tracking-wider text-white border border-white/30 animate-pulse">
                             <i className="bi bi-cloud-check-fill text-emerald-300" /> Rascunho salvo
                         </span>
                     )}
                 </div>
-                <button type="button" onClick={onClose} className="rounded-xl p-2 hover:bg-white/10"><i className="bi bi-x-lg text-lg" /></button>
+                <button type="button" onClick={onClose} className="rounded-xl p-2 hover:bg-white/10 transition-colors" title="Fechar">
+                    <i className="bi bi-x-lg text-lg" />
+                </button>
             </header>
-            <div className="flex-1 space-y-7 overflow-y-auto p-5 xl:p-8">
-                {/* Barra Principal: Fornecedor e Data */}
-                <div className="grid grid-cols-1 items-end gap-4 md:grid-cols-3">
-                    <div className="md:col-span-2">
-                        <SupplierAutocomplete
-                            suppliers={suppliers}
-                            selectedSupplierId={supplierId}
-                            onSelect={(id) => setSupplierId(id)}
-                            disabled={Boolean(initialInboundInvoice) || Boolean(initialPurchase) || Boolean(initialReceipt) || items.length > 0}
-                            disabledReason={
-                                (initialInboundInvoice || initialPurchase || initialReceipt)
-                                    ? "O fornecedor foi pré-definido pelo documento/pedido de origem."
-                                    : items.length > 0
-                                    ? "Para alterar o fornecedor, remova os itens adicionados ao recebimento."
-                                    : undefined
-                            }
-                            customLabel="Fornecedor"
-                            placeholder="Pesquise o fornecedor por nome ou CNPJ..."
-                        />
+            <div className="flex-1 space-y-6 overflow-y-auto p-5 xl:p-8 max-w-7xl mx-auto w-full">
+                {/* Resumo Fiscal da NF-e (Idêntico ao módulo de NF de entrada) */}
+                {initialInboundInvoice && (
+                    <InboundInvoiceFiscalReview invoice={initialInboundInvoice} />
+                )}
+
+                {/* Bloco de Dados da NF e Fornecedor */}
+                {initialInboundInvoice ? (
+                    <section className="rounded-2xl border border-slate-200/80 bg-slate-50/50 p-4 dark:border-slate-800 dark:bg-slate-900/30 space-y-3">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-200/60 pb-2 dark:border-slate-800">
+                            <div>
+                                <h3 className="text-xs font-black uppercase tracking-widest text-slate-700 dark:text-slate-200">
+                                    Dados da NF-e e Fornecedor
+                                </h3>
+                                <p className="text-xs text-slate-500">
+                                    Emitente: <b>{initialInboundInvoice.emitterName || 'Emitente não identificado'}</b> · CNPJ: {initialInboundInvoice.emitterCnpj || '—'}
+                                </p>
+                            </div>
+                            {initialInboundInvoice.nfeKey && (
+                                <span className="font-mono text-[11px] bg-slate-100 dark:bg-slate-800 px-2.5 py-1 rounded-lg text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
+                                    Chave: {initialInboundInvoice.nfeKey.replace(/(\d{4})/g, '$1 ').trim()}
+                                </span>
+                            )}
+                        </div>
+
+                        <div className="grid grid-cols-1 items-end gap-4 md:grid-cols-3 pt-1">
+                            <div className="md:col-span-2">
+                                <SupplierAutocomplete
+                                    suppliers={suppliers}
+                                    selectedSupplierId={supplierId}
+                                    onSelect={(id) => setSupplierId(id)}
+                                    disabled={true}
+                                    disabledReason="O fornecedor foi vinculado automaticamente a partir dos dados do emitente da NF-e."
+                                    customLabel="Fornecedor Vinculado no ERP"
+                                    placeholder="Fornecedor do ERP..."
+                                />
+                            </div>
+                            <label className="flex flex-col gap-2 text-[10px] font-black uppercase tracking-widest text-slate-400">
+                                Data do recebimento
+                                <input
+                                    type="date"
+                                    value={receiptDate}
+                                    onChange={(event) => setReceiptDate(event.target.value)}
+                                    className="w-full bg-white dark:bg-slate-900 border-0 border-b-2 border-slate-200 dark:border-slate-700 focus:border-blue-600 dark:focus:border-blue-500 outline-none p-2 text-sm font-bold text-slate-800 dark:text-slate-100 rounded-none transition-colors"
+                                />
+                            </label>
+                        </div>
+                    </section>
+                ) : (
+                    /* Barra Principal Normal: Fornecedor e Data (quando sem NF-e) */
+                    <div className="grid grid-cols-1 items-end gap-4 md:grid-cols-3">
+                        <div className="md:col-span-2">
+                            <SupplierAutocomplete
+                                suppliers={suppliers}
+                                selectedSupplierId={supplierId}
+                                onSelect={(id) => setSupplierId(id)}
+                                disabled={Boolean(initialPurchase) || Boolean(initialReceipt) || items.length > 0}
+                                disabledReason={
+                                    (initialPurchase || initialReceipt)
+                                        ? "O fornecedor foi pré-definido pelo documento/pedido de origem."
+                                        : items.length > 0
+                                        ? "Para alterar o fornecedor, remova os itens adicionados ao recebimento."
+                                        : undefined
+                                }
+                                customLabel="Fornecedor"
+                                placeholder="Digite 2 ou mais letras para buscar fornecedor..."
+                                minChars={2}
+                            />
+                        </div>
+                        <label className="flex flex-col gap-2 text-[10px] font-black uppercase tracking-widest text-slate-400">
+                            Data do recebimento
+                            <input
+                                type="date"
+                                value={receiptDate}
+                                onChange={(event) => setReceiptDate(event.target.value)}
+                                className="w-full bg-white dark:bg-slate-900 border-0 border-b-2 border-slate-200 dark:border-slate-700 focus:border-blue-600 dark:focus:border-blue-500 outline-none p-2 text-sm font-bold text-slate-800 dark:text-slate-100 rounded-none transition-colors"
+                            />
+                        </label>
                     </div>
-                    <label className="flex flex-col gap-2 text-[10px] font-black uppercase tracking-widest text-slate-400">Data do recebimento<input type="date" value={receiptDate} onChange={(event) => setReceiptDate(event.target.value)} className="border-b-2 border-slate-200 bg-transparent p-2 text-sm font-bold text-slate-700 outline-none focus:border-emerald-600 dark:border-slate-700 dark:text-slate-200" /></label>
-                </div>
+                )}
 
                 {/* Parâmetros do Recebimento (Desconto, Frete e Outras Despesas com rateio dinâmico) */}
                 <div className="rounded-2xl border border-slate-200/80 bg-slate-50/50 p-4 dark:border-slate-800 dark:bg-slate-900/30 space-y-3">
@@ -520,7 +613,26 @@ export default function ReceiptFormModal({ isOpen, onClose, initialReceipt, init
                     />
                 )}
             </div>
-            <footer className="flex shrink-0 flex-col items-center justify-between gap-3 border-t border-slate-100 bg-slate-50 p-5 dark:border-slate-800 dark:bg-slate-955/40 sm:flex-row xl:px-8"><p className="text-sm font-black text-slate-700 dark:text-slate-100">Total final: <span className="text-emerald-600">{formatCurrency(totalValue)}</span></p><div className="flex w-full gap-3 sm:w-auto"><button type="button" onClick={onClose} className="flex-1 rounded-2xl px-5 py-3 text-xs font-black uppercase text-slate-500">Cancelar</button><button type="button" disabled={isSaving} onClick={handleFinalize} className="flex-1 rounded-2xl bg-emerald-600 px-6 py-3 text-xs font-black uppercase text-white hover:bg-emerald-700 disabled:opacity-50 transition-all shadow-md">{isSaving ? 'Confirmando...' : 'Confirmar recebimento'}</button></div></footer>
+            <footer className="flex shrink-0 flex-col items-center justify-between gap-3 border-t border-slate-100 bg-slate-50 p-5 dark:border-slate-800 dark:bg-slate-955/40 sm:flex-row xl:px-8 shadow-inner">
+                <div className="flex flex-wrap items-center gap-3">
+                    <p className="text-sm font-black text-slate-700 dark:text-slate-100">
+                        Total final: <span className="text-emerald-600 dark:text-emerald-400 text-lg font-black">{formatCurrency(totalValue)}</span>
+                    </p>
+                    {inboundItems && (
+                        <span className="text-xs text-slate-500 dark:text-slate-400 font-semibold bg-slate-200/60 dark:bg-slate-800/60 px-2.5 py-1 rounded-lg">
+                            {inboundItems.filter((i) => Boolean(i.linkedProductId)).length} de {inboundItems.length} itens vinculados
+                        </span>
+                    )}
+                </div>
+                <div className="flex w-full gap-3 sm:w-auto">
+                    <button type="button" onClick={onClose} className="flex-1 sm:flex-initial rounded-2xl px-5 py-3 text-xs font-black uppercase text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
+                        Cancelar
+                    </button>
+                    <button type="button" disabled={isSaving} onClick={handleFinalize} className="flex-1 sm:flex-initial rounded-2xl bg-emerald-600 px-6 py-3 text-xs font-black uppercase text-white hover:bg-emerald-700 disabled:opacity-50 transition-all shadow-md">
+                        {isSaving ? 'Confirmando...' : 'Confirmar recebimento'}
+                    </button>
+                </div>
+            </footer>
         </section>
     </div>;
     return typeof document === 'undefined' ? content : createPortal(content, document.body);
@@ -626,9 +738,9 @@ function ToggleValueField({
                     value={value || ''}
                     onChange={(e) => onValueChange(Math.max(0, Number(e.target.value)))}
                     placeholder={isPercent ? '0 %' : '0,00'}
-                    className="w-full border-b-2 border-slate-200 dark:border-slate-700 bg-transparent py-1.5 pr-8 text-sm font-bold text-slate-800 dark:text-slate-100 outline-none focus:border-emerald-600 transition-colors"
+                    className="w-full bg-white dark:bg-slate-900 border-0 border-b-2 border-slate-200 dark:border-slate-700 focus:border-blue-600 dark:focus:border-blue-500 outline-none py-1.5 pl-1 pr-8 text-sm font-bold text-slate-800 dark:text-slate-100 rounded-none transition-colors"
                 />
-                <span className="absolute right-1 text-[11px] font-black text-slate-400 pointer-events-none">
+                <span className="absolute right-2 text-[11px] font-black text-slate-400 pointer-events-none">
                     {isPercent ? '%' : 'R$'}
                 </span>
             </div>

@@ -356,7 +356,7 @@ export const getDefaultSettings = (): AppSettings => ({
     freightPerKm: 0,
     openRouteServiceApiKey: '',
     googleMapsApiKey: '__REDACTED_GCP_API_KEY__',
-    storeOriginCoords: [-49.16928181659719, -25.352030536045138],
+    storeOriginCoords: [-49.16948, -25.35205],
     companyName: 'Móveis Morante',
     companyAddress: 'R. Cascavel, 306 - Guaraituba, Colombo - PR, 83410-270',
     companyCnpj: '44.512.248.0001/07',

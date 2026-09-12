@@ -746,6 +746,7 @@ export default function App() {
               <DeliveriesHubScreen
                 isDarkMode={isDarkMode}
                 isAdmin={isAdmin}
+                userProfile={userProfile}
                 initialTab={deliveriesSubTab}
                 onSelectOrder={setAppSelectedOrder}
               />
@@ -753,6 +754,7 @@ export default function App() {
               <NativeLogisticsScreen
                 isDarkMode={isDarkMode}
                 isAdmin={isAdmin}
+                userProfile={userProfile}
                 onSelectOrder={setAppSelectedOrder}
                 onNavigateToDeliveriesMap={() => {
                   setDeliveriesSubTab('map');

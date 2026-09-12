@@ -27,7 +27,7 @@ export default function DeliveryMap({ orders, onOrderClick, onOrderEdit }: Deliv
     const map = useRef<maplibregl.Map | null>(null);
     const markers = useRef<maplibregl.Marker[]>([]);
     const settings = getSettings();
-    const storeOrigin = useMemo(() => settings.storeOriginCoords || [-49.16928, -25.35203], [settings.storeOriginCoords?.[0], settings.storeOriginCoords?.[1]]); // [lng, lat]
+    const storeOrigin = useMemo(() => settings.storeOriginCoords || [-49.16948, -25.35205], [settings.storeOriginCoords?.[0], settings.storeOriginCoords?.[1]]); // [lng, lat]
 
     const [routeInfo, setRouteInfo] = useState<Record<string, { distance: string, duration: string }>>({});
 
@@ -68,13 +68,7 @@ export default function DeliveryMap({ orders, onOrderClick, onOrderEdit }: Deliv
                             continue;
                         }
                     }
-
-                    // 3. Fallback: Bairro (O que estava acontecendo)
-                    const fallback = getNeighborhoodCoords(address.neighborhood, address.city);
-                    if (fallback) {
-                        newGeocoded[order.id] = { ...fallback, isPrecision: false };
-                        changed = true;
-                    }
+                    // Sem fallback genérico de bairro: se não encontrou o endereço exato, não plotar em local arbitrário.
                 }
             }
             if (changed) setGeocodedPoints(newGeocoded);

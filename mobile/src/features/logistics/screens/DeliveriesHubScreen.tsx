@@ -5,9 +5,9 @@ import { FileText, Map, CalendarClock } from 'lucide-react-native';
 import { useDeliveryRoute, DeliveryRouteDateScope, DeliveryRouteItem } from '../hooks/useDeliveryRoute';
 import { useDriverLocation } from '../hooks/useDriverLocation';
 import { useRoutesApi } from '../hooks/useRoutesApi';
+import { useTeamLocations } from '../hooks/useTeamLocations';
 import { DeliveryMapView } from '../components/deliveryMap/DeliveryMapView';
 import { MapErrorBoundary } from '../components/deliveryMap/MapErrorBoundary';
-import { NextDeliveryCard } from '../components/deliveryMap/NextDeliveryCard';
 import { DeliveryBottomSheet } from '../components/deliveryMap/DeliveryBottomSheet';
 import { TodaySummaryCard } from '../components/TodaySummaryCard';
 import { DeliveryTimelineView } from '../components/schedule/DeliveryTimelineView';
@@ -18,6 +18,7 @@ interface Props {
   isDarkMode?: boolean;
   isAdmin?: boolean;
   initialTab?: DeliveriesSubTab;
+  userProfile?: any;
   onSelectOrder: (order: any) => void;
 }
 
@@ -25,6 +26,7 @@ export const DeliveriesHubScreen: React.FC<Props> = ({
   isDarkMode = false,
   isAdmin = false,
   initialTab = 'today',
+  userProfile,
   onSelectOrder,
 }) => {
   const insets = useSafeAreaInsets();
@@ -36,23 +38,28 @@ export const DeliveriesHubScreen: React.FC<Props> = ({
     setActiveTab(initialTab);
   }, [initialTab]);
 
-  // Hooks de Dados e Localização
+  // Hooks de Dados e Localização (unificado para as 3 abas: Resumo, Cronograma e Mapa)
   const { orders, routeItems, currentDelivery, nextDelivery, stats, loading, refreshing, onRefresh } = useDeliveryRoute(
-    activeTab === 'schedule' ? scheduleDateScope : 'today',
+    scheduleDateScope,
   );
   const { coords: driverCoords } = useDriverLocation();
+  const { teamMembers } = useTeamLocations({
+    userProfile,
+    myCoords: driverCoords,
+    isGpsActive: Boolean(driverCoords),
+  });
 
-  // Coordenadas padrão do depósito Morante (Curitiba/Colombo - PR)
+  // Coordenadas padrão do depósito Morante (Curitiba/Colombo - PR - R. Cascavel, 306, lado esquerdo)
   const storeCoords = useMemo(() => ({
-    latitude: -25.352,
-    longitude: -49.169,
+    latitude: -25.35205,
+    longitude: -49.16948,
   }), []);
 
   // Alvo ativo da rota: SOMENTE a parada clicada pelo motorista no mapa (sem rota forçada por padrão)
   const activeDeliveryTarget = selectedMarkerItem;
 
   // Polyline e métricas da Routes API entre motorista e parada selecionada (somente quando houver seleção explícita)
-  const { polylineCoords } = useRoutesApi({
+  const { polylineCoords, distanceKm, durationMin } = useRoutesApi({
     origin: driverCoords || storeCoords,
     destination: activeDeliveryTarget?.coords || null,
     enabled: activeTab === 'map' && !!activeDeliveryTarget?.coords,
@@ -69,10 +76,31 @@ export const DeliveriesHubScreen: React.FC<Props> = ({
   return (
     <View style={[styles.container, isDarkMode && styles.containerDark]}>
       {/* Barra de Tabs Superior: [ Resumo ] [ Cronograma ] [ Mapa ] */}
-      <View style={[styles.headerContainer, isDarkMode && styles.headerContainerDark, { paddingTop: Math.max(insets.top, 8) }]}>
+      <View style={[styles.headerContainer, isDarkMode && styles.headerContainerDark, { paddingTop: Math.max(insets.top, 12) + 6 }]}>
         <View style={styles.titleRow}>
-          <View style={{ flex: 1 }}>
-            <Text style={[styles.screenTitle, isDarkMode && styles.textLight]}>Operação</Text>
+          <Text style={[styles.screenTitle, isDarkMode && styles.textLight]}>Operação</Text>
+
+          {/* Filtro Global de Período posicionado na linha do título: [ Hoje ] [ Dias seguintes ] */}
+          <View style={[styles.dateScopeContainer, isDarkMode && styles.dateScopeContainerDark]}>
+            <TouchableOpacity
+              style={[styles.dateScopeBtn, scheduleDateScope === 'today' && styles.dateScopeBtnActive]}
+              onPress={() => setScheduleDateScope('today')}
+              activeOpacity={0.8}
+            >
+              <Text style={[styles.dateScopeBtnText, scheduleDateScope === 'today' && styles.dateScopeBtnTextActive]}>
+                Hoje
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.dateScopeBtn, scheduleDateScope === 'next_days' && styles.dateScopeBtnActive]}
+              onPress={() => setScheduleDateScope('next_days')}
+              activeOpacity={0.8}
+            >
+              <Text style={[styles.dateScopeBtnText, scheduleDateScope === 'next_days' && styles.dateScopeBtnTextActive]}>
+                Dias Seguintes
+              </Text>
+            </TouchableOpacity>
           </View>
         </View>
 
@@ -127,6 +155,7 @@ export const DeliveriesHubScreen: React.FC<Props> = ({
           <TodaySummaryCard
             orders={orders && orders.length > 0 ? orders : routeItems.map(item => item.order)}
             onSelectOrder={onSelectOrder}
+            periodFilter={scheduleDateScope}
             isDarkMode={isDarkMode}
           />
         </ScrollView>
@@ -144,8 +173,6 @@ export const DeliveriesHubScreen: React.FC<Props> = ({
             onRefresh={onRefresh}
             onStartDelivery={handleStartDelivery}
             onViewOrder={handleViewOrder}
-            dateScope={scheduleDateScope}
-            onChangeDateScope={setScheduleDateScope}
             isDarkMode={isDarkMode}
           />
         )
@@ -168,33 +195,19 @@ export const DeliveriesHubScreen: React.FC<Props> = ({
                   selectedItem={selectedMarkerItem}
                   onSelectMarker={(item) => setSelectedMarkerItem(item)}
                   isDarkMode={isDarkMode}
+                  teamMembers={teamMembers}
                 />
               </MapErrorBoundary>
-
-              {/* Card Flutuante Inferior (Apenas quando o usuário clicar em um marcador) */}
-              {selectedMarkerItem && (
-                <View style={styles.floatingCardContainer}>
-                  <NextDeliveryCard
-                    currentDelivery={currentDelivery}
-                    nextDelivery={nextDelivery}
-                    selectedDelivery={selectedMarkerItem}
-                    allCompleted={stats.total > 0 && stats.pending === 0}
-                    onCloseCard={() => setSelectedMarkerItem(null)}
-                    onStartDelivery={handleStartDelivery}
-                    onViewOrder={handleViewOrder}
-                    onRegisterService={handleViewOrder}
-                    isDarkMode={isDarkMode}
-                  />
-                </View>
-              )}
             </View>
           )}
         </View>
       )}
 
-      {/* Modal de Detalhes da Parada (Bottom Sheet ao tocar no marcador do mapa) */}
+      {/* Modal Resumido do Pedido (com botão de ver detalhes do pedido) */}
       <DeliveryBottomSheet
         item={selectedMarkerItem}
+        distanceKm={distanceKm}
+        durationMin={durationMin}
         onClose={() => setSelectedMarkerItem(null)}
         onStartDelivery={handleStartDelivery}
         onViewOrder={handleViewOrder}
@@ -215,7 +228,7 @@ const styles = StyleSheet.create({
   headerContainer: {
     backgroundColor: '#ffffff',
     paddingHorizontal: 16,
-    paddingBottom: 8,
+    paddingBottom: 14,
     borderBottomWidth: 1,
     borderBottomColor: '#f1f5f9',
   },
@@ -227,13 +240,47 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 6,
+    marginBottom: 12,
+    paddingTop: 2,
   },
   screenTitle: {
     fontSize: 20,
     fontWeight: '900',
     color: '#0f172a',
     letterSpacing: -0.5,
+  },
+  dateScopeContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#0055ff',
+    borderRadius: 22,
+    padding: 3,
+  },
+  dateScopeContainerDark: {
+    backgroundColor: '#1d4ed8',
+  },
+  dateScopeBtn: {
+    paddingHorizontal: 13,
+    paddingVertical: 5.5,
+    borderRadius: 18,
+    backgroundColor: 'transparent',
+  },
+  dateScopeBtnActive: {
+    backgroundColor: '#ffffff',
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 1.5 },
+    shadowOpacity: 0.18,
+    shadowRadius: 2.5,
+    elevation: 2.5,
+  },
+  dateScopeBtnText: {
+    fontSize: 11.5,
+    fontWeight: '700',
+    color: '#ffffff',
+  },
+  dateScopeBtnTextActive: {
+    color: '#0055ff',
+    fontWeight: '900',
   },
   textLight: {
     color: '#f8fafc',

@@ -3,7 +3,7 @@ import { GeminiContent } from './mobileAgentTypes';
 
 // Cliente HTTP leve e tipado para a API oficial do Google Gemini no Mobile
 
-const DEFAULT_GEMINI_API_KEY = '';
+const DEFAULT_GEMINI_API_KEY: string = '';
 
 export class MobileAgentClient {
   private static cachedApiKey: string | null = null;

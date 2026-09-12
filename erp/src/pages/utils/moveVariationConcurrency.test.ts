@@ -78,7 +78,7 @@ describe('Auditoria E2E e Concorrência de Mover Variação via RPC Postgres', (
 
         // Cleanup
         await supabase.from('product_variations').delete().in('id', [varB1Id, varB2Id, varXId, varYId]);
-        await supabase.from('products').delete().in('id', [parentAId, parentBId]);
+        await supabase.from('products').update({ deleted: true, active: false, status: 'trash' }).in('id', [parentAId, parentBId]);
     });
 
     it('2. Concorrência sobre a mesma variação (VAR-Z → Pai B vs VAR-Z → Pai C)', async () => {
@@ -121,7 +121,7 @@ describe('Auditoria E2E e Concorrência de Mover Variação via RPC Postgres', (
 
         // Cleanup
         await supabase.from('product_variations').delete().eq('id', varZId);
-        await supabase.from('products').delete().in('id', [parentBId, parentCId]);
+        await supabase.from('products').update({ deleted: true, active: false, status: 'trash' }).in('id', [parentBId, parentCId]);
     });
 
     it('3. Teste de Rollback em Falha Transacional (Pai Destino Inexistente)', async () => {
@@ -158,7 +158,7 @@ describe('Auditoria E2E e Concorrência de Mover Variação via RPC Postgres', (
 
         // Cleanup
         await supabase.from('product_variations').delete().eq('id', varId);
-        await supabase.from('products').delete().eq('id', parentAId);
+        await supabase.from('products').update({ deleted: true, active: false, status: 'trash' }).eq('id', parentAId);
     });
 
 });

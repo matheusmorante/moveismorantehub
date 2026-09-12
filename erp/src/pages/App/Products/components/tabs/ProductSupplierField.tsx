@@ -30,10 +30,10 @@ export function ProductSupplierField({ formData, suppliers, onChange, hasError =
 
     const visibleSuppliers = useMemo(() => {
         const query = search.trim().toLowerCase();
+        if (query.length < 2) return [];
         return allSuppliers.filter((supplier) => {
             const sid = String(supplier.id || '');
             if (selectedIds.includes(sid)) return false;
-            if (!query) return true;
             const name = (supplier.fullName || supplier.socialName || supplier.nickname || supplier.tradeName || '').toLowerCase();
             return name.includes(query);
         });
@@ -97,7 +97,7 @@ export function ProductSupplierField({ formData, suppliers, onChange, hasError =
                             setIsOpen(true);
                         }}
                         onFocus={() => setIsOpen(true)}
-                        placeholder="Pesquise um fornecedor..."
+                        placeholder="Digite 2 ou mais letras para buscar fornecedor..."
                         className={`w-full rounded-xl border bg-white py-2.5 pl-10 pr-4 text-xs font-bold outline-none focus:ring-2 dark:bg-slate-955 dark:text-slate-200 ${
                             hasError ? 'border-red-500 focus:ring-red-500/20' : 'border-slate-200 focus:ring-blue-500/20 dark:border-slate-800'
                         }`}

@@ -5,6 +5,7 @@ import { Map, List, Sparkles, ArrowLeft, RefreshCw, AlertCircle } from 'lucide-r
 import { useDeliveryRoute, DeliveryRouteItem, checkOutOfOrderRisk } from '../hooks/useDeliveryRoute';
 import { useDriverLocation } from '../hooks/useDriverLocation';
 import { useRoutesApi } from '../hooks/useRoutesApi';
+import { useTeamLocations } from '../hooks/useTeamLocations';
 import { DeliveryMapView } from '../components/deliveryMap/DeliveryMapView';
 import { MapErrorBoundary } from '../components/deliveryMap/MapErrorBoundary';
 import { NextDeliveryCard } from '../components/deliveryMap/NextDeliveryCard';
@@ -16,12 +17,14 @@ import { calculateOptimizedRoute, applyOptimizedSequence, OptimizationResult } f
 interface Props {
   isDarkMode?: boolean;
   onBack?: () => void;
+  userProfile?: any;
   onSelectOrder: (order: any) => void;
 }
 
 export const TodayDeliveriesScreen: React.FC<Props> = ({
   isDarkMode = false,
   onBack,
+  userProfile,
   onSelectOrder,
 }) => {
   const insets = useSafeAreaInsets();
@@ -38,11 +41,16 @@ export const TodayDeliveriesScreen: React.FC<Props> = ({
   // Hooks de Dados e Localização
   const { routeItems, currentDelivery, nextDelivery, stats, loading, refreshing, onRefresh } = useDeliveryRoute();
   const { coords: driverCoords, refreshLocation } = useDriverLocation();
+  const { teamMembers } = useTeamLocations({
+    userProfile,
+    myCoords: driverCoords,
+    isGpsActive: Boolean(driverCoords),
+  });
 
-  // Coordenadas padrão da loja/depósito Morante (Curitiba/Colombo - PR)
+  // Coordenadas padrão do depósito Morante (Curitiba/Colombo - PR - R. Cascavel, 306, lado esquerdo)
   const storeCoords = useMemo(() => ({
-    latitude: -25.352,
-    longitude: -49.169,
+    latitude: -25.35205,
+    longitude: -49.16948,
   }), []);
 
   // Alvo ativo da rota: SOMENTE a parada clicada pelo motorista no mapa (sem rota forçada por padrão)
@@ -222,6 +230,7 @@ export const TodayDeliveriesScreen: React.FC<Props> = ({
                 setIsCardDismissed(false); // Reabre o card ao clicar no marcador!
               }}
               isDarkMode={isDarkMode}
+              teamMembers={teamMembers}
             />
           </MapErrorBoundary>
 
