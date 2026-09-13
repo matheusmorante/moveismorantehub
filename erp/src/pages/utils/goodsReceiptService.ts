@@ -67,37 +67,89 @@ const notifyListeners = (receiptsList?: GoodsReceipt[]) => {
     });
 };
 
-const map = (row: any): GoodsReceipt => ({
-    id: String(row.id),
-    receiptIndex: Number(row.receipt_index) || undefined,
-    purchaseId: row.purchase_id || undefined,
-    supplierId: row.supplier_id || undefined,
-    supplierName: row.supplier_name || 'Fornecedor',
-    receivedAt: row.received_at || new Date().toISOString(),
-    invoiceNumber: row.invoice_number || undefined,
-    invoiceDate: row.invoice_date || undefined,
-    items: row.items || [],
-    totalValue: Number(row.total_value || 0),
-    observation: row.observation || '',
-    fiscalKey: row.fiscal_key || undefined,
-    attachments: row.attachments || [],
-    status: row.status === 'estornado' ? 'estornado' : (row.status === 'received' ? 'received' : 'draft'),
-    isDraft: row.is_draft ?? (row.status !== 'received' && row.status !== 'estornado'),
-    ipiPercent: Number(row.ipi_percent || 0),
-    freightPercent: Number(row.freight_percent || 0),
-    nonFiscalDiscountMode: row.non_fiscal_discount_mode || undefined,
-    nonFiscalDiscountValue: typeof row.non_fiscal_discount_value === 'number' ? row.non_fiscal_discount_value : undefined,
-    nonFiscalFreightMode: row.non_fiscal_freight_mode || undefined,
-    nonFiscalFreightValue: typeof row.non_fiscal_freight_value === 'number' ? row.non_fiscal_freight_value : undefined,
-    nonFiscalOtherExpensesMode: row.non_fiscal_other_expenses_mode || undefined,
-    nonFiscalOtherExpensesValue: typeof row.non_fiscal_other_expenses_value === 'number' ? row.non_fiscal_other_expenses_value : undefined,
-    fiscalIpi: typeof row.fiscal_ipi === 'number' ? row.fiscal_ipi : undefined,
-    fiscalFreight: typeof row.fiscal_freight === 'number' ? row.fiscal_freight : undefined,
-    fiscalDiscount: typeof row.fiscal_discount === 'number' ? row.fiscal_discount : undefined,
-    fiscalOtherExpenses: typeof row.fiscal_other_expenses === 'number' ? row.fiscal_other_expenses : undefined,
-    createdAt: row.created_at || new Date().toISOString(),
-    updatedAt: row.updated_at || new Date().toISOString(),
-});
+const isValidUuid = (val?: string) => Boolean(val && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val));
+
+const syncGoodsReceiptItems = async (receiptId: string, items: PurchaseItem[]) => {
+    if (!isValidUuid(receiptId)) return;
+    try {
+        await supabase.from('goods_receipt_items').delete().eq('receipt_id', receiptId);
+        if (items && items.length > 0) {
+            const rows = items.map((item, index) => ({
+                receipt_id: receiptId,
+                item_index: index + 1,
+                product_id: isValidUuid(item.productId) ? item.productId : null,
+                variation_id: isValidUuid(item.variationId) ? item.variationId : null,
+                description: item.description || 'Item de Recebimento',
+                quantity: Number(item.quantity || 1),
+                base_cost: Number(item.baseCost || 0),
+                unit_cost: Number(item.unitCost || 0),
+                freight_fiscal_unit: Number(item.freightFiscalUnit || 0),
+                freight_non_fiscal_unit: Number(item.freightNonFiscalUnit || 0),
+                discount_unit: Number(item.discountUnit || 0),
+                other_expenses_fiscal_unit: Number(item.otherExpensesFiscalUnit || 0),
+                other_expenses_non_fiscal_unit: Number(item.otherExpensesNonFiscalUnit || 0),
+                additional_cost_unit: Number(item.additionalCostUnit || 0),
+                item_snapshot: item,
+            }));
+            await supabase.from('goods_receipt_items').insert(rows);
+        }
+    } catch (err) {
+        console.error('[GoodsReceipt] Falha ao sincronizar goods_receipt_items:', err);
+    }
+};
+
+const map = (row: any): GoodsReceipt => {
+    const rawItems: PurchaseItem[] = Array.isArray(row.goods_receipt_items) && row.goods_receipt_items.length > 0
+        ? row.goods_receipt_items
+            .sort((a: any, b: any) => (a.item_index || 0) - (b.item_index || 0))
+            .map((gri: any) => ({
+                productId: gri.product_id || gri.item_snapshot?.productId || '',
+                variationId: gri.variation_id || gri.item_snapshot?.variationId || undefined,
+                description: gri.description || gri.item_snapshot?.description || '',
+                quantity: Number(gri.quantity || 1),
+                baseCost: Number(gri.base_cost || 0),
+                unitCost: Number(gri.unit_cost || 0),
+                freightFiscalUnit: Number(gri.freight_fiscal_unit || 0),
+                freightNonFiscalUnit: Number(gri.freight_non_fiscal_unit || 0),
+                discountUnit: Number(gri.discount_unit || 0),
+                otherExpensesFiscalUnit: Number(gri.other_expenses_fiscal_unit || 0),
+                otherExpensesNonFiscalUnit: Number(gri.other_expenses_non_fiscal_unit || 0),
+                additionalCostUnit: Number(gri.additional_cost_unit || 0),
+            }))
+        : (row.items || []);
+
+    return {
+        id: String(row.id),
+        receiptIndex: Number(row.receipt_index) || undefined,
+        purchaseId: row.purchase_id || undefined,
+        supplierId: row.supplier_id || undefined,
+        supplierName: row.supplier_name || 'Fornecedor',
+        receivedAt: row.received_at || new Date().toISOString(),
+        invoiceNumber: row.invoice_number || undefined,
+        invoiceDate: row.invoice_date || undefined,
+        items: rawItems,
+        totalValue: Number(row.total_value || 0),
+        observation: row.observation || '',
+        fiscalKey: row.fiscal_key || undefined,
+        attachments: row.attachments || [],
+        status: row.status === 'estornado' ? 'estornado' : (row.status === 'received' ? 'received' : 'draft'),
+        isDraft: row.is_draft ?? (row.status !== 'received' && row.status !== 'estornado'),
+        ipiPercent: Number(row.ipi_percent || 0),
+        freightPercent: Number(row.freight_percent || 0),
+        nonFiscalDiscountMode: row.non_fiscal_discount_mode || undefined,
+        nonFiscalDiscountValue: typeof row.non_fiscal_discount_value === 'number' ? row.non_fiscal_discount_value : undefined,
+        nonFiscalFreightMode: row.non_fiscal_freight_mode || undefined,
+        nonFiscalFreightValue: typeof row.non_fiscal_freight_value === 'number' ? row.non_fiscal_freight_value : undefined,
+        nonFiscalOtherExpensesMode: row.non_fiscal_other_expenses_mode || undefined,
+        nonFiscalOtherExpensesValue: typeof row.non_fiscal_other_expenses_value === 'number' ? row.non_fiscal_other_expenses_value : undefined,
+        fiscalIpi: typeof row.fiscal_ipi === 'number' ? row.fiscal_ipi : undefined,
+        fiscalFreight: typeof row.fiscal_freight === 'number' ? row.fiscal_freight : undefined,
+        fiscalDiscount: typeof row.fiscal_discount === 'number' ? row.fiscal_discount : undefined,
+        fiscalOtherExpenses: typeof row.fiscal_other_expenses === 'number' ? row.fiscal_other_expenses : undefined,
+        createdAt: row.created_at || new Date().toISOString(),
+        updatedAt: row.updated_at || new Date().toISOString(),
+    };
+};
 
 // Auto-salva ou atualiza um rascunho de recebimento
 export const saveGoodsReceiptDraft = async (draftData: Partial<GoodsReceipt>): Promise<GoodsReceipt> => {
@@ -152,13 +204,12 @@ export const saveGoodsReceiptDraft = async (draftData: Partial<GoodsReceipt>): P
         await supabase.from('goods_receipts').upsert({
             id: draftReceipt.id,
             receipt_index: draftReceipt.receiptIndex,
-            purchase_id: draftReceipt.purchaseId || null,
-            supplier_id: draftReceipt.supplierId || null,
+            purchase_id: isValidUuid(draftReceipt.purchaseId) ? draftReceipt.purchaseId : null,
+            supplier_id: isValidUuid(draftReceipt.supplierId) ? draftReceipt.supplierId : null,
             supplier_name: draftReceipt.supplierName,
             received_at: draftReceipt.receivedAt,
             invoice_number: draftReceipt.invoiceNumber || null,
             invoice_date: draftReceipt.invoiceDate || null,
-            items: draftReceipt.items,
             total_value: draftReceipt.totalValue,
             observation: draftReceipt.observation || '',
             fiscal_key: draftReceipt.fiscalKey || null,
@@ -179,6 +230,8 @@ export const saveGoodsReceiptDraft = async (draftData: Partial<GoodsReceipt>): P
             fiscal_other_expenses: draftReceipt.fiscalOtherExpenses ?? 0,
             updated_at: now,
         });
+
+        await syncGoodsReceiptItems(draftReceipt.id, draftReceipt.items);
     } catch {}
 
     return draftReceipt;
@@ -201,7 +254,6 @@ export const finalizeGoodsReceipt = async (receipt: GoodsReceipt): Promise<void>
     };
 
     // 1. Processar entradas no estoque para cada item recebido
-    // CORRECAO PROBLEMA #3: rastreia itens com falha e loga aviso ao final
     const failedItems: string[] = [];
     for (const item of finalizedReceipt.items) {
         if (!item.productId) continue;
@@ -242,13 +294,12 @@ export const finalizeGoodsReceipt = async (receipt: GoodsReceipt): Promise<void>
         await supabase.from('goods_receipts').upsert({
             id: finalizedReceipt.id,
             receipt_index: finalizedReceipt.receiptIndex,
-            purchase_id: finalizedReceipt.purchaseId || null,
-            supplier_id: finalizedReceipt.supplierId || null,
+            purchase_id: isValidUuid(finalizedReceipt.purchaseId) ? finalizedReceipt.purchaseId : null,
+            supplier_id: isValidUuid(finalizedReceipt.supplierId) ? finalizedReceipt.supplierId : null,
             supplier_name: finalizedReceipt.supplierName,
             received_at: finalizedReceipt.receivedAt,
             invoice_number: finalizedReceipt.invoiceNumber || null,
             invoice_date: finalizedReceipt.invoiceDate || null,
-            items: finalizedReceipt.items,
             total_value: finalizedReceipt.totalValue,
             observation: finalizedReceipt.observation || '',
             fiscal_key: finalizedReceipt.fiscalKey || null,
@@ -269,6 +320,8 @@ export const finalizeGoodsReceipt = async (receipt: GoodsReceipt): Promise<void>
             fiscal_other_expenses: finalizedReceipt.fiscalOtherExpenses ?? 0,
             updated_at: now,
         });
+
+        await syncGoodsReceiptItems(finalizedReceipt.id, finalizedReceipt.items);
     } catch (err) {
         console.error('[Recebimento] Falha ao persistir no Supabase:', err);
     }
@@ -287,7 +340,6 @@ export const reverseGoodsReceipt = async (id: string): Promise<GoodsReceipt> => 
     if (receipt.status === 'estornado') return receipt;
 
     const now = new Date().toISOString();
-    // CORRECAO BUG #1: remover referência inválida a 'existing' — o receiptIndex já existe em 'receipt'
     const estornadoReceipt: GoodsReceipt = {
         ...receipt,
         receiptIndex: receipt.receiptIndex,
@@ -297,7 +349,6 @@ export const reverseGoodsReceipt = async (id: string): Promise<GoodsReceipt> => 
     };
 
     // 1. Reverter estoque de cada item (lançamento de saída/estorno)
-    // CORRECAO PROBLEMA #3: rastreia itens com falha
     const failedItems: string[] = [];
     for (const item of receipt.items) {
         if (!item.productId) continue;
@@ -333,13 +384,12 @@ export const reverseGoodsReceipt = async (id: string): Promise<GoodsReceipt> => 
         await supabase.from('goods_receipts').upsert({
             id: estornadoReceipt.id,
             receipt_index: estornadoReceipt.receiptIndex,
-            purchase_id: estornadoReceipt.purchaseId || null,
-            supplier_id: estornadoReceipt.supplierId || null,
+            purchase_id: isValidUuid(estornadoReceipt.purchaseId) ? estornadoReceipt.purchaseId : null,
+            supplier_id: isValidUuid(estornadoReceipt.supplierId) ? estornadoReceipt.supplierId : null,
             supplier_name: estornadoReceipt.supplierName,
             received_at: estornadoReceipt.receivedAt,
             invoice_number: estornadoReceipt.invoiceNumber || null,
             invoice_date: estornadoReceipt.invoiceDate || null,
-            items: estornadoReceipt.items,
             total_value: estornadoReceipt.totalValue,
             observation: estornadoReceipt.observation || '',
             fiscal_key: estornadoReceipt.fiscalKey || null,
@@ -360,6 +410,8 @@ export const reverseGoodsReceipt = async (id: string): Promise<GoodsReceipt> => 
             fiscal_other_expenses: estornadoReceipt.fiscalOtherExpenses ?? 0,
             updated_at: now,
         });
+
+        await syncGoodsReceiptItems(estornadoReceipt.id, estornadoReceipt.items);
     } catch (err) {
         console.error('[Estorno] Falha ao persistir no Supabase:', err);
     }
@@ -372,7 +424,10 @@ export const deleteGoodsReceipt = async (id: string): Promise<void> => {
     saveStoredReceipts(localList);
     notifyListeners(localList);
     try {
-        await supabase.from('goods_receipts').delete().eq('id', id);
+        if (isValidUuid(id)) {
+            await supabase.from('goods_receipt_items').delete().eq('receipt_id', id);
+            await supabase.from('goods_receipts').delete().eq('id', id);
+        }
     } catch {}
 };
 
@@ -404,7 +459,6 @@ const ensureReceiptIndexes = (items: GoodsReceipt[]): GoodsReceipt[] => {
     let needsSave = false;
     let highest = items.reduce((max, item) => Math.max(max, Number(item.receiptIndex) || 0), 0);
 
-    // Percorrer ordenando por data de criação para atribuir sequencial cronológico
     const list = [...items].sort((a, b) => new Date(a.createdAt || a.receivedAt).getTime() - new Date(b.createdAt || b.receivedAt).getTime());
 
     list.forEach((item) => {
@@ -413,10 +467,12 @@ const ensureReceiptIndexes = (items: GoodsReceipt[]): GoodsReceipt[] => {
             item.receiptIndex = highest;
             needsSave = true;
             try {
-                supabase.from('goods_receipts')
-                    .update({ receipt_index: highest })
-                    .eq('id', item.id)
-                    .then(() => {});
+                if (isValidUuid(item.id)) {
+                    supabase.from('goods_receipts')
+                        .update({ receipt_index: highest })
+                        .eq('id', item.id)
+                        .then(() => {});
+                }
             } catch {}
         }
     });
@@ -428,25 +484,77 @@ const ensureReceiptIndexes = (items: GoodsReceipt[]): GoodsReceipt[] => {
     return result;
 };
 
+export interface FetchGoodsReceiptsOptions {
+    page?: number;
+    pageSize?: number;
+    searchTerm?: string;
+    status?: GoodsReceiptStatus;
+}
+
+export interface FetchGoodsReceiptsResult {
+    items: GoodsReceipt[];
+    totalCount: number;
+    page: number;
+    pageSize: number;
+    totalPages: number;
+}
+
+export const fetchGoodsReceiptsPage = async (options?: FetchGoodsReceiptsOptions): Promise<FetchGoodsReceiptsResult> => {
+    const page = options?.page ?? 1;
+    const pageSize = options?.pageSize ?? 30;
+    const searchTerm = (options?.searchTerm || '').trim();
+    const status = options?.status;
+
+    const firstRow = (page - 1) * pageSize;
+    const lastRow = firstRow + pageSize - 1;
+
+    let query = supabase
+        .from('goods_receipts')
+        .select('*, goods_receipt_items(*)', { count: 'exact' });
+
+    if (status) {
+        query = query.eq('status', status);
+    }
+
+    if (searchTerm) {
+        query = query.or(`supplier_name.ilike.%${searchTerm}%,invoice_number.ilike.%${searchTerm}%`);
+    }
+
+    query = query.order('updated_at', { ascending: false }).range(firstRow, lastRow);
+
+    const { data, count, error } = await query;
+    if (error) {
+        console.error('[GoodsReceipts] Erro ao buscar página:', error);
+        return { items: [], totalCount: 0, page, pageSize, totalPages: 0 };
+    }
+
+    const items = (data || []).map(map);
+    const totalCount = count || 0;
+    const totalPages = Math.ceil(totalCount / pageSize);
+
+    return { items, totalCount, page, pageSize, totalPages };
+};
+
 export const subscribeToGoodsReceipts = (callback: (items: GoodsReceipt[]) => void) => {
     listeners.push(callback);
 
     const load = async () => {
         const localItems = ensureReceiptIndexes(getStoredReceipts());
         try {
-            const { data, error } = await supabase.from('goods_receipts').select('*').order('updated_at', { ascending: false });
+            const { data, error } = await supabase
+                .from('goods_receipts')
+                .select('*, goods_receipt_items(*)')
+                .order('updated_at', { ascending: false })
+                .limit(30);
             if (!error && data?.length) {
                 const dbItems = data.map(map);
                 const mergedMap = new Map<string, GoodsReceipt>();
                 localItems.forEach((item) => mergedMap.set(item.id, item));
-                // CORRECAO PROBLEMA #4: merge respeita o status mais avançado (local ou DB)
-                // Nunca rebaixa um 'received' local para 'draft' do Supabase
                 dbItems.forEach((item) => {
                     const existingLocal = mergedMap.get(item.id);
                     if (existingLocal) {
                         const localRank = STATUS_RANK[existingLocal.status] ?? 0;
                         const dbRank = STATUS_RANK[item.status] ?? 0;
-                        // Prevalece o status mais avançado; em empate prevalece o DB (mais recente na nuvem)
                         const winner = localRank > dbRank ? existingLocal : item;
                         mergedMap.set(item.id, {
                             ...winner,
@@ -470,6 +578,7 @@ export const subscribeToGoodsReceipts = (callback: (items: GoodsReceipt[]) => vo
 
     const channel = supabase.channel(`goods_receipts_${Date.now()}`)
         .on('postgres_changes', { event: '*', schema: 'public', table: 'goods_receipts' }, load)
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'goods_receipt_items' }, load)
         .subscribe();
 
     return () => {
@@ -477,3 +586,5 @@ export const subscribeToGoodsReceipts = (callback: (items: GoodsReceipt[]) => vo
         supabase.removeChannel(channel);
     };
 };
+
+

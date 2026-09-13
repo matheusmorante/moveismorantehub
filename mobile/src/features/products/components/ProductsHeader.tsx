@@ -104,7 +104,7 @@ export function ProductsHeader({
           style={[styles.visibilityButton, dark && styles.darkVisibilityButton, showMerged && styles.mergedSelected]}
         >
           <Text style={[styles.visibilityText, dark && styles.light, showMerged && styles.selectedVisibilityText]}>
-            {showMerged ? '☑' : '☐'} Mostrar mesclados
+            {showMerged ? '☑' : '☐'} Mostrar fundidos
           </Text>
         </TouchableOpacity>
       </View>

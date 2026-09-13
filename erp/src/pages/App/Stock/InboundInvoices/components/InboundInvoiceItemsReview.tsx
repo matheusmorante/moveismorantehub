@@ -15,6 +15,9 @@ import { formatCurrency } from '@/pages/utils/formatters';
 import ProductFormModal from '@/pages/App/Products/ProductFormModal';
 import { InboundInvoiceItemFiscalReview } from './InboundInvoiceItemFiscalReview';
 import { itemCostRate, itemCostWithAdditionalCosts, itemFiscalOtherExpensesCost, itemFreightCost, itemIpiCost, itemNonFiscalOtherExpensesCost } from '@/pages/utils/inboundNfe/inboundItemCosts';
+import { extractColorCandidateFromTitle } from '@/pages/utils/inboundNfe/inboundMatchingRules';
+import { QuickRegisterVariationModal, QuickRegisterItem, QuickRegisterSelection } from './QuickRegisterVariationModal';
+import { prepareNewParentWithVariation, prepareExistingParentNewVariation } from '../services/inboundProductPreparationService';
 
 type AiClassification = {
     decision: 'EXISTING_VARIATION' | 'NEW_VARIATION_OF_EXISTING_PRODUCT' | 'NEW_PRODUCT' | 'UNSURE';
@@ -47,6 +50,8 @@ export function InboundInvoiceItemsReview({ items, supplierId, suppliers, onChan
     const [suggestedCategory, setSuggestedCategory] = useState<{ id: string; name: string } | null>(null);
     const [isPreparingProduct, setIsPreparingProduct] = useState(false);
     const [isProductModalOpen, setIsProductModalOpen] = useState(false);
+    const [editingParentProduct, setEditingParentProduct] = useState<Product | null>(null);
+    const [quickRegisterTarget, setQuickRegisterTarget] = useState<{ itemNumber: number; item: QuickRegisterItem } | null>(null);
     // IA com contexto de fornecedor
     const [isClassifying, setIsClassifying] = useState(false);
     const [aiClassification, setAiClassification] = useState<AiClassification | null>(null);
@@ -132,7 +137,8 @@ export function InboundInvoiceItemsReview({ items, supplierId, suppliers, onChan
             const { categories } = await fetchGroupsAndCategories();
             const categoryNames = categories.filter((category) => category.active !== false).map((category) => category.name);
             const categorySuggestion = await aiService.suggestCategory(suggestion.title, categoryNames);
-            const category = categories.find((candidate) => candidate.name.toLocaleLowerCase() === String(categorySuggestion.category || '').toLocaleLowerCase()) || categories[0];
+            const suggestedCatName = typeof categorySuggestion === 'string' ? categorySuggestion : (categorySuggestion?.category || '');
+            const category = categories.find((candidate) => candidate.name.trim().toLowerCase() === suggestedCatName.trim().toLowerCase()) || categories[0];
             if (!category) throw new Error('Nenhuma categoria existente foi encontrada para o produto.');
             
             const finalCost = finalItemCost(item);
@@ -156,9 +162,8 @@ export function InboundInvoiceItemsReview({ items, supplierId, suppliers, onChan
                 categoryIds: [category.id],
                 parentId: family?.id,
                 costPrice: finalCost,
-                finalPurchasePrice: finalCost,
                 unitPrice: salePrice,
-                stock: item.quantity || 0,
+                stock: 0,
                 fiscal: { ncm: item.ncm || undefined, cest: item.cest || undefined, cfop: item.cfop || undefined },
                 ecommerceSync: false,
                 whatsappSync: false,
@@ -206,8 +211,7 @@ export function InboundInvoiceItemsReview({ items, supplierId, suppliers, onChan
                 attributes,
                 unitPrice: Number((finalCost * (1 + markup / 100)).toFixed(2)),
                 costPrice: finalCost,
-                finalPurchasePrice: finalCost,
-                stock: classifyingItem.quantity,
+                stock: 0,
                 // Os campos do pai continuam sendo a fonte de herança da variação.
                 syncUnitPrice: false, syncPromoPrice: false, syncDescription: true,
                 syncWidth: true, images: [],
@@ -229,6 +233,48 @@ export function InboundInvoiceItemsReview({ items, supplierId, suppliers, onChan
         const queue = [...creationQueue];
         setAiClassification(null); setClassifyingItem(null);
         if (item) void startCreation(item, queue);
+    };
+
+    const handleQuickRegisterConfirm = async (selection: QuickRegisterSelection) => {
+        if (!quickRegisterTarget) return;
+        const { itemNumber, item } = quickRegisterTarget;
+        setQuickRegisterTarget(null);
+
+        if (selection.mode === 'EXISTING_PARENT') {
+            try {
+                setIsPreparingProduct(true);
+                const parentProduct = await getFullProduct(selection.parentProductId);
+                if (!parentProduct) {
+                    setIsPreparingProduct(false);
+                    toast.error('Produto pai não encontrado.');
+                    return;
+                }
+
+                const updatedParentProduct = await prepareExistingParentNewVariation(parentProduct, item);
+
+                setIsPreparingProduct(false);
+                setCreatingItemNumber(itemNumber);
+                setEditingParentProduct(updatedParentProduct);
+                setIsProductModalOpen(true);
+            } catch (err: any) {
+                setIsPreparingProduct(false);
+                toast.error(err.message || 'Erro ao carregar produto pai.');
+            }
+        } else {
+            try {
+                setIsPreparingProduct(true);
+                const preparedData = await prepareNewParentWithVariation(item, supplierId);
+                setIsPreparingProduct(false);
+
+                setCreatingItemNumber(itemNumber);
+                setEditingParentProduct(null);
+                setInitialProductData(preparedData);
+                setIsProductModalOpen(true);
+            } catch (err: any) {
+                setIsPreparingProduct(false);
+                toast.error(err.message || 'Erro ao preparar formulário de cadastro.');
+            }
+        }
     };
 
     const handleCreatedProductFromModal = async (createdProduct: Product) => {
@@ -285,6 +331,38 @@ export function InboundInvoiceItemsReview({ items, supplierId, suppliers, onChan
         void classifyAndStart(item, [], markup);
     };
 
+    const selectProduct = async (itemNumber: number, product: Product, variation?: Variation) => {
+        const matchedProductId = product.id;
+        const matchedVariationId = variation?.id;
+        const linkedProductCode = variation?.sku || product.code || '';
+        const productErpName = variation?.name || variation?.title || product.name || product.title || '';
+
+        if (supplierId) {
+            const item = items.find((i) => i.itemNumber === itemNumber);
+            if (item) {
+                try {
+                    await saveProductSupplierCode({
+                        supplierId,
+                        productId: matchedProductId,
+                        productVariationId: matchedVariationId,
+                        supplierProductCode: item.productCode,
+                        supplierDescription: item.productDescription,
+                    });
+                } catch (err) {
+                    console.warn('Erro ao salvar código de fornecedor do produto:', err);
+                }
+            }
+        }
+
+        onChange(itemNumber, {
+            matchedProductId,
+            matchedVariationId,
+            linkedProductCode,
+            productErpName,
+        });
+        toast.success(`Item vinculado a "${productErpName}"`);
+    };
+
     return (
         <>
             <section className="overflow-hidden rounded-3xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
@@ -302,28 +380,62 @@ export function InboundInvoiceItemsReview({ items, supplierId, suppliers, onChan
                         const fiscalOtherExpensesCost = itemFiscalOtherExpensesCost(item);
                         const nonFiscalOtherExpensesCost = itemNonFiscalOtherExpensesCost(item);
                         const totalUnit = finalItemCost(item);
+                        const itemDescription = item.productDescription || (item as any).descricao || (item as any).xProd || (item as any).xprod || 'Descrição não encontrada';
+
                         return <div key={item.itemNumber} className="grid gap-5 p-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
                             <div className="min-w-0 space-y-2">
                                 <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Dados da NF</span>
-                                <h4 className="text-sm font-black text-slate-800 dark:text-slate-100">{item.itemNumber}. {item.productDescription || 'Descrição não encontrada'}</h4>
+                                <h4 className="text-sm font-black text-slate-800 dark:text-slate-100">{item.itemNumber}. {itemDescription}</h4>
                                 <p className="text-xs font-mono text-slate-600 dark:text-slate-300">Cód. fornecedor: {item.productCode || '—'} · {item.quantity} {item.unit}</p>
                                 <div className="grid grid-cols-2 gap-2 text-xs text-slate-600 dark:text-slate-300"><span>Unit.: <b>{formatCurrency(item.unitCost)}</b></span><span>Total: <b>{formatCurrency(item.totalCost)}</b></span><span>NCM: {item.ncm || '—'}</span><span>CFOP: {item.cfop || '—'}</span></div>
-                                {item.normalizedParentName ? <div className="rounded-xl border border-indigo-200 bg-indigo-50/70 p-3 text-xs text-indigo-950 dark:border-indigo-900 dark:bg-indigo-950/30 dark:text-indigo-100"><p className="font-black"><i className="bi bi-stars mr-1" />Interpretação da IA — ainda não confirmada</p><p className="mt-1">Produto pai provável: <b>{item.normalizedParentName}</b></p>{item.extractedAttributes?.color ? <p className="mt-1">Cor detectada: <b>{item.extractedAttributes.color}</b></p> : null}{item.detectedSupplierCodeFamily ? <p className="mt-1">Produto pai provável pelo código: <b>{item.detectedSupplierCodeFamily}</b></p> : null}</div> : null}
                                 <InboundInvoiceItemFiscalReview item={item} />
                             </div>
                             <div className="flex min-w-0 flex-col rounded-2xl border border-dashed border-slate-200 bg-slate-50/70 p-4 dark:border-slate-700 dark:bg-slate-950/40">
-                                <div className="flex items-center justify-between gap-2"><span className="text-[10px] font-black uppercase tracking-widest text-slate-500">Produto no ERP</span><span className={`rounded-full px-2 py-1 text-[9px] font-black uppercase ${linked ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-800'}`}>{linked ? 'Vinculado' : 'Não vinculado'}</span></div>
-                                <div className="mt-4 rounded-xl border border-indigo-100 bg-indigo-50/60 p-3 text-xs text-slate-700 dark:border-indigo-900/60 dark:bg-indigo-950/30 dark:text-slate-200">
-                                    <div><span title="Cada componente é mantido separado. O valor do IPI da própria linha da NF é dividido pela quantidade e entra no custo final uma única vez." className="cursor-help font-black text-indigo-800 underline decoration-dotted underline-offset-4 dark:text-indigo-200">Composição do custo unitário <span aria-hidden="true">ⓘ</span></span></div>
-                                    <p className="mt-1 text-[10px] text-slate-500 dark:text-slate-400">Frete fiscal unitário: {(itemCostRate(freightCost, item) * 100).toFixed(2)}% · {formatCurrency(freightCost / Math.max(1, item.quantity))}</p>
-                                    <p className="mt-1 text-[10px] text-slate-500 dark:text-slate-400">IPI unitário: {(item.ipiPercent || itemCostRate(ipiCost, item) * 100).toFixed(2)}% · {formatCurrency(ipiCost / Math.max(1, item.quantity))}</p>
-                                    <p className="mt-1 text-[10px] text-slate-500 dark:text-slate-400">Outras despesas fiscais unitárias: {(itemCostRate(fiscalOtherExpensesCost, item) * 100).toFixed(2)}% · {formatCurrency(fiscalOtherExpensesCost / Math.max(1, item.quantity))}</p>
-                                    {nonFiscalOtherExpensesCost > 0 && (
-                                        <p className="mt-1 text-[10px] text-slate-500 dark:text-slate-400">Outras despesas adicionais unitárias: {(itemCostRate(nonFiscalOtherExpensesCost, item) * 100).toFixed(2)}% · {formatCurrency(nonFiscalOtherExpensesCost / Math.max(1, item.quantity))}</p>
-                                    )}
-                                    <p className="mt-2 font-bold">Custo unitário final: <span className="text-emerald-700 dark:text-emerald-300">{formatCurrency(totalUnit)}</span></p>
+                                <div className="flex items-center justify-between gap-2">
+                                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">VINCULAR PRODUTO CADASTRADO</span>
+                                    <span className={`rounded-full px-2 py-1 text-[9px] font-black uppercase ${linked ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300' : 'bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300'}`}>{linked ? 'Vinculado' : 'Não vinculado'}</span>
                                 </div>
-                                {!supplierId ? <p className="mt-5 text-xs text-amber-700">Vincule o fornecedor para identificar ou cadastrar os produtos.</p> : linked ? <div className="mt-5 space-y-2"><p className="text-sm font-black text-slate-800 dark:text-slate-100">{item.productErpName || 'Produto vinculado'}</p><p className="text-[10px] text-slate-500">Código ERP: {item.linkedProductCode || item.matchedProductId}</p><button type="button" onClick={() => onChange(item.itemNumber, { matchedProductId: undefined, matchedVariationId: undefined, linkedProductCode: undefined, productErpName: undefined })} className="text-xs font-black text-indigo-700">Trocar</button></div> : <div className="mt-auto space-y-3 pt-5"><p className="text-xs text-slate-500">Nenhum produto vinculado</p>{searchingItemNumber === item.itemNumber ? <ProductAutocomplete supplierId={supplierId} value="" isSelected={false} placeholder="Buscar nome ou código..." onSelect={(product, variation) => { selectProduct(item.itemNumber, product, variation); setSearchingItemNumber(null); }} /> : <div className="flex flex-wrap justify-end gap-2"><button type="button" onClick={() => setSearchingItemNumber(item.itemNumber)} className="rounded-lg bg-indigo-600 px-3 py-2 text-[10px] font-black text-white">Vincular existente</button><button type="button" onClick={() => requestIndividualCreation(item)} className="rounded-lg border border-emerald-300 bg-emerald-50 px-3 py-2 text-[10px] font-black text-emerald-700">Cadastrar rapidamente</button></div>}</div>}
+                                {!supplierId ? (
+                                    <p className="mt-5 text-xs text-amber-700 dark:text-amber-400 font-semibold">Vincule o fornecedor para identificar ou cadastrar os produtos.</p>
+                                ) : linked ? (
+                                    <div className="mt-4 flex items-center justify-between gap-3 rounded-2xl border border-emerald-500/80 bg-emerald-50/60 p-3.5 dark:border-emerald-500/60 dark:bg-emerald-950/30">
+                                        <div className="flex items-center gap-2.5 min-w-0">
+                                            <i className="bi bi-check-circle-fill text-emerald-600 dark:text-emerald-400 text-lg shrink-0" />
+                                            <div className="min-w-0">
+                                                <p className="text-xs font-black text-emerald-800 dark:text-emerald-200 truncate">{item.productErpName || 'Produto vinculado'}</p>
+                                                <p className="text-[10px] font-mono text-emerald-600 dark:text-emerald-400">Código ERP: {item.linkedProductCode || item.matchedProductId}</p>
+                                            </div>
+                                        </div>
+                                        <button
+                                            type="button"
+                                            onClick={() => onChange(item.itemNumber, { matchedProductId: undefined, matchedVariationId: undefined, linkedProductCode: undefined, productErpName: undefined })}
+                                            className="shrink-0 rounded-xl bg-white dark:bg-slate-900 border border-emerald-300 dark:border-emerald-800 px-3 py-1.5 text-xs font-black text-emerald-700 hover:bg-emerald-100 dark:hover:bg-slate-800 cursor-pointer shadow-xs transition-colors"
+                                        >
+                                            Trocar
+                                        </button>
+                                    </div>
+                                ) : (
+                                    <div className="mt-auto space-y-3 pt-3">
+                                        <div className="flex items-center justify-between gap-2">
+                                            <span className="text-xs text-slate-600 dark:text-slate-300 font-bold">Buscar produto:</span>
+                                            <button
+                                                type="button"
+                                                onClick={() => setQuickRegisterTarget({ itemNumber: item.itemNumber, item: { productDescription: itemDescription, productCode: item.productCode, unit: item.unit, ncm: item.ncm, quantity: item.quantity, unitCost: item.unitCost, finalCost: totalUnit } })}
+                                                className="inline-flex items-center gap-1.5 rounded-xl border border-emerald-300 bg-emerald-50 px-3 py-1.5 text-xs font-black text-emerald-700 hover:bg-emerald-100 dark:border-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-300 transition-colors shadow-xs cursor-pointer"
+                                            >
+                                                <i className="bi bi-plus-circle-fill text-xs" />
+                                                Cadastrar rapidamente
+                                            </button>
+                                        </div>
+                                        <ProductAutocomplete
+                                            supplierId={supplierId}
+                                            value=""
+                                            isSelected={false}
+                                            placeholder="Digite 2 ou mais letras para buscar..."
+                                            onSelect={(product, variation) => selectProduct(item.itemNumber, product, variation)}
+                                        />
+                                    </div>
+                                )}
                             </div>
                         </div>;
                     })}
@@ -349,7 +461,21 @@ export function InboundInvoiceItemsReview({ items, supplierId, suppliers, onChan
             </div>}
             {isPreparingProduct && <div className="fixed inset-0 z-[1000006] flex items-center justify-center bg-slate-950/60 p-4"><section className="w-full max-w-sm rounded-2xl bg-white p-6 text-center shadow-2xl dark:bg-slate-900"><i className="bi bi-arrow-repeat text-3xl text-emerald-600 animate-spin inline-block" /><h3 className="mt-3 text-base font-black text-slate-800 dark:text-slate-100">Preparando formulário...</h3><p className="mt-2 text-xs text-slate-500 dark:text-slate-400">Classificando categoria e estruturando dados do produto com IA.</p></section></div>}
             {/* Modal de Formulário Completo de Produtos */}
-            <ProductFormModal isOpen={isProductModalOpen} onClose={() => { setIsProductModalOpen(false); setCreatingItemNumber(null); setInitialProductData(null); }} initialData={initialProductData} onSuccess={handleCreatedProductFromModal} />
+            <ProductFormModal
+                isOpen={isProductModalOpen}
+                onClose={() => {
+                    setIsProductModalOpen(false);
+                    setCreatingItemNumber(null);
+                    setEditingParentProduct(null);
+                    setInitialProductData(null);
+                    setSuggestedCategory(null);
+                }}
+                product={editingParentProduct}
+                initialData={initialProductData}
+                initialTab={editingParentProduct ? 'variacoes' : 'geral'}
+                openAddVariationOnOpen={Boolean(editingParentProduct)}
+                onSuccess={handleCreatedProductFromModal}
+            />
             {/* Loading: classificando item com IA */}
             {isClassifying && classifyingItem && <div className="fixed inset-0 z-[1000005] flex items-center justify-center bg-slate-950/60 p-4">
                 <section className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl dark:bg-slate-900 text-center">
@@ -401,6 +527,14 @@ export function InboundInvoiceItemsReview({ items, supplierId, suppliers, onChan
                     </div>
                 </section>
             </div>}
+
+            <QuickRegisterVariationModal
+                isOpen={Boolean(quickRegisterTarget)}
+                item={quickRegisterTarget?.item || null}
+                supplierId={supplierId}
+                onClose={() => setQuickRegisterTarget(null)}
+                onConfirmSelection={handleQuickRegisterConfirm}
+            />
         </>
     );
 }

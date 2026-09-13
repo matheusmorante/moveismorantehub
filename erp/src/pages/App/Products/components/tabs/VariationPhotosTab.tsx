@@ -27,8 +27,6 @@ export const VariationPhotosTab: React.FC<VariationPhotosTabProps> = ({
                 <div>
                     <h3 className="text-xs font-black uppercase tracking-widest text-slate-800 dark:text-slate-200 flex items-center gap-1.5 h-6">
                         <span>Fotos da Variação</span>
-                        <span className="text-red-500">*</span>
-                        <span className="inline-flex items-center text-[9px] font-black bg-purple-100/60 dark:bg-purple-955/40 text-purple-600 dark:text-purple-400 px-1.5 py-0.5 rounded border border-purple-200/30 uppercase select-none">Catálogo Digital</span>
                     </h3>
                     <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
                         Clique no botão para vincular fotos do produto pai. Arraste para reordenar (a 1ª foto é a capa).

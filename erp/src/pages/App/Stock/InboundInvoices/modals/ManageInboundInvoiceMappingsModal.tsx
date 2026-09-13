@@ -2,10 +2,12 @@ import { useEffect, useState } from 'react';
 import { toast } from 'react-toastify';
 import PersonFormModal from '@/pages/App/Registrations/shared/PersonFormModal';
 import { saveInboundInvoice } from '@/pages/utils/inboundNfe/inboundInvoicesService';
+import { parseInboundNfeXml } from '@/pages/utils/inboundNfe/inboundXmlParser';
 import { InboundInvoice, InboundInvoiceItem } from '@/pages/utils/inboundNfe/inboundNfeTypes';
 import { fetchPersons } from '@/pages/utils/personService';
 import { saveProductSupplierCode, findProductSupplierCodes } from '@/pages/utils/productSupplierCodesService';
 import { recordProductResolutionFeedback } from '@/pages/utils/inboundNfe/productResolutionFeedbackService';
+import SupplierAutocomplete from '@/components/SupplierAutocomplete';
 import Person from '@/pages/types/person.type';
 import { InboundInvoiceItemsReview } from '../components/InboundInvoiceItemsReview';
 
@@ -23,18 +25,45 @@ export function ManageInboundInvoiceMappingsModal({ isOpen, onClose, invoice: in
     const [loading, setLoading] = useState(false);
 
     useEffect(() => {
-        setInvoice(initialInvoice);
+        if (!initialInvoice) {
+            setInvoice(null);
+            return;
+        }
+        let inv = initialInvoice;
+        if (inv.rawXml && inv.items && inv.items.some((i) => !i.productDescription || i.productDescription === 'Item sem descrição' || (i.unitCost === 0 && i.totalCost === 0))) {
+            try {
+                const parsed = parseInboundNfeXml(inv.rawXml);
+                if (parsed.items && parsed.items.length > 0) {
+                    const repairedItems = parsed.items.map((xmlItem, idx) => {
+                        const existing = inv.items.find((c) => c.itemNumber === xmlItem.itemNumber || (c.productCode && c.productCode === xmlItem.productCode)) || inv.items[idx];
+                        return {
+                            ...xmlItem,
+                            matchedProductId: existing?.matchedProductId || xmlItem.matchedProductId,
+                            matchedVariationId: existing?.matchedVariationId || xmlItem.matchedVariationId,
+                            productErpName: existing?.productErpName || xmlItem.productErpName,
+                            linkedProductCode: existing?.linkedProductCode || xmlItem.linkedProductCode,
+                        };
+                    });
+                    inv = { ...inv, items: repairedItems };
+                }
+            } catch (e) {
+                console.warn('Erro ao restaurar itens do XML:', e);
+            }
+        }
+        setInvoice(inv);
     }, [initialInvoice]);
 
     useEffect(() => {
-        if (!isOpen || !invoice?.supplierId) return;
+        if (!isOpen) return;
         let active = true;
         const loadInitialData = async () => {
             try {
                 const list = await fetchPersons('suppliers');
                 if (active) setSuppliers(list);
 
-                const mappings = await findProductSupplierCodes(invoice.supplierId!, invoice.items.map((item) => item.productCode));
+                if (!invoice?.supplierId || !invoice?.items?.length) return;
+
+                const mappings = await findProductSupplierCodes(invoice.supplierId, invoice.items.map((item) => item.productCode));
                 if (!active || !mappings.size) return;
                 setInvoice((current) => {
                     if (!current || current.supplierId !== invoice.supplierId) return current;
@@ -56,7 +85,7 @@ export function ManageInboundInvoiceMappingsModal({ isOpen, onClose, invoice: in
         };
         void loadInitialData();
         return () => { active = false; };
-    }, [isOpen, invoice?.supplierId]);
+    }, [isOpen, invoice?.id, invoice?.supplierId]);
 
     if (!isOpen || !invoice) return null;
 
@@ -131,7 +160,7 @@ export function ManageInboundInvoiceMappingsModal({ isOpen, onClose, invoice: in
                         <div>
                             <h2 className="text-base font-black text-slate-800 dark:text-slate-100 flex items-center gap-2">
                                 <i className="bi bi-link-45deg text-blue-600 text-lg" />
-                                Gerenciar Vínculos - NF-e #{invoice.nfeNumber}
+                                Editar Vínculos - NF-e #{invoice.nfeNumber}
                             </h2>
                             <p className="text-xs text-slate-500">
                                 Gerencie o fornecedor e a vinculação dos produtos desta nota aos produtos do sistema.
@@ -149,24 +178,23 @@ export function ManageInboundInvoiceMappingsModal({ isOpen, onClose, invoice: in
                             <p className="mt-2 font-bold text-slate-800 dark:text-slate-100">{invoice.emitterName || 'Emitente não identificado'}</p>
                             <p className="text-xs text-slate-500">{invoice.emitterCnpj || 'CNPJ/CPF não encontrado'}</p>
 
-                            <div className="mt-3 flex gap-2">
-                                <select
-                                    value={invoice.supplierId || ''}
-                                    disabled={hasMatchedProducts}
-                                    onChange={(event) => setSupplier(event.target.value)}
-                                    className="min-w-0 flex-1 rounded-xl border p-2 text-sm disabled:opacity-60 disabled:bg-slate-100 dark:disabled:bg-slate-800 disabled:cursor-not-allowed dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
-                                    title={hasMatchedProducts ? 'Para alterar o fornecedor da NF, desvincule primeiro todos os produtos da nota.' : undefined}
-                                >
-                                    <option value="">Selecione o fornecedor</option>
-                                    {suppliers.map((supplier) => (
-                                        <option key={supplier.id} value={supplier.id}>
-                                            {supplier.fullName} · {supplier.cpfCnpj || 'sem CNPJ/CPF'}
-                                        </option>
-                                    ))}
-                                </select>
+                            <div className="mt-3 flex items-center gap-2">
+                                <div className="min-w-0 flex-1">
+                                    <SupplierAutocomplete
+                                        suppliers={suppliers}
+                                        selectedSupplierId={invoice.supplierId || ''}
+                                        onSelect={(id) => setSupplier(id)}
+                                        disabled={hasMatchedProducts}
+                                        disabledReason={hasMatchedProducts ? 'Para alterar o fornecedor da NF, desvincule primeiro todos os produtos da nota.' : undefined}
+                                        hideLabel={true}
+                                        inputClassName="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-2 text-sm text-slate-800 dark:text-slate-100 outline-none focus:border-blue-600 transition-colors"
+                                        placeholder="Digite 2 ou mais letras para buscar fornecedor..."
+                                        minChars={2}
+                                    />
+                                </div>
                                 <button
                                     disabled={hasMatchedProducts}
-                                    className="rounded-xl border border-emerald-200 px-3 text-xs font-black text-emerald-700 hover:bg-emerald-50 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition-colors"
+                                    className="rounded-xl border border-emerald-200 px-3 py-2 text-xs font-black text-emerald-700 hover:bg-emerald-50 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition-colors shrink-0"
                                     onClick={() => setNewSupplier(true)}
                                 >
                                     + Novo fornecedor

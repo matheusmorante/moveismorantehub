@@ -9,7 +9,7 @@ import { formatCurrency } from '../../../utils/formatters';
 import { subscribeToPeople } from '../../../utils/personService';
 import { GoodsReceipt, finalizeGoodsReceipt, saveGoodsReceiptDraft } from '../../../utils/goodsReceiptService';
 import { InboundInvoice } from '../../../utils/inboundNfe/inboundNfeTypes';
-import { markInvoiceAsReceived } from '../../../utils/inboundNfe/inboundInvoicesService';
+import { markInvoiceAsReceived, normalizeInvoiceItem } from '../../../utils/inboundNfe/inboundInvoicesService';
 import Purchase from '../../../types/purchase.type';
 import Product from '../../../types/product.type';
 import ReceiptFiscalDocumentsSection from './ReceiptFiscalDocumentsSection';
@@ -286,8 +286,10 @@ export default function ReceiptFormModal({ isOpen, onClose, initialReceipt, init
         if (resolvedSupplierId) setSupplierId(resolvedSupplierId);
 
         setFiscalKey(invoice.nfeKey);
+        if (invoice.nfeNumber) setInvoiceNumber(String(invoice.nfeNumber));
         if (invoice.issuedAt) {
             setReceiptDate(invoice.issuedAt.slice(0, 10));
+            setInvoiceDate(invoice.issuedAt.slice(0, 10));
         }
 
         const baseSubtotal = invoice.totalProducts || 1;
@@ -303,9 +305,11 @@ export default function ReceiptFormModal({ isOpen, onClose, initialReceipt, init
         const calcFiscalOther = (invoice.totalOtherExpenses || 0) + (invoice.totalInsurance || 0) + (invoice.totalIcmsSt || 0);
         setFiscalOtherExpenses(calcFiscalOther);
 
+        const rawNormalizedItems = (invoice.items || []).map((item, idx) => normalizeInvoiceItem(item, idx));
+
         let references = new Map();
         try {
-            references = resolvedSupplierId ? await findProductSupplierCodes(resolvedSupplierId, invoice.items.map((item) => item.productCode)) : new Map();
+            references = resolvedSupplierId ? await findProductSupplierCodes(resolvedSupplierId, rawNormalizedItems.map((item) => item.productCode)) : new Map();
         } catch (error) {
             console.warn('Não foi possível consultar referências de produtos do fornecedor.', error);
         }
@@ -316,13 +320,13 @@ export default function ReceiptFormModal({ isOpen, onClose, initialReceipt, init
             console.warn('Não foi possível carregar os produtos vinculados à NF-e.', error);
         }
         const additionalCostsCalculation = calculateAdditionalCosts(
-            invoice.items,
+            rawNormalizedItems,
             getLegacyCompatibleCosts(invoice.additionalCosts || [], invoice.additionalFreight),
         );
         const allocationByItem = new Map(additionalCostsCalculation.allocations.map((allocation) => [allocation.itemNumber, allocation]));
-        const hasItemSpecificIpi = invoice.items.some((item) => (item.ipiValue || 0) > 0 || (item.ipiPercent || 0) > 0);
-        const linkedItems: InboundReceiptItem[] = invoice.items.map((item) => {
-            const reference = references.get(item.productCode.trim().toLocaleUpperCase('pt-BR'));
+        const hasItemSpecificIpi = rawNormalizedItems.some((item) => (item.ipiValue || 0) > 0 || (item.ipiPercent || 0) > 0);
+        const linkedItems: InboundReceiptItem[] = rawNormalizedItems.map((item) => {
+            const reference = item.productCode ? references.get(item.productCode.trim().toLocaleUpperCase('pt-BR')) : undefined;
             const product = products.find((candidate) => candidate.id === reference?.productId);
             const variation = product?.variations?.find((candidate) => candidate.id === reference?.productVariationId);
             const allocation = allocationByItem.get(item.itemNumber);
@@ -336,24 +340,25 @@ export default function ReceiptFormModal({ isOpen, onClose, initialReceipt, init
                 ipiPercent: hasItemSpecificIpi ? item.ipiPercent : undefined,
                 linkedProductId: reference?.productId || item.matchedProductId,
                 linkedVariationId: reference?.productVariationId || item.matchedVariationId,
-                linkedProductCode: variation?.sku || product?.code || '',
-                linkedProductName: variation?.name || product?.name || product?.title || '',
+                linkedProductCode: variation?.sku || product?.code || item.linkedProductCode || '',
+                linkedProductName: variation?.name || product?.name || product?.title || item.productErpName || '',
                 linkStatus: reference || item.matchedProductId ? 'automatic' : 'pending',
             };
         });
         const convertedItems: PurchaseItem[] = linkedItems.map((item) => {
-            const quantity = Math.max(1, item.expectedQuantity || item.quantity);
-            const itemBaseUnit = item.unitCost;
-            const itemBaseTotal = Number((itemBaseUnit * item.quantity).toFixed(2));
+            const quantity = Math.max(1, Number(item.quantity || item.expectedQuantity || 1));
+            const itemBaseUnit = Number(item.unitCost || 0);
+            const itemBaseTotal = item.totalCost ? Number(item.totalCost) : Number((itemBaseUnit * quantity).toFixed(2));
             const unitFreightFiscal = item.freightValue ? Number((item.freightValue / quantity).toFixed(4)) : 0;
             const unitOtherFiscal = Number((((item.insuranceValue || 0) + (item.otherExpensesValue || 0) + (item.icmsStValue || 0)) / quantity).toFixed(4));
             const unitDiscountFiscal = item.discountValue ? Number((item.discountValue / quantity).toFixed(4)) : 0;
+            const itemDesc = item.linkedProductName || item.productErpName || item.productDescription || (item as any).descricao || (item as any).xProd || 'Produto sem descrição';
 
             return {
-                productId: item.linkedProductId || '',
-                variationId: item.linkedVariationId || '',
-                description: item.productDescription,
-                quantity: item.quantity,
+                productId: item.linkedProductId || item.matchedProductId || '',
+                variationId: item.linkedVariationId || item.matchedVariationId || '',
+                description: itemDesc,
+                quantity,
                 baseCost: itemBaseUnit,
                 unitCost: itemBaseUnit,
                 totalCost: itemBaseTotal,
@@ -368,7 +373,7 @@ export default function ReceiptFormModal({ isOpen, onClose, initialReceipt, init
             };
         });
 
-        setInboundItems(linkedItems);
+        setInboundItems(null);
         setItems(convertedItems);
         toast.success(`NF-e #${invoice.nfeNumber} carregada com ${convertedItems.length} item(ns)!`);
     };
@@ -414,7 +419,7 @@ export default function ReceiptFormModal({ isOpen, onClose, initialReceipt, init
         toast.info('Pedido carregado. Confira e ajuste os itens recebidos antes de registrar.');
     };
 
-    const isFullScreen = Boolean(initialInboundInvoice);
+    const isFullScreen = false;
 
     const content = <div className={`fixed inset-0 z-[999999] flex items-center justify-center ${isFullScreen ? 'p-0 bg-white dark:bg-slate-900' : 'p-0 xl:p-6 bg-slate-900/60 backdrop-blur-sm'}`}>
         {!isFullScreen && <button aria-label="Fechar" className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={onClose} />}
@@ -424,15 +429,15 @@ export default function ReceiptFormModal({ isOpen, onClose, initialReceipt, init
             <header className="flex shrink-0 items-center justify-between bg-emerald-600 px-5 py-3 text-white xl:px-8 shadow-sm">
                 <div className="flex items-center gap-3">
                     <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/20 text-white">
-                        <i className={`bi ${initialInboundInvoice ? 'bi-file-earmark-text-fill' : 'bi-box-seam'} text-lg`} />
+                        <i className={`bi ${fiscalKey || initialInboundInvoice ? 'bi-file-earmark-text-fill' : 'bi-box-seam'} text-lg`} />
                     </div>
                     <div>
                         <h2 className="text-base sm:text-lg font-black uppercase tracking-wide">
-                            {initialInboundInvoice ? 'Registrar Recebimento com NF-e' : initialPurchase ? 'Registrar Recebimento com Pedido de Compra' : 'Registrar Recebimento sem Nota Fiscal'}
+                            {fiscalKey || initialInboundInvoice ? 'Registrar Recebimento com NF-e' : initialPurchase ? 'Registrar Recebimento com Pedido de Compra' : 'Registrar Recebimento sem Nota Fiscal'}
                         </h2>
-                        {initialInboundInvoice ? (
+                        {fiscalKey || initialInboundInvoice ? (
                             <p className="text-xs text-emerald-100 font-normal">
-                                NF-e #{initialInboundInvoice.nfeNumber || '—'} · {initialInboundInvoice.emitterName || 'Fornecedor'}
+                                NF-e #{invoiceNumber || initialInboundInvoice?.nfeNumber || '—'} · {supplier?.fullName || initialInboundInvoice?.emitterName || 'Fornecedor'}
                             </p>
                         ) : (
                             <p className="text-xs text-emerald-100 font-normal">

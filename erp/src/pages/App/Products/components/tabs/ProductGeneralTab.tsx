@@ -1,7 +1,7 @@
 import React from 'react';
 import { Product } from '@/pages/types/product.type';
-import { supabase } from '@/pages/utils/supabaseConfig';
 import { toTitleCase } from '@/pages/utils/textUtils';
+import { useProductOpportunities } from '../../hooks/useProductOpportunities';
 import {
     filterProductSelectableCategories,
     getProductCategoryRootNames,
@@ -16,6 +16,7 @@ interface ProductGeneralTabProps {
     availableCategories: ProductCategoryOption[];
     validationErrors?: Record<string, boolean>;
     setValidationErrors?: React.Dispatch<React.SetStateAction<Record<string, boolean>>>;
+    isGeneratingCategory?: boolean;
 }
 
 const ProductGeneralTab: React.FC<ProductGeneralTabProps> = ({
@@ -25,27 +26,13 @@ const ProductGeneralTab: React.FC<ProductGeneralTabProps> = ({
     setFormData,
     availableCategories,
     validationErrors = {},
-    setValidationErrors
+    setValidationErrors,
+    isGeneratingCategory = false
 }) => {
-    const [opportunities, setOpportunities] = React.useState<{id: string, name: string}[]>([]);
+    const { opportunities } = useProductOpportunities();
     const [diferenciarTitulo, setDiferenciarTitulo] = React.useState<boolean>(
         Boolean(formData.title && formData.title !== formData.name) || Boolean(formData.marketplaceTitle && formData.marketplaceTitle !== formData.name)
     );
-
-    const fetchOpportunities = async () => {
-        const { data } = await supabase.from('opportunities').select('id, name').eq('active', true).order('name');
-        if (data) setOpportunities(data);
-    };
-
-    React.useEffect(() => {
-        fetchOpportunities();
-        
-        const onFocus = () => {
-            fetchOpportunities();
-        };
-        window.addEventListener('focus', onFocus);
-        return () => window.removeEventListener('focus', onFocus);
-    }, []);
 
     React.useEffect(() => {
         if (formData.hasVariations && formData.variations?.length) {
@@ -73,7 +60,7 @@ const ProductGeneralTab: React.FC<ProductGeneralTabProps> = ({
                 {/* Nome do Produto (ERP) */}
                 <div id="field-product-name" className="flex flex-col gap-1.5 transition-all p-2 rounded-2xl">
                     <div className="flex items-center justify-between h-6">
-                        <label className="text-[10px] uppercase font-black text-slate-400 dark:text-slate-500 tracking-widest flex items-center gap-1.5">
+                        <label className={`text-[10px] uppercase font-black tracking-widest flex items-center gap-1.5 ${validationErrors?.name ? 'text-red-500 dark:text-red-400' : 'text-slate-400 dark:text-slate-500'}`}>
                             <span>Nome</span>
                             <span className="text-red-500 ml-0.5">*</span>
                         </label>
@@ -128,10 +115,10 @@ const ProductGeneralTab: React.FC<ProductGeneralTabProps> = ({
                                 });
                             }
                         }}
-                        className={`w-full px-4 py-2.5 bg-white dark:bg-slate-955 border rounded-xl outline-none text-xs font-bold dark:text-slate-100 shadow-sm transition-all font-mono ${
+                        className={`w-full px-1 py-2.5 bg-transparent border-b-2 border-t-0 border-x-0 outline-none text-xs font-bold transition-all font-mono ${
                             validationErrors?.name 
-                                ? 'border-red-500 focus:ring-4 focus:ring-red-500/10 text-red-600' 
-                                : 'border-slate-200 dark:border-slate-800 text-slate-800 focus:ring-4 focus:ring-blue-500/10'
+                                ? 'border-red-500 text-red-600 focus:border-red-600' 
+                                : 'border-slate-200 dark:border-slate-800 text-slate-800 dark:text-slate-100 focus:border-blue-600 dark:focus:border-blue-400'
                         }`}
                         placeholder="Digite o nome interno do produto (ex: SOFA 3 LUG)..."
                     />
@@ -142,7 +129,6 @@ const ProductGeneralTab: React.FC<ProductGeneralTabProps> = ({
                     <div id="field-marketplace-title" className="flex flex-col gap-1.5 transition-all p-2 rounded-2xl animate-in slide-in-from-right-2 duration-200">
                         <label className="text-[10px] uppercase font-black text-slate-400 dark:text-slate-500 tracking-widest flex items-center gap-1.5 h-6">
                             <span>Título no Catálogo</span>
-                            <span className="inline-flex items-center text-[9px] font-black bg-purple-100/60 dark:bg-purple-955/40 text-purple-600 dark:text-purple-400 px-1.5 py-0.5 rounded border border-purple-200/30 uppercase select-none">Catálogo</span>
                         </label>
                         <input
                             value={formData.title || formData.marketplaceTitle || ''}
@@ -167,29 +153,11 @@ const ProductGeneralTab: React.FC<ProductGeneralTabProps> = ({
                                     }
                                 }
                             }}
-                            className="w-full px-4 py-2.5 bg-white dark:bg-slate-955 border border-slate-200 dark:border-slate-800 rounded-xl outline-none text-xs font-bold text-slate-800 dark:text-slate-100 shadow-sm focus:ring-4 focus:ring-blue-500/10 transition-all font-mono"
+                            className="w-full px-1 py-2.5 bg-transparent border-b-2 border-t-0 border-x-0 border-slate-200 dark:border-slate-800 outline-none text-xs font-bold text-slate-800 dark:text-slate-100 focus:border-blue-600 dark:focus:border-blue-400 transition-all font-mono"
                             placeholder="Digite o título no catálogo..."
                         />
                     </div>
                 ) : null}
-
-                {/* Slug (URL amigável do Produto) */}
-                <div className="flex flex-col gap-1.5 transition-all p-2 rounded-2xl">
-                    <label className="text-[10px] uppercase font-black text-slate-400 dark:text-slate-500 tracking-widest flex items-center gap-1.5 h-6">
-                        <i className="bi bi-link-45deg text-blue-500"></i>
-                        <span>Slug (URL do Produto)</span>
-                    </label>
-                    <div className="flex items-center gap-2 px-3.5 py-2.5 bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-mono text-slate-600 dark:text-slate-300">
-                        <span className="text-slate-400 select-none">/produto/</span>
-                        <span className="font-bold text-blue-600 dark:text-blue-400 truncate">
-                            {((formData.name || formData.title || '').toLowerCase()
-                                .normalize('NFD')
-                                .replace(/[\u0300-\u036f]/g, '')
-                                .replace(/[^a-z0-9]+/g, '-')
-                                .replace(/^-+|-+$/g, '')) || 'slug-do-produto'}
-                        </span>
-                    </div>
-                </div>
             </div>
 
             {/* Selection Row */}
@@ -198,10 +166,9 @@ const ProductGeneralTab: React.FC<ProductGeneralTabProps> = ({
                     <div className="flex flex-col gap-1.5 w-full">
                         <div className="flex items-center justify-between h-6">
                             <div className="flex items-center gap-2">
-                                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 flex items-center gap-1.5">
+                                <label className={`text-[10px] font-black uppercase tracking-widest flex items-center gap-1.5 ${validationErrors?.categoryIds ? 'text-red-500 dark:text-red-400' : 'text-slate-400 dark:text-slate-500'}`}>
                                     <span>Categoria(s)</span>
                                     <span className="text-red-500 ml-0.5">*</span>
-                                    <span className="inline-flex items-center text-[9px] font-black bg-purple-100/60 dark:bg-purple-955/40 text-purple-600 dark:text-purple-400 px-1.5 py-0.5 rounded border border-purple-200/30 uppercase select-none">Catálogo</span>
                                 </label>
                                 <button
                                     type="button"
@@ -217,12 +184,20 @@ const ProductGeneralTab: React.FC<ProductGeneralTabProps> = ({
                                 >
                                     <i className="bi bi-gear-fill text-xs"></i>
                                 </button>
+                                {isGeneratingCategory && (
+                                    <span className="inline-flex items-center gap-1 text-[9px] font-black bg-amber-100 text-amber-800 dark:bg-amber-955/80 dark:text-amber-300 px-2 py-0.5 rounded-full border border-amber-300/80 dark:border-amber-700/80 animate-pulse select-none">
+                                        <i className="bi bi-stars text-amber-500 animate-spin text-[10px]" />
+                                        <span>IA analisando categoria...</span>
+                                    </span>
+                                )}
                             </div>
                         </div>
-                        <div className={`max-h-80 min-h-[200px] overflow-y-auto py-1 space-y-0.5 custom-scrollbar w-full border-2 rounded-2xl p-2 transition-all ${
-                            validationErrors?.categoryIds 
-                                ? 'border-red-500 bg-red-50/10 dark:bg-red-950/5' 
-                                : 'border-transparent'
+                        <div className={`max-h-80 min-h-[200px] overflow-y-auto py-1 space-y-0.5 custom-scrollbar w-full border-b-2 border-t-0 border-x-0 p-2 transition-all ${
+                            isGeneratingCategory
+                                ? 'border-amber-400 bg-amber-50/20 dark:bg-amber-950/20 ring-2 ring-amber-400/40 animate-pulse'
+                                : validationErrors?.categoryIds 
+                                    ? 'border-red-500 bg-red-50/10 dark:bg-red-950/5' 
+                                    : 'border-slate-200 dark:border-slate-800'
                         }`}>
                             {filterProductSelectableCategories(availableCategories)
                                 .map((cat) => {
@@ -236,7 +211,7 @@ const ProductGeneralTab: React.FC<ProductGeneralTabProps> = ({
                                     return (
                                         <label
                                             key={cat.id}
-                                            className="flex items-start gap-3 p-2 rounded-lg hover:bg-white dark:hover:bg-slate-900 transition-colors cursor-pointer select-none"
+                                            className="flex items-start gap-3 p-2 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-900 transition-colors cursor-pointer select-none"
                                         >
                                             <input
                                                 type="checkbox"
@@ -294,12 +269,11 @@ const ProductGeneralTab: React.FC<ProductGeneralTabProps> = ({
                 <div className="flex flex-col gap-1.5">
                     <label className="text-[10px] uppercase font-black text-slate-400 dark:text-slate-500 tracking-widest flex items-center gap-1.5 h-6">
                         <span>Oportunidade</span>
-                        <span className="inline-flex items-center text-[9px] font-black bg-purple-100/60 dark:bg-purple-955/40 text-purple-600 dark:text-purple-400 px-1.5 py-0.5 rounded border border-purple-200/30 uppercase select-none">Catálogo</span>
                     </label>
                     <select
                         value={formData.opportunityId || ''}
                         onChange={(e) => setFormData(prev => ({ ...prev, opportunityId: e.target.value || null }))}
-                        className="w-full px-4 py-2.5 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl outline-none text-xs font-bold text-slate-800 dark:text-slate-100 shadow-sm focus:ring-4 focus:ring-blue-500/10 transition-all"
+                        className="w-full px-1 py-2.5 bg-transparent border-b-2 border-t-0 border-x-0 border-slate-200 dark:border-slate-800 outline-none text-xs font-bold text-slate-800 dark:text-slate-100 focus:border-blue-600 dark:focus:border-blue-400 transition-all"
                     >
                         <option value="">Nenhuma (Produto Normal)</option>
                         {opportunities.map((opp) => (
@@ -321,7 +295,7 @@ const ProductGeneralTab: React.FC<ProductGeneralTabProps> = ({
                         value={formData.observations || ''}
                         onChange={(e) => setFormData({ ...formData, observations: e.target.value })}
                         placeholder="Digite notas internas sobre este produto, processos ou detalhes específicos..."
-                        className="w-full h-24 px-4 py-2.5 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl outline-none text-xs font-bold dark:text-slate-200 resize-none focus:ring-4 focus:ring-blue-500/10"
+                        className="w-full h-24 px-1 py-2.5 bg-transparent border-b-2 border-t-0 border-x-0 border-slate-200 dark:border-slate-800 outline-none text-xs font-bold dark:text-slate-200 resize-none focus:border-blue-600 dark:focus:border-blue-400 transition-all"
                     />
                 </div>
             </div>

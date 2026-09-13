@@ -81,15 +81,7 @@ export const ProductCardActions: React.FC<ProductCardActionsProps> = ({
                         <span className="text-[10px] font-black uppercase tracking-widest text-slate-700 dark:text-slate-200">Editar Produto</span>
                     </button>
 
-                    {onShowHistory && !product.isParent && (
-                        <button
-                            onClick={(e) => { e.stopPropagation(); setIsMenuOpen(false); onShowHistory(product); }}
-                            className="flex items-center gap-3 px-4 py-2.5 hover:bg-slate-50 dark:hover:bg-slate-950 transition-colors text-left group cursor-pointer"
-                        >
-                            <i className="bi bi-clock-history text-amber-500" />
-                            <span className="text-[10px] font-black uppercase tracking-widest text-slate-700 dark:text-slate-200">Histórico de Preços</span>
-                        </button>
-                    )}
+
 
                     {!product.isParent && (
                         <button

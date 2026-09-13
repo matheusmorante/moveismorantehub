@@ -69,7 +69,7 @@ export const fetchOrdersPage = async (
 
     let query = supabase
         .from(TABLE_NAME)
-        .select('id, order_number, status, order_type, customer_name, total_amount, created_at, updated_at, order_data', { count: 'exact' });
+        .select('*, order_items(*), order_payments(*)', { count: 'exact' });
 
     const showTrash = filters?.showTrash || false;
     const isDraft = filters?.isDraft || false;
@@ -162,7 +162,7 @@ export const subscribeToOrders = (callback: (orders: Order[]) => void) => {
         try {
             const { data, error } = await supabase
                 .from(TABLE_NAME)
-                .select('id, order_number, status, order_type, customer_name, total_amount, created_at, updated_at, order_data')
+                .select('*, order_items(*), order_payments(*)')
                 .order('created_at', { ascending: false })
                 .limit(300);
 
@@ -198,38 +198,13 @@ export const subscribeToOrders = (callback: (orders: Order[]) => void) => {
     const channel = supabase.channel(`orders_changes_${Date.now()}`)
         .on('postgres_changes', { event: '*', schema: 'public', table: TABLE_NAME }, (payload: any) => {
             if (aborted) return;
-            
-            if (payload.eventType === 'INSERT') {
-                const newRow = payload.new;
-                if (!isValidOrderRow(newRow)) return;
-                try {
-                    const formatted = mapOrderFromDatabase(newRow);
-                    currentOrders = [formatted, ...currentOrders];
-                    callback(currentOrders);
-                } catch (e) {
-                    console.error('[OrdersSync] Error parsing inserted order, refetching...', e);
-                    fetchAndCallback();
-                }
-            } else if (payload.eventType === 'UPDATE') {
-                const updatedRow = payload.new;
-                if (!isValidOrderRow(updatedRow)) {
-                    currentOrders = currentOrders.filter(o => o.id !== String(updatedRow.id));
-                    callback(currentOrders);
-                    return;
-                }
-                try {
-                    const formatted = mapOrderFromDatabase(updatedRow);
-                    currentOrders = currentOrders.map(o => o.id === formatted.id ? formatted : o);
-                    callback(currentOrders);
-                } catch (e) {
-                    console.error('[OrdersSync] Error parsing updated order, refetching...', e);
-                    fetchAndCallback();
-                }
-            } else if (payload.eventType === 'DELETE') {
-                const deletedId = String(payload.old.id);
-                currentOrders = currentOrders.filter(o => o.id !== deletedId);
-                callback(currentOrders);
-            }
+            fetchAndCallback();
+        })
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'order_items' }, () => {
+            if (!aborted) fetchAndCallback();
+        })
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'order_payments' }, () => {
+            if (!aborted) fetchAndCallback();
         })
         .subscribe();
 

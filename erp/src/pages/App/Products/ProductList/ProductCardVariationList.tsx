@@ -171,18 +171,10 @@ export const ProductCardVariationList: React.FC<ProductCardVariationListProps> =
                                                     className="flex items-center gap-3 px-4 py-2.5 hover:bg-slate-50 dark:hover:bg-slate-950 transition-colors text-left cursor-pointer"
                                                 >
                                                     <i className="bi bi-intersect text-violet-500" />
-                                                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-700 dark:text-slate-200">Mesclar com outra variação</span>
+                                                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-700 dark:text-slate-200">Fundir com outra variação</span>
                                                 </button>
                                             )}
-                                            {onShowHistory && (
-                                                <button
-                                                    onClick={(e) => { e.stopPropagation(); setActiveVarMenuId(null); onShowHistory(v); }}
-                                                    className="flex items-center gap-3 px-4 py-2.5 hover:bg-slate-50 dark:hover:bg-slate-950 transition-colors text-left group cursor-pointer"
-                                                >
-                                                    <i className="bi bi-clock-history text-amber-500" />
-                                                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-700 dark:text-slate-200">Histórico de Preços</span>
-                                                </button>
-                                            )}
+
                                             {product.itemType !== 'service' && onLaunchStock && (
                                                 <button
                                                     onClick={(e) => { e.stopPropagation(); setActiveVarMenuId(null); onLaunchStock?.(v); }}

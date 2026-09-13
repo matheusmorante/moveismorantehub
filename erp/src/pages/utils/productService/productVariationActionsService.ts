@@ -126,7 +126,7 @@ export const mergeVariationIntoCanonical = async (
     });
 
     if (error) {
-        throw new Error(`Falha ao mesclar variações no banco: ${error.message}`);
+        throw new Error(`Falha ao fundir variações no banco: ${error.message}`);
     }
 
     localStorage.removeItem(LOCAL_STORAGE_KEY);

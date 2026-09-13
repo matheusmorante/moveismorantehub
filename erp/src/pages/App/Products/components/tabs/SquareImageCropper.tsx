@@ -199,7 +199,7 @@ export function SquareImageCropper({ imageUrl, onCancel, onConfirm }: SquareImag
     };
 
     return (
-        <div className="fixed inset-0 z-[100005] flex items-center justify-center bg-slate-950/80 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+        <div className="fixed inset-0 z-[1000025] flex items-center justify-center bg-slate-950/80 backdrop-blur-sm p-4 animate-in fade-in duration-200">
             <div className="w-full max-w-3xl rounded-3xl bg-white p-6 shadow-2xl dark:bg-slate-900 border border-slate-100 dark:border-slate-800 flex flex-col gap-4">
                 {/* Header */}
                 <div className="flex items-center justify-between">

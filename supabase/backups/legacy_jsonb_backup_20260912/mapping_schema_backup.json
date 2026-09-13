@@ -1,0 +1,68 @@
+{
+  "backupDate": "2026-09-12T21:19:26.534Z",
+  "version": "1.0.0",
+  "description": "Esquema completo de mapeamento das colunas legadas JSONB para as tabelas físicas normalizadas do ERP Morante Hub",
+  "tables": {
+    "goods_receipts": {
+      "legacy_column": "items (JSONB)",
+      "normalized_table": "public.goods_receipt_items",
+      "foreign_key": "goods_receipt_items.receipt_id -> goods_receipts.id",
+      "field_mappings": {
+        "items[].productId": "goods_receipt_items.product_id (UUID)",
+        "items[].variationId": "goods_receipt_items.variation_id (UUID)",
+        "items[].description": "goods_receipt_items.description (TEXT)",
+        "items[].quantity": "goods_receipt_items.quantity (NUMERIC)",
+        "items[].baseCost": "goods_receipt_items.base_cost (NUMERIC)",
+        "items[].unitCost": "goods_receipt_items.unit_cost (NUMERIC)",
+        "items[].freightFiscalUnit": "goods_receipt_items.freight_fiscal_unit (NUMERIC)",
+        "items[].freightNonFiscalUnit": "goods_receipt_items.freight_non_fiscal_unit (NUMERIC)",
+        "items[].discountUnit": "goods_receipt_items.discount_unit (NUMERIC)",
+        "items[].otherExpensesFiscalUnit": "goods_receipt_items.other_expenses_fiscal_unit (NUMERIC)",
+        "items[].otherExpensesNonFiscalUnit": "goods_receipt_items.other_expenses_non_fiscal_unit (NUMERIC)",
+        "items[].additionalCostUnit": "goods_receipt_items.additional_cost_unit (NUMERIC)"
+      }
+    },
+    "purchases": {
+      "legacy_column": "items (JSONB)",
+      "normalized_table": "public.purchase_items",
+      "foreign_key": "purchase_items.purchase_id -> purchases.id",
+      "field_mappings": {
+        "items[].productId": "purchase_items.product_id (TEXT/UUID)",
+        "items[].variationId": "purchase_items.variation_id (TEXT/UUID)",
+        "items[].description": "purchase_items.description (TEXT)",
+        "items[].quantity": "purchase_items.quantity (NUMERIC)",
+        "items[].baseCost": "purchase_items.base_cost (NUMERIC)",
+        "items[].unitCost": "purchase_items.unit_cost (NUMERIC)",
+        "items[].totalCost": "purchase_items.total_cost (NUMERIC)"
+      }
+    },
+    "inbound_invoices": {
+      "legacy_column": "items (JSONB)",
+      "normalized_table": "public.inbound_invoice_items",
+      "foreign_key": "inbound_invoice_items.inbound_invoice_id -> inbound_invoices.id",
+      "field_mappings": {
+        "items[].productId": "inbound_invoice_items.product_id (UUID)",
+        "items[].variationId": "inbound_invoice_items.variation_id (UUID)",
+        "items[].description": "inbound_invoice_items.description (TEXT)",
+        "items[].quantity": "inbound_invoice_items.quantity (NUMERIC)",
+        "items[].unitPrice": "inbound_invoice_items.unit_price (NUMERIC)",
+        "items[].totalPrice": "inbound_invoice_items.total_price (NUMERIC)"
+      }
+    },
+    "sales_orders": {
+      "legacy_column": "order_data (JSONB) / items (JSONB)",
+      "normalized_table": "public.sales_orders (colunas físicas) + public.order_items + public.order_payments",
+      "foreign_key": "order_items.order_id -> sales_orders.id",
+      "field_mappings": {
+        "order_data.orderIndex / orderNumber": "sales_orders.order_index / sales_orders.order_number",
+        "order_data.status": "sales_orders.status",
+        "order_data.customerData.id": "sales_orders.customer_id",
+        "order_data.customerData.fullName": "sales_orders.customer_name",
+        "order_data.seller": "sales_orders.seller_name",
+        "order_data.paymentsSummary.totalOrderValue": "sales_orders.total_amount",
+        "order_data.items[]": "public.order_items",
+        "order_data.payments[]": "public.order_payments"
+      }
+    }
+  }
+}

@@ -1,6 +1,14 @@
+import { useState } from 'react';
 import ProductAutocomplete from '@/components/ProductAutocomplete';
 import Product, { Variation } from '@/pages/types/product.type';
 import { InboundInvoiceItem } from '@/pages/utils/inboundNfe/inboundNfeTypes';
+import { QuickRegisterVariationModal, QuickRegisterItem, QuickRegisterSelection } from '../InboundInvoices/components/QuickRegisterVariationModal';
+import ProductFormModal from '@/pages/App/Products/ProductFormModal';
+import { getFullProduct } from '@/pages/utils/productService';
+import { fetchGroupsAndCategories } from '@/pages/utils/categoryService';
+import { aiService } from '@/pages/utils/aiService';
+import { toast } from 'react-toastify';
+import { prepareNewParentWithVariation, prepareExistingParentNewVariation } from '../InboundInvoices/services/inboundProductPreparationService';
 
 import { PurchaseItem } from '@/pages/types/purchase.type';
 
@@ -25,6 +33,46 @@ const getProductName = (product: Product, variation?: Variation) =>
     variation?.name || variation?.title || product.name || product.title || product.description;
 
 export default function InboundNfeItemsSection({ items, processedItems = [], supplierId, onChange, formatCurrency }: Props) {
+    const [quickRegisterTarget, setQuickRegisterTarget] = useState<{ itemNumber: number; item: QuickRegisterItem } | null>(null);
+    const [editingParentProduct, setEditingParentProduct] = useState<Product | null>(null);
+    const [initialProductData, setInitialProductData] = useState<Partial<Product> | null>(null);
+    const [isProductModalOpen, setIsProductModalOpen] = useState(false);
+    const [creatingItemNumber, setCreatingItemNumber] = useState<number | null>(null);
+
+    const handleQuickRegisterConfirm = async (selection: QuickRegisterSelection) => {
+        if (!quickRegisterTarget) return;
+        const { itemNumber, item } = quickRegisterTarget;
+        setQuickRegisterTarget(null);
+
+        if (selection.mode === 'EXISTING_PARENT') {
+            try {
+                const parentProduct = await getFullProduct(selection.parentProductId);
+                if (!parentProduct) {
+                    toast.error('Produto pai não encontrado.');
+                    return;
+                }
+
+                const updatedParentProduct = await prepareExistingParentNewVariation(parentProduct, item);
+
+                setCreatingItemNumber(itemNumber);
+                setEditingParentProduct(updatedParentProduct);
+                setIsProductModalOpen(true);
+            } catch (err: any) {
+                toast.error(err.message || 'Erro ao carregar produto pai.');
+            }
+        } else {
+            try {
+                const preparedData = await prepareNewParentWithVariation(item, supplierId);
+                setCreatingItemNumber(itemNumber);
+                setEditingParentProduct(null);
+                setInitialProductData(preparedData);
+                setIsProductModalOpen(true);
+            } catch (err: any) {
+                toast.error(err.message || 'Erro ao preparar formulário de cadastro.');
+            }
+        }
+    };
+
     const linkedCount = items.filter((item) => Boolean(item.linkedProductId)).length;
     const allLinked = items.length > 0 && linkedCount === items.length;
 
@@ -96,19 +144,43 @@ export default function InboundNfeItemsSection({ items, processedItems = [], sup
                                             {linked ? (item.linkStatus === 'automatic' ? 'Vinculado automaticamente' : 'Vinculado') : 'Aguardando vínculo'}
                                         </span>
                                     </div>
-                                    <ProductAutocomplete
-                                        supplierId={supplierId}
-                                        value={item.linkedProductName || ''}
-                                        isSelected={linked}
-                                        placeholder="Selecionar produto..."
-                                        onSelect={(product, variation) => onChange(item.itemNumber, {
-                                            linkedProductId: product.id,
-                                            linkedVariationId: variation?.id,
-                                            linkedProductCode: variation?.sku || product.code || '',
-                                            linkedProductName: getProductName(product, variation),
-                                            linkStatus: 'pending',
-                                        })}
-                                    />
+                                    <div className="flex items-center gap-2">
+                                        <div className="flex-1">
+                                            <ProductAutocomplete
+                                                supplierId={supplierId}
+                                                value={item.linkedProductName || ''}
+                                                isSelected={linked}
+                                                placeholder="Selecionar produto..."
+                                                onSelect={(product, variation) => onChange(item.itemNumber, {
+                                                    linkedProductId: product.id,
+                                                    linkedVariationId: variation?.id,
+                                                    linkedProductCode: variation?.sku || product.code || '',
+                                                    linkedProductName: getProductName(product, variation),
+                                                    linkStatus: 'pending',
+                                                })}
+                                            />
+                                        </div>
+                                        <button
+                                            type="button"
+                                            onClick={() => setQuickRegisterTarget({
+                                                itemNumber: item.itemNumber,
+                                                item: {
+                                                    productDescription: item.productDescription,
+                                                    productCode: item.productCode,
+                                                    unit: item.unit,
+                                                    ncm: item.ncm,
+                                                    quantity: item.quantity,
+                                                    unitCost: item.unitCost,
+                                                    finalCost: totalUnit,
+                                                },
+                                            })}
+                                            className="px-3 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-black flex items-center gap-1.5 shadow-xs transition-colors shrink-0"
+                                            title="Cadastrar variação ou novo produto rapidamente no ERP"
+                                        >
+                                            <i className="bi bi-plus-circle-fill text-xs" />
+                                            <span>Cadastrar</span>
+                                        </button>
+                                    </div>
                                     {linked && <p className="text-[10px] font-mono text-slate-400">Cód. ERP: {item.linkedProductCode || '—'}</p>}
                                 </div>
                             </div>
@@ -192,6 +264,39 @@ export default function InboundNfeItemsSection({ items, processedItems = [], sup
                     );
                 })}
             </div>
+
+            <ProductFormModal
+                isOpen={isProductModalOpen}
+                onClose={() => {
+                    setIsProductModalOpen(false);
+                    setCreatingItemNumber(null);
+                    setEditingParentProduct(null);
+                    setInitialProductData(null);
+                }}
+                product={editingParentProduct}
+                initialData={initialProductData}
+                initialTab={editingParentProduct ? 'variacoes' : 'geral'}
+                openAddVariationOnOpen={Boolean(editingParentProduct)}
+                onSuccess={(createdProduct) => {
+                    setIsProductModalOpen(false);
+                    if (creatingItemNumber) {
+                        onChange(creatingItemNumber, {
+                            linkedProductId: createdProduct.id,
+                            linkedVariationId: createdProduct.variations?.[0]?.id,
+                            linkedProductName: createdProduct.name || createdProduct.title,
+                            linkStatus: 'pending',
+                        });
+                    }
+                }}
+            />
+
+            <QuickRegisterVariationModal
+                isOpen={Boolean(quickRegisterTarget)}
+                item={quickRegisterTarget?.item || null}
+                supplierId={supplierId}
+                onClose={() => setQuickRegisterTarget(null)}
+                onConfirmSelection={handleQuickRegisterConfirm}
+            />
         </section>
     );
 }

@@ -34,13 +34,13 @@ export const VariationRow = React.memo(({
     return (
         <tr key={v.id} className="hover:bg-slate-50 dark:hover:bg-slate-900/50 transition-colors group">
             <td className="px-6 py-4 cursor-pointer" onClick={() => onEdit?.(v.id)}>
-                <div className={`relative h-10 w-10 rounded-xl border overflow-hidden flex items-center justify-center shrink-0 shadow-sm transition-all hover:scale-105 ${hasPhotoError || !varImage ? 'border-red-500 ring-2 ring-red-500/20' : 'border-slate-200 dark:border-slate-800'}`} title={!varImage ? 'Foto pendente - obrigatória ao concluir o produto' : 'Clique para editar'}>
-                    {varImage ? <img src={varImage} alt="Variação" className="object-cover h-full w-full" /> : <div className="flex flex-col items-center justify-center text-red-500 bg-red-50 dark:bg-red-950/40 w-full h-full border border-red-300 dark:border-red-800 rounded-xl"><i className="bi bi-camera-fill text-sm animate-pulse" /></div>}
+                <div className="relative h-10 w-10 rounded-xl border border-slate-200 dark:border-slate-800 overflow-hidden flex items-center justify-center shrink-0 shadow-sm transition-all hover:scale-105 bg-slate-50 dark:bg-slate-800/50 text-slate-400" title="Clique para editar detalhes da variação">
+                    {varImage ? <img src={varImage} alt="Variação" className="object-cover h-full w-full" /> : <i className="bi bi-camera text-sm" />}
                 </div>
             </td>
             <td className="px-6 py-4"><span className="rounded-lg bg-slate-100 px-2.5 py-1 font-mono text-[11px] font-black text-slate-700 dark:bg-slate-800 dark:text-slate-200">{displaySku}</span></td>
             <td className="px-6 py-4 cursor-pointer" onClick={() => onEdit?.(v.id)}>
-                <div className="flex flex-col"><div className="flex items-center gap-2"><span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Título</span>{!varImage && <span className="text-[9px] font-black uppercase tracking-wider text-red-600 dark:text-red-400 bg-red-100 dark:bg-red-950/60 px-1.5 py-0.5 rounded-md border border-red-200 dark:border-red-800 flex items-center gap-1"><i className="bi bi-exclamation-circle-fill text-[8px]" /> Foto pendente</span>}</div><input value={v.name || ''} readOnly className="w-full bg-transparent border-none outline-none text-sm font-bold text-slate-700 dark:text-slate-200 cursor-default font-sans" placeholder="VARIAÇÃO GERADA" /></div>
+                <div className="flex flex-col"><div className="flex items-center gap-2"><span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Título</span></div><input value={v.name || ''} readOnly className="w-full bg-transparent border-none outline-none text-sm font-bold text-slate-700 dark:text-slate-200 cursor-default font-sans" placeholder="VARIAÇÃO GERADA" /></div>
             </td>
             <td className="px-6 py-4"><div className="flex flex-col gap-0.5">{hasDiscount && <span className="text-xs font-bold text-red-500 line-through decoration-red-500">{formatCurrency(regularPrice)}</span>}<span className="text-sm font-black text-emerald-600 dark:text-emerald-400">{formatCurrency(finalPrice)}</span></div></td>
             <td className="px-6 py-4 text-right flex items-center justify-end gap-2">

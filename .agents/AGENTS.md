@@ -61,7 +61,7 @@ Consulte a skill correspondente para obter o procedimento operacional detalhado:
 | Categoria | Skill | Quando Utilizar / Gatilho |
 |---|---|---|
 | **Metagovernança** | `governanca-skills` | Descobrir quais skills usar, resolver conflitos de regras e auditar instruções. |
-| **Arquitetura & Clean Code** | `modularizacao_codigo` | Refatorar arquivos extensos (alvo 30-100 linhas), desacoplar componentes. |
+| **Arquitetura & Clean Code** | `principios-de-programacao` | Refatorar arquivos extensos, aplicar SOLID, Código Limpo e princípios de programação. |
 | **Modelagem & Docs** | `modelagem-negocio-arquitetura` | Alterar processos, atualizar diagramas Mermaid e manter a documentação viva em `docs/`. |
 | **Regras de Negócio ERP** | `regras-de-negocio-erp` | Alterar vendas, estoque, CMPM, CMV, recebimentos, devoluções e despesas. |
 | **Banco de Dados** | `database-supabase` | Criar migrations, tabelas, consultas Supabase, otimização de Egress e RLS. |

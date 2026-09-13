@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import Product from '../../../../types/product.type';
 import { getSettings } from '@/pages/utils/settingsService';
-import { CEST_OPTIONS, CFOP_OPTIONS, COMMON_NCMS, CSOSN_OPTIONS, ORIGEM_OPTIONS, PIS_COFINS_OPTIONS } from './productFiscalOptions';
+import { COMMON_NCMS, CEST_OPTIONS, CFOP_OPTIONS, CSOSN_OPTIONS, ORIGEM_OPTIONS, PIS_COFINS_OPTIONS } from './productFiscalOptions';
 import { createInitialProductFiscalInfo } from './productFiscalDefaults';
+import { ProductNcmSelector } from './fiscal/ProductNcmSelector';
 
 interface ProductFiscalTabProps {
     formData: Partial<Product>;
@@ -78,123 +79,18 @@ const ProductFiscalTab: React.FC<ProductFiscalTabProps> = ({
                             <input
                                 value={formData.fiscal?.codigoServico || ''}
                                 onChange={(e) => setFormData({ ...formData, fiscal: { ...formData.fiscal!, codigoServico: e.target.value.replace(/\D/g, '').slice(0, 8) } })}
-                                className="w-full px-4 py-4 bg-white dark:bg-slate-955 border border-slate-100 dark:border-slate-800 rounded-2xl outline-none text-sm font-bold tracking-[0.2em] dark:text-slate-200"
+                                className="w-full px-1 py-2.5 bg-transparent border-b-2 border-t-0 border-x-0 border-slate-200 dark:border-slate-800 outline-none text-xs font-bold tracking-[0.2em] focus:border-blue-600 dark:focus:border-blue-400 transition-all dark:text-slate-200"
                                 placeholder="Ex: 0101"
                             />
                         </div>
                     ) : (
                         <>
-                            {/* NCM input pesquisável */}
-                            <div className="flex flex-col gap-2 relative" ref={dropdownRef}>
-                                <div className="flex items-center justify-between gap-2">
-                                    <label className="text-[9px] font-black uppercase tracking-widest text-slate-400">NCM *</label>
-                                    <div className="flex items-center gap-2">
-                                        <button
-                                            type="button"
-                                            disabled={isGeneratingNCM}
-                                            onClick={handleGenerateNCM}
-                                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-purple-100/80 hover:bg-purple-200/80 dark:bg-purple-950/60 dark:hover:bg-purple-900/60 border border-purple-200 dark:border-purple-800/70 text-amber-600 dark:text-amber-400 font-black uppercase text-[9px] tracking-wider transition-all disabled:opacity-50 active:scale-95 shadow-sm"
-                                            title="Usar IA para auto-preencher o NCM"
-                                        >
-                                            {isGeneratingNCM ? <i className="bi bi-arrow-repeat animate-spin text-amber-500" /> : <i className="bi bi-stars text-amber-500 text-xs font-bold" />}
-                                            {isGeneratingNCM ? 'Gerando NCM...' : 'Auto-preencher com IA'}
-                                        </button>
-
-                                        <button
-                                            type="button"
-                                            onClick={() => setIsInfoModalOpen(true)}
-                                            className="p-1 text-slate-400 hover:text-blue-500 transition-colors"
-                                            title="Como funciona a IA do NCM?"
-                                        >
-                                            <i className="bi bi-info-circle text-xs" />
-                                        </button>
-                                    </div>
-                                </div>
-                                <div
-                                    className={`relative overflow-hidden rounded-2xl transition-all ${
-                                        isGeneratingNCM
-                                            ? 'ring-2 ring-amber-400/70 shadow-[0_0_18px_rgba(251,191,36,0.32)]'
-                                            : ''
-                                    }`}
-                                    aria-busy={isGeneratingNCM}
-                                >
-                                    <input
-                                        type="text"
-                                        value={searchQuery}
-                                        onChange={(e) => {
-                                            const val = e.target.value;
-                                            setSearchQuery(val);
-                                            setFormData(prev => ({
-                                                ...prev,
-                                                fiscal: {
-                                                    ...prev.fiscal!,
-                                                    ncm: val
-                                                }
-                                            }));
-                                            setIsDropdownOpen(true);
-                                        }}
-                                        onFocus={() => setIsDropdownOpen(true)}
-                                        placeholder="Digite ou pesquise o NCM..."
-                                        className={`w-full pl-4 py-4 bg-white dark:bg-slate-955 border rounded-2xl outline-none text-xs font-bold dark:text-slate-200 tracking-wider font-mono transition-colors ${
-                                            isGeneratingNCM
-                                                ? 'pr-24 border-amber-400/80 dark:border-amber-400/70'
-                                                : 'pr-10 border-slate-200 dark:border-slate-800'
-                                        }`}
-                                    />
-                                    {isGeneratingNCM ? (
-                                        <>
-                                            <span className="pointer-events-none absolute inset-0 overflow-hidden rounded-2xl" aria-hidden="true">
-                                                <span className="ncm-input-shimmer absolute inset-y-0 left-0 w-1/3" />
-                                            </span>
-                                            <span
-                                                role="status"
-                                                className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[9px] font-black uppercase tracking-wider text-amber-600 dark:text-amber-300"
-                                            >
-                                                Gerando...
-                                            </span>
-                                        </>
-                                    ) : (
-                                        <i className={`bi bi-chevron-down absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 transition-transform pointer-events-none ${isDropdownOpen ? 'rotate-180' : ''}`} />
-                                    )}
-                                </div>
-
-                                {isDropdownOpen && (
-                                    <div className="absolute left-0 right-0 top-full mt-2 bg-white dark:bg-slate-900 border border-slate-150 dark:border-slate-800 rounded-2xl shadow-xl z-50 p-2 max-h-60 overflow-y-auto custom-scrollbar flex flex-col gap-0.5">
-                                        {filteredNcms.map(item => (
-                                            <div
-                                                key={item.code}
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    setFormData(prev => ({
-                                                        ...prev,
-                                                        fiscal: {
-                                                            ...prev.fiscal!,
-                                                            ncm: item.code,
-                                                            ncmDescription: item.description
-                                                        }
-                                                    }));
-                                                    setSearchQuery(item.code);
-                                                    setIsDropdownOpen(false);
-                                                }}
-                                                className="px-3 py-2 hover:bg-slate-50 dark:hover:bg-slate-800/60 cursor-pointer transition-colors text-left rounded-xl"
-                                            >
-                                                <div className="flex items-center justify-between">
-                                                    <span className="text-[10px] font-black text-blue-600 dark:text-blue-400 tracking-wider font-mono">{item.code}</span>
-                                                    {formData.fiscal?.ncm === item.code && (
-                                                        <i className="bi bi-check text-xs text-emerald-500 font-bold" />
-                                                    )}
-                                                </div>
-                                                <div className="text-[9px] text-slate-555 dark:text-slate-400 font-medium mt-0.5 leading-tight">{item.description}</div>
-                                            </div>
-                                        ))}
-                                        {filteredNcms.length === 0 && (
-                                            <div className="px-3 py-4 text-center text-[9px] font-bold text-slate-400 uppercase tracking-wider">
-                                                Nenhum NCM encontrado
-                                            </div>
-                                        )}
-                                    </div>
-                                )}
-                            </div>
+                            <ProductNcmSelector
+                                formData={formData}
+                                setFormData={setFormData}
+                                handleGenerateNCM={handleGenerateNCM}
+                                isGeneratingNCM={isGeneratingNCM}
+                            />
 
                             {/* CEST - Exibido apenas se a operação for sujeita à Substituição Tributária (CSOSN 201, 202, 500) */}
                             {['201', '202', '500'].includes(formData.fiscal?.cst || '') && (
@@ -204,7 +100,7 @@ const ProductFiscalTab: React.FC<ProductFiscalTabProps> = ({
                                         <select
                                             value={formData.fiscal?.cest || ''}
                                             onChange={(e) => setFormData({ ...formData, fiscal: { ...formData.fiscal!, cest: e.target.value } })}
-                                            className="w-full px-4 py-4 bg-white dark:bg-slate-955 border border-slate-200 dark:border-slate-800 rounded-2xl outline-none text-xs font-bold dark:text-slate-200"
+                                            className="w-full px-1 py-2.5 bg-transparent border-b-2 border-t-0 border-x-0 border-slate-200 dark:border-slate-800 outline-none text-xs font-bold focus:border-blue-600 dark:focus:border-blue-400 transition-all dark:text-slate-200"
                                         >
                                             {CEST_OPTIONS.map(c => (
                                                 <option key={c.value} value={c.value}>{c.label}</option>
@@ -216,7 +112,7 @@ const ProductFiscalTab: React.FC<ProductFiscalTabProps> = ({
                                             value={formData.fiscal?.cest || ''}
                                             onChange={(e) => setFormData({ ...formData, fiscal: { ...formData.fiscal!, cest: e.target.value.replace(/\D/g, '') } })}
                                             placeholder="Ou digite outro CEST (7 dígitos)..."
-                                            className="w-full px-4 py-2 bg-slate-50 dark:bg-slate-955 border border-slate-200 dark:border-slate-850 rounded-xl outline-none text-[10px] font-mono font-bold dark:text-slate-300"
+                                            className="w-full px-1 py-2 bg-transparent border-b-2 border-t-0 border-x-0 border-slate-200 dark:border-slate-800 outline-none text-xs font-mono font-bold focus:border-blue-600 dark:focus:border-blue-400 transition-all dark:text-slate-300"
                                         />
                                     </div>
                                 </div>
@@ -236,7 +132,7 @@ const ProductFiscalTab: React.FC<ProductFiscalTabProps> = ({
                             <select
                                 value={formData.fiscal?.origem || '0'}
                                 onChange={(e) => setFormData({ ...formData, fiscal: { ...formData.fiscal!, origem: e.target.value } })}
-                                className="w-full px-4 py-3.5 bg-white dark:bg-slate-955 border border-slate-200 dark:border-slate-800 rounded-2xl outline-none text-xs font-bold dark:text-slate-200"
+                                className="w-full px-1 py-2.5 bg-transparent border-b-2 border-t-0 border-x-0 border-slate-200 dark:border-slate-800 outline-none text-xs font-bold focus:border-blue-600 dark:focus:border-blue-400 transition-all dark:text-slate-200"
                             >
                                 {ORIGEM_OPTIONS.map(o => (
                                     <option key={o.value} value={o.value}>{o.label}</option>
@@ -264,7 +160,7 @@ const ProductFiscalTab: React.FC<ProductFiscalTabProps> = ({
                                     }
                                 }));
                             }}
-                            className="w-full px-4 py-3.5 bg-white dark:bg-slate-955 border border-slate-200 dark:border-slate-800 rounded-2xl outline-none text-xs font-bold dark:text-slate-200"
+                            className="w-full px-1 py-2.5 bg-transparent border-b-2 border-t-0 border-x-0 border-slate-200 dark:border-slate-800 outline-none text-xs font-bold focus:border-blue-600 dark:focus:border-blue-400 transition-all dark:text-slate-200"
                         >
                             {CSOSN_OPTIONS.map(c => (
                                 <option key={c.value} value={c.value}>{c.label}</option>
@@ -281,7 +177,7 @@ const ProductFiscalTab: React.FC<ProductFiscalTabProps> = ({
                             <select
                                 value={formData.fiscal?.cfop || '5933'}
                                 onChange={(e) => setFormData({ ...formData, fiscal: { ...formData.fiscal!, cfop: e.target.value } })}
-                                className="w-full px-4 py-3.5 bg-white dark:bg-slate-955 border border-slate-200 dark:border-slate-800 rounded-2xl outline-none text-xs font-bold dark:text-slate-200"
+                                className="w-full px-1 py-2.5 bg-transparent border-b-2 border-t-0 border-x-0 border-slate-200 dark:border-slate-800 outline-none text-xs font-bold focus:border-blue-600 dark:focus:border-blue-400 transition-all dark:text-slate-200"
                             >
                                 <option value="5933">5933 - Prestação de serviço dentro do Estado</option>
                                 <option value="6933">6933 - Prestação de serviço para fora do Estado</option>
@@ -290,7 +186,7 @@ const ProductFiscalTab: React.FC<ProductFiscalTabProps> = ({
                             <select
                                 value={formData.fiscal?.cfop || '5102'}
                                 onChange={(e) => setFormData({ ...formData, fiscal: { ...formData.fiscal!, cfop: e.target.value } })}
-                                className="w-full px-4 py-3.5 bg-white dark:bg-slate-955 border border-slate-200 dark:border-slate-800 rounded-2xl outline-none text-xs font-bold dark:text-slate-200"
+                                className="w-full px-1 py-2.5 bg-transparent border-b-2 border-t-0 border-x-0 border-slate-200 dark:border-slate-800 outline-none text-xs font-bold focus:border-blue-600 dark:focus:border-blue-400 transition-all dark:text-slate-200"
                             >
                                 {CFOP_OPTIONS.map(cf => (
                                     <option key={cf.value} value={cf.value}>{cf.label}</option>
@@ -317,7 +213,7 @@ const ProductFiscalTab: React.FC<ProductFiscalTabProps> = ({
                                     } 
                                 }));
                             }}
-                            className="w-full px-4 py-3 bg-white dark:bg-slate-955 border border-slate-200 dark:border-slate-800 rounded-2xl outline-none text-xs font-bold dark:text-slate-200"
+                            className="w-full px-1 py-2.5 bg-transparent border-b-2 border-t-0 border-x-0 border-slate-200 dark:border-slate-800 outline-none text-xs font-bold focus:border-blue-600 dark:focus:border-blue-400 transition-all dark:text-slate-200"
                         />
                     </div>
 
@@ -327,7 +223,7 @@ const ProductFiscalTab: React.FC<ProductFiscalTabProps> = ({
                         <select
                             value={formData.fiscal?.pisCst || '49'}
                             onChange={(e) => setFormData({ ...formData, fiscal: { ...formData.fiscal!, pisCst: e.target.value } })}
-                            className="w-full px-4 py-3.5 bg-white dark:bg-slate-955 border border-slate-200 dark:border-slate-800 rounded-2xl outline-none text-xs font-bold dark:text-slate-200"
+                            className="w-full px-1 py-2.5 bg-transparent border-b-2 border-t-0 border-x-0 border-slate-200 dark:border-slate-800 outline-none text-xs font-bold focus:border-blue-600 dark:focus:border-blue-400 transition-all dark:text-slate-200"
                         >
                             {PIS_COFINS_OPTIONS.map(p => (
                                 <option key={p.value} value={p.value}>{p.label}</option>
@@ -341,7 +237,7 @@ const ProductFiscalTab: React.FC<ProductFiscalTabProps> = ({
                         <select
                             value={formData.fiscal?.cofinsCst || '49'}
                             onChange={(e) => setFormData({ ...formData, fiscal: { ...formData.fiscal!, cofinsCst: e.target.value } })}
-                            className="w-full px-4 py-3.5 bg-white dark:bg-slate-955 border border-slate-200 dark:border-slate-800 rounded-2xl outline-none text-xs font-bold dark:text-slate-200"
+                            className="w-full px-1 py-2.5 bg-transparent border-b-2 border-t-0 border-x-0 border-slate-200 dark:border-slate-800 outline-none text-xs font-bold focus:border-blue-600 dark:focus:border-blue-400 transition-all dark:text-slate-200"
                         >
                             {PIS_COFINS_OPTIONS.map(p => (
                                 <option key={p.value} value={p.value}>{p.label}</option>

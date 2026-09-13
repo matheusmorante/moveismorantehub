@@ -52,7 +52,7 @@ const ProductTechnicalTab: React.FC<ProductTechnicalTabProps> = ({
                     value={formData.description || ''}
                     onChange={(e) => handleFieldChange('description', e.target.value)}
                     placeholder="Escreva a descrição detalhada do produto, diferenciais, especificações técnicas..."
-                    className="w-full mt-2 p-4 bg-slate-50 dark:bg-slate-955 border border-slate-200 dark:border-slate-800 rounded-2xl outline-none text-xs font-bold focus:ring-2 focus:ring-blue-500/20 resize-none dark:text-slate-200"
+                    className="w-full mt-2 p-2 bg-transparent border-b-2 border-t-0 border-x-0 border-slate-200 dark:border-slate-800 outline-none text-xs font-bold focus:border-blue-600 dark:focus:border-blue-400 resize-none dark:text-slate-200 transition-all"
                 />
             </div>
 
@@ -74,7 +74,7 @@ const ProductTechnicalTab: React.FC<ProductTechnicalTabProps> = ({
                             step="0.1"
                             value={formData.height || ''}
                             onChange={(e) => handleFieldChange('height', e.target.value)}
-                            className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-955 border border-slate-200 dark:border-slate-800 rounded-xl outline-none text-xs font-bold dark:text-slate-200 focus:ring-2 focus:ring-blue-500/20"
+                            className="w-full px-1 py-2.5 bg-transparent border-b-2 border-t-0 border-x-0 border-slate-200 dark:border-slate-800 outline-none text-xs font-bold dark:text-slate-200 focus:border-blue-600 dark:focus:border-blue-400 transition-all"
                             placeholder="0"
                         />
                     </div>
@@ -88,7 +88,7 @@ const ProductTechnicalTab: React.FC<ProductTechnicalTabProps> = ({
                             step="0.1"
                             value={formData.width || ''}
                             onChange={(e) => handleFieldChange('width', e.target.value)}
-                            className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-955 border border-slate-200 dark:border-slate-800 rounded-xl outline-none text-xs font-bold dark:text-slate-200 focus:ring-2 focus:ring-blue-500/20"
+                            className="w-full px-1 py-2.5 bg-transparent border-b-2 border-t-0 border-x-0 border-slate-200 dark:border-slate-800 outline-none text-xs font-bold dark:text-slate-200 focus:border-blue-600 dark:focus:border-blue-400 transition-all"
                             placeholder="0"
                         />
                     </div>
@@ -113,7 +113,7 @@ const ProductTechnicalTab: React.FC<ProductTechnicalTabProps> = ({
                             step="0.1"
                             value={formData.depth || ''}
                             onChange={(e) => handleFieldChange('depth', e.target.value)}
-                            className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-955 border border-slate-200 dark:border-slate-800 rounded-xl outline-none text-xs font-bold dark:text-slate-200 focus:ring-2 focus:ring-blue-500/20"
+                            className="w-full px-1 py-2.5 bg-transparent border-b-2 border-t-0 border-x-0 border-slate-200 dark:border-slate-800 outline-none text-xs font-bold dark:text-slate-200 focus:border-blue-600 dark:focus:border-blue-400 transition-all"
                             placeholder="0"
                         />
                     </div>
@@ -127,7 +127,7 @@ const ProductTechnicalTab: React.FC<ProductTechnicalTabProps> = ({
                             step="0.01"
                             value={formData.weight || ''}
                             onChange={(e) => handleFieldChange('weight', e.target.value)}
-                            className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-955 border border-slate-200 dark:border-slate-800 rounded-xl outline-none text-xs font-bold dark:text-slate-200 focus:ring-2 focus:ring-blue-500/20"
+                            className="w-full px-1 py-2.5 bg-transparent border-b-2 border-t-0 border-x-0 border-slate-200 dark:border-slate-800 outline-none text-xs font-bold dark:text-slate-200 focus:border-blue-600 dark:focus:border-blue-400 transition-all"
                             placeholder="0,00"
                         />
                     </div>

@@ -53,7 +53,7 @@ export const VariationParentImagesSelectModal: React.FC<VariationParentImagesSel
     };
 
     return createPortal(
-        <div className="fixed inset-0 z-[100005] flex items-center justify-center p-4 sm:p-6">
+        <div className="fixed inset-0 z-[1000025] flex items-center justify-center p-4 sm:p-6">
             <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200" onClick={onClose} />
             <div className="relative bg-white dark:bg-slate-950 w-full max-w-3xl max-h-[85vh] rounded-[2.5rem] shadow-2xl flex flex-col overflow-hidden animate-in zoom-in-95 duration-200 border border-slate-100 dark:border-slate-800 z-10">
                 {/* Header */}

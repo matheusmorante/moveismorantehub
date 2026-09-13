@@ -157,7 +157,7 @@ const ProductList = forwardRef<ProductListRef, ProductListProps>(({ onEdit, onSh
                             className={`flex items-center gap-2 rounded-xl border px-3 py-2 text-[10px] font-black uppercase tracking-wider transition-colors ${showMerged ? 'border-violet-300 bg-violet-50 text-violet-600 dark:border-violet-900 dark:bg-violet-950/40 dark:text-violet-300' : 'border-slate-200 bg-white text-slate-500 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-400'}`}
                         >
                             <i className={`bi ${showMerged ? 'bi-check-square-fill' : 'bi-square'}`} />
-                            Mostrar mesclados
+                            Mostrar fundidos
                         </button>
                     </div>
                 )}

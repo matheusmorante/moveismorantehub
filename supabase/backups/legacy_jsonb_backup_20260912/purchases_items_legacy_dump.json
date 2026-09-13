@@ -1,0 +1,97 @@
+[
+  {
+    "id": "32de3639-d4dc-4775-a579-40f895a38b12",
+    "items": [
+      {
+        "baseCost": 579.48,
+        "quantity": 1,
+        "unitCost": 579.48,
+        "productId": "26e7bbd1-369c-4e94-8d50-ae527f7c46e4",
+        "totalCost": 579.48,
+        "description": "Guarda Roupa Espanha 2 Portas de Correr Mopar"
+      }
+    ],
+    "created_at": "2026-08-28T20:20:52.294+00:00"
+  },
+  {
+    "id": "283fc6b0-a39a-4556-98eb-d52fdc68deab",
+    "items": [
+      {
+        "baseCost": 579.48,
+        "quantity": 1,
+        "unitCost": 579.48,
+        "productId": "26e7bbd1-369c-4e94-8d50-ae527f7c46e4",
+        "totalCost": 579.48,
+        "description": "Guarda Roupa Espanha 2 Portas de Correr Mopar"
+      }
+    ],
+    "created_at": "2026-08-28T23:37:17.681+00:00"
+  },
+  {
+    "id": "d2a8bdab-54c8-4481-9513-216062869623",
+    "items": [
+      {
+        "baseCost": 579.48,
+        "quantity": 1,
+        "unitCost": 579.48,
+        "productId": "26e7bbd1-369c-4e94-8d50-ae527f7c46e4",
+        "totalCost": 579.48,
+        "description": "Guarda Roupa Espanha 2 Portas de Correr Mopar"
+      }
+    ],
+    "created_at": "2026-08-28T20:13:41.483+00:00"
+  },
+  {
+    "id": "95b598c5-54e0-4ff1-a2fe-8134c333da11",
+    "items": [
+      {
+        "baseCost": 579.48,
+        "quantity": 1,
+        "unitCost": 579.48,
+        "productId": "26e7bbd1-369c-4e94-8d50-ae527f7c46e4",
+        "totalCost": 579.48,
+        "description": "Guarda Roupa Espanha 2 Portas de Correr Mopar"
+      }
+    ],
+    "created_at": "2026-08-28T20:16:41.189+00:00"
+  },
+  {
+    "id": "27edb12e-582c-4b6f-887b-31e7a5481cb1",
+    "items": [],
+    "created_at": "2026-08-29T12:53:42.46+00:00"
+  },
+  {
+    "id": "47d789f2-88be-4a33-b240-cafe64ce3574",
+    "items": [
+      {
+        "baseCost": 579.48,
+        "quantity": 1,
+        "unitCost": 579.48,
+        "productId": "26e7bbd1-369c-4e94-8d50-ae527f7c46e4",
+        "totalCost": 579.48,
+        "description": "Guarda Roupa Espanha 2 Portas de Correr Mopar"
+      }
+    ],
+    "created_at": "2026-08-28T20:13:34.957+00:00"
+  },
+  {
+    "id": "f3da7f30-d65c-4e87-8940-e93bc722b6e6",
+    "items": [],
+    "created_at": "2026-08-29T13:02:58.194+00:00"
+  },
+  {
+    "id": "e78e147f-8e1d-4480-a0c1-0c04e618452b",
+    "items": [
+      {
+        "baseCost": 579.48,
+        "quantity": 1,
+        "unitCost": 579.48,
+        "productId": "26e7bbd1-369c-4e94-8d50-ae527f7c46e4",
+        "totalCost": 579.48,
+        "description": "Guarda Roupa Espanha 2 Portas de Correr Mopar",
+        "variationId": "26e7bbd1-369c-4e94-8d50-ae527f7c46e4_000202-01"
+      }
+    ],
+    "created_at": "2026-08-29T13:19:44.465+00:00"
+  }
+]

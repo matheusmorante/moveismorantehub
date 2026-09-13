@@ -13,59 +13,25 @@ export const searchHistoricalItems = async (query: string): Promise<string[]> =>
         let salesDescriptions: string[] = [];
         let purchaseDescriptions: string[] = [];
 
-        try {
-            const [salesRes, purchaseRes] = await Promise.all([
-                supabase
-                    .from('order_items')
-                    .select('description, orders!inner(deleted)')
-                    .eq('orders.deleted', false)
-                    .order('created_at', { ascending: false })
-                    .limit(100),
-                supabase
-                    .from('purchase_items')
-                    .select('description')
-                    .order('id', { ascending: false })
-                    .limit(100)
-            ]);
-
-            if (!salesRes.error && salesRes.data) {
-                salesDescriptions = salesRes.data.map(d => d.description || '').filter(Boolean);
-            }
-            if (!purchaseRes.error && purchaseRes.data) {
-                purchaseDescriptions = purchaseRes.data.map(d => d.description || '').filter(Boolean);
-            }
-        } catch (err) {
-            console.warn('Erro ao consultar tabelas normalizadas para histórico de descrições, usando fallback:', err);
-        }
-
-        // LEGACY FALLBACK: se nenhuma das tabelas retornou
-        if (salesDescriptions.length === 0 && purchaseDescriptions.length === 0) {
-            const { data: salesData } = await supabase
-                .from('orders')
-                .select('order_data')
-                .neq('order_data->>deleted', 'true')
+        const [salesRes, purchaseRes] = await Promise.all([
+            supabase
+                .from('order_items')
+                .select('description, orders!inner(deleted)')
+                .eq('orders.deleted', false)
                 .order('created_at', { ascending: false })
-                .limit(100);
-
-            const { data: purchaseData } = await supabase
-                .from('purchases')
-                .select('items')
+                .limit(100),
+            supabase
+                .from('purchase_items')
+                .select('description')
                 .order('id', { ascending: false })
-                .limit(100);
+                .limit(100)
+        ]);
 
-            salesData?.forEach((row: any) => {
-                const items = row.order_data?.items || [];
-                items.forEach((item: any) => {
-                    if (item.description) salesDescriptions.push(item.description);
-                });
-            });
-
-            purchaseData?.forEach((row: any) => {
-                const items = row.items || [];
-                items.forEach((item: any) => {
-                    if (item.description) purchaseDescriptions.push(item.description);
-                });
-            });
+        if (!salesRes.error && salesRes.data) {
+            salesDescriptions = salesRes.data.map(d => d.description || '').filter(Boolean);
+        }
+        if (!purchaseRes.error && purchaseRes.data) {
+            purchaseDescriptions = purchaseRes.data.map(d => d.description || '').filter(Boolean);
         }
 
         const descriptions = new Set<string>();
@@ -101,62 +67,30 @@ export const getProductSalesStats = async (productId: string, variationId?: stri
         const ninetyDaysAgo = new Date();
         ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
 
-        // 1. Consulta na tabela normalizada order_items
-        try {
-            let itemQuery = supabase
-                .from('order_items')
-                .select(`
-                    quantity,
-                    orders!inner (
-                        created_at,
-                        deleted
-                    )
-                `)
-                .eq('orders.deleted', false)
-                .gte('orders.created_at', ninetyDaysAgo.toISOString())
-                .eq('product_id', productId);
-
-            if (variationId) {
-                itemQuery = itemQuery.eq('variation_id', variationId);
-            }
-
-            const { data: itemData, error: itemError } = await itemQuery;
-            if (!itemError && itemData && itemData.length > 0) {
-                const totalQty = itemData.reduce((acc, row: any) => acc + (Number(row.quantity) || 0), 0);
-                return { avgMonthlySales: Math.round(totalQty / 3) };
-            }
-        } catch (err) {
-            console.warn('Fallback para busca de estatísticas de vendas via JSONB:', err);
-        }
-
-        // LEGACY FALLBACK:
-        let query = supabase
-            .from('orders')
-            .select('order_data')
-            .neq('order_data->>deleted', 'true')
-            .gte('created_at', ninetyDaysAgo.toISOString());
+        let itemQuery = supabase
+            .from('order_items')
+            .select(`
+                quantity,
+                orders!inner (
+                    created_at,
+                    deleted
+                )
+            `)
+            .eq('orders.deleted', false)
+            .gte('orders.created_at', ninetyDaysAgo.toISOString())
+            .eq('product_id', productId);
 
         if (variationId) {
-            query = query.filter('order_data', 'cs', `"{\\"items\\": [{\\"productId\\": \\"${productId}\\", \\"variationId\\": \\"${variationId}\\"}]}"`);
-        } else {
-            query = query.filter('order_data', 'cs', `"{\\"items\\": [{\\"productId\\": \\"${productId}\\"}]}"`);
+            itemQuery = itemQuery.eq('variation_id', variationId);
         }
 
-        const { data, error } = await query;
-        if (error) throw error;
-        if (!data) return { avgMonthlySales: 0 };
+        const { data: itemData, error: itemError } = await itemQuery;
+        if (!itemError && itemData) {
+            const totalQty = itemData.reduce((acc, row: any) => acc + (Number(row.quantity) || 0), 0);
+            return { avgMonthlySales: Math.round(totalQty / 3) };
+        }
 
-        let totalQty = 0;
-        data.forEach((row: any) => {
-            const items = row.order_data?.items || [];
-            items.forEach((item: any) => {
-                if (item.productId === productId && (!variationId || item.variationId === variationId)) {
-                    totalQty += item.quantity || 0;
-                }
-            });
-        });
-
-        return { avgMonthlySales: Math.round(totalQty / 3) };
+        return { avgMonthlySales: 0 };
     } catch (error) {
         console.error("Erro ao buscar estatísticas de venda:", error);
         return { avgMonthlySales: 0 };

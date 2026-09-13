@@ -67,23 +67,14 @@ const ProductEcommerceTab: React.FC<ProductEcommerceTabProps> = ({
     return (
         <div className="flex flex-col gap-8 animate-in fade-in slide-in-from-bottom-2 duration-300">
             {/* PHOTOS SECTION */}
-            <div id="field-product-images" className={`flex flex-col gap-6 transition-all p-2 rounded-2xl ${currentCount === 0 ? 'border-2 border-red-500/70 bg-red-50/10 dark:bg-red-950/5' : ''}`}>
-                <div className={`flex items-center justify-between border-b pb-2 ${currentCount === 0 ? 'border-red-200 dark:border-red-900/50' : 'border-slate-100 dark:border-slate-800'}`}>
+            <div id="field-product-images" className="flex flex-col gap-6 transition-all p-2 rounded-2xl">
+                <div className="flex items-center justify-between border-b pb-2 border-slate-100 dark:border-slate-800">
                     <div className="flex items-center gap-2 text-slate-800 dark:text-slate-200 font-bold text-xs uppercase tracking-wider">
                         <i className="bi bi-camera text-base text-purple-600 dark:text-purple-400"></i>
                         <span>Fotos do Produto ({currentCount}/{maxPhotos})</span>
                     </div>
-                    {currentCount === 0 && (
-                        <span className="text-[10px] text-red-500 font-black uppercase tracking-wider bg-red-50 dark:bg-red-950/20 px-2 py-0.5 rounded-full border border-red-200 dark:border-red-900/30">
-                            ⚠ Mínimo 1 foto
-                        </span>
-                    )}
                 </div>
-                <p className="text-[10px] uppercase font-black tracking-widest bg-purple-50/50 dark:bg-purple-955/10 text-purple-700 dark:text-purple-400 p-3 rounded-2xl border border-purple-100 dark:border-purple-900/20 flex items-center gap-2">
-                    <i className="bi bi-info-circle text-sm shrink-0"></i>
-                    <i className="bi bi-info-circle text-sm shrink-0"></i>
-                    <span><strong>Dica prática:</strong> Você pode arrastar/soltar imagens, colar fotos (Ctrl+V) ou clicar em Adicionar. Passe o mouse sobre uma foto para substituir, recortar em 1:1 ou excluir.</span>
-                </p>
+
                 <div className="transition-colors rounded-[2rem] border-2 border-dashed border-slate-150 dark:border-slate-800 p-4 sm:p-6 bg-slate-50/50 dark:bg-slate-955/10">
                     <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 sm:gap-4 select-none min-w-0 w-full">
                         {Array.from({ length: isDraggingPhoto }, (_, index) => <div key={`uploading-${index}`} className="aspect-square w-full rounded-none border-2 border-purple-200 bg-purple-50 dark:border-purple-800 dark:bg-purple-950/30 flex flex-col items-center justify-center gap-2 animate-pulse"><i className="bi bi-arrow-repeat animate-spin text-2xl text-purple-600" /><span className="text-[9px] font-black uppercase tracking-wider text-purple-600">Enviando...</span></div>)}

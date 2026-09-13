@@ -1,9 +1,9 @@
 ---
-name: modularizacao_codigo
-description: Engenharia de Software, SOLID, Código Limpo, Arquitetura e Modularização Segura. Garante arquivos coesos (alvo 30-100 linhas, aceitável até 150), responsabilidade única, contratos TypeScript estritos, Zero Trust em entradas, concorrência segura e estratégia conservadora de refatoração sem perda de lógica.
+name: principios-de-programacao
+description: Engenharia de Software, SOLID, Código Limpo, Princípios de Programação, Clareza Arquitetural e Refatoração Segura. Garante arquivos coesos (alvo 30-100 linhas, aceitável até 150), responsabilidade única, código limpo, legível, intuitivo, contratos TypeScript estritos, eliminação de duplicidades e estratégias conservadoras de refatoração sem perda de lógica.
 ---
 
-# Skill: Engenharia de Software, Código Limpo e Modularização Segura
+# Skill: Princípios de Programação, SOLID e Código Limpo
 
 ## Quando aplicar esta Skill
 Aplicar quando a tarefa envolver:

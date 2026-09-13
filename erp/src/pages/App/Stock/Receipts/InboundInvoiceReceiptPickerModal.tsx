@@ -4,6 +4,7 @@ import { InboundInvoice } from '@/pages/utils/inboundNfe/inboundNfeTypes';
 import { formatCurrency, formatToBRDate } from '@/pages/utils/formatters';
 import { normalizeSearchTerm } from '@/pages/utils/textUtils';
 import { InboundDocumentImportModal } from '../InboundInvoices/InboundDocumentImportModal';
+import { ManageInboundInvoiceMappingsModal } from '../InboundInvoices/modals/ManageInboundInvoiceMappingsModal';
 import { DateFilterConfig, DateFilterMode } from '../InboundInvoices/components/InboundInvoicesHeader';
 
 interface Props {
@@ -82,6 +83,7 @@ export default function InboundInvoiceReceiptPickerModal({
     const [invoices, setInvoices] = useState<InboundInvoice[]>([]);
     const [searchTerm, setSearchTerm] = useState('');
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+    const [mappingInvoice, setMappingInvoice] = useState<InboundInvoice | null>(null);
     const [isLoading, setIsLoading] = useState(false);
     const [loadError, setLoadError] = useState('');
     const [dateFilter, setDateFilter] = useState<DateFilterConfig>(() => ({
@@ -266,51 +268,67 @@ export default function InboundInvoiceReceiptPickerModal({
                                     <button type="button" onClick={() => setIsCreateModalOpen(true)} className="mt-3 rounded-xl bg-emerald-600 px-4 py-2 text-xs font-black text-white">Cadastrar nova NF de entrada</button>
                         </div>
                     ) : (
-                        available.map((inv) => (
-                            <div
-                                key={inv.id}
-                                className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm hover:border-indigo-400 transition-all dark:border-slate-800 dark:bg-slate-950"
-                            >
-                                <div className="space-y-1 min-w-0">
-                                    <div className="flex items-center gap-2">
-                                        <span className="font-bold text-xs text-slate-800 dark:text-slate-100">
-                                            NF-e #{inv.nfeNumber}
-                                        </span>
-                                        <span className="text-[10px] text-slate-400">Série {inv.series}</span>
-                                        <span className="rounded-full bg-blue-100 px-2 py-0.5 text-[9px] font-black uppercase text-blue-700 dark:bg-blue-950 dark:text-blue-300">
-                                            {inv.itemsCount || inv.items.length} itens
-                                        </span>
-                                    </div>
-                                    <p className="text-xs font-semibold text-slate-700 dark:text-slate-300 truncate">
-                                        {inv.emitterName}
-                                    </p>
-                                    <p className="text-[10px] text-slate-500">CNPJ: {inv.emitterCnpj || 'Não informado'} · Emissão: {formatToBRDate(inv.issuedAt)}</p>
-                                    <p className="text-[10px] font-mono text-slate-400 truncate">
-                                        Chave: {inv.nfeKey}
-                                    </p>
-                                    <span className={`inline-flex rounded-full px-2 py-0.5 text-[9px] font-black uppercase ${inv.status === 'received' ? 'bg-slate-100 text-slate-500' : 'bg-emerald-100 text-emerald-700'}`}>{statusLabel(inv.status)}</span>
-                                </div>
+                        available.map((inv) => {
+                            const isFullyLinked = Boolean(
+                                inv.items && inv.items.length > 0 && inv.items.every((item) => Boolean(item.matchedProductId))
+                            );
 
-                                <div className="flex items-center justify-between sm:justify-end gap-4 shrink-0 pt-2 sm:pt-0 border-t sm:border-t-0 border-slate-100 dark:border-slate-800">
-                                    <div className="text-right">
-                                        <span className="block text-[10px] uppercase tracking-wider text-slate-400">Total</span>
-                                        <span className="text-sm font-black text-emerald-600">
-                                            {formatCurrency(inv.totalInvoice)}
-                                        </span>
+                            return (
+                                <div
+                                    key={inv.id}
+                                    className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm hover:border-indigo-400 transition-all dark:border-slate-800 dark:bg-slate-950"
+                                >
+                                    <div className="space-y-1 min-w-0">
+                                        <div className="flex items-center gap-2">
+                                            <span className="font-bold text-xs text-slate-800 dark:text-slate-100">
+                                                NF-e #{inv.nfeNumber}
+                                            </span>
+                                            <span className="text-[10px] text-slate-400">Série {inv.series}</span>
+                                            <span className="rounded-full bg-blue-100 px-2 py-0.5 text-[9px] font-black uppercase text-blue-700 dark:bg-blue-950 dark:text-blue-300">
+                                                {inv.itemsCount || inv.items?.length || 0} itens
+                                            </span>
+                                        </div>
+                                        <p className="text-xs font-semibold text-slate-700 dark:text-slate-300 truncate">
+                                            {inv.emitterName}
+                                        </p>
+                                        <p className="text-[10px] text-slate-500">CNPJ: {inv.emitterCnpj || 'Não informado'} · Emissão: {formatToBRDate(inv.issuedAt)}</p>
+                                        <p className="text-[10px] font-mono text-slate-400 truncate">
+                                            Chave: {inv.nfeKey}
+                                        </p>
+                                        <span className={`inline-flex rounded-full px-2 py-0.5 text-[9px] font-black uppercase ${inv.status === 'received' ? 'bg-slate-100 text-slate-500' : 'bg-emerald-100 text-emerald-700'}`}>{statusLabel(inv.status)}</span>
                                     </div>
-                                    <button
-                                        type="button"
-                                        onClick={() => {
-                                            onSelect(inv);
-                                            onClose();
-                                        }}
-                                        className="rounded-xl bg-indigo-600 px-3.5 py-2 text-xs font-black uppercase tracking-wider text-white shadow-sm hover:bg-indigo-700 active:scale-95 transition-all"
-                                    >
-                                        Usar Nota
-                                    </button>
+
+                                    <div className="flex items-center justify-between sm:justify-end gap-4 shrink-0 pt-2 sm:pt-0 border-t sm:border-t-0 border-slate-100 dark:border-slate-800">
+                                        <div className="text-right">
+                                            <span className="block text-[10px] uppercase tracking-wider text-slate-400">Total</span>
+                                            <span className="text-sm font-black text-emerald-600">
+                                                {formatCurrency(inv.totalInvoice)}
+                                            </span>
+                                        </div>
+                                        {isFullyLinked ? (
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    onSelect(inv);
+                                                    onClose();
+                                                }}
+                                                className="rounded-xl bg-indigo-600 px-3.5 py-2 text-xs font-black uppercase tracking-wider text-white shadow-sm hover:bg-indigo-700 active:scale-95 transition-all"
+                                            >
+                                                Usar NF
+                                            </button>
+                                        ) : (
+                                            <button
+                                                type="button"
+                                                onClick={() => setMappingInvoice(inv)}
+                                                className="rounded-xl bg-blue-600 px-3.5 py-2 text-xs font-black uppercase tracking-wider text-white shadow-sm hover:bg-blue-700 active:scale-95 transition-all"
+                                            >
+                                                Finalizar Vinculação
+                                            </button>
+                                        )}
+                                    </div>
                                 </div>
-                            </div>
-                        ))
+                            );
+                        })
                     )}
                 </div>
             </section>
@@ -324,6 +342,20 @@ export default function InboundInvoiceReceiptPickerModal({
                     onCreate(newInv);
                 }}
             />
+
+            {mappingInvoice && (
+                <ManageInboundInvoiceMappingsModal
+                    isOpen={Boolean(mappingInvoice)}
+                    onClose={() => setMappingInvoice(null)}
+                    invoice={mappingInvoice}
+                    onSaveSuccess={() => {
+                        setMappingInvoice(null);
+                        void loadInvoices();
+                    }}
+                />
+            )}
         </div>
     );
 }
+
+

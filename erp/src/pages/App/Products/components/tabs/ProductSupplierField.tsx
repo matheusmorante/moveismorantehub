@@ -75,7 +75,7 @@ export function ProductSupplierField({ formData, suppliers, onChange, hasError =
 
     return (
         <div id="field-main-supplier" className="relative flex flex-col gap-2 rounded-2xl p-2 md:col-span-2" ref={anchorRef}>
-            <label className="flex h-6 items-center justify-between text-[10px] font-black uppercase tracking-widest text-slate-400">
+            <label className={`flex h-6 items-center justify-between text-[10px] font-black uppercase tracking-widest ${hasError ? 'text-red-500 dark:text-red-400' : 'text-slate-400'}`}>
                 <span>Fornecedores <span className="text-red-500">*</span></span>
                 <button
                     type="button"
@@ -88,7 +88,7 @@ export function ProductSupplierField({ formData, suppliers, onChange, hasError =
 
             <div className="flex gap-2">
                 <div className="relative flex-1">
-                    <i className="bi bi-search absolute left-4 top-1/2 -translate-y-1/2 text-xs text-slate-400" />
+                    <i className="bi bi-search absolute left-2 top-1/2 -translate-y-1/2 text-xs text-slate-400" />
                     <input
                         type="text"
                         value={search}
@@ -98,8 +98,8 @@ export function ProductSupplierField({ formData, suppliers, onChange, hasError =
                         }}
                         onFocus={() => setIsOpen(true)}
                         placeholder="Digite 2 ou mais letras para buscar fornecedor..."
-                        className={`w-full rounded-xl border bg-white py-2.5 pl-10 pr-4 text-xs font-bold outline-none focus:ring-2 dark:bg-slate-955 dark:text-slate-200 ${
-                            hasError ? 'border-red-500 focus:ring-red-500/20' : 'border-slate-200 focus:ring-blue-500/20 dark:border-slate-800'
+                        className={`w-full bg-transparent border-b-2 border-t-0 border-x-0 py-2.5 pl-8 pr-4 text-xs font-bold outline-none transition-all dark:text-slate-200 ${
+                            hasError ? 'border-red-500 text-red-600 focus:border-red-600' : 'border-slate-200 focus:border-blue-600 dark:focus:border-blue-400 dark:border-slate-800'
                         }`}
                     />
                 </div>

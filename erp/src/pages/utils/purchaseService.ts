@@ -33,43 +33,34 @@ const assignPurchaseNumbers = (rawPurchases: any[]): Purchase[] => {
     return mapped.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 };
 
-export const subscribeToPurchases = (callback: (purchases: Purchase[]) => void) => {
-    listeners.push(callback);
+const isValidUuid = (val?: string) => Boolean(val && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val));
 
-    const fetchAll = () => {
-        supabase.from(TABLE_NAME)
-            .select('*')
-            .order('created_at', { ascending: true })
-            .then((response: any) => {
-                const { data, error } = response;
-                if (data && !error) {
-                    currentPurchases = assignPurchaseNumbers(data);
-                    notifyListeners();
-                } else if (error) {
-                    console.error("Erro ao buscar compras iniciais:", error);
-                    callback([]);
-                }
-            });
-    };
-
-    if (currentPurchases.length > 0) {
-        callback([...currentPurchases]);
+const syncPurchaseItems = async (purchaseId: string, items: any[]) => {
+    if (!isValidUuid(purchaseId)) return;
+    try {
+        await supabase.from('purchase_items').delete().eq('purchase_id', purchaseId);
+        if (items && items.length > 0) {
+            const rows = items.map((item, index) => ({
+                purchase_id: purchaseId,
+                item_index: index + 1,
+                product_id: item.productId || null,
+                variation_id: item.variationId || null,
+                description: item.description || 'Item de Compra',
+                quantity: Number(item.quantity || 1),
+                base_cost: Number(item.baseCost || 0),
+                unit_cost: Number(item.unitCost || 0),
+                total_cost: Number(item.totalCost || (Number(item.quantity || 1) * Number(item.unitCost || 0))),
+                item_snapshot: item,
+            }));
+            await supabase.from('purchase_items').insert(rows);
+        }
+    } catch (err) {
+        console.error('[Purchase] Falha ao sincronizar purchase_items:', err);
     }
-    fetchAll();
-
-    const channel = supabase.channel(`purchases_changes_${Date.now()}`)
-        .on('postgres_changes', { event: '*', schema: 'public', table: TABLE_NAME }, () => {
-            fetchAll();
-        })
-        .subscribe();
-
-    return () => {
-        listeners = listeners.filter(l => l !== callback);
-        supabase.removeChannel(channel);
-    };
 };
 
-import { saveInventoryMove, reverseInventoryMove, cancelInventoryMovesByRelatedEntity } from '@/pages/utils/inventoryService';
+import { saveInventoryMove, cancelInventoryMovesByRelatedEntity } from '@/pages/utils/inventoryService';
+import { formatToBRDate } from '@/pages/utils/formatters';
 
 const processInventoryMoves = async (purchase: Purchase, savedId: string) => {
     const formattedDate = formatToBRDate(purchase.date);
@@ -176,13 +167,50 @@ export const toggleStockProcessing = async (purchase: Purchase): Promise<boolean
     return true;
 };
 
+export const subscribeToPurchases = (callback: (purchases: Purchase[]) => void) => {
+    listeners.push(callback);
+
+    const fetchAll = () => {
+        supabase.from(TABLE_NAME)
+            .select('*, purchase_items(*)')
+            .order('created_at', { ascending: true })
+            .then((response: any) => {
+                const { data, error } = response;
+                if (data && !error) {
+                    currentPurchases = assignPurchaseNumbers(data);
+                    notifyListeners();
+                } else if (error) {
+                    console.error("Erro ao buscar compras iniciais:", error);
+                    callback([]);
+                }
+            });
+    };
+
+    if (currentPurchases.length > 0) {
+        callback([...currentPurchases]);
+    }
+    fetchAll();
+
+    const channel = supabase.channel(`purchases_changes_${Date.now()}`)
+        .on('postgres_changes', { event: '*', schema: 'public', table: TABLE_NAME }, fetchAll)
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'purchase_items' }, fetchAll)
+        .subscribe();
+
+    return () => {
+        listeners = listeners.filter(l => l !== callback);
+        supabase.removeChannel(channel);
+    };
+};
+
 export const savePurchase = async (purchase: Purchase): Promise<string | undefined> => {
     try {
         const nextNumber = currentPurchases.length + 1;
-        const dbPayload = {
+        const dbPayload: any = {
             ...mapToDB(purchase),
             purchase_number: nextNumber
         };
+        delete dbPayload.items;
+
         const { data, error } = await supabase
             .from(TABLE_NAME)
             .insert([dbPayload])
@@ -191,10 +219,14 @@ export const savePurchase = async (purchase: Purchase): Promise<string | undefin
         if (error) throw error;
         const savedRecord = data?.[0];
         if (savedRecord) {
-            const mapped = mapFromDB(savedRecord, nextNumber);
+            const purchaseId = String(savedRecord.id);
+            if (purchase.items && purchase.items.length > 0) {
+                await syncPurchaseItems(purchaseId, purchase.items);
+            }
+            const mapped = mapFromDB({ ...savedRecord, purchase_items: purchase.items }, nextNumber);
             currentPurchases = [mapped, ...currentPurchases];
             notifyListeners();
-            return String(savedRecord.id);
+            return purchaseId;
         }
     } catch (error) {
         console.error("Erro ao salvar compra: ", error);
@@ -204,7 +236,7 @@ export const savePurchase = async (purchase: Purchase): Promise<string | undefin
 
 export const updatePurchase = async (id: string, updates: Partial<Purchase>): Promise<void> => {
     try {
-        const { data: existing } = await supabase.from(TABLE_NAME).select('*').eq('id', id).single();
+        const { data: existing } = await supabase.from(TABLE_NAME).select('*, purchase_items(*)').eq('id', id).single();
         if (!existing) throw new Error("Pedido não encontrado");
 
         const currentPurchase = mapFromDB(existing);
@@ -214,7 +246,6 @@ export const updatePurchase = async (id: string, updates: Partial<Purchase>): Pr
         if (updates.supplierId !== undefined) dbUpdates.supplier_id = updates.supplierId || null;
         if (updates.supplierName !== undefined) dbUpdates.supplier_name = updates.supplierName || null;
         if (updates.date !== undefined) dbUpdates.date = updates.date ? new Date(updates.date).toISOString() : new Date().toISOString();
-        if (updates.items !== undefined) dbUpdates.items = updates.items;
         if (updates.totalValue !== undefined) dbUpdates.total_value = updates.totalValue;
         if (updates.observation !== undefined) dbUpdates.observation = updates.observation || '';
         if (updates.status !== undefined) dbUpdates.status = updates.status;
@@ -232,14 +263,15 @@ export const updatePurchase = async (id: string, updates: Partial<Purchase>): Pr
 
         if (error) throw error;
 
+        if (updates.items !== undefined) {
+            await syncPurchaseItems(id, updates.items);
+        }
+
         currentPurchases = currentPurchases.map(p => p.id === id ? merged : p);
         notifyListeners();
 
         if (updates.items && merged.stockProcessed) {
             for (const item of updates.items) {
-                // A variação é a identidade operacional principal. product_id
-                // fica como segurança contra cruzamento, mas variation_id é a
-                // chave primária que distingue itens do mesmo pai na compra.
                 let moveQuery = supabase
                     .from('inventory_moves')
                     .update({ unit_cost: item.unitCost })
@@ -270,7 +302,6 @@ const mapToDB = (p: Purchase) => ({
     supplier_id: p.supplierId || null,
     supplier_name: p.supplierName || null,
     date: p.date ? new Date(p.date).toISOString() : new Date().toISOString(),
-    items: p.items || [],
     total_value: p.totalValue || 0,
     observation: p.observation || '',
     status: p.status || 'ordered',
@@ -284,23 +315,40 @@ const mapToDB = (p: Purchase) => ({
     created_at: p.createdAt ? new Date(p.createdAt).toISOString() : new Date().toISOString()
 });
 
-const mapFromDB = (data: any, sequentialIndex?: number): Purchase => ({
-    id: String(data.id),
-    purchaseNumber: data.purchase_number ? Number(data.purchase_number) : (sequentialIndex !== undefined ? sequentialIndex : undefined),
-    supplierId: data.supplier_id,
-    supplierName: data.supplier_name,
-    date: data.date,
-    items: data.items,
-    totalValue: Number(data.total_value),
-    observation: data.observation,
-    status: data.status === 'opened' ? 'ordered' : data.status,
-    invoiceNumber: data.invoice_number,
-    invoiceDate: data.invoice_date,
-    invoiceStatus: data.invoice_status,
-    fiscalKey: data.fiscal_key,
-    attachments: data.attachments || [],
-    ipiPercent: data.ipi_value ? Number(data.ipi_value) : 0,
-    freightPercent: data.freight_percent ? Number(data.freight_percent) : 0,
-    createdAt: data.created_at,
-    stockProcessed: !!data.stockProcessed
-});
+const mapFromDB = (data: any, sequentialIndex?: number): Purchase => {
+    const items: any[] = Array.isArray(data.purchase_items) && data.purchase_items.length > 0
+        ? data.purchase_items
+            .sort((a: any, b: any) => (a.item_index || 0) - (b.item_index || 0))
+            .map((pi: any) => ({
+                productId: pi.product_id || pi.item_snapshot?.productId || '',
+                variationId: pi.variation_id || pi.item_snapshot?.variationId || undefined,
+                description: pi.description || pi.item_snapshot?.description || '',
+                quantity: Number(pi.quantity || 1),
+                baseCost: Number(pi.base_cost || 0),
+                unitCost: Number(pi.unit_cost || 0),
+                totalCost: Number(pi.total_cost || 0),
+            }))
+        : (data.items || []);
+
+    return {
+        id: String(data.id),
+        purchaseNumber: data.purchase_number ? Number(data.purchase_number) : (sequentialIndex !== undefined ? sequentialIndex : undefined),
+        supplierId: data.supplier_id,
+        supplierName: data.supplier_name,
+        date: data.date,
+        items,
+        totalValue: Number(data.total_value),
+        observation: data.observation,
+        status: data.status === 'opened' ? 'ordered' : data.status,
+        invoiceNumber: data.invoice_number,
+        invoiceDate: data.invoice_date,
+        invoiceStatus: data.invoice_status,
+        fiscalKey: data.fiscal_key,
+        attachments: data.attachments || [],
+        ipiPercent: data.ipi_value ? Number(data.ipi_value) : 0,
+        freightPercent: data.freight_percent ? Number(data.freight_percent) : 0,
+        createdAt: data.created_at,
+        stockProcessed: !!data.stockProcessed
+    };
+};
+

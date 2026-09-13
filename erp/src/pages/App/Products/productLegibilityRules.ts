@@ -50,7 +50,7 @@ export function checkERPLegibility(data: Partial<Product>): ERPLegibilityResult 
         errors.push("Pelo menos uma categoria deve ser selecionada.");
     }
     if (!data.mainSupplierId) {
-        errors.push("Fornecedor Principal é obrigatório.");
+        errors.push("Selecione pelo menos um fornecedor.");
     }
 
     return {

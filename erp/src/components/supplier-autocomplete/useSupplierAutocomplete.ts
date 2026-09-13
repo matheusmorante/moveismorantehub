@@ -68,7 +68,7 @@ export const useSupplierAutocomplete = ({
         }
         const nameNorm = normalize(s.fullName);
         const tradeNorm = normalize(s.tradeName || "");
-        const docNorm = normalize(s.document || "");
+        const docNorm = normalize(s.cpfCnpj || (s as any).document || "");
         return nameNorm.includes(queryNorm) || tradeNorm.includes(queryNorm) || docNorm.includes(queryNorm);
     });
 
