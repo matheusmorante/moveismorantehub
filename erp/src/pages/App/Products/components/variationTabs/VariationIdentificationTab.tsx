@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import Product, { Variation } from '../../../../types/product.type';
 import { computeVariationName } from '@/pages/utils/productVariationDefaults';
 import { toTitleCase } from '@/pages/utils/textUtils';
@@ -40,6 +40,24 @@ export const VariationIdentificationTab: React.FC<VariationIdentificationTabProp
     getDefaultVariationName,
     getDefaultVariationTitle
 }) => {
+    const [openValueSuggestionsFor, setOpenValueSuggestionsFor] = useState<number | null>(null);
+
+    const updateAttributeValue = (index: number, value: string) => {
+        setFormData(prev => {
+            if (!prev) return null;
+            const updated = [...prev.attributes];
+            updated[index] = { ...updated[index], value };
+            const autoName = getDefaultVariationName(updated);
+            const autoTitle = getDefaultVariationTitle(updated);
+            return {
+                ...prev,
+                attributes: updated,
+                name: autoName,
+                title: autoTitle,
+                marketplaceTitle: autoTitle,
+            };
+        });
+    };
 
     return (
         <div className="space-y-6 animate-in fade-in duration-350">
@@ -161,7 +179,7 @@ export const VariationIdentificationTab: React.FC<VariationIdentificationTabProp
 
                             return (
                                 <div key={idx} className="flex items-end gap-3 animate-in fade-in duration-200">
-                                    <div className="flex-1 space-y-1">
+                                    <div className="relative flex-1 space-y-1">
                                         <label className="text-[9px] text-slate-400 font-bold uppercase flex items-center justify-between">
                                             <span>Atributo <span className="text-red-500">*</span></span>
                                             {isNameMissing && <span className="text-red-500 font-bold text-[8px]">Obrigatório</span>}
@@ -169,7 +187,7 @@ export const VariationIdentificationTab: React.FC<VariationIdentificationTabProp
                                         <select
                                             value={attr.name}
                                             onChange={e => {
-                                                const newName = e.target.value;
+                                                const newName = toTitleCase(e.target.value);
                                                 setFormData(prev => {
                                                     if (!prev) return null;
                                                     const updated = [...prev.attributes];
@@ -193,7 +211,7 @@ export const VariationIdentificationTab: React.FC<VariationIdentificationTabProp
                                         >
                                             <option value="">Selecione um atributo...</option>
                                             {dbAttributes.map(a => (
-                                                <option key={a.id} value={a.name}>{a.name}</option>
+                                                <option key={a.id} value={a.name}>{toTitleCase(a.name)}</option>
                                             ))}
                                         </select>
                                     </div>
@@ -203,65 +221,53 @@ export const VariationIdentificationTab: React.FC<VariationIdentificationTabProp
                                             <span>Valor <span className="text-red-500">*</span></span>
                                             {isValMissing && <span className="text-red-500 font-bold text-[8px]">Defina o valor</span>}
                                         </label>
-                                        {attrVals.length > 0 ? (
-                                            <select
-                                                value={attr.value}
-                                                onChange={e => {
-                                                    const newVal = e.target.value;
-                                                    setFormData(prev => {
-                                                        if (!prev) return null;
-                                                        const updated = [...prev.attributes];
-                                                        updated[idx] = { ...updated[idx], value: newVal };
-                                                        const autoName = getDefaultVariationName(updated);
-                                                        const autoTitle = getDefaultVariationTitle(updated);
-                                                        return { 
-                                                            ...prev, 
-                                                            attributes: updated, 
-                                                            name: autoName,
-                                                            title: autoTitle,
-                                                            marketplaceTitle: autoTitle
-                                                        };
-                                                    });
-                                                }}
-                                                className={`w-full bg-transparent border-b-2 border-t-0 border-x-0 outline-none px-1 py-2 text-xs font-bold transition-all ${
-                                                    isValMissing
-                                                        ? 'border-red-500 text-red-600 dark:text-red-400'
-                                                        : 'border-slate-200 dark:border-slate-800 text-slate-800 dark:text-slate-200 focus:border-blue-600 dark:focus:border-blue-400'
-                                                }`}
-                                            >
-                                                <option value="">Selecione o valor...</option>
-                                                {attrVals.map(v => (
-                                                    <option key={v.id} value={v.value}>{v.value}</option>
-                                                ))}
-                                            </select>
-                                        ) : (
-                                            <input
-                                                type="text"
-                                                placeholder="Ex: Vermelho, G..."
-                                                value={attr.value}
-                                                onChange={e => {
-                                                    const newVal = e.target.value;
-                                                    setFormData(prev => {
-                                                        if (!prev) return null;
-                                                        const updated = [...prev.attributes];
-                                                        updated[idx] = { ...updated[idx], value: newVal };
-                                                        const autoName = getDefaultVariationName(updated);
-                                                        const autoTitle = getDefaultVariationTitle(updated);
-                                                        return { 
-                                                            ...prev, 
-                                                            attributes: updated, 
-                                                            name: autoName,
-                                                            title: autoTitle,
-                                                            marketplaceTitle: autoTitle
-                                                        };
-                                                    });
-                                                }}
-                                                className={`w-full bg-transparent border-b-2 border-t-0 border-x-0 outline-none px-1 py-2 text-xs font-bold transition-all ${
-                                                    isValMissing
-                                                        ? 'border-red-500 text-red-600 dark:text-red-400 placeholder:text-red-300'
-                                                        : 'border-slate-200 dark:border-slate-800 text-slate-800 dark:text-slate-200 focus:border-blue-600 dark:focus:border-blue-400'
-                                                }`}
-                                            />
+                                        <input
+                                            type="text"
+                                            aria-label={`Pesquisar valor para ${attr.name || 'atributo'}`}
+                                            placeholder={attr.name ? 'Pesquise ou digite um novo valor...' : 'Selecione o atributo primeiro...'}
+                                            disabled={!attr.name}
+                                            value={attr.value}
+                                            onFocus={() => setOpenValueSuggestionsFor(idx)}
+                                            onBlur={() => {
+                                                setOpenValueSuggestionsFor(current => current === idx ? null : current);
+                                                const formatted = toTitleCase(attr.value);
+                                                if (formatted !== attr.value) updateAttributeValue(idx, formatted);
+                                            }}
+                                            onChange={e => {
+                                                updateAttributeValue(idx, e.target.value);
+                                                setOpenValueSuggestionsFor(idx);
+                                            }}
+                                            className={`w-full bg-transparent border-b-2 border-t-0 border-x-0 outline-none px-1 py-2 text-xs font-bold transition-all disabled:cursor-not-allowed disabled:opacity-50 ${
+                                                isValMissing
+                                                    ? 'border-red-500 text-red-600 dark:text-red-400 placeholder:text-red-300'
+                                                    : 'border-slate-200 dark:border-slate-800 text-slate-800 dark:text-slate-200 focus:border-blue-600 dark:focus:border-blue-400'
+                                            }`}
+                                        />
+                                        {openValueSuggestionsFor === idx && attr.name && (
+                                            <div className="absolute z-30 mt-1 max-h-48 w-full overflow-y-auto rounded-xl border border-slate-200 bg-white p-1 shadow-xl dark:border-slate-700 dark:bg-slate-900">
+                                                {attrVals
+                                                    .filter(option => option.value.toLocaleLowerCase('pt-BR').includes(attr.value.toLocaleLowerCase('pt-BR')))
+                                                    .map(option => (
+                                                        <button
+                                                            key={option.id}
+                                                            type="button"
+                                                            onMouseDown={event => event.preventDefault()}
+                                                            onClick={() => {
+                                                                updateAttributeValue(idx, toTitleCase(option.value));
+                                                                setOpenValueSuggestionsFor(null);
+                                                            }}
+                                                            className="block w-full rounded-lg px-3 py-2 text-left text-xs font-bold text-slate-700 hover:bg-blue-50 hover:text-blue-700 dark:text-slate-200 dark:hover:bg-slate-800 dark:hover:text-blue-300"
+                                                        >
+                                                            {toTitleCase(option.value)}
+                                                        </button>
+                                                    ))}
+                                                {attrVals.length === 0 && (
+                                                    <p className="px-3 py-2 text-xs text-slate-500">Digite para criar o primeiro valor deste atributo.</p>
+                                                )}
+                                                {attrVals.length > 0 && !attrVals.some(option => option.value.toLocaleLowerCase('pt-BR').includes(attr.value.toLocaleLowerCase('pt-BR'))) && (
+                                                    <p className="px-3 py-2 text-xs text-slate-500">Nenhuma sugestão encontrada. Você pode usar o valor digitado.</p>
+                                                )}
+                                            </div>
                                         )}
                                     </div>
 

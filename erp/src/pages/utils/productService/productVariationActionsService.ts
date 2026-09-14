@@ -2,6 +2,7 @@ import { supabase } from '@/pages/utils/supabaseConfig';
 import { MAX_VARIATION_IMAGES } from './productImageHelpers';
 import { LOCAL_STORAGE_KEY, getLocalProducts, notifySubscribers } from './productLocalCache';
 import { updateProduct } from './productMutationService';
+import { toTitleCase } from '../textUtils';
 
 export const saveVariation = async (productId: string, variation: any): Promise<void> => {
     try {
@@ -42,9 +43,19 @@ export const saveVariation = async (productId: string, variation: any): Promise<
             );
         }
 
+        const cleanAttrs = (variation.attributes || []).map((attr: any) => ({
+            ...attr,
+            name: toTitleCase(attr.name),
+            value: toTitleCase(attr.value),
+        }));
+
         const variationToSave = { 
             ...variation, 
-            id: (isUuidPattern(variationId) ? variationId : null) || (varIndex !== -1 ? variations[varIndex].id : crypto.randomUUID()) 
+            id: (isUuidPattern(variationId) ? variationId : null) || (varIndex !== -1 ? variations[varIndex].id : crypto.randomUUID()),
+            name: toTitleCase(variation.name || parent.name || ''),
+            ...(variation.title ? { title: toTitleCase(variation.title) } : {}),
+            ...(variation.marketplaceTitle ? { marketplaceTitle: toTitleCase(variation.marketplaceTitle) } : {}),
+            attributes: cleanAttrs,
         };
         delete (variationToSave as any).variationId;
 

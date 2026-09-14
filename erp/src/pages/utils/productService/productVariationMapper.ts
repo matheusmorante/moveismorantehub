@@ -1,5 +1,6 @@
 import { Variation } from '../../types/product.type';
 import { parseVariationImages } from './productImageHelpers';
+import { toTitleCase } from '../textUtils';
 
 /**
  * Converte um atributo cru de variação em lista estruturada
@@ -49,14 +50,21 @@ export const mapDbVariations = (variationRecords: any[], data: any, parentCode: 
         const isAlreadyFormatted = expectedPrefix && v.sku && typeof v.sku === 'string' && v.sku.startsWith(expectedPrefix);
         const resolvedSku = isAlreadyFormatted ? v.sku : (parentCode ? `${parentCode}-${suffix}` : (v.sku || ''));
         
-        const attributesList = parseVariationAttributes(v.attributes);
+        // Registros antigos podem ter sido gravados em maiúsculas. A interface
+        // usa a mesma regra de formatação para todas as variações do produto.
+        const attributesList = parseVariationAttributes(v.attributes).map((attribute) => ({
+            ...attribute,
+            name: toTitleCase(attribute.name),
+            value: toTitleCase(attribute.value),
+        }));
+        const formattedName = toTitleCase(v.name || data.name || data.title || '');
 
         if (v.product_id) {
             return {
                 id: String(v.id),
                 mergedToVariationId: v.merged_to_variation_id || undefined,
                 sku: resolvedSku,
-                name: v.name || '',
+                name: formattedName,
                 stock: Number(v.stock || 0),
                 unitPrice: v.use_parent_price ? Number(data.unit_price || 0) : Number(v.price || 0),
                 promoPrice: v.use_parent_promo_price ? Number(data.promo_price || 0) : Number(v.promo_price || 0),
@@ -82,6 +90,7 @@ export const mapDbVariations = (variationRecords: any[], data: any, parentCode: 
         }
         return {
             ...v,
+            name: formattedName,
             images: varImages,
             attributes: attributesList,
             unitPrice: v.unitPrice || 0,

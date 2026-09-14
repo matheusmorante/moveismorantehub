@@ -11,7 +11,7 @@ describe('getSelectedProductDisplayName', () => {
         expect(getSelectedProductDisplayName(
             { name: 'Sofá Capri' },
             { name: 'Sofá Capri Azul 3 lugares' },
-        )).toBe('Sofá Capri Azul 3 lugares');
+        )).toBe('Sofá Capri Azul 3 Lugares');
     });
 
     it('usa o nome do produto quando não há variação', () => {

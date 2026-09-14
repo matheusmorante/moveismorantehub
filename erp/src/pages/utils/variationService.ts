@@ -1,10 +1,9 @@
 import { ecommerceSupabase as supabase } from '@/pages/utils/supabaseConfig';
 import VariationType, { VariationOption } from "../types/variation.type";
+import { toTitleCase } from './textUtils';
 
 const capitalize = (str: string): string => {
-    if (!str) return "";
-    const trimmed = str.trim();
-    return trimmed.charAt(0).toUpperCase() + trimmed.slice(1);
+    return toTitleCase(str);
 };
 
 /** Garante um valor canônico para um atributo global sem criar atributos duplicados. */

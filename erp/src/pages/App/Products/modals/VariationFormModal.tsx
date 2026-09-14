@@ -92,7 +92,7 @@ export const VariationFormModal: React.FC<VariationFormModalProps> = (props) => 
     const ecomStatus = checkEcomLegibility(effectiveProductForValidation);
 
     return createPortal(
-        <div className="fixed inset-0 z-[1000020] flex items-center justify-center p-2 sm:p-4">
+        <div className="fixed inset-0 z-[1000020] flex items-center justify-center p-2 sm:p-4 animate-in fade-in duration-200">
             <button 
                 type="button" 
                 aria-label="Fechar modal" 
@@ -104,7 +104,7 @@ export const VariationFormModal: React.FC<VariationFormModalProps> = (props) => 
                 role="dialog"
                 aria-modal="true"
                 aria-labelledby="variation-form-modal-title"
-                className="relative bg-white dark:bg-slate-900 w-full max-w-full h-full md:max-w-[96vw] md:h-[96vh] md:rounded-2xl shadow-2xl flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200 border border-slate-100 dark:border-slate-800 z-10"
+                className="relative bg-white dark:bg-slate-900 w-full max-w-5xl h-[92vh] rounded-3xl shadow-2xl flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200 border border-slate-100 dark:border-slate-800 z-10"
             >
                 {/* Header */}
                 <div className="px-6 py-4 border-b border-slate-50 dark:border-slate-800/50 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shrink-0 bg-white dark:bg-slate-900">

@@ -9,6 +9,8 @@ export interface DeliverySummaryRecord {
   data_fingerprint: string;
   text: string | null;
   audio_url: string | null;
+  audio_cache_key?: string | null;
+  audio_storage_path?: string | null;
   text_status: SummaryStatus;
   audio_status: SummaryStatus;
   generator_version: string;
@@ -48,6 +50,24 @@ export const getSavedSummaryRecord = async (
   } catch {}
 
   return null;
+};
+
+/** A tela acompanha a versão mais recente produzida pelo servidor para o escopo. */
+export const getLatestSavedSummaryRecord = async (
+  scope: DeliverySummaryRecord['scope'],
+): Promise<DeliverySummaryRecord | null> => {
+  try {
+    const { data, error } = await supabase
+      .from('delivery_summaries')
+      .select('*')
+      .eq('scope', scope)
+      .order('updated_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    return !error && data ? data as DeliverySummaryRecord : null;
+  } catch {
+    return null;
+  }
 };
 
 export const saveSummaryRecord = async (

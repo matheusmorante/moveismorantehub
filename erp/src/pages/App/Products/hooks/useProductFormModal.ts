@@ -121,29 +121,50 @@ export function useProductFormModal({
         initialFormDataRef.current = "";
         let isMounted = true;
         const loadFullData = async () => {
+            let resolvedFormData: Product | null = null;
+            let targetVariationIdToOpen: string | null = null;
+
             if (product?.id) {
                 const initialNext = ensureDefaultVariation({ ...INITIAL_PRODUCT_FORM_DATA, ...product, hasVariations: true });
                 setFormData(initialNext);
                 pricing.initializeDiscounts(product.unitPrice, product.promoPrice);
 
                 const full = await getFullProduct(product.id);
-                if (full && isMounted) {
-                    const pendingVariations = isQuickRegister
-                        ? (product.variations || []).filter(variation => !(full.variations || []).some(saved => saved.id === variation.id))
-                        : [];
-                    const nextFormData = ensureDefaultVariation({ ...full, variations: [...(full.variations || []), ...pendingVariations], hasVariations: true });
-                    initialFormDataRef.current = JSON.stringify(nextFormData);
-                    setFormData(nextFormData);
-                    pricing.initializeDiscounts(full.unitPrice, full.promoPrice);
+                if (!isMounted) return;
+
+                const baseProduct = full || product;
+                const pendingVariations = isQuickRegister
+                    ? (product.variations || []).filter(variation => !(baseProduct.variations || []).some(saved => saved.id === variation.id))
+                    : [];
+
+                const nextFormData = ensureDefaultVariation({
+                    ...baseProduct,
+                    variations: [...(baseProduct.variations || []), ...pendingVariations],
+                    hasVariations: true
+                });
+
+                resolvedFormData = nextFormData;
+                initialFormDataRef.current = JSON.stringify(nextFormData);
+                setFormData(nextFormData);
+                pricing.initializeDiscounts(nextFormData.unitPrice, nextFormData.promoPrice);
+
+                if (openAddVariationOnOpen) {
+                    if (pendingVariations.length > 0) {
+                        // Variação já preparada pelo cadastro rápido: abre diretamente ela para edição sem duplicar
+                        targetVariationIdToOpen = pendingVariations[pendingVariations.length - 1].id;
+                    }
                 }
             } else if (product) {
                 const nextFormData = ensureDefaultVariation({ ...INITIAL_PRODUCT_FORM_DATA, ...product, hasVariations: true });
+                resolvedFormData = nextFormData;
                 initialFormDataRef.current = JSON.stringify(nextFormData);
                 setFormData(nextFormData);
                 pricing.initializeDiscounts(product.unitPrice, product.promoPrice);
             } else {
                 const generatedId = crypto.randomUUID();
                 const generatedSku = initialData?.code || await getNextSequentialProductCode();
+                if (!isMounted) return;
+
                 const nextFormData = ensureDefaultVariation({
                     ...INITIAL_PRODUCT_FORM_DATA,
                     id: generatedId,
@@ -156,15 +177,21 @@ export function useProductFormModal({
                     ...initialData,
                     hasVariations: true
                 });
+                resolvedFormData = nextFormData;
                 initialFormDataRef.current = JSON.stringify(nextFormData);
                 setFormData(nextFormData);
                 pricing.setDiscountFixed("");
                 pricing.setDiscountPercent("");
             }
+
+            if (!isMounted) return;
             setActiveTab((initialTab as any) || 'geral');
+
             if (openAddVariationOnOpen) {
-                setTimeout(() => {
-                    const firstVar = product?.variations?.[0];
+                if (targetVariationIdToOpen) {
+                    variations.setEditingVariationId(targetVariationIdToOpen);
+                } else {
+                    const firstVar = resolvedFormData?.variations?.[0];
                     if (firstVar && hasVariationAttribute(firstVar)) {
                         variations.addVariation();
                     } else if (firstVar) {
@@ -172,7 +199,7 @@ export function useProductFormModal({
                     } else {
                         variations.addVariation();
                     }
-                }, 350);
+                }
             }
         };
         loadFullData();
@@ -377,14 +404,23 @@ export function useProductFormModal({
                 targetCatalogStatus = 'hidden';
             }
 
+            // Ao concluir um rascunho, o canal ERP inicia ativo para o produto
+            // e para todas as suas variações. A desativação permanece uma ação
+            // explícita do operador depois do cadastro.
+            const isCompletingDraft = !actualSaveAsDraft && !isExistingRegisteredProduct;
+            const erpActive = actualSaveAsDraft
+                ? false
+                : (isCompletingDraft ? true : formData.active !== false);
+
             const normalizedData = { 
                 ...formData, 
                 name: enteredName || formData.name || 'Produto',
                 isDraft: actualSaveAsDraft,
-                active: actualSaveAsDraft ? false : (formData.active !== undefined ? formData.active : true),
+                active: erpActive,
                 status: targetCatalogStatus,
                 variations: (formData.variations || []).map(v => ({
                     ...v,
+                    active: actualSaveAsDraft ? false : (isCompletingDraft ? true : v.active),
                     status: actualSaveAsDraft 
                         ? 'draft' 
                         : (targetCatalogStatus === 'published' ? (v.status || 'published') : 'hidden')

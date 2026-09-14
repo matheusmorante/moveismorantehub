@@ -5,7 +5,6 @@ import type Person from '@/pages/types/person.type';
 import type { InboundInvoiceItem } from '@/pages/utils/inboundNfe/inboundNfeTypes';
 import { findProductSupplierCodes, saveProductSupplierCode, deleteProductSupplierCode } from '@/pages/utils/productSupplierCodesService';
 import { getFullProduct, saveVariation } from '@/pages/utils/productService';
-import { ensureAttributeValue } from '@/pages/utils/variationService';
 import { fetchGroupsAndCategories } from '@/pages/utils/categoryService';
 import { resolveAutoCategory } from '@/pages/utils/categoryResolutionService';
 import { aiService } from '@/pages/utils/aiService';
@@ -93,6 +92,9 @@ export function useInboundInvoiceItemsReview({
     }, [items, onChange]);
 
     const [creatingItemNumber, setCreatingItemNumber] = useState<number | null>(null);
+    // No cadastro rápido de uma nova variação, esta é a identidade que deve
+    // receber o vínculo da NF. Nunca inferir pela posição no array do pai.
+    const [creatingVariationId, setCreatingVariationId] = useState<string | null>(null);
     const [creationQueue, setCreationQueue] = useState<number[]>([]);
     const [initialProductData, setInitialProductData] = useState<Partial<Product> | null>(null);
     const [isSuggestingName, setIsSuggestingName] = useState(false);
@@ -163,6 +165,7 @@ export function useInboundInvoiceItemsReview({
         if (!supplierId) return toast.info('Vincule o fornecedor para identificar ou cadastrar os produtos.');
         setCreationQueue(queue);
         setCreatingItemNumber(item.itemNumber);
+        setCreatingVariationId(null);
         setIsSuggestingName(true);
         setIsPreparingProduct(true);
         try {
@@ -278,8 +281,7 @@ export function useInboundInvoiceItemsReview({
             const family = await getFullProduct(aiClassification.matchedProductId);
             if (!family) throw new Error('Produto pai sugerido não encontrado no ERP.');
             const finalCost = itemCostWithAdditionalCosts(classifyingItem);
-            const color = aiClassification.extractedAttributes.color;
-            const attributes = color ? [await ensureAttributeValue('Cor', color)] : [];
+            const attributes: Variation['attributes'] = [];
             const variationId = crypto.randomUUID();
             await saveVariation(family.id, {
                 id: variationId,
@@ -344,6 +346,7 @@ export function useInboundInvoiceItemsReview({
 
                 setIsPreparingProduct(false);
                 setCreatingItemNumber(itemNumber);
+                setCreatingVariationId(updatedParentProduct.variations?.[updatedParentProduct.variations.length - 1]?.id || null);
                 setEditingParentProduct(updatedParentProduct);
                 setIsProductModalOpen(true);
             } catch (err: any) {
@@ -357,6 +360,7 @@ export function useInboundInvoiceItemsReview({
                 setIsPreparingProduct(false);
 
                 setCreatingItemNumber(itemNumber);
+                setCreatingVariationId(preparedData.variations?.[0]?.id || null);
                 setEditingParentProduct(null);
                 setInitialProductData(preparedData);
                 setIsProductModalOpen(true);
@@ -374,12 +378,19 @@ export function useInboundInvoiceItemsReview({
         const currentItem = items.find((item) => item.itemNumber === creatingItemNumber);
         if (currentItem) {
             try {
+                // Recarrega para usar os UUIDs/SKUs efetivamente persistidos.
+                // `variations[0]` pode ser outra cor do mesmo pai.
                 let productToUse = createdProduct;
-                if ((!productToUse.code && !productToUse.variations?.[0]?.sku) && productToUse.id) {
+                if (productToUse.id) {
                     const reloaded = await getFullProduct(productToUse.id);
                     if (reloaded) productToUse = reloaded;
                 }
-                const variation = productToUse.variations?.[0];
+                const variation = creatingVariationId
+                    ? productToUse.variations?.find((candidate) => candidate.id === creatingVariationId)
+                    : productToUse.variations?.[0];
+                if (creatingVariationId && !variation) {
+                    throw new Error('A variação recém-cadastrada não foi encontrada. O vínculo não foi salvo em outra variação.');
+                }
                 const resolvedCode = (variation?.sku || productToUse.code || productToUse.sku || '').trim();
                 const resolvedName = (variation?.name || variation?.title || productToUse.name || productToUse.title || currentItem.productDescription).trim();
 
@@ -403,6 +414,7 @@ export function useInboundInvoiceItemsReview({
         }
         const nextQueue = creationQueue.filter((itemNumber) => itemNumber !== creatingItemNumber);
         setCreatingItemNumber(null);
+        setCreatingVariationId(null);
         setInitialProductData(null);
         setSuggestedCategory(null);
         setIndividualMarkup('');
@@ -472,6 +484,7 @@ export function useInboundInvoiceItemsReview({
     const closeProductModal = () => {
         setIsProductModalOpen(false);
         setCreatingItemNumber(null);
+        setCreatingVariationId(null);
         setEditingParentProduct(null);
         setInitialProductData(null);
         setSuggestedCategory(null);

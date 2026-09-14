@@ -104,6 +104,19 @@ export function getActiveAiQuotaAlerts(): AiQuotaAlert[] {
 }
 
 /**
+ * Remove o alerta de cota de um modelo específico quando ele responder com sucesso (cota normalizada).
+ */
+export function clearModelAiQuotaAlert(model: string): void {
+    const cleanModel = model?.trim() || 'Gemini';
+    const id = cleanModel.toLowerCase();
+    const prevLength = activeAlerts.length;
+    activeAlerts = activeAlerts.filter((a) => a.id !== id && !a.id.includes(id) && !id.includes(a.id));
+    if (activeAlerts.length !== prevLength) {
+        persistAlerts();
+    }
+}
+
+/**
  * Remove um alerta de cota pelo identificador (quando o usuário fecha o aviso no Header).
  */
 export function dismissAiQuotaAlert(id: string): void {

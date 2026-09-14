@@ -395,6 +395,9 @@ verify_jwt = false
 
 [functions.generate-delivery-summary-audio]
 verify_jwt = false
+
+[functions.refresh-delivery-summaries]
+verify_jwt = false
 # Configure one of the supported backends: `postgres`, `bigquery`.
 backend = "postgres"
 

@@ -2,6 +2,7 @@ import { useState, useRef } from 'react';
 import Product, { Variation } from '../../../types/product.type';
 import { generateVariationSku, checkProductHasMoves } from '@/pages/utils/productService';
 import { hasVariationAttribute } from '@/pages/utils/productVariationDefaults';
+import { toTitleCase } from '@/pages/utils/textUtils';
 import { toast } from 'react-toastify';
 
 export function useProductFormVariations(
@@ -43,7 +44,7 @@ export function useProductFormVariations(
             setEditingVariationId(firstVariation.id);
             return;
         }
-        const baseName = formData.name || formData.description || 'NOVA VARIAÇÃO';
+        const baseName = toTitleCase(formData.name || formData.description || 'Nova Variação');
         const parentCode = formData.code || '000000';
         const newSku = generateVariationSku(parentCode, formData.variations || []);
 
@@ -138,11 +139,11 @@ export function useProductFormVariations(
         const newVars: Variation[] = combinations.map((combo, idx) => {
             const attributeValues = attributes.map(attr => {
                 const attrData = combo[attr.name];
-                return String(attrData.value);
+                return toTitleCase(String(attrData.value));
             }).join(' ');
 
-            const parentName = formData.name || formData.description || '';
-            const name = [parentName, attributeValues].filter(Boolean).join(' ');
+            const parentName = toTitleCase(formData.name || formData.description || '');
+            const name = toTitleCase([parentName, attributeValues].filter(Boolean).join(' '));
             const parentCode = formData.code || '000000';
             const finalSku = generateVariationSku(parentCode, formData.variations || [], idx);
 
@@ -160,8 +161,8 @@ export function useProductFormVariations(
                 images: [],
                 active: true,
                 attributes: attributes.map(attr => ({
-                    name: attr.name,
-                    value: String(combo[attr.name].value),
+                    name: toTitleCase(attr.name),
+                    value: toTitleCase(String(combo[attr.name].value)),
                     showName: combo[attr.name].showName
                 })),
                 comboItems: []

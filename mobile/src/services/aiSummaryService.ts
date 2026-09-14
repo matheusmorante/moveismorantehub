@@ -14,7 +14,6 @@ import {
 import { getLocalDateString } from '../utils/orderUtils';
 import { formatDistanceNatural, formatProductNameWithArticle } from '../utils/aiSummaryHelper';
 import { buildDeliverySummaryPrompt } from './aiSummaryPrompt';
-import { ensureSharedSummaryAudio } from './deliverySummaryAudioGenerationService';
 
 // Camada quente da sessão: evita nova geração quando o operador alterna entre
 // Hoje e Dias seguintes antes mesmo da leitura persistida terminar.
@@ -22,6 +21,31 @@ const summaryTextMemoryCache = new Map<string, string>();
 
 export function clearSummaryTextMemoryCache() {
   summaryTextMemoryCache.clear();
+}
+
+// Estado reativo em tempo real de cota de IA no Mobile
+let isAiQuotaExceededState = false;
+const quotaListeners = new Set<(exceeded: boolean) => void>();
+
+export function isSummaryQuotaExceeded(): boolean {
+  return isAiQuotaExceededState;
+}
+
+export function setSummaryQuotaExceeded(exceeded: boolean) {
+  if (isAiQuotaExceededState !== exceeded) {
+    isAiQuotaExceededState = exceeded;
+    quotaListeners.forEach(cb => {
+      try { cb(exceeded); } catch { /* listener seguro */ }
+    });
+  }
+}
+
+export function subscribeSummaryQuota(callback: (exceeded: boolean) => void): () => void {
+  quotaListeners.add(callback);
+  callback(isAiQuotaExceededState);
+  return () => {
+    quotaListeners.delete(callback);
+  };
 }
 
 export const generateDeliveryAISummary = async (
@@ -78,11 +102,6 @@ export const generateDeliveryAISummary = async (
         summaryTextMemoryCache.set(memoryCacheKey, savedRecord.text);
         if (mode === 'today' && setAiSummaryToday) setAiSummaryToday(savedRecord.text);
         else if ((mode === 'tomorrow' || mode === 'next_days') && setAiSummaryTomorrow) setAiSummaryTomorrow(savedRecord.text);
-        // Recuperação idempotente para versões persistidas antes de um erro ou
-        // interrupção. Se o áudio já estiver READY, esta chamada não acontece.
-        if (savedRecord.audio_status === 'MISSING' || savedRecord.audio_status === 'FAILED') {
-          void ensureSharedSummaryAudio(mode, savedRecord.text);
-        }
         return savedRecord.text;
       }
 
@@ -140,8 +159,20 @@ export const generateDeliveryAISummary = async (
                 .replace(/[()]/g, '')
                 .replace(/\s+/g, ' ');
             }
+            setSummaryQuotaExceeded(false);
+          } else {
+            const errBody = await res.text().catch(() => '');
+            const is429 = res.status === 429 || /resource_exhausted|quota|exceeded/i.test(errBody);
+            if (is429) {
+              console.warn('[aiSummaryService] Cota do Gemini Flash excedida (HTTP 429).');
+              setSummaryQuotaExceeded(true);
+            }
           }
-        } catch (geminiErr) {
+        } catch (geminiErr: any) {
+          const errMsg = String(geminiErr?.message || geminiErr || '');
+          if (/429|quota|resource_exhausted/i.test(errMsg)) {
+            setSummaryQuotaExceeded(true);
+          }
           console.warn('Erro ao chamar Gemini Flash para resumo (usando texto estruturado local):', geminiErr);
         }
       }
@@ -160,9 +191,8 @@ export const generateDeliveryAISummary = async (
       error_message: null,
     });
 
-    // Só uma nova versão persistida pode pedir TTS. Montagem, refetch e troca
-    // de aba retornam antes deste ponto com o resumo já salvo.
-    void ensureSharedSummaryAudio(mode, smartText);
+    // O trigger do banco enfileira o áudio após salvar a nova versão. A tela
+    // apenas acompanha o estado pelo Realtime, sem consumir IA no aparelho.
 
     summaryTextMemoryCache.set(memoryCacheKey, smartText);
 

@@ -1,4 +1,5 @@
 import Product, { Variation } from '../types/product.type';
+import { toTitleCase } from './textUtils';
 
 export interface IncompleteAttributeInfo {
     index: number;
@@ -155,13 +156,14 @@ export const getVariationAttributeValuesInNameOrder = (attributes: Variation['at
     .map(({ value }) => String(value).trim());
 
 export const computeVariationName = (parentName: string, attributes: Array<{ name?: string; value?: string }> | Record<string, any> | string): string => {
-    const cleanParent = parentName ? parentName.trim() : '';
-    const orderedValues = getVariationAttributeValuesInNameOrder(attributes);
+    const cleanParent = parentName ? toTitleCase(parentName.trim()) : '';
+    const orderedValues = getVariationAttributeValuesInNameOrder(attributes).map(v => toTitleCase(v));
     const attrValuesStr = orderedValues.length > 0
         ? orderedValues.join(' ')
-        : typeof attributes === 'string' ? attributes.trim() : '';
+        : typeof attributes === 'string' ? toTitleCase(attributes.trim()) : '';
 
-    return [cleanParent, attrValuesStr].filter(Boolean).join(' ');
+    const fullName = [cleanParent, attrValuesStr].filter(Boolean).join(' ');
+    return toTitleCase(fullName);
 };
 
 /**
@@ -171,9 +173,9 @@ export const computeVariationName = (parentName: string, attributes: Array<{ nam
  */
 export const getSelectedProductDisplayName = (product?: Partial<Product> | any, variation?: Partial<Variation> | any): string => {
     const variationName = String(variation?.name || '').trim();
-    if (variationName) return variationName;
+    if (variationName) return toTitleCase(variationName);
 
-    return String(product?.name || product?.title || product?.description || '').trim();
+    return toTitleCase(String(product?.name || product?.title || product?.description || '').trim());
 };
 
 export const hasMissingRequiredAttributes = (variations: Variation[] = []) => {
@@ -196,7 +198,7 @@ export const isDefaultVariation = (variation: any, index?: number): boolean => {
 export const ensureDefaultVariation = <T extends Partial<Product>>(product: T): T => {
     if (product.itemType === 'service') return product;
     if (product.variations?.length) return { ...product, hasVariations: true };
-    const name = product.name || product.title || product.description || 'Produto';
+    const name = toTitleCase(product.name || product.title || product.description || 'Produto');
     const sku = product.code ? `${product.code}-01` : '';
     return {
         ...product,

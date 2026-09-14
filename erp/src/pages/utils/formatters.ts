@@ -139,39 +139,7 @@ export const formatDate = (value: string) => {
     });
 };
 
-export const toTitleCase = (text: any): string => {
-    if (!text) return "";
-    const str = String(text).trim();
-    if (!str) return "";
-
-    const exceptions = new Set([
-        "de", "da", "do", "das", "dos", 
-        "e", "em", "com", "por", "para", 
-        "na", "no", "nas", "nos", "ao", "aos", "a", "à", "às", "d'", "d’"
-    ]);
-
-    // Trata palavras separadas por espaços, hífens ou apóstrofos
-    return str
-        .toLowerCase()
-        .split(/\s+/)
-        .map((word, index) => {
-            if (!word) return "";
-            
-            // Tratar casos como D'Ávila ou d'água
-            if (word.startsWith("d'") || word.startsWith("d’")) {
-                const rest = word.slice(2);
-                return (index === 0 ? "D'" : "d'") + (rest ? rest.charAt(0).toUpperCase() + rest.slice(1) : "");
-            }
-
-            if (exceptions.has(word) && index !== 0) {
-                return word;
-            }
-
-            // Capitaliza a primeira letra preservando acentos
-            return word.charAt(0).toUpperCase() + word.slice(1);
-        })
-        .join(" ");
-};
+export { toTitleCase } from './textUtils';
 
 export const dateNow = () => {
     const now = new Date();

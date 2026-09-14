@@ -90,4 +90,35 @@ describe('inboundItemProductResolver', () => {
         expect(enriched[1].linkedProductCode).toBe('SOF-001');
         expect(enriched[1].productErpName).toBe('Sofá Retrátil 3 Lugares');
     });
+
+    it('substitui o snapshot antigo pelos dados da variação vinculada', async () => {
+        vi.mocked(getFullProduct).mockResolvedValue({
+            id: 'prod-armario',
+            code: '003962',
+            name: 'Armário Multiuso',
+            variations: [
+                { id: 'branco-01', sku: '003962-01', name: 'Armário Multiuso Branco' },
+                { id: 'off-white-02', sku: '003962-02', name: 'Armário Multiuso Off White' },
+            ],
+        } as any);
+
+        const [enriched] = await enrichInboundItemsWithProductDetails([{
+            itemNumber: 9,
+            productCode: '15821.3489.0',
+            productDescription: 'Armário Multiuso Off White',
+            ncm: '94034000',
+            cfop: '5102',
+            unit: 'UN',
+            quantity: 1,
+            unitCost: 35.86,
+            totalCost: 35.86,
+            matchedProductId: 'prod-armario',
+            matchedVariationId: 'off-white-02',
+            productErpName: 'Armário Multiuso Branco',
+            linkedProductCode: '003962-01',
+        }]);
+
+        expect(enriched.linkedProductCode).toBe('003962-02');
+        expect(enriched.productErpName).toBe('Armário Multiuso Off White');
+    });
 });

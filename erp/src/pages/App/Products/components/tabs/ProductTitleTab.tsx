@@ -2,6 +2,7 @@ import React from 'react';
 import type { Product } from '@/pages/types/product.type';
 import { DragDropContext, Droppable, Draggable, type DropResult } from '@hello-pangea/dnd';
 import { toast } from 'react-toastify';
+import { toTitleCase } from '@/pages/utils/textUtils';
 
 export type TitlePartId = 'environment' | 'line' | 'brand' | 'complement';
 
@@ -67,7 +68,7 @@ const ProductTitleTab: React.FC<ProductTitleTabProps> = ({
                 }
             }
         });
-        return parts.join(' ');
+        return toTitleCase(parts.join(' '));
     };
 
     const applyTitle = () => {
@@ -199,9 +200,14 @@ const ProductTitleTab: React.FC<ProductTitleTabProps> = ({
                     <input 
                         id="title-complement-input"
                         value={formData.titleComplement || ''}
-                        onChange={(e) => setFormData(prev => ({ ...prev, titleComplement: e.target.value.toUpperCase() }))}
-                        placeholder="EX: 2 GAVETAS, MADEIRA MACIÇA..."
-                        className="w-full px-6 py-4 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl outline-none font-bold text-sm uppercase shadow-sm"
+                        onChange={(e) => setFormData(prev => ({ ...prev, titleComplement: e.target.value }))}
+                        onBlur={(e) => {
+                            if (e.target.value) {
+                                setFormData(prev => ({ ...prev, titleComplement: toTitleCase(e.target.value) }));
+                            }
+                        }}
+                        placeholder="Ex: 2 Gavetas, Madeira Maciça..."
+                        className="w-full px-6 py-4 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl outline-none font-bold text-sm shadow-sm"
                     />
                     <p className="text-[9px] font-bold text-slate-400 uppercase tracking-tighter">Use este campo para adicionar informações que não estão nas categorias ou modelo.</p>
                 </div>

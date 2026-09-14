@@ -10,6 +10,7 @@ import { parseGeminiResponse } from './core/parseGeminiResponse';
 import { AiLatencyTracker } from './core/AiLatencyTracker';
 import { ApiUsageTracker } from '../apiMonitoring/apiUsageTracker';
 import { inferModuleFromOperation } from '../apiMonitoring/apiModuleMapper';
+import { clearModelAiQuotaAlert } from './aiQuotaNotifier';
 
 export class AiGateway {
   /**
@@ -161,6 +162,7 @@ export class AiGateway {
         const rawResult = await this.callGeminiApiProxied<T>(category, effectiveModel, payload, operation, options.moduleSource, options.thinkingBudget, options.jsonMode);
 
         AiCircuitBreaker.recordSuccess(category);
+        clearModelAiQuotaAlert(effectiveModel);
         return {
           success: true,
           data: rawResult,

@@ -18,9 +18,13 @@ serve(async req => {
   let summary: any;
   let text = "";
   try {
-    const token = (req.headers.get("Authorization") || "").replace(/^Bearer\s+/i, "");
-    const { data: { user } } = await admin.auth.getUser(token);
-    if (!user) return json({ error: "Não autenticado." }, 401);
+    const internalSecret = req.headers.get("x-delivery-summary-job-secret") || "";
+    const isInternalJob = Boolean(internalSecret) && internalSecret === (Deno.env.get("DELIVERY_SUMMARY_JOB_SECRET") || "");
+    if (!isInternalJob) {
+      const token = (req.headers.get("Authorization") || "").replace(/^Bearer\s+/i, "");
+      const { data: { user } } = await admin.auth.getUser(token);
+      if (!user) return json({ error: "Não autenticado." }, 401);
+    }
     const body = await req.json(); text = String(body.text || ""); const normalized = normalize(text);
     if (!normalized) return json({ status: "MISSING", isOwner: false });
     const { data } = await admin.from("delivery_summaries").select("*").eq("scope", body.scope).eq("text", text).order("updated_at", { ascending: false }).limit(1).maybeSingle();
@@ -50,7 +54,10 @@ serve(async req => {
     console.log("AUDIO_GENERATION_STARTED", { cacheKey });
     const apiKey = Deno.env.get("GEMINI_API_KEY"); if (!apiKey) throw new Error("TTS não configurado.");
     const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-tts:generateContent?key=${encodeURIComponent(apiKey)}`, { method: "POST", headers: { "Content-Type": "application/json" }, signal: AbortSignal.timeout(25_000), body: JSON.stringify({ contents: [{ parts: [{ text: `Fale em português do Brasil com tom natural e claro: ${normalized}` }] }], generationConfig: { responseModalities: ["AUDIO"], speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: "Kore" } } } } }) });
-    if (!response.ok) throw new Error("Gemini TTS indisponível.");
+    if (!response.ok) {
+      const detail = (await response.text().catch(() => "")).replace(/\s+/g, " ").slice(0, 220);
+      throw new Error(`Gemini TTS indisponível (HTTP ${response.status})${detail ? `: ${detail}` : ""}`);
+    }
     const payload = await response.json(); const pcm = payload?.candidates?.[0]?.content?.parts?.find((part: any) => part.inlineData)?.inlineData?.data; if (!pcm) throw new Error("Gemini não retornou áudio.");
     const path = `${cacheKey}.wav`; const { error: uploadError } = await admin.storage.from("delivery-summary-audio").upload(path, pcmToWav(pcm), { contentType: "audio/wav", upsert: false }); if (uploadError && !/already exists/i.test(uploadError.message)) throw uploadError;
     await admin.from("delivery_summary_audio_cache").upsert({ cache_key: cacheKey, normalized_text: normalized, provider: "gemini", model: "gemini-2.5-flash-preview-tts", voice_id: "Kore", language: "pt-BR", speed: 1, audio_url: path, audio_storage_path: path, last_used_at: new Date().toISOString() }, { onConflict: "cache_key" });

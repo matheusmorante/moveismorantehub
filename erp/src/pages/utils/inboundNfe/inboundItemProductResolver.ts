@@ -79,8 +79,12 @@ export const enrichInboundItemsWithProductDetails = async (
 
             const needsCode = !item.linkedProductCode || item.linkedProductCode.trim() === '—' || item.linkedProductCode.trim() === '-';
             const needsName = isGenericOrEmptyProductName(item.productErpName);
+            // A variação é a fonte de verdade de SKU e nome. Recarregamos seus dados
+            // mesmo que o snapshot da NF já tenha texto, pois ele pode pertencer a
+            // outra variação do mesmo produto-pai.
+            const hasLinkedVariation = Boolean(item.matchedVariationId);
 
-            if (!needsCode && !needsName) return item;
+            if (!hasLinkedVariation && !needsCode && !needsName) return item;
 
             const details = await getCachedDetails(item.matchedProductId, item.matchedVariationId);
             if (!details) return item;

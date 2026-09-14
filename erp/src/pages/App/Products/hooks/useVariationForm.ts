@@ -11,6 +11,7 @@ import {
 } from '@/pages/utils/productVariationDefaults';
 import { toast } from "react-toastify";
 import { ecommerceSupabase as supabase } from '@/pages/utils/supabaseConfig';
+import { toTitleCase } from '@/pages/utils/textUtils';
 
 interface UseVariationFormOptions {
     isOpen: boolean;
@@ -75,18 +76,18 @@ export function useVariationForm({
         const parentName = (parentProduct.name || parentProduct.description || '').trim();
         const attributeValues = getVariationAttributeValuesInNameOrder(attributes);
         if (attributeValues.length > 0) {
-            return [parentName, ...attributeValues].filter(Boolean).join(' ');
+            return toTitleCase([parentName, ...attributeValues].filter(Boolean).join(' '));
         }
-        return parentName || 'Variação';
+        return toTitleCase(parentName || 'Variação');
     };
 
     const getDefaultVariationTitle = (attributes: Variation['attributes'] = []) => {
         const parentTitle = (parentProduct.title || parentProduct.marketplaceTitle || parentProduct.name || parentProduct.description || '').trim();
         const attributeValues = getVariationAttributeValuesInNameOrder(attributes);
         if (attributeValues.length > 0) {
-            return [parentTitle, ...attributeValues].filter(Boolean).join(' ');
+            return toTitleCase([parentTitle, ...attributeValues].filter(Boolean).join(' '));
         }
-        return parentTitle || 'Variação';
+        return toTitleCase(parentTitle || 'Variação');
     };
 
     const fetchDbAttributes = async () => {
@@ -166,7 +167,7 @@ export function useVariationForm({
                     unitPrice: parentProduct.unitPrice || 0,
                     costPrice: parentProduct.costPrice || 0,
                     active: true,
-                    attributes: [{ name: "", value: "", showName: true }],
+                    attributes: [],
                     images: [],
                     syncUnitPrice: true,
                     syncDescription: true,
@@ -311,16 +312,23 @@ export function useVariationForm({
         e.preventDefault();
         if (!formData) return;
 
-        const generatedName = computeVariationName(parentProduct.name || parentProduct.description || '', formData.attributes);
+        const cleanAttributes = (Array.isArray(formData.attributes) ? formData.attributes : []).map(attr => ({
+            ...attr,
+            name: toTitleCase(attr.name),
+            value: toTitleCase(attr.value),
+        }));
+        const generatedName = computeVariationName(parentProduct.name || parentProduct.description || '', cleanAttributes);
         let finalVariation = {
             ...formData,
-            name: generatedName || formData.name,
-            title: formData.title || generatedName || formData.name,
+            attributes: cleanAttributes,
+            name: toTitleCase(generatedName || formData.name || ''),
+            title: toTitleCase(formData.title || generatedName || formData.name || ''),
+            marketplaceTitle: toTitleCase(formData.marketplaceTitle || formData.title || generatedName || formData.name || ''),
             syncFiscal: true
         };
 
         // Validação estrita: obrigatório escolher pelo menos um atributo e definir seu valor
-        const attributesList = Array.isArray(formData.attributes) ? formData.attributes : [];
+        const attributesList = cleanAttributes;
         if (attributesList.length === 0) {
             toast.warn("É obrigatório escolher pelo menos um atributo e definir seu valor para a variação.");
             setActiveTab('identificacao');

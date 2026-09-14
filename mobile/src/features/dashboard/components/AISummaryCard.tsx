@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Text, TouchableOpacity, View } from 'react-native';
 import { RefreshCw, Sparkles } from 'lucide-react-native';
 import { AISummaryAudioPlayer } from './AISummaryAudioPlayer';
+import { subscribeSummaryQuota } from '../../../services/aiSummaryService';
 
 interface Props {
   isDarkMode: boolean;
@@ -28,8 +29,15 @@ export const AISummaryCard: React.FC<Props> = ({
   isSpeakingSummary, speechIsPaused, speechCurrentTime, speechTotalDuration,
   handleToggleSpeech, finishSeekToPosition, setSpeechCurrentTime, formatAudioTime,
 }) => {
+  const [isQuotaExceeded, setIsQuotaExceeded] = useState(false);
+
+  useEffect(() => {
+    const unsub = subscribeSummaryQuota(setIsQuotaExceeded);
+    return unsub;
+  }, []);
+
   const activeSummaryText = aiSummaryTab === 'today' ? aiSummaryToday : aiSummaryTomorrow;
-  const isWaitingForSummary = !activeSummaryText;
+  const isWaitingForSummary = !activeSummaryText && !isQuotaExceeded;
 
   return (
     <View style={{ marginHorizontal: 16, marginVertical: 10, backgroundColor: isDarkMode ? '#1e293b' : '#ffffff', borderRadius: 24, padding: 16, borderWidth: 1, borderColor: isDarkMode ? '#334155' : '#e2e8f0', elevation: 3, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.08, shadowRadius: 8 }}>
@@ -52,7 +60,13 @@ export const AISummaryCard: React.FC<Props> = ({
         </TouchableOpacity>
       </View>
 
-      {isWaitingForSummary ? (
+      {isQuotaExceeded ? (
+        <View style={{ paddingVertical: 14, paddingHorizontal: 12, backgroundColor: isDarkMode ? '#451a1a' : '#fef2f2', borderRadius: 14, borderWidth: 1, borderColor: '#fecaca', marginBottom: 14 }}>
+          <Text style={{ fontSize: 12, fontWeight: '700', color: '#dc2626' }}>
+            ⚠ Resumo de IA indisponível no momento por limite de cota de tokens.
+          </Text>
+        </View>
+      ) : isWaitingForSummary ? (
         <View style={{ paddingVertical: 20, alignItems: 'center', gap: 8 }}>
           <ActivityIndicator size="small" color="#2563eb" />
           <Text style={{ fontSize: 11, fontWeight: '700', color: '#64748b' }}>Gerando resumo inteligente das entregas...</Text>
@@ -66,6 +80,7 @@ export const AISummaryCard: React.FC<Props> = ({
         title={aiSummaryTab === 'today' ? 'Ouvir resumo de hoje' : 'Ouvir resumo de amanhã'}
         text={activeSummaryText}
         isGenerating={isGeneratingAISummary}
+        isQuotaExceeded={isQuotaExceeded}
         isSpeaking={isSpeakingSummary}
         isPaused={speechIsPaused}
         currentTime={speechCurrentTime}

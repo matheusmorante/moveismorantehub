@@ -56,4 +56,17 @@ describe('SKU interno no cadastro rápido da nota', () => {
         expect(initial.categories).toEqual(['Balcões para Pia']);
         expect(initial.category).toBe('Balcões para Pia');
     });
+
+    it('garante que a variação inicial não contenha atributos automáticos (deve ser configurada manualmente)', async () => {
+        const initial = await prepareNewParentWithVariation(item, 'fornecedor-teste');
+        expect(initial.variations?.[0].attributes).toEqual([]);
+
+        const parent = {
+            id: 'pai-teste', code: '000123', name: 'Mesa',
+            variations: [{ id: 'anterior', sku: '000123-01', name: 'Mesa', attributes: [], stock: 0, unitPrice: 100 }],
+        } as Product;
+        const result = await prepareExistingParentNewVariation(parent, item);
+        expect(result.variations?.[1].attributes).toEqual([]);
+    });
 });
+

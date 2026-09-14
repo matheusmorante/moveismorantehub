@@ -10,8 +10,10 @@ export interface AISummaryAudioPlayerProps {
   text?: string;
   isLoadingText?: boolean;
   isGenerating?: boolean;
+  loadingMessage?: string;
   isOutdated?: boolean;
   hasError?: boolean;
+  isQuotaExceeded?: boolean;
   isSpeaking: boolean;
   isPaused: boolean;
   currentTime: number;
@@ -31,8 +33,10 @@ export const AISummaryAudioPlayer: React.FC<AISummaryAudioPlayerProps> = ({
   text = '',
   isLoadingText = false,
   isGenerating = false,
+  loadingMessage,
   isOutdated = false,
   hasError = false,
+  isQuotaExceeded = false,
   isSpeaking,
   isPaused,
   currentTime,
@@ -95,17 +99,19 @@ export const AISummaryAudioPlayer: React.FC<AISummaryAudioPlayerProps> = ({
         <TouchableOpacity
           style={[
             styles.playBtn,
-            (isGenerating || isLoadingText || !text) && styles.playBtnDisabled,
+            (isGenerating || isLoadingText || !text || isQuotaExceeded) && styles.playBtnDisabled,
             isSpeaking && !isPaused && styles.playBtnActive,
           ]}
-          onPress={() => text && onToggle(text)}
-          disabled={isGenerating || isLoadingText || !text}
+          onPress={() => text && !isQuotaExceeded && onToggle(text)}
+          disabled={isGenerating || isLoadingText || !text || isQuotaExceeded}
           activeOpacity={0.8}
           accessibilityRole="button"
           accessibilityLabel={
-            isSpeaking && !isPaused
-              ? 'Pausar resumo das entregas de hoje'
-              : 'Reproduzir resumo das entregas de hoje'
+            isQuotaExceeded
+              ? 'Áudio de IA indisponível por limite de cota'
+              : isSpeaking && !isPaused
+                ? 'Pausar resumo das entregas de hoje'
+                : 'Reproduzir resumo das entregas de hoje'
           }
         >
           {isGenerating ? (
@@ -125,15 +131,22 @@ export const AISummaryAudioPlayer: React.FC<AISummaryAudioPlayerProps> = ({
             {title}
           </Text>
 
-          <Text style={[styles.subtitle, isDarkMode && styles.subtitleDark]} numberOfLines={1}>
-            {isGenerating
-              ? 'Gerando resumo em áudio...'
-              : isLoadingText
-                ? 'Atualizando resumo...'
-                : formattedUpdateLabel}
+          <Text style={[styles.subtitle, isDarkMode && styles.subtitleDark, isQuotaExceeded && { color: '#ef4444' }]} numberOfLines={1}>
+            {isQuotaExceeded
+              ? 'Indisponível no momento (sem cota de tokens)'
+              : isGenerating
+                ? (loadingMessage || 'Gerando resumo em áudio...')
+                : isLoadingText
+                  ? 'Atualizando resumo...'
+                  : formattedUpdateLabel}
           </Text>
 
-          {isOutdated ? (
+          {isQuotaExceeded ? (
+            <View style={[styles.outdatedBadge, { backgroundColor: '#fee2e2', borderColor: '#fca5a5' }]}>
+              <AlertTriangle size={12} color="#dc2626" />
+              <Text style={[styles.outdatedText, { color: '#dc2626' }]}>⚠ Sem cota de tokens</Text>
+            </View>
+          ) : isOutdated ? (
             <TouchableOpacity style={styles.outdatedBadge} onPress={onRefresh} activeOpacity={0.7}>
               <AlertTriangle size={12} color="#d97706" />
               <Text style={styles.outdatedText}>⚠ Resumo desatualizado</Text>

@@ -1,10 +1,16 @@
 // @vitest-environment jsdom
 import React from 'react';
-import { cleanup, fireEvent, render } from '@testing-library/react';
+import { cleanup, fireEvent, render, waitFor } from '@testing-library/react';
 import { afterEach, expect, it, vi } from 'vitest';
 import ProductAutocomplete from './ProductAutocomplete';
-vi.mock('./shared/DropdownPortal', () => ({ default: () => null }));
-vi.mock('./productAutocompleteUtils', () => ({ fetchAllProductSearchResults: vi.fn().mockResolvedValue([]), getVariationDisplayName: vi.fn(), normalizeProductSearch: (text: string) => text, renderHighlightedProductText: vi.fn() }));
+import { fetchAllProductSearchResults } from './productAutocompleteUtils';
+vi.mock('./shared/DropdownPortal', () => ({ default: ({ children, isOpen }: any) => isOpen ? <div>{children}</div> : null }));
+vi.mock('./productAutocompleteUtils', () => ({
+    fetchAllProductSearchResults: vi.fn().mockResolvedValue([]),
+    getVariationDisplayName: (product: any, variation: any) => variation?.name || product.name || product.title || '',
+    normalizeProductSearch: (text: string) => text.toLowerCase(),
+    renderHighlightedProductText: (text: string) => text,
+}));
 afterEach(cleanup);
 
 it('mantém o input livre e habilitado para escrita mesmo durante a busca de sugestões', () => {
@@ -27,4 +33,23 @@ it('mostra aceite e recusa dentro do campo e libera a pesquisa após recusar', (
     const input = view.getByRole('textbox') as HTMLInputElement;
     expect(input.readOnly).toBe(false);
     expect(input.value).toBe('');
+});
+
+it('em busca de produto pai não oferece as variações filhas', async () => {
+    const parent = {
+        id: 'pai-armario',
+        name: 'Armário Multiuso',
+        code: '003962',
+        variations: [{ id: 'var-branco', name: 'Armário Multiuso Branco', sku: '003962-01' }],
+    } as any;
+    vi.mocked(fetchAllProductSearchResults).mockResolvedValueOnce([parent]);
+    const onSelect = vi.fn();
+    const view = render(<ProductAutocomplete onSelect={onSelect} parentsOnly />);
+
+    fireEvent.change(view.getByRole('textbox'), { target: { value: 'armário' } });
+    await waitFor(() => expect(view.getByText('Armário Multiuso')).toBeTruthy());
+    expect(view.queryByText('Armário Multiuso Branco')).toBeNull();
+
+    fireEvent.click(view.getByText('Armário Multiuso'));
+    expect(onSelect).toHaveBeenCalledWith(parent, undefined);
 });

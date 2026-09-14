@@ -1,6 +1,5 @@
 import { Audio } from 'expo-av';
 import { supabase } from './supabaseClient';
-import { ensureSharedSummaryAudio } from './deliverySummaryAudioGenerationService';
 import { DeliverySummaryRecord } from './deliverySummaryService';
 import { speakTextWithFallback, stopSpeech as stopNativeSpeech, pauseSpeech as pauseNativeSpeech, resumeSpeech as resumeNativeSpeech } from './navigationVoiceService';
 import {
@@ -152,14 +151,10 @@ export const generateGeminiAudioMp3 = async (
       return { success: true, base64Mp3: base64, isWav };
     }
 
-    if (!scope) return { success: false, error: 'AUDIO_NOT_READY' };
-    const generation = await ensureSharedSummaryAudio(scope, cleanText);
-    if (generation.status !== 'READY') return { success: false, error: `AUDIO_${generation.status}` };
-    const generated = await getCachedAudioRecord(cacheKey);
-    if (!generated) return { success: false, error: 'AUDIO_CACHE_UNAVAILABLE' };
-    const playableUrl = await getPlayableAudioUrl(generated);
-    if (playableUrl && generated.audioStoragePath) return { success: true, audioUrl: playableUrl, isWav: true };
-    return { success: true, base64Mp3: generated.audioUrl.replace(/^data:audio\/[^;]+;base64,/, ''), isWav: generated.audioUrl.startsWith('data:audio/wav') };
+    // A geração é exclusivamente assíncrona no backend. Não iniciar TTS ao
+    // tocar no player evita custo duplicado e mantém todos os aparelhos na
+    // mesma versão do áudio.
+    return { success: false, error: scope ? 'AUDIO_NOT_READY' : 'AUDIO_SCOPE_MISSING' };
   });
 };
 

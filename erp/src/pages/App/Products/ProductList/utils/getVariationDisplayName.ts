@@ -1,3 +1,5 @@
+import { toTitleCase } from '@/pages/utils/textUtils';
+
 export interface VariationAttributeLike {
     readonly name?: string;
     readonly value?: string;
@@ -35,5 +37,5 @@ export function getVariationDisplayName(variation?: VariationLike | null, fallba
         variationName = variation.displayName || variation.name || fallbackName || '';
     }
 
-    return variationName;
+    return toTitleCase(variationName);
 }

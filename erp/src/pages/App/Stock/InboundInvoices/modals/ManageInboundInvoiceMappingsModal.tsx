@@ -74,8 +74,10 @@ export function ManageInboundInvoiceMappingsModal({ isOpen, onClose, invoice: in
                     const mapping = mappings.get(item.productCode.trim().toLocaleUpperCase('pt-BR'));
                     return mapping ? {
                         ...item,
-                        matchedProductId: item.matchedProductId || mapping.productId,
-                        matchedVariationId: item.matchedVariationId || mapping.productVariationId,
+                        // O código do fornecedor identifica uma variação específica. Ele deve
+                        // prevalecer sobre um vínculo salvo antes de a variação ser corrigida.
+                        matchedProductId: mapping.productId || item.matchedProductId,
+                        matchedVariationId: mapping.productVariationId || item.matchedVariationId,
                     } : item;
                 });
                 const enrichedItems = await enrichInboundItemsWithProductDetails(mappedItems);
@@ -100,6 +102,7 @@ export function ManageInboundInvoiceMappingsModal({ isOpen, onClose, invoice: in
     if (!isOpen || !invoice) return null;
 
     const hasMatchedProducts = invoice.items.some((item) => Boolean(item.matchedProductId));
+    const isPreparingMappings = Boolean(invoice.supplierId && invoice.items.length && checkedMappingsKey !== mappingsKey);
 
     const setSupplier = (id: string) => setInvoice((current) => current ? ({
         ...current,
@@ -163,9 +166,9 @@ export function ManageInboundInvoiceMappingsModal({ isOpen, onClose, invoice: in
 
     return (
         <>
-            <div className="fixed inset-0 z-[1000002] flex items-center justify-center p-3">
+            <div className="fixed inset-0 z-[1000002] flex items-center justify-center p-3 sm:p-5 lg:p-7">
                 <button className="absolute inset-0 bg-slate-950/60 backdrop-blur-xs" onClick={onClose} />
-                <section className="relative flex max-h-[92vh] w-full max-w-5xl flex-col overflow-hidden rounded-3xl bg-white shadow-2xl dark:bg-slate-900 animate-in fade-in zoom-in-95">
+                <section className="relative flex h-full w-full max-w-none flex-col overflow-hidden rounded-3xl bg-white shadow-2xl dark:bg-slate-900 animate-in fade-in zoom-in-95">
                     <header className="flex items-center justify-between border-b p-5 dark:border-slate-800">
                         <div>
                             <h2 className="text-base font-black text-slate-800 dark:text-slate-100 flex items-center gap-2">
@@ -182,6 +185,15 @@ export function ManageInboundInvoiceMappingsModal({ isOpen, onClose, invoice: in
                     </header>
 
                     <main className="space-y-5 overflow-y-auto p-5">
+                        {isPreparingMappings ? (
+                            <div className="flex min-h-72 flex-col items-center justify-center gap-3 text-center">
+                                <i className="bi bi-arrow-repeat animate-spin text-3xl text-blue-600" aria-hidden="true" />
+                                <div>
+                                    <p className="text-sm font-black text-slate-800 dark:text-slate-100">Carregando vínculos da nota...</p>
+                                    <p className="mt-1 text-xs text-slate-500">Conferindo os produtos já vinculados a este fornecedor.</p>
+                                </div>
+                            </div>
+                        ) : <>
                         {/* Seção Fornecedor */}
                         <section className="rounded-2xl border p-4 dark:border-slate-800">
                             <h3 className="text-xs font-black uppercase text-slate-500">Fornecedor</h3>
@@ -241,6 +253,7 @@ export function ManageInboundInvoiceMappingsModal({ isOpen, onClose, invoice: in
                                 )
                             }
                         />
+                        </>}
                     </main>
 
                     <footer className="flex items-center justify-end gap-3 border-t p-4 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950/40">
@@ -253,7 +266,7 @@ export function ManageInboundInvoiceMappingsModal({ isOpen, onClose, invoice: in
                         </button>
                         <button
                             type="button"
-                            disabled={loading || isSuggestingLinks}
+                            disabled={loading || isSuggestingLinks || isPreparingMappings}
                             onClick={() => void handleSave()}
                             className="rounded-xl bg-blue-600 px-5 py-2.5 text-xs font-black text-white hover:bg-blue-700 disabled:opacity-50 transition-colors shadow-sm cursor-pointer"
                         >

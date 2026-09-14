@@ -1,13 +1,15 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Animated, View, Text, StyleSheet, Alert } from 'react-native';
 import { Truck, FileText, ChevronRight } from 'lucide-react-native';
-import { generateDeliveryAISummary } from '../../../services/aiSummaryService';
+import { generateDeliveryAISummary, subscribeSummaryQuota } from '../../../services/aiSummaryService';
 import { playSummaryAudio, stopGeminiAudio, pauseGeminiAudio, resumeGeminiAudio, seekGeminiAudio } from '../../../services/geminiAudioService';
 import { getLocalDateString } from '../../../utils/orderUtils';
 import { calculateDeliverySummaryMetrics, type DeliveryPeriodFilter } from '../utils/deliverySummaryMetrics';
 import { getOperationalScheduleDate } from '../../../utils/operationalSchedule';
 import { AISummaryAudioPlayer } from '../../dashboard/components/AISummaryAudioPlayer';
 import { supabase } from '../../../services/supabaseClient';
+import { getLatestSavedSummaryRecord, type DeliverySummaryRecord } from '../../../services/deliverySummaryService';
+import { getCachedAudioRecord } from '../../../services/deliveryAudioCacheService';
 import { offlineStorageService } from '../../../services/offline/offlineStorageService';
 import { DeliveryShiftMetricsGrid } from './DeliveryShiftMetricsGrid';
 import { DeliverySummaryControlsBar } from './DeliverySummaryControlsBar';
@@ -42,15 +44,26 @@ export const TodaySummaryCard: React.FC<TodaySummaryCardProps> = ({
   periodFilter = 'today',
 }) => {
   const [voiceEngine, setVoiceEngine] = useState<VoiceEngineType>('gemini');
-  const [isGeminiQuotaExceeded] = useState<boolean>(false);
+  const [isGeminiQuotaExceeded, setIsGeminiQuotaExceeded] = useState<boolean>(false);
   const [isPlayingAudio, setIsPlayingAudio] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [totalDuration, setTotalDuration] = useState(0);
 
+  useEffect(() => {
+    const unsub = subscribeSummaryQuota((exceeded) => {
+      setIsGeminiQuotaExceeded(exceeded);
+      if (exceeded) {
+        setVoiceEngine('native');
+      }
+    });
+    return unsub;
+  }, []);
+
   const [aiSummaryText, setAiSummaryText] = useState<string>('');
   const [isGeneratingSummary, setIsGeneratingSummary] = useState<boolean>(true);
   const [isGeneratingAudio, setIsGeneratingAudio] = useState<boolean>(false);
+  const [isLoadingNewAudio, setIsLoadingNewAudio] = useState<boolean>(false);
   const [fallbackOrders, setFallbackOrders] = useState<any[]>([]);
 
   const effectiveOrdersRef = useRef<any[]>([]);
@@ -162,17 +175,34 @@ export const TodaySummaryCard: React.FC<TodaySummaryCardProps> = ({
   }, [periodFilter, ordersFingerprint]);
 
   useEffect(() => {
+    let alive = true;
+    const scope = periodFilter === 'today' ? 'today' : 'next_days';
+    const applySummaryRecord = async (record: DeliverySummaryRecord | null) => {
+      if (!alive || !record) return;
+      if (record.text_status === 'READY' && record.text) setAiSummaryText(record.text);
+      const waitingForGeneration = record.audio_status === 'MISSING' || record.audio_status === 'GENERATING';
+      setIsGeneratingAudio(waitingForGeneration);
+      if (record.audio_status === 'READY' && record.audio_cache_key) {
+        setIsLoadingNewAudio(true);
+        await getCachedAudioRecord(record.audio_cache_key);
+        if (alive) setIsLoadingNewAudio(false);
+      } else {
+        setIsLoadingNewAudio(false);
+      }
+    };
+
+    void getLatestSavedSummaryRecord(scope).then(applySummaryRecord);
     const channel = supabase
       .channel(`delivery-summary-${periodFilter}-${Date.now()}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'delivery_summaries' }, (payload) => {
         const record = payload.new as any;
-        if (record?.scope !== periodFilter) return;
-        if (record.text_status === 'READY' && record.text) setAiSummaryText(record.text);
-        setIsGeneratingAudio(record.audio_status === 'GENERATING');
+        if (record?.scope !== scope) return;
+        void applySummaryRecord(record as DeliverySummaryRecord);
       })
       .subscribe();
 
     return () => {
+      alive = false;
       supabase.removeChannel(channel);
     };
   }, [periodFilter]);
@@ -266,18 +296,31 @@ export const TodaySummaryCard: React.FC<TodaySummaryCardProps> = ({
         totalCount={totalCount}
       />
 
-      <View style={styles.resumoBox}>
-        <View style={styles.resumoIconBox}>
-          <FileText size={18} color="#0055ff" />
+      <View style={[styles.resumoBox, isGeminiQuotaExceeded && { borderColor: '#fca5a5', backgroundColor: '#fff1f2' }]}>
+        <View style={[styles.resumoIconBox, isGeminiQuotaExceeded && { backgroundColor: '#fee2e2' }]}>
+          <FileText size={18} color={isGeminiQuotaExceeded ? '#dc2626' : '#0055ff'} />
         </View>
 
         <View style={{ flex: 1, marginLeft: 10 }}>
-          <Text style={styles.resumoTitle}>
-            {periodFilter === 'today' ? 'Resumo do dia' : 'Resumo dos próximos dias'}
-          </Text>
-          <Text style={styles.resumoText} numberOfLines={4}>
-            {activeSummaryText}
-          </Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+            <Text style={styles.resumoTitle}>
+              {periodFilter === 'today' ? 'Resumo do dia' : 'Resumo dos próximos dias'}
+            </Text>
+            {isGeminiQuotaExceeded && (
+              <Text style={{ fontSize: 10, fontWeight: '800', color: '#dc2626', textTransform: 'uppercase' }}>
+                • Cota Indisponível
+              </Text>
+            )}
+          </View>
+          {isGeminiQuotaExceeded ? (
+            <Text style={[styles.resumoText, { color: '#dc2626', fontWeight: '700' }]} numberOfLines={4}>
+              ⚠ Resumo de IA indisponível no momento por limite de cota de tokens.
+            </Text>
+          ) : (
+            <Text style={styles.resumoText} numberOfLines={4}>
+              {activeSummaryText}
+            </Text>
+          )}
         </View>
 
         <ChevronRight size={18} color="#94a3b8" />
@@ -288,7 +331,9 @@ export const TodaySummaryCard: React.FC<TodaySummaryCardProps> = ({
         title={periodFilter === 'today' ? 'Ouvir resumo de hoje' : 'Ouvir resumo dos próximos dias'}
         text={activeSummaryText}
         isLoadingText={isGeneratingSummary && !aiSummaryText}
-        isGenerating={isGeneratingAudio}
+        isGenerating={isGeneratingAudio || isLoadingNewAudio}
+        loadingMessage={isLoadingNewAudio ? 'Carregando novo áudio do resumo...' : 'Gerando resumo em áudio...'}
+        isQuotaExceeded={isGeminiQuotaExceeded}
         isSpeaking={isPlayingAudio}
         isPaused={isPaused}
         currentTime={currentTime}

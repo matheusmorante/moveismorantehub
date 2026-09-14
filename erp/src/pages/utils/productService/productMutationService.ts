@@ -7,6 +7,38 @@ import { getLocalProducts, saveLocalProducts, notifySubscribers } from './produc
 import { TABLE_NAME, generateUniqueCode, checkSkusUniquenessBatch } from './productSkuService';
 import { mapToDB, mapFromDB } from './productMapper';
 import { ensureUuidFormat, syncProductToSupabase } from './productPersistenceService';
+import { toTitleCase } from '../textUtils';
+
+export const formatProductTextData = (product: Product): Product => {
+    if (product.name) product.name = toTitleCase(product.name);
+    if (product.title) product.title = toTitleCase(product.title);
+    if (product.marketplaceTitle) product.marketplaceTitle = toTitleCase(product.marketplaceTitle);
+    if (product.brand) product.brand = toTitleCase(product.brand);
+    if (product.line) product.line = toTitleCase(product.line);
+    if (product.material) product.material = toTitleCase(product.material);
+    if (product.colors) product.colors = toTitleCase(product.colors);
+    if (product.environment) product.environment = toTitleCase(product.environment);
+
+    if (Array.isArray(product.variations)) {
+        product.variations = product.variations.map(v => {
+            const cleanAttrs = (v.attributes || []).map((attr: any) => ({
+                ...attr,
+                name: toTitleCase(attr.name),
+                value: toTitleCase(attr.value),
+            }));
+            const varName = v.name ? toTitleCase(v.name) : (product.name ? toTitleCase(product.name) : '');
+            return {
+                ...v,
+                name: varName,
+                ...(v.title ? { title: toTitleCase(v.title) } : {}),
+                ...(v.marketplaceTitle ? { marketplaceTitle: toTitleCase(v.marketplaceTitle) } : {}),
+                attributes: cleanAttrs,
+            };
+        });
+    }
+
+    return product;
+};
 
 export const checkProductLinkedToSales = async (id: string | number): Promise<string | null> => {
     return null;
@@ -14,6 +46,7 @@ export const checkProductLinkedToSales = async (id: string | number): Promise<st
 
 export const saveProduct = async (product: Product, forceInsert = false): Promise<string> => {
     validateProductImageLimits(product);
+    formatProductTextData(product);
     Object.assign(product, ensureDefaultVariation(product));
     const legacyId = !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(product.id || '') ? product.id : undefined;
     const resolvedId = ensureUuidFormat(product);
@@ -124,6 +157,7 @@ export const saveProduct = async (product: Product, forceInsert = false): Promis
 
 export const updateProduct = async (id: string, productToUpdate: Partial<Product>): Promise<void> => {
     validateProductImageLimits(productToUpdate);
+    formatProductTextData(productToUpdate as Product);
     if (productToUpdate.id && String(productToUpdate.id) !== String(id)) {
         throw new Error('Não é permitido alterar o ID de um produto existente.');
     }

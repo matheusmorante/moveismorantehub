@@ -21,6 +21,8 @@ interface ProductAutocompleteProps {
     supplierId?: string;
     onlyName?: boolean;
     variationsOnly?: boolean;
+    /** Limita a busca aos cadastros de produto, sem oferecer variações filhas. */
+    parentsOnly?: boolean;
     products?: Product[];
     clearOnSelect?: boolean;
     disabled?: boolean;
@@ -44,6 +46,7 @@ const ProductAutocomplete: React.FC<ProductAutocompleteProps> = ({
     supplierId,
     onlyName = false,
     variationsOnly = false,
+    parentsOnly = false,
     products: localProducts,
     clearOnSelect = false,
     disabled = false,
@@ -95,7 +98,13 @@ const ProductAutocomplete: React.FC<ProductAutocompleteProps> = ({
 
                     const variations = p.variations || [];
 
-                    if (variations.length > 0) {
+                    if (parentsOnly) {
+                        const baseName = (p.name || p.title || '').trim();
+                        const matchesAll = searchNormWords.every((word) =>
+                            normalizeProductSearch(baseName).includes(word) || normalizeProductSearch(p.code || '').includes(word)
+                        );
+                        if (matchesAll) items.push({ product: p });
+                    } else if (variations.length > 0) {
                         variations.forEach((v) => {
                             const baseName = (p.name || p.title || '').trim();
                             if (v.active !== false) {
@@ -131,7 +140,7 @@ const ProductAutocomplete: React.FC<ProductAutocompleteProps> = ({
 
         const timeoutId = setTimeout(fetchSuggestions, 250);
         return () => clearTimeout(timeoutId);
-    }, [query, supplierId, variationsOnly, localProducts]);
+    }, [query, supplierId, variationsOnly, parentsOnly, localProducts]);
 
     return (
         <div ref={wrapperRef} className={`relative ${className}`}>

@@ -154,6 +154,7 @@ export function QuickRegisterVariationModal({
                             </label>
                             <ProductAutocomplete
                                 supplierId={supplierId}
+                                parentsOnly
                                 value={selectedParent?.name || ''}
                                 isSelected={Boolean(selectedParent)}
                                 placeholder="Digite 2 ou mais letras para buscar o produto pai..."

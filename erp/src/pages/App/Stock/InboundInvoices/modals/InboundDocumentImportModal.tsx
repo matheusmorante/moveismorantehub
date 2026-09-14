@@ -250,6 +250,7 @@ export function InboundDocumentImportModal({ isOpen, onClose, onImportSuccess }:
     };
 
     if (!isOpen) return null;
+    const isPreparingMappings = Boolean(invoice?.supplierId && invoice.items.length && checkedMappingsKey !== mappingsKey);
 
     return (
         <>
@@ -292,7 +293,13 @@ export function InboundDocumentImportModal({ isOpen, onClose, onImportSuccess }:
                         </button>}
                         {file && <div className="flex justify-between rounded-xl bg-slate-50 p-3"><span className="text-xs font-bold">{file.name}</span><button className="text-xs text-red-600" onClick={() => { setFile(null); setInvoice(null); }}>Remover</button></div>}
 
-                        {invoice && <div className="space-y-4">
+                        {invoice && (isPreparingMappings ? <div className="flex min-h-72 flex-col items-center justify-center gap-3 text-center">
+                            <i className="bi bi-arrow-repeat animate-spin text-3xl text-blue-600" aria-hidden="true" />
+                            <div>
+                                <p className="text-sm font-black text-slate-800 dark:text-slate-100">Carregando vínculos da nota...</p>
+                                <p className="mt-1 text-xs text-slate-500">Conferindo os produtos já vinculados a este fornecedor.</p>
+                            </div>
+                        </div> : <div className="space-y-4">
                             {invoice.extractionWarnings?.length ? <section className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900"><b>Confira os dados extraídos</b><ul className="mt-2 list-disc pl-5 text-xs">{invoice.extractionWarnings.map((warning) => <li key={warning}>{warning === 'access_key_missing' ? 'A chave de acesso não foi localizada; ela é obrigatória e deve ser informada.' : warning === 'access_key_needs_review' || warning === 'access_key_check_digit_invalid' ? 'Confira a chave de acesso lida; é necessário conter 44 dígitos válidos.' : warning}</li>)}</ul></section> : null}
                             <InboundInvoiceFiscalReview invoice={invoice} />
                             <section className="rounded-2xl border p-4"><h3 className="text-xs font-black uppercase text-slate-500">Dados da NF</h3><label className="mt-3 block text-xs font-bold text-slate-600 dark:text-slate-300">Chave de acesso <span className="text-red-500">*</span><input value={invoice.nfeKey} onChange={(event) => setInvoice((current) => current ? ({ ...current, nfeKey: event.target.value.replace(/\D/g, '') }) : current)} inputMode="numeric" maxLength={44} placeholder="Ex.: 3524 0511 1111 1111..." className="mt-1 w-full border-0 border-b-2 border-slate-200 dark:border-slate-700 bg-transparent p-2 text-sm font-bold text-slate-800 dark:text-slate-100 outline-none focus:border-blue-600 rounded-none transition-colors" /></label><p className="mt-1 text-[11px] text-slate-500">No DANFE ela costuma aparecer em grupos de quatro dígitos sob “Chave de Acesso”.</p></section>
@@ -360,7 +367,7 @@ export function InboundDocumentImportModal({ isOpen, onClose, onImportSuccess }:
                                 }
                             />
                             <button disabled={loading || isSuggestingLinks} onClick={() => void save()} className="rounded-xl bg-emerald-600 px-4 py-2 text-xs font-black text-white disabled:opacity-50 disabled:cursor-wait cursor-pointer hover:bg-emerald-700 transition-colors">Confirmar Nota Fiscal</button>
-                        </div>}
+                        </div>)}
                         </div>
                     </main>
                 </section>
