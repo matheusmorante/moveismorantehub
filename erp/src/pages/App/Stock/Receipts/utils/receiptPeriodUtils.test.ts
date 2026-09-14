@@ -24,6 +24,12 @@ describe('receiptPeriodUtils', () => {
         expect(parsed?.dateOnly).toBe('2026-09-07');
     });
 
+    it('deve retornar null para datas inválidas', () => {
+        expect(parseReceiptDate(null)).toBeNull();
+        expect(parseReceiptDate('')).toBeNull();
+        expect(parseReceiptDate('data-invalida')).toBeNull();
+    });
+
     it('deve filtrar corretamente por este mês', () => {
         const rCurrentMonth = createFakeReceipt('1', '2026-09-02T10:00:00');
         const rLastMonth = createFakeReceipt('2', '2026-08-25T10:00:00');

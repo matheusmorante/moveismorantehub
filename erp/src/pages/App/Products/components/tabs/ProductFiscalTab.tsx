@@ -6,22 +6,37 @@ import { createInitialProductFiscalInfo } from './productFiscalDefaults';
 import { ProductNcmSelector } from './fiscal/ProductNcmSelector';
 
 interface ProductFiscalTabProps {
-    formData: Partial<Product>;
-    setFormData: React.Dispatch<React.SetStateAction<Partial<Product>>>;
-    handleGenerateNCM: () => void;
-    isGeneratingNCM: boolean;
+    readonly formData: Partial<Product>;
+    readonly setFormData: React.Dispatch<React.SetStateAction<Partial<Product>>>;
+    readonly isNcmAutoEnabled: boolean;
+    readonly toggleNcmAuto: () => void;
+    readonly isGeneratingNCM: boolean;
 }
 
 const ProductFiscalTab: React.FC<ProductFiscalTabProps> = ({
     formData,
     setFormData,
-    handleGenerateNCM,
+    isNcmAutoEnabled,
+    toggleNcmAuto,
     isGeneratingNCM
 }) => {
     const [searchQuery, setSearchQuery] = useState(formData.fiscal?.ncm || '');
     const [isDropdownOpen, setIsDropdownOpen] = useState(false);
     const [isInfoModalOpen, setIsInfoModalOpen] = useState(false);
     const dropdownRef = useRef<HTMLDivElement>(null);
+
+    // Fechar modal com tecla Escape
+    useEffect(() => {
+        if (!isInfoModalOpen) return;
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if (e.key === 'Escape') {
+                setIsInfoModalOpen(false);
+            }
+        };
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [isInfoModalOpen]);
+
 
     useEffect(() => setSearchQuery(formData.fiscal?.ncm || ''), [formData.fiscal?.ncm]);
 
@@ -88,7 +103,8 @@ const ProductFiscalTab: React.FC<ProductFiscalTabProps> = ({
                             <ProductNcmSelector
                                 formData={formData}
                                 setFormData={setFormData}
-                                handleGenerateNCM={handleGenerateNCM}
+                                isNcmAutoEnabled={isNcmAutoEnabled}
+                                toggleNcmAuto={toggleNcmAuto}
                                 isGeneratingNCM={isGeneratingNCM}
                             />
 
@@ -249,14 +265,25 @@ const ProductFiscalTab: React.FC<ProductFiscalTabProps> = ({
 
             {/* Modal de Informação sobre NCM por IA */}
             {isInfoModalOpen && (
-                <div className="fixed inset-0 z-[300] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in" onClick={() => setIsInfoModalOpen(false)}>
-                    <div className="bg-white dark:bg-slate-900 w-full max-w-md rounded-3xl p-6 shadow-2xl border border-slate-100 dark:border-slate-800 space-y-4 animate-scale-up" onClick={e => e.stopPropagation()}>
+                <div 
+                    role="dialog" 
+                    aria-modal="true" 
+                    aria-labelledby="fiscal-info-title"
+                    className="fixed inset-0 z-[300] flex items-center justify-center p-4 animate-fade-in"
+                >
+                    <button 
+                        type="button" 
+                        aria-label="Fechar informações fiscais" 
+                        className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm cursor-default border-0 p-0 m-0 w-full h-full" 
+                        onClick={() => setIsInfoModalOpen(false)} 
+                    />
+                    <div className="relative bg-white dark:bg-slate-900 w-full max-w-md rounded-3xl p-6 shadow-2xl border border-slate-100 dark:border-slate-800 space-y-4 animate-scale-up" onClick={e => e.stopPropagation()}>
                         <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
                             <div className="flex items-center gap-2.5">
                                 <div className="p-2 bg-amber-50 dark:bg-amber-900/20 text-amber-500 rounded-xl">
                                     <i className="bi bi-stars text-base" />
                                 </div>
-                                <h3 className="text-sm font-black text-slate-800 dark:text-slate-100">
+                                <h3 id="fiscal-info-title" className="text-sm font-black text-slate-800 dark:text-slate-100">
                                     Classificação Fiscal por IA
                                 </h3>
                             </div>

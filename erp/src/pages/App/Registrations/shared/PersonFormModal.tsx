@@ -11,12 +11,12 @@ import {
 } from "./personForm";
 
 export interface PersonFormModalProps {
-    isOpen: boolean;
-    onClose: () => void;
-    onSuccess?: (person: Person) => void;
-    person?: Person | null;
-    collectionName: string;
-    title: string;
+    readonly isOpen: boolean;
+    readonly onClose: () => void;
+    readonly onSuccess?: (person: Person) => void;
+    readonly person?: Person | null;
+    readonly collectionName: string;
+    readonly title: string;
 }
 
 const PersonFormModal: React.FC<PersonFormModalProps> = ({
@@ -60,17 +60,33 @@ const PersonFormModal: React.FC<PersonFormModalProps> = ({
         : (title.startsWith("Novo") ? title : `Novo ${title}`);
 
     const modalContent = (
-        <div className="fixed inset-0 z-[9999999] flex items-center justify-center p-4">
-            <div className="absolute inset-0 bg-slate-900/80 backdrop-blur-sm" onClick={onClose} />
+        <div 
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="person-form-modal-title"
+            onKeyDown={(e) => { if (e.key === 'Escape') onClose(); }}
+            className="fixed inset-0 z-[9999999] flex items-center justify-center p-4"
+        >
+            <button 
+                type="button" 
+                aria-label={`Fechar formulário de ${title}`}
+                className="absolute inset-0 bg-slate-900/80 backdrop-blur-sm cursor-default border-0 p-0 m-0 w-full h-full" 
+                onClick={onClose} 
+            />
             <div className="relative bg-white dark:bg-slate-900 w-full max-w-2xl rounded-[2.5rem] shadow-2xl overflow-hidden animate-slide-up border border-slate-100 dark:border-slate-800">
                 <div className="p-8 border-b border-slate-50 dark:border-slate-800 flex items-center justify-between">
                     <div>
-                        <h2 className="text-2xl font-black text-slate-800 dark:text-slate-100 tracking-tight">
+                        <h2 id="person-form-modal-title" className="text-2xl font-black text-slate-800 dark:text-slate-100 tracking-tight">
                             {modalTitle}
                         </h2>
                     </div>
-                    <button onClick={onClose} className="p-2 text-slate-400 hover:text-red-500 transition-colors ml-auto">
-                        <i className="bi bi-x-lg"></i>
+                    <button 
+                        type="button"
+                        aria-label="Fechar"
+                        onClick={onClose} 
+                        className="p-2 text-slate-400 hover:text-red-500 transition-colors ml-auto cursor-pointer"
+                    >
+                        <i className="bi bi-x-lg" aria-hidden="true" />
                     </button>
                 </div>
 

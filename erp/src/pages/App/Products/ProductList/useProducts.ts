@@ -165,10 +165,10 @@ export const useProducts = (filters?: any) => {
 
         // Atualização otimista
         setServerProducts(previous => updateProductActivationState(previous, id, newActive));
-        toast.success(`Produto ${newActive ? 'ativado' : 'desativado'} com sucesso!`);
 
         try {
             await persistProductActiveState(id, newActive, serverProducts, serverProducts);
+            toast.success(`Produto ${newActive ? 'ativado' : 'desativado'} com sucesso!`);
         } catch (error) {
             console.error("Erro ao alterar status:", error);
             toast.error("Erro ao alterar status do produto no banco.");

@@ -1,11 +1,12 @@
-import { GridModel } from './LabelGridModelModal';
+import type { GridModel } from './modals/LabelGridModelModal';
 
 export interface CustomLabel {
-    id: string;
-    name: string;
-    image: string;
-    extraFields?: any[];
+    readonly id: string;
+    readonly name: string;
+    readonly image: string;
+    readonly extraFields?: readonly any[];
 }
+
 
 export type LabelType = 'round' | 'rect';
 export type LabelPreset = 'mdf' | 'store_logo' | 'qr_product' | 'barcode_only' | 'price_only' | 'promotional_price' | 'custom' | 'social_square';

@@ -1,178 +1,112 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { InboundInvoiceItem } from '@/pages/utils/inboundNfe/inboundNfeTypes';
-import { findProductSupplierCodes } from '@/pages/utils/productSupplierCodesService';
-import { fetchSupplierProductsForContext, SupplierProductSummary } from '@/pages/utils/inboundNfe/inboundSupplierProductContext';
-import { calculateProductMatchScore, extractMeaningfulTokens } from '@/pages/utils/inboundNfe/inboundMatchingRules';
-import { RealProductSuggestion } from '../InboundInvoiceItemCard';
+import { useEffect, useRef, useState } from 'react';
+import type { InboundInvoiceItem } from '@/pages/utils/inboundNfe/inboundNfeTypes';
+import { fetchSupplierProductsForContext } from '@/pages/utils/inboundNfe/inboundSupplierProductContext';
+import { suggestInboundProducts, type InboundProductCandidate } from '@/pages/utils/aiService/aiInboundProductSuggestions';
 import { toast } from 'react-toastify';
+import { rankInboundSuggestionCandidates } from '@/pages/utils/inboundNfe/rankInboundSuggestionCandidates';
 
-interface UseInboundInvoiceSuggestionsParams {
-    items: InboundInvoiceItem[];
-    supplierId?: string;
+export type InboundSuggestion = InboundProductCandidate;
+const SUGGESTION_TIMEOUT_MS = 20000;
+function bounded<T>(promise: Promise<T>, fallback: T): Promise<T> {
+    return new Promise((resolve, reject) => {
+        const timer = setTimeout(() => resolve(fallback), SUGGESTION_TIMEOUT_MS);
+        promise.then(value => { clearTimeout(timer); resolve(value); }, error => { clearTimeout(timer); reject(error); });
+    });
 }
+export function useInboundInvoiceSuggestions({ items, supplierId, enabled = true }: { items: InboundInvoiceItem[]; supplierId?: string; enabled?: boolean }) {
+    const [suggestions, setSuggestions] = useState<Record<string, InboundSuggestion>>({});
+    const [rejected, setRejected] = useState<Record<string, boolean>>({});
+    const [processing, setProcessing] = useState(false);
+    const [generation, setGeneration] = useState(0);
+    const [completed, setCompleted] = useState<Record<string, boolean>>({});
+    const requests = useRef(new Map<string, Promise<InboundSuggestion | null>>());
+    const catalog = useRef(new Map<string, ReturnType<typeof fetchSupplierProductsForContext>>());
 
-export function useInboundInvoiceSuggestions({ items, supplierId }: UseInboundInvoiceSuggestionsParams) {
-    const [realSuggestions, setRealSuggestions] = useState<Record<number, RealProductSuggestion>>({});
-    const [rejectedSuggestions, setRejectedSuggestions] = useState<Record<number, boolean>>({});
-    const [isProcessingSuggestions, setIsProcessingSuggestions] = useState(false);
-    const supplierProductsCacheRef = useRef<{ supplierId: string; products: SupplierProductSummary[] } | null>(null);
+    const hasSupplier = Boolean(supplierId?.trim());
+    const isActuallyEnabled = Boolean(enabled && hasSupplier);
 
-    // Invalida cache quando o fornecedor muda
+    const keyFor = (item: InboundInvoiceItem) => JSON.stringify([supplierId, item.itemNumber, item.productCode, item.productDescription]);
+    const pending = items.filter(item => !item.matchedProductId && !rejected[keyFor(item)]);
+    const pendingKey = JSON.stringify(pending.map(item => [item.itemNumber, item.productCode, item.productDescription]));
     useEffect(() => {
-        if (supplierId && supplierProductsCacheRef.current?.supplierId !== supplierId) {
-            supplierProductsCacheRef.current = null;
-        }
-    }, [supplierId]);
-
-    /** Obtém os produtos do fornecedor, usando cache quando disponível. */
-    const getSupplierProducts = useCallback(async (): Promise<SupplierProductSummary[]> => {
-        if (!supplierId) return [];
-        if (supplierProductsCacheRef.current?.supplierId === supplierId) {
-            return supplierProductsCacheRef.current.products;
-        }
-        const products = await fetchSupplierProductsForContext(supplierId);
-        supplierProductsCacheRef.current = { supplierId, products };
-        return products;
-    }, [supplierId]);
-
-    // Função central para buscar correspondências reais cadastradas no ERP
-    const executeFindSuggestions = useCallback(async (ignoredRejections: Record<number, boolean> = rejectedSuggestions, showFeedback = false) => {
-        if (!supplierId || !items.length) {
-            setRealSuggestions({});
+        if (!hasSupplier) {
+            setProcessing(false);
+            setSuggestions({});
+            setRejected({});
+            setCompleted({});
             return;
         }
-
-        const unlinked = items.filter((it) => !it.matchedProductId);
-        if (!unlinked.length) {
-            setRealSuggestions({});
-            if (showFeedback) {
-                toast.info('Todos os itens desta NF já estão vinculados.');
-            }
-            return;
-        }
-
-        setIsProcessingSuggestions(true);
-        try {
-            if (showFeedback) {
-                await new Promise((resolve) => setTimeout(resolve, 400));
-            }
-
-            // 1. Códigos do fornecedor já mapeados
-            const codes = unlinked.map((it) => it.productCode).filter(Boolean);
-            const mappings = codes.length ? await findProductSupplierCodes(supplierId, codes) : new Map();
-
-            // 2. Produtos reais cadastrados deste fornecedor no ERP
-            const supplierProducts = await getSupplierProducts();
-
-            const matched: Record<number, RealProductSuggestion> = {};
-            let newlyFoundCount = 0;
-
-            for (const item of unlinked) {
-                if (ignoredRejections[item.itemNumber]) continue;
-
-                // A) Código já mapeado
-                if (item.productCode) {
-                    const directMatch = mappings.get(item.productCode.trim().toLocaleUpperCase('pt-BR'));
-                    if (directMatch) {
-                        const foundProd = supplierProducts.find((p) => p.id === directMatch.productId);
-                        const foundVar = foundProd?.variations.find((v) => v.id === directMatch.productVariationId);
-                        const displayName = foundVar?.name?.trim() || foundProd?.name || 'Produto já vinculado';
-                        matched[item.itemNumber] = {
-                            productId: directMatch.productId,
-                            variationId: directMatch.productVariationId,
-                            displayName,
-                            product: foundProd || { id: directMatch.productId, name: displayName },
-                            variation: foundVar,
-                        };
-                        newlyFoundCount++;
-                        continue;
-                    }
+        if (!enabled || !pending.length) { setProcessing(false); return; }
+        setProcessing(true);
+        let cancelled = false;
+        const deadline = Date.now() + SUGGESTION_TIMEOUT_MS;
+        const timeout = setTimeout(() => {
+            cancelled = true;
+            for (const item of pending) requests.current.set(keyFor(item), Promise.resolve(null));
+            setCompleted(previous => ({ ...previous, ...Object.fromEntries(pending.map(item => [keyFor(item), true])) }));
+            setProcessing(false);
+        }, SUGGESTION_TIMEOUT_MS);
+        const run = async () => {
+            setProcessing(true);
+            try {
+                let context = catalog.current.get(supplierId!);
+                if (!context) {
+                    context = bounded(fetchSupplierProductsForContext(supplierId!), []);
+                    catalog.current.set(supplierId!, context);
                 }
-
-                // B) Similaridade estrita com produtos reais já cadastrados no ERP
-                if (supplierProducts.length > 0) {
-                    const nfTokens = extractMeaningfulTokens(item.productDescription);
-                    if (!nfTokens.length) continue;
-
-                    let bestMatch: { product: SupplierProductSummary; variation?: any; score: number; name: string } | null = null;
-
-                    for (const prod of supplierProducts) {
-                        const score = calculateProductMatchScore(prod.name, item.productDescription);
-
-                        if (score > 0 && (!bestMatch || score > bestMatch.score)) {
-                            let matchedVar: any;
-                            if (prod.variations?.length) {
-                                matchedVar = prod.variations.find((v) => {
-                                    const varTokens = extractMeaningfulTokens(v.name);
-                                    return varTokens.some((vt) => nfTokens.includes(vt));
-                                });
+                const products = await context;
+                for (const item of pending) {
+                    if (cancelled) return;
+                    const key = keyFor(item);
+                    let request = requests.current.get(key);
+                    if (!request) {
+                        request = (async () => {
+                            const rankedProducts = rankInboundSuggestionCandidates(products, item.productDescription);
+                            for (let offset = 0; offset < rankedProducts.length; offset += 40) {
+                                if (cancelled || Date.now() >= deadline) break;
+                                const candidates = rankedProducts.slice(offset, offset + 40);
+                                const results = await suggestInboundProducts(item, candidates);
+                                if (results[0]) return results[0];
                             }
-
-                            const displayName = matchedVar?.name?.trim() || prod.name;
-                            bestMatch = { product: prod, variation: matchedVar, score, name: displayName };
-                        }
+                            return null;
+                        })();
+                        request = bounded(request, null);
+                        requests.current.set(key, request);
                     }
-
-                    if (bestMatch) {
-                        matched[item.itemNumber] = {
-                            productId: bestMatch.product.id,
-                            variationId: bestMatch.variation?.id,
-                            displayName: bestMatch.name,
-                            product: bestMatch.product,
-                            variation: bestMatch.variation,
-                        };
-                        newlyFoundCount++;
+                    const suggestion = await request;
+                    if (!cancelled) {
+                        setCompleted(previous => ({ ...previous, [key]: true }));
+                        if (suggestion) setSuggestions(previous => ({ ...previous, [key]: suggestion }));
                     }
                 }
+            } catch (error) {
+                console.error('Erro ao sugerir vínculos com IA:', error);
+                if (!cancelled) toast.error('Não foi possível consultar sugestões. A busca manual continua disponível.');
+            } finally {
+                clearTimeout(timeout);
+                if (!cancelled) setProcessing(false);
             }
-
-            setRealSuggestions(matched);
-
-            if (showFeedback) {
-                if (newlyFoundCount > 0) {
-                    toast.success(`${newlyFoundCount} ${newlyFoundCount === 1 ? 'sugestão encontrada' : 'sugestões encontradas'} para os itens.`);
-                } else {
-                    toast.info('Nenhum produto correspondente foi encontrado no catálogo deste fornecedor.');
-                }
-            }
-        } catch (err) {
-            console.warn('[useInboundInvoiceSuggestions] Erro ao buscar correspondências reais:', err);
-            if (showFeedback) {
-                toast.error('Erro ao processar sugestões de vínculos.');
-            }
-        } finally {
-            setIsProcessingSuggestions(false);
-        }
-    }, [items, supplierId, rejectedSuggestions, getSupplierProducts]);
-
-    // Busca automática inicial de sugestões
-    useEffect(() => {
-        void executeFindSuggestions(rejectedSuggestions, false);
-    }, [items, supplierId, rejectedSuggestions, executeFindSuggestions]);
-
-    // Disparador manual para o botão "Sugerir novamente para os restantes"
-    const handleTriggerSuggestions = async () => {
-        const newRejections = { ...rejectedSuggestions };
-        items.forEach((item) => {
-            if (!item.matchedProductId) {
-                delete newRejections[item.itemNumber];
-            }
-        });
-        setRejectedSuggestions(newRejections);
-        await executeFindSuggestions(newRejections, true);
-    };
-
-    const rejectSuggestion = (itemNumber: number) => {
-        setRejectedSuggestions((prev) => ({ ...prev, [itemNumber]: true }));
-    };
-
+        };
+        const timer = setTimeout(() => { void run(); }, 600);
+        return () => { cancelled = true; clearTimeout(timer); clearTimeout(timeout); };
+    }, [supplierId, hasSupplier, pendingKey, enabled, generation]);
     return {
-        realSuggestions,
-        rejectedSuggestions,
-        isProcessingSuggestions,
-        executeFindSuggestions,
-        handleTriggerSuggestions,
-        rejectSuggestion,
-        getSupplierProducts,
+        retrySuggestions: () => {
+            if (!isActuallyEnabled || !supplierId?.trim() || processing) return;
+            const keys = items.filter(item => !item.matchedProductId).map(keyFor);
+            if (!keys.length) return;
+            keys.forEach(key => requests.current.delete(key));
+            catalog.current.delete(supplierId);
+            const removeKeys = <T,>(previous: Record<string, T>) => Object.fromEntries(Object.entries(previous).filter(([key]) => !keys.includes(key)));
+            setRejected(removeKeys);
+            setCompleted(removeKeys);
+            setSuggestions(removeKeys);
+            setProcessing(true);
+            setGeneration(previous => previous + 1);
+        },
+        isProcessingSuggestions: isActuallyEnabled && processing,
+        isItemProcessing: (item: InboundInvoiceItem) => isActuallyEnabled && processing && !item.matchedProductId && !rejected[keyFor(item)] && !completed[keyFor(item)],
+        suggestionFor: (item: InboundInvoiceItem) => isActuallyEnabled && !item.matchedProductId && !rejected[keyFor(item)] ? suggestions[keyFor(item)] : undefined,
+        rejectSuggestion: (item: InboundInvoiceItem) => setRejected(previous => ({ ...previous, [keyFor(item)]: true })),
     };
 }

@@ -2,10 +2,25 @@ import React from "react";
 import { createPortal } from "react-dom";
 import Order from "../../../types/order.type";
 
-type Props = { order: Order; onCancel: () => void; onConfirm: () => void };
+type Props = {
+    readonly order: Order;
+    readonly onCancel: () => void;
+    readonly onConfirm: () => void;
+};
 
 const ReturnFulfillmentConfirmModal = ({ order, onCancel, onConfirm }: Props) => {
     const [seconds, setSeconds] = React.useState(5);
+
+    React.useEffect(() => {
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if (e.key === "Escape") {
+                onCancel();
+            }
+        };
+        window.addEventListener("keydown", handleKeyDown);
+        return () => window.removeEventListener("keydown", handleKeyDown);
+    }, [onCancel]);
+
     React.useEffect(() => {
         if (!seconds) return;
         const timer = window.setTimeout(() => setSeconds(value => value - 1), 1000);
@@ -16,9 +31,21 @@ const ReturnFulfillmentConfirmModal = ({ order, onCancel, onConfirm }: Props) =>
 
     if (typeof document === "undefined") return null;
     return createPortal(
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-950/60 p-4" role="dialog" aria-modal="true">
-            <section className="w-full max-w-lg rounded-3xl bg-white p-6 shadow-2xl dark:bg-slate-900">
-                <h2 className="text-lg font-black text-slate-900 dark:text-white">Confirmar devolução atendida?</h2>
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
+            <button
+                type="button"
+                aria-label="Fechar modal de confirmação de atendimento de devolução"
+                className="fixed inset-0 bg-slate-950/60 transition-opacity"
+                onClick={onCancel}
+            />
+            <section
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="return-fulfillment-title"
+                className="relative z-10 w-full max-w-lg rounded-3xl bg-white p-6 shadow-2xl dark:bg-slate-900"
+                onClick={(e) => e.stopPropagation()}
+            >
+                <h2 id="return-fulfillment-title" className="text-lg font-black text-slate-900 dark:text-white">Confirmar devolução atendida?</h2>
                 <p className="mt-3 text-sm leading-6 text-slate-600 dark:text-slate-300">Ao atender este pedido de devolução, uma movimentação de entrada será gerada para os itens com produto cadastrado. Depois disso, esta devolução não poderá ser cancelada ou desfeita.</p>
                 {hasUnregistered ? (
                     <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-xs leading-relaxed text-amber-900 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-200">

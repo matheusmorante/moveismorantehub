@@ -32,24 +32,10 @@ export type {
 };
 export type FinancialInstallment = InstallmentItemDraft;
 
-const DEFAULT_FALLBACK_KEY = process.env.EXPO_PUBLIC_GEMINI_API_KEY || '';
+import { MobileAgentClient } from './aiAgent/mobileAgentClient';
 
 export const fetchGeminiApiKey = async (): Promise<string> => {
-  try {
-    const { data, error } = await supabase
-      .from('system_settings')
-      .select('value')
-      .eq('key', 'gemini_api_key')
-      .maybeSingle();
-
-    if (!error && data?.value) {
-      return data.value;
-    }
-  } catch (err) {
-    console.warn('Erro ao buscar chave Gemini no banco, usando fallback:', err);
-  }
-
-  return DEFAULT_FALLBACK_KEY;
+  return MobileAgentClient.getApiKey();
 };
 
 export const parseFinancialIntentWithGemini = async (

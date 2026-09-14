@@ -2,11 +2,17 @@ import React, { useState, useEffect } from "react";
 import { toast } from "react-toastify";
 import { fetchGroupsAndCategories, createCategory, updateCategory, deleteCategory } from '@/pages/utils/categoryService';
 
-const Environments = () => {
-    const [groups, setGroups] = useState<any[]>([]);
+export interface EnvironmentGroup {
+    id: string;
+    name: string;
+    parents?: string[];
+}
+
+const Environments: React.FC = () => {
+    const [groups, setGroups] = useState<EnvironmentGroup[]>([]);
     const [loading, setLoading] = useState(true);
 
-    const [editingGroup, setEditingGroup] = useState<any>(null);
+    const [editingGroup, setEditingGroup] = useState<EnvironmentGroup | null>(null);
     const [groupName, setGroupName] = useState("");
     const [isAddingGroup, setIsAddingGroup] = useState(false);
     const [editingGroupName, setEditingGroupName] = useState("");
@@ -19,8 +25,11 @@ const Environments = () => {
         setLoading(true);
         try {
             const data = await fetchGroupsAndCategories();
-            setGroups(data.categories.filter(category => !category.parents?.length));
-        } catch (error) {
+            const rootEnvironments = (data.categories || []).filter(
+                (category: EnvironmentGroup) => !category.parents?.length
+            );
+            setGroups(rootEnvironments);
+        } catch {
             toast.error("Erro ao carregar ambientes.");
         } finally {
             setLoading(false);
@@ -30,9 +39,9 @@ const Environments = () => {
     const handleSaveGroup = async (e?: React.FormEvent, forceId?: string) => {
         if (e) e.preventDefault();
         const id = forceId || editingGroup?.id;
-        const name = id ? editingGroupName : groupName;
+        const name = (id ? editingGroupName : groupName).trim();
 
-        if (!name.trim()) return toast.error("O nome não pode estar vazio.");
+        if (!name) return toast.error("O nome não pode estar vazio.");
         try {
             if (id) {
                 await updateCategory(id, name, []);
@@ -46,7 +55,7 @@ const Environments = () => {
             setEditingGroupName("");
             setIsAddingGroup(false);
             loadData();
-        } catch (error) {
+        } catch {
             toast.error("Erro ao salvar ambiente.");
         }
     };
@@ -57,10 +66,11 @@ const Environments = () => {
             await deleteCategory(id);
             toast.success("Ambiente excluído!");
             loadData();
-        } catch (error) {
+        } catch {
             toast.error("Erro ao excluir ambiente.");
         }
     };
+
 
     if (loading) {
         return (

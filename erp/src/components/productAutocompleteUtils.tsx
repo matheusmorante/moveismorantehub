@@ -23,8 +23,8 @@ export const getVariationDisplayName = (product: Product, variation?: Variation)
     return [parentName, attrValues].filter(Boolean).join(' ');
 };
 
-// Cache em memória de curta duração para digitação ágil
-let cachedActiveProducts: { data: Product[]; timestamp: number } | null = null;
+// Cache em memória de curta duração para digitação ágil (indexado por fornecedor)
+const cachedActiveProductsBySupplier = new Map<string, { data: Product[]; timestamp: number }>();
 const CACHE_TTL_MS = 30 * 1000; // 30 segundos
 
 export const fetchAllProductSearchResults = async (search: string, supplierId?: string) => {
@@ -40,15 +40,17 @@ export const fetchAllProductSearchResults = async (search: string, supplierId?: 
     }
 
     // Se a busca direta retornar vazia ou incompleta devido a variações de acentuação,
-    // utiliza a lista de produtos ativos em cache para filtragem precisa no cliente
+    // utiliza a lista de produtos ativos do fornecedor em cache para filtragem precisa no cliente
     if (products.length === 0) {
+        const cacheKey = supplierId ? `supplier_${supplierId}` : '__all__';
         const now = Date.now();
-        if (cachedActiveProducts && now - cachedActiveProducts.timestamp < CACHE_TTL_MS) {
-            return cachedActiveProducts.data;
+        const cached = cachedActiveProductsBySupplier.get(cacheKey);
+        if (cached && now - cached.timestamp < CACHE_TTL_MS) {
+            return cached.data;
         }
 
         const fallback = await fetchProductsPage(1, 500, { activeOnly: true, isDraft: false, supplierId });
-        cachedActiveProducts = { data: fallback.data, timestamp: now };
+        cachedActiveProductsBySupplier.set(cacheKey, { data: fallback.data, timestamp: now });
         return fallback.data;
     }
 

@@ -16,31 +16,31 @@ import { MoveVariationFamilyModal } from './MoveVariationFamilyModal';
 import { MergeVariationModal } from './MergeVariationModal';
 
 interface ProductTableProps {
-    products: Product[];
-    onEdit: (product: Product) => void;
-    onShowHistory?: (product: Product) => void;
-    onLaunchStock?: (product: any) => void;
-    onDelete: (id: string) => void;
-    onRestore: (id: string) => void;
-    onPermanentDelete: (id: string) => void;
-    onToggleActive: (id: string, currentStatus: boolean) => void;
-    onDeactivateCatalog: (id: string) => void;
-    visibilitySettings: ProductVisibilitySettings;
-    onToggleColumn: (column: keyof ProductVisibilitySettings) => void;
-    showTrash?: boolean;
-    filters?: any;
-    onSort?: (sortBy: string, sortOrder: 'asc' | 'desc') => void;
-    selectedProducts: string[];
-    onToggleSelection: (id: string) => void;
-    onSelectAll: () => void;
-    onClearSelection: () => void;
-    onBulkTrash: () => void;
-    onBulkRestore: () => void;
-    onBulkPermanentDelete: () => void;
-    categoryTree?: any;
-    onRefresh?: () => void;
-    onDuplicate?: (product: Product) => void;
-    exitedVariationIds?: Set<string>;
+    readonly products: readonly Product[];
+    readonly onEdit: (product: Product) => void;
+    readonly onShowHistory?: (product: Product) => void;
+    readonly onLaunchStock?: (product: any) => void;
+    readonly onDelete: (id: string) => void;
+    readonly onRestore: (id: string) => void;
+    readonly onPermanentDelete: (id: string) => void;
+    readonly onToggleActive: (id: string, currentStatus: boolean) => void;
+    readonly onDeactivateCatalog: (id: string) => void;
+    readonly visibilitySettings: ProductVisibilitySettings;
+    readonly onToggleColumn: (column: keyof ProductVisibilitySettings) => void;
+    readonly showTrash?: boolean;
+    readonly filters?: any;
+    readonly onSort?: (sortBy: string, sortOrder: 'asc' | 'desc') => void;
+    readonly selectedProducts: readonly string[];
+    readonly onToggleSelection: (id: string) => void;
+    readonly onSelectAll: () => void;
+    readonly onClearSelection: () => void;
+    readonly onBulkTrash: () => void;
+    readonly onBulkRestore: () => void;
+    readonly onBulkPermanentDelete: () => void;
+    readonly categoryTree?: any;
+    readonly onRefresh?: () => void;
+    readonly onDuplicate?: (product: Product) => void;
+    readonly exitedVariationIds?: ReadonlySet<string>;
 }
 
 const ProductTable = ({
@@ -76,7 +76,8 @@ const ProductTable = ({
         if (savedOrder) {
             try {
                 return normalizeProductTableColumns(JSON.parse(savedOrder) as string[]);
-            } catch (e) {
+            } catch (err: unknown) {
+                console.warn("Falha ao recuperar ordem salva das colunas de produtos:", err);
                 return PRODUCT_TABLE_COLUMNS;
             }
         }

@@ -5,8 +5,8 @@ import { updateOrder } from "../../../utils/orderHistoryService";
 import { POST_SALE_ACTION_KEYS } from "../../../utils/postSaleActions";
 
 interface PostOrderActionsModalProps {
-    order: Order;
-    onClose: () => void;
+    readonly order: Order;
+    readonly onClose: () => void;
 }
 
 const PostOrderActionsModal: React.FC<PostOrderActionsModalProps> = ({ order, onClose }) => {
@@ -17,10 +17,31 @@ const PostOrderActionsModal: React.FC<PostOrderActionsModalProps> = ({ order, on
 
     const [clickedButtons, setClickedButtons] = React.useState<Record<string, boolean>>(order.isButtonsClicked || {});
 
+    React.useEffect(() => {
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if (e.key === "Escape") {
+                onClose();
+            }
+        };
+        window.addEventListener("keydown", handleKeyDown);
+        return () => window.removeEventListener("keydown", handleKeyDown);
+    }, [onClose]);
+
     return (
-        <div className="fixed inset-0 z-[999999] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md animate-fade-in" onClick={onClose}>
-            <div className="bg-white dark:bg-slate-900 w-full max-w-lg rounded-3xl shadow-2xl flex flex-col overflow-hidden animate-slide-up border border-slate-100 dark:border-slate-800" onClick={(e) => e.stopPropagation()}>
-                
+        <div className="fixed inset-0 z-[999999] flex items-center justify-center p-4">
+            <button
+                type="button"
+                aria-label="Fechar modal de ações pós-venda"
+                className="fixed inset-0 bg-slate-900/60 backdrop-blur-md transition-opacity"
+                onClick={onClose}
+            />
+            <div
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="post-order-title"
+                className="relative z-10 bg-white dark:bg-slate-900 w-full max-w-lg rounded-3xl shadow-2xl flex flex-col overflow-hidden border border-slate-100 dark:border-slate-800"
+                onClick={(e) => e.stopPropagation()}
+            >
                 <div className="px-6 py-5 border-b border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 flex justify-between items-center">
                     <div className="flex items-center gap-3">
                         <div className="w-10 h-10 rounded-xl bg-emerald-100 dark:bg-emerald-900/40 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shadow-sm">
@@ -28,14 +49,19 @@ const PostOrderActionsModal: React.FC<PostOrderActionsModalProps> = ({ order, on
                         </div>
                         <div>
                             <div className="flex items-center gap-2">
-                                <h3 className="text-base font-black text-slate-800 dark:text-slate-100">Ações Pós-Venda</h3>
+                                <h3 id="post-order-title" className="text-base font-black text-slate-800 dark:text-slate-100">Ações Pós-Venda</h3>
                                 <span className="text-[8px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400">
                                     Cadastrado
                                 </span>
                             </div>
                         </div>
                     </div>
-                    <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-400 hover:text-rose-500 transition-colors" title="Fechar">
+                    <button
+                        type="button"
+                        onClick={onClose}
+                        className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-400 hover:text-rose-500 transition-colors"
+                        title="Fechar"
+                    >
                         <i className="bi bi-x-lg"></i>
                     </button>
                 </div>
@@ -63,17 +89,22 @@ const PostOrderActionsModal: React.FC<PostOrderActionsModalProps> = ({ order, on
                             return (
                                 <button
                                     key={btn.key}
+                                    type="button"
                                     onClick={async () => {
                                         setClickedButtons(prev => ({ ...prev, [btn.key]: true }));
-                                        const module = await import('./orderActionsConfig');
-                                        module.actionsMap[btn.action](order);
-                                        if (order.id) {
-                                            const clicked = { ...(order.isButtonsClicked || {}), [btn.key]: true } as Order['isButtonsClicked'];
-                                            order.isButtonsClicked = clicked;
-                                            await updateOrder(order.id, {
-                                                isButtonsClicked: clicked,
-                                                ...(btn.key === 'sendCustomerReviews' ? { reviewRequested: true } : {})
-                                            });
+                                        try {
+                                            const module = await import('./orderActionsConfig');
+                                            module.actionsMap[btn.action](order);
+                                            if (order.id) {
+                                                const clicked = { ...(order.isButtonsClicked || {}), [btn.key]: true } as Order['isButtonsClicked'];
+                                                order.isButtonsClicked = clicked;
+                                                await updateOrder(order.id, {
+                                                    isButtonsClicked: clicked,
+                                                    ...(btn.key === 'sendCustomerReviews' ? { reviewRequested: true } : {})
+                                                });
+                                            }
+                                        } catch (err: unknown) {
+                                            console.error("Erro ao executar ação pós-venda:", err);
                                         }
                                     }}
                                     className={`flex flex-col items-center justify-center p-4 rounded-2xl border border-slate-100 dark:border-slate-800 transition-all hover:-translate-y-1 hover:shadow-lg relative min-h-[100px] ${baseColor} ${isClicked ? 'ring-2 ring-emerald-500 ring-offset-2 dark:ring-offset-slate-900' : ''}`}

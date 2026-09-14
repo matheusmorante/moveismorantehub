@@ -28,12 +28,13 @@ export function useProductFormVariations(
         setEditingVariationId(null);
     };
 
-    const updateVariation = (id: string, field: keyof Variation, value: any) => {
+    const updateVariation = <K extends keyof Variation>(id: string, field: K, value: Variation[K]) => {
         setFormData((prev: Partial<Product>) => ({
             ...prev,
             variations: prev.variations?.map(v => v.id === id ? { ...v, [field]: value } : v)
         }));
     };
+
 
     const addVariation = () => {
         const firstVariation = formData.variations?.[0];
@@ -116,10 +117,11 @@ export function useProductFormVariations(
         const attributes = options.filter(o => o.name && o.values.length > 0);
         if (attributes.length === 0) return;
 
-        let combinations: any[] = [{}];
+        type CombinationMap = Record<string, { value: string; showName: boolean }>;
+        let combinations: CombinationMap[] = [{}];
 
         attributes.forEach(attr => {
-            const newCombinations: any[] = [];
+            const newCombinations: CombinationMap[] = [];
             combinations.forEach(combo => {
                 attr.values.forEach(val => {
                     newCombinations.push({
@@ -130,6 +132,7 @@ export function useProductFormVariations(
             });
             combinations = newCombinations;
         });
+
 
         const newVars: Variation[] = combinations.map((combo, idx) => {
             const attributeValues = attributes.map(attr => {

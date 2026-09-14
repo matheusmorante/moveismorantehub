@@ -10,6 +10,8 @@ export type InitialStockEntry = {
 
 export type Variation = {
     id: string;
+    /** Representação de um produto sem variações físicas; usada somente na interface. */
+    isVirtual?: boolean;
     // Preenchido quando esta variação é uma referência histórica para outra
     // variação canônica. O UUID próprio nunca é substituído.
     mergedToVariationId?: string;

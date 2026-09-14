@@ -5,14 +5,16 @@ import { COMMON_NCMS } from '../productFiscalOptions';
 interface ProductNcmSelectorProps {
     formData: Partial<Product>;
     setFormData: React.Dispatch<React.SetStateAction<Partial<Product>>>;
-    handleGenerateNCM: () => void;
+    isNcmAutoEnabled: boolean;
+    readonly toggleNcmAuto: () => void;
     isGeneratingNCM: boolean;
 }
 
 export const ProductNcmSelector: React.FC<ProductNcmSelectorProps> = ({
     formData,
     setFormData,
-    handleGenerateNCM,
+    isNcmAutoEnabled,
+    toggleNcmAuto,
     isGeneratingNCM
 }) => {
     const [searchQuery, setSearchQuery] = useState(formData.fiscal?.ncm || '');
@@ -48,18 +50,26 @@ export const ProductNcmSelector: React.FC<ProductNcmSelectorProps> = ({
                 <div className="flex items-center gap-2">
                     <button
                         type="button"
-                        disabled={isGeneratingNCM}
-                        onClick={handleGenerateNCM}
+                        role="switch"
+                        aria-checked={isNcmAutoEnabled}
+                        aria-label="Autopreencher NCM"
+                        onClick={toggleNcmAuto}
                         className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-purple-100/80 hover:bg-purple-200/80 dark:bg-purple-950/60 dark:hover:bg-purple-900/60 border border-purple-200 dark:border-purple-800/70 text-amber-600 dark:text-amber-400 font-black uppercase text-[9px] tracking-wider transition-all disabled:opacity-50 active:scale-95 shadow-sm"
                         title="Usar IA para auto-preencher o NCM"
                     >
                         {isGeneratingNCM ? <i className="bi bi-arrow-repeat animate-spin text-amber-500" /> : <i className="bi bi-stars text-amber-500 text-xs font-bold" />}
-                        {isGeneratingNCM ? 'Gerando NCM...' : 'Auto-preencher com IA'}
+                        <span>Autopreencher</span>
+                        <span aria-hidden="true" className={`relative inline-flex h-5 w-9 rounded-full transition-colors ${isNcmAutoEnabled ? 'bg-purple-600' : 'bg-slate-400'}`}>
+                            <span className={`absolute top-0.5 left-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform ${isNcmAutoEnabled ? 'translate-x-4' : ''}`} />
+                        </span>
                     </button>
 
                     <button
                         type="button"
                         onClick={() => setIsInfoModalOpen(true)}
+                        onMouseEnter={() => setIsInfoModalOpen(true)}
+                        onFocus={() => setIsInfoModalOpen(true)}
+                        aria-label="Como funciona o autopreenchimento do NCM"
                         className="p-1 text-slate-400 hover:text-blue-500 transition-colors"
                         title="Como funciona a IA do NCM?"
                     >
@@ -149,14 +159,15 @@ export const ProductNcmSelector: React.FC<ProductNcmSelectorProps> = ({
                             <h4 className="text-sm font-black text-slate-800 dark:text-slate-100 uppercase tracking-wider flex items-center gap-2">
                                 <i className="bi bi-stars text-amber-500" /> Inteligência Fiscal NCM
                             </h4>
-                            <button onClick={() => setIsInfoModalOpen(false)} className="p-1 text-slate-400 hover:text-slate-600">
+                            <button type="button" onClick={() => setIsInfoModalOpen(false)} className="p-1 text-slate-400 hover:text-slate-600">
                                 <i className="bi bi-x-lg" />
                             </button>
                         </div>
                         <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
-                            O gerador de NCM analisa o título, material e descrição do produto para sugerir a classificação fiscal mais adequada segundo a Nomenclatura Comum do Mercosul.
+                            O autopreenchimento começa ligado. Preencha o nome do produto, o título (o próprio nome quando não houver título diferente), uma categoria e a descrição para gerar uma sugestão de NCM. Ao desligar, a geração automática para. Ao ligar novamente, uma nova sugestão é solicitada assim que esses campos estiverem preenchidos.
                         </p>
                         <button
+                            type="button"
                             onClick={() => setIsInfoModalOpen(false)}
                             className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl transition-colors"
                         >

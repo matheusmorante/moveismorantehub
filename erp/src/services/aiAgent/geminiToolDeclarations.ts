@@ -174,12 +174,55 @@ export const financialToolDeclarations: GeminiFunctionDeclaration[] = [
   },
 ];
 
+export const productToolDeclarations: GeminiFunctionDeclaration[] = [
+  {
+    name: 'buscarProdutos',
+    description:
+      'Pesquisa produtos e variações no catálogo/estoque do ERP por termo (nome, código ou SKU), categoria ou status de ativação. Use para encontrar códigos de produtos, verificar saldos de estoque resumidos e preços. O agente NÃO deve e não pode criar, editar ou excluir produtos.',
+    parameters: {
+      type: 'OBJECT',
+      properties: {
+        termo: {
+          type: 'STRING',
+          description: 'Termo de busca pelo nome do produto, descrição, código oficial de 6 dígitos ou SKU da variação.',
+        },
+        categoria: {
+          type: 'STRING',
+          description: 'Nome da categoria para filtrar produtos (ex: "Sofás", "Mesas", "Colchões").',
+        },
+        apenasAtivos: {
+          type: 'BOOLEAN',
+          description: 'Se verdadeiro, filtra apenas produtos ativos em linha. Padrão: true.',
+        },
+        limite: {
+          type: 'INTEGER',
+          description: 'Quantidade máxima de produtos a retornar (padrão 10, máximo 30).',
+        },
+      },
+      required: [],
+    },
+  },
+  {
+    name: 'obterDetalhesProduto',
+    description:
+      'Obtém a ficha técnica completa e todas as informações persistidas de um produto e suas variações: nome, descrição, dimensões (altura, largura, profundidade, peso), fotos, preços (venda, promocional e custo), estoque (atual e mínimo), materiais e atributos de cada variação. Use o código oficial de 6 dígitos (ex: "100010") ou SKU (ex: "100010-01") obtido na busca.',
+    parameters: {
+      type: 'OBJECT',
+      properties: {
+        codigoOuSku: {
+          type: 'STRING',
+          description: 'Código oficial de 6 dígitos (ex: "100010") ou SKU de uma variação (ex: "100010-01") do produto.',
+        },
+      },
+      required: ['codigoOuSku'],
+    },
+  },
+];
+
 // Registro de ferramentas do Agente por domínio de negócio do ERP
-// Nesta etapa: apenas o domínio Financeiro possui ferramentas ativas de execução.
-// Domínios futuros (Estoque, Compras, Vendas, Clientes) serão plugados aqui de forma modular.
 export const erpDomainTools: Record<string, GeminiFunctionDeclaration[]> = {
   finance: financialToolDeclarations,
-  // inventory: inventoryToolDeclarations, // Futuro
+  products: productToolDeclarations,
   // purchasing: purchasingToolDeclarations, // Futuro
   // sales: salesToolDeclarations, // Futuro
   // customers: customersToolDeclarations, // Futuro
@@ -190,4 +233,5 @@ export const erpAgentTools: GeminiTool[] = [
     functionDeclarations: Object.values(erpDomainTools).flat(),
   },
 ];
+
 

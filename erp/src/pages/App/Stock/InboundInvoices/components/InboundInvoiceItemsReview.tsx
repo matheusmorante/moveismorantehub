@@ -3,7 +3,7 @@ import ProductAutocomplete from '@/components/ProductAutocomplete';
 import Product, { Variation } from '@/pages/types/product.type';
 import Person from '@/pages/types/person.type';
 import { InboundInvoiceItem } from '@/pages/utils/inboundNfe/inboundNfeTypes';
-import { findProductSupplierCodes, saveProductSupplierCode } from '@/pages/utils/productSupplierCodesService';
+import { findProductSupplierCodes, saveProductSupplierCode, deleteProductSupplierCode } from '@/pages/utils/productSupplierCodesService';
 import { getFullProduct, saveProduct, saveVariation } from '@/pages/utils/productService';
 import { ensureAttributeValue } from '@/pages/utils/variationService';
 import { fetchGroupsAndCategories } from '@/pages/utils/categoryService';
@@ -18,6 +18,7 @@ import { itemCostRate, itemCostWithAdditionalCosts, itemFiscalOtherExpensesCost,
 import { extractColorCandidateFromTitle } from '@/pages/utils/inboundNfe/inboundMatchingRules';
 import { QuickRegisterVariationModal, QuickRegisterItem, QuickRegisterSelection } from './QuickRegisterVariationModal';
 import { prepareNewParentWithVariation, prepareExistingParentNewVariation } from '../services/inboundProductPreparationService';
+import { useInboundInvoiceSuggestions, type InboundSuggestion } from '../hooks/useInboundInvoiceSuggestions';
 
 type AiClassification = {
     decision: 'EXISTING_VARIATION' | 'NEW_VARIATION_OF_EXISTING_PRODUCT' | 'NEW_PRODUCT' | 'UNSURE';
@@ -34,12 +35,42 @@ type Props = {
     supplierId?: string;
     suppliers: Person[];
     onChange: (itemNumber: number, update: Partial<InboundInvoiceItem>) => void;
+    onProcessingSuggestionsChange?: (processing: boolean) => void;
+    suggestionsEnabled?: boolean;
 };
 
 const productName = (product: Product, variation?: Variation) => variation?.name || variation?.title || product.name || product.title || product.description || '';
 const finalItemCost = itemCostWithAdditionalCosts;
 
-export function InboundInvoiceItemsReview({ items, supplierId, suppliers, onChange }: Props) {
+export function InboundInvoiceItemsReview({ items, supplierId, suppliers, onChange, onProcessingSuggestionsChange, suggestionsEnabled = true }: Props) {
+    const isSuggestionsActuallyEnabled = Boolean(supplierId?.trim()) && suggestionsEnabled;
+    const { suggestionFor, rejectSuggestion, isProcessingSuggestions, isItemProcessing, retrySuggestions } = useInboundInvoiceSuggestions({ items, supplierId, enabled: isSuggestionsActuallyEnabled });
+    const [acceptingSuggestion, setAcceptingSuggestion] = useState<number | null>(null);
+    const [removingLink, setRemovingLink] = useState<number | null>(null);
+    const removalInProgress = useRef(false);
+
+    const removeLink = async (item: InboundInvoiceItem) => {
+        if (removalInProgress.current) return;
+        removalInProgress.current = true;
+        setRemovingLink(item.itemNumber);
+        try {
+            if (supplierId && item.productCode) await deleteProductSupplierCode(supplierId, item.productCode);
+            rejectSuggestion(item);
+            onChange(item.itemNumber, { matchedProductId: undefined, matchedVariationId: undefined, linkedProductCode: undefined, productErpName: undefined });
+            toast.success('Vínculo e associação do código do fornecedor removidos.');
+        } catch (error) {
+            console.error('Erro ao remover vínculo do fornecedor:', error);
+            toast.error('Não foi possível remover o vínculo. Tente novamente.');
+        } finally {
+            removalInProgress.current = false;
+            setRemovingLink(null);
+        }
+    };
+
+    useEffect(() => {
+        onProcessingSuggestionsChange?.(isProcessingSuggestions || acceptingSuggestion !== null || removingLink !== null);
+        return () => onProcessingSuggestionsChange?.(false);
+    }, [isProcessingSuggestions, acceptingSuggestion, removingLink, onProcessingSuggestionsChange]);
     const [creatingItemNumber, setCreatingItemNumber] = useState<number | null>(null);
     const [creationQueue, setCreationQueue] = useState<number[]>([]);
     const [initialProductData, setInitialProductData] = useState<Partial<Product> | null>(null);
@@ -363,6 +394,18 @@ export function InboundInvoiceItemsReview({ items, supplierId, suppliers, onChan
         toast.success(`Item vinculado a "${productErpName}"`);
     };
 
+    const acceptSuggestion = async (item: InboundInvoiceItem, suggestion: InboundSuggestion) => {
+        setAcceptingSuggestion(item.itemNumber);
+        try {
+            const product = await getFullProduct(suggestion.productId);
+            const variation = product?.variations?.find(candidate => candidate.id === suggestion.variationId);
+            if (!product || (suggestion.variationId && !variation)) throw new Error('Produto ou variação indisponível. Pesquise novamente.');
+            await selectProduct(item.itemNumber, product, variation);
+        } catch (error) {
+            toast.error(error instanceof Error ? error.message : 'Não foi possível aceitar a sugestão.');
+        } finally { setAcceptingSuggestion(null); }
+    };
+
     return (
         <>
             <section className="overflow-hidden rounded-3xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
@@ -371,10 +414,20 @@ export function InboundInvoiceItemsReview({ items, supplierId, suppliers, onChan
                         <h3 className="text-xs font-black uppercase tracking-widest text-slate-700 dark:text-slate-200">Itens da NF ({items.length})</h3>
                         <p className="mt-1 text-xs text-slate-500">{linkedCount} vinculados · {items.length - linkedCount} não vinculados</p>
                     </div>
+                    <button
+                        type="button"
+                        onClick={retrySuggestions}
+                        disabled={!supplierId?.trim() || !suggestionsEnabled || isProcessingSuggestions || !unlinkedItems.length || acceptingSuggestion !== null || removingLink !== null}
+                        className="inline-flex items-center gap-1.5 rounded-xl border border-amber-300 bg-amber-100 px-3 py-2 text-xs font-bold text-amber-900 hover:bg-amber-200 dark:border-amber-700 dark:bg-amber-950/50 dark:text-amber-300 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    >
+                        <i className="bi bi-stars" aria-hidden="true" />
+                        Sugestão de vínculos
+                    </button>
                 </header>
                 <div className="divide-y divide-slate-100 dark:divide-slate-800">
                     {items.map((item) => {
                         const linked = Boolean(item.matchedProductId);
+                        const suggestion = suggestionFor(item);
                         const freightCost = itemFreightCost(item);
                         const ipiCost = itemIpiCost(item);
                         const fiscalOtherExpensesCost = itemFiscalOtherExpensesCost(item);
@@ -395,7 +448,7 @@ export function InboundInvoiceItemsReview({ items, supplierId, suppliers, onChan
                                     <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">VINCULAR PRODUTO CADASTRADO</span>
                                     <span className={`rounded-full px-2 py-1 text-[9px] font-black uppercase ${linked ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300' : 'bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300'}`}>{linked ? 'Vinculado' : 'Não vinculado'}</span>
                                 </div>
-                                {!supplierId ? (
+                                {!supplierId?.trim() ? (
                                     <p className="mt-5 text-xs text-amber-700 dark:text-amber-400 font-semibold">Vincule o fornecedor para identificar ou cadastrar os produtos.</p>
                                 ) : linked ? (
                                     <div className="mt-4 flex items-center justify-between gap-3 rounded-2xl border border-emerald-500/80 bg-emerald-50/60 p-3.5 dark:border-emerald-500/60 dark:bg-emerald-950/30">
@@ -403,15 +456,16 @@ export function InboundInvoiceItemsReview({ items, supplierId, suppliers, onChan
                                             <i className="bi bi-check-circle-fill text-emerald-600 dark:text-emerald-400 text-lg shrink-0" />
                                             <div className="min-w-0">
                                                 <p className="text-xs font-black text-emerald-800 dark:text-emerald-200 truncate">{item.productErpName || 'Produto vinculado'}</p>
-                                                <p className="text-[10px] font-mono text-emerald-600 dark:text-emerald-400">Código ERP: {item.linkedProductCode || item.matchedProductId}</p>
+                                                <p className="text-[10px] font-mono text-emerald-600 dark:text-emerald-400">Código / SKU: {item.linkedProductCode || '—'}</p>
                                             </div>
                                         </div>
                                         <button
                                             type="button"
-                                            onClick={() => onChange(item.itemNumber, { matchedProductId: undefined, matchedVariationId: undefined, linkedProductCode: undefined, productErpName: undefined })}
-                                            className="shrink-0 rounded-xl bg-white dark:bg-slate-900 border border-emerald-300 dark:border-emerald-800 px-3 py-1.5 text-xs font-black text-emerald-700 hover:bg-emerald-100 dark:hover:bg-slate-800 cursor-pointer shadow-xs transition-colors"
+                                            onClick={() => void removeLink(item)}
+                                            disabled={removingLink !== null}
+                                            className="shrink-0 rounded-xl bg-white dark:bg-slate-900 border border-red-300 dark:border-red-800 px-3 py-1.5 text-xs font-black text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30 disabled:opacity-50 cursor-pointer shadow-xs transition-colors"
                                         >
-                                            Trocar
+                                            {removingLink === item.itemNumber ? 'Removendo...' : 'Remover'}
                                         </button>
                                     </div>
                                 ) : (
@@ -427,13 +481,53 @@ export function InboundInvoiceItemsReview({ items, supplierId, suppliers, onChan
                                                 Cadastrar rapidamente
                                             </button>
                                         </div>
+
+                                        {/* Campo de busca manual: livre para digitar a qualquer momento */}
                                         <ProductAutocomplete
                                             supplierId={supplierId}
-                                            value=""
                                             isSelected={false}
                                             placeholder="Digite 2 ou mais letras para buscar..."
                                             onSelect={(product, variation) => selectProduct(item.itemNumber, product, variation)}
                                         />
+
+                                        {/* Indicador de carregamento da IA abaixo da linha do input */}
+                                        {isItemProcessing(item) && !suggestion && (
+                                            <div className="flex items-center gap-2 rounded-xl border border-amber-300/70 bg-amber-50/60 px-3 py-1.5 text-xs text-amber-900 dark:border-amber-800/60 dark:bg-amber-950/30 dark:text-amber-200">
+                                                <i className="bi bi-arrow-repeat animate-spin text-amber-600 dark:text-amber-400 text-xs shrink-0" />
+                                                <span className="font-medium text-[11px]">Buscando sugestão de vínculo...</span>
+                                            </div>
+                                        )}
+
+                                        {/* Sugestão da IA em uma única linha compacta */}
+                                        {suggestion && (
+                                            <div className="rounded-xl border border-amber-300 bg-amber-50/70 px-3 py-1.5 dark:border-amber-700/80 dark:bg-amber-950/30 flex items-center justify-between gap-2 shadow-xs transition-all">
+                                                <span className="text-xs font-bold text-slate-800 dark:text-slate-100 truncate min-w-0" title={suggestion.displayName}>
+                                                    {suggestion.displayName}
+                                                </span>
+                                                <div className="flex items-center gap-1.5 shrink-0">
+                                                    <button
+                                                        type="button"
+                                                        disabled={acceptingSuggestion === item.itemNumber}
+                                                        onClick={() => void acceptSuggestion(item, suggestion)}
+                                                        className="inline-flex items-center gap-1 rounded-lg bg-emerald-600 px-2.5 py-1 text-xs font-bold text-white hover:bg-emerald-700 disabled:opacity-50 transition-colors cursor-pointer shadow-xs"
+                                                        title="Vincular produto sugerido"
+                                                    >
+                                                        <i className="bi bi-check-lg text-sm" aria-hidden="true" />
+                                                        <span>{acceptingSuggestion === item.itemNumber ? 'Vinculando...' : 'Vincular'}</span>
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        disabled={acceptingSuggestion === item.itemNumber}
+                                                        onClick={() => rejectSuggestion(item)}
+                                                        className="rounded-lg p-1 text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/40 transition-colors cursor-pointer"
+                                                        title="Ignorar sugestão"
+                                                        aria-label="Ignorar sugestão"
+                                                    >
+                                                        <i className="bi bi-x-lg text-xs" aria-hidden="true" />
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        )}
                                     </div>
                                 )}
                             </div>
@@ -474,6 +568,7 @@ export function InboundInvoiceItemsReview({ items, supplierId, suppliers, onChan
                 initialData={initialProductData}
                 initialTab={editingParentProduct ? 'variacoes' : 'geral'}
                 openAddVariationOnOpen={Boolean(editingParentProduct)}
+                isQuickRegister={true}
                 onSuccess={handleCreatedProductFromModal}
             />
             {/* Loading: classificando item com IA */}

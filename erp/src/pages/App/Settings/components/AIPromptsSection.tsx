@@ -97,6 +97,30 @@ const AIPromptsSection = ({ settings, onChange }: AIPromptsSectionProps) => {
             </div>
 
             <div className="p-8 hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors border-b border-slate-100 dark:border-slate-800">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                    <div className="flex-1">
+                        <h4 className="font-bold text-slate-800 dark:text-slate-200 text-sm uppercase tracking-wider flex items-center gap-2">
+                            Chave da API Google Gemini
+                            <span className="text-[8px] bg-emerald-100 dark:bg-emerald-900/50 text-emerald-600 dark:text-emerald-400 px-1.5 py-0.5 rounded-full font-bold">Ativa</span>
+                        </h4>
+                        <p className="text-xs text-slate-400 dark:text-slate-500 mt-1 leading-relaxed">
+                            Chave da API do Google Gemini compartilhada entre o ERP e o Aplicativo Mobile para o Assistente Lizandro e Function Calling.
+                        </p>
+                    </div>
+                    <div className="w-full md:w-96 relative">
+                        <i className="bi bi-key-fill absolute left-5 top-1/2 -translate-y-1/2 text-slate-400"></i>
+                        <input
+                            type="password"
+                            placeholder="AQ.Ab8..."
+                            value={settings.geminiApiKey || ''}
+                            onChange={(e) => onChange('geminiApiKey', e.target.value)}
+                            className="w-full bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl pl-12 pr-5 py-3.5 text-sm font-mono font-bold focus:border-indigo-500 outline-none transition-all dark:text-slate-200"
+                        />
+                    </div>
+                </div>
+            </div>
+
+            <div className="p-8 hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors border-b border-slate-100 dark:border-slate-800">
                 <div className="flex flex-col gap-4">
                     <div className="flex-1">
                         <h4 className="font-bold text-slate-800 dark:text-slate-200 text-sm uppercase tracking-wider flex items-center gap-2">

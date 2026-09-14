@@ -4,9 +4,9 @@ import Order from "../../../types/order.type";
 import { formatOrderCode } from "../../../utils/orderCode";
 
 interface CancelReturnModalProps {
-    order: Order;
-    onCancel: () => void;
-    onConfirm: () => void;
+    readonly order: Order;
+    readonly onCancel: () => void;
+    readonly onConfirm: () => void;
 }
 
 const CancelReturnModal = ({ order, onCancel, onConfirm }: CancelReturnModalProps) => {
@@ -14,6 +14,16 @@ const CancelReturnModal = ({ order, onCancel, onConfirm }: CancelReturnModalProp
     const isFulfilled = order.status === "fulfilled";
     const actionTitle = isFulfilled ? "Estornar esta devolução?" : "Cancelar esta devolução?";
     const buttonLabel = isFulfilled ? "Estornar devolução" : "Cancelar devolução";
+
+    useEffect(() => {
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if (e.key === "Escape") {
+                onCancel();
+            }
+        };
+        window.addEventListener("keydown", handleKeyDown);
+        return () => window.removeEventListener("keydown", handleKeyDown);
+    }, [onCancel]);
 
     useEffect(() => {
         if (secondsLeft <= 0) return;
@@ -26,12 +36,18 @@ const CancelReturnModal = ({ order, onCancel, onConfirm }: CancelReturnModalProp
     if (typeof document === "undefined") return null;
 
     return createPortal(
-        <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-slate-950/55 p-4" onClick={onCancel}>
+        <div className="fixed inset-0 z-[10000] flex items-center justify-center p-4">
+            <button
+                type="button"
+                aria-label="Fechar modal de cancelamento de devolução"
+                className="fixed inset-0 bg-slate-950/55 transition-opacity"
+                onClick={onCancel}
+            />
             <section
                 role="dialog"
                 aria-modal="true"
                 aria-labelledby="cancel-return-title"
-                className="w-full max-w-lg rounded-2xl border border-red-200 bg-white p-6 shadow-2xl dark:border-red-900/70 dark:bg-slate-900"
+                className="relative z-10 w-full max-w-lg rounded-2xl border border-red-200 bg-white p-6 shadow-2xl dark:border-red-900/70 dark:bg-slate-900"
                 onClick={(event) => event.stopPropagation()}
             >
                 <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-red-100 text-red-700 dark:bg-red-950/50 dark:text-red-300">

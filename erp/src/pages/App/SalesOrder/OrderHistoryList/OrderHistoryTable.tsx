@@ -1,37 +1,48 @@
 import React from "react";
 import OrderHistoryRow from "./OrderHistoryRow";
 import OrderHistoryCard from "./OrderHistoryCard";
-import Order, { VisibilitySettings } from "../../../types/order.type";
+import Order, { AssistanceItem, VisibilitySettings } from "../../../types/order.type";
+import { Item } from "../../../types/items.type";
 import { getSettings } from '@/pages/utils/settingsService';
 import { useAutoScroll } from "../../../utils/useAutoScroll";
 import { useWindowSize } from "../../../../hooks/useWindowSize";
 
+interface SortItem {
+    readonly key: string;
+    readonly order: 'asc' | 'desc';
+}
+
+interface OrderHistoryFilters {
+    readonly multiSort?: readonly SortItem[];
+    readonly [key: string]: unknown;
+}
+
 interface OrderHistoryTableProps {
-    orders: Order[];
-    onEdit: (order: Order, initialStep?: number, highlightTemporary?: boolean, reconciliationMode?: boolean) => void;
-    onViewDetails?: (order: Order) => void;
-    onDelete: (id: string) => void;
-    onRestore: (id: string) => void;
-    onPermanentDelete: (id: string) => void;
-    onAction: (actionKey: string, order: Order) => void;
-    onStatusUpdate: (id: string, newStatus: Order['status']) => void;
-    visibilitySettings: VisibilitySettings;
-    onToggleColumn: (column: keyof VisibilitySettings) => void;
-    showTrash?: boolean;
-    filters?: any;
-    onSort?: (sortBy: string, sortOrder: 'asc' | 'desc', isMulti: boolean) => void;
-    selectedOrders: string[];
-    onToggleSelection: (id: string) => void;
-    onSelectAll: () => void;
-    onBulkTrash: () => void;
-    onBulkRestore: () => void;
-    onBulkPermanentDelete: () => void;
-    onClearSelection: () => void;
-    onBlingUpdate?: (id: string, value: boolean) => void;
-    onStockCheckUpdate?: (id: string, value: boolean, updatedItems?: any[], updatedAssistanceItems?: any[]) => void;
-    highlightOrderId?: string | null;
-    onFilterByOrderId?: (id: string) => void;
-    onShowPostSaleActions?: (order: Order) => void;
+    readonly orders: readonly Order[];
+    readonly onEdit: (order: Order, initialStep?: number, highlightTemporary?: boolean, reconciliationMode?: boolean) => void;
+    readonly onViewDetails?: (order: Order) => void;
+    readonly onDelete: (id: string) => void;
+    readonly onRestore: (id: string) => void;
+    readonly onPermanentDelete: (id: string) => void;
+    readonly onAction: (actionKey: string, order: Order) => void;
+    readonly onStatusUpdate: (id: string, newStatus: Order['status']) => void;
+    readonly visibilitySettings: VisibilitySettings;
+    readonly onToggleColumn: (column: keyof VisibilitySettings) => void;
+    readonly showTrash?: boolean;
+    readonly filters?: OrderHistoryFilters;
+    readonly onSort?: (sortBy: string, sortOrder: 'asc' | 'desc', isMulti: boolean) => void;
+    readonly selectedOrders: readonly string[];
+    readonly onToggleSelection: (id: string) => void;
+    readonly onSelectAll: () => void;
+    readonly onBulkTrash: () => void;
+    readonly onBulkRestore: () => void;
+    readonly onBulkPermanentDelete: () => void;
+    readonly onClearSelection: () => void;
+    readonly onBlingUpdate?: (id: string, value: boolean) => void;
+    readonly onStockCheckUpdate?: (id: string, value: boolean, updatedItems?: readonly Item[], updatedAssistanceItems?: readonly AssistanceItem[]) => void;
+    readonly highlightOrderId?: string | null;
+    readonly onFilterByOrderId?: (id: string) => void;
+    readonly onShowPostSaleActions?: (order: Order) => void;
 }
 
 interface ColumnDef {
@@ -51,8 +62,8 @@ const COLUMNS_DEF: ColumnDef[] = [
 
 const OrderHistoryTable = ({
     orders, onEdit, onViewDetails, onDelete, onRestore, onPermanentDelete, onAction, onStatusUpdate,
-    visibilitySettings, onToggleColumn, showTrash, filters, onSort,
-    selectedOrders, onToggleSelection, onSelectAll, onBulkTrash, onBulkRestore, onBulkPermanentDelete, onClearSelection,
+    visibilitySettings, showTrash, filters, onSort,
+    selectedOrders, onToggleSelection,
     onBlingUpdate,
     onStockCheckUpdate,
     highlightOrderId,
@@ -63,15 +74,15 @@ const OrderHistoryTable = ({
     const isMobile = width < 1024 || 
                      window.location.search.includes('auth_email') || 
                      window.location.pathname.includes('/mobile') || 
-                     Boolean((window as any).ReactNativeWebView);
+                     Boolean((window as Window & { ReactNativeWebView?: unknown }).ReactNativeWebView);
     const containerRef = React.useRef<HTMLDivElement>(null);
     const settings = getSettings();
 
     useAutoScroll(containerRef, {
         direction: 'horizontal',
-        threshold: (settings as any).autoScroll?.threshold || 100,
-        maxSpeed: (settings as any).autoScroll?.speed || 1,
-        enabled: settings.autoScroll.orderTable
+        threshold: (settings as { autoScroll?: { threshold?: number; speed?: number; orderTable?: boolean } }).autoScroll?.threshold || 100,
+        maxSpeed: (settings as { autoScroll?: { threshold?: number; speed?: number; orderTable?: boolean } }).autoScroll?.speed || 1,
+        enabled: settings.autoScroll?.orderTable ?? false
     });
 
     const [orderedColumns, setOrderedColumns] = React.useState<ColumnDef[]>(() => {
@@ -83,7 +94,7 @@ const OrderHistoryTable = ({
                 const savedKeys = new Set(savedColumns.map(column => column.key));
                 const missingColumns = COLUMNS_DEF.filter(column => !savedKeys.has(column.key));
                 return savedColumns.length > 0 ? [...savedColumns, ...missingColumns] : COLUMNS_DEF;
-            } catch (e) {
+            } catch {
                 return COLUMNS_DEF;
             }
         }
@@ -95,7 +106,7 @@ const OrderHistoryTable = ({
 
     React.useEffect(() => {
         localStorage.setItem('order_table_column_order', JSON.stringify(columnsToRender.map(c => c.key)));
-    }, [orderedColumns]);
+    }, [orderedColumns, columnsToRender]);
 
     // Scroll to highlighted order
     React.useEffect(() => {
@@ -150,16 +161,31 @@ const OrderHistoryTable = ({
                                     const sortableKeys = ['id', 'orderDate', 'deliveryDate', 'customer', 'totalValue', 'status'];
                                     const isSortable = sortableKeys.includes(col.key);
                                     // Map keys for the backend
-                                    const sortByValueMap: any = { id: 'id', orderDate: 'date', deliveryDate: 'deliveryDate', customer: 'customer', totalValue: 'totalValue', status: 'status' };
-                                    const sortByKey = sortByValueMap[col.key];
+                                    const sortByValueMap: Partial<Record<keyof VisibilitySettings, string>> = {
+                                        id: 'id',
+                                        orderDate: 'date',
+                                        deliveryDate: 'deliveryDate',
+                                        customer: 'customer',
+                                        totalValue: 'totalValue',
+                                        actions: undefined
+                                    };
+                                    const sortByKey = sortByValueMap[col.key] ?? (col.key as string);
                                     
                                     const multiSort = filters?.multiSort || [];
-                                    const sortIndex = multiSort.findIndex((s: any) => s.key === sortByKey);
+                                    const sortIndex = multiSort.findIndex((s) => s.key === sortByKey);
                                     const isSorted = sortIndex !== -1;
                                     const activeSort = isSorted ? multiSort[sortIndex] : null;
                                     const sortOrder = activeSort?.order || 'desc';
 
                                     if (!isVisible) return null;
+
+                                    const handleSortClick = (e: React.MouseEvent | React.KeyboardEvent) => {
+                                        if (!isSortable) return;
+                                        e.stopPropagation();
+                                        const isMulti = e.shiftKey || e.ctrlKey || e.metaKey;
+                                        const newOrder = isSorted && sortOrder === 'desc' ? 'asc' : 'desc';
+                                        onSort?.(sortByKey, newOrder, isMulti);
+                                    };
 
                                     return (
                                         <th
@@ -173,14 +199,16 @@ const OrderHistoryTable = ({
                                         >
                                             <div className={`flex items-center gap-1 ${col.align === 'text-right' ? 'justify-end' : col.align === 'text-center' ? 'justify-center' : ''}`}>
                                                 <div 
-                                                    onClick={(e) => {
-                                                        if (!isSortable) return;
-                                                        e.stopPropagation();
-                                                        const isMulti = e.shiftKey || e.ctrlKey || e.metaKey;
-                                                        const newOrder = isSorted && sortOrder === 'desc' ? 'asc' : 'desc';
-                                                        onSort?.(sortByKey, newOrder, isMulti);
-                                                    }}
-                                                    className={`flex items-center group/header w-fit cursor-pointer select-none py-1.5 ${isSorted ? 'text-blue-600 dark:text-blue-400' : 'text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-400'}`}
+                                                    role={isSortable ? "button" : undefined}
+                                                    tabIndex={isSortable ? 0 : undefined}
+                                                    onClick={isSortable ? handleSortClick : undefined}
+                                                    onKeyDown={isSortable ? (e) => {
+                                                        if (e.key === 'Enter' || e.key === ' ') {
+                                                            e.preventDefault();
+                                                            handleSortClick(e);
+                                                        }
+                                                    } : undefined}
+                                                    className={`flex items-center group/header w-fit ${isSortable ? 'cursor-pointer select-none' : 'cursor-default'} py-1.5 ${isSorted ? 'text-blue-600 dark:text-blue-400' : 'text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-400'}`}
                                                 >
                                                     <i className="bi bi-grip-vertical text-slate-300 dark:text-slate-700 mr-0.5 opacity-0 group-hover/header:opacity-100 transition-opacity" />
                                                     <span>{labelText}</span>

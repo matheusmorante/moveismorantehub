@@ -17,18 +17,28 @@ interface CustomerSearchEntry {
 }
 
 interface Props {
-    onSelect: (customer: CustomerData) => void;
-    onClose: () => void;
-    onAddNew?: () => void;
-    initialSearch?: string;
+    readonly onSelect: (customer: CustomerData) => void;
+    readonly onClose: () => void;
+    readonly onAddNew?: () => void;
+    readonly initialSearch?: string;
 }
 
 const CustomerSearchModal = ({ onSelect, onClose, onAddNew, initialSearch = "" }: Props) => {
     const [search, setSearch] = useState(initialSearch);
     const [people, setPeople] = useState<Person[]>([]);
-    const [orders, setOrders] = useState<Order[]>([]);
+    const [orders, setOrders] = useState<Partial<Order>[]>([]);
     const [loadingPeople, setLoadingPeople] = useState(true);
     const [loadingOrders, setLoadingOrders] = useState(true);
+
+    useEffect(() => {
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if (e.key === "Escape") {
+                onClose();
+            }
+        };
+        window.addEventListener("keydown", handleKeyDown);
+        return () => window.removeEventListener("keydown", handleKeyDown);
+    }, [onClose]);
 
     useEffect(() => {
         // Fetch everyone to allow filtering matching the user's request
@@ -61,19 +71,19 @@ const CustomerSearchModal = ({ onSelect, onClose, onAddNew, initialSearch = "" }
         setLoadingOrders(true);
         getOrdersCustomerDataOnly()
             .then((data) => {
-                const mappedOrders = data
+                const mappedOrders: Partial<Order>[] = data
                     .filter(o => !o.deleted && o.customerData?.fullName)
                     .map(o => ({
                         id: o.id,
                         date: o.date,
                         customerData: o.customerData,
                         deleted: o.deleted
-                    } as any));
+                    }));
                 setOrders(mappedOrders);
                 setLoadingOrders(false);
             })
-            .catch((e) => {
-                console.error("Erro ao buscar histórico reduzido para busca de clientes:", e);
+            .catch((err: unknown) => {
+                console.error("Erro ao buscar histórico reduzido para busca de clientes:", err);
                 setOrders([]);
                 setLoadingOrders(false);
             });
@@ -190,12 +200,18 @@ const CustomerSearchModal = ({ onSelect, onClose, onAddNew, initialSearch = "" }
     const isLoading = loadingPeople || loadingOrders;
 
     return (
-        <div
-            className="fixed inset-0 z-[200] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-900/60 backdrop-blur-[3px] animate-fade-in"
-            onClick={onClose}
-        >
+        <div className="fixed inset-0 z-[200] flex items-end sm:items-center justify-center p-0 sm:p-4">
+            <button
+                type="button"
+                aria-label="Fechar busca avançada de clientes"
+                className="fixed inset-0 bg-slate-900/60 backdrop-blur-[3px] transition-opacity"
+                onClick={onClose}
+            />
             <div
-                className="bg-white dark:bg-slate-900 w-full max-w-2xl rounded-t-[2.5rem] sm:rounded-[2.5rem] shadow-2xl flex flex-col overflow-hidden animate-slide-up border-t sm:border border-slate-100 dark:border-slate-800"
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="customer-search-title"
+                className="relative z-10 bg-white dark:bg-slate-900 w-full max-w-2xl rounded-t-[2.5rem] sm:rounded-[2.5rem] shadow-2xl flex flex-col overflow-hidden border-t sm:border border-slate-100 dark:border-slate-800"
                 style={{ height: '90vh', maxHeight: '90vh' }}
                 onClick={e => e.stopPropagation()}
             >
@@ -206,7 +222,7 @@ const CustomerSearchModal = ({ onSelect, onClose, onAddNew, initialSearch = "" }
                             <i className="bi bi-people-fill text-white text-xl" />
                         </div>
                         <div>
-                            <h2 className="text-lg font-black text-slate-800 dark:text-slate-100 tracking-tight">
+                            <h2 id="customer-search-title" className="text-lg font-black text-slate-800 dark:text-slate-100 tracking-tight">
                                 Busca Avançada de Clientes
                             </h2>
                             <p className="text-[10px] uppercase font-black text-blue-600 dark:text-blue-400 tracking-widest mt-0.5">
@@ -217,6 +233,7 @@ const CustomerSearchModal = ({ onSelect, onClose, onAddNew, initialSearch = "" }
                     <div className="flex items-center gap-3">
                         {onAddNew && (
                             <button
+                                type="button"
                                 onClick={onAddNew}
                                 className="flex items-center gap-2 px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl transition-all shadow-lg shadow-emerald-200 dark:shadow-none active:scale-95 font-black text-[10px] uppercase tracking-widest"
                             >
@@ -225,6 +242,8 @@ const CustomerSearchModal = ({ onSelect, onClose, onAddNew, initialSearch = "" }
                             </button>
                         )}
                         <button
+                            type="button"
+                            aria-label="Fechar"
                             onClick={onClose}
                             className="p-2 hover:bg-blue-100 dark:hover:bg-blue-900/30 rounded-full transition-colors text-slate-400 hover:text-slate-600"
                         >
@@ -248,6 +267,8 @@ const CustomerSearchModal = ({ onSelect, onClose, onAddNew, initialSearch = "" }
                             />
                             {search && (
                                 <button
+                                    type="button"
+                                    aria-label="Limpar busca"
                                     onClick={() => setSearch('')}
                                     className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
                                 >
@@ -258,15 +279,18 @@ const CustomerSearchModal = ({ onSelect, onClose, onAddNew, initialSearch = "" }
 
                         {/* Type Tabs */}
                         <div className="flex gap-1.5 p-1 bg-slate-100 dark:bg-slate-950 rounded-xl w-fit">
-                            {[
-                                { id: 'all', label: 'Todos', icon: 'bi-grid' },
-                                { id: 'customer', label: 'Clientes', icon: 'bi-person' },
-                                { id: 'employee', label: 'Funcionários', icon: 'bi-person-badge' },
-                                { id: 'supplier', label: 'Fornecedores', icon: 'bi-truck' }
-                            ].map(tab => (
+                            {(
+                                [
+                                    { id: 'all', label: 'Todos', icon: 'bi-grid' },
+                                    { id: 'customer', label: 'Clientes', icon: 'bi-person' },
+                                    { id: 'employee', label: 'Funcionários', icon: 'bi-person-badge' },
+                                    { id: 'supplier', label: 'Fornecedores', icon: 'bi-truck' }
+                                ] as const
+                            ).map(tab => (
                                 <button
                                     key={tab.id}
-                                    onClick={() => setSelectedType(tab.id as any)}
+                                    type="button"
+                                    onClick={() => setSelectedType(tab.id)}
                                     className={`flex items-center gap-2 px-4 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${selectedType === tab.id ? 'bg-white dark:bg-slate-800 text-blue-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
                                 >
                                     <i className={`bi ${tab.icon}`} />
@@ -331,8 +355,17 @@ const CustomerSearchModal = ({ onSelect, onClose, onAddNew, initialSearch = "" }
                                 {filtered.map((c) => (
                                     <tr
                                         key={c.id}
+                                        role="button"
+                                        tabIndex={0}
                                         onClick={() => { onSelect(c.customerData); onClose(); }}
-                                        className="hover:bg-blue-50/60 dark:hover:bg-blue-900/10 cursor-pointer transition-colors group"
+                                        onKeyDown={(e) => {
+                                            if (e.key === 'Enter' || e.key === ' ') {
+                                                e.preventDefault();
+                                                onSelect(c.customerData);
+                                                onClose();
+                                            }
+                                        }}
+                                        className="hover:bg-blue-50/60 dark:hover:bg-blue-900/10 cursor-pointer transition-colors group focus:outline-none focus:bg-blue-50/80 dark:focus:bg-blue-900/20"
                                     >
                                         <td className="px-6 py-4">
                                             <div className="flex items-center gap-3">
@@ -400,6 +433,7 @@ const CustomerSearchModal = ({ onSelect, onClose, onAddNew, initialSearch = "" }
                         Clique em qualquer linha para selecionar o cliente
                     </p>
                     <button
+                        type="button"
                         onClick={onClose}
                         className="px-4 py-2 text-[10px] font-black uppercase tracking-widest text-slate-500 hover:text-red-500 transition-colors"
                     >

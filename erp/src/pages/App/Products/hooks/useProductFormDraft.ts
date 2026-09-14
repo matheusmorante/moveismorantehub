@@ -52,15 +52,17 @@ export function useProductFormDraft(
             hasChanged.current = false;
             toast.success("Rascunho salvo com sucesso!");
             return true;
-        } catch (error: any) {
+        } catch (error: unknown) {
             console.error('[Draft] Falha ao salvar rascunho:', error);
-            toast.error(`Erro ao salvar rascunho: ${error.message || 'Erro desconhecido'}`);
+            const msg = error instanceof Error ? error.message : 'Erro desconhecido';
+            toast.error(`Erro ao salvar rascunho: ${msg}`);
             return false;
         } finally {
             isSavingDraftRef.current = false;
             setIsSavingDraft(false);
         }
     }, [setFormData, hasChanged]);
+
 
     return {
         isSavingDraft,

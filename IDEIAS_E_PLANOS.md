@@ -306,6 +306,53 @@ Este arquivo centraliza planos, ideias e tarefas pendentes do projeto Morante Hu
   - Android Update ID: `01a091bb-4a85-71ac-a10f-9e4772aff91c`
   - Painel EAS: `https://expo.dev/accounts/morante/projects/mobile/updates/5c11788e-649a-4f2b-9fed-4ee9f7ecd121`
   - Mensagem: *"Fix Gemini AI agent key fallback and delivery map markers visibility"*
+- **Atualização da Chave do Gemini em Produção (Concluído com Sucesso - 13/09/2026)**:
+  - **Causa Raiz**: O banco de dados Supabase na tabela `settings` (registro `id: 'app'`) não possuía o campo `data.geminiApiKey` gravado, e o fallback de contingência no bundle mobile estava com string vazia. Além disso, `financialAiAssistantService.ts` consultava uma tabela inexistente (`secrets`).
+  - **Solução**:
+    1. Gravada a chave oficial ativa do Gemini diretamente na tabela `settings` (`id: 'app'`) no Supabase, permitindo que qualquer instância instalada recupere a chave dinamicamente.
+    2. Adicionado o fallback padrão ativo em `DEFAULT_GEMINI_API_KEY` dentro de `mobileAgentClient.ts` e exportado em `mobile/.env` (`EXPO_PUBLIC_GEMINI_API_KEY`).
+    3. Unificada a busca de chave de `financialAiAssistantService.ts` apontando para `MobileAgentClient.getApiKey()`.
+    4. Adicionado campo de gerenciamento da Chave de API do Gemini nas Configurações do ERP (`AIPromptsSection.tsx` e `settingsService.ts`).
+  - **Publicação OTA**:
+    - Branch: `production`
+    - Runtime Version: `1.6.0`
+    - Plataforma: `android`
+    - Update Group ID: `f9427258-bb13-46c8-9d9e-3c4039f17dce`
+    - Android Update ID: `01a09c33-ab44-70cf-bc81-e3892bd20e82`
+    - Painel EAS: `https://expo.dev/accounts/morante/projects/mobile/updates/f9427258-bb13-46c8-9d9e-3c4039f17dce`
+    - Mensagem: *"Fix-Gemini-AI-key-activation"*
+- **Ponteiro / Seta de Localização Branca no Mapa (Concluído com Sucesso - 13/09/2026)**:
+  - **Solicitação**: Alterar a cor da seta/ponteiro da minha localização no mapa do app para branca.
+  - **Arquivos alterados**:
+    - `mobile/src/features/logistics/components/deliveryMap/DeliveryMarker.tsx`: `color` atualizado para `#0f172a` (contorno de alto contraste) e `fill` para `#ffffff` (seta branca com sombra de elevação).
+    - `mobile/src/features/logistics/components/deliveryMap/DeliveryMapView.web.tsx`: SVG sincronizado com `fill="#ffffff"` e `stroke="#0f172a"`.
+  - **Publicação OTA**:
+    - Branch: `production`
+    - Runtime Version: `1.6.0`
+    - Plataforma: `android`
+    - Update Group ID: `cd0a097c-028d-4c10-8564-8c9c8b64db88`
+    - Android Update ID: `01a09c37-7852-73e4-bc18-28b6310b4448`
+    - Painel EAS: `https://expo.dev/accounts/morante/projects/mobile/updates/cd0a097c-028d-4c10-8564-8c9c8b64db88`
+    - Mensagem: *"White-navigation-pointer-color"*
+- **Redesign do Cabeçalho da Agenda & Correção de pointerEvents no Mobile (Concluído com Sucesso - 13/09/2026)**:
+  - **Solicitação**:
+    1. Remover o botão/banner "Entregas de hoje no mapa" da tela de Agenda.
+    2. Remover o subtítulo "Cronograma Logístico e Agendamentos".
+    3. Posicionar o botão seletor de período diretamente abaixo do título "Agenda".
+    4. Adicionar botão de 3 pontinhos (`MoreVertical`) no canto superior direito no lugar do antigo seletor.
+    5. Eliminar o warning de deprecação `props.pointerEvents is deprecated. Use style.pointerEvents` no React Native Web / Mobile.
+  - **Arquivos alterados**:
+    - `mobile/src/features/logistics/screens/NativeLogisticsScreen.tsx`: Novo layout do cabeçalho com alinhamento vertical do título com o seletor de período abaixo e botão de 3 pontinhos no topo direito; remoção do banner de mapa.
+    - `mobile/src/features/orders/components/MobileOrderCard.tsx`: Substituído o prop `pointerEvents="none"` por `pointerEvents: 'none'` nos estilos de `cancelledOverlay` e `stampContainer`.
+    - `mobile/src/features/products/components/MobileProductCard.tsx`: Substituído o prop `pointerEvents="box-none"` por `pointerEvents: 'box-none'` no estilo de `headerActions`.
+  - **Publicação OTA**:
+    - Branch: `production`
+    - Runtime Version: `1.6.0`
+    - Plataforma: `android`
+    - Update Group ID: `299e978d-f132-46d9-a564-9ef27d2f0f08`
+    - Android Update ID: `01a09c44-b12f-73e6-a541-9db4ad8639b3`
+    - Painel EAS: `https://expo.dev/accounts/morante/projects/mobile/updates/299e978d-f132-46d9-a564-9ef27d2f0f08`
+    - Mensagem: *"Fix-pointerEvents-and-agenda-header"*
 
 ---
 

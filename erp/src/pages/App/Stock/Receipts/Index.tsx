@@ -1,17 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { useReceipts } from './useReceipts';
-import { ReceiptsHeader } from './ReceiptsHeader';
-import { ReceiptsTable } from './ReceiptsTable';
-import ReceiptCard from './ReceiptCard';
+import { useReceipts } from './hooks/useReceipts';
+import { ReceiptsHeader } from './components/ReceiptsHeader';
+import { ReceiptsTable } from './components/ReceiptsTable';
+import { ReceiptCard } from './components/ReceiptCard';
 import ReceiptFormModal from './ReceiptFormModal';
 import ReceiptDetailsModal from './ReceiptDetailsModal';
-import ConfirmReverseModal from './ConfirmReverseModal';
+import { ConfirmReverseModal } from './modals/ConfirmReverseModal';
 import InboundInvoiceReceiptPickerModal from './InboundInvoiceReceiptPickerModal';
-import PurchaseReceiptPickerModal from './PurchaseReceiptPickerModal';
+import { PurchaseReceiptPickerModal } from './modals/PurchaseReceiptPickerModal';
 import { InboundInvoice } from '@/pages/utils/inboundNfe/inboundNfeTypes';
 import { fetchInboundInvoices } from '@/pages/utils/inboundNfe/inboundInvoicesService';
-import Purchase from '@/types/purchase.type';
+import Purchase from '@/pages/types/purchase.type';
 
 export default function ReceiptsPage() {
     const [searchParams] = useSearchParams();

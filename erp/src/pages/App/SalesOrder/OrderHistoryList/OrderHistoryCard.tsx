@@ -1,5 +1,6 @@
 import React from "react";
-import Order from "../../../types/order.type";
+import Order, { AssistanceItem } from "../../../types/order.type";
+import { Item } from "../../../types/items.type";
 import { getSettings } from '@/pages/utils/settingsService';
 import { formatCurrency, formatToBRDate, toTitleCase } from "../../../utils/formatters";
 import { formatOrderCode } from "../../../utils/orderCode";
@@ -12,23 +13,23 @@ import { OrderOperationalBadges } from "./OrderOperationalBadges";
 import { OrderOptionsMenu } from "./OrderOptionsMenu";
 
 interface OrderHistoryCardProps {
-    order: Order;
-    onEdit: (order: Order, initialStep?: number, highlightTemporary?: boolean, reconciliationMode?: boolean) => void;
-    onDelete: (id: string) => void;
-    onRestore: (id: string) => void;
-    onPermanentDelete: (id: string) => void;
-    onAction: (actionKey: string, order: Order) => void;
-    onStatusUpdate: (id: string, newStatus: Order['status']) => void;
-    showTrash?: boolean;
-    isSelected?: boolean;
-    onToggleSelection?: () => void;
-    isHighlighted?: boolean;
-    id?: string;
-    onFilterByOrderId?: (id: string) => void;
-    onBlingUpdate?: (id: string, value: boolean) => void;
-    onStockCheckUpdate?: (id: string, value: boolean, updatedItems?: any[], updatedAssistanceItems?: any[]) => void;
-    onViewDetails?: (order: Order) => void;
-    onShowPostSaleActions?: (order: Order) => void;
+    readonly order: Order;
+    readonly onEdit: (order: Order, initialStep?: number, highlightTemporary?: boolean, reconciliationMode?: boolean) => void;
+    readonly onDelete: (id: string) => void;
+    readonly onRestore: (id: string) => void;
+    readonly onPermanentDelete: (id: string) => void;
+    readonly onAction: (actionKey: string, order: Order) => void;
+    readonly onStatusUpdate: (id: string, newStatus: Order['status']) => void;
+    readonly showTrash?: boolean;
+    readonly isSelected?: boolean;
+    readonly onToggleSelection?: () => void;
+    readonly isHighlighted?: boolean;
+    readonly id?: string;
+    readonly onFilterByOrderId?: (id: string) => void;
+    readonly onBlingUpdate?: (id: string, value: boolean) => void;
+    readonly onStockCheckUpdate?: (id: string, value: boolean, updatedItems?: readonly Item[], updatedAssistanceItems?: readonly AssistanceItem[]) => void;
+    readonly onViewDetails?: (order: Order) => void;
+    readonly onShowPostSaleActions?: (order: Order) => void;
 }
 
 const OrderHistoryCard = ({
@@ -100,11 +101,30 @@ const OrderHistoryCard = ({
         else if (sched.time) timeDisplay = sched.time;
     }
 
+    const isInteractive = isDraft || canViewDetails;
+    const handleCardClick = () => {
+        if (isDraft) {
+            onEdit(order);
+        } else if (canViewDetails) {
+            onViewDetails?.(order);
+        }
+    };
+
+    const handleKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
+        if (isInteractive && (event.target === event.currentTarget) && (event.key === 'Enter' || event.key === ' ')) {
+            event.preventDefault();
+            handleCardClick();
+        }
+    };
+
     return (
         <div 
             id={id}
-            onClick={isDraft ? () => onEdit(order) : (canViewDetails ? () => onViewDetails?.(order) : undefined)}
-            className={`bg-white dark:bg-slate-900 min-h-fit border border-slate-200 dark:border-slate-800 ${isHighlighted ? 'animate-highlight' : ''} rounded-xl shadow-none transition-all relative overflow-visible ${isDraft || canViewDetails ? 'cursor-pointer' : 'cursor-default'}`}
+            role={isInteractive ? "button" : undefined}
+            tabIndex={isInteractive ? 0 : undefined}
+            onClick={isInteractive ? handleCardClick : undefined}
+            onKeyDown={isInteractive ? handleKeyDown : undefined}
+            className={`bg-white dark:bg-slate-900 min-h-fit border border-slate-200 dark:border-slate-800 ${isHighlighted ? 'animate-highlight' : ''} rounded-xl shadow-none transition-all relative overflow-visible ${isInteractive ? 'cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500' : 'cursor-default'}`}
         >
             {order.status === 'cancelled' && (
                 <CancelledOrderBadge 

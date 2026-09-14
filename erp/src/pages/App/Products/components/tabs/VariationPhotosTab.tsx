@@ -1,11 +1,11 @@
 import React, { useState } from "react";
-import VariationParentImagesSelectModal from "../VariationParentImagesSelectModal";
+import VariationParentImagesSelectModal from "../modals/VariationParentImagesSelectModal";
 import { MAX_VARIATION_IMAGES } from '@/pages/utils/productImageLimits';
 
 interface VariationPhotosTabProps {
-    images: string[];
-    parentImages: string[];
-    onChangeImages: (images: string[]) => void;
+    readonly images: readonly string[];
+    readonly parentImages: readonly string[];
+    readonly onChangeImages: (images: string[]) => void;
 }
 
 export const VariationPhotosTab: React.FC<VariationPhotosTabProps> = ({
@@ -49,7 +49,7 @@ export const VariationPhotosTab: React.FC<VariationPhotosTabProps> = ({
                     className="group relative aspect-square rounded-none border-2 border-dashed border-blue-300 dark:border-blue-800 hover:border-blue-500 bg-blue-50/40 dark:bg-blue-950/20 hover:bg-blue-50/80 dark:hover:bg-blue-900/30 transition-all flex flex-col items-center justify-center gap-2 text-center p-3 cursor-pointer shadow-xs hover:shadow-md"
                 >
                     <div className="w-10 h-10 rounded-xl bg-blue-600 text-white flex items-center justify-center shadow-md shadow-blue-500/30 group-hover:scale-110 transition-transform">
-                        <i className="bi bi-plus-lg text-lg" />
+                        <i className="bi bi-plus-lg text-lg" aria-hidden="true" />
                     </div>
                     <div>
                         <span className="text-xs font-black text-blue-600 dark:text-blue-400 block">
@@ -96,7 +96,7 @@ export const VariationPhotosTab: React.FC<VariationPhotosTabProps> = ({
                             {/* Badge Capa */}
                             {isCover && (
                                 <div className="absolute top-2 left-2 z-10 bg-blue-600 text-white text-[9px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full shadow-md border border-white/40 flex items-center gap-1">
-                                    <i className="bi bi-star-fill text-[8px]" />
+                                    <i className="bi bi-star-fill text-[8px]" aria-hidden="true" />
                                     Capa
                                 </div>
                             )}
@@ -104,6 +104,7 @@ export const VariationPhotosTab: React.FC<VariationPhotosTabProps> = ({
                             {/* Botão Remover/Desvincular */}
                             <button
                                 type="button"
+                                aria-label={`Desvincular foto ${index + 1}`}
                                 onClick={(e) => {
                                     e.stopPropagation();
                                     handleRemoveImage(index);
@@ -111,12 +112,12 @@ export const VariationPhotosTab: React.FC<VariationPhotosTabProps> = ({
                                 className="absolute top-2 right-2 z-10 w-7 h-7 bg-red-500 hover:bg-red-600 text-white rounded-full flex items-center justify-center shadow-md opacity-0 group-hover:opacity-100 transition-all hover:scale-110 cursor-pointer"
                                 title="Desvincular foto"
                             >
-                                <i className="bi bi-trash text-xs" />
+                                <i className="bi bi-trash text-xs" aria-hidden="true" />
                             </button>
 
                             {/* Dica de arrasto em hover */}
                             <div className="absolute inset-x-0 bottom-0 py-1 bg-gradient-to-t from-black/70 to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-[8px] font-black uppercase tracking-wider gap-1 pointer-events-none">
-                                <i className="bi bi-arrows-move" />
+                                <i className="bi bi-arrows-move" aria-hidden="true" />
                                 Arrastar
                             </div>
                         </div>
@@ -128,8 +129,8 @@ export const VariationPhotosTab: React.FC<VariationPhotosTabProps> = ({
             <VariationParentImagesSelectModal
                 isOpen={isSelectModalOpen}
                 onClose={() => setIsSelectModalOpen(false)}
-                parentImages={parentImages}
-                selectedImages={images}
+                parentImages={parentImages as string[]}
+                selectedImages={images as string[]}
                 maxSelection={MAX_VARIATION_IMAGES}
                 onConfirm={(selected) => onChangeImages(selected)}
             />
@@ -138,3 +139,4 @@ export const VariationPhotosTab: React.FC<VariationPhotosTabProps> = ({
 };
 
 export default VariationPhotosTab;
+

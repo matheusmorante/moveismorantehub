@@ -1,30 +1,49 @@
-import React from 'react';
-import { InboundInvoice } from '@/pages/utils/inboundNfe/inboundNfeTypes';
+import React, { useEffect } from 'react';
+import type { InboundInvoice } from '@/pages/utils/inboundNfe/inboundNfeTypes';
 import { formatCurrency } from '@/pages/utils/formatters';
 import { InboundInvoiceFiscalReview } from '../components/InboundInvoiceFiscalReview';
 
 interface InboundInvoiceDetailsModalProps {
-    invoice: InboundInvoice | null;
-    onClose: () => void;
+    readonly invoice: InboundInvoice | null;
+    readonly onClose: () => void;
 }
 
 export const InboundInvoiceDetailsModal: React.FC<InboundInvoiceDetailsModalProps> = ({
     invoice,
     onClose
 }) => {
+    useEffect(() => {
+        if (!invoice) return;
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if (e.key === 'Escape') onClose();
+        };
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [invoice, onClose]);
+
     if (!invoice) return null;
 
     return (
-        <div className="fixed inset-0 z-[999999] flex items-center justify-center p-3 sm:p-6">
-            <button aria-label="Fechar" className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={onClose} />
-            <div className="relative flex max-h-[90vh] w-full max-w-4xl flex-col overflow-hidden rounded-3xl bg-white shadow-2xl dark:bg-slate-900 animate-in fade-in zoom-in-95">
+        <div
+            className="fixed inset-0 z-[999999] flex items-center justify-center p-3 sm:p-6"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="invoice-details-modal-title"
+        >
+            <button
+                type="button"
+                aria-label="Fechar"
+                className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm cursor-default"
+                onClick={onClose}
+            />
+            <div className="relative flex max-h-[90vh] w-full max-w-4xl flex-col overflow-hidden rounded-3xl bg-white shadow-2xl dark:bg-slate-900 animate-in fade-in zoom-in-95 border border-slate-100 dark:border-slate-800">
                 <header className="flex items-center justify-between border-b border-slate-100 bg-slate-50/50 px-6 py-4 dark:border-slate-800 dark:bg-slate-950/40">
                     <div className="flex items-center gap-3">
                         <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-600/10 text-blue-600">
-                            <i className="bi bi-file-earmark-text text-lg" />
+                            <i className="bi bi-file-earmark-text text-lg" aria-hidden="true" />
                         </div>
                         <div>
-                            <h2 className="text-base font-black text-slate-800 dark:text-slate-100">
+                            <h2 id="invoice-details-modal-title" className="text-base font-black text-slate-800 dark:text-slate-100">
                                 NF-e #{invoice.nfeNumber} - Série {invoice.series}
                             </h2>
                             <p className="text-[11px] font-mono text-slate-400">
@@ -32,8 +51,13 @@ export const InboundInvoiceDetailsModal: React.FC<InboundInvoiceDetailsModalProp
                             </p>
                         </div>
                     </div>
-                    <button type="button" onClick={onClose} className="rounded-xl p-2 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800">
-                        <i className="bi bi-x-lg" />
+                    <button
+                        type="button"
+                        onClick={onClose}
+                        aria-label="Fechar"
+                        className="rounded-xl p-2 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                    >
+                        <i className="bi bi-x-lg" aria-hidden="true" />
                     </button>
                 </header>
 
@@ -76,11 +100,15 @@ export const InboundInvoiceDetailsModal: React.FC<InboundInvoiceDetailsModalProp
                                         <p className="text-xs font-bold text-slate-800 dark:text-slate-100">
                                             {item.quantity} {item.unit} × {formatCurrency(item.unitCost)}
                                         </p>
-                                        <p className="text-xs font-black text-emerald-600">
+                                        <p className="text-xs font-black text-emerald-600 dark:text-emerald-400">
                                             {formatCurrency(item.totalCost)}
                                         </p>
-                                        <p className="text-[10px] text-slate-500">Frete {formatCurrency(item.freightValue || 0)} · IPI {formatCurrency(item.ipiValue || 0)} ({Number(item.ipiPercent || 0).toFixed(2)}%)</p>
-                                        <p className="text-[10px] text-slate-500">ICMS {formatCurrency(item.icmsValue || 0)} ({Number(item.icmsPercent || 0).toFixed(2)}%) · ST {formatCurrency(item.icmsStValue || 0)}</p>
+                                        <p className="text-[10px] text-slate-500">
+                                            Frete {formatCurrency(item.freightValue || 0)} · IPI {formatCurrency(item.ipiValue || 0)} ({Number(item.ipiPercent || 0).toFixed(2)}%)
+                                        </p>
+                                        <p className="text-[10px] text-slate-500">
+                                            ICMS {formatCurrency(item.icmsValue || 0)} ({Number(item.icmsPercent || 0).toFixed(2)}%) · ST {formatCurrency(item.icmsStValue || 0)}
+                                        </p>
                                     </div>
                                 </div>
                             ))}
@@ -99,7 +127,11 @@ export const InboundInvoiceDetailsModal: React.FC<InboundInvoiceDetailsModalProp
                 </div>
 
                 <footer className="flex items-center justify-end border-t border-slate-100 bg-slate-50/50 p-4 dark:border-slate-800 dark:bg-slate-950/40">
-                    <button type="button" onClick={onClose} className="rounded-xl px-4 py-2.5 text-xs font-black uppercase text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800">
+                    <button
+                        type="button"
+                        onClick={onClose}
+                        className="rounded-xl px-4 py-2.5 text-xs font-black uppercase text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                    >
                         Fechar
                     </button>
                 </footer>
@@ -107,3 +139,5 @@ export const InboundInvoiceDetailsModal: React.FC<InboundInvoiceDetailsModalProp
         </div>
     );
 };
+
+export default InboundInvoiceDetailsModal;

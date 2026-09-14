@@ -1,32 +1,52 @@
-import { InboundInvoice } from '@/pages/utils/inboundNfe/inboundNfeTypes';
+import { useEffect } from 'react';
+import type { InboundInvoice } from '@/pages/utils/inboundNfe/inboundNfeTypes';
 import { formatCurrency } from '@/pages/utils/formatters';
 
-interface Props {
-    isOpen: boolean;
-    duplicateKey: string;
-    existingInvoice?: InboundInvoice | null;
-    onClose: () => void;
+interface InboundDuplicateKeyAlertModalProps {
+    readonly isOpen: boolean;
+    readonly duplicateKey: string;
+    readonly existingInvoice?: InboundInvoice | null;
+    readonly onClose: () => void;
 }
 
-const formatKeyChunked = (key: string) => {
+const formatKeyChunked = (key: string): string => {
     const clean = key.replace(/\D/g, '');
     if (!clean) return key;
     return clean.match(/.{1,4}/g)?.join(' ') || clean;
 };
 
-export function InboundDuplicateKeyAlertModal({ isOpen, duplicateKey, existingInvoice, onClose }: Props) {
+export function InboundDuplicateKeyAlertModal({ isOpen, duplicateKey, existingInvoice, onClose }: InboundDuplicateKeyAlertModalProps) {
+    useEffect(() => {
+        if (!isOpen) return;
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if (e.key === 'Escape') onClose();
+        };
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [isOpen, onClose]);
+
     if (!isOpen) return null;
 
     return (
-        <div className="fixed inset-0 z-[1000005] flex items-center justify-center p-4">
-            <div className="absolute inset-0 bg-slate-950/70 backdrop-blur-sm" onClick={onClose} />
+        <div
+            className="fixed inset-0 z-[1000005] flex items-center justify-center p-4"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="duplicate-key-modal-title"
+        >
+            <button
+                type="button"
+                aria-label="Fechar alerta"
+                className="absolute inset-0 bg-slate-950/70 backdrop-blur-sm cursor-default"
+                onClick={onClose}
+            />
             <section className="relative w-full max-w-lg overflow-hidden rounded-3xl bg-white p-6 shadow-2xl dark:bg-slate-900 border border-amber-200 dark:border-amber-900/40 animate-in fade-in zoom-in-95 duration-200">
                 <div className="flex items-start gap-4">
                     <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-amber-100 text-amber-600 dark:bg-amber-950/60 dark:text-amber-400">
-                        <i className="bi bi-exclamation-triangle-fill text-2xl" />
+                        <i className="bi bi-exclamation-triangle-fill text-2xl" aria-hidden="true" />
                     </div>
                     <div className="flex-1 min-w-0">
-                        <h3 className="text-lg font-black text-slate-800 dark:text-slate-100">
+                        <h3 id="duplicate-key-modal-title" className="text-lg font-black text-slate-800 dark:text-slate-100">
                             Nota Fiscal Já Cadastrada
                         </h3>
                         <p className="mt-1 text-xs font-semibold text-slate-500 dark:text-slate-400">
@@ -36,9 +56,10 @@ export function InboundDuplicateKeyAlertModal({ isOpen, duplicateKey, existingIn
                     <button
                         type="button"
                         onClick={onClose}
-                        className="rounded-xl p-1.5 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"
+                        aria-label="Fechar"
+                        className="rounded-xl p-1.5 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
                     >
-                        <i className="bi bi-x-lg text-lg" />
+                        <i className="bi bi-x-lg text-lg" aria-hidden="true" />
                     </button>
                 </div>
 
@@ -85,3 +106,5 @@ export function InboundDuplicateKeyAlertModal({ isOpen, duplicateKey, existingIn
         </div>
     );
 }
+
+export default InboundDuplicateKeyAlertModal;

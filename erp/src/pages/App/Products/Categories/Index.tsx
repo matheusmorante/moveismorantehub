@@ -4,19 +4,28 @@ import { fetchGroupsAndCategories, createCategory, updateCategory, deleteCategor
 import { ecommerceSupabase as supabase } from '@/pages/utils/supabaseConfig';
 import { PRODUCT_ENVIRONMENT_OPTIONS } from '../productEnvironmentOptions';
 
-const FIXED_ENVIRONMENTS = PRODUCT_ENVIRONMENT_OPTIONS;
+const FIXED_ENVIRONMENTS: readonly string[] = PRODUCT_ENVIRONMENT_OPTIONS;
 
-const Categories = () => {
-    const [categories, setCategories] = useState<any[]>([]);
+export interface CategoryNode {
+    id: string;
+    name: string;
+    parents?: string[];
+    slug?: string;
+    children?: string[];
+}
+
+const Categories: React.FC = () => {
+    const [categories, setCategories] = useState<CategoryNode[]>([]);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
 
     // Form States
     const [showModal, setShowModal] = useState<"ambiente" | "categoria" | null>(null);
-    const [editingNode, setEditingNode] = useState<any>(null);
+    const [editingNode, setEditingNode] = useState<CategoryNode | null>(null);
     const [nameInput, setNameInput] = useState("");
     const [selectedEnvironments, setSelectedEnvironments] = useState<string[]>([]);
     const [selectedChildren, setSelectedChildren] = useState<string[]>([]);
+
 
     const handleImportCSV = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
@@ -104,8 +113,9 @@ const Categories = () => {
 
                 toast.success(`Importação concluída! ${createdCatsCount} itens criados e ${createdRelsCount} relacionamentos vinculados.`);
                 loadData(true);
-            } catch (err: any) {
-                toast.error("Erro ao importar CSV: " + err.message);
+            } catch (err: unknown) {
+                const message = err instanceof Error ? err.message : String(err);
+                toast.error("Erro ao importar CSV: " + message);
             }
         };
         reader.readAsText(file);
@@ -120,8 +130,8 @@ const Categories = () => {
         else setRefreshing(true);
         try {
             const data = await fetchGroupsAndCategories();
-            setCategories(data.categories);
-        } catch (error) {
+            setCategories(data.categories || []);
+        } catch {
             toast.error("Erro ao carregar dados.");
         } finally {
             if (!silent) setLoading(false);
@@ -159,7 +169,7 @@ const Categories = () => {
             }
             closeForm();
             loadData(true);
-        } catch (error) {
+        } catch {
             toast.error("Erro ao salvar.");
         }
     };
@@ -183,7 +193,7 @@ const Categories = () => {
             await deleteCategory(id);
             toast.success(isEnv ? "Ambiente excluído!" : "Categoria excluída!");
             loadData(true);
-        } catch (error) {
+        } catch {
             toast.error("Erro ao excluir.");
         }
     };
@@ -196,8 +206,9 @@ const Categories = () => {
         setSelectedChildren([]);
     };
 
-    const openEdit = (node: any, isEnv: boolean) => {
+    const openEdit = (node: CategoryNode, isEnv: boolean) => {
         setEditingNode(node);
+
         setNameInput(node.name);
         if (isEnv) {
             setShowModal("ambiente");
@@ -313,17 +324,29 @@ const Categories = () => {
 
             {/* Modal para formulário unificado */}
             {showModal && (
-                <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4">
-                    <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={closeForm} />
+                <div 
+                    role="dialog"
+                    aria-modal="true"
+                    aria-labelledby="categories-modal-title"
+                    onKeyDown={(e) => { if (e.key === 'Escape') closeForm(); }}
+                    className="fixed inset-0 z-[1000] flex items-center justify-center p-4"
+                >
+                    <button 
+                        type="button"
+                        aria-label="Fechar modal de categoria"
+                        className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm border-0 cursor-default" 
+                        onClick={closeForm} 
+                    />
                     <form onSubmit={handleSave} className="relative bg-white dark:bg-slate-900 w-full max-w-lg rounded-2xl shadow-2xl p-6 border border-slate-100 dark:border-slate-800 flex flex-col gap-4 animate-in zoom-in-95 duration-200 text-slate-800 dark:text-slate-200">
                         <div className="flex items-center justify-between border-b pb-3">
-                            <h3 className="text-base font-bold text-slate-850 dark:text-slate-100">
+                            <h3 id="categories-modal-title" className="text-base font-bold text-slate-850 dark:text-slate-100">
                                 {editingNode ? `Editar ${showModal === "ambiente" ? "Ambiente" : "Categoria"}` : `Novo ${showModal === "ambiente" ? "Ambiente" : "Categoria"}`}
                             </h3>
-                            <button type="button" onClick={closeForm} className="text-slate-400 hover:text-slate-650 transition-colors">
+                            <button type="button" onClick={closeForm} aria-label="Fechar" className="text-slate-400 hover:text-slate-650 transition-colors">
                                 <i className="bi bi-x-lg text-lg"></i>
                             </button>
                         </div>
+
 
                         <div className="flex flex-col gap-1.5">
                             <label className="text-xs font-bold text-slate-500">Tipo</label>

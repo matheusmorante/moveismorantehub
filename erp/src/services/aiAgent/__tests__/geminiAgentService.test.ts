@@ -44,14 +44,14 @@ describe('GeminiAgentService - Agente Conversacional & Loop de Tool Calling', ()
         {
           content: {
             role: 'model',
-            parts: [{ text: 'Olá! Sou Lisandro, posso ajudar com lançamentos financeiros e gestão do ERP.' }],
+            parts: [{ text: 'Olá! Sou Lizandro, posso ajudar com lançamentos financeiros e gestão do ERP.' }],
           },
         },
       ],
     }));
 
     const { result, updatedHistory } = await GeminiAgentService.sendMessage('Olá, quem é você?');
-    expect(result.answer).toContain('Lisandro');
+    expect(result.answer).toContain('Lizandro');
     expect(result.executedTools).toHaveLength(0);
     expect(updatedHistory).toHaveLength(2); // 1 user + 1 model
   });

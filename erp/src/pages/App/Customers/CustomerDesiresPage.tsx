@@ -28,35 +28,54 @@ const CustomerDesiresPage = () => {
 
     const fetchData = async () => {
         setLoading(true);
-        const { data: desiresData } = await supabase
-            .from('customer_desires')
-            .select('*')
-            .order('created_at', { ascending: false });
+        try {
+            const { data: desiresData, error: desiresError } = await supabase
+                .from('customer_desires')
+                .select('*')
+                .order('created_at', { ascending: false });
 
-        const { data: matchesData } = await supabase
-            .from('desire_matches')
-            .select('*, product:products(description, unit_price), desire:customer_desires(*)')
-            .eq('notified', false);
+            if (desiresError) throw desiresError;
 
-        setDesires(desiresData || []);
-        setMatches(matchesData || []);
-        setLoading(false);
+            const { data: matchesData, error: matchesError } = await supabase
+                .from('desire_matches')
+                .select('*, product:products(description, unit_price), desire:customer_desires(*)')
+                .eq('notified', false);
+
+            if (matchesError) throw matchesError;
+
+            setDesires(desiresData || []);
+            setMatches(matchesData || []);
+        } catch (err: unknown) {
+            console.error("Erro ao carregar lista de desejos:", err);
+        } finally {
+            setLoading(false);
+        }
     };
 
     const markAsNotified = async (matchId: string) => {
-        await supabase
-            .from('desire_matches')
-            .update({ notified: true })
-            .eq('id', matchId);
-        fetchData();
+        try {
+            const { error } = await supabase
+                .from('desire_matches')
+                .update({ notified: true })
+                .eq('id', matchId);
+            if (error) throw error;
+            void fetchData();
+        } catch (err: unknown) {
+            console.error("Erro ao marcar desejo como notificado:", err);
+        }
     };
 
     const updateDesireStatus = async (desireId: string, status: string) => {
-        await supabase
-            .from('customer_desires')
-            .update({ status })
-            .eq('id', desireId);
-        fetchData();
+        try {
+            const { error } = await supabase
+                .from('customer_desires')
+                .update({ status })
+                .eq('id', desireId);
+            if (error) throw error;
+            void fetchData();
+        } catch (err: unknown) {
+            console.error("Erro ao atualizar status do desejo:", err);
+        }
     };
 
     return (
@@ -114,10 +133,10 @@ const CustomerDesiresPage = () => {
                         <table className="w-full text-left">
                             <thead className="bg-slate-50 dark:bg-slate-950/50">
                                 <tr>
-                                    <th className="px-8 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400">Cliente</th>
-                                    <th className="px-8 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400">Produto Desejado</th>
-                                    <th className="px-8 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400">Status</th>
-                                    <th className="px-8 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400">Ação</th>
+                                     <th scope="col" className="px-8 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400">Cliente</th>
+                                     <th scope="col" className="px-8 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400">Produto Desejado</th>
+                                     <th scope="col" className="px-8 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400">Status</th>
+                                     <th scope="col" className="px-8 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400">Ação</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-50 dark:divide-slate-800">
@@ -143,6 +162,7 @@ const CustomerDesiresPage = () => {
                                         <td className="px-8 py-6">
                                             <select 
                                                 value={desire.status}
+                                                aria-label={`Atualizar status do desejo de ${desire.customer_name || 'cliente'}`}
                                                 onChange={(e) => updateDesireStatus(desire.id!, e.target.value)}
                                                 className="bg-transparent border-none text-[10px] font-black uppercase tracking-widest text-blue-600 focus:ring-0 cursor-pointer"
                                             >

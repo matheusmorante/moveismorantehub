@@ -36,8 +36,8 @@ const StockPage = () => {
                 const parsed = JSON.parse(saved);
                 return parsed?.product || null;
             }
-        } catch (e) {
-            console.error("Erro ao carregar produto selecionado do localStorage:", e);
+        } catch (err: unknown) {
+            console.warn("Erro ao carregar produto selecionado do localStorage:", err);
         }
         return null;
     });
@@ -49,15 +49,19 @@ const StockPage = () => {
                 const parsed = JSON.parse(saved);
                 return parsed?.variation || undefined;
             }
-        } catch (e) {
-            console.error("Erro ao carregar variação selecionada do localStorage:", e);
+        } catch (err: unknown) {
+            console.warn("Erro ao carregar variação selecionada do localStorage:", err);
         }
         return undefined;
     });
 
-    const [activeTab, setActiveTab] = useState<'history' | 'audit' | 'purchases'>(
-        (searchParams.get('tab') as any) || 'history'
-    );
+    const [activeTab, setActiveTab] = useState<'history' | 'audit' | 'purchases'>(() => {
+        const tabParam = searchParams.get('tab');
+        if (tabParam === 'audit' || tabParam === 'purchases') {
+            return tabParam;
+        }
+        return 'history';
+    });
     const [purchaseForStockEntry, setPurchaseForStockEntry] = useState<Purchase | null>(null);
 
     const handleSelectProduct = (prod: Product | null, v?: Variation) => {

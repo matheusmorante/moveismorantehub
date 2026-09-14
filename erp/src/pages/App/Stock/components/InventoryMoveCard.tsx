@@ -1,19 +1,19 @@
 import React from "react";
-import InventoryMove from "../../../types/inventoryMove.type";
-import { formatDateTime } from "../../../utils/formatters";
+import type InventoryMove from "@/pages/types/inventoryMove.type";
+import { formatDateTime } from "@/pages/utils/formatters";
 
 interface InventoryMoveCardProps {
-    move: InventoryMove;
-    cleanObs: string;
-    isReversed: boolean;
-    isExpanded: boolean;
-    isOrderLinked: boolean;
-    onToggleExpand: () => void;
-    onEdit?: () => void;
-    onDelete?: () => void;
+    readonly move: InventoryMove;
+    readonly cleanObs: string;
+    readonly isReversed: boolean;
+    readonly isExpanded: boolean;
+    readonly isOrderLinked: boolean;
+    readonly onToggleExpand: () => void;
+    readonly onEdit?: () => void;
+    readonly onDelete?: () => void;
 }
 
-const InventoryMoveCard: React.FC<InventoryMoveCardProps> = ({
+export const InventoryMoveCard: React.FC<InventoryMoveCardProps> = ({
     move,
     cleanObs,
     isReversed,
@@ -34,13 +34,14 @@ const InventoryMoveCard: React.FC<InventoryMoveCardProps> = ({
         ? 'bg-rose-100/50 text-rose-600 dark:bg-rose-950/20 dark:text-rose-400'
         : 'bg-amber-500/15 text-amber-600 dark:bg-amber-950/30 dark:text-amber-400 border border-amber-500/20';
 
+    const numQuantity = Number(move.quantity);
     const quantityFormatted = isExit
-        ? `-${Math.abs(move.quantity)}`
+        ? `-${Math.abs(numQuantity)}`
         : isEntry
-        ? `+${move.quantity}`
-        : Number(move.quantity) > 0
-        ? `+${move.quantity}`
-        : String(move.quantity);
+        ? `+${numQuantity}`
+        : numQuantity > 0
+        ? `+${numQuantity}`
+        : String(numQuantity);
 
     const quantityColor = isReversed
         ? 'text-slate-400 dark:text-slate-500 line-through'
@@ -77,7 +78,7 @@ const InventoryMoveCard: React.FC<InventoryMoveCardProps> = ({
                             ? 'bg-amber-50 text-amber-700 border border-amber-300 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800/50'
                             : 'bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-900/50'
                     }`}>
-                        <i className={`bi ${isReversed ? 'bi-arrow-counterclockwise' : 'bi-check-circle-fill'} text-[10px]`}></i>
+                        <i className={`bi ${isReversed ? 'bi-arrow-counterclockwise' : 'bi-check-circle-fill'} text-[10px]`} aria-hidden="true" />
                         {isReversed ? 'Estornada' : 'Efetivada'}
                     </span>
 
@@ -96,11 +97,11 @@ const InventoryMoveCard: React.FC<InventoryMoveCardProps> = ({
 
                     <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider shrink-0 ${typeBadgeBg}`}>
                         {isEntry ? (
-                            <><i className="bi bi-box-arrow-up text-xs"></i> Entrada</>
+                            <><i className="bi bi-box-arrow-up text-xs" aria-hidden="true" /> Entrada</>
                         ) : isExit ? (
-                            <><i className="bi bi-box-arrow-down text-xs"></i> Saída</>
+                            <><i className="bi bi-box-arrow-down text-xs" aria-hidden="true" /> Saída</>
                         ) : (
-                            <><span className="inline-flex items-center gap-0.5"><i className="bi bi-box-seam text-xs"></i><i className="bi bi-wrench text-[9px]"></i></span> Ajuste</>
+                            <><span className="inline-flex items-center gap-0.5"><i className="bi bi-box-seam text-xs" aria-hidden="true" /><i className="bi bi-wrench text-[9px]" aria-hidden="true" /></span> Ajuste</>
                         )}
                     </span>
                 </div>
@@ -108,7 +109,7 @@ const InventoryMoveCard: React.FC<InventoryMoveCardProps> = ({
                 {/* Motivo da criação */}
                 {cleanObs && (
                     <div className="text-xs font-medium text-slate-600 dark:text-slate-300 flex items-start gap-2 bg-slate-50 dark:bg-slate-800/40 p-2.5 rounded-xl border border-slate-100 dark:border-slate-800/50">
-                        <i className="bi bi-chat-left-text text-xs text-slate-400 mt-0.5 shrink-0"></i>
+                        <i className="bi bi-chat-left-text text-xs text-slate-400 mt-0.5 shrink-0" aria-hidden="true" />
                         <div className="break-words flex-1">
                             <span className="mr-1 font-extrabold text-[10px] uppercase tracking-widest text-slate-500 dark:text-slate-400">Motivo da movimentação:</span>
                             {cleanObs.length > 90 && !isExpanded ? (
@@ -116,7 +117,8 @@ const InventoryMoveCard: React.FC<InventoryMoveCardProps> = ({
                                     <span>{cleanObs.slice(0, 90)}...</span>
                                     <button 
                                         type="button" 
-                                        onClick={onToggleExpand} 
+                                        onClick={onToggleExpand}
+                                        aria-expanded={isExpanded}
                                         className="text-blue-500 hover:text-blue-600 font-bold text-xs ml-1.5 underline cursor-pointer"
                                     >
                                         Ler mais
@@ -128,7 +130,8 @@ const InventoryMoveCard: React.FC<InventoryMoveCardProps> = ({
                                     {cleanObs.length > 90 && (
                                         <button 
                                             type="button" 
-                                            onClick={onToggleExpand} 
+                                            onClick={onToggleExpand}
+                                            aria-expanded={isExpanded}
                                             className="text-blue-500 hover:text-blue-600 font-bold text-xs ml-1.5 underline cursor-pointer"
                                         >
                                             Ler menos
@@ -143,7 +146,7 @@ const InventoryMoveCard: React.FC<InventoryMoveCardProps> = ({
                 {/* Motivo do Estorno */}
                 {isReversed && reasonText && (
                     <div className="text-xs font-bold text-rose-700 dark:text-rose-300 flex items-start gap-2 bg-rose-50/90 dark:bg-rose-950/40 p-2.5 rounded-xl border border-rose-200/70 dark:border-rose-900/50">
-                        <i className="bi bi-arrow-counterclockwise text-sm text-rose-500 mt-0.5 shrink-0"></i>
+                        <i className="bi bi-arrow-counterclockwise text-sm text-rose-500 mt-0.5 shrink-0" aria-hidden="true" />
                         <div className="break-words flex-1">
                             <span className="font-extrabold uppercase text-[10px] tracking-widest text-rose-500 dark:text-rose-400 mr-1">Motivo do estorno:</span>
                             {reasonText.length > 90 && !isExpanded ? (
@@ -151,7 +154,8 @@ const InventoryMoveCard: React.FC<InventoryMoveCardProps> = ({
                                     <span>{reasonText.slice(0, 90)}...</span>
                                     <button 
                                         type="button" 
-                                        onClick={onToggleExpand} 
+                                        onClick={onToggleExpand}
+                                        aria-expanded={isExpanded}
                                         className="text-rose-600 hover:text-rose-700 dark:text-rose-300 font-black text-xs ml-1.5 underline cursor-pointer"
                                     >
                                         Ler mais
@@ -163,7 +167,8 @@ const InventoryMoveCard: React.FC<InventoryMoveCardProps> = ({
                                     {reasonText.length > 90 && (
                                         <button 
                                             type="button" 
-                                            onClick={onToggleExpand} 
+                                            onClick={onToggleExpand}
+                                            aria-expanded={isExpanded}
                                             className="text-rose-600 hover:text-rose-700 dark:text-rose-300 font-black text-xs ml-1.5 underline cursor-pointer"
                                         >
                                             Ler menos
@@ -181,11 +186,11 @@ const InventoryMoveCard: React.FC<InventoryMoveCardProps> = ({
                 <div>
                     {isReversed ? (
                         <span className="text-[10px] font-black text-rose-500 dark:text-rose-400 uppercase tracking-widest flex items-center gap-1">
-                            <i className="bi bi-x-circle"></i> Sem Efeito
+                            <i className="bi bi-x-circle" aria-hidden="true" /> Sem Efeito
                         </span>
                     ) : isOrderLinked ? (
                         <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 flex items-center gap-1" title="O estorno é realizado pelo status do pedido">
-                            <i className="bi bi-lock-fill text-xs"></i> Vinculado ao Pedido
+                            <i className="bi bi-lock-fill text-xs" aria-hidden="true" /> Vinculado ao Pedido
                         </span>
                     ) : null}
                 </div>
@@ -198,7 +203,7 @@ const InventoryMoveCard: React.FC<InventoryMoveCardProps> = ({
                                 onClick={onEdit}
                                 className="px-3 py-1 text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors flex items-center gap-1.5 cursor-pointer"
                             >
-                                <i className="bi bi-pencil text-xs"></i> Editar
+                                <i className="bi bi-pencil text-xs" aria-hidden="true" /> Editar
                             </button>
                         )}
                         {onDelete && (
@@ -207,7 +212,7 @@ const InventoryMoveCard: React.FC<InventoryMoveCardProps> = ({
                                 onClick={onDelete}
                                 className="px-3 py-1 text-xs font-bold text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30 rounded-lg transition-colors flex items-center gap-1.5 cursor-pointer"
                             >
-                                <i className="bi bi-arrow-counterclockwise text-xs"></i> Estornar
+                                <i className="bi bi-arrow-counterclockwise text-xs" aria-hidden="true" /> Estornar
                             </button>
                         )}
                     </div>

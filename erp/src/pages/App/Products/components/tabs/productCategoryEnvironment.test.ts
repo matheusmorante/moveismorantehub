@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
     filterProductSelectableCategories,
     getProductCategoryRootNames,
+    searchProductCategories,
     type ProductCategoryOption,
 } from './productCategoryEnvironment';
 
@@ -22,5 +23,20 @@ describe('productCategoryEnvironment', () => {
     it('encontra os ambientes raiz sem duplicá-los', () => {
         expect(getProductCategoryRootNames(['sofas', 'poltronas', 'missing'], categories))
             .toEqual(['SALA DE ESTAR']);
+    });
+
+    it('retorna vazio se o termo tiver menos de 2 caracteres', () => {
+        const selectable = filterProductSelectableCategories(categories);
+        expect(searchProductCategories(selectable, categories, '')).toEqual([]);
+        expect(searchProductCategories(selectable, categories, 's')).toEqual([]);
+    });
+
+    it('filtra categorias por nome ou ambiente com 2 ou mais caracteres ignorando acentos e maiúsculas', () => {
+        const selectable = filterProductSelectableCategories(categories);
+        // Busca por categoria
+        expect(searchProductCategories(selectable, categories, 'sofa').map(c => c.id)).toEqual(['sofas']);
+        expect(searchProductCategories(selectable, categories, 'SOFÁS').map(c => c.id)).toEqual(['sofas']);
+        // Busca por ambiente pai
+        expect(searchProductCategories(selectable, categories, 'cozinha').map(c => c.id)).toEqual(['mesas']);
     });
 });

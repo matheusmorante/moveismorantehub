@@ -98,7 +98,7 @@ export const MobileProductCard: React.FC<Props> = ({
         </View>
 
         {/* Atalhos: Editar Rápido e Menu de 3 Pontinhos */}
-        <View style={styles.headerActions} pointerEvents="box-none">
+        <View style={styles.headerActions}>
           <TouchableOpacity
             activeOpacity={0.7}
             onPress={(e) => {
@@ -321,6 +321,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
+    pointerEvents: 'box-none',
   },
   actionIconBtn: {
     width: 28,

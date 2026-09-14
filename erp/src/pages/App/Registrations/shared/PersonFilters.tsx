@@ -2,10 +2,10 @@ import React from "react";
 import { PersonFiltersData } from "./PersonPage";
 
 interface PersonFiltersProps {
-    filters: PersonFiltersData;
-    setFilters: React.Dispatch<React.SetStateAction<PersonFiltersData>>;
-    title: string;
-    collectionName: string;
+    readonly filters: PersonFiltersData;
+    readonly setFilters: React.Dispatch<React.SetStateAction<PersonFiltersData>>;
+    readonly title: string;
+    readonly collectionName: string;
 }
 
 const PersonFilters = ({ filters, setFilters, title, collectionName }: PersonFiltersProps) => {
@@ -29,7 +29,7 @@ const PersonFilters = ({ filters, setFilters, title, collectionName }: PersonFil
         <aside className="w-full bg-white dark:bg-slate-900 flex flex-col h-full overflow-y-auto transition-colors">
             <div className="p-4 md:p-8 border-b border-slate-50 dark:border-slate-800">
                 <h3 className="text-xl font-black text-slate-800 dark:text-slate-100 tracking-tight flex items-center gap-3">
-                    <i className="bi bi-filter-left text-blue-600 dark:text-blue-500"></i>
+                    <i className="bi bi-filter-left text-blue-600 dark:text-blue-500" aria-hidden="true" />
                     Filtros
                 </h3>
                 <p className="text-[10px] uppercase font-black text-slate-400 dark:text-slate-500 tracking-widest mt-1">Refine sua busca de {title.toLowerCase()}</p>
@@ -38,12 +38,14 @@ const PersonFilters = ({ filters, setFilters, title, collectionName }: PersonFil
             <div className="p-4 md:p-8 flex flex-col gap-6">
                 <div className="flex flex-col gap-6">
                     <div className="flex flex-col gap-2">
-                        <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">Busca</label>
+                        <label htmlFor="person-filter-search" className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">Busca</label>
                         <div className="relative">
-                            <i className="bi bi-search absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-600"></i>
+                            <i className="bi bi-search absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-600" aria-hidden="true" />
                             <input
+                                id="person-filter-search"
                                 type="text"
                                 name="search"
+                                aria-label={`Buscar ${title.toLowerCase()}`}
                                 value={filters.search}
                                 onChange={handleChange}
                                 placeholder={isEmployee ? "Nome, email ou CPF..." : "Nome, email ou CPF/CNPJ..."}
@@ -53,9 +55,11 @@ const PersonFilters = ({ filters, setFilters, title, collectionName }: PersonFil
                     </div>
 
                     <div className="flex flex-col gap-2">
-                        <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">Status</label>
+                        <label htmlFor="person-filter-status" className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">Status</label>
                          <select
+                            id="person-filter-status"
                             name="activeOnly"
+                            aria-label="Filtrar por status ativo ou inativo"
                             value={filters.activeOnly === undefined ? "" : String(filters.activeOnly)}
                             onChange={(e) => {
                                 const val = e.target.value;
@@ -74,10 +78,12 @@ const PersonFilters = ({ filters, setFilters, title, collectionName }: PersonFil
 
             <div className="mt-auto p-4 border-t border-slate-50 dark:border-slate-800">
                 <button
+                    type="button"
                     onClick={resetFilters}
-                    className="w-full py-4 text-xs font-black uppercase tracking-widest text-slate-400 dark:text-slate-600 hover:text-red-500 dark:hover:text-red-400 transition-colors flex items-center justify-center gap-2"
+                    aria-label="Limpar todos os filtros"
+                    className="w-full py-4 text-xs font-black uppercase tracking-widest text-slate-400 dark:text-slate-600 hover:text-red-500 dark:hover:text-red-400 transition-colors flex items-center justify-center gap-2 cursor-pointer"
                 >
-                    <i className="bi bi-arrow-counterclockwise"></i>
+                    <i className="bi bi-arrow-counterclockwise" aria-hidden="true" />
                     Limpar Filtros
                 </button>
             </div>

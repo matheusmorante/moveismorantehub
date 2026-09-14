@@ -198,14 +198,29 @@ export function SquareImageCropper({ imageUrl, onCancel, onConfirm }: SquareImag
         setSelection(createCenteredSquareSelection(container.clientWidth, container.clientHeight));
     };
 
+    useEffect(() => {
+        const handleKeyDown = (event: KeyboardEvent) => {
+            if (event.key === 'Escape' && !isApplying) {
+                onCancel();
+            }
+        };
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [onCancel, isApplying]);
+
     return (
-        <div className="fixed inset-0 z-[1000025] flex items-center justify-center bg-slate-950/80 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+        <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="cropper-dialog-title"
+            className="fixed inset-0 z-[1000025] flex items-center justify-center bg-slate-950/80 backdrop-blur-sm p-4 animate-in fade-in duration-200"
+        >
             <div className="w-full max-w-3xl rounded-3xl bg-white p-6 shadow-2xl dark:bg-slate-900 border border-slate-100 dark:border-slate-800 flex flex-col gap-4">
                 {/* Header */}
                 <div className="flex items-center justify-between">
                     <div>
-                        <h4 className="text-sm font-black text-slate-800 dark:text-slate-100 flex items-center gap-2">
-                            <i className="bi bi-crop text-blue-600" />
+                        <h4 id="cropper-dialog-title" className="text-sm font-black text-slate-800 dark:text-slate-100 flex items-center gap-2">
+                            <i className="bi bi-crop text-blue-600" aria-hidden="true" />
                             Recortar e Ajustar Foto do Produto (1:1)
                         </h4>
                         <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mt-0.5">
@@ -215,10 +230,11 @@ export function SquareImageCropper({ imageUrl, onCancel, onConfirm }: SquareImag
                     <button
                         type="button"
                         onClick={onCancel}
-                        className="w-8 h-8 flex items-center justify-center rounded-xl text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors"
+                        disabled={isApplying}
+                        className="w-8 h-8 flex items-center justify-center rounded-xl text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors cursor-pointer"
                         aria-label="Fechar"
                     >
-                        <i className="bi bi-x-lg" />
+                        <i className="bi bi-x-lg" aria-hidden="true" />
                     </button>
                 </div>
 
@@ -227,7 +243,7 @@ export function SquareImageCropper({ imageUrl, onCancel, onConfirm }: SquareImag
                     {/* Controle de Moldura Branca */}
                     <div className="flex items-center gap-3">
                         <span className="text-xs font-bold text-slate-700 dark:text-slate-200 flex items-center gap-1.5 whitespace-nowrap">
-                            <i className="bi bi-bounding-box text-blue-600" />
+                            <i className="bi bi-bounding-box text-blue-600" aria-hidden="true" />
                             Moldura Branca: <span className="text-blue-600 font-black min-w-[32px]">{paddingPercent}%</span>
                         </span>
                         <input
@@ -235,6 +251,7 @@ export function SquareImageCropper({ imageUrl, onCancel, onConfirm }: SquareImag
                             min="0"
                             max="35"
                             step="5"
+                            aria-label="Percentual de moldura branca"
                             value={paddingPercent}
                             onChange={(e) => setPaddingPercent(Number(e.target.value))}
                             className="w-28 h-1.5 accent-blue-600 cursor-pointer"
@@ -257,46 +274,47 @@ export function SquareImageCropper({ imageUrl, onCancel, onConfirm }: SquareImag
                             onClick={resetToFull}
                             className="flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-bold bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 shadow-sm transition-all cursor-pointer border border-slate-200/60 dark:border-slate-700/60"
                         >
-                            <i className="bi bi-arrows-fullscreen text-blue-600 text-[11px]" />
-                            Enquadrar Total
+                            <i className="bi bi-arrows-fullscreen text-blue-600 text-[11px]" aria-hidden="true" />
+                            Centralizar 1:1
                         </button>
                     </div>
                 </div>
 
-                {/* Viewport Quadrado 1:1 com Imagem e Recorte Simultâneos */}
-                <div className="relative h-[400px] max-h-[50vh] flex items-center justify-center overflow-hidden rounded-2xl bg-slate-950 p-3">
+                {/* Área de Visualização e Recorte */}
+                <div
+                    ref={containerRef}
+                    className="relative w-full aspect-square max-h-[500px] overflow-hidden rounded-2xl bg-slate-950 flex items-center justify-center select-none shadow-inner"
+                >
                     {loading && (
-                        <div className="flex flex-col items-center gap-2 text-white/70">
-                            <i className="bi bi-arrow-clockwise animate-spin text-3xl text-blue-500" />
-                            <span className="text-xs font-bold uppercase tracking-wider">Carregando foto...</span>
+                        <div className="flex flex-col items-center gap-3 text-white/70">
+                            <i className="bi bi-arrow-clockwise animate-spin text-2xl text-blue-500" aria-hidden="true" />
+                            <span className="text-xs font-bold">Carregando imagem...</span>
                         </div>
                     )}
 
                     {loadError && !loading && (
-                        <div className="flex flex-col items-center gap-2 text-red-400 p-6 text-center">
-                            <i className="bi bi-exclamation-triangle text-3xl" />
-                            <span className="text-xs font-bold">Não foi possível carregar esta foto para recorte.</span>
+                        <div className="flex flex-col items-center gap-3 text-red-400 p-6 text-center">
+                            <i className="bi bi-exclamation-triangle text-3xl" aria-hidden="true" />
+                            <span className="text-xs font-bold">Falha ao carregar a imagem original</span>
+                            <span className="text-[10px] opacity-70">A URL pode estar indisponível ou protegida por CORS.</span>
                         </div>
                     )}
 
                     {!loading && !loadError && (
-                        /* Container Quadrado 1:1 */
                         <div
-                            ref={containerRef}
-                            className="relative aspect-square h-full max-h-full bg-white rounded-none shadow-2xl flex items-center justify-center overflow-hidden select-none"
+                            className="relative flex items-center justify-center w-full h-full"
                             style={{
-                                padding: `${paddingPercent}%`
+                                padding: `${paddingPercent}%`,
+                                transition: 'padding 0.15s ease-out'
                             }}
                         >
-                            {/* Imagem Proporcional com Moldura Branca */}
+                            {/* Imagem do Produto Centralizada com Moldura Dinâmica */}
                             <img
                                 ref={imageRef}
                                 src={imageSrc}
-                                alt="Imagem para recorte"
-                                draggable={false}
+                                alt="Recorte do produto"
                                 onLoad={initializeSelection}
-                                onError={() => setLoadError(true)}
-                                className="w-full h-full object-contain pointer-events-none transition-all duration-150"
+                                className="max-w-full max-h-full object-contain pointer-events-none drop-shadow-md"
                             />
 
                             {/* Caixa de Recorte 1:1 Sobreposta */}
@@ -318,11 +336,11 @@ export function SquareImageCropper({ imageUrl, onCancel, onConfirm }: SquareImag
                                     onPointerCancel={() => { dragRef.current = null; }}
                                 >
                                     <span className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-white/95 px-3 py-1.5 text-[10px] font-black text-slate-700 shadow-md flex items-center gap-1.5 whitespace-nowrap">
-                                        <i className="bi bi-arrows-move text-blue-600" />
+                                        <i className="bi bi-arrows-move text-blue-600" aria-hidden="true" />
                                         Mova ou redimensione
                                     </span>
 
-                                    {(['nw', 'ne', 'sw', 'se'] as Corner[]).map(corner => (
+                                    {(['nw', 'ne', 'sw', 'se'] as const).map((corner: CropCorner) => (
                                         <span
                                             key={corner}
                                             onPointerDown={event => startResize(event, corner)}

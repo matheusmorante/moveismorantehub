@@ -3,18 +3,18 @@ import Person from "../../../types/person.type";
 import DropdownPortal from "../../../../components/shared/DropdownPortal";
 
 interface PersonCardProps {
-    person: Person;
-    onEdit: (person: Person) => void;
-    onDelete: (id: string) => void;
-    onRestore: (id: string) => void;
-    onPermanentDelete: (id: string) => void;
-    onToggleActive: (id: string, currentStatus: boolean) => void;
-    showTrash?: boolean;
-    isSelected?: boolean;
-    onToggleSelection?: () => void;
-    onViewPurchaseHistory?: (person: Person) => void;
-    productCount?: number;
-    allowsSelection?: boolean;
+    readonly person: Person;
+    readonly onEdit: (person: Person) => void;
+    readonly onDelete: (id: string) => void;
+    readonly onRestore: (id: string) => void;
+    readonly onPermanentDelete: (id: string) => void;
+    readonly onToggleActive: (id: string, currentStatus: boolean) => void;
+    readonly showTrash?: boolean;
+    readonly isSelected?: boolean;
+    readonly onToggleSelection?: () => void;
+    readonly onViewPurchaseHistory?: (person: Person) => void;
+    readonly productCount?: number;
+    readonly allowsSelection?: boolean;
 }
 
 const getRoleBadge = (role?: string) => {
@@ -58,6 +58,15 @@ const PersonCard = ({
 
     return (
         <div 
+            role={person.type !== 'employees' ? "button" : undefined}
+            tabIndex={person.type !== 'employees' ? 0 : undefined}
+            aria-label={person.type !== 'employees' ? `Editar ${person.fullName || 'registro'}` : undefined}
+            onKeyDown={(e) => {
+                if (person.type !== 'employees' && (e.key === 'Enter' || e.key === ' ')) {
+                    e.preventDefault();
+                    onEdit(person);
+                }
+            }}
             className={`bg-white dark:bg-slate-900 border ${isSelected ? 'border-blue-500 ring-1 ring-blue-500' : 'border-slate-100 dark:border-slate-800'} rounded-xl p-3 shadow-sm ${person.type !== 'employees' ? 'active:scale-[0.98] cursor-pointer' : ''} transition-all`}
             onClick={() => {
                 if (person.type !== 'employees') {

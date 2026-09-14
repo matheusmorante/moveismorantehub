@@ -1,28 +1,29 @@
 import React, { useState } from 'react';
-import Product from '../../../../types/product.type';
+import type Product from '../../../../types/product.type';
 import { compressImageToFile } from '@/pages/utils/imageUtils';
 import { uploadFile } from '@/pages/utils/storageService';
-import { parseVariationImages } from '@/pages/utils/productService';
 import { toast } from 'react-toastify';
 import { SquareImageCropper } from './SquareImageCropper';
 import { moveProductImage, replaceProductImage, setProductCoverImage } from './productImageOrdering';
 import { MAX_PARENT_PRODUCT_IMAGES } from '@/pages/utils/productImageLimits';
+
 interface ProductEcommerceTabProps {
-    formData: Partial<Product>;
-    setFormData: React.Dispatch<React.SetStateAction<Partial<Product>>>;
-    activeEcommerceSubTab?: 'vitrine' | 'photos' | 'descriptions' | 'logistics' | 'seo';
-    setActiveEcommerceSubTab?: React.Dispatch<React.SetStateAction<'vitrine' | 'photos' | 'descriptions' | 'logistics' | 'seo'>>;
-    isDraggingPhoto?: number;
-    setIsDraggingPhoto?: React.Dispatch<React.SetStateAction<number>>;
-    handleFileChange: (e: React.ChangeEvent<HTMLInputElement> | React.DragEvent | { files: File[] }) => void;
-    removingPhoto?: string | null;
-    removePhoto: (url: string) => void;
-    handleGenerateAIDescription?: (type: 'whatsapp' | 'ecommerce') => void;
-    isGeneratingDescription?: boolean;
-    handleGenerateMarketplaceTitle?: () => void;
-    isGeneratingTitle?: boolean;
-    handleToggleActive?: () => void;
+    readonly formData: Partial<Product>;
+    readonly setFormData: React.Dispatch<React.SetStateAction<Partial<Product>>>;
+    readonly activeEcommerceSubTab?: 'vitrine' | 'photos' | 'descriptions' | 'logistics' | 'seo';
+    readonly setActiveEcommerceSubTab?: React.Dispatch<React.SetStateAction<'vitrine' | 'photos' | 'descriptions' | 'logistics' | 'seo'>>;
+    readonly isDraggingPhoto?: number;
+    readonly setIsDraggingPhoto?: React.Dispatch<React.SetStateAction<number>>;
+    readonly handleFileChange: (e: React.ChangeEvent<HTMLInputElement> | React.DragEvent | { files: File[] }) => void;
+    readonly removingPhoto?: string | null;
+    readonly removePhoto: (url: string) => void;
+    readonly handleGenerateAIDescription?: (type: 'whatsapp' | 'ecommerce') => void;
+    readonly isGeneratingDescription?: boolean;
+    readonly handleGenerateMarketplaceTitle?: () => void;
+    readonly isGeneratingTitle?: boolean;
+    readonly handleToggleActive?: () => void;
 }
+
 const ProductEcommerceTab: React.FC<ProductEcommerceTabProps> = ({
     formData,
     setFormData,
@@ -35,12 +36,14 @@ const ProductEcommerceTab: React.FC<ProductEcommerceTabProps> = ({
     const [croppingIndex, setCroppingIndex] = useState<number | null>(null);
     const maxPhotos = MAX_PARENT_PRODUCT_IMAGES;
     const currentCount = (formData.images || []).length;
+
     const handleReplacePhoto = async (index: number, file: File) => {
         setReplacingIndex(index);
         try {
             const compressed = await compressImageToFile(file, { maxMB: 0.1, maxWidth: 1200 });
             const fileExt = file.name.split('.').pop() || 'jpg';
-            const fileName = `${Math.random().toString(36).substring(2)}_${Date.now()}.${fileExt}`;
+            const randomId = typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}_${Math.random().toString(36).substring(2)}`;
+            const fileName = `${randomId}.${fileExt}`;
             const path = `products/${fileName}`;
             const newUrl = await uploadFile(compressed, path);
 
@@ -48,7 +51,7 @@ const ProductEcommerceTab: React.FC<ProductEcommerceTabProps> = ({
             setFormData(prev => ({ ...prev, images: updatedImages }));
             toast.success("Foto substituída com sucesso!");
             return true;
-        } catch (error) {
+        } catch (error: unknown) {
             console.error("Erro ao substituir foto:", error);
             toast.error("Erro ao substituir a imagem.");
             return false;
@@ -56,6 +59,7 @@ const ProductEcommerceTab: React.FC<ProductEcommerceTabProps> = ({
             setReplacingIndex(null);
         }
     };
+
     const handleCropPhoto = async (file: File) => {
         if (croppingIndex === null) return;
         const index = croppingIndex;

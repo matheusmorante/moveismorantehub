@@ -137,11 +137,11 @@ export function MobileOrderCard({ order, dark, handlingOptions, onDetails }: Pro
       ]}
     >
       {/* Overlay escuro / brilho baixo quando cancelado (idêntico ao ERP) */}
-      {cancelled && <View style={styles.cancelledOverlay} pointerEvents="none" />}
+      {cancelled && <View style={styles.cancelledOverlay} />}
 
       {/* Carimbo de Cancelado inclinado (idêntico ao ERP) */}
       {cancelled && (
-        <View style={styles.stampContainer} pointerEvents="none">
+        <View style={styles.stampContainer}>
           <View style={styles.stampBadge}>
             <Text style={styles.stampText}>CANCELADO</Text>
           </View>
@@ -275,6 +275,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(2, 6, 23, 0.55)',
     zIndex: 10,
     borderRadius: 20,
+    pointerEvents: 'none',
   },
   stampContainer: {
     ...StyleSheet.absoluteFillObject,
@@ -282,6 +283,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     zIndex: 20,
     overflow: 'hidden',
+    pointerEvents: 'none',
   },
   stampBadge: {
     backgroundColor: '#dc2626',

@@ -1,21 +1,30 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '@/pages/utils/supabaseConfig';
-import Product, { ComboItem } from '../../../types/product.type';
+import Product, { ComboItem, Variation } from '../../../types/product.type';
 import { toast } from 'react-toastify';
 import DropdownPortal from '@/components/shared/DropdownPortal';
 import { useRef } from 'react';
 import { getSelectedProductDisplayName } from '../../../utils/productVariationDefaults';
 
-interface ComboItemSelectorProps {
-    currentItems: ComboItem[];
-    onAdd: (item: ComboItem) => void;
-    onRemove: (index: number) => void;
-    onUpdateQuantity: (index: number, quantity: number) => void;
+interface ProductSearchResult {
+    id: string;
+    description?: string;
+    unitPrice?: number;
+    stock?: number;
+    hasVariations?: boolean;
+    variations?: Variation[];
 }
 
-const ComboItemSelector = ({ currentItems, onAdd, onRemove, onUpdateQuantity }: ComboItemSelectorProps) => {
+interface ComboItemSelectorProps {
+    readonly currentItems: readonly ComboItem[];
+    readonly onAdd: (item: ComboItem) => void;
+    readonly onRemove: (index: number) => void;
+    readonly onUpdateQuantity: (index: number, quantity: number) => void;
+}
+
+export const ComboItemSelector: React.FC<ComboItemSelectorProps> = ({ currentItems, onAdd, onRemove, onUpdateQuantity }) => {
     const [search, setSearch] = useState('');
-    const [results, setResults] = useState<any[]>([]);
+    const [results, setResults] = useState<ProductSearchResult[]>([]);
     const [loading, setLoading] = useState(false);
     const inputContainerRef = useRef<HTMLDivElement>(null);
 
@@ -36,9 +45,9 @@ const ComboItemSelector = ({ currentItems, onAdd, onRemove, onUpdateQuantity }: 
                     .limit(5);
 
                 if (error) throw error;
-                setResults(data || []);
-            } catch (error) {
-                console.error('Erro ao buscar produtos:', error);
+                setResults((data as ProductSearchResult[]) || []);
+            } catch (error: unknown) {
+                console.error('[ComboItemSelector] Erro ao buscar produtos:', error);
             } finally {
                 setLoading(false);
             }
@@ -47,20 +56,20 @@ const ComboItemSelector = ({ currentItems, onAdd, onRemove, onUpdateQuantity }: 
         return () => clearTimeout(delayDebounceFn);
     }, [search]);
 
-    const handleAddItem = (prod: any, variation?: any) => {
+    const handleAddItem = (prod: ProductSearchResult, variation?: Variation) => {
         const item: ComboItem = {
             productId: prod.id,
             variationId: variation?.id,
-            description: getSelectedProductDisplayName(prod, variation),
-            unitPrice: (variation ? variation.unitPrice : prod.unitPrice) || 0,
-            stock: (variation ? variation.stock : prod.stock) || 0,
+            description: getSelectedProductDisplayName(prod as unknown as Partial<Product>, variation),
+            unitPrice: Number(variation ? variation.unitPrice : prod.unitPrice) || 0,
+            stock: Number(variation ? variation.stock : prod.stock) || 0,
             quantity: 1
         };
 
         // Verificar se já existe
-        const exists = currentItems.some(i => i.productId === item.productId && i.variationId === item.variationId);
+        const exists = currentItems.some((i) => i.productId === item.productId && i.variationId === item.variationId);
         if (exists) {
-            toast.warning("Este item já foi adicionado ao combo.");
+            toast.warning('Este item já foi adicionado ao combo.');
             return;
         }
 
@@ -73,8 +82,8 @@ const ComboItemSelector = ({ currentItems, onAdd, onRemove, onUpdateQuantity }: 
         <div className="flex flex-col gap-4">
             {/* Search Input */}
             <div className="relative">
-            <div className="relative" ref={inputContainerRef}>
-                    <i className="bi bi-search absolute left-4 top-1/2 -translate-y-1/2 text-purple-400"></i>
+                <div className="relative" ref={inputContainerRef}>
+                    <i className="bi bi-search absolute left-4 top-1/2 -translate-y-1/2 text-purple-400" aria-hidden="true" />
                     <input
                         type="text"
                         value={search}
@@ -82,41 +91,43 @@ const ComboItemSelector = ({ currentItems, onAdd, onRemove, onUpdateQuantity }: 
                         placeholder="Buscar produto para adicionar ao combo..."
                         className="w-full pl-12 pr-4 py-3 bg-white dark:bg-slate-900 border border-purple-100 dark:border-purple-900/30 rounded-2xl outline-none text-sm focus:ring-2 focus:ring-purple-500 transition-all"
                     />
-                    {loading && <div className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 border-2 border-purple-500 border-t-transparent rounded-full animate-spin"></div>}
+                    {loading && <div className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 border-2 border-purple-500 border-t-transparent rounded-full animate-spin" />}
                 </div>
 
                 <DropdownPortal anchorRef={inputContainerRef} isOpen={results.length > 0}>
                     <div className="mt-2 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 shadow-xl rounded-2xl overflow-hidden animate-in fade-in slide-in-from-top-2">
-                        {results.map(prod => (
+                        {results.map((prod) => (
                             <div key={prod.id}>
-                                {prod.hasVariations && prod.variations?.length > 0 ? (
-                                    prod.variations.map((v: any) => (
+                                {prod.hasVariations && prod.variations && prod.variations.length > 0 ? (
+                                    prod.variations.map((v: Variation) => (
                                         <button
                                             key={v.id}
+                                            type="button"
                                             onClick={() => handleAddItem(prod, v)}
-                                            className="w-full px-4 py-3 flex items-center justify-between hover:bg-purple-50 dark:hover:bg-purple-900/10 transition-colors border-b border-slate-50 dark:border-slate-800 last:border-0"
+                                            className="w-full px-4 py-3 flex items-center justify-between hover:bg-purple-50 dark:hover:bg-purple-900/10 transition-colors border-b border-slate-50 dark:border-slate-800 last:border-0 cursor-pointer"
                                         >
                                             <div className="text-left">
                                                 <p className="text-xs font-bold text-slate-700 dark:text-slate-200">{prod.description}</p>
                                                 <p className="text-[10px] text-purple-600 font-black uppercase tracking-widest">{v.name}</p>
                                             </div>
                                             <div className="text-right">
-                                                <p className="text-xs font-black text-slate-800 dark:text-slate-100">R$ {v.unitPrice.toFixed(2)}</p>
-                                                <p className="text-[10px] text-slate-400 font-bold uppercase">{v.stock} em estoque</p>
+                                                <p className="text-xs font-black text-slate-800 dark:text-slate-100">R$ {Number(v.unitPrice || 0).toFixed(2)}</p>
+                                                <p className="text-[10px] text-slate-400 font-bold uppercase">{Number(v.stock || 0)} em estoque</p>
                                             </div>
                                         </button>
                                     ))
                                 ) : (
                                     <button
+                                        type="button"
                                         onClick={() => handleAddItem(prod)}
-                                        className="w-full px-4 py-3 flex items-center justify-between hover:bg-purple-50 dark:hover:bg-purple-900/10 transition-colors border-b border-slate-50 dark:border-slate-800 last:border-0"
+                                        className="w-full px-4 py-3 flex items-center justify-between hover:bg-purple-50 dark:hover:bg-purple-900/10 transition-colors border-b border-slate-50 dark:border-slate-800 last:border-0 cursor-pointer"
                                     >
                                         <div className="text-left">
                                             <p className="text-xs font-bold text-slate-700 dark:text-slate-200">{prod.description}</p>
                                         </div>
                                         <div className="text-right">
-                                            <p className="text-xs font-black text-slate-800 dark:text-slate-100">R$ {prod.unitPrice.toFixed(2)}</p>
-                                            <p className="text-[10px] text-slate-400 font-bold uppercase">{prod.stock} em estoque</p>
+                                            <p className="text-xs font-black text-slate-800 dark:text-slate-100">R$ {Number(prod.unitPrice || 0).toFixed(2)}</p>
+                                            <p className="text-[10px] text-slate-400 font-bold uppercase">{Number(prod.stock || 0)} em estoque</p>
                                         </div>
                                     </button>
                                 )}

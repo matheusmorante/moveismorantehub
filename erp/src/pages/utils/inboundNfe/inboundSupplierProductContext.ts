@@ -12,7 +12,7 @@ export type SupplierProductSummary = {
   variations: SupplierProductVariationSummary[];
 };
 
-const MAX_SUPPLIER_PRODUCTS_FOR_CONTEXT = 50;
+const SUPPLIER_CONTEXT_PAGE_SIZE = 100;
 
 function extractVariationAttributes(variation: Record<string, unknown>): Record<string, string> {
   try {
@@ -39,40 +39,28 @@ function extractVariationAttributes(variation: Record<string, unknown>): Record<
 }
 
 /**
- * Busca ate MAX_SUPPLIER_PRODUCTS_FOR_CONTEXT produtos ativos do fornecedor
+ * Busca os produtos ativos do fornecedor com paginação
  * com suas variacoes para compor o contexto de classificacao da IA.
- * cloud-free-tier-guard: consulta unica, limite rigido, sem imagens.
+ * Contexto sem imagens, paginado e enviado à IA em lotes.
  */
 export async function fetchSupplierProductsForContext(supplierId: string): Promise<SupplierProductSummary[]> {
   if (!supplierId) return [];
   try {
-    const { data, error } = await supabase
-      .from('products')
-      .select('id, name, description, supplier_ids, main_supplier_id, supplier_id, is_draft, active, deleted, product_variations(id, name, attributes)')
-      .eq('deleted', false)
-      .eq('active', true)
-      .not('is_draft', 'is', true)
-      .or(`supplier_id.eq.${supplierId},main_supplier_id.eq.${supplierId},supplier_ids.cs.{"${supplierId}"}`)
-      .order('name', { ascending: true })
-      .limit(100);
-
-    if (error) {
-      console.warn('[inboundSupplierProductContext] Erro ao buscar produtos do fornecedor:', error);
-      return [];
-    }
-
-    const filtered = (data || []).length > 0
-      ? data
-      : (await supabase
-          .from('products')
-          .select('id, name, description, supplier_ids, main_supplier_id, supplier_id, is_draft, active, deleted, product_variations(id, name, attributes)')
-          .eq('deleted', false)
-          .eq('active', true)
-          .not('is_draft', 'is', true)
-          .limit(100)).data || [];
-
-    return (filtered || [])
-      .slice(0, MAX_SUPPLIER_PRODUCTS_FOR_CONTEXT)
+    const loadPages = async () => {
+      const rows: Record<string, unknown>[] = [];
+      for (let offset = 0; ; offset += SUPPLIER_CONTEXT_PAGE_SIZE) {
+        let query = supabase.from('products')
+          .select('id, name, description, product_variations(id, name, attributes)')
+          .eq('deleted', false).eq('active', true).not('is_draft', 'is', true);
+        query = query.or('supplier_id.eq.' + supplierId + ',main_supplier_id.eq.' + supplierId + ',supplier_ids.cs.{"' + supplierId + '"}');
+        const { data, error } = await query.order('id').range(offset, offset + SUPPLIER_CONTEXT_PAGE_SIZE - 1);
+        if (error) throw error;
+        rows.push(...(data || []));
+        if ((data || []).length < SUPPLIER_CONTEXT_PAGE_SIZE) return rows;
+      }
+    };
+    const filtered = await loadPages();
+    return filtered
       .map((row: Record<string, unknown>) => ({
         id: String(row['id'] || ''),
         name: String(row['name'] || row['description'] || ''),

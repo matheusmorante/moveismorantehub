@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, SectionList, ActivityIndicator, RefreshControl, StyleSheet, Modal } from 'react-native';
-import { Calendar, Truck, ChevronRight, ChevronDown, AlertCircle, Check, Map } from 'lucide-react-native';
+import { Calendar, Truck, ChevronRight, ChevronDown, AlertCircle, Check, Map, MoreVertical } from 'lucide-react-native';
 import { supabase } from '../../../services/supabaseClient';
 import { subscribeToLogisticsChanges } from '../../../services/logisticsRealtimeService';
 import { groupOrdersByDate, isCancelledOrder, isDateInPeriod, formatGroupDateLabel } from '../../../utils/orderUtils';
@@ -221,57 +221,36 @@ export const NativeLogisticsScreen: React.FC<Props> = ({
   const renderHeader = () => (
     <View style={styles.headerPadding}>
       <View style={styles.topRow}>
-        <View style={{ flex: 1 }}>
+        <View style={styles.titleContainer}>
           <Text style={[styles.screenTitle, isDarkMode && styles.textDark]}>{title || 'Agenda'}</Text>
-          <Text style={[styles.screenSubtitle, isDarkMode && styles.subtitleDark]}>
-            Cronograma Logístico e Agendamentos
-          </Text>
-        </View>
-        
-        <TouchableOpacity
-          style={[styles.selectBtn, isDarkMode && styles.selectBtnDark]}
-          onPress={() => setShowPeriodModal(true)}
-        >
-          <Calendar size={13} color="#2563eb" style={{ marginRight: 4 }} />
-          <Text 
-            numberOfLines={1} 
-            ellipsizeMode="tail"
-            style={[styles.selectBtnText, isDarkMode && styles.textDark]}
+          <TouchableOpacity
+            style={[styles.selectBtn, isDarkMode && styles.selectBtnDark]}
+            onPress={() => setShowPeriodModal(true)}
+            activeOpacity={0.75}
           >
-            {currentPeriodLabel}
-          </Text>
-          <ChevronDown size={14} color={isDarkMode ? '#cbd5e1' : '#64748b'} style={{ marginLeft: 2 }} />
+            <Calendar size={13} color="#2563eb" style={{ marginRight: 6 }} />
+            <Text 
+              numberOfLines={1} 
+              ellipsizeMode="tail"
+              style={[styles.selectBtnText, isDarkMode && styles.textDark]}
+            >
+              {currentPeriodLabel}
+            </Text>
+            <ChevronDown size={14} color={isDarkMode ? '#cbd5e1' : '#64748b'} style={{ marginLeft: 4 }} />
+          </TouchableOpacity>
+        </View>
+
+        <TouchableOpacity
+          style={[styles.moreBtn, isDarkMode && styles.moreBtnDark]}
+          onPress={() => {
+            // Reservado para futuras ações
+          }}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          activeOpacity={0.7}
+        >
+          <MoreVertical size={20} color={isDarkMode ? '#cbd5e1' : '#64748b'} />
         </TouchableOpacity>
       </View>
-
-      {!isEmbeddedInHub && (
-        <TouchableOpacity
-          style={[styles.mapBannerBtn, isDarkMode && styles.mapBannerBtnDark]}
-          onPress={() => {
-            if (onNavigateToDeliveriesMap) {
-              onNavigateToDeliveriesMap();
-            } else {
-              setShowTodayMap(true);
-            }
-          }}
-          activeOpacity={0.85}
-        >
-          <View style={styles.mapBannerLeft}>
-            <View style={styles.mapIconCircle}>
-              <Map size={16} color="#ffffff" />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={[styles.mapBannerTitle, isDarkMode && styles.textDark]}>
-                Entregas de Hoje no Mapa
-              </Text>
-              <Text style={styles.mapBannerSubtitle}>
-                Visualizar roteiro, GPS e próxima parada
-              </Text>
-            </View>
-          </View>
-          <ChevronRight size={18} color="#2563eb" />
-        </TouchableOpacity>
-      )}
     </View>
   );
 
@@ -434,14 +413,31 @@ const styles = StyleSheet.create({
   topRow: { 
     flexDirection: 'row', 
     justifyContent: 'space-between', 
-    alignItems: 'center', 
-    flexWrap: 'wrap', 
+    alignItems: 'flex-start', 
     gap: 8 
   },
-  screenTitle: { fontSize: 18, fontWeight: '900', color: '#0f172a' },
+  titleContainer: {
+    gap: 8,
+    alignItems: 'flex-start',
+  },
+  screenTitle: { fontSize: 20, fontWeight: '900', color: '#0f172a' },
   screenSubtitle: { fontSize: 11, fontWeight: '700', color: '#64748b', marginTop: 1 },
   textDark: { color: '#f8fafc' },
   subtitleDark: { color: '#94a3b8' },
+  moreBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#ffffff',
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+  },
+  moreBtnDark: {
+    backgroundColor: '#1e293b',
+    borderColor: '#334155',
+  },
   selectBtn: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -451,7 +447,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     borderWidth: 1,
     borderColor: '#e2e8f0',
-    maxWidth: 160,
+    alignSelf: 'flex-start',
   },
   selectBtnDark: { backgroundColor: '#1e293b', borderColor: '#334155' },
   selectBtnText: { fontSize: 12, fontWeight: '800', color: '#2563eb' },

@@ -3,6 +3,33 @@ import { checkERPLegibility, checkEcomLegibility } from './productLegibilityRule
 import Product from '@/pages/types/product.type';
 
 describe('productLegibilityRules (Domínio Puro)', () => {
+    it.each(['AB', 'Mesa de Jantar'])('aprova o nome preenchido no cadastro geral: %s', (name) => {
+        const result = checkERPLegibility({
+            name,
+            description: '',
+            categoryIds: ['cat-teste'],
+            mainSupplierId: 'fornecedor-teste',
+            unitPrice: 100,
+        });
+        expect(result.checks.description).toBe(true);
+        expect(result.isLegible).toBe(true);
+    });
+
+    it.each(['', ' ', 'A', ' A '])('reprova nome inválido mesmo com descrição preenchida: %s', (name) => {
+        const result = checkERPLegibility({ name, description: 'Descrição da nota fiscal' });
+        expect(result.checks.description).toBe(false);
+        expect(result.errors).toContain('Nome do Produto (Interno) deve ter pelo menos 2 caracteres.');
+    });
+
+    it('atualiza a conformidade ao preencher e apagar o nome', () => {
+        const data = { name: '', description: '' };
+        expect(checkERPLegibility(data).checks.description).toBe(false);
+        data.name = 'Mesa';
+        expect(checkERPLegibility(data).checks.description).toBe(true);
+        data.name = '';
+        expect(checkERPLegibility(data).checks.description).toBe(false);
+    });
+
     it('deve reprovar produto ERP sem descrição, categoria ou fornecedor', () => {
         const product: Partial<Product> = {
             description: '',

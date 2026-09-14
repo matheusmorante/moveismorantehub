@@ -1,25 +1,31 @@
 import { normalizeSearchTerm } from '@/pages/utils/textUtils';
 
 export interface LabelPrintProduct {
-    id: string;
-    description: string;
-    code?: string;
-    sku?: string;
-    unitPrice?: number;
-    images?: string[];
+    readonly id: string;
+    readonly description: string;
+    readonly code?: string;
+    readonly sku?: string;
+    readonly unitPrice?: number;
+    readonly images?: readonly string[];
 }
 
 export interface SelectedLabelPrintProduct {
-    product: LabelPrintProduct;
-    qty: number;
+    readonly product: LabelPrintProduct;
+    readonly qty: number;
 }
 
+/**
+ * Cria a seleção inicial para um produto individual com quantidade 1.
+ */
 export function createInitialLabelPrintSelection(product: LabelPrintProduct): Map<string, SelectedLabelPrintProduct> {
     return new Map([[product.id, { product, qty: 1 }]]);
 }
 
+/**
+ * Alterna a inclusão de um produto na lista de impressão de etiquetas.
+ */
 export function toggleLabelPrintProduct(
-    selected: Map<string, SelectedLabelPrintProduct>,
+    selected: ReadonlyMap<string, SelectedLabelPrintProduct>,
     product: LabelPrintProduct,
 ): Map<string, SelectedLabelPrintProduct> {
     const nextSelection = new Map(selected);
@@ -32,27 +38,34 @@ export function toggleLabelPrintProduct(
     return nextSelection;
 }
 
+/**
+ * Define a quantidade de etiquetas a imprimir para um produto, com proteção contra valores inválidos ou NaN.
+ */
 export function setLabelPrintQuantity(
-    selected: Map<string, SelectedLabelPrintProduct>,
+    selected: ReadonlyMap<string, SelectedLabelPrintProduct>,
     productId: string,
     quantity: number,
 ): Map<string, SelectedLabelPrintProduct> {
     const nextSelection = new Map(selected);
     const item = nextSelection.get(productId);
     if (item) {
-        nextSelection.set(productId, { ...item, qty: Math.max(1, quantity) });
+        const safeQty = Number.isNaN(quantity) ? 1 : Math.max(1, Math.floor(quantity));
+        nextSelection.set(productId, { ...item, qty: safeQty });
     }
 
     return nextSelection;
 }
 
+/**
+ * Filtra e ordena produtos para impressão de etiquetas priorizando os já selecionados.
+ */
 export function orderLabelPrintProducts(
-    products: LabelPrintProduct[],
+    products: readonly LabelPrintProduct[],
     search: string,
-    selected: Map<string, SelectedLabelPrintProduct>,
+    selected: ReadonlyMap<string, SelectedLabelPrintProduct>,
 ): LabelPrintProduct[] {
     const query = normalizeSearchTerm(search);
-    const filteredProducts = products.filter(product => (
+    const filteredProducts = (products || []).filter(product => (
         normalizeSearchTerm(product.description || '').includes(query) ||
         normalizeSearchTerm(product.code || '').includes(query) ||
         normalizeSearchTerm(product.sku || '').includes(query)
@@ -63,3 +76,4 @@ export function orderLabelPrintProducts(
         ...filteredProducts.filter(product => !selected.has(product.id)),
     ];
 }
+

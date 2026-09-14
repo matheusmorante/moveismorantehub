@@ -6,16 +6,25 @@ import { formatCurrency, formatToBRDate } from "../../../utils/formatters";
 import { getOrderTypeClasses, resolveOrderColor } from "../../../utils/orderTypeColorUtils";
 import { getSettings } from '@/pages/utils/settingsService';
 
-interface Props {
-    isOpen: boolean;
-    onClose: () => void;
-    person: Person;
+interface PersonPurchaseHistoryModalProps {
+    readonly isOpen: boolean;
+    readonly onClose: () => void;
+    readonly person: Person;
 }
 
-const PersonPurchaseHistoryModal = ({ isOpen, onClose, person }: Props) => {
+const PersonPurchaseHistoryModal = ({ isOpen, onClose, person }: PersonPurchaseHistoryModalProps) => {
     const [orders, setOrders] = useState<Order[]>([]);
     const [loading, setLoading] = useState(true);
     const settings = getSettings();
+
+    useEffect(() => {
+        if (!isOpen) return;
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if (e.key === 'Escape') onClose();
+        };
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [isOpen, onClose]);
 
     useEffect(() => {
         if (!isOpen) return;
@@ -26,35 +35,50 @@ const PersonPurchaseHistoryModal = ({ isOpen, onClose, person }: Props) => {
                 setOrders(data);
                 setLoading(false);
             })
-            .catch((e) => {
-                console.error("Erro ao buscar histórico do cliente:", e);
+            .catch((err: unknown) => {
+                console.error("Erro ao buscar histórico do cliente:", err);
                 setOrders([]);
                 setLoading(false);
             });
     }, [isOpen, person]);
-
 
     if (!isOpen) return null;
 
     const totalSpent = orders.reduce((acc, o) => acc + (o.paymentsSummary?.totalOrderValue || 0), 0);
 
     return (
-        <div className="fixed inset-0 z-[300] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in" onClick={onClose}>
-            <div className="bg-white dark:bg-slate-900 w-full max-w-4xl max-h-[85vh] rounded-[2.5rem] shadow-2xl overflow-hidden animate-slide-up border border-slate-100 dark:border-slate-800 flex flex-col" onClick={e => e.stopPropagation()}>
+        <div 
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="customer-history-modal-title"
+            className="fixed inset-0 z-[300] flex items-center justify-center p-4 animate-fade-in"
+        >
+            <button 
+                type="button" 
+                aria-label="Fechar histórico de pedidos"
+                className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm cursor-default border-0 p-0 m-0 w-full h-full" 
+                onClick={onClose} 
+            />
+            <div className="relative bg-white dark:bg-slate-900 w-full max-w-4xl max-h-[85vh] rounded-[2.5rem] shadow-2xl overflow-hidden animate-slide-up border border-slate-100 dark:border-slate-800 flex flex-col" onClick={e => e.stopPropagation()}>
                 
                 {/* Header */}
                 <div className="p-8 bg-blue-600 text-white flex items-center justify-between shrink-0">
                     <div className="flex items-center gap-4">
-                        <div className="bg-white/20 p-2.5 rounded-2xl">
+                        <div className="bg-white/20 p-2.5 rounded-2xl" aria-hidden="true">
                             <i className="bi bi-clock-history text-2xl" />
                         </div>
                         <div>
-                            <h2 className="text-xl font-black tracking-tight">Histórico de Pedidos</h2>
+                            <h2 id="customer-history-modal-title" className="text-xl font-black tracking-tight">Histórico de Pedidos</h2>
                             <p className="text-[10px] uppercase font-bold opacity-70 tracking-widest mt-0.5">{person.fullName}</p>
                         </div>
                     </div>
-                    <button onClick={onClose} className="p-2 hover:bg-white/10 rounded-full transition-colors">
-                        <i className="bi bi-x-lg text-xl" />
+                    <button 
+                        type="button"
+                        onClick={onClose} 
+                        aria-label="Fechar"
+                        className="p-2 hover:bg-white/10 rounded-full transition-colors cursor-pointer"
+                    >
+                        <i className="bi bi-x-lg text-xl" aria-hidden="true" />
                     </button>
                 </div>
 

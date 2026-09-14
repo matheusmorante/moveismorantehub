@@ -4,10 +4,10 @@ import { aiService } from '@/pages/utils/aiService';
 import { toast } from 'react-toastify';
 
 interface VariationTechnicalTabProps {
-    formData: Variation;
-    setFormData: React.Dispatch<React.SetStateAction<Variation | null>>;
-    parentProduct: Product;
-    handleChange: (field: keyof Variation, value: any) => void;
+    readonly formData: Variation;
+    readonly setFormData?: React.Dispatch<React.SetStateAction<Variation | null>>;
+    readonly parentProduct: Product;
+    readonly handleChange: <K extends keyof Variation>(field: K, value: Variation[K]) => void;
 }
 
 export const VariationTechnicalTab: React.FC<VariationTechnicalTabProps> = ({
@@ -35,13 +35,15 @@ export const VariationTechnicalTab: React.FC<VariationTechnicalTabProps> = ({
 
             handleChange('description', result.improvedDescription);
             toast.success('Descrição da variação aperfeiçoada com sucesso! ✨');
-        } catch (error: any) {
+        } catch (error: unknown) {
             console.error(error);
-            toast.error(error?.message || 'Erro ao aperfeiçoar descrição com IA.');
+            const msg = error instanceof Error ? error.message : 'Erro ao aperfeiçoar descrição com IA.';
+            toast.error(msg);
         } finally {
             setIsImprovingDescription(false);
         }
     };
+
 
     return (
         <div className="space-y-6 animate-in fade-in duration-350">

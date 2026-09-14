@@ -1,6 +1,7 @@
-import React, { useState, useEffect, useMemo } from "react";
-import InventoryMove from "../../../types/inventoryMove.type";
-import Product, { Variation } from "../../../types/product.type";
+import { useState, useEffect, useMemo } from "react";
+import type InventoryMove from "@/pages/types/inventoryMove.type";
+import type Product from "@/pages/types/product.type";
+import type { Variation } from "@/pages/types/product.type";
 import { subscribeToInventoryMoves, reverseInventoryMove } from "@/pages/utils/inventoryService";
 import ProductAutocomplete from "@/components/ProductAutocomplete";
 import { toast } from "react-toastify";
@@ -14,12 +15,12 @@ import { useAuth } from "@/context/AuthContext";
 import { canPerform } from "@/pages/utils/permissionService";
 
 interface InventoryMovesHistoryProps {
-    selectedProduct?: Product | null;
-    selectedVariation?: Variation;
-    onSelectProduct?: (product: Product | null, variation?: Variation) => void;
+    readonly selectedProduct?: Product | null;
+    readonly selectedVariation?: Variation;
+    readonly onSelectProduct?: (product: Product | null, variation?: Variation) => void;
 }
 
-const InventoryMovesHistory = ({
+export const InventoryMovesHistory = ({
     selectedProduct: externalSelectedProduct,
     selectedVariation: externalSelectedVariation,
     onSelectProduct: externalOnSelectProduct
@@ -60,7 +61,7 @@ const InventoryMovesHistory = ({
     const handleSelectProduct = (product: Product, variation?: Variation) => {
         try {
             localStorage.setItem('morante_stock_selected_product_filter', JSON.stringify({ product, variation }));
-        } catch (e) {
+        } catch (e: unknown) {
             console.error("Erro ao salvar produto no localStorage:", e);
         }
 
@@ -77,7 +78,7 @@ const InventoryMovesHistory = ({
     const handleClearSelection = () => {
         try {
             localStorage.removeItem('morante_stock_selected_product_filter');
-        } catch (e) {
+        } catch (e: unknown) {
             console.error("Erro ao remover produto do localStorage:", e);
         }
 
@@ -93,7 +94,7 @@ const InventoryMovesHistory = ({
     const currentStock = useMemo(() => {
         if (!selectedProduct) return 0;
 
-        const relevantMoves = moves.filter(m => {
+        const relevantMoves = moves.filter((m) => {
             if (m.status === 'reversed' || m.status === 'cancelled') return false;
             if (isInventoryAuditMarker(m)) return false;
             if (m.productId !== selectedProduct.id) return false;
@@ -115,7 +116,7 @@ const InventoryMovesHistory = ({
     const filtered = useMemo(() => {
         if (!selectedProduct) return [];
 
-        return moves.filter(m => {
+        return moves.filter((m) => {
             if (isInventoryAuditMarker(m)) return false;
             if (m.productId !== selectedProduct.id) return false;
             if (selectedVariation && m.variationId) {
@@ -129,16 +130,19 @@ const InventoryMovesHistory = ({
     const isOrderLinked = (move: InventoryMove) => move.relatedEntityType === 'sales_order' || isPurchaseEntry(move);
 
     const toggleExpand = (moveId: string) => {
-        setExpandedMoveIds(prev => ({ ...prev, [moveId]: !prev[moveId] }));
+        setExpandedMoveIds((prev) => ({ ...prev, [moveId]: !prev[moveId] }));
     };
 
     const getCleanObservation = (move: InventoryMove) => {
         let obsText = move.observation || '';
         if (obsText.startsWith('{') || obsText.startsWith('[')) {
             try {
-                const parsed = JSON.parse(obsText);
-                obsText = parsed.note || parsed.observation || parsed.reason || '';
-            } catch { }
+                const parsed = JSON.parse(obsText) as Record<string, unknown>;
+                const note = parsed.note || parsed.observation || parsed.reason;
+                if (typeof note === 'string') obsText = note;
+            } catch {
+                // Não é JSON válido
+            }
         }
 
         // 1. Pedidos de venda: formata dinamicamente o código de 6 dígitos + nome do cliente
@@ -179,9 +183,12 @@ const InventoryMovesHistory = ({
             await reverseInventoryMove(moveToDelete.id, reason);
             toast.success('Movimentação estornada com sucesso!');
             setMoveToDelete(null);
-        } catch (error: any) {
-            toast.error(error.message || "Erro ao estornar lançamento.");
-        } finally { setIsDeleting(false); }
+        } catch (error: unknown) {
+            const message = error instanceof Error ? error.message : "Erro ao estornar lançamento.";
+            toast.error(message);
+        } finally {
+            setIsDeleting(false);
+        }
     };
 
     if (loading) {
@@ -202,7 +209,7 @@ const InventoryMovesHistory = ({
                         <div className="flex-1 flex items-center justify-between gap-2 px-3 py-1.5 bg-emerald-50/70 dark:bg-emerald-950/30 border border-emerald-500/60 dark:border-emerald-500/50 rounded-xl min-h-[42px] transition-all shadow-2xs">
                             <div className="flex items-center gap-2 min-w-0">
                                 <div className="w-6 h-6 rounded-lg bg-emerald-100 dark:bg-emerald-900/50 text-emerald-600 dark:text-emerald-300 flex items-center justify-center shrink-0">
-                                    <i className="bi bi-box-seam text-xs" />
+                                    <i className="bi bi-box-seam text-xs" aria-hidden="true" />
                                 </div>
                                 <span className="text-xs font-bold text-emerald-950 dark:text-emerald-100 truncate">
                                     {getDisplayName(selectedProduct, selectedVariation)}
@@ -213,8 +220,9 @@ const InventoryMovesHistory = ({
                                 onClick={handleClearSelection}
                                 className="p-1 hover:bg-emerald-200/60 dark:hover:bg-emerald-900/60 text-emerald-700 dark:text-emerald-300 rounded-md transition-all shrink-0 cursor-pointer"
                                 title="Desmarcar produto"
+                                aria-label="Desmarcar produto"
                             >
-                                <i className="bi bi-x-lg text-xs" />
+                                <i className="bi bi-x-lg text-xs" aria-hidden="true" />
                             </button>
                         </div>
                     ) : (
@@ -237,7 +245,7 @@ const InventoryMovesHistory = ({
                 {selectedProduct && (
                     <div className="flex items-center gap-2 self-start md:self-center flex-wrap shrink-0">
                         <div className="flex items-center gap-2 px-3.5 py-2 bg-emerald-600 text-white rounded-xl text-xs font-bold shadow-sm shadow-emerald-200/50 dark:shadow-none">
-                            <i className="bi bi-stack text-emerald-200 text-sm" />
+                            <i className="bi bi-stack text-emerald-200 text-sm" aria-hidden="true" />
                             <span>Saldo em Estoque: <strong className="font-black text-sm text-white">{currentStock} un</strong></span>
                         </div>
                     </div>
@@ -252,7 +260,7 @@ const InventoryMovesHistory = ({
                         {filtered.map((move) => {
                             const isReversed = move.status === 'reversed' || move.status === 'cancelled';
                             const cleanObs = getCleanObservation(move);
-                            const isExpanded = !!expandedMoveIds[move.id || ''];
+                            const isExpanded = Boolean(move.id && expandedMoveIds[move.id]);
                             const reasonFormatted = formatReversalReason(move.reversalReason || (isReversed && typeof move.observation === 'string' && !move.observation.startsWith('{') ? move.observation : ''), move.relatedEntityId);
                             const enhancedMove = { ...move, reversalReason: reasonFormatted };
 
@@ -264,7 +272,9 @@ const InventoryMovesHistory = ({
                                     isReversed={isReversed}
                                     isExpanded={isExpanded}
                                     isOrderLinked={isOrderLinked(move)}
-                                    onToggleExpand={() => toggleExpand(move.id!)}
+                                    onToggleExpand={() => {
+                                        if (move.id) toggleExpand(move.id);
+                                    }}
                                     onEdit={canManageStock ? () => setEditingMove(move) : undefined}
                                     onDelete={canManageStock ? () => handleDelete(move) : undefined}
                                 />
@@ -275,7 +285,7 @@ const InventoryMovesHistory = ({
                     {/* Visualização em Tabela para Desktop XL ou superior (>= 1280px) */}
                     <div className="hidden xl:block w-full">
                         <InventoryMovesTable
-                            moves={filtered.map(m => ({ ...m, reversalReason: formatReversalReason(m.reversalReason || '', m.relatedEntityId) }))}
+                            moves={filtered.map((m) => ({ ...m, reversalReason: formatReversalReason(m.reversalReason || '', m.relatedEntityId) }))}
                             expandedMoveIds={expandedMoveIds}
                             toggleExpand={toggleExpand}
                             getCleanObservation={getCleanObservation}
@@ -288,7 +298,7 @@ const InventoryMovesHistory = ({
             ) : (
                 <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm p-12 flex flex-col items-center justify-center text-center">
                     <div className="w-16 h-16 bg-slate-50 dark:bg-slate-800 rounded-2xl flex items-center justify-center text-slate-300 dark:text-slate-600 mb-4">
-                        <i className={`bi ${selectedProduct ? 'bi-inboxes-fill' : 'bi-search'} text-2xl`}></i>
+                        <i className={`bi ${selectedProduct ? 'bi-inboxes-fill' : 'bi-search'} text-2xl`} aria-hidden="true" />
                     </div>
                     <h3 className="text-sm font-bold text-slate-700 dark:text-slate-300 mb-1">
                         {selectedProduct ? "Nenhuma movimentação para este produto" : "Selecione um produto"}

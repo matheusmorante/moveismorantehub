@@ -27,6 +27,9 @@ export function InboundDocumentImportModal({ isOpen, onClose, onImportSuccess }:
     const [suppliers, setSuppliers] = useState<Person[]>([]);
     const [newSupplier, setNewSupplier] = useState(false);
     const [loading, setLoading] = useState(false);
+    const [isSuggestingLinks, setIsSuggestingLinks] = useState(false);
+    const [checkedMappingsKey, setCheckedMappingsKey] = useState('');
+    const mappingsKey = JSON.stringify([invoice?.id, invoice?.nfeKey, invoice?.supplierId]);
     const [analysisStage, setAnalysisStage] = useState<InboundDocumentAnalysisStage | null>(null);
     const [isDraggingFile, setIsDraggingFile] = useState(false);
 
@@ -56,7 +59,7 @@ export function InboundDocumentImportModal({ isOpen, onClose, onImportSuccess }:
     // Vínculo confirmado é a primeira fonte de verdade: ele evita chamada à IA
     // e impede que um item já conhecido seja interpretado outra vez.
     useEffect(() => {
-        if (!invoice?.supplierId) return;
+        if (!isOpen || !invoice?.supplierId) return;
         let active = true;
         const resolveConfirmedMappings = async () => {
             try {
@@ -68,7 +71,7 @@ export function InboundDocumentImportModal({ isOpen, onClose, onImportSuccess }:
                     ...current,
                     items: current.items.map((item) => {
                         const mapping = mappings.get(item.productCode.trim().toLocaleUpperCase('pt-BR'));
-                        return mapping ? {
+                        return mapping && !item.matchedProductId ? {
                             ...item,
                             matchedProductId: mapping.productId,
                             matchedVariationId: mapping.productVariationId,
@@ -79,11 +82,13 @@ export function InboundDocumentImportModal({ isOpen, onClose, onImportSuccess }:
                 });
             } catch (error) {
                 console.warn('Não foi possível consultar vínculos confirmados do fornecedor.', error);
+            } finally {
+                if (active) setCheckedMappingsKey(mappingsKey);
             }
         };
         void resolveConfirmedMappings();
         return () => { active = false; };
-    }, [invoice?.supplierId]);
+    }, [isOpen, mappingsKey]);
 
     const analyze = async (fileToAnalyze = file) => {
         if (!fileToAnalyze || loading) return;
@@ -166,8 +171,9 @@ export function InboundDocumentImportModal({ isOpen, onClose, onImportSuccess }:
                 setSuppliers(list);
                 setInvoice({ ...parsedInvoice, supplierId: match?.id });
                 toast.success('Arquivo XML lido e processado com sucesso!');
-            } catch (error: any) {
-                toast.error(error.message || 'Falha ao ler o arquivo XML.');
+            } catch (error: unknown) {
+                const message = error instanceof Error ? error.message : 'Falha ao ler o arquivo XML.';
+                toast.error(message);
                 setFile(null);
                 setInvoice(null);
             } finally {
@@ -187,6 +193,7 @@ export function InboundDocumentImportModal({ isOpen, onClose, onImportSuccess }:
     };
 
     const save = async () => {
+        if (isSuggestingLinks) return;
         if (!invoice) return;
         if (String(invoice.model || '').replace(/\D/g, '') === '65') return toast.error('NFC-e não pode ser cadastrada como NF de Entrada.');
         
@@ -236,8 +243,9 @@ export function InboundDocumentImportModal({ isOpen, onClose, onImportSuccess }:
             toast.success('NF salva e pronta para recebimento.');
             onImportSuccess(saved);
             onClose();
-        } catch (error: any) {
-            toast.error(error.message || 'Não foi possível salvar a NF.');
+        } catch (error: unknown) {
+            const message = error instanceof Error ? error.message : 'Não foi possível salvar a NF.';
+            toast.error(message);
         }
     };
 
@@ -245,22 +253,33 @@ export function InboundDocumentImportModal({ isOpen, onClose, onImportSuccess }:
 
     return (
         <>
-            <div className="fixed inset-0 z-[1000002] flex flex-col w-screen h-screen bg-white dark:bg-slate-900 overflow-hidden animate-in fade-in">
+            <div 
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="inbound-doc-modal-title"
+                onKeyDown={(e) => { if (e.key === 'Escape') onClose(); }}
+                className="fixed inset-0 z-[1000002] flex flex-col w-screen h-screen bg-white dark:bg-slate-900 overflow-hidden animate-in fade-in"
+            >
                 <section className="relative flex h-full w-full flex-col overflow-hidden bg-white dark:bg-slate-900">
                     <header className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 p-5 px-6 shrink-0 bg-white dark:bg-slate-900">
                         <div>
-                            <h2 className="text-lg font-black text-slate-800 dark:text-slate-100">Adicionar Nota Fiscal de Entrada</h2>
-                            <p className="text-xs text-slate-500">Importe o documento ou XML, selecione o fornecedor e vincule os produtos ao estoque.</p>
+                            <h2 id="inbound-doc-modal-title" className="text-lg font-black text-slate-800 dark:text-slate-100">Adicionar Nota Fiscal de Entrada</h2>
                         </div>
-                        <button onClick={onClose} className="rounded-xl p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
-                            <i className="bi bi-x-lg text-lg" />
+                        <button 
+                            type="button"
+                            onClick={onClose} 
+                            aria-label="Fechar importação de documento"
+                            className="rounded-xl p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                        >
+                            <i className="bi bi-x-lg text-lg" aria-hidden="true" />
                         </button>
                     </header>
                     <main className="flex-1 space-y-6 overflow-y-auto p-6 max-w-7xl mx-auto w-full">
+                        <div className="min-w-0 space-y-6">
                         <input ref={input} type="file" accept={accepted} capture="environment" className="hidden" onChange={(event) => void handleFile(event.target.files?.[0])} />
                         {!invoice && <button
                             type="button"
-                            disabled={loading}
+                            disabled={loading || isSuggestingLinks}
                             onClick={() => input.current?.click()}
                             onDragOver={(event) => { event.preventDefault(); if (!loading) setIsDraggingFile(true); }}
                             onDragLeave={() => setIsDraggingFile(false)}
@@ -321,9 +340,28 @@ export function InboundDocumentImportModal({ isOpen, onClose, onImportSuccess }:
                                 );
                             })()}
 
-                            <InboundInvoiceItemsReview items={invoice.items} supplierId={invoice.supplierId} suppliers={suppliers} onChange={(itemNumber, update) => setInvoice((current) => current ? { ...current, items: current.items.map((item) => item.itemNumber === itemNumber ? { ...item, ...update } : item) } : current)} />
-                            <button onClick={() => void save()} className="rounded-xl bg-emerald-600 px-4 py-2 text-xs font-black text-white cursor-pointer hover:bg-emerald-700 transition-colors">Confirmar Nota Fiscal</button>
+                            <InboundInvoiceItemsReview
+                                suggestionsEnabled={Boolean(invoice.supplierId?.trim()) && checkedMappingsKey === mappingsKey}
+                                onProcessingSuggestionsChange={setIsSuggestingLinks}
+                                items={invoice.items}
+                                supplierId={invoice.supplierId}
+                                suppliers={suppliers}
+                                onChange={(itemNumber, update) =>
+                                    setInvoice((current) =>
+                                        current
+                                            ? {
+                                                  ...current,
+                                                  items: current.items.map((item) =>
+                                                      item.itemNumber === itemNumber ? { ...item, ...update } : item
+                                                  ),
+                                              }
+                                            : current
+                                    )
+                                }
+                            />
+                            <button disabled={loading || isSuggestingLinks} onClick={() => void save()} className="rounded-xl bg-emerald-600 px-4 py-2 text-xs font-black text-white disabled:opacity-50 disabled:cursor-wait cursor-pointer hover:bg-emerald-700 transition-colors">Confirmar Nota Fiscal</button>
                         </div>}
+                        </div>
                     </main>
                 </section>
             </div>

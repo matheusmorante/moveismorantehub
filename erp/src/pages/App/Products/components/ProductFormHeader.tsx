@@ -2,16 +2,24 @@ import React from 'react';
 import Product from '../../../types/product.type';
 import { checkERPLegibility } from '../productLegibilityRules';
 
+export type ProductFormTabId = 'geral' | 'ecommerce' | 'technical' | 'estoque' | 'variacoes' | 'fiscal' | 'ambientes';
+
+export interface ProductTabItem {
+    id: ProductFormTabId;
+    label: string;
+    icon: string;
+}
+
 interface ProductFormHeaderProps {
-    product: Product | null | undefined;
-    formData: Partial<Product>;
-    ecomStatus: { isLegible: boolean; checks: Record<string, boolean> };
-    isService: boolean;
-    navigateToRequirementField: (fieldKey: string) => void;
-    handleCloseWithAutoSave: () => void;
-    activeTab: string;
-    setActiveTab: (tab: any) => void;
-    validationErrors?: Record<string, boolean>;
+    readonly product?: Product | null;
+    readonly formData: Partial<Product>;
+    readonly ecomStatus: { isLegible: boolean; checks: Record<string, boolean> };
+    readonly isService: boolean;
+    readonly navigateToRequirementField: (fieldKey: string) => void;
+    readonly handleCloseWithAutoSave: () => void;
+    readonly activeTab: string;
+    readonly setActiveTab: (tab: ProductFormTabId) => void;
+    readonly validationErrors?: Record<string, boolean>;
 }
 
 export const ProductFormHeader: React.FC<ProductFormHeaderProps> = ({
@@ -27,14 +35,16 @@ export const ProductFormHeader: React.FC<ProductFormHeaderProps> = ({
 }) => {
     const erpStatus = checkERPLegibility(formData);
 
-    const formTabs = ([
+    const formTabs: readonly ProductTabItem[] = [
         { id: 'geral', label: 'Cadastro Geral', icon: '' },
-        !isService && { id: 'ecommerce', label: 'Fotos', icon: 'bi-images' },
-        !isService && { id: 'technical', label: 'Informações Técnicas', icon: 'bi-info-circle' },
-        !isService && { id: 'estoque', label: 'Estoque e Precificação', icon: 'bi-box-seam' },
-        !isService && { id: 'variacoes', label: 'Variações', icon: 'bi-grid-3x3-gap' },
+        ...(!isService ? [
+            { id: 'ecommerce' as const, label: 'Fotos', icon: 'bi-images' },
+            { id: 'technical' as const, label: 'Informações Técnicas', icon: 'bi-info-circle' },
+            { id: 'estoque' as const, label: 'Estoque e Precificação', icon: 'bi-box-seam' },
+            { id: 'variacoes' as const, label: 'Variações', icon: 'bi-grid-3x3-gap' },
+        ] : []),
         { id: 'fiscal', label: 'Tributário / NF', icon: 'bi-file-earmark-text' },
-    ] as any[]).filter(Boolean);
+    ];
 
     return (
         <>
@@ -138,14 +148,19 @@ export const ProductFormHeader: React.FC<ProductFormHeaderProps> = ({
                         </div>
                     </div>
                 </div>
-                <button onClick={handleCloseWithAutoSave} className="w-10 h-10 flex items-center justify-center rounded-xl bg-slate-50 dark:bg-slate-800 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all self-end sm:self-auto">
-                    <i className="bi bi-x-lg text-lg"></i>
+                <button 
+                    type="button"
+                    onClick={handleCloseWithAutoSave} 
+                    aria-label="Fechar formulário"
+                    className="w-10 h-10 flex items-center justify-center rounded-xl bg-slate-50 dark:bg-slate-800 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all self-end sm:self-auto cursor-pointer"
+                >
+                    <i className="bi bi-x-lg text-lg" aria-hidden="true" />
                 </button>
             </div>
 
             <div className="px-6 border-b border-slate-50 dark:border-slate-800/50 bg-white dark:bg-slate-900 shrink-0 sticky top-0 z-10 overflow-x-auto scrollbar-none">
-                <div className="flex gap-6 min-w-max">
-                    {formTabs.map((tab: any) => {
+                <div className="flex gap-6 min-w-max" role="tablist" aria-label="Abas do formulário de produto">
+                    {formTabs.map((tab) => {
                         const hasTabErrors =
                             (tab.id === 'geral' && (validationErrors.name || validationErrors.categoryIds)) ||
                             (tab.id === 'estoque' && (validationErrors.unitPrice || validationErrors.mainSupplierId)) ||
@@ -154,15 +169,18 @@ export const ProductFormHeader: React.FC<ProductFormHeaderProps> = ({
                         return (
                             <button
                                 key={tab.id}
-                                onClick={() => setActiveTab(tab.id as any)}
-                                className={`py-3 text-[10px] font-black uppercase tracking-widest flex items-center gap-2 border-b-2 transition-all shrink-0 ${hasTabErrors
+                                type="button"
+                                role="tab"
+                                aria-selected={activeTab === tab.id}
+                                onClick={() => setActiveTab(tab.id)}
+                                className={`py-3 text-[10px] font-black uppercase tracking-widest flex items-center gap-2 border-b-2 transition-all shrink-0 cursor-pointer ${hasTabErrors
                                     ? (activeTab === tab.id ? 'border-red-500 text-red-600' : 'border-red-200 text-red-500')
                                     : (activeTab === tab.id ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-400 hover:text-slate-600 dark:hover:text-slate-200')
                                 }`}
                             >
-                                {tab.icon && <i className={`bi ${tab.icon}`}></i>}
+                                {tab.icon && <i className={`bi ${tab.icon}`} aria-hidden="true" />}
                                 <span>{tab.label}</span>
-                                {hasTabErrors && <i className="bi bi-exclamation-circle-fill text-red-500 text-xs animate-pulse"></i>}
+                                {hasTabErrors && <i className="bi bi-exclamation-circle-fill text-red-500 text-xs animate-pulse" aria-hidden="true" />}
                             </button>
                         );
                     })}

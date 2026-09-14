@@ -3,8 +3,8 @@ import { InitialStockEntry } from '../../../types/product.type';
 import CurrencyInput from '@/components/CurrencyInput';
 
 interface InitialStockListProps {
-    entries: InitialStockEntry[];
-    onChange: (entries: InitialStockEntry[]) => void;
+    readonly entries?: readonly InitialStockEntry[];
+    readonly onChange: (entries: InitialStockEntry[]) => void;
 }
 
 const DEFAULT_ENTRY: InitialStockEntry = {
@@ -18,17 +18,20 @@ const DEFAULT_ENTRY: InitialStockEntry = {
 };
 
 const calcFinal = (e: InitialStockEntry): number => {
-    const base = e.unitCost || 0;
+    const base = Number(e.unitCost) || 0;
+    const ipiVal = Number(e.ipiPercent) || 0;
+    const freightVal = Number(e.freightCost) || 0;
     const ipi = e.ipiType === 'percentage'
-        ? base * ((e.ipiPercent || 0) / 100)
-        : (e.ipiPercent || 0);
+        ? base * (ipiVal / 100)
+        : ipiVal;
     const freight = e.freightType === 'percentage'
-        ? base * ((e.freightCost || 0) / 100)
-        : (e.freightCost || 0);
-    return base + ipi + freight;
+        ? base * (freightVal / 100)
+        : freightVal;
+    const total = base + ipi + freight;
+    return Number.isNaN(total) ? 0 : Math.max(0, total);
 };
 
-const InitialStockList: React.FC<InitialStockListProps> = ({ entries, onChange }) => {
+export const InitialStockList: React.FC<InitialStockListProps> = ({ entries, onChange }) => {
     const [entry, setEntry] = useState<InitialStockEntry>(entries?.[0] || DEFAULT_ENTRY);
 
     // Sync from parent only on mount or when entries are reset externally (e.g. clear form)
@@ -41,7 +44,7 @@ const InitialStockList: React.FC<InitialStockListProps> = ({ entries, onChange }
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []); // Only on mount - prevents the infinite loop
 
-    const update = (field: keyof InitialStockEntry, value: any) => {
+    const update = <K extends keyof InitialStockEntry>(field: K, value: InitialStockEntry[K]) => {
         const next = { ...entry, [field]: value };
         next.finalUnitCost = calcFinal(next);
         setEntry(next);
@@ -53,14 +56,15 @@ const InitialStockList: React.FC<InitialStockListProps> = ({ entries, onChange }
             {/* Quantidade */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="flex flex-col gap-1.5">
-                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 px-1">
+                    <label htmlFor="initial-stock-qty" className="text-[10px] font-black uppercase tracking-widest text-slate-400 px-1">
                         Quantidade Inicial <span className="text-red-500">*</span>
                     </label>
                     <input
+                        id="initial-stock-qty"
                         type="number"
                         min={0}
                         value={entry.quantity || ''}
-                        onChange={(e) => update('quantity', parseInt(e.target.value) || 0)}
+                        onChange={(e) => update('quantity', Math.max(0, parseInt(e.target.value, 10) || 0))}
                         className="w-full px-4 py-3 bg-white dark:bg-slate-900 border-2 border-blue-200 dark:border-blue-900/40 focus:border-blue-500 rounded-xl outline-none text-sm font-black text-blue-600 dark:text-blue-400 transition-colors"
                         placeholder="0"
                     />

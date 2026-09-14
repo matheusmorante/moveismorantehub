@@ -12,6 +12,13 @@ vi.mock('../financialAgentTools', () => ({
   },
 }));
 
+vi.mock('../productAgentTools', () => ({
+  productAgentTools: {
+    buscarProdutos: vi.fn(),
+    obterDetalhesProduto: vi.fn(),
+  },
+}));
+
 describe('GeminiToolDispatcher - Roteamento de Chamadas de Ferramentas', () => {
   beforeEach(() => {
     vi.clearAllMocks();

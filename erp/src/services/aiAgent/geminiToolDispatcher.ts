@@ -1,4 +1,5 @@
 import { financialAgentTools } from './financialAgentTools';
+import { productAgentTools } from './productAgentTools';
 import { GeminiFunctionCall, GeminiFunctionResponse, ExecutedToolRecord } from './geminiAgentTypes';
 
 // Dispatcher central que recebe as tool calls da IA e executa os handlers seguros
@@ -10,6 +11,8 @@ const toolLabels: Record<string, string> = {
   criarMovimentacaoFinanceira: 'Registrando movimentação financeira',
   cancelarOuExcluirMovimentacaoFinanceira: 'Removendo lançamento financeiro',
   registrarFeedbackAgente: 'Registrando feedback do assistente de IA',
+  buscarProdutos: 'Pesquisando produtos no catálogo',
+  obterDetalhesProduto: 'Carregando detalhes e ficha técnica do produto',
 };
 
 export class GeminiToolDispatcher {
@@ -40,6 +43,12 @@ export class GeminiToolDispatcher {
           break;
         case 'registrarFeedbackAgente':
           result = await financialAgentTools.registrarFeedbackAgente(args as any);
+          break;
+        case 'buscarProdutos':
+          result = await productAgentTools.buscarProdutos(args as any);
+          break;
+        case 'obterDetalhesProduto':
+          result = await productAgentTools.obterDetalhesProduto(args as any);
           break;
         default:
           result = {

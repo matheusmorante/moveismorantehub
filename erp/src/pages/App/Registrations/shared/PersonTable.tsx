@@ -6,29 +6,29 @@ import { useAutoScroll } from "../../../utils/useAutoScroll";
 import { getSettings } from '@/pages/utils/settingsService';
 
 interface PersonTableProps {
-    people: Person[];
-    onEdit: (person: Person) => void;
-    onDelete: (id: string) => void;
-    onRestore: (id: string) => void;
-    onPermanentDelete: (id: string) => void;
-    onToggleActive: (id: string, currentStatus: boolean) => void;
-    visibilitySettings: PersonVisibilitySettings;
-    onToggleColumn: (column: keyof PersonVisibilitySettings) => void;
-    showTrash?: boolean;
-    filters?: any;
-    onSort?: (sortBy: string, sortOrder: 'asc' | 'desc') => void;
-    selectedPeople: string[];
-    onToggleSelection: (id: string) => void;
-    onSelectAll: () => void;
-    onClearSelection: () => void;
-    onBulkTrash: () => void;
-    onBulkRestore: () => void;
-    onBulkPermanentDelete: () => void;
-    storageKey: string;
-    onViewPurchaseHistory?: (person: Person) => void;
-    collectionName: string;
-    supplierProductCounts?: Record<string, number>;
-    customerOrderCounts?: Record<string, number>;
+    readonly people: readonly Person[];
+    readonly onEdit: (person: Person) => void;
+    readonly onDelete: (id: string) => void;
+    readonly onRestore: (id: string) => void;
+    readonly onPermanentDelete: (id: string) => void;
+    readonly onToggleActive: (id: string, currentStatus: boolean) => void;
+    readonly visibilitySettings: PersonVisibilitySettings;
+    readonly onToggleColumn: (column: keyof PersonVisibilitySettings) => void;
+    readonly showTrash?: boolean;
+    readonly filters?: any;
+    readonly onSort?: (sortBy: string, sortOrder: 'asc' | 'desc') => void;
+    readonly selectedPeople: readonly string[];
+    readonly onToggleSelection: (id: string) => void;
+    readonly onSelectAll: () => void;
+    readonly onClearSelection: () => void;
+    readonly onBulkTrash: () => void;
+    readonly onBulkRestore: () => void;
+    readonly onBulkPermanentDelete: () => void;
+    readonly storageKey: string;
+    readonly onViewPurchaseHistory?: (person: Person) => void;
+    readonly collectionName: string;
+    readonly supplierProductCounts?: Readonly<Record<string, number>>;
+    readonly customerOrderCounts?: Readonly<Record<string, number>>;
 }
 
 interface ColumnDef {
@@ -60,7 +60,12 @@ const PersonTable = ({
     onBulkTrash, onBulkRestore, onBulkPermanentDelete, storageKey,
     onViewPurchaseHistory, collectionName, supplierProductCounts, customerOrderCounts
 }: PersonTableProps) => {
-    const columnsDef = getColumnsDef(collectionName);
+    const isMobile = typeof window !== 'undefined' && (
+        window.location.search.includes('auth_email') || 
+        window.location.pathname.includes('/mobile') || 
+        Boolean((window as any).ReactNativeWebView)
+    );
+    const columnsDef = React.useMemo(() => getColumnsDef(collectionName), [collectionName]);
     const allowsSelection = collectionName !== 'employees' && collectionName !== 'suppliers' && collectionName !== 'customers';
     const containerRef = React.useRef<HTMLDivElement>(null);
     const settings = getSettings();
@@ -86,7 +91,8 @@ const PersonTable = ({
                 if (collectionName !== 'suppliers') return columns;
                 const actions = columns.find((column) => column.key === 'actions');
                 return [...columns.filter((column) => column.key !== 'actions'), ...(actions ? [actions] : [])];
-            } catch (e) {
+            } catch (err: unknown) {
+                console.warn("Falha ao recuperar ordem de colunas do localStorage:", err);
                 return columnsDef;
             }
         }

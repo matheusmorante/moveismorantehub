@@ -3,11 +3,34 @@ import { toast } from 'react-toastify';
 
 import { blingService } from '@/pages/services/blingService';
 
+export interface BlingProductItem {
+    id: number | string;
+    nome: string;
+    codigo?: string;
+    preco?: number | string;
+    precoCusto?: number | string;
+    pesoBruto?: number | string;
+    idProdutoPai?: number | string;
+    localizacao?: string;
+    tipo?: string;
+    situacao?: string;
+    estoqueMinimo?: number;
+    estoque?: {
+        saldoTotal?: number;
+    };
+    imagemURL?: string;
+    variacao?: {
+        nome?: string;
+    };
+}
+
 const BlingStock: React.FC = () => {
     const [loading, setLoading] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
-    const [products, setProducts] = useState<any[]>([]);
+    const [products, setProducts] = useState<BlingProductItem[]>([]);
     const [page, setPage] = useState(1);
+    const [selectedProduct, setSelectedProduct] = useState<BlingProductItem | null>(null);
+    const [isDetailOpen, setIsDetailOpen] = useState(false);
 
     useEffect(() => {
         const urlParams = new URLSearchParams(window.location.search);
@@ -30,13 +53,14 @@ const BlingStock: React.FC = () => {
                 pesquisa: searchTerm || undefined
             });
             setProducts(data.data || []);
-        } catch (err) {
+        } catch (err: unknown) {
             console.error(err);
             toast.error("Erro ao carregar produtos do Bling.");
         } finally {
             setLoading(false);
         }
     };
+
 
     const handleOAuthCallback = async (code: string) => {
         setLoading(true);
@@ -76,10 +100,7 @@ const BlingStock: React.FC = () => {
         });
     }, [products]);
 
-    const [selectedProduct, setSelectedProduct] = useState<any>(null);
-    const [isDetailOpen, setIsDetailOpen] = useState(false);
-
-    const handleViewDetail = (product: any) => {
+    const handleViewDetail = (product: BlingProductItem) => {
         setSelectedProduct(product);
         setIsDetailOpen(true);
     };
@@ -212,12 +233,26 @@ const BlingStock: React.FC = () => {
 
             {/* Modal de Detalhes Premium */}
             {isDetailOpen && selectedProduct && (
-                <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-md animate-in fade-in duration-300">
-                    <div className="bg-white dark:bg-slate-900 rounded-[3rem] w-full max-w-xl max-h-[90vh] overflow-y-auto shadow-2xl border border-slate-100 dark:border-slate-800 animate-in zoom-in-95 duration-300 scrollbar-hide">
+                <div 
+                    role="dialog"
+                    aria-modal="true"
+                    aria-labelledby="bling-product-detail-title"
+                    onKeyDown={(e) => { if (e.key === 'Escape') setIsDetailOpen(false); }}
+                    className="fixed inset-0 z-[9999] flex items-center justify-center p-4"
+                >
+                    <button
+                        type="button"
+                        className="absolute inset-0 bg-slate-950/60 backdrop-blur-md animate-in fade-in duration-300 border-0 cursor-default"
+                        onClick={() => setIsDetailOpen(false)}
+                        aria-label="Fechar detalhes do produto Bling"
+                    />
+                    <div className="relative bg-white dark:bg-slate-900 rounded-[3rem] w-full max-w-xl max-h-[90vh] overflow-y-auto shadow-2xl border border-slate-100 dark:border-slate-800 animate-in zoom-in-95 duration-300 scrollbar-hide">
                         {/* Header do Modal */}
                         <div className="sticky top-0 bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl p-8 pb-4 z-20">
                             <button 
+                                type="button"
                                 onClick={() => setIsDetailOpen(false)} 
+                                aria-label="Fechar modal"
                                 className="absolute top-6 right-6 w-10 h-10 rounded-full bg-slate-50 dark:bg-slate-800 text-slate-400 hover:bg-rose-500 hover:text-white transition-all flex items-center justify-center"
                             >
                                 <i className="bi bi-x-lg text-sm"></i>
@@ -227,7 +262,7 @@ const BlingStock: React.FC = () => {
                                 <div className="w-20 h-20 rounded-[1.8rem] bg-gradient-to-br from-blue-500 to-indigo-600 shadow-lg shadow-blue-500/20 flex items-center justify-center text-white text-3xl mb-4">
                                     <i className="bi bi-box-seam"></i>
                                 </div>
-                                <h3 className="text-lg font-black text-slate-800 dark:text-white uppercase tracking-tighter leading-tight mb-2 px-4">
+                                <h3 id="bling-product-detail-title" className="text-lg font-black text-slate-800 dark:text-white uppercase tracking-tighter leading-tight mb-2 px-4">
                                     {selectedProduct.nome}
                                 </h3>
                                 <div className="flex items-center gap-2">

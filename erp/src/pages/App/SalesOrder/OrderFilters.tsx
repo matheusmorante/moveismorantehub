@@ -19,8 +19,8 @@ export interface Filters {
 }
 
 interface OrderFiltersProps {
-    filters: Filters;
-    setFilters: React.Dispatch<React.SetStateAction<Filters>>;
+    readonly filters: Filters;
+    readonly setFilters: React.Dispatch<React.SetStateAction<Filters>>;
 }
 
 const OrderFilters = ({ filters, setFilters }: OrderFiltersProps) => {
@@ -28,13 +28,23 @@ const OrderFilters = ({ filters, setFilters }: OrderFiltersProps) => {
         const { name, value } = e.target;
         if (name.includes(".")) {
             const [parent, child] = name.split(".");
-            setFilters(prev => ({
-                ...prev,
-                [parent]: {
-                    ...(prev[parent as keyof Filters] as any),
-                    [child]: value
-                }
-            }));
+            if (parent === "dateRange") {
+                setFilters(prev => ({
+                    ...prev,
+                    dateRange: {
+                        ...prev.dateRange,
+                        [child]: value
+                    }
+                }));
+            } else if (parent === "valueRange") {
+                setFilters(prev => ({
+                    ...prev,
+                    valueRange: {
+                        ...prev.valueRange,
+                        [child]: Number(value) || 0
+                    }
+                }));
+            }
         } else {
             setFilters(prev => ({ ...prev, [name]: value }));
         }

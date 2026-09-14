@@ -4,17 +4,28 @@ import { computeVariationName } from '@/pages/utils/productVariationDefaults';
 import { toTitleCase } from '@/pages/utils/textUtils';
 import { toast } from 'react-toastify';
 
+export interface DbAttributeItem {
+    readonly id: string;
+    readonly name: string;
+}
+
+export interface DbAttributeValueItem {
+    readonly id: string;
+    readonly attribute_id: string;
+    readonly value: string;
+}
+
 interface VariationIdentificationTabProps {
-    formData: Variation;
-    setFormData: React.Dispatch<React.SetStateAction<Variation | null>>;
-    parentProduct: Product;
-    diferenciarTitulo: boolean;
-    setDiferenciarTitulo: React.Dispatch<React.SetStateAction<boolean>>;
-    dbAttributes: { id: string; name: string }[];
-    dbAttributeValues: { id: string; attribute_id: string; value: string }[];
-    setIsManageAttributesOpen: (open: boolean) => void;
-    getDefaultVariationName: (attributes?: Variation['attributes']) => string;
-    getDefaultVariationTitle: (attributes?: Variation['attributes']) => string;
+    readonly formData: Variation;
+    readonly setFormData: React.Dispatch<React.SetStateAction<Variation | null>>;
+    readonly parentProduct: Product;
+    readonly diferenciarTitulo: boolean;
+    readonly setDiferenciarTitulo: React.Dispatch<React.SetStateAction<boolean>>;
+    readonly dbAttributes: readonly DbAttributeItem[];
+    readonly dbAttributeValues: readonly DbAttributeValueItem[];
+    readonly setIsManageAttributesOpen: (open: boolean) => void;
+    readonly getDefaultVariationName: (attributes?: Variation['attributes']) => string;
+    readonly getDefaultVariationTitle: (attributes?: Variation['attributes']) => string;
 }
 
 export const VariationIdentificationTab: React.FC<VariationIdentificationTabProps> = ({
@@ -29,6 +40,7 @@ export const VariationIdentificationTab: React.FC<VariationIdentificationTabProp
     getDefaultVariationName,
     getDefaultVariationTitle
 }) => {
+
     return (
         <div className="space-y-6 animate-in fade-in duration-350">
             {/* Linha com Nome (ERP) e Título (Catálogo) */}

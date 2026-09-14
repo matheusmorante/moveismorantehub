@@ -1,12 +1,16 @@
 import React, { useState, useCallback } from 'react';
-import Product from '@/pages/types/product.type';
+import type Product from '@/pages/types/product.type';
 
-export const parsePrice = (val: any): number => {
-    if (typeof val === 'number') return val;
+/**
+ * Converte valor desconhecido (string ou number) para number positivo ou zero,
+ * com suporte a separador decimal brasileiro e proteção contra NaN.
+ */
+export const parsePrice = (val: unknown): number => {
+    if (typeof val === 'number') return Number.isNaN(val) ? 0 : val;
     if (!val) return 0;
     const clean = String(val).replace(/[^\d.,]/g, '').replace(',', '.');
     const parsed = parseFloat(clean);
-    return isNaN(parsed) ? 0 : parsed;
+    return Number.isNaN(parsed) ? 0 : parsed;
 };
 
 export function useProductFormPricing(
@@ -29,7 +33,7 @@ export function useProductFormPricing(
 
             if (discountPercent) {
                 const pct = parseFloat(discountPercent);
-                if (!isNaN(pct)) {
+                if (!Number.isNaN(pct)) {
                     const fixed = orig * (pct / 100);
                     setDiscountFixed(fixed.toFixed(2));
                     const promo = orig - fixed;
@@ -55,7 +59,7 @@ export function useProductFormPricing(
             }
 
             const pct = parseFloat(valStr);
-            if (isNaN(pct) || pct < 0) {
+            if (Number.isNaN(pct) || pct < 0) {
                 setDiscountFixed("");
                 return { ...prev, promoPrice: undefined };
             }
@@ -77,7 +81,7 @@ export function useProductFormPricing(
                 return { ...prev, promoPrice: undefined };
             }
 
-            const pct = (fixed / orig) * 100;
+            const pct = orig > 0 ? (fixed / orig) * 100 : 0;
             setDiscountPercent(pct.toFixed(1));
             const promo = orig - fixed;
             return { ...prev, promoPrice: promo > 0 ? Number(promo.toFixed(2)) : 0 };
@@ -113,6 +117,7 @@ export function useProductFormPricing(
             setDiscountPercent("");
         }
     }, []);
+
 
     return {
         discountPercent,

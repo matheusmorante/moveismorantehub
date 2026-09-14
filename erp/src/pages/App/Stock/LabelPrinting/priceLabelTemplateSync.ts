@@ -1,28 +1,50 @@
 const CHANNEL_NAME = 'morante-price-label-template-sync';
 
 export interface PriceLabelTemplateUpdate {
-    layoutId: string;
-    artConfig: Record<string, unknown>;
+    readonly layoutId: string;
+    readonly artConfig: Readonly<Record<string, unknown>>;
 }
 
-export const publishPriceLabelTemplateUpdate = (update: PriceLabelTemplateUpdate) => {
+/**
+ * Publica uma atualização de template de etiqueta de preço para todas as abas abertas no navegador
+ * utilizando a API nativa BroadcastChannel.
+ */
+export const publishPriceLabelTemplateUpdate = (update: PriceLabelTemplateUpdate): void => {
     if (typeof BroadcastChannel === 'undefined') return;
 
-    const channel = new BroadcastChannel(CHANNEL_NAME);
-    channel.postMessage(update);
-    channel.close();
+    try {
+        const channel = new BroadcastChannel(CHANNEL_NAME);
+        channel.postMessage(update);
+        channel.close();
+    } catch (err: unknown) {
+        console.warn('Não foi possível sincronizar template via BroadcastChannel:', err);
+    }
 };
 
+/**
+ * Escuta atualizações de template de etiqueta de preço transmitidas por outras abas do sistema.
+ */
 export const subscribeToPriceLabelTemplateUpdates = (
     onUpdate: (update: PriceLabelTemplateUpdate) => void,
-) => {
+): (() => void) => {
     if (typeof BroadcastChannel === 'undefined') return () => undefined;
 
-    const channel = new BroadcastChannel(CHANNEL_NAME);
-    channel.onmessage = ({ data }: MessageEvent<PriceLabelTemplateUpdate>) => {
-        if (!data?.layoutId || !data.artConfig) return;
-        onUpdate(data);
-    };
+    try {
+        const channel = new BroadcastChannel(CHANNEL_NAME);
+        channel.onmessage = ({ data }: MessageEvent<PriceLabelTemplateUpdate>) => {
+            if (!data?.layoutId || !data.artConfig) return;
+            onUpdate(data);
+        };
 
-    return () => channel.close();
+        return () => {
+            try {
+                channel.close();
+            } catch {
+                // Silencioso no encerramento
+            }
+        };
+    } catch {
+        return () => undefined;
+    }
 };
+

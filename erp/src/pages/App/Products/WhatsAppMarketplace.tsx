@@ -14,8 +14,9 @@ export default function WhatsAppMarketplace() {
         try {
             const data = await whatsappGraphService.fetchCatalogProducts();
             setProducts(data);
-        } catch (error: any) {
-            toast.error(error.message || "Erro ao carregar o catálogo do WhatsApp.");
+        } catch (error: unknown) {
+            const message = error instanceof Error ? error.message : 'Erro ao carregar o catálogo do WhatsApp.';
+            toast.error(message);
         } finally {
             setLoading(false);
             setIsRefreshing(false);
@@ -23,12 +24,12 @@ export default function WhatsAppMarketplace() {
     };
 
     useEffect(() => {
-        loadCatalog();
+        void loadCatalog();
     }, []);
 
     const handleRefresh = () => {
         setIsRefreshing(true);
-        loadCatalog();
+        void loadCatalog();
     };
 
     const [isSyncing, setIsSyncing] = useState<string | null>(null);
@@ -39,8 +40,9 @@ export default function WhatsAppMarketplace() {
         try {
             await syncFromWhatsApp(product);
             toast.success(`Fotos e descrição de "${product.name}" sincronizadas!`);
-        } catch (error: any) {
-            toast.error(error.message || "Erro ao sincronizar produto.");
+        } catch (error: unknown) {
+            const message = error instanceof Error ? error.message : 'Erro ao sincronizar produto.';
+            toast.error(message);
         } finally {
             setIsSyncing(null);
         }
@@ -65,8 +67,9 @@ export default function WhatsAppMarketplace() {
             // Dispara UPDATE na Meta para forçar reanálise e atualizar o canal
             await whatsappGraphService.syncProductToCatalog(payload, 'UPDATE');
             toast.success(`Solicitação de reenvio de "${product.name}" enviada ao WhatsApp com sucesso!`);
-        } catch (error: any) {
-            toast.error(error.message || "Erro ao reenviar para o WhatsApp.");
+        } catch (error: unknown) {
+            const message = error instanceof Error ? error.message : 'Erro ao reenviar para o WhatsApp.';
+            toast.error(message);
         } finally {
             setIsResending(null);
         }
@@ -90,10 +93,10 @@ export default function WhatsAppMarketplace() {
             if (successCount > 0) {
                 toast.success(`${successCount} produtos sincronizados com sucesso! ✨`);
             } else {
-                toast.warn("Nenhum produto correspondente foi encontrado no ERP para sincronizar.");
+                toast.warn('Nenhum produto correspondente foi encontrado no ERP para sincronizar.');
             }
-        } catch (error: any) {
-            toast.error("Erro durante o processo de sincronização em lote.");
+        } catch (error: unknown) {
+            toast.error('Erro durante o processo de sincronização em lote.');
         } finally {
             setLoading(false);
         }

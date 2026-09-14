@@ -5,6 +5,8 @@ import { fetchGroupsAndCategories } from '@/pages/utils/categoryService';
 import { ensureAttributeValue } from '@/pages/utils/variationService';
 import { itemCostWithAdditionalCosts } from '@/pages/utils/inboundNfe/inboundItemCosts';
 import { extractColorCandidateFromTitle } from '@/pages/utils/inboundNfe/inboundMatchingRules';
+import { generateVariationSku, getNextSequentialProductCode } from '@/pages/utils/productService/productSkuService';
+import { resolveAutoCategory } from '@/pages/utils/categoryResolutionService';
 
 interface PrepareProductCreateParams {
     item: InboundInvoiceItem;
@@ -25,12 +27,6 @@ export async function prepareInboundProductData({
     markupInput,
 }: PrepareProductCreateParams): Promise<PreparedProductDataResult> {
     const suggestion = await aiService.generateMarketplaceTitle({ description: item.productDescription });
-    const { categories } = await fetchGroupsAndCategories();
-    const categoryNames = categories.filter((category) => category.active !== false).map((category) => category.name);
-    const categorySuggestion = await aiService.suggestCategory(suggestion.title, categoryNames);
-    const suggestedCatName = typeof categorySuggestion === 'string' ? categorySuggestion : (categorySuggestion?.category || '');
-    const category = categories.find((candidate) => candidate.name.trim().toLowerCase() === suggestedCatName.trim().toLowerCase()) || categories[0];
-    if (!category) throw new Error('Nenhuma categoria existente foi encontrada para o produto.');
 
     const finalCost = itemCostWithAdditionalCosts(item);
     const markup = markupInput ? Number(markupInput.replace(',', '.')) : 0;
@@ -72,6 +68,22 @@ export async function prepareInboundProductData({
         }
     }
 
+    let autoCategoryIds: string[] = [];
+    let autoCategories: string[] = [];
+    let autoCategoryName = '';
+    try {
+        const categoryResponse = await fetchGroupsAndCategories();
+        const activeCategories = (categoryResponse?.categories || []).filter((c: any) => c.active !== false);
+        const resolved = await resolveAutoCategory(suggestion.title, activeCategories);
+        if (resolved) {
+            autoCategoryIds = [resolved.id];
+            autoCategories = [resolved.name || resolved.category || ''];
+            autoCategoryName = resolved.name || resolved.category || '';
+        }
+    } catch (catErr) {
+        console.warn('[prepareInboundProductData] Falha ao resolver categoria automática:', catErr);
+    }
+
     const initialProductData: Partial<Product> = {
         name: suggestion.title,
         title: suggestion.title,
@@ -85,7 +97,9 @@ export async function prepareInboundProductData({
         supplierId,
         supplierIds: supplierId ? [supplierId] : [],
         supplierRef: item.productCode || undefined,
-        categoryIds: [category.id],
+        categoryIds: autoCategoryIds,
+        categories: autoCategories,
+        category: autoCategoryName,
         parentId: family?.id,
         costPrice: finalCost,
         unitPrice: salePrice,
@@ -99,7 +113,7 @@ export async function prepareInboundProductData({
 
     return {
         initialProductData,
-        suggestedCategory: { id: category.id, name: category.name },
+        suggestedCategory: autoCategoryIds.length > 0 ? { id: autoCategoryIds[0], name: autoCategoryName } : { id: '', name: '' },
     };
 }
 
@@ -123,25 +137,6 @@ export async function prepareNewParentWithVariation(
     supplierId?: string
 ): Promise<Partial<Product>> {
     const finalCost = item.finalCost || item.unitCost || 0;
-
-    // 1. Categoria sugerida por IA ou lista de categorias ativas
-    let catObj: { id: string; name: string } | null = null;
-    try {
-        const { categories } = await fetchGroupsAndCategories();
-        const aiCat = await aiService.suggestCategoryForProduct(item.productDescription);
-        if (aiCat?.categoryName && categories) {
-            const found = categories.find(
-                (c: any) => c.name.toLowerCase() === aiCat.categoryName.toLowerCase()
-            );
-            if (found) catObj = { id: found.id, name: found.name };
-        }
-        if (!catObj && categories && categories.length > 0) {
-            const activeCat = categories.find((c: any) => c.active !== false) || categories[0];
-            if (activeCat) catObj = { id: activeCat.id, name: activeCat.name };
-        }
-    } catch (err) {
-        console.warn('[prepareNewParentWithVariation] Erro ao buscar categoria sugerida:', err);
-    }
 
     // 2. Extração de cor inteligente via IA com fallback local
     let detectedColor = await aiService.extractProductColor(item.productDescription);
@@ -175,9 +170,10 @@ export async function prepareNewParentWithVariation(
 
     // 3. Montar a variação inicial com os atributos
     const initialVariationId = crypto.randomUUID();
+    const parentCode = await getNextSequentialProductCode();
     const initialVariation: Variation = {
         id: initialVariationId,
-        sku: item.productCode || '',
+        sku: generateVariationSku(parentCode, []),
         name: item.productDescription,
         stock: 0,
         unitPrice: undefined as any,
@@ -195,8 +191,26 @@ export async function prepareNewParentWithVariation(
         syncWeight: true,
     };
 
+    // 4. Selecionar automaticamente a categoria mais adequada para o produto
+    let autoCategoryIds: string[] = [];
+    let autoCategories: string[] = [];
+    let autoCategoryName = '';
+    try {
+        const categoryResponse = await fetchGroupsAndCategories();
+        const activeCategories = (categoryResponse?.categories || []).filter((c: any) => c.active !== false);
+        const resolved = await resolveAutoCategory(parentName, activeCategories);
+        if (resolved) {
+            autoCategoryIds = [resolved.id];
+            autoCategories = [resolved.name || resolved.category || ''];
+            autoCategoryName = resolved.name || resolved.category || '';
+        }
+    } catch (catErr) {
+        console.warn('[prepareNewParentWithVariation] Falha ao resolver categoria automática:', catErr);
+    }
+
     return {
         name: parentName,
+        code: parentCode,
         title: parentName,
         description: '',
         ncm: item.ncm || '',
@@ -207,16 +221,15 @@ export async function prepareNewParentWithVariation(
         mainSupplierId: supplierId || undefined,
         supplierId,
         supplierIds: supplierId ? [supplierId] : [],
-        categoryIds: catObj ? [catObj.id] : [],
-        categories: catObj ? [{ id: catObj.id, name: catObj.name }] : [],
+        categoryIds: autoCategoryIds,
+        supplierRef: item.productCode || undefined,
+        categories: autoCategories,
+        category: autoCategoryName,
         hasVariations: true,
         variations: [initialVariation],
     };
 }
 
-/**
- * Prepara uma nova variação para ser vinculada a um produto pai existente.
- */
 export async function prepareExistingParentNewVariation(
     parentProduct: Product,
     item: QuickItemPayload
@@ -245,7 +258,7 @@ export async function prepareExistingParentNewVariation(
     const newVarId = crypto.randomUUID();
     const newVar: Variation = {
         id: newVarId,
-        sku: item.productCode || '',
+        sku: generateVariationSku(parentProduct.code || '', parentProduct.variations || []),
         name: item.productDescription,
         stock: 0,
         unitPrice: parentProduct.unitPrice || (undefined as any),

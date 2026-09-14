@@ -24,9 +24,9 @@ describe('Mobile AI Agent - Function Calling & Declarations', () => {
     expect(typeof MobileAgentClient.getApiKey).toBe('function');
   });
 
-  it('deve ter as 7 ferramentas declaradas com schemas JSON Schema válidos', () => {
+  it('deve ter as 11 ferramentas declaradas com schemas JSON Schema válidos', () => {
     const declarations = mobileAgentTools[0].functionDeclarations;
-    expect(declarations.length).toBe(7);
+    expect(declarations.length).toBe(11);
 
     const names = declarations.map(d => d.name);
     expect(names).toContain('buscarCategoriasFinanceiras');
@@ -36,6 +36,10 @@ describe('Mobile AI Agent - Function Calling & Declarations', () => {
     expect(names).toContain('criarMovimentacaoFinanceira');
     expect(names).toContain('cancelarOuExcluirMovimentacaoFinanceira');
     expect(names).toContain('registrarFeedbackAgente');
+    expect(names).toContain('buscarPedidosEntregas');
+    expect(names).toContain('obterDetalhesPedidoEntrega');
+    expect(names).toContain('buscarProdutos');
+    expect(names).toContain('obterDetalhesProduto');
   });
 
   it('deve montar a system instruction com data de referência e proibições invioláveis', () => {

@@ -98,6 +98,7 @@ export const mapDbVariations = (variationRecords: any[], data: any, parentCode: 
 export const createDefaultVariation = (data: any, parentCode: string, rawName: string, productImages: string[]): Variation[] => {
     return [{
         id: `${data.id}_${parentCode ? `${parentCode}-01` : '01'}`,
+        isVirtual: true,
         sku: parentCode ? `${parentCode}-01` : '01',
         name: rawName || 'Padrão',
         stock: Number(data.stock || 0),

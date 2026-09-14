@@ -1,6 +1,6 @@
 import { supabase } from '@/pages/utils/supabaseConfig';
 import Purchase from "../types/purchase.type";
-import { saveInventoryMove, deleteInventoryMove } from '@/pages/utils/inventoryService';
+import { saveInventoryMove, deleteInventoryMove, cancelInventoryMovesByRelatedEntity } from '@/pages/utils/inventoryService';
 import { getSettings } from '@/pages/utils/settingsService';
 import { formatToBRDate } from '@/pages/utils/formatters';
 
@@ -59,8 +59,6 @@ const syncPurchaseItems = async (purchaseId: string, items: any[]) => {
     }
 };
 
-import { saveInventoryMove, cancelInventoryMovesByRelatedEntity } from '@/pages/utils/inventoryService';
-import { formatToBRDate } from '@/pages/utils/formatters';
 
 const processInventoryMoves = async (purchase: Purchase, savedId: string) => {
     const formattedDate = formatToBRDate(purchase.date);

@@ -11,24 +11,24 @@ import { ProductCardActions } from './ProductCardActions';
 import { ProductCardVariationList } from './ProductCardVariationList';
 
 interface ProductCardProps {
-    product: Product;
-    onEdit: (product: Product) => void;
-    onLaunchStock?: (product: any) => void;
-    onDelete: (id: string) => void;
-    onRestore: (id: string) => void;
-    onPermanentDelete: (id: string) => void;
-    onToggleActive: (id: string, currentStatus: boolean) => void;
-    onDeactivateCatalog: (id: string) => void;
-    onShowHistory?: (product: Product) => void;
-    showTrash?: boolean;
-    isSelected?: boolean;
-    onToggleSelection?: () => void;
-    categoryTree?: any;
-    onRefresh?: () => void;
-    onDuplicate?: (product: Product) => void;
-    exitedVariationIds?: Set<string>;
-    onMoveToAnotherFamily?: (variation: any) => void;
-    onMergeWithAnotherVariation?: (variation: any) => void;
+    readonly product: Product;
+    readonly onEdit: (product: Product) => void;
+    readonly onLaunchStock?: (product: any) => void;
+    readonly onDelete: (id: string) => void;
+    readonly onRestore: (id: string) => void;
+    readonly onPermanentDelete: (id: string) => void;
+    readonly onToggleActive: (id: string, currentStatus: boolean) => void;
+    readonly onDeactivateCatalog: (id: string) => void;
+    readonly onShowHistory?: (product: Product) => void;
+    readonly showTrash?: boolean;
+    readonly isSelected?: boolean;
+    readonly onToggleSelection?: () => void;
+    readonly categoryTree?: any;
+    readonly onRefresh?: () => void;
+    readonly onDuplicate?: (product: Product) => void;
+    readonly exitedVariationIds?: ReadonlySet<string>;
+    readonly onMoveToAnotherFamily?: (variation: any) => void;
+    readonly onMergeWithAnotherVariation?: (variation: any) => void;
 }
 
 const ProductCard: React.FC<ProductCardProps> = ({
@@ -55,7 +55,7 @@ const ProductCard: React.FC<ProductCardProps> = ({
     const isLowStock = (product.stock || 0) <= (product.minStock || 0);
     const isParent = product.isParent;
     const isVariation = product.isVariation || !!product.parentId;
-    const isDraft = Boolean(product.isDraft) || Boolean((product as any).is_draft) || product.status === 'draft';
+    const isDraft = Boolean(product.isDraft) || Boolean((product as any).is_draft);
     const canManageCatalog = !isDraft && product.active !== false;
 
     const { oppName, supplierNames } = useProductMetadata(product);
@@ -71,6 +71,15 @@ const ProductCard: React.FC<ProductCardProps> = ({
 
     return (
         <div
+            role={hasParentVariations ? "button" : undefined}
+            tabIndex={hasParentVariations ? 0 : undefined}
+            aria-expanded={hasParentVariations ? showVariations : undefined}
+            onKeyDown={(e) => {
+                if (hasParentVariations && (e.key === 'Enter' || e.key === ' ')) {
+                    e.preventDefault();
+                    setShowVariations(prev => !prev);
+                }
+            }}
             onClick={() => {
                 if (hasParentVariations) {
                     setShowVariations(prev => !prev);

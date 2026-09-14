@@ -1,20 +1,23 @@
-import React from "react";
-import type { AuditItem } from "./InventoryAuditModal";
+import React from 'react';
+import type { AuditItem } from './InventoryAuditModal';
 
-interface InventoryAuditTableProps {
-    items: AuditItem[];
-    onUpdateCount: (id: string, newCount: number) => void;
-    onIncrement: (id: string) => void;
-    onDecrement: (id: string) => void;
-    onRemove: (id: string) => void;
+export interface InventoryAuditTableProps {
+    readonly items: readonly AuditItem[];
+    readonly onUpdateCount: (id: string, newCount: number) => void;
+    readonly onIncrement: (id: string) => void;
+    readonly onDecrement: (id: string) => void;
+    readonly onRemove: (id: string) => void;
 }
 
+/**
+ * Visualização tabular para conferência de inventário em telas médias e grandes com atalhos de contagem.
+ */
 export const InventoryAuditTable: React.FC<InventoryAuditTableProps> = ({
     items,
     onUpdateCount,
     onIncrement,
     onDecrement,
-    onRemove
+    onRemove,
 }) => {
     return (
         <table className="hidden md:table w-full text-left border-collapse">
@@ -36,7 +39,10 @@ export const InventoryAuditTable: React.FC<InventoryAuditTableProps> = ({
                             <td className="px-4 py-3 font-bold text-slate-800 dark:text-slate-200">
                                 {item.name}
                             </td>
-                            <td className="px-4 py-3 text-slate-500 font-medium truncate max-w-[200px]" title={item.supplierNames}>
+                            <td
+                                className="px-4 py-3 text-slate-500 font-medium truncate max-w-[200px]"
+                                title={item.supplierNames}
+                            >
                                 {item.supplierNames}
                             </td>
                             <td className="px-4 py-3 text-center font-mono text-slate-600 dark:text-slate-400">
@@ -48,33 +54,41 @@ export const InventoryAuditTable: React.FC<InventoryAuditTableProps> = ({
                                         type="button"
                                         onClick={() => onDecrement(item.id)}
                                         className="w-7 h-7 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 text-slate-600 dark:text-slate-300 font-bold flex items-center justify-center cursor-pointer transition-colors"
+                                        aria-label={`Diminuir contagem de ${item.name}`}
                                     >
-                                        -
+                                        −
                                     </button>
                                     <input
                                         type="number"
                                         min="0"
                                         value={item.physicalCount}
-                                        onChange={(e) => onUpdateCount(item.id, parseInt(e.target.value, 10))}
+                                        onChange={(e) => {
+                                            const parsed = parseInt(e.target.value, 10);
+                                            onUpdateCount(item.id, Number.isNaN(parsed) ? 0 : parsed);
+                                        }}
                                         className="w-16 text-center font-bold font-mono py-1 border border-slate-200 dark:border-slate-700 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100"
+                                        aria-label={`Contagem de ${item.name}`}
                                     />
                                     <button
                                         type="button"
                                         onClick={() => onIncrement(item.id)}
                                         className="w-7 h-7 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 text-slate-600 dark:text-slate-300 font-bold flex items-center justify-center cursor-pointer transition-colors"
+                                        aria-label={`Aumentar contagem de ${item.name}`}
                                     >
                                         +
                                     </button>
                                 </div>
                             </td>
                             <td className="px-4 py-3 text-center">
-                                <span className={`inline-block px-2 py-0.5 rounded-md font-mono font-bold text-[11px] ${
-                                    diff > 0 
-                                        ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300' 
-                                        : diff < 0 
-                                        ? 'bg-rose-100 text-rose-700 dark:bg-rose-950/40 dark:text-rose-300' 
-                                        : 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400'
-                                }`}>
+                                <span
+                                    className={`inline-block px-2 py-0.5 rounded-md font-mono font-bold text-[11px] ${
+                                        diff > 0
+                                            ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300'
+                                            : diff < 0
+                                            ? 'bg-rose-100 text-rose-700 dark:bg-rose-950/40 dark:text-rose-300'
+                                            : 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400'
+                                    }`}
+                                >
                                     {diff > 0 ? `+${diff}` : diff} {item.unit}
                                 </span>
                             </td>
@@ -84,8 +98,9 @@ export const InventoryAuditTable: React.FC<InventoryAuditTableProps> = ({
                                     onClick={() => onRemove(item.id)}
                                     className="p-1.5 rounded-lg text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-colors cursor-pointer"
                                     title="Remover da lista"
+                                    aria-label={`Remover ${item.name} da lista`}
                                 >
-                                    <i className="bi bi-trash text-xs" />
+                                    <i className="bi bi-trash text-xs" aria-hidden="true" />
                                 </button>
                             </td>
                         </tr>
@@ -95,3 +110,5 @@ export const InventoryAuditTable: React.FC<InventoryAuditTableProps> = ({
         </table>
     );
 };
+
+export default InventoryAuditTable;

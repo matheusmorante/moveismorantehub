@@ -1,18 +1,36 @@
-import { useMemo, useRef, useState } from 'react';
-import { Product } from '@/pages/types/product.type';
-import { Person } from '../../../../types/person.type';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import type { Product } from '@/pages/types/product.type';
+import type { Person } from '../../../../types/person.type';
 import DropdownPortal from '@/components/shared/DropdownPortal';
 import PersonFormModal from '../../../Registrations/shared/PersonFormModal';
 
-type Props = { formData: Partial<Product>; suppliers: Person[]; onChange: (fields: Partial<Product>) => void; hasError?: boolean };
+interface ProductSupplierFieldProps {
+    readonly formData: Partial<Product>;
+    readonly suppliers: readonly Person[];
+    readonly onChange: (fields: Partial<Product>) => void;
+    readonly hasError?: boolean;
+}
+
 const MAX_SUPPLIERS = 3;
 
-export function ProductSupplierField({ formData, suppliers, onChange, hasError = false }: Props) {
+export function ProductSupplierField({ formData, suppliers, onChange, hasError = false }: ProductSupplierFieldProps) {
     const [search, setSearch] = useState('');
     const [isOpen, setIsOpen] = useState(false);
     const [isPersonFormOpen, setIsPersonFormOpen] = useState(false);
     const [extraSuppliers, setExtraSuppliers] = useState<Person[]>([]);
     const anchorRef = useRef<HTMLDivElement>(null);
+
+    // Fechar dropdown ao pressionar Escape
+    useEffect(() => {
+        if (!isOpen) return;
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if (e.key === 'Escape') {
+                setIsOpen(false);
+            }
+        };
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [isOpen]);
 
     const allSuppliers = useMemo(() => {
         const map = new Map<string, Person>();
@@ -76,21 +94,27 @@ export function ProductSupplierField({ formData, suppliers, onChange, hasError =
     return (
         <div id="field-main-supplier" className="relative flex flex-col gap-2 rounded-2xl p-2 md:col-span-2" ref={anchorRef}>
             <label className={`flex h-6 items-center justify-between text-[10px] font-black uppercase tracking-widest ${hasError ? 'text-red-500 dark:text-red-400' : 'text-slate-400'}`}>
-                <span>Fornecedores <span className="text-red-500">*</span></span>
+                <span>Fornecedores <span className="text-red-500" aria-hidden="true">*</span></span>
                 <button
                     type="button"
                     onClick={() => setIsPersonFormOpen(true)}
-                    className="flex items-center gap-1 text-[9px] font-black uppercase tracking-widest text-blue-600 hover:underline"
+                    className="flex items-center gap-1 text-[9px] font-black uppercase tracking-widest text-blue-600 hover:underline cursor-pointer"
                 >
-                    <i className="bi bi-plus-lg" />Novo
+                    <i className="bi bi-plus-lg" aria-hidden="true" /> Novo
                 </button>
             </label>
 
             <div className="flex gap-2">
                 <div className="relative flex-1">
-                    <i className="bi bi-search absolute left-2 top-1/2 -translate-y-1/2 text-xs text-slate-400" />
+                    <i className="bi bi-search absolute left-2 top-1/2 -translate-y-1/2 text-xs text-slate-400 pointer-events-none" aria-hidden="true" />
                     <input
                         type="text"
+                        role="combobox"
+                        aria-expanded={isOpen && visibleSuppliers.length > 0}
+                        aria-autocomplete="list"
+                        aria-haspopup="listbox"
+                        aria-invalid={hasError}
+                        aria-label="Buscar fornecedor por nome ou razão social"
                         value={search}
                         onChange={(event) => {
                             setSearch(event.target.value);
@@ -105,27 +129,30 @@ export function ProductSupplierField({ formData, suppliers, onChange, hasError =
                 </div>
                 <button
                     type="button"
-                    onClick={() => setIsOpen(true)}
+                    onClick={() => setIsOpen(prev => !prev)}
                     disabled={selectedIds.length >= MAX_SUPPLIERS}
-                    className="rounded-xl bg-blue-600 px-3 text-xs font-black text-white disabled:opacity-40"
+                    aria-label="Adicionar fornecedor"
+                    className="rounded-xl bg-blue-600 px-3 text-xs font-black text-white disabled:opacity-40 hover:bg-blue-700 transition-colors cursor-pointer disabled:cursor-not-allowed"
                     title="Adicionar fornecedor"
                 >
-                    <i className="bi bi-plus-lg" />
+                    <i className="bi bi-plus-lg" aria-hidden="true" />
                 </button>
             </div>
 
-            {hasError && <span className="text-[9px] font-bold text-red-500">Adicione ao menos um fornecedor.</span>}
+            {hasError && <span role="alert" className="text-[9px] font-bold text-red-500">Adicione ao menos um fornecedor.</span>}
 
             <DropdownPortal anchorRef={anchorRef} isOpen={isOpen && visibleSuppliers.length > 0}>
-                <div className="mt-2 max-h-60 overflow-y-auto rounded-xl border border-slate-100 bg-white shadow-2xl dark:border-slate-800 dark:bg-slate-900">
+                <div role="listbox" aria-label="Sugestões de fornecedores" className="mt-2 max-h-60 overflow-y-auto rounded-xl border border-slate-100 bg-white shadow-2xl dark:border-slate-800 dark:bg-slate-900">
                     {visibleSuppliers.map((supplier) => {
                         const name = supplier.fullName || supplier.socialName || supplier.nickname || supplier.tradeName || 'Fornecedor sem nome';
                         return (
                             <button
                                 key={supplier.id}
                                 type="button"
+                                role="option"
+                                aria-selected="false"
                                 onClick={() => addSupplier(supplier)}
-                                className="w-full border-b border-slate-50 p-3 text-left text-xs font-black text-slate-800 hover:bg-slate-50 last:border-0 dark:border-slate-800 dark:text-slate-200 dark:hover:bg-slate-800"
+                                className="w-full border-b border-slate-50 p-3 text-left text-xs font-black text-slate-800 hover:bg-slate-50 last:border-0 dark:border-slate-800 dark:text-slate-200 dark:hover:bg-slate-800 cursor-pointer"
                             >
                                 {name}
                             </button>
@@ -135,7 +162,7 @@ export function ProductSupplierField({ formData, suppliers, onChange, hasError =
             </DropdownPortal>
 
             {selectedIds.length > 0 && (
-                <div className="flex flex-wrap gap-2 pt-1">
+                <div className="flex flex-wrap gap-2 pt-1" aria-label="Fornecedores vinculados">
                     {selectedIds.map((id) => {
                         const supplier = allSuppliers.find((item) => String(item.id) === String(id));
                         const name = supplier?.fullName || supplier?.socialName || supplier?.nickname || supplier?.tradeName || 'Fornecedor';
@@ -148,10 +175,11 @@ export function ProductSupplierField({ formData, suppliers, onChange, hasError =
                                 <button
                                     type="button"
                                     onClick={() => removeSupplier(id)}
-                                    className="text-blue-500 hover:text-red-500"
+                                    className="text-blue-500 hover:text-red-500 cursor-pointer"
+                                    aria-label={`Remover fornecedor ${name}`}
                                     title="Remover fornecedor"
                                 >
-                                    <i className="bi bi-x-lg" />
+                                    <i className="bi bi-x-lg" aria-hidden="true" />
                                 </button>
                             </span>
                         );
@@ -177,3 +205,4 @@ export function ProductSupplierField({ formData, suppliers, onChange, hasError =
         </div>
     );
 }
+

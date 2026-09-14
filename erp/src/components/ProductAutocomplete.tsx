@@ -140,8 +140,9 @@ const ProductAutocomplete: React.FC<ProductAutocompleteProps> = ({
                     <input
                         type="text"
                         autoComplete="off"
-                        disabled={disabled || isLoadingSuggestions}
-                        value={isLoadingSuggestions ? 'Buscando sugestão de vínculo...' : (query || '')}
+                        aria-busy={isLoadingSuggestions}
+                        disabled={disabled}
+                        value={query || ''}
                         onChange={(e) => {
                             const val = e.target.value;
                             setQuery(val);
@@ -149,17 +150,15 @@ const ProductAutocomplete: React.FC<ProductAutocompleteProps> = ({
                             if (onChange) onChange(val);
                         }}
                         onFocus={() => setShowSuggestions(query.trim().length >= 2)}
-                        placeholder={isLoadingSuggestions ? 'Identificando produto...' : placeholder}
+                        placeholder={placeholder}
                         className={inputClassName || `w-full border-b-2 bg-transparent px-3 py-2 text-sm font-medium outline-none transition-colors ${
-                            isLoadingSuggestions
-                                ? 'border-amber-400 bg-amber-50/40 dark:bg-amber-950/30 text-amber-800 dark:text-amber-200 cursor-wait rounded-t-lg select-none'
-                                : isAiSuggestion
-                                    ? 'border-amber-400 text-amber-950 dark:text-amber-100 focus:border-amber-500 bg-amber-50/20 dark:bg-amber-950/20 rounded-t-lg'
-                                    : isTemporary 
-                                        ? 'border-amber-400 text-amber-950 dark:text-amber-100 focus:border-amber-500'
-                                        : isSelected 
-                                            ? 'border-emerald-500 text-emerald-950 dark:text-emerald-100 font-semibold focus:border-emerald-600 pr-9'
-                                            : 'border-slate-200 dark:border-slate-800 focus:border-blue-600 dark:focus:border-blue-500'
+                            isAiSuggestion
+                                ? 'border-amber-400 text-amber-950 dark:text-amber-100 focus:border-amber-500 bg-amber-50/20 dark:bg-amber-950/20 rounded-t-lg'
+                                : isTemporary 
+                                    ? 'border-amber-400 text-amber-950 dark:text-amber-100 focus:border-amber-500'
+                                    : isSelected 
+                                        ? 'border-emerald-500 text-emerald-950 dark:text-emerald-100 font-semibold focus:border-emerald-600 pr-9'
+                                        : 'border-slate-200 dark:border-slate-800 focus:border-blue-600 dark:focus:border-blue-500'
                         } ${disabled ? 'opacity-60 cursor-not-allowed' : ''} ${className}`}
                     />
 
@@ -222,6 +221,7 @@ const ProductAutocomplete: React.FC<ProductAutocompleteProps> = ({
                         {onAcceptSuggestion && (
                             <button
                                 type="button"
+                                aria-label="Aceitar sugestão da IA"
                                 onClick={(e) => {
                                     e.preventDefault();
                                     e.stopPropagation();
@@ -237,6 +237,7 @@ const ProductAutocomplete: React.FC<ProductAutocompleteProps> = ({
                         {onRejectSuggestion && (
                             <button
                                 type="button"
+                                aria-label="Recusar sugestão da IA"
                                 onClick={(e) => {
                                     e.preventDefault();
                                     e.stopPropagation();

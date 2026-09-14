@@ -24,85 +24,121 @@ export interface EcomLegibilityResult {
     };
 }
 
-export function checkERPLegibility(data: Partial<Product>): ERPLegibilityResult {
+function isPositiveNumber(value: unknown): boolean {
+    const num = Number(value);
+    return Number.isFinite(num) && num > 0;
+}
+
+export function checkERPLegibility(data: Readonly<Partial<Product>>): ERPLegibilityResult {
     const errors: string[] = [];
     const hasVars = Boolean(data.hasVariations);
 
-    if (!data.description || data.description.trim().length < 2) {
+    // Cadastros antigos podem ter apenas description; o nome editado tem prioridade.
+    const internalName = data.name ?? data.description ?? '';
+    const hasValidDescription = internalName.trim().length >= 2;
+    if (!hasValidDescription) {
         errors.push("Nome do Produto (Interno) deve ter pelo menos 2 caracteres.");
     }
+
+    const hasValidCategories = Boolean(data.categoryIds && data.categoryIds.length > 0);
+    if (!hasValidCategories) {
+        errors.push("Pelo menos uma categoria deve ser selecionada.");
+    }
+
+    const hasValidSupplier = Boolean(data.mainSupplierId);
+    if (!hasValidSupplier) {
+        errors.push("Selecione pelo menos um fornecedor.");
+    }
+
+    let hasValidPrice = false;
     if (!hasVars) {
-        if (!data.unitPrice || data.unitPrice <= 0) {
+        hasValidPrice = isPositiveNumber(data.unitPrice);
+        if (!hasValidPrice) {
             errors.push("Preço de Venda deve ser maior que zero.");
         }
-        if (data.promoPrice !== undefined && data.promoPrice !== null && !isNaN(data.promoPrice) && data.promoPrice > 0) {
-            const up = data.unitPrice || 0;
-            if (data.promoPrice >= up) {
+        if (data.promoPrice !== undefined && data.promoPrice !== null && !isNaN(Number(data.promoPrice)) && Number(data.promoPrice) > 0) {
+            const up = Number(data.unitPrice) || 0;
+            if (Number(data.promoPrice) >= up) {
                 errors.push("O preço promocional deve ser menor que o preço de venda.");
             }
         }
     } else {
-        if (!data.variations || data.variations.length === 0) {
+        hasValidPrice = Boolean(data.variations && data.variations.length > 0);
+        if (!hasValidPrice) {
             errors.push("Adicione pelo menos uma variação para o produto.");
         }
-    }
-    if (!data.categoryIds || data.categoryIds.length === 0) {
-        errors.push("Pelo menos uma categoria deve ser selecionada.");
-    }
-    if (!data.mainSupplierId) {
-        errors.push("Selecione pelo menos um fornecedor.");
     }
 
     return {
         isLegible: errors.length === 0,
         errors,
         checks: {
-            description: !!data.description && data.description.trim().length >= 2,
-            unitPrice: hasVars ? Boolean(data.variations && data.variations.length > 0) : Boolean(data.unitPrice && data.unitPrice > 0),
-            categories: Boolean(data.categoryIds && data.categoryIds.length > 0),
-            supplier: Boolean(data.mainSupplierId)
+            description: hasValidDescription,
+            unitPrice: hasValidPrice,
+            categories: hasValidCategories,
+            supplier: hasValidSupplier
         }
     };
 }
 
-export function checkEcomLegibility(data: Partial<Product>): EcomLegibilityResult {
+export function checkEcomLegibility(data: Readonly<Partial<Product>>): EcomLegibilityResult {
     const errors: string[] = [];
     const hasVars = Boolean(data.hasVariations);
     const catalogTitle = data.title || data.marketplaceTitle;
     const catalogDescription = data.ecommerceDescription || data.description;
 
-    if (!catalogTitle || catalogTitle.trim().length < 2) {
+    const hasValidTitle = Boolean(catalogTitle && catalogTitle.trim().length >= 2);
+    if (!hasValidTitle) {
         errors.push("Título do Produto (E-commerce) deve ter pelo menos 2 caracteres.");
     }
-    if (!catalogDescription || catalogDescription.trim().length < 2) {
+
+    const hasValidDesc = Boolean(catalogDescription && catalogDescription.trim().length >= 2);
+    if (!hasValidDesc) {
         errors.push("Descrição do catálogo deve ser preenchida antes da publicação.");
     }
-    if (!hasVars && (!data.unitPrice || data.unitPrice <= 0)) {
-        errors.push("Preço de Venda deve ser maior que zero.");
+
+    let hasValidPrice = false;
+    if (!hasVars) {
+        hasValidPrice = isPositiveNumber(data.unitPrice);
+        if (!hasValidPrice) {
+            errors.push("Preço de Venda deve ser maior que zero.");
+        }
+    } else {
+        hasValidPrice = Boolean(data.variations && data.variations.length > 0);
     }
-    if (!data.categoryIds || data.categoryIds.length === 0) {
+
+    const hasValidCategories = Boolean(data.categoryIds && data.categoryIds.length > 0);
+    if (!hasValidCategories) {
         errors.push("Pelo menos uma categoria deve ser selecionada.");
     }
-    if (!data.images || data.images.length === 0) {
+
+    const hasValidImages = Boolean(data.images && data.images.length > 0);
+    if (!hasValidImages) {
         errors.push("Pelo menos uma foto deve ser adicionada.");
     }
 
     const isService = data.itemType === 'service';
+    const hasValidDimensions = isService || (
+        isPositiveNumber(data.width) &&
+        isPositiveNumber(data.height) &&
+        isPositiveNumber(data.depth)
+    );
+
     if (!isService) {
-        if (!data.width || Number(data.width) <= 0) {
+        if (!isPositiveNumber(data.width)) {
             errors.push("Largura deve ser maior que zero.");
         }
-        if (!data.height || Number(data.height) <= 0) {
+        if (!isPositiveNumber(data.height)) {
             errors.push("Altura deve ser maior que zero.");
         }
-        if (!data.depth || Number(data.depth) <= 0) {
+        if (!isPositiveNumber(data.depth)) {
             errors.push("Profundidade deve ser maior que zero.");
         }
     }
     
-    if (data.promoPrice !== undefined && data.promoPrice !== null && !isNaN(data.promoPrice) && data.promoPrice > 0) {
-        const up = data.unitPrice || 0;
-        if (data.promoPrice >= up) {
+    if (data.promoPrice !== undefined && data.promoPrice !== null && !isNaN(Number(data.promoPrice)) && Number(data.promoPrice) > 0) {
+        const up = Number(data.unitPrice) || 0;
+        if (Number(data.promoPrice) >= up) {
             errors.push("O preço promocional deve ser menor que o preço de venda.");
         }
     }
@@ -111,12 +147,13 @@ export function checkEcomLegibility(data: Partial<Product>): EcomLegibilityResul
         isLegible: errors.length === 0,
         errors,
         checks: {
-            marketplaceTitle: Boolean(catalogTitle && catalogTitle.trim().length >= 2),
-            description: Boolean(catalogDescription && catalogDescription.trim().length >= 2),
-            unitPrice: Boolean(data.unitPrice && data.unitPrice > 0),
-            categories: Boolean(data.categoryIds && data.categoryIds.length > 0),
-            images: Boolean(data.images && data.images.length > 0),
-            dimensions: isService || Boolean(Number(data.width) > 0 && Number(data.height) > 0 && Number(data.depth) > 0)
+            marketplaceTitle: hasValidTitle,
+            description: hasValidDesc,
+            unitPrice: hasValidPrice,
+            categories: hasValidCategories,
+            images: hasValidImages,
+            dimensions: hasValidDimensions
         }
     };
 }
+

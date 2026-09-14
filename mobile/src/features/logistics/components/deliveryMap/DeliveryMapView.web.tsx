@@ -220,14 +220,14 @@ export const DeliveryMapView: React.FC<Props> = ({
         .addTo(map);
       bounds.push([${defaultLat}, ${defaultLng}]);
 
-      // Minha Posição Atual (Apenas a Seta Azul Pura) — renderiza somente se houver GPS real
+      // Minha Posição Atual (Seta Branca Pura) — renderiza somente se houver GPS real
       let driverMarker = null;
       if (${hasDriverLocation}) {
         const driverLat = ${driverCoords?.latitude || defaultLat};
         const driverLng = ${driverCoords?.longitude || defaultLng};
         const driverHtml = 
           '<div class="google-nav-wrapper">' +
-            '<svg viewBox="0 0 24 24" width="28" height="28" fill="#2563eb" stroke="#1d4ed8" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="transform: rotate(-45deg); filter: drop-shadow(0 2px 4px rgba(0,0,0,0.35));">' +
+            '<svg viewBox="0 0 24 24" width="28" height="28" fill="#ffffff" stroke="#0f172a" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="transform: rotate(-45deg); filter: drop-shadow(0 2px 4px rgba(0,0,0,0.45));">' +
               '<polygon points="3 11 22 2 13 21 11 13 3 11"/>' +
             '</svg>' +
           '</div>';
@@ -239,7 +239,7 @@ export const DeliveryMapView: React.FC<Props> = ({
           iconAnchor: [18, 18]
         });
         driverMarker = L.marker([driverLat, driverLng], { icon: driverIcon, zIndexOffset: 1200 })
-          .bindPopup('<div style="font-family:sans-serif;padding:4px;"><b>Sua Posição</b><br><span style="color:#2563eb;font-weight:700;font-size:12px;">🧭 Você (Navegação em Rota)</span></div>')
+          .bindPopup('<div style="font-family:sans-serif;padding:4px;"><b>Sua Posição</b><br><span style="color:#0f172a;font-weight:700;font-size:12px;">🧭 Você (Navegação em Rota)</span></div>')
           .addTo(map);
         bounds.push([driverLat, driverLng]);
       }

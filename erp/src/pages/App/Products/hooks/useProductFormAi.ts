@@ -1,23 +1,70 @@
-import { useState, useEffect } from 'react';
-import Product from '../../../types/product.type';
+import { useState, useEffect, useRef } from 'react';
+import type Product from '../../../types/product.type';
 import { aiService } from '@/pages/utils/aiService';
 import { getSettings } from '@/pages/utils/settingsService';
 import { toast } from 'react-toastify';
 
+export interface CategoryOptionLike {
+    readonly id: string;
+    readonly name?: string;
+    readonly category?: string;
+}
+
+export interface PriceSuggestionTier {
+    price: number;
+    margin?: number;
+}
+
+export interface SuggestPricesResult {
+    readonly low?: PriceSuggestionTier;
+    readonly medium?: PriceSuggestionTier;
+    readonly high?: PriceSuggestionTier;
+}
+
 export function useProductFormAi(
     formData: Partial<Product>,
     setFormData: React.Dispatch<React.SetStateAction<Partial<Product>>>,
-    availableCategories: any[]
+    availableCategories: readonly CategoryOptionLike[],
+    isQuickRegister = false,
+    isOpen = true
 ) {
     const [isGeneratingCategory, setIsGeneratingCategory] = useState(false);
     const [isGeneratingComboName, setIsGeneratingComboName] = useState(false);
     const [isGeneratingDescription, setIsGeneratingDescription] = useState(false);
     const [isGeneratingNCM, setIsGeneratingNCM] = useState(false);
+    const [isNcmAutoEnabled, setIsNcmAutoEnabled] = useState(true);
+    const ncmEnabledRef = useRef(true);
+    const ncmRequestVersion = useRef(0);
+    const ncmInFlight = useRef(false);
+    const ncmAttempt = useRef('');
+    const ncmContext = JSON.stringify([
+        formData.name?.trim(), (formData.title || formData.marketplaceTitle || formData.name)?.trim(),
+        formData.description?.trim(), formData.categoryIds, formData.category, formData.material,
+    ]);
+    const latestNcmContext = useRef(ncmContext);
+    latestNcmContext.current = ncmContext;
+    const canGenerateNcm = Boolean(formData.name?.trim() &&
+        (formData.title || formData.marketplaceTitle || formData.name)?.trim() &&
+        formData.description?.trim() && (formData.categoryIds?.length || formData.category) &&
+        formData.itemType !== 'service');
+    const toggleNcmAuto = () => {
+        ncmEnabledRef.current = !ncmEnabledRef.current;
+        ncmRequestVersion.current += 1;
+        ncmAttempt.current = '';
+        setIsNcmAutoEnabled(ncmEnabledRef.current);
+    };
+    useEffect(() => () => { ncmRequestVersion.current += 1; }, []);
+    useEffect(() => {
+        ncmRequestVersion.current += 1;
+        ncmAttempt.current = '';
+        ncmEnabledRef.current = isOpen;
+        setIsNcmAutoEnabled(true);
+    }, [isOpen]);
     const [isGeneratingTitle, setIsGeneratingTitle] = useState(false);
     const [isImprovingDescription, setIsImprovingDescription] = useState(false);
     const [isFillingFiscalWithAI, setIsFillingFiscalWithAI] = useState(false);
     const [isSuggestingPrices, setIsSuggestingPrices] = useState(false);
-    const [suggestPricesResults, setSuggestPricesResults] = useState<{ low: any; medium: any; high: any } | null>(null);
+    const [suggestPricesResults, setSuggestPricesResults] = useState<SuggestPricesResult | null>(null);
 
     const handleGenerateCategory = async (isAutoTrigger = false) => {
         const title = (formData.name || formData.title || formData.description || '').trim();
@@ -39,7 +86,7 @@ export function useProductFormAi(
                     if (!isAutoTrigger) toast.success(`Categoria sugerida: ${found.name || found.category}`);
                 }
             }
-        } catch (error) {
+        } catch (error: unknown) {
             console.error(error);
         } finally {
             setIsGeneratingCategory(false);
@@ -50,10 +97,10 @@ export function useProductFormAi(
         if (!formData.comboItems?.length) return toast.warning('Adicione itens ao combo primeiro');
         setIsGeneratingComboName(true);
         try {
-            const items = formData.comboItems.map((i: any) => `${i.quantity}x ${i.description}`).join(', ');
+            const items = formData.comboItems.map(i => `${i.quantity}x ${i.description}`).join(', ');
             const name = await aiService.generateComboName(items);
             setFormData((prev: Partial<Product>) => ({ ...prev, description: name }));
-        } catch (error) {
+        } catch (error: unknown) {
             console.error(error);
         } finally {
             setIsGeneratingComboName(false);
@@ -146,6 +193,11 @@ export function useProductFormAi(
     };
 
     const handleGenerateNCM = async (isAutoTrigger = false) => {
+        if (!ncmEnabledRef.current || !canGenerateNcm || ncmInFlight.current) return;
+        ncmInFlight.current = true;
+        const requestVersion = ncmRequestVersion.current;
+        const context = ncmContext;
+        ncmAttempt.current = context;
         const title = (formData.name || formData.description || '').trim();
         if (!title) {
             if (!isAutoTrigger) toast.warning('Título necessário para buscar NCM');
@@ -161,7 +213,7 @@ export function useProductFormAi(
                 description,
                 category
             );
-            if (ncm) {
+            if (ncm && ncmEnabledRef.current && requestVersion === ncmRequestVersion.current && context === latestNcmContext.current) {
                 setFormData((prev: Partial<Product>) => ({
                     ...prev,
                     fiscal: { ...prev.fiscal!, ncm, ncmDescription }
@@ -173,52 +225,20 @@ export function useProductFormAi(
         } catch (error) {
             console.error(error);
         } finally {
+            ncmInFlight.current = false;
             setIsGeneratingNCM(false);
         }
     };
 
-    // Auto-preencher NCM com IA quando Título, Descrição e Categoria forem preenchidos e NCM estiver vazio
+    // Uma tentativa por contexto; religar permite solicitar uma nova sugestão.
     useEffect(() => {
-        const title = (formData.name || formData.description || '').trim();
-        const temCategoria = (formData.categoryIds && formData.categoryIds.length > 0) || !!formData.category;
-        const ncmVazio = !formData.fiscal?.ncm || formData.fiscal.ncm.trim() === '';
-
-        if (title && temCategoria && ncmVazio && !isGeneratingNCM) {
+        if (isOpen && isNcmAutoEnabled && canGenerateNcm && !isGeneratingNCM && ncmAttempt.current !== ncmContext) {
             const timer = setTimeout(() => {
                 handleGenerateNCM(true);
             }, 1000);
             return () => clearTimeout(timer);
         }
-    }, [formData.name, formData.description, formData.categoryIds, formData.category, formData.fiscal?.ncm]);
-
-    // Auto-selecionar Categoria por correspondência inteligente ou IA quando Nome do Produto mudar e categoria estiver vazia
-    useEffect(() => {
-        const title = (formData.name || formData.title || formData.description || '').trim();
-        const hasCategories = Boolean(formData.categoryIds && formData.categoryIds.length > 0);
-
-        if (title.length >= 3 && !hasCategories && availableCategories.length > 0 && !isGeneratingCategory) {
-            const timer = setTimeout(() => {
-                const titleLower = title.toLowerCase();
-                // 1. Tenta correspondência direta com as categorias disponíveis (ex: "BELICHE" -> "Beliches")
-                const matchedCategory = availableCategories.find(c => {
-                    const cName = (c.name || c.category || '').toLowerCase().trim();
-                    if (!cName) return false;
-                    return titleLower.includes(cName) || cName.includes(titleLower);
-                });
-
-                if (matchedCategory) {
-                    setFormData((prev: Partial<Product>) => {
-                        if (prev.categoryIds && prev.categoryIds.length > 0) return prev;
-                        return { ...prev, categoryIds: [matchedCategory.id] };
-                    });
-                } else {
-                    // 2. Se não casar diretamente por nome, consulta a IA
-                    handleGenerateCategory(true);
-                }
-            }, 500);
-            return () => clearTimeout(timer);
-        }
-    }, [formData.name, formData.title, formData.description, formData.categoryIds, availableCategories]);
+    }, [isOpen, isNcmAutoEnabled, canGenerateNcm, isGeneratingNCM, ncmContext]);
 
     const handleImproveDescriptionWithAI = async () => {
         const nome = (formData.name || formData.description || '').trim();
@@ -299,6 +319,8 @@ export function useProductFormAi(
     const isAiProcessing = isGeneratingCategory || isGeneratingComboName || isGeneratingDescription || isGeneratingNCM || isGeneratingTitle || isImprovingDescription || isFillingFiscalWithAI || isSuggestingPrices;
 
     return {
+        isNcmAutoEnabled,
+        toggleNcmAuto,
         isAiProcessing,
         isGeneratingCategory,
         isGeneratingComboName,
@@ -320,4 +342,3 @@ export function useProductFormAi(
         handleSuggestPrices
     };
 }
-

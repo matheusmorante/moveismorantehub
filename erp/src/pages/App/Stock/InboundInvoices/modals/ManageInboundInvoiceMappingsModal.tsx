@@ -23,6 +23,10 @@ export function ManageInboundInvoiceMappingsModal({ isOpen, onClose, invoice: in
     const [suppliers, setSuppliers] = useState<Person[]>([]);
     const [newSupplier, setNewSupplier] = useState(false);
     const [loading, setLoading] = useState(false);
+    const [checkedMappingsKey, setCheckedMappingsKey] = useState<string | null>(null);
+    const [isSuggestingLinks, setIsSuggestingLinks] = useState(false);
+
+    const mappingsKey = `${invoice?.supplierId || ''}:${invoice?.items?.map((item) => `${item.itemNumber}:${item.productCode}`).join('|') || ''}`;
 
     useEffect(() => {
         if (!initialInvoice) {
@@ -81,11 +85,13 @@ export function ManageInboundInvoiceMappingsModal({ isOpen, onClose, invoice: in
                 });
             } catch (error) {
                 console.warn('Erro ao carregar dados do fornecedor/vínculos:', error);
+            } finally {
+                if (active) setCheckedMappingsKey(mappingsKey);
             }
         };
         void loadInitialData();
         return () => { active = false; };
-    }, [isOpen, invoice?.id, invoice?.supplierId]);
+    }, [isOpen, mappingsKey]);
 
     if (!isOpen || !invoice) return null;
 
@@ -215,6 +221,8 @@ export function ManageInboundInvoiceMappingsModal({ isOpen, onClose, invoice: in
 
                         {/* Revisão de Itens e Vínculos */}
                         <InboundInvoiceItemsReview
+                            suggestionsEnabled={Boolean(invoice.supplierId?.trim()) && checkedMappingsKey === mappingsKey}
+                            onProcessingSuggestionsChange={setIsSuggestingLinks}
                             items={invoice.items}
                             supplierId={invoice.supplierId}
                             suppliers={suppliers}
@@ -241,7 +249,7 @@ export function ManageInboundInvoiceMappingsModal({ isOpen, onClose, invoice: in
                         </button>
                         <button
                             type="button"
-                            disabled={loading}
+                            disabled={loading || isSuggestingLinks}
                             onClick={() => void handleSave()}
                             className="rounded-xl bg-blue-600 px-5 py-2.5 text-xs font-black text-white hover:bg-blue-700 disabled:opacity-50 transition-colors shadow-sm cursor-pointer"
                         >

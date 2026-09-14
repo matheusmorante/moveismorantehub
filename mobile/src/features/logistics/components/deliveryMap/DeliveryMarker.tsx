@@ -69,7 +69,7 @@ export const DeliveryMarker: React.FC<Props> = ({
     );
   };
 
-  // Minha Posição Atual: Apenas a seta azul pura (estilo navegação)
+  // Minha Posição Atual: Seta branca pura com contorno (estilo navegação)
   if (isDriver && isValidCoord(driverCoords)) {
     return (
       <Marker
@@ -82,8 +82,8 @@ export const DeliveryMarker: React.FC<Props> = ({
         <View style={styles.googleMapsNavWrapper}>
           <Navigation
             size={28}
-            color="#1d4ed8"
-            fill="#2563eb"
+            color="#0f172a"
+            fill="#ffffff"
             style={styles.googleMapsNavArrow}
           />
         </View>

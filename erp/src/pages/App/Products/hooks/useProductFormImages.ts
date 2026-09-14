@@ -5,6 +5,8 @@ import { compressImageToFile } from '@/pages/utils/imageUtils';
 import { uploadFile } from '@/pages/utils/storageService';
 import { MAX_PARENT_PRODUCT_IMAGES } from '@/pages/utils/productImageLimits';
 
+export type FileInputSource = React.ChangeEvent<HTMLInputElement> | React.DragEvent | { readonly files: readonly File[] };
+
 export function useProductFormImages(
     formData: Partial<Product>,
     setFormData: React.Dispatch<React.SetStateAction<Partial<Product>>>,
@@ -13,10 +15,10 @@ export function useProductFormImages(
     const [isDraggingPhoto, setIsDraggingPhoto] = useState(0);
     const [removingPhoto, setRemovingPhoto] = useState<string | null>(null);
 
-    const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement> | React.DragEvent | { files: File[] }) => {
+    const handleFileChange = async (e: FileInputSource) => {
         let files: File[] = [];
-        if ('files' in e && Array.isArray((e as any).files)) {
-            files = (e as any).files;
+        if ('files' in e && Array.isArray(e.files)) {
+            files = [...e.files];
         } else if ('target' in e && (e.target as HTMLInputElement).files) {
             files = Array.from((e.target as HTMLInputElement).files || []);
         } else if ('dataTransfer' in e && e.dataTransfer.files) {
@@ -58,7 +60,7 @@ export function useProductFormImages(
                 images: [...(prev.images || []), ...urls]
             }));
             toast.success(`${urls.length} foto(s) otimizada(s) e enviada(s) com sucesso!`);
-        } catch (error) {
+        } catch (error: unknown) {
             toast.error('Erro no upload e otimização das imagens.');
             console.error(error);
         } finally {
@@ -82,10 +84,11 @@ export function useProductFormImages(
             const imageFiles = Array.from(e.clipboardData.files).filter(f => f.type.startsWith('image/'));
             if (imageFiles.length > 0) {
                 e.preventDefault();
-                await handleFileChange({ files: imageFiles } as any);
+                await handleFileChange({ files: imageFiles });
             }
         }
     };
+
 
     return {
         isDraggingPhoto,

@@ -31,11 +31,11 @@ export const applyProductFiltersAndSort = async (
 ): Promise<any> => {
     let q = query.eq('deleted', false);
 
-    // Rascunhos agora aparecem na listagem normal por padrão
+    // Filtro de rascunhos do ERP
     if (options?.isDraft === true) {
-        q = q.or('is_draft.eq.true,status.eq.draft');
+        q = q.eq('is_draft', true);
     } else if (options?.isDraft === false) {
-        q = q.not('is_draft', 'is', true).neq('status', 'draft');
+        q = q.not('is_draft', 'is', true);
     }
 
     if (options?.activeOnly === false) {
@@ -45,7 +45,7 @@ export const applyProductFiltersAndSort = async (
     } else if (options?.includeDeactivated === false) {
         // Rascunhos não são produtos desativados: permanecem acessíveis no
         // fluxo de cadastro, enquanto os desativados ficam ocultos.
-        q = q.or('active.eq.true,is_draft.eq.true,status.eq.draft');
+        q = q.or('active.eq.true,is_draft.eq.true');
     }
 
     // Filtro de busca textual — busca EXCLUSIVAMENTE pelo nome do produto (name) na tabela de produtos e variações (insensível a acentos)
@@ -107,6 +107,11 @@ export const applyProductFiltersAndSort = async (
     // Filtro por status do catálogo digital (ex: 'published', 'hidden')
     if (options?.status) {
         q = q.eq('status', options.status);
+    }
+
+    // Filtro por fornecedor
+    if (options?.supplierId) {
+        q = q.or(`supplier_id.eq.${options.supplierId},main_supplier_id.eq.${options.supplierId},supplier_ids.cs.{"${options.supplierId}"}`);
     }
 
     if (pagination) {

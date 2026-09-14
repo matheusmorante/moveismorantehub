@@ -8,6 +8,7 @@ import {
 import { supabase } from '../supabaseClient';
 import { ToolExecutionResponse } from './mobileAgentTypes';
 import { getOrderDeliveryDetails, searchOrdersAndDeliveries } from './orderDeliveryAgentService';
+import { getMobileProductDetails, searchMobileProducts } from './productAgentService';
 
 import {
   PAYMENT_METHODS,
@@ -385,6 +386,61 @@ export const mobileAgentTools = {
         success: false,
         code: 'FEEDBACK_ERROR',
         error: err?.message || 'Erro ao registrar feedback da IA no Mobile.',
+      };
+    }
+  },
+
+  async buscarProdutos(args: {
+    termo?: string;
+    categoria?: string;
+    apenasAtivos?: boolean;
+    limite?: number;
+  }): Promise<ToolExecutionResponse> {
+    try {
+      const products = await searchMobileProducts(args);
+      return {
+        success: true,
+        data: products,
+        message: `${products.length} produto(s) encontrado(s).`,
+      };
+    } catch (error: unknown) {
+      return {
+        success: false,
+        code: 'PRODUCT_SEARCH_ERROR',
+        error: error instanceof Error ? error.message : 'Falha ao consultar produtos no aplicativo.',
+      };
+    }
+  },
+
+  async obterDetalhesProduto(args: { codigoOuSku: string }): Promise<ToolExecutionResponse> {
+    const target = args?.codigoOuSku?.trim();
+    if (!target) {
+      return {
+        success: false,
+        code: 'INVALID_ARGUMENT',
+        error: 'É necessário informar o código de 6 dígitos ou o SKU do produto para obter os detalhes.',
+      };
+    }
+
+    try {
+      const product = await getMobileProductDetails(target);
+      if (!product) {
+        return {
+          success: false,
+          code: 'PRODUCT_NOT_FOUND',
+          error: `Nenhum produto encontrado com o código ou SKU "${target}".`,
+        };
+      }
+      return {
+        success: true,
+        data: product,
+        message: `Ficha técnica completa do produto "${product.nome}" (Código: ${product.codigo}) carregada.`,
+      };
+    } catch (error: unknown) {
+      return {
+        success: false,
+        code: 'PRODUCT_DETAILS_ERROR',
+        error: error instanceof Error ? error.message : 'Falha ao carregar detalhes do produto.',
       };
     }
   },
