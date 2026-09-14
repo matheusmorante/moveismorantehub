@@ -4,6 +4,7 @@ import { Payment } from "../types/payments.type";
 import Order from "../types/order.type";
 import Person from "../types/person.type";
 import { calcItemTotalValue, calcPaymentTotalValue } from "./calculations";
+import { toTitleCase } from './textUtils';
 
 export const stringifyFullAddress = (
     address: any
@@ -139,7 +140,7 @@ export const formatDate = (value: string) => {
     });
 };
 
-export { toTitleCase } from './textUtils';
+export { toTitleCase };
 
 export const dateNow = () => {
     const now = new Date();
