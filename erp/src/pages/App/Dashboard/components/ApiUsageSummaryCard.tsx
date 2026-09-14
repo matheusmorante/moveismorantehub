@@ -33,14 +33,18 @@ export default function ApiUsageSummaryCard() {
     const monthName = new Intl.DateTimeFormat('pt-BR', { month: 'long' }).format(new Date());
     const capitalizedMonth = monthName.charAt(0).toUpperCase() + monthName.slice(1);
 
-    // Selecionar até 4 serviços principais para o card compacto
+    const [viewMode, setViewMode] = useState<'services' | 'models' | 'modules'>('services');
+
+    // Selecionar até 4 itens principais para o card compacto
     const featuredServices: ApiServiceSummary[] = (metrics?.summaries || []).slice(0, 4);
+    const featuredModels = (metrics?.modelsBreakdown || []).slice(0, 4);
+    const featuredModules = (metrics?.modulesBreakdown || []).slice(0, 4);
 
     return (
         <div className="bg-white dark:bg-slate-900 rounded-3xl p-5 sm:p-6 border border-slate-200/80 dark:border-slate-800 shadow-sm relative overflow-hidden flex flex-col justify-between">
             {/* Header */}
             <div>
-                <div className="flex items-center justify-between gap-3 mb-4">
+                <div className="flex items-center justify-between gap-3 mb-3">
                     <div className="flex items-center gap-3">
                         <div className="w-9 h-9 rounded-xl bg-indigo-500/10 dark:bg-indigo-500/20 text-indigo-600 dark:text-indigo-400 flex items-center justify-center">
                             <i className="bi bi-cloud-check-fill text-lg" />
@@ -68,7 +72,44 @@ export default function ApiUsageSummaryCard() {
                     )}
                 </div>
 
-                {/* Lista de APIs principais */}
+                {/* Alternador de visualização: Serviços / Modelos IA / Módulos ERP */}
+                <div className="flex items-center gap-1 p-1 bg-slate-100 dark:bg-slate-800/60 rounded-xl mb-3">
+                    <button
+                        type="button"
+                        onClick={() => setViewMode('services')}
+                        className={`flex-1 py-1 px-2 text-[11px] font-black rounded-lg transition-all ${
+                            viewMode === 'services'
+                                ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 shadow-xs'
+                                : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
+                        }`}
+                    >
+                        Serviços
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => setViewMode('models')}
+                        className={`flex-1 py-1 px-2 text-[11px] font-black rounded-lg transition-all ${
+                            viewMode === 'models'
+                                ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 shadow-xs'
+                                : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
+                        }`}
+                    >
+                        Modelos IA
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => setViewMode('modules')}
+                        className={`flex-1 py-1 px-2 text-[11px] font-black rounded-lg transition-all ${
+                            viewMode === 'modules'
+                                ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 shadow-xs'
+                                : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
+                        }`}
+                    >
+                        Módulos ERP
+                    </button>
+                </div>
+
+                {/* Conteúdo Dinâmico */}
                 {loading ? (
                     <div className="space-y-3 py-2">
                         {[1, 2, 3].map(i => (
@@ -78,8 +119,8 @@ export default function ApiUsageSummaryCard() {
                             </div>
                         ))}
                     </div>
-                ) : (
-                    <div className="space-y-3.5 my-2">
+                ) : viewMode === 'services' ? (
+                    <div className="space-y-3 my-1">
                         {featuredServices.map(service => {
                             const percent = Math.min(100, service.usagePercent);
                             let barColor = 'bg-blue-600';
@@ -115,6 +156,55 @@ export default function ApiUsageSummaryCard() {
                                 </div>
                             );
                         })}
+                    </div>
+                ) : viewMode === 'models' ? (
+                    <div className="space-y-2.5 my-1">
+                        {featuredModels.length === 0 ? (
+                            <p className="text-xs text-slate-500 py-3 text-center">Nenhum consumo de IA registrado neste ciclo.</p>
+                        ) : (
+                            featuredModels.map(item => (
+                                <div key={item.model} className="p-2 rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800 space-y-1">
+                                    <div className="flex items-center justify-between text-xs">
+                                        <span className="font-black text-slate-800 dark:text-slate-200 truncate font-mono text-[11px]">
+                                            {item.model}
+                                        </span>
+                                        <span className="font-black text-indigo-600 dark:text-indigo-400">
+                                            R$ {item.estimatedCostBrl.toFixed(2)}
+                                        </span>
+                                    </div>
+                                    <div className="flex items-center justify-between text-[10px] text-slate-500 dark:text-slate-400 font-bold">
+                                        <span>{item.totalRequests.toLocaleString()} reqs {item.totalTokens > 0 ? `• ${(item.totalTokens / 1000).toFixed(1)}k tokens` : ''}</span>
+                                        <span>{item.percentOfTotalCost}% do custo</span>
+                                    </div>
+                                </div>
+                            ))
+                        )}
+                    </div>
+                ) : (
+                    <div className="space-y-2.5 my-1">
+                        {featuredModules.length === 0 ? (
+                            <p className="text-xs text-slate-500 py-3 text-center">Nenhum consumo por módulo registrado neste ciclo.</p>
+                        ) : (
+                            featuredModules.map(mod => (
+                                <div key={mod.module} className="p-2 rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800 space-y-1">
+                                    <div className="flex items-center justify-between text-xs">
+                                        <div className="flex items-center gap-1.5 truncate">
+                                            <i className={`bi ${mod.icon} text-slate-500 dark:text-slate-400 text-xs`} />
+                                            <span className="font-bold text-slate-800 dark:text-slate-200 truncate text-[11px]">
+                                                {mod.label}
+                                            </span>
+                                        </div>
+                                        <span className="font-black text-emerald-600 dark:text-emerald-400">
+                                            R$ {mod.estimatedCostBrl.toFixed(2)}
+                                        </span>
+                                    </div>
+                                    <div className="flex items-center justify-between text-[10px] text-slate-500 dark:text-slate-400 font-bold">
+                                        <span>{mod.totalRequests.toLocaleString()} chamadas</span>
+                                        <span>{mod.percentOfTotalCost}% do total</span>
+                                    </div>
+                                </div>
+                            ))
+                        )}
                     </div>
                 )}
             </div>

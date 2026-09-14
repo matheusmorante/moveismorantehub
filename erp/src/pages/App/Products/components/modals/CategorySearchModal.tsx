@@ -50,7 +50,7 @@ export const CategorySearchModal: React.FC<CategorySearchModalProps> = ({
             role="dialog"
             aria-modal="true"
             aria-labelledby="category-search-modal-title"
-            className="fixed inset-0 z-[300] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm"
+            className="fixed inset-0 z-[1000020] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm"
             onClick={onClose}
         >
             <div

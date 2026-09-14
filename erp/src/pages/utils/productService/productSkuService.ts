@@ -151,7 +151,7 @@ export const getNextSequentialProductCode = async (): Promise<string> => {
         // 1. Consulta códigos de produtos do Supabase
         const { data: productsData } = await supabase
             .from(TABLE_NAME)
-            .select('code, sku');
+            .select('code');
         
         if (Array.isArray(productsData)) {
             productsData.forEach((p: any) => {

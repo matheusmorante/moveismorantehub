@@ -1,7 +1,14 @@
 import { useState, useEffect } from 'react';
 import Product, { Variation } from '../../../types/product.type';
 import { saveVariation, generateVariationSku, parseVariationImages } from '@/pages/utils/productService';
-import { computeVariationName, getVariationAttributePairs, getVariationAttributeValuesInNameOrder, hasDuplicateVariationAttributeCombination } from '@/pages/utils/productVariationDefaults';
+import { 
+    computeVariationName, 
+    getVariationAttributePairs, 
+    getVariationAttributeValuesInNameOrder, 
+    hasDuplicateVariationAttributeCombination,
+    getIncompleteVariationAttributes,
+    hasVariationAttribute
+} from '@/pages/utils/productVariationDefaults';
 import { toast } from "react-toastify";
 import { ecommerceSupabase as supabase } from '@/pages/utils/supabaseConfig';
 
@@ -312,8 +319,28 @@ export function useVariationForm({
             syncFiscal: true
         };
 
-        if (getVariationAttributePairs(finalVariation).length === 0) {
-            toast.error("Informe pelo menos um atributo para a variação!");
+        // Validação estrita: obrigatório escolher pelo menos um atributo e definir seu valor
+        const attributesList = Array.isArray(formData.attributes) ? formData.attributes : [];
+        if (attributesList.length === 0) {
+            toast.warn("É obrigatório escolher pelo menos um atributo e definir seu valor para a variação.");
+            setActiveTab('identificacao');
+            return;
+        }
+
+        const incompleteAttrs = getIncompleteVariationAttributes(formData);
+        if (incompleteAttrs.length > 0) {
+            const firstIncomplete = incompleteAttrs[0];
+            if (firstIncomplete.missingReason === 'missing_name') {
+                toast.warn("Selecione o atributo para todos os itens adicionados.");
+            } else {
+                toast.warn(`O atributo "${firstIncomplete.name}" está sem valor. Todo atributo adicionado deve ter seu valor definido.`);
+            }
+            setActiveTab('identificacao');
+            return;
+        }
+
+        if (!hasVariationAttribute(finalVariation)) {
+            toast.warn("Informe pelo menos um atributo com valor válido para a variação!");
             setActiveTab('identificacao');
             return;
         }

@@ -4,6 +4,7 @@ import Product from '../../../../types/product.type';
 import { normalizeVariationSku } from '@/pages/utils/productVariationDefaults';
 import { updateProduct } from '@/pages/utils/productService';
 import { updateProductCatalogState } from './productCatalogState';
+import { checkEcomLegibility } from '../productLegibilityRules';
 
 /**
  * Resolve os objetos de variação e produto pai para ações de catálogo
@@ -106,30 +107,29 @@ export const validateCatalogPublication = (
         };
     }
 
-    if (isVariation) {
-        const hasImages = (variation?.images && variation.images.length > 0) || 
-                          (variation?.image_url && String(variation.image_url).trim().length > 0) ||
-                          (parentProduct?.images && parentProduct.images.length > 0);
-        const hasPrice = (variation?.syncUnitPrice || Number(variation?.unitPrice || 0) > 0 || Number(parentProduct?.unitPrice || 0) > 0);
-        const isEligible = hasPrice && hasImages && (parentProduct?.description || (parentProduct as any)?.name || '').trim().length >= 2;
+    const varImages = (variation?.images && variation.images.length > 0)
+        ? variation.images
+        : (variation?.image_url ? String(variation.image_url).split(',').filter(Boolean) : (parentProduct?.images || []));
 
-        if (!isEligible) {
-            return {
-                isValid: false,
-                errorMessage: 'Preencha os requisitos do Catálogo (preço maior que zero e pelo menos uma imagem) antes de publicar esta variação.'
-            };
-        }
-    } else if (parentProduct) {
-        const hasImages = parentProduct.images && parentProduct.images.length > 0;
-        const hasPrice = Number(parentProduct.unitPrice || 0) > 0;
-        const isEligible = hasPrice && hasImages && (parentProduct.description || (parentProduct as any)?.name || '').trim().length >= 2;
+    const effectiveProduct: Partial<Product> = {
+        ...parentProduct,
+        ...(isVariation && variation ? {
+            name: variation.name || parentProduct?.name || parentProduct?.description,
+            description: variation.description || parentProduct?.description,
+            unitPrice: variation.syncUnitPrice ? parentProduct?.unitPrice : (variation.unitPrice ?? parentProduct?.unitPrice),
+            images: varImages,
+            width: variation.syncWidth !== false ? parentProduct?.width : (variation.width ?? parentProduct?.width),
+            height: variation.syncHeight !== false ? parentProduct?.height : (variation.height ?? parentProduct?.height),
+            depth: variation.syncDepth !== false ? parentProduct?.depth : (variation.depth ?? parentProduct?.depth),
+        } : {})
+    };
 
-        if (!isEligible) {
-            return {
-                isValid: false,
-                errorMessage: 'Preencha os requisitos do Catálogo (preço maior que zero e pelo menos uma imagem) antes de publicar este produto.'
-            };
-        }
+    const ecomResult = checkEcomLegibility(effectiveProduct);
+    if (!ecomResult.isLegible) {
+        return {
+            isValid: false,
+            errorMessage: ecomResult.errors[0] || 'Preencha todos os requisitos do Catálogo antes de publicar.'
+        };
     }
 
     return { isValid: true };

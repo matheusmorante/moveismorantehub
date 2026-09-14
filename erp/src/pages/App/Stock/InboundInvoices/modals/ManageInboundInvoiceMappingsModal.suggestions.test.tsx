@@ -13,6 +13,11 @@ vi.mock('@/pages/utils/productSupplierCodesService', () => ({ findProductSupplie
 vi.mock('@/pages/utils/inboundNfe/inboundInvoicesService', () => ({ saveInboundInvoice: vi.fn() }));
 vi.mock('@/pages/utils/inboundNfe/inboundXmlParser', () => ({ parseInboundNfeXml: vi.fn() }));
 vi.mock('@/pages/utils/inboundNfe/productResolutionFeedbackService', () => ({ recordProductResolutionFeedback: vi.fn() }));
+vi.mock('@/pages/utils/inboundNfe/inboundItemProductResolver', () => ({
+    enrichInboundItemsWithProductDetails: vi.fn(async (items) => items),
+    resolveLinkedProductDetails: vi.fn(),
+    isGenericOrEmptyProductName: vi.fn(),
+}));
 vi.mock('../components/InboundInvoiceItemsReview', () => ({ InboundInvoiceItemsReview: ({ suggestionsEnabled, items, onProcessingSuggestionsChange }: { suggestionsEnabled: boolean; items: { matchedProductId?: string }[]; onProcessingSuggestionsChange: (value: boolean) => void }) => {
     React.useEffect(() => { onProcessingSuggestionsChange(true); }, [onProcessingSuggestionsChange]);
     return <div data-testid="review" data-enabled={String(suggestionsEnabled)} data-linked={String(Boolean(items[0]?.matchedProductId))}><button type="button">Remover</button></div>;

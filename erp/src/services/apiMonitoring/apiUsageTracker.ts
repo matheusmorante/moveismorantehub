@@ -2,6 +2,7 @@
 
 import { supabase } from '../../pages/utils/supabaseConfig';
 import { ApiConfigService } from './apiConfigService';
+import { getModuleDefinition } from './apiModuleMapper';
 import { 
     ApiEnvironment, 
     ApiProvider, 
@@ -9,7 +10,9 @@ import {
     ApiUsageLog, 
     ApiUsageStatus,
     ApiServiceSummary,
-    ApiDashboardMetrics 
+    ApiDashboardMetrics,
+    ApiModelUsageBreakdown,
+    ApiModuleUsageBreakdown
 } from './apiMonitoringTypes';
 
 interface RecordUsageOptions {
@@ -372,6 +375,148 @@ export class ApiUsageTracker {
             }
         });
 
+        // Buscar logs analíticos para obter quebra precisa por MÓDULO e MODELO
+        let detailedLogs: any[] = [];
+        try {
+            let logsQuery = supabase
+                .from('api_usage_logs')
+                .select('provider, service, operation, units, status, module_source, cost_estimated, created_at')
+                .gte('created_at', `${startDate}T00:00:00.000Z`)
+                .lte('created_at', `${endDate}T23:59:59.999Z`);
+
+            if (environment !== 'all') {
+                logsQuery = logsQuery.eq('environment', environment);
+            }
+
+            const { data } = await logsQuery;
+            if (data && data.length > 0) {
+                detailedLogs = data;
+            }
+        } catch (err) {
+            console.warn("Aviso ao buscar logs analíticos de módulos/modelos:", err);
+        }
+
+        // Agregação por MODELO
+        const modelMap: Record<string, { service_id: string; service_name: string; provider: ApiProvider; totalRequests: number; totalTokens: number; estimatedCostBrl: number }> = {};
+        // Agregação por MÓDULO
+        const moduleMap: Record<string, { totalRequests: number; totalTokens: number; estimatedCostBrl: number; modelCounts: Record<string, number> }> = {};
+        let totalAiTokens = 0;
+
+        detailedLogs.forEach((log) => {
+            const sId = log.service || 'gemini_flash';
+            const prov = (log.provider || 'gemini') as ApiProvider;
+            const units = Number(log.units || 1);
+            const cost = Number(log.cost_estimated || 0);
+            const mod = log.module_source || 'general';
+
+            const config = configs[sId];
+            const sName = config?.service_name || sId;
+
+            // Extrair modelo específico da operação se existir (ex: "... [gemini-3.8-flash]")
+            let specificModel = sName;
+            if (log.operation && log.operation.includes('[') && log.operation.includes(']')) {
+                const match = log.operation.match(/\[(.*?)\]/);
+                if (match && match[1]) {
+                    specificModel = match[1].trim();
+                }
+            }
+
+            // Modelo
+            if (!modelMap[specificModel]) {
+                modelMap[specificModel] = {
+                    service_id: sId,
+                    service_name: specificModel,
+                    provider: prov,
+                    totalRequests: 0,
+                    totalTokens: 0,
+                    estimatedCostBrl: 0,
+                };
+            }
+            modelMap[specificModel].totalRequests += 1;
+            modelMap[specificModel].estimatedCostBrl += cost;
+            if (prov === 'gemini' && sId !== 'gemini_image') {
+                modelMap[specificModel].totalTokens += units;
+                totalAiTokens += units;
+            }
+
+            // Módulo
+            if (!moduleMap[mod]) {
+                moduleMap[mod] = {
+                    totalRequests: 0,
+                    totalTokens: 0,
+                    estimatedCostBrl: 0,
+                    modelCounts: {},
+                };
+            }
+            moduleMap[mod].totalRequests += 1;
+            moduleMap[mod].estimatedCostBrl += cost;
+            if (prov === 'gemini' && sId !== 'gemini_image') {
+                moduleMap[mod].totalTokens += units;
+            }
+            moduleMap[mod].modelCounts[specificModel] = (moduleMap[mod].modelCounts[specificModel] || 0) + 1;
+        });
+
+        // Se não houver logs na tabela analítica, derivar das summaries existentes
+        if (detailedLogs.length === 0) {
+            summaries.forEach((s) => {
+                if (s.currentMonthUsage > 0 || s.estimatedCost > 0) {
+                    modelMap[s.service_id] = {
+                        service_id: s.service_id,
+                        service_name: s.service_name,
+                        provider: s.provider,
+                        totalRequests: s.currentMonthUsage,
+                        totalTokens: s.provider === 'gemini' && s.service_id !== 'gemini_image' ? s.currentMonthUsage * 350 : 0,
+                        estimatedCostBrl: s.estimatedCost,
+                    };
+                    if (s.provider === 'gemini' && s.service_id !== 'gemini_image') {
+                        totalAiTokens += s.currentMonthUsage * 350;
+                    }
+                }
+            });
+        }
+
+        const safeTotalCost = totalCostBrl > 0 ? totalCostBrl : 0.01;
+
+        const modelsBreakdown: ApiModelUsageBreakdown[] = Object.values(modelMap)
+            .map((m) => ({
+                model: m.service_name,
+                service_id: m.service_id,
+                service_name: m.service_name,
+                provider: m.provider,
+                totalRequests: m.totalRequests,
+                totalTokens: m.totalTokens,
+                estimatedCostBrl: Number(m.estimatedCostBrl.toFixed(2)),
+                percentOfTotalCost: Number(Math.min(100, (m.estimatedCostBrl / safeTotalCost) * 100).toFixed(1)),
+            }))
+            .sort((a, b) => b.estimatedCostBrl - a.estimatedCostBrl || b.totalRequests - a.totalRequests);
+
+        const modulesBreakdown: ApiModuleUsageBreakdown[] = Object.entries(moduleMap)
+            .map(([modId, data]) => {
+                const def = getModuleDefinition(modId);
+                // Determinar o modelo mais frequente do módulo
+                let topModel = 'N/A';
+                let maxMCount = 0;
+                Object.entries(data.modelCounts).forEach(([mName, count]) => {
+                    if (count > maxMCount) {
+                        maxMCount = count;
+                        topModel = mName;
+                    }
+                });
+
+                return {
+                    module: modId,
+                    label: def.label,
+                    icon: def.icon,
+                    color: def.color,
+                    totalRequests: data.totalRequests,
+                    totalTokens: data.totalTokens,
+                    estimatedCostBrl: Number(data.estimatedCostBrl.toFixed(2)),
+                    percentOfTotalCost: Number(Math.min(100, (data.estimatedCostBrl / safeTotalCost) * 100).toFixed(1)),
+                    topModel,
+                };
+            })
+            .sort((a, b) => b.estimatedCostBrl - a.estimatedCostBrl || b.totalRequests - a.totalRequests);
+
         return {
             totalRequests,
             totalCostBrl: Number(totalCostBrl.toFixed(2)),
@@ -381,7 +526,10 @@ export class ApiUsageTracker {
             topUsedService,
             servicesNearLimitCount,
             servicesBlockedCount,
+            totalAiTokens,
             summaries,
+            modelsBreakdown,
+            modulesBreakdown,
         };
     }
 }

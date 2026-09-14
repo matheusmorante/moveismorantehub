@@ -100,11 +100,22 @@ export const ProductSaveResultModal: React.FC<ProductSaveResultModalProps> = ({
         }
 
         setUpdatingEcom(true);
-        const updatedData: Product = { ...currentProduct, status: newStatus };
+        const updatedVariations = (currentProduct.variations || []).map(v => ({
+            ...v,
+            status: newStatus
+        }));
+        const updatedData: Product = { ...currentProduct, status: newStatus, variations: updatedVariations };
         try {
             await saveProduct(updatedData);
             setCurrentProduct(updatedData);
-            setFormData((prev) => ({ ...prev, status: newStatus }));
+            setFormData((prev) => ({
+                ...prev,
+                status: newStatus,
+                variations: (prev.variations || []).map(v => ({
+                    ...v,
+                    status: newStatus
+                }))
+            }));
             toast.success(
                 newStatus === 'published'
                     ? 'Produto publicado no Catálogo Digital! 🛍️'
@@ -126,7 +137,7 @@ export const ProductSaveResultModal: React.FC<ProductSaveResultModalProps> = ({
 
     return (
         <div
-            className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200"
+            className="fixed inset-0 z-[1000020] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200"
             role="dialog"
             aria-modal="true"
             aria-labelledby="product-save-result-modal-title"

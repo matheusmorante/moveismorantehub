@@ -108,6 +108,29 @@ export interface ApiServiceSummary {
     config: ApiConfiguration;
 }
 
+export interface ApiModelUsageBreakdown {
+    model: string;
+    service_id: ApiServiceId;
+    service_name: string;
+    provider: ApiProvider;
+    totalRequests: number;
+    totalTokens: number;
+    estimatedCostBrl: number;
+    percentOfTotalCost: number;
+}
+
+export interface ApiModuleUsageBreakdown {
+    module: string;
+    label: string;
+    icon: string;
+    color: string;
+    totalRequests: number;
+    totalTokens: number;
+    estimatedCostBrl: number;
+    percentOfTotalCost: number;
+    topModel: string;
+}
+
 export interface ApiDashboardMetrics {
     totalRequests: number;
     totalCostBrl: number;
@@ -117,5 +140,8 @@ export interface ApiDashboardMetrics {
     topUsedService: string;
     servicesNearLimitCount: number;
     servicesBlockedCount: number;
+    totalAiTokens: number;
     summaries: ApiServiceSummary[];
+    modelsBreakdown: ApiModelUsageBreakdown[];
+    modulesBreakdown: ApiModuleUsageBreakdown[];
 }

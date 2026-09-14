@@ -10,11 +10,18 @@ export type AiErrorCode =
   | 'AI_DUPLICATE_REQUEST'
   | 'AI_SERVICE_ERROR';
 
+export type AiModelTier = 'lite' | 'reasoning' | 'embedding' | 'standard';
+
 export interface AiRequestOptions {
   category: AiCategory;
   operation: string;
   payload: any;
   userOrSource?: string;
+  moduleSource?: string;
+  model?: string;
+  tier?: AiModelTier;
+  thinkingBudget?: 'low' | 'medium' | 'high';
+  jsonMode?: boolean;
   bypassDeduplication?: boolean;
 }
 

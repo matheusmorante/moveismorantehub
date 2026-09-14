@@ -3,22 +3,28 @@ import type { Product } from '@/pages/types/product.type';
 import type { Person } from '../../../../types/person.type';
 import { ProductSupplierField } from './ProductSupplierField';
 import { ProductPricingFields } from './ProductPricingFields';
+import { syncVariationsWithParent } from '../../utils/variationParentSync';
 
 interface ProductInventoryTabProps {
     readonly formData: Partial<Product>;
     readonly setFormData: React.Dispatch<React.SetStateAction<Partial<Product>>>;
     readonly suppliers: readonly Person[];
     readonly handleSuggestPrices?: () => void;
+    readonly onSuggestPrices?: () => void;
     readonly isSuggestingPrices?: boolean;
     readonly suggestPricesResults?: { readonly low: number; readonly medium: number; readonly high: number } | null;
     readonly discountPercent: string;
     readonly setDiscountPercent?: React.Dispatch<React.SetStateAction<string>>;
     readonly discountFixed: string;
     readonly setDiscountFixed?: React.Dispatch<React.SetStateAction<string>>;
-    readonly handlePriceChange: (newPrice: string) => void;
-    readonly handleDiscountPercentChange: (valStr: string) => void;
-    readonly handleDiscountFixedChange: (valStr: string) => void;
-    readonly handlePromoPriceFieldChange: (valStr: string) => void;
+    readonly handlePriceChange?: (newPrice: string) => void;
+    readonly onPriceChange?: (newPrice: string) => void;
+    readonly handleDiscountPercentChange?: (valStr: string) => void;
+    readonly onDiscountPercentChange?: (valStr: string) => void;
+    readonly handleDiscountFixedChange?: (valStr: string) => void;
+    readonly onDiscountFixedChange?: (valStr: string) => void;
+    readonly handlePromoPriceFieldChange?: (valStr: string) => void;
+    readonly onPromoPriceChange?: (valStr: string) => void;
     readonly validationErrors?: Record<string, boolean>;
     readonly setValidationErrors?: React.Dispatch<React.SetStateAction<Record<string, boolean>>>;
 }
@@ -30,12 +36,20 @@ const ProductInventoryTab: React.FC<ProductInventoryTabProps> = ({
     discountPercent,
     discountFixed,
     handlePriceChange,
+    onPriceChange,
     handleDiscountPercentChange,
+    onDiscountPercentChange,
     handleDiscountFixedChange,
+    onDiscountFixedChange,
     handlePromoPriceFieldChange,
+    onPromoPriceChange,
     validationErrors = {},
     setValidationErrors
 }) => {
+    const finalOnPriceChange = onPriceChange || handlePriceChange || (() => {});
+    const finalOnDiscountPercentChange = onDiscountPercentChange || handleDiscountPercentChange || (() => {});
+    const finalOnDiscountFixedChange = onDiscountFixedChange || handleDiscountFixedChange || (() => {});
+    const finalOnPromoPriceChange = onPromoPriceChange || handlePromoPriceFieldChange || (() => {});
     const updateCost = (fields: Partial<Product>) => {
         if (fields.mainSupplierId && setValidationErrors) {
             setValidationErrors(previous => {
@@ -45,7 +59,7 @@ const ProductInventoryTab: React.FC<ProductInventoryTabProps> = ({
             });
         }
         setFormData(prev => {
-            const next = { ...prev, ...fields };
+            const next: Partial<Product> = { ...prev, ...fields };
             const cost = Number(next.costPrice) || 0;
             const ipi = Number(next.ipiPercent) || 0;
             const freight = Number(next.freightCost) || 0;
@@ -59,6 +73,17 @@ const ProductInventoryTab: React.FC<ProductInventoryTabProps> = ({
             }
 
             next.finalPurchasePrice = Number(finalCost.toFixed(2));
+
+            // Propagar campos de custo para variações herdando do pai
+            if (next.variations?.length) {
+                next.variations = syncVariationsWithParent(next.variations, {
+                    costPrice: next.costPrice,
+                    ipiPercent: next.ipiPercent,
+                    freightCost: next.freightCost,
+                    freightType: next.freightType as 'fixed' | 'percentage' | 'none' | undefined,
+                });
+            }
+
             return next;
         });
     };
@@ -104,10 +129,10 @@ const ProductInventoryTab: React.FC<ProductInventoryTabProps> = ({
                 formData={formData}
                 discountPercent={discountPercent}
                 discountFixed={discountFixed}
-                onPriceChange={handlePriceChange}
-                onDiscountPercentChange={handleDiscountPercentChange}
-                onDiscountFixedChange={handleDiscountFixedChange}
-                onPromoPriceChange={handlePromoPriceFieldChange}
+                onPriceChange={finalOnPriceChange}
+                onDiscountPercentChange={finalOnDiscountPercentChange}
+                onDiscountFixedChange={finalOnDiscountFixedChange}
+                onPromoPriceChange={finalOnPromoPriceChange}
                 validationErrors={validationErrors}
                 setValidationErrors={setValidationErrors}
             />

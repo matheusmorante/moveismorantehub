@@ -189,7 +189,7 @@ export function matchCategoryByRules(title: string, categories: readonly Categor
     }
 
     if (normTitle.includes('multiuso')) {
-        const matched = findByName('Armários Multiuso');
+        const matched = findByName('Armários Multiuso') || findByName('Armario Multiuso') || findByName('Multiuso');
         if (matched) return matched;
     }
 

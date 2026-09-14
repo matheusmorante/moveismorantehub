@@ -3,8 +3,7 @@ import { formatCurrency, formatDateTime } from '@/pages/utils/formatters';
 import Product from '@/pages/types/product.type';
 import { updateInventoryMove } from '@/pages/utils/inventoryService';
 import { toast } from 'react-toastify';
-import { InventoryMoveEntry, PriceHistoryEntry } from '../priceHistory.types';
-import { loadBatchHistory, loadPriceHistory } from '../priceHistoryService';
+import { InventoryMoveEntry, PriceHistoryEntry, loadBatchHistory, loadPriceHistory } from '../priceHistory';
 
 interface PriceHistoryModalProps {
     readonly product?: Product | null;

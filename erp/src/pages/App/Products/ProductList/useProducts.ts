@@ -181,7 +181,7 @@ export const useProducts = (filters?: any) => {
     const deactivateCatalog = async (id: string) => {
         try {
             const { parentProduct, variation, isVariation } = await resolveCatalogEntities(id, serverProducts);
-            const currentStatus = isVariation ? (variation.status || 'published') : (parentProduct?.status || 'published');
+            const currentStatus = isVariation ? (variation.status || parentProduct?.status || 'hidden') : (parentProduct?.status || 'hidden');
             const newStatus = currentStatus === 'published' ? 'hidden' : 'published';
 
             if (newStatus === 'published') {

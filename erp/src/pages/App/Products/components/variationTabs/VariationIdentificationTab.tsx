@@ -146,17 +146,26 @@ export const VariationIdentificationTab: React.FC<VariationIdentificationTabProp
                 </div>
 
                 {(formData.attributes || []).length === 0 ? (
-                    <p className="text-xs text-slate-400 italic text-center py-2">Nenhum atributo vinculado.</p>
+                    <div className="rounded-2xl border border-amber-200 bg-amber-50/80 p-3 text-center dark:border-amber-900/40 dark:bg-amber-950/20">
+                        <p className="text-xs font-bold text-amber-800 dark:text-amber-300">
+                            ⚠️ É obrigatório adicionar pelo menos um atributo e definir seu respectivo valor para salvar a variação.
+                        </p>
+                    </div>
                 ) : (
                     <div className="space-y-3">
                         {(formData.attributes || []).map((attr, idx) => {
                             const currentAttr = dbAttributes.find(a => a.name === attr.name);
                             const attrVals = currentAttr ? dbAttributeValues.filter(val => val.attribute_id === currentAttr.id) : [];
+                            const isNameMissing = !String(attr.name || '').trim();
+                            const isValMissing = !String(attr.value || '').trim();
 
                             return (
                                 <div key={idx} className="flex items-end gap-3 animate-in fade-in duration-200">
                                     <div className="flex-1 space-y-1">
-                                        <label className="text-[9px] text-slate-400 font-bold uppercase">Atributo</label>
+                                        <label className="text-[9px] text-slate-400 font-bold uppercase flex items-center justify-between">
+                                            <span>Atributo <span className="text-red-500">*</span></span>
+                                            {isNameMissing && <span className="text-red-500 font-bold text-[8px]">Obrigatório</span>}
+                                        </label>
                                         <select
                                             value={attr.name}
                                             onChange={e => {
@@ -176,7 +185,11 @@ export const VariationIdentificationTab: React.FC<VariationIdentificationTabProp
                                                     };
                                                 });
                                             }}
-                                            className="w-full bg-transparent border-b-2 border-t-0 border-x-0 border-slate-200 dark:border-slate-800 outline-none px-1 py-2 text-xs font-bold text-slate-800 dark:text-slate-200 focus:border-blue-600 dark:focus:border-blue-400 transition-all"
+                                            className={`w-full bg-transparent border-b-2 border-t-0 border-x-0 outline-none px-1 py-2 text-xs font-bold transition-all ${
+                                                isNameMissing
+                                                    ? 'border-red-500 text-red-600 dark:text-red-400'
+                                                    : 'border-slate-200 dark:border-slate-800 text-slate-800 dark:text-slate-200 focus:border-blue-600 dark:focus:border-blue-400'
+                                            }`}
                                         >
                                             <option value="">Selecione um atributo...</option>
                                             {dbAttributes.map(a => (
@@ -186,7 +199,10 @@ export const VariationIdentificationTab: React.FC<VariationIdentificationTabProp
                                     </div>
 
                                     <div className="flex-1 space-y-1">
-                                        <label className="text-[9px] text-slate-400 font-bold uppercase">Valor</label>
+                                        <label className="text-[9px] text-slate-400 font-bold uppercase flex items-center justify-between">
+                                            <span>Valor <span className="text-red-500">*</span></span>
+                                            {isValMissing && <span className="text-red-500 font-bold text-[8px]">Defina o valor</span>}
+                                        </label>
                                         {attrVals.length > 0 ? (
                                             <select
                                                 value={attr.value}
@@ -207,7 +223,11 @@ export const VariationIdentificationTab: React.FC<VariationIdentificationTabProp
                                                         };
                                                     });
                                                 }}
-                                                className="w-full bg-transparent border-b-2 border-t-0 border-x-0 border-slate-200 dark:border-slate-800 outline-none px-1 py-2 text-xs font-bold text-slate-800 dark:text-slate-200 focus:border-blue-600 dark:focus:border-blue-400 transition-all"
+                                                className={`w-full bg-transparent border-b-2 border-t-0 border-x-0 outline-none px-1 py-2 text-xs font-bold transition-all ${
+                                                    isValMissing
+                                                        ? 'border-red-500 text-red-600 dark:text-red-400'
+                                                        : 'border-slate-200 dark:border-slate-800 text-slate-800 dark:text-slate-200 focus:border-blue-600 dark:focus:border-blue-400'
+                                                }`}
                                             >
                                                 <option value="">Selecione o valor...</option>
                                                 {attrVals.map(v => (
@@ -236,7 +256,11 @@ export const VariationIdentificationTab: React.FC<VariationIdentificationTabProp
                                                         };
                                                     });
                                                 }}
-                                                className="w-full bg-transparent border-b-2 border-t-0 border-x-0 border-slate-200 dark:border-slate-800 outline-none px-1 py-2 text-xs font-bold text-slate-800 dark:text-slate-200 focus:border-blue-600 dark:focus:border-blue-400 transition-all"
+                                                className={`w-full bg-transparent border-b-2 border-t-0 border-x-0 outline-none px-1 py-2 text-xs font-bold transition-all ${
+                                                    isValMissing
+                                                        ? 'border-red-500 text-red-600 dark:text-red-400 placeholder:text-red-300'
+                                                        : 'border-slate-200 dark:border-slate-800 text-slate-800 dark:text-slate-200 focus:border-blue-600 dark:focus:border-blue-400'
+                                                }`}
                                             />
                                         )}
                                     </div>

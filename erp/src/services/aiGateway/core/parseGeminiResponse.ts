@@ -1,6 +1,9 @@
 import { AiCategory } from '../types/aiGatewayTypes';
 
-export function parseGeminiResponse(json: any, category: AiCategory): string {
+export function parseGeminiResponse(json: any, category: AiCategory): any {
+  if (json?.embedding?.values && Array.isArray(json.embedding.values)) {
+    return json.embedding.values;
+  }
   const parts = json.candidates?.[0]?.content?.parts || [];
   if (category === 'IMAGE') {
     const image = parts.find((part: any) => !part.thought && part.inlineData?.mimeType?.startsWith('image/'))?.inlineData;

@@ -65,6 +65,12 @@ class AiLatencyTrackerSingleton {
     record.responseSizeChars = responseSizeChars;
     record.errorMessage = errorMessage;
 
+    console.info('[AiExecution]', {
+      id: record.id, operation: record.operation, model: record.model,
+      durationMs: record.durationMs, success: record.success,
+      responseSizeChars: record.responseSizeChars,
+    });
+
     return record;
   }
 

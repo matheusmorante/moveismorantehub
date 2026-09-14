@@ -1,11 +1,13 @@
 import React from 'react';
 import { Product } from '../../../../types/product.type';
+import { syncVariationsWithParent } from '../../utils/variationParentSync';
 
 interface ProductTechnicalTabProps {
     readonly formData: Partial<Product>;
     readonly setFormData: React.Dispatch<React.SetStateAction<Partial<Product>>>;
     readonly handleImproveDescriptionWithAI?: () => void;
     readonly isImprovingDescription?: boolean;
+    readonly validationErrors?: Record<string, boolean>;
 }
 
 const ProductTechnicalTab: React.FC<ProductTechnicalTabProps> = ({
@@ -14,8 +16,23 @@ const ProductTechnicalTab: React.FC<ProductTechnicalTabProps> = ({
     handleImproveDescriptionWithAI,
     isImprovingDescription
 }) => {
+    // Campos que as variações podem herdar do pai
+    const SYNCED_FIELDS = new Set<keyof Product>(['description', 'width', 'height', 'depth', 'weight']);
+
     const handleFieldChange = <K extends keyof Product>(field: K, value: Product[K]) => {
-        setFormData(prev => ({ ...prev, [field]: value }));
+        setFormData(prev => {
+            const next: Partial<Product> = { ...prev, [field]: value };
+            if (SYNCED_FIELDS.has(field) && next.variations?.length) {
+                next.variations = syncVariationsWithParent(next.variations, {
+                    description: next.description,
+                    width: next.width,
+                    height: next.height,
+                    depth: next.depth,
+                    weight: next.weight,
+                });
+            }
+            return next;
+        });
     };
 
     return (
@@ -77,7 +94,7 @@ const ProductTechnicalTab: React.FC<ProductTechnicalTabProps> = ({
                             step="0.1"
                             aria-label="Altura em centímetros"
                             value={formData.height || ''}
-                            onChange={(e) => handleFieldChange('height', e.target.value)}
+                            onChange={(e) => handleFieldChange('height', parseFloat(e.target.value) || 0)}
                             className="w-full px-1 py-2.5 bg-transparent border-b-2 border-t-0 border-x-0 border-slate-200 dark:border-slate-800 outline-none text-xs font-bold dark:text-slate-200 focus:border-blue-600 dark:focus:border-blue-400 transition-all"
                             placeholder="0"
                         />
@@ -93,7 +110,7 @@ const ProductTechnicalTab: React.FC<ProductTechnicalTabProps> = ({
                             step="0.1"
                             aria-label="Largura em centímetros"
                             value={formData.width || ''}
-                            onChange={(e) => handleFieldChange('width', e.target.value)}
+                            onChange={(e) => handleFieldChange('width', parseFloat(e.target.value) || 0)}
                             className="w-full px-1 py-2.5 bg-transparent border-b-2 border-t-0 border-x-0 border-slate-200 dark:border-slate-800 outline-none text-xs font-bold dark:text-slate-200 focus:border-blue-600 dark:focus:border-blue-400 transition-all"
                             placeholder="0"
                         />
@@ -121,7 +138,7 @@ const ProductTechnicalTab: React.FC<ProductTechnicalTabProps> = ({
                             step="0.1"
                             aria-label={formData.depthUseLength ? 'Comprimento em centímetros' : 'Profundidade em centímetros'}
                             value={formData.depth || ''}
-                            onChange={(e) => handleFieldChange('depth', e.target.value)}
+                            onChange={(e) => handleFieldChange('depth', parseFloat(e.target.value) || 0)}
                             className="w-full px-1 py-2.5 bg-transparent border-b-2 border-t-0 border-x-0 border-slate-200 dark:border-slate-800 outline-none text-xs font-bold dark:text-slate-200 focus:border-blue-600 dark:focus:border-blue-400 transition-all"
                             placeholder="0"
                         />
@@ -137,7 +154,7 @@ const ProductTechnicalTab: React.FC<ProductTechnicalTabProps> = ({
                             step="0.01"
                             aria-label="Peso em quilogramas"
                             value={formData.weight || ''}
-                            onChange={(e) => handleFieldChange('weight', e.target.value)}
+                            onChange={(e) => handleFieldChange('weight', parseFloat(e.target.value) || 0)}
                             className="w-full px-1 py-2.5 bg-transparent border-b-2 border-t-0 border-x-0 border-slate-200 dark:border-slate-800 outline-none text-xs font-bold dark:text-slate-200 focus:border-blue-600 dark:focus:border-blue-400 transition-all"
                             placeholder="0,00"
                         />

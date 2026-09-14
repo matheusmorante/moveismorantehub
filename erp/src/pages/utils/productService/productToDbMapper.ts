@@ -30,10 +30,11 @@ export const mapToDB = (product: Partial<Product>) => {
         data.category_id = null;
     }
     if (product.condition !== undefined) data.condition = product.condition;
-    if (product.unitPrice !== undefined) {
-        data.unit_price = product.unitPrice;
-        data.price = product.unitPrice;
-    }
+    const parsedPrice = product.unitPrice !== undefined && product.unitPrice !== null && !isNaN(Number(product.unitPrice))
+        ? Number(product.unitPrice)
+        : 0;
+    data.unit_price = parsedPrice;
+    data.price = parsedPrice;
     if (product.costPrice !== undefined) data.cost_price = product.costPrice;
     if (product.freightType !== undefined) data.freight_type = product.freightType;
     if (product.freightCost !== undefined) data.freight_cost = product.freightCost;

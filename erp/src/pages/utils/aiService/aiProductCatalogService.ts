@@ -10,20 +10,29 @@ Preço: R$ ${productData.unitPrice || 0}
 ${productData.promptTemplate ? `Diretriz: ${productData.promptTemplate}` : ''}
 Retorne apenas o texto da descrição, sem títulos markdown ou saudações.`;
 
-        const textResponse = await callGeminiDirect(prompt, false);
-        let cleanText = textResponse.trim();
-        if (cleanText.startsWith('{') && cleanText.endsWith('}')) {
-            try {
-                const parsed = JSON.parse(cleanText);
-                const extracted = parsed.product_description || parsed.improvedDescription || parsed.description || parsed.text || parsed.content;
-                if (extracted && typeof extracted === 'string') {
-                    cleanText = extracted.trim();
+        try {
+            const textResponse = await callGeminiDirect(prompt, false, {
+                tier: 'lite',
+                moduleSource: 'products',
+                operation: 'catalog_generate_description',
+            });
+            let cleanText = textResponse.trim();
+            if (cleanText.startsWith('{') && cleanText.endsWith('}')) {
+                try {
+                    const parsed = JSON.parse(cleanText);
+                    const extracted = parsed.product_description || parsed.improvedDescription || parsed.description || parsed.text || parsed.content;
+                    if (extracted && typeof extracted === 'string') {
+                        cleanText = extracted.trim();
+                    }
+                } catch (err) {
+                    console.warn('[aiProductCatalogService.generateDescription] Falha no parse JSON de descrição:', err);
                 }
-            } catch (err) {
-                console.warn('[aiProductCatalogService.generateDescription] Falha no parse JSON de descrição:', err);
             }
+            return { description: cleanText };
+        } catch (error) {
+            console.warn('[aiProductCatalogService.generateDescription] Falha ao gerar descrição:', error);
+            return { description: '' };
         }
-        return { description: cleanText };
     },
 
     async generateMarketplaceTitle(data: { 
@@ -42,7 +51,11 @@ Retorne APENAS um objeto JSON no formato exato: {"title": "TITULO DO PRODUTO AQU
 Nenhum texto fora do JSON.`;
 
         try {
-            const textResponse = await callGeminiDirect(prompt);
+            const textResponse = await callGeminiDirect(prompt, true, {
+                tier: 'lite',
+                moduleSource: 'products',
+                operation: 'catalog_marketplace_title',
+            });
             let clean = textResponse.trim().replace(/^```json/, '').replace(/^```/, '').replace(/```$/, '').trim();
             const parsed = JSON.parse(clean);
             return { title: String(parsed.title || data.description).toUpperCase() };
@@ -68,7 +81,11 @@ REGRAS:
 Nenhum texto adicional fora do JSON.`;
 
         try {
-            const textResponse = await callGeminiDirect(prompt);
+            const textResponse = await callGeminiDirect(prompt, true, {
+                tier: 'lite',
+                moduleSource: 'products',
+                operation: 'catalog_extract_color',
+            });
             const match = textResponse.match(/\{[\s\S]*\}/);
             const cleanJson = match ? match[0] : textResponse.trim();
             const parsed = JSON.parse(cleanJson);
@@ -108,20 +125,29 @@ Não Acompanha: ${data.notIncluded || 'Não informado'}
 Formate com parágrafos curtos, emojis elegantes e liste características e medidas.
 Retorne apenas o texto da descrição.`;
 
-        const textResponse = await callGeminiDirect(prompt, false);
-        let cleanText = textResponse.trim();
-        if (cleanText.startsWith('{') && cleanText.endsWith('}')) {
-            try {
-                const parsed = JSON.parse(cleanText);
-                const extracted = parsed.product_description || parsed.improvedDescription || parsed.description || parsed.text || parsed.content;
-                if (extracted && typeof extracted === 'string') {
-                    cleanText = extracted.trim();
+        try {
+            const textResponse = await callGeminiDirect(prompt, false, {
+                tier: 'lite',
+                moduleSource: 'products',
+                operation: 'catalog_product_description',
+            });
+            let cleanText = textResponse.trim();
+            if (cleanText.startsWith('{') && cleanText.endsWith('}')) {
+                try {
+                    const parsed = JSON.parse(cleanText);
+                    const extracted = parsed.product_description || parsed.improvedDescription || parsed.description || parsed.text || parsed.content;
+                    if (extracted && typeof extracted === 'string') {
+                        cleanText = extracted.trim();
+                    }
+                } catch (err) {
+                    console.warn('[aiProductCatalogService.generateProductDescription] Falha no parse JSON:', err);
                 }
-            } catch (err) {
-                console.warn('[aiProductCatalogService.generateProductDescription] Falha no parse JSON:', err);
             }
+            return { description: cleanText };
+        } catch (error) {
+            console.warn('[aiProductCatalogService.generateProductDescription] Falha ao gerar descrição:', error);
+            return { description: '' };
         }
-        return { description: cleanText };
     },
 
     async suggestCategory(title: string, categories: string[]) {
@@ -133,12 +159,16 @@ Retorne APENAS um JSON no formato: {"category": "NOME DA CATEGORIA"}
 Se nenhuma for adequada, escolha a mais próxima da lista. Sem blocos markdown adicionais.`;
 
         try {
-            const textResponse = await callGeminiDirect(prompt);
+            const textResponse = await callGeminiDirect(prompt, true, {
+                tier: 'lite',
+                moduleSource: 'products',
+                operation: 'catalog_suggest_category',
+            });
             let clean = textResponse.trim().replace(/^```json/, '').replace(/^```/, '').replace(/```$/, '').trim();
             const parsed = JSON.parse(clean);
-            return { category: parsed.category };
+            return { category: parsed.category || "" };
         } catch {
-            return { category: categories[0] || "" };
+            return { category: "" };
         }
     },
 
@@ -147,7 +177,11 @@ Se nenhuma for adequada, escolha a mais próxima da lista. Sem blocos markdown a
 Retorne APENAS o JSON: {"name": "NOME DO COMBO"}`;
 
         try {
-            const textResponse = await callGeminiDirect(prompt);
+            const textResponse = await callGeminiDirect(prompt, true, {
+                tier: 'lite',
+                moduleSource: 'products',
+                operation: 'catalog_combo_name',
+            });
             let clean = textResponse.trim().replace(/^```json/, '').replace(/^```/, '').replace(/```$/, '').trim();
             const parsed = JSON.parse(clean);
             return { name: parsed.name };
@@ -168,7 +202,11 @@ Retorne APENAS um JSON no formato:
 }`;
 
         try {
-            const textResponse = await callGeminiDirect(prompt);
+            const textResponse = await callGeminiDirect(prompt, true, {
+                tier: 'lite',
+                moduleSource: 'products',
+                operation: 'catalog_suggest_prices',
+            });
             const match = textResponse.match(/\{[\s\S]*\}/);
             const clean = match ? match[0] : textResponse.trim();
             return JSON.parse(clean);
@@ -242,7 +280,11 @@ REGRAS FINAIS:
 - NUNCA escreva informações que não estejam nos dados acima.`;
 
         try {
-            const textResponse = await callGeminiDirect(prompt, false);
+            const textResponse = await callGeminiDirect(prompt, false, {
+                tier: 'lite',
+                moduleSource: 'products',
+                operation: 'catalog_improve_description',
+            });
             if (!textResponse.trim()) {
                 throw new Error("A IA retornou uma resposta vazia. Verifique se o produto tem título e descrição preenchidos.");
             }

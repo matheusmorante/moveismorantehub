@@ -6,6 +6,7 @@ import { parseInboundNfeXml } from '@/pages/utils/inboundNfe/inboundXmlParser';
 import { InboundInvoice, InboundInvoiceItem } from '@/pages/utils/inboundNfe/inboundNfeTypes';
 import { fetchPersons } from '@/pages/utils/personService';
 import { saveProductSupplierCode, findProductSupplierCodes } from '@/pages/utils/productSupplierCodesService';
+import { enrichInboundItemsWithProductDetails } from '@/pages/utils/inboundNfe/inboundItemProductResolver';
 import { recordProductResolutionFeedback } from '@/pages/utils/inboundNfe/productResolutionFeedbackService';
 import SupplierAutocomplete from '@/components/SupplierAutocomplete';
 import Person from '@/pages/types/person.type';
@@ -69,18 +70,21 @@ export function ManageInboundInvoiceMappingsModal({ isOpen, onClose, invoice: in
 
                 const mappings = await findProductSupplierCodes(invoice.supplierId, invoice.items.map((item) => item.productCode));
                 if (!active || !mappings.size) return;
+                const mappedItems = invoice.items.map((item) => {
+                    const mapping = mappings.get(item.productCode.trim().toLocaleUpperCase('pt-BR'));
+                    return mapping ? {
+                        ...item,
+                        matchedProductId: item.matchedProductId || mapping.productId,
+                        matchedVariationId: item.matchedVariationId || mapping.productVariationId,
+                    } : item;
+                });
+                const enrichedItems = await enrichInboundItemsWithProductDetails(mappedItems);
+                if (!active) return;
                 setInvoice((current) => {
                     if (!current || current.supplierId !== invoice.supplierId) return current;
                     return {
                         ...current,
-                        items: current.items.map((item) => {
-                            const mapping = mappings.get(item.productCode.trim().toLocaleUpperCase('pt-BR'));
-                            return mapping ? {
-                                ...item,
-                                matchedProductId: item.matchedProductId || mapping.productId,
-                                matchedVariationId: item.matchedVariationId || mapping.productVariationId,
-                            } : item;
-                        }),
+                        items: enrichedItems,
                     };
                 });
             } catch (error) {

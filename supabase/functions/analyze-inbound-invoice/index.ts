@@ -140,7 +140,7 @@ Retorne SOMENTE JSON válido: {documentKind,isConsumerInvoice,invoice:{accessKey
     });
     const inferenceStartedAt = Date.now();
     const parts = [{ text: prompt }, { fileData: { mimeType, fileUri: geminiFile.reference.fileUri } }];
-    const response = await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=" + encodeURIComponent(apiKey), { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ contents: [{ parts }], generationConfig: { responseMimeType: "application/json", responseSchema: EXTRACTION_RESPONSE_SCHEMA, temperature: 0 } }) });
+    const response = await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key=" + encodeURIComponent(apiKey), { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ contents: [{ parts }], generationConfig: { responseMimeType: "application/json", responseSchema: EXTRACTION_RESPONSE_SCHEMA, temperature: 0 } }) });
     if (!response.ok) {
       const detail = await response.text();
       console.error("[analyze-inbound-invoice] Gemini inference failed", { status: response.status, detail: detail.slice(0, 500) });

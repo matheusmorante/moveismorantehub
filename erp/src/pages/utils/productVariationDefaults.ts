@@ -1,41 +1,101 @@
 import Product, { Variation } from '../types/product.type';
 
+export interface IncompleteAttributeInfo {
+    index: number;
+    name: string;
+    missingReason: 'missing_name' | 'missing_value' | 'empty_attribute';
+}
+
+/**
+ * Retorna lista de atributos que estão incompletos em uma variação (sem nome ou sem valor).
+ */
+export const getIncompleteVariationAttributes = (variation?: Variation | any): IncompleteAttributeInfo[] => {
+    if (!variation) return [];
+
+    let rawAttributes = variation.attributes;
+    if (typeof rawAttributes === 'string' && rawAttributes.trim()) {
+        try {
+            rawAttributes = JSON.parse(rawAttributes);
+        } catch {
+            return [];
+        }
+    }
+
+    if (Array.isArray(rawAttributes)) {
+        const result: IncompleteAttributeInfo[] = [];
+        rawAttributes.forEach((attr: any, index: number) => {
+            if (!attr) {
+                result.push({ index, name: `Atributo #${index + 1}`, missingReason: 'empty_attribute' });
+                return;
+            }
+            const name = String(attr.name || attr.attribute || attr.key || '').trim();
+            const val = String(attr.value || attr.val || '').trim();
+
+            if (!name) {
+                result.push({ index, name: `Atributo #${index + 1}`, missingReason: 'missing_name' });
+            } else if (!val) {
+                result.push({ index, name, missingReason: 'missing_value' });
+            }
+        });
+        return result;
+    }
+
+    if (typeof rawAttributes === 'object' && rawAttributes !== null) {
+        const result: IncompleteAttributeInfo[] = [];
+        Object.entries(rawAttributes).forEach(([k, v], index) => {
+            const name = String(k || '').trim();
+            const val = String(v || '').trim();
+            if (!name) {
+                result.push({ index, name: `Atributo #${index + 1}`, missingReason: 'missing_name' });
+            } else if (!val) {
+                result.push({ index, name, missingReason: 'missing_value' });
+            }
+        });
+        return result;
+    }
+
+    return [];
+};
+
+/**
+ * Valida se uma variação possui ao menos um atributo E que TODOS os atributos adicionados
+ * possuam tanto nome quanto valor devidamente preenchidos.
+ */
 export const hasVariationAttribute = (variation?: Variation | any): boolean => {
     if (!variation) return false;
 
-    // 1. Array de atributos: [{ name: 'Cor', value: 'Azul' }, ...]
-    if (Array.isArray(variation.attributes)) {
-        if (variation.attributes.some((attr: any) => {
-            if (!attr) return false;
-            const name = attr.name || attr.attribute || attr.key || '';
-            const val = attr.value || attr.val || '';
-            return String(name).trim().length > 0 && String(val).trim().length > 0;
-        })) {
-            return true;
-        }
-    }
-
-    // 2. Formato string (JSON ou texto)
-    if (typeof variation.attributes === 'string' && variation.attributes.trim()) {
+    let rawAttributes = variation.attributes;
+    if (typeof rawAttributes === 'string' && rawAttributes.trim()) {
         try {
-            const parsed = JSON.parse(variation.attributes);
-            return hasVariationAttribute({ ...variation, attributes: parsed });
+            rawAttributes = JSON.parse(rawAttributes);
         } catch {
-            if (variation.attributes.trim().length > 0) return true;
+            return false;
         }
     }
 
-    // 3. Formato objeto dicionário: { "Cor": "Azul", "Tamanho": "M" }
-    if (typeof variation.attributes === 'object' && variation.attributes !== null) {
-        const entries = Object.entries(variation.attributes);
-        if (entries.some(([k, v]) => String(k).trim().length > 0 && String(v).trim().length > 0)) {
-            return true;
-        }
+    // 1. Array de atributos: [{ name: 'Cor', value: 'Azul' }, ...]
+    if (Array.isArray(rawAttributes)) {
+        if (rawAttributes.length === 0) return false;
+
+        // Todo atributo deve ter nome e valor não-vazios
+        return rawAttributes.every((attr: any) => {
+            if (!attr) return false;
+            const name = String(attr.name || attr.attribute || attr.key || '').trim();
+            const val = String(attr.value || attr.val || '').trim();
+            return name.length > 0 && val.length > 0;
+        });
     }
 
-    // 4. Fallback: Se a variação possui nome/displayName preenchido de forma customizada
-    if (variation.name && typeof variation.name === 'string' && variation.name.trim().length > 0) {
-        return true;
+    // 2. Formato objeto dicionário: { "Cor": "Azul", "Tamanho": "M" }
+    if (typeof rawAttributes === 'object' && rawAttributes !== null) {
+        const entries = Object.entries(rawAttributes);
+        if (entries.length === 0) return false;
+
+        return entries.every(([k, v]) => {
+            const name = String(k || '').trim();
+            const val = String(v || '').trim();
+            return name.length > 0 && val.length > 0;
+        });
     }
 
     return false;
@@ -116,8 +176,10 @@ export const getSelectedProductDisplayName = (product?: Partial<Product> | any, 
     return String(product?.name || product?.title || product?.description || '').trim();
 };
 
-export const hasMissingRequiredAttributes = (variations: Variation[] = []) => variations
-    .some((variation) => !hasVariationAttribute(variation));
+export const hasMissingRequiredAttributes = (variations: Variation[] = []) => {
+    if (!variations || variations.length === 0) return true;
+    return variations.some((variation) => !hasVariationAttribute(variation));
+};
 
 /** Remove somente o identificador interno que versões antigas ou colisões temporárias anexavam ao SKU. */
 export const normalizeVariationSku = (sku?: string): string => {
@@ -141,6 +203,6 @@ export const ensureDefaultVariation = <T extends Partial<Product>>(product: T): 
         hasVariations: true,
         // A variação principal é um novo registro físico e recebe seu próprio
         // UUID. Nunca derivar identidade de `product.id` ou do SKU.
-        variations: [{ id: crypto.randomUUID(), sku, name, stock: Number(product.stock || 0), unitPrice: Number(product.unitPrice || 0), costPrice: Number(product.costPrice || 0), active: product.active !== false, attributes: [], images: [], syncUnitPrice: true, syncPromoPrice: true, syncCostPrice: true, syncDescription: true, syncWidth: true, syncHeight: true, syncDepth: true, syncWeight: true }],
+        variations: [{ id: crypto.randomUUID(), sku, name, stock: Number(product.stock || 0), unitPrice: Number(product.unitPrice || 0), costPrice: Number(product.costPrice || 0), active: product.active !== false, status: product.status || 'hidden', attributes: [], images: [], syncUnitPrice: true, syncPromoPrice: true, syncCostPrice: true, syncDescription: true, syncWidth: true, syncHeight: true, syncDepth: true, syncWeight: true }],
     };
 };

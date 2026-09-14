@@ -56,6 +56,7 @@ export function useProductFormVariations(
             stock: 0,
             images: [],
             active: true,
+            status: formData.status === 'draft' ? 'draft' : 'hidden',
             syncUnitPrice: true,
             syncPromoPrice: true,
             syncCostPrice: true,

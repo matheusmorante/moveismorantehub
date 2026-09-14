@@ -1,5 +1,32 @@
 import { callGeminiDirect } from "./aiDirectClient";
 import { buildNcmClassificationPrompt, NCM_PRODUCT_CLASSIFICATION_RULES } from "../ncmClassificationPrompt";
+import { supabase } from "@/pages/utils/supabaseConfig";
+
+async function findHistoricalNcm(productName: string): Promise<{ ncm: string; desc: string } | null> {
+    try {
+        const cleanName = productName.trim().replace(/[^\w\s]/gi, '').slice(0, 30);
+        if (!cleanName || cleanName.length < 3) return null;
+        const { data } = await supabase
+            .from('inbound_invoice_items')
+            .select('ncm, product_description')
+            .ilike('product_description', `%${cleanName}%`)
+            .not('ncm', 'is', null)
+            .limit(1);
+
+        if (data && data.length > 0 && data[0].ncm) {
+            const cleanNcm = String(data[0].ncm).replace(/\D/g, '');
+            if (cleanNcm.length === 8) {
+                return {
+                    ncm: cleanNcm,
+                    desc: `NCM validado pelo histórico confirmado no ERP (${data[0].product_description?.slice(0, 35) || 'registro anterior'})`
+                };
+            }
+        }
+    } catch {
+        // Fallback gracioso para a IA
+    }
+    return null;
+}
 
 export const aiFiscalClassificationService = {
     async findNCM(productName: string, material: string, description = '', category = ''): Promise<{ ncm: string, description: string }> {
@@ -8,10 +35,22 @@ export const aiFiscalClassificationService = {
     },
 
     async generateNCM(productName: string, material: string, description = '', category = ''): Promise<{ ncm: string, desc: string }> {
+        // 1. Autoridade do histórico do ERP: produto já homologado tem precedência total sobre a IA
+        const historical = await findHistoricalNcm(productName);
+        if (historical) {
+            return historical;
+        }
+
+        // 2. Classificação por raciocínio estruturado (Gemini 3.8 Flash, thinking: low)
         const prompt = buildNcmClassificationPrompt({ title: productName, material, description, category });
 
         try {
-            const textResponse = await callGeminiDirect(prompt);
+            const textResponse = await callGeminiDirect(prompt, true, {
+                tier: 'reasoning',
+                moduleSource: 'fiscal',
+                thinkingBudget: 'low',
+                operation: 'fiscal_ncm_generate',
+            });
             const match = textResponse.match(/\{[\s\S]*\}/);
             const clean = match ? match[0] : textResponse.trim();
             const parsed = JSON.parse(clean);
@@ -99,7 +138,12 @@ Retorne SOMENTE JSON válido no formato exato abaixo, sem markdown:
 }`;
 
         try {
-            const textResponse = await callGeminiDirect(prompt);
+            const textResponse = await callGeminiDirect(prompt, true, {
+                tier: 'reasoning',
+                moduleSource: 'fiscal',
+                thinkingBudget: 'low',
+                operation: 'fiscal_complete_classification',
+            });
             const match = textResponse.match(/\{[\s\S]*\}/);
             const cleanJson = match ? match[0] : textResponse.trim();
             const parsed = JSON.parse(cleanJson);

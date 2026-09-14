@@ -153,7 +153,7 @@ export const syncProductToSupabase = async (product: Product): Promise<void> => 
                         use_parent_dimensions: v.syncWidth !== false,
                         use_parent_description: v.syncDescription !== false,
                         use_parent_name: true,
-                        status: v.status || 'published',
+                        status: v.status || product.status || 'hidden',
                         active: v.active !== undefined ? Boolean(v.active) : (product.active !== false)
                     };
                 });

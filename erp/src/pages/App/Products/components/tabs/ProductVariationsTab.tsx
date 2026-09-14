@@ -8,7 +8,9 @@ interface ProductVariationsTabProps {
     readonly formData?: Partial<Product>;
     readonly variations?: readonly Variation[];
     readonly isGeneratingBulk?: boolean;
+    // Aceita tanto addVariation (legado) quanto onAddVariation (ProductFormModal)
     readonly addVariation?: () => void;
+    readonly onAddVariation?: () => void;
     readonly VariationRow?: React.ComponentType<{
         readonly v: Variation;
         readonly variationIndex: number;
@@ -19,10 +21,14 @@ interface ProductVariationsTabProps {
         readonly onEdit?: (id: string) => void;
     }>;
     readonly updateVariation?: (id: string, field: keyof Variation, value: Variation[keyof Variation]) => void;
+    // Aceita tanto removeVariation (legado) quanto onRemoveVariation (ProductFormModal)
     readonly removeVariation?: (id: string) => void;
+    readonly onRemoveVariation?: (id: string) => void;
     readonly setFormData?: React.Dispatch<React.SetStateAction<Partial<Product>>>;
     readonly onEditCombo?: (id: string) => void;
+    // Aceita tanto onEdit (legado) quanto onEditVariation (ProductFormModal)
     readonly onEdit?: (id: string) => void;
+    readonly onEditVariation?: (id: string) => void;
     readonly isCombo?: boolean;
     readonly regenerateAllSkus?: () => void;
     readonly onOpenCartesianModal?: () => void;
@@ -32,24 +38,38 @@ interface ProductVariationsTabProps {
     readonly setEditingVariationComboId?: (id: string | null) => void;
     readonly editingVariationId?: string | null;
     readonly setEditingVariationId?: (id: string | null) => void;
+    readonly validationErrors?: Record<string, boolean>;
+    readonly onOpenConversionModal?: () => void;
 }
 
 const ProductVariationsTab: React.FC<ProductVariationsTabProps> = ({
     formData,
     variations = formData?.variations || [],
     addVariation,
+    onAddVariation,
     VariationRow = DefaultVariationRow,
     updateVariation,
     removeVariation,
+    onRemoveVariation,
     setFormData,
     isCombo = false,
     onEdit,
+    onEditVariation,
     setEditingVariationId,
 }) => {
     const list = variations || [];
     const canAddVariation = list.length > 0 && hasVariationAttribute(list[0]);
-    const disabledMessage = 'Informe pelo menos um atributo na Variação 1 para liberar novas variações.';
-    const handleEdit = onEdit || ((id: string) => setEditingVariationId?.(id));
+    const disabledMessage = 'Defina pelo menos um atributo e seu valor na Variação 1 para liberar novas variações.';
+
+    // Resolve handlers — prioriza versão "on" (ProductFormModal) sobre legado
+    const handleAdd = onAddVariation || addVariation;
+    const handleRemove = onRemoveVariation || removeVariation;
+    const handleEdit = onEditVariation || onEdit || ((id: string) => setEditingVariationId?.(id));
+
+    // Preços do pai para repassar ao VariationRow (exibição dinâmica)
+    const parentPrice = formData?.unitPrice;
+    const parentPromoPrice = formData?.promoPrice;
+    const parentSku = formData?.code;
 
     return (
         <div className="flex flex-col gap-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
@@ -62,7 +82,7 @@ const ProductVariationsTab: React.FC<ProductVariationsTabProps> = ({
                         Variações do produto
                     </h4>
                     <p className="mt-1 text-[10px] font-bold text-slate-500">
-                        Cada variação deve conter pelo menos um atributo. O nome da variação é composto pelo nome do produto pai seguido dos valores dos atributos.
+                        Cada variação deve conter pelo menos um atributo com seu valor definido. Para todo atributo adicionado, é obrigatório informar o valor correspondente.
                     </p>
                 </div>
             </div>
@@ -76,7 +96,7 @@ const ProductVariationsTab: React.FC<ProductVariationsTabProps> = ({
                         <button
                             type="button"
                             disabled={!canAddVariation}
-                            onClick={addVariation}
+                            onClick={handleAdd}
                             className="rounded-xl bg-blue-600 px-4 py-2 text-[10px] font-black uppercase tracking-widest text-white shadow-lg transition-all hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:shadow-none dark:disabled:bg-slate-700 cursor-pointer"
                         >
                             <i className="bi bi-plus-lg mr-2" aria-hidden="true" />
@@ -108,10 +128,13 @@ const ProductVariationsTab: React.FC<ProductVariationsTabProps> = ({
                                     v={variation}
                                     variationIndex={index}
                                     updateVariation={updateVariation}
-                                    removeVariation={removeVariation}
+                                    removeVariation={handleRemove}
                                     setFormData={setFormData}
                                     isCombo={isCombo}
                                     onEdit={handleEdit}
+                                    parentPrice={parentPrice}
+                                    parentPromoPrice={parentPromoPrice}
+                                    parentSku={parentSku}
                                 />
                             ))}
                         </tbody>
@@ -123,4 +146,3 @@ const ProductVariationsTab: React.FC<ProductVariationsTabProps> = ({
 };
 
 export default ProductVariationsTab;
-

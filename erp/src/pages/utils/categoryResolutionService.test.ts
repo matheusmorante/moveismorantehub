@@ -19,9 +19,16 @@ const mockCategories = [
     { id: 'cat-guarda-roupas', name: 'Guarda-Roupas' },
     { id: 'cat-comodas', name: 'Cômodas' },
     { id: 'cat-camas', name: 'Camas/Bases Box' },
+    { id: 'cat-multiuso', name: 'Armários Multiuso' },
 ];
 
 describe('categoryResolutionService', () => {
+    it('seleciona categoria Armários Multiuso quando o produto contiver multiuso', () => {
+        const result = matchCategoryByRules('Armario Multiuso Notavel Nt 4015 2pt Nt4015.448459 Branco New', mockCategories);
+        expect(result?.id).toBe('cat-multiuso');
+        expect(result?.name).toBe('Armários Multiuso');
+    });
+
     it('seleciona categoria Balcões para Pia quando o produto contiver balcão para pia', () => {
         const result = matchCategoryByRules('BALCAO PARA PIA 1.20M RUBIM', mockCategories);
         expect(result?.id).toBe('cat-balcao-pia');
@@ -63,5 +70,11 @@ describe('categoryResolutionService', () => {
         const result = await resolveAutoCategory('SOMMIER CASAL CONFORT PREMIUM', mockCategories);
         expect(result?.id).toBe('cat-camas');
         expect(result?.name).toBe('Camas/Bases Box');
+    });
+
+    it('retorna null se a IA falhar ou retornar categoria vazia (sem selecionar a primeira categoria cega)', async () => {
+        vi.mocked(aiService.suggestCategory).mockResolvedValueOnce({ category: '' } as any);
+        const result = await resolveAutoCategory('PRODUTO DESCONHECIDO SEM REGRA', mockCategories);
+        expect(result).toBeNull();
     });
 });

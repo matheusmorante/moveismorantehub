@@ -1,4 +1,5 @@
 import { AiGateway } from "@/services/aiGateway/AiGateway";
+import { isQuotaExceeded, notifyAiQuotaWarning } from "@/services/aiGateway/aiQuotaNotifier";
 
 const AI_BACKEND_URL = "http://localhost:3003/api";
 
@@ -31,13 +32,46 @@ export async function callAIBackend(endpoint: string, body: any) {
     }
 }
 
-export async function callGeminiDirect(prompt: string, isJsonMode: boolean = true): Promise<string> {
-    const res = await AiGateway.requestText({
-        operation: 'ai_service_call',
-        payload: prompt
-    });
+export interface GeminiDirectOptions {
+    tier?: 'lite' | 'reasoning';
+    moduleSource?: string;
+    thinkingBudget?: 'low' | 'medium' | 'high';
+    operation?: string;
+}
+
+export async function callGeminiDirect(
+    prompt: string,
+    isJsonMode: boolean = true,
+    options?: GeminiDirectOptions
+): Promise<string> {
+    const tier = options?.tier || 'lite';
+    const operation = options?.operation || 'ai_service_call';
+    const moduleSource = options?.moduleSource;
+
+    let res;
+    if (tier === 'reasoning') {
+        res = await AiGateway.requestReasoning({
+            operation,
+            payload: prompt,
+            moduleSource,
+            thinkingBudget: options?.thinkingBudget || 'low',
+            jsonMode: isJsonMode,
+        });
+    } else {
+        res = await AiGateway.requestText({
+            operation,
+            payload: prompt,
+            tier: 'lite',
+            moduleSource,
+            jsonMode: isJsonMode,
+        });
+    }
 
     if (!res.success) {
+        const modelName = res.modelUsed || (tier === 'reasoning' ? 'gemini-3.8-flash' : 'gemini-3.5-flash-lite');
+        if (isQuotaExceeded(res) || isQuotaExceeded(res.errorMessage) || isQuotaExceeded(res.userFriendlyMessage)) {
+            notifyAiQuotaWarning(modelName);
+        }
         throw new Error(res.userFriendlyMessage || res.errorMessage || 'Falha ao processar requisição de IA no AiGateway');
     }
 

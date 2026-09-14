@@ -129,7 +129,7 @@ it('renderiza o campo de busca limpo e livre para digitação, e exibe a sugest�
     expect(mockReject).toHaveBeenCalled();
 });
 
-it('mantém o input livre para escrita mesmo enquanto a IA estiver buscando sugestão', () => {
+it('mantém o input livre para escrita e não exibe indicador de carregamento bloqueante enquanto a IA processa em background', () => {
     mockIsProcessing = true;
     currentSuggestion = undefined;
 
@@ -142,8 +142,8 @@ it('mantém o input livre para escrita mesmo enquanto a IA estiver buscando suge
         />
     );
 
-    // Indicador de busca discreto aparece abaixo da linha do input
-    expect(view.getByText('Buscando sugestão de vínculo...')).toBeTruthy();
+    // Nenhum indicador de carregamento/busca aparece na interface
+    expect(view.queryByText('Buscando sugestão de vínculo...')).toBeNull();
 
     // O input permanece 100% livre e habilitado para escrita manual
     const input = view.getByPlaceholderText('Digite 2 ou mais letras para buscar...') as HTMLInputElement;

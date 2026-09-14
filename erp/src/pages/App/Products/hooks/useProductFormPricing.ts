@@ -1,5 +1,6 @@
 import React, { useState, useCallback } from 'react';
 import type Product from '@/pages/types/product.type';
+import { syncVariationsWithParent } from '../utils/variationParentSync';
 
 /**
  * Converte valor desconhecido (string ou number) para number positivo ou zero,
@@ -23,15 +24,12 @@ export function useProductFormPricing(
     const handlePriceChange = useCallback((newPrice: string | number) => {
         const orig = parsePrice(newPrice);
         setFormData(prev => {
-            const next = { ...prev, unitPrice: orig };
+            const next: Partial<Product> = { ...prev, unitPrice: orig };
             if (orig <= 0) {
                 setDiscountPercent("");
                 setDiscountFixed("");
                 next.promoPrice = undefined;
-                return next;
-            }
-
-            if (discountPercent) {
+            } else if (discountPercent) {
                 const pct = parseFloat(discountPercent);
                 if (!Number.isNaN(pct)) {
                     const fixed = orig * (pct / 100);
@@ -45,6 +43,15 @@ export function useProductFormPricing(
                 setDiscountFixed(fixed.toFixed(2));
                 setDiscountPercent(pct.toFixed(1));
             }
+
+            // Propagar para variações herdando preço do pai
+            if (next.variations?.length) {
+                next.variations = syncVariationsWithParent(next.variations, {
+                    unitPrice: next.unitPrice,
+                    promoPrice: next.promoPrice,
+                });
+            }
+
             return next;
         });
     }, [discountPercent, setFormData]);
@@ -55,19 +62,32 @@ export function useProductFormPricing(
             const orig = prev.unitPrice || 0;
             if (orig <= 0 || valStr === "") {
                 setDiscountFixed("");
-                return { ...prev, promoPrice: undefined };
+                const next: Partial<Product> = { ...prev, promoPrice: undefined };
+                if (next.variations?.length) {
+                    next.variations = syncVariationsWithParent(next.variations, { promoPrice: undefined });
+                }
+                return next;
             }
 
             const pct = parseFloat(valStr);
             if (Number.isNaN(pct) || pct < 0) {
                 setDiscountFixed("");
-                return { ...prev, promoPrice: undefined };
+                const next: Partial<Product> = { ...prev, promoPrice: undefined };
+                if (next.variations?.length) {
+                    next.variations = syncVariationsWithParent(next.variations, { promoPrice: undefined });
+                }
+                return next;
             }
 
             const fixed = orig * (pct / 100);
             setDiscountFixed(fixed.toFixed(2));
             const promo = orig - fixed;
-            return { ...prev, promoPrice: promo > 0 ? Number(promo.toFixed(2)) : 0 };
+            const promoPrice = promo > 0 ? Number(promo.toFixed(2)) : 0;
+            const next: Partial<Product> = { ...prev, promoPrice };
+            if (next.variations?.length) {
+                next.variations = syncVariationsWithParent(next.variations, { promoPrice });
+            }
+            return next;
         });
     }, [setFormData]);
 
@@ -78,13 +98,22 @@ export function useProductFormPricing(
             const orig = prev.unitPrice || 0;
             if (orig <= 0 || !valStr || fixed <= 0) {
                 setDiscountPercent("");
-                return { ...prev, promoPrice: undefined };
+                const next: Partial<Product> = { ...prev, promoPrice: undefined };
+                if (next.variations?.length) {
+                    next.variations = syncVariationsWithParent(next.variations, { promoPrice: undefined });
+                }
+                return next;
             }
 
             const pct = orig > 0 ? (fixed / orig) * 100 : 0;
             setDiscountPercent(pct.toFixed(1));
             const promo = orig - fixed;
-            return { ...prev, promoPrice: promo > 0 ? Number(promo.toFixed(2)) : 0 };
+            const promoPrice = promo > 0 ? Number(promo.toFixed(2)) : 0;
+            const next: Partial<Product> = { ...prev, promoPrice };
+            if (next.variations?.length) {
+                next.variations = syncVariationsWithParent(next.variations, { promoPrice });
+            }
+            return next;
         });
     }, [setFormData]);
 
@@ -101,7 +130,12 @@ export function useProductFormPricing(
                 setDiscountFixed("");
                 setDiscountPercent("");
             }
-            return { ...prev, promoPrice: promo > 0 ? promo : undefined };
+            const promoPrice = promo > 0 ? promo : undefined;
+            const next: Partial<Product> = { ...prev, promoPrice };
+            if (next.variations?.length) {
+                next.variations = syncVariationsWithParent(next.variations, { promoPrice });
+            }
+            return next;
         });
     }, [setFormData]);
 

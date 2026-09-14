@@ -24,6 +24,14 @@ export interface AiLimitsConfig {
   categories: Record<AiCategory, CategoryLimitConfig>;
 }
 
+export const AI_MODELS = {
+  LITE: 'gemini-3.5-flash-lite',
+  REASONING: 'gemini-3.8-flash',
+  EMBEDDING: 'gemini-embedding-2',
+  IMAGE: 'gemini-2.5-flash-image',
+  TTS: 'gemini-3.1-flash-tts',
+} as const;
+
 export const AI_LIMITS: AiLimitsConfig = {
   global: {
     concurrent: 3,
@@ -37,7 +45,7 @@ export const AI_LIMITS: AiLimitsConfig = {
       perMinute: 10,
       perHour: 30,
       perDay: 100,
-      model: 'gemini-2.5-flash'
+      model: AI_MODELS.LITE
     },
     IMAGE: {
       concurrent: 1,
@@ -47,7 +55,7 @@ export const AI_LIMITS: AiLimitsConfig = {
       perMonth: 150, // ~150 gerações 1K @ ~R$ 0,20 = R$ 30,00/mês
       monthlyBudgetBRL: 30.00, // Cota financeira máxima mensal de R$ 30,00
       estimatedCostPerUnitBRL: 0.20,
-      model: 'gemini-2.5-flash-image'
+      model: AI_MODELS.IMAGE
     },
     TTS: {
       concurrent: 1,
@@ -55,7 +63,7 @@ export const AI_LIMITS: AiLimitsConfig = {
       perHour: 30,
       perDay: 30,
       voice: 'Aoede', // Voz feminina informativa e profissional do Gemini
-      model: 'gemini-3.1-flash-tts'
+      model: AI_MODELS.TTS
     }
   }
 };

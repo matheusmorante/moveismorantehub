@@ -4,6 +4,277 @@ Este arquivo centraliza planos, ideias e tarefas pendentes do projeto Morante Hu
 
 ---
 
+## 0. Correção de TypeError: onPriceChange is not a function na Precificação do Produto
+- **Status**: Concluído com Sucesso! 🛠️⚡
+- **Data**: 14/09/2026
+- **Problema Reportado**:
+  - `ProductPricingFields.tsx:89 Uncaught TypeError: onPriceChange is not a function` ao digitar ou alterar preços e descontos no formulário de produtos.
+- **Causa Raiz**:
+  - Divergência de nomenclatura de props entre o componente pai `ProductFormModal.tsx` e o componente intermediário `ProductInventoryTab.tsx`:
+    - `ProductFormModal.tsx` passava `onPriceChange`, `onDiscountPercentChange`, `onDiscountFixedChange`, `onPromoPriceChange`.
+    - `ProductInventoryTabProps` declarava e desestruturava `handlePriceChange`, `handleDiscountPercentChange`, `handleDiscountFixedChange`, `handlePromoPriceFieldChange`.
+    - Como `handlePriceChange` chegava como `undefined`, `ProductInventoryTab` repassava `undefined` para `ProductPricingFields`. Ao disparar o evento `onChange` do `CurrencyInput`, ocorria o `TypeError`.
+- **Implementações Executadas**:
+  1. **[`ProductInventoryTab.tsx`](file:///c:/Users/Rosilene/Desktop/morantehub/erp/src/pages/App/Products/components/tabs/ProductInventoryTab.tsx)**:
+     - Aceita tanto a convenção `onPriceChange` quanto `handlePriceChange` (e o mesmo para `onDiscount*` e `onPromoPriceChange`).
+     - Resolve via fallback seguro: `finalOnPriceChange = onPriceChange || handlePriceChange || (() => {})`.
+  2. **[`ProductPricingFields.tsx`](file:///c:/Users/Rosilene/Desktop/morantehub/erp/src/pages/App/Products/components/tabs/ProductPricingFields.tsx)**:
+     - Tornou todos os callbacks opcionais e atribuiu funções vazias `() => {}` como default, prevenindo qualquer quebra por invocação direta caso alguma prop não seja fornecida.
+  3. **Validação e Testes**:
+     - Bateria completa de testes em `src/pages/App/Products/` executada com sucesso (63 testes aprovados).
+
+---
+
+## 0. Atributo e Valor Obrigatórios no Cadastro de Produtos e Variações
+- **Status**: Concluído com Sucesso! 🏷️✅
+- **Data**: 14/09/2026
+- **Solicitação**: No cadastro de um produto, deve ser obrigatório escolher um atributo e valor para esse atributo; para todo atributo adicionado é obrigatório definir valor a esse atributo.
+- **Causas Raízes e Vulnerabilidades Encontradas**:
+  1. **Fallback indevido em `hasVariationAttribute`**: Havia um fallback `if (variation.name && variation.name.trim().length > 0) return true;`. Como toda variação recebia um nome gerado automaticamente pelo ERP, o método retornava `true` mesmo quando o array de `attributes` estava vazio ou quando continha atributos com valores em branco.
+  2. **Validação permissiva**: O método utilizava `some()` em vez de `every()`, o que permitia variações com 1 atributo preenchido e outros adicionados sem valor.
+  3. **Ausência de trava explícita de valores no Modal de Variação**: Ao clicar em "Salvar" no `useVariationForm.ts`, não havia validação bloqueando atributos com `value === ""` nem indicativo visual de erro nos campos correspondentes.
+- **Implementações Executadas**:
+  1. **Motor Central de Validação (`productVariationDefaults.ts`)**:
+     - `hasVariationAttribute`: Agora exige estritamente que existam atributos (`length > 0`) e que **TODOS** possuam tanto nome quanto valor não-vazios (`every(...)`). Removido o fallback enganoso de `variation.name`.
+     - `getIncompleteVariationAttributes`: Função que inspeciona cada atributo e aponta especificamente se falta o nome ou o valor (`missing_name` ou `missing_value`).
+     - `hasMissingRequiredAttributes`: Retorna `true` se a lista for vazia ou se qualquer variação falhar em `hasVariationAttribute`.
+  2. **Formulário de Variação (`useVariationForm.ts` & `VariationIdentificationTab.tsx`)**:
+     - Bloqueio no `handleSubmit`: Impede salvar se não houver atributo (`"É obrigatório escolher pelo menos um atributo e definir seu valor para a variação."`) ou se algum atributo estiver sem valor (`"O atributo \"X\" está sem valor. Todo atributo adicionado deve ter seu valor definido."`).
+     - Feedback visual imediato: Destaque com borda vermelha e tag `* Obrigatório` / `Defina o valor` caso o usuário adicione o atributo e deixe o valor em branco.
+     - Aviso em destaque caso a lista de atributos esteja vazia.
+  3. **Listagem e Tabela de Variações (`VariationRow.tsx` & `ProductVariationsTab.tsx`)**:
+     - Badge de alerta na linha da variação (`"⚠️ Definir valor do atributo"` ou `"⚠️ Definir atributo e valor"`) indicando ao usuário que a variação precisa de atenção.
+     - O botão "Adicionar variação" fica bloqueado até que a Variação 1 possua atributo e valor válidos preenchidos.
+  4. **Formulário Principal do Produto (`useProductFormModal.ts`)**:
+     - Notificação amigável e precisa ao tentar salvar o produto com atributos pendentes, detalhando o nome do atributo faltante e direcionando para a aba de variações.
+  5. **Testes Automatizados (`productVariationDefaults.test.ts`)**:
+     - 12 testes unitários cobrindo variações sem atributos, atributos parciais sem valor, sem nome, com múltiplos atributos e compatibilidade de objetos. Todos passaram com 100% de sucesso.
+
+---
+
+## 0. Resiliência Total a Esgotamento de Cota de IA e Abertura do Formulário no Cadastro Rápido
+- **Status**: Concluído com Sucesso! 🛡️⚡
+- **Data**: 14/09/2026
+- **Problema Reportado**:
+  1. O formulário de cadastro rápido não estava abrindo (`setIsProductModalOpen(true)` era disparado mas ficava invisível).
+  2. Falha HTTP 400 do Supabase na query: `hkoxhourxwlddgsfdgws.supabase.co/rest/v1/products?select=code%2Csku:1`.
+  3. Falha HTTP 429 da API Gemini (`model: "gemini-3.5-flash-lite"`, `operation: "catalog_suggest_category"` / `catalog_extract_color`), disparando circuit breaker de IA.
+  4. Necessidade de o sistema funcionar 100% manual e sem interrupções quando a cota de qualquer modelo for atingida, alertando com `toast.warn` específico indicando o modelo exato.
+- **Causas Raízes Identificadas**:
+  1. **Z-Index Stacking Context**: O modal pai `ManageInboundInvoiceMappingsModal.tsx` renderizava com `z-[1000002]`, enquanto `ProductFormModal.tsx` abria via `createPortal` com `z-50`, ficando completamente escondido atrás da tela de conferência de notas.
+  2. **Erro 400 no Supabase**: A função `getNextSequentialProductCode` em `productSkuService.ts` tentava `.select('code, sku')` na tabela `products`, mas a coluna `sku` não existe nessa tabela (pertence a `product_variations`), falhando a requisição PostgREST com 400.
+  3. **Quebra de Categorias**: `fetchCategories` em `useProductFormModal.ts` esperava `groups.forEach`, mas grupos foram unificados em categorias, lançando `TypeError`.
+  4. **Queda em Cascata por 429**: O circuit breaker de IA abria e bloqueava a preparação de itens da nota quando chamadas do Gemini atingiam limite de cota.
+- **Implementações Executadas**:
+  1. **Correção de Camadas (Z-Index)**:
+     - `ProductFormModal.tsx`: Elevado para `z-[1000010]`.
+     - Modais filhos (`ProductSaveResultModal`, `CategorySearchModal`, `ProductConversionModal`): Ajustados para `z-[1000020]`.
+  2. **Correção da Consulta PostgREST no Supabase**:
+     - `productSkuService.ts`: Corrigido para `.select('code')` na tabela `products`.
+  3. **Correção em `useProductFormModal.ts`**:
+     - `fetchCategories` agora consome com segurança `result?.categories || []` sem referenciar `groups` inexistente.
+  4. **Aviso Elegante de Cota de IA no Header do ERP (`AiQuotaHeaderNotice.tsx` & `aiQuotaNotifier.ts`)**:
+     - Local: `erp/src/services/aiGateway/aiQuotaNotifier.ts` e `erp/src/components/shared/AiQuotaHeaderNotice.tsx`.
+     - Removeu toasts intrusivos/flutuantes a pedido do usuário.
+     - Exibe um banner fixo e discreto no topo do Header do ERP indicando o modelo exato que atingiu a cota (ex: `gemini-3.5-flash-lite`, `gemini-3.8-flash`), funcionalidade associada e tranquilizando que o ERP opera 100% manual sem travamento.
+     - Suporta fechamento individual por modelo ou dispensa geral ("Fechar avisos").
+  5. **Proteção contra Reset Acidental de Campos (`useProductFormModal.ts`)**:
+     - O `useEffect` de inicialização rodava com dependência em `initialData` (objeto em memória). Toda vez que ocorria uma validação com erro ou re-renderização do modal pai, o React detectava nova referência e executava `setFormData`, resetando tudo o que havia sido digitado pelo usuário.
+     - Implementado controle de sessão com referências (`prevOpenRef` e `loadedProductIdRef`). O formulário agora só é inicializado na transição de abertura (`isOpen = true`) ou troca de produto. Durante o preenchimento ou falha de validação, os dados digitados permanecem intactos.
+  6. **Validação Amigável de Preço de Venda**:
+     - Substituída a mensagem crua de erro de banco de dados (`null value in column "price" violates not-null constraint`) por uma validação preventiva no formulário e direcionamento suave para a aba "Estoque e Precificação".
+  7. **Proteção Total contra Erros nos Serviços de Catálogo**:
+     - `aiDirectClient.ts`: Registra o alerta de modelo no Header e propaga erro catalogado sem travar o app.
+     - `aiProductCatalogService.ts`: Bloco `try/catch` defensivo em `generateDescription`, `generateProductDescription`, `extractProductColor` e `suggestCategory`, retornando fallbacks limpos.
+     - `inboundProductPreparationService.ts`: `extractProductColor` protegido com fallback automático para heurística local de título (`extractColorCandidateFromTitle`).
+     - `useProductFormAi.ts`: Suprime toasts de erro intrusivos quando a notificação já está visível no Header.
+
+---
+
+## 0. Skill de Limpeza Segura de Projeto (`limpeza-projeto-segura`)
+- **Status**: Concluído e Homologado com Sucesso! 🧹🛡️
+- **Data**: 14/09/2026
+- **Solicitação**: Criar uma skill de limpeza de projeto para remover arquivos e pastas desnecessários com total segurança (sem risco de apagar código ativo, migrações ou arquivos críticos), reportando métricas precisas em KB/MB e contagem de itens removidos.
+- **Implementação Realizada**:
+  1. **Documento Canônico da Skill**:
+     - Local: `.agents/skills/limpeza-projeto-segura/SKILL.md`.
+     - Define os 4 níveis de risco (Nível 1: Lixo/Logs; Nível 2: Builds/Caches; Nível 3: Backups Órfãos; Nível 4: Scratches).
+     - Lista rígida de bloqueio (arquivos sagrados): `.git`, `.env*`, `package.json`, `supabase/migrations/`, `docs/`, `.agents/`, etc.
+  2. **Motor Executável de Limpeza (`safe_cleanup.js`)**:
+     - Local: `.agents/skills/limpeza-projeto-segura/scripts/safe_cleanup.js`.
+     - Análise estática automática: verifica se arquivos de código candidatos possuem qualquer import ou menção em `erp/src`, `mobile/src` ou `src/` antes de permitir remoção.
+     - Suporte a `--dry-run` (modo padrão seguro), `--execute`, `--clean-builds` e `--include-scratch`.
+     - Métricas detalhadas: cálculo exato de bytes convertidos para KB e MB, contagem de arquivos e contagem de diretórios.
+  3. **Suíte de Testes Automatizados**:
+     - Local: `.agents/skills/limpeza-projeto-segura/scripts/safe_cleanup.test.js`.
+     - 100% de cobertura e aprovação em testes de proteção de arquivos sagrados, formatação decimal de KB/MB, simulação de dry-run e exclusão real.
+  4. **Como Executar**:
+     - Simulação (sem apagar nada): `node .agents/skills/limpeza-projeto-segura/scripts/safe_cleanup.js --dry-run`
+     - Execução da limpeza real: `node .agents/skills/limpeza-projeto-segura/scripts/safe_cleanup.js --execute`
+     - Limpeza profunda com builds: `node .agents/skills/limpeza-projeto-segura/scripts/safe_cleanup.js --execute --clean-builds`
+
+---
+
+## 0. Desativação Temporária da Sugestão de Vínculo de Produtos na NF de Entrada
+- **Status**: Desativado sob Demanda / Código e Arquitetura Preservados 💤
+- **Data**: 14/09/2026
+- **Solicitação**: Retirar a sugestão de vínculo de produtos para NF de entrada no momento, mantendo a implementação desativada, sem consumo de cotas de IA nem chamadas de catálogo, preservando 100% da arquitetura construída para futura reativação.
+- **Implementação Realizada**:
+  1. **Flag Centralizada de Controle (`INBOUND_SUGGESTIONS_FEATURE_ENABLED`)**:
+     - Local: `erp/src/pages/App/Stock/InboundInvoices/hooks/useInboundInvoiceItemsReview.ts`.
+     - Definida como `export const INBOUND_SUGGESTIONS_FEATURE_ENABLED = false;`.
+     - Desativa o gancho `isSuggestionsActuallyEnabled`, impedindo chamadas à API do Gemini (`gemini-embedding-2` e `gemini-3.8-flash`), buscas no banco e processamento de catálogo em segundo plano.
+  2. **Ocultação de Elementos da Interface**:
+     - O botão "Sugestão de vínculos" no cabeçalho de itens da NF (`InboundInvoiceItemsReview.tsx`) é condicionado a `INBOUND_SUGGESTIONS_FEATURE_ENABLED && suggestionsEnabled`.
+     - Nenhum aviso de erro, loading ou sugestão fantasma é renderizado na tela.
+  3. **Preservação de Código e Testes**:
+     - Toda a lógica de similaridade híbrida (`inboundHybridProductScorer.ts`, `inboundTextSimilarity.ts`, `inboundEmbeddingService.ts`), batch de sugestões (`aiInboundBatchSuggestions.ts`) e suíte de testes permanecem intactos.
+  4. **Como Reativar no Futuro**:
+     - Alterar `INBOUND_SUGGESTIONS_FEATURE_ENABLED = true;` em `useInboundInvoiceItemsReview.ts`.
+     - Todas as funcionalidades, botões e sugestões automáticas voltarão a operar instantaneamente com o pipeline atualizado de modelos (`gemini-embedding-2` + Top 5 + `gemini-3.8-flash`).
+
+---
+
+## 0. Estratégia de Especialização de Modelos Gemini, Score Híbrido e Telemetria no Dashboard
+- **Status**: Planejado / Em Andamento 🧠⚡
+- **Data**: 14/09/2026
+- **Diretriz**: Separar busca de similaridade e recuperação de geração/raciocínio, eliminando desperdício de cota do Gemini e impedindo novos erros 429.
+- **Matriz de Especialização de Modelos**:
+  1. **Vinculação de NF-e (Recuperação e Similaridade)**:
+     - **Estratégia**: Pipeline em camadas: Fornecedor da NF → Produtos daquele fornecedor → Score Híbrido (`códigoFornecedor` + `similaridadeNome` + `atributos/medidas/cor` + `embedding`) → Top 3 a 5 candidatos.
+     - **Vínculo Direto**: Código do fornecedor bateu ou Score > 90% sem ambiguidade = sugestão/vínculo imediato com 0 chamadas de LLM.
+     - **Modelo de Embedding**: `gemini-embedding-2` para similaridade semântica e busca vetorial (com cache local por hash/descrição).
+     - **Casos Ambíguos**: Apenas quando houver dúvida entre os Top 3 (score 60-85%), invocar `gemini-3.8-flash` (thinking low) enviando estritamente os 3 candidatos (e nunca mais listas de 40 produtos!).
+  2. **Classificação Fiscal e Sugestão de NCM**:
+     - **Modelo**: `gemini-3.8-flash` com `thinking: 'low'` ou `'medium'`.
+     - **Raciocínio Estruturado**: Structured Outputs via JSON Schema rígido (`{ ncm, confidence, reason, needsReview }`).
+     - **Autoridade Fiscal Própria**: Se já existir produto similar no ERP com NCM já validado e confirmado, a base do sistema prevalece com 100% de confiança, sem gastar cota de IA.
+  3. **Catálogo, Descrições Comerciais e Categorias**:
+     - **Modelo**: `gemini-3.5-flash-lite` (US$ 0,30/M in, US$ 2,50/M out).
+     - **Funções**: Geração e melhoria de descrições, títulos SEO para marketplaces, extração de cores, sugestão de categoria e resumos de entrega.
+  4. **Assistente Conversacional / Agente**:
+     - **Modelo**: `gemini-3.8-flash` (thinking low/medium) substituindo `gemini-2.5-flash` legado.
+  5. **Telemetria de APIs no Dashboard**:
+     - Exibição de cards/tabelas com:
+       - Gastos e tokens consumidos agrupados por **Modelo de IA** (`gemini-3.5-flash-lite`, `gemini-3.8-flash`, `gemini-embedding-2`, `gemini-2.5-flash-image`, `gemini-3.1-flash-tts`).
+       - Gastos e consumo agrupados por **Módulo do Sistema** (Estoque/NF-e, Produtos, Financeiro, Marketing, Logística, Vendas).
+
+---
+
+## 0. Modularização de InboundInvoiceItemsReview.tsx e Organização de Pastas em InboundInvoices
+- **Status**: Concluído com Sucesso! 🚀
+- **Data**: 14/09/2026
+- **Solicitação**: Aplicar princípios de codificação das skills (SOLID, Clean Code, responsabilidade única, alvo 30-100/150 linhas) e organização de pastas pais e filhas em `InboundInvoiceItemsReview.tsx`.
+- **Implementações Executadas**:
+  1. **Decomposição Modular de `InboundInvoiceItemsReview.tsx` (626 → 150 linhas)**:
+     - O arquivo original acumulava 626 linhas contendo orquestração de criação de produtos, chamadas à IA de fornecedor, cache de produtos, gerenciamento de 4 modais inline, cálculo de markup e renderização de listas complexas.
+     - **Criação do Hook de Aplicação `useInboundInvoiceItemsReview.ts` (~330 linhas)**:
+       - Extraída toda a orquestração de negócios: cache de fornecedor, classificação de IA, criação de produto, ações de vínculo (`selectProduct`, `acceptSuggestion`, `removeLink`), controle de fila e estados de modais.
+     - **Criação do Componente de Linha `InboundInvoiceItemRow.tsx` (~175 linhas)**:
+       - Extraída a renderização isolada de cada linha de item da NF (coluna esquerda de dados fiscais/NF e coluna direita de vínculo, busca e sugestão suave).
+     - **Criação de Modais Especializados em `modals/`**:
+       - `InboundIndividualProductModal.tsx` (~70 linhas): modal isolado para confirmação de novo cadastro individual e definição de markup.
+       - `InboundClassificationModals.tsx` (~150 linhas): modais de feedback e decisão da IA (`isPreparingProduct`, `isClassifying`, `EXISTING_VARIATION`, `NEW_VARIATION_OF_EXISTING_PRODUCT`).
+     - **Componente Principal `InboundInvoiceItemsReview.tsx`**:
+       - Reduzido para 150 linhas puramente declarativas, orquestrando os componentes especializados.
+  2. **Organização e Limpeza de Pastas**:
+     - `InboundInvoiceItemCard.tsx`: transformado em proxy de compatibilidade para `InboundInvoiceItemRow.tsx`.
+     - `sections/`: pasta vazia não utilizada removida.
+  3. **Validação de Regressão**:
+     - 100% de aprovação na suíte de testes de InboundInvoices (5 arquivos, 23 testes passando).
+
+---
+
+## 0. Remoção do Carregamento Intrusivo de Sugestão de Vínculo na NF de Entrada
+- **Status**: Concluído com Sucesso! 🚀
+- **Data**: 14/09/2026
+- **Solicitação**: Remover o carregamento de sugestão de produto para vincular; a sugestão deve rodar de forma transparente em background e aparecer silenciosamente ("do nada se achado") enquanto o formulário de NF de entrada estiver aberto.
+- **Implementações Executadas**:
+  1. **Remoção do Indicador Visual de Carregamento**:
+     - Removido o banner amarelo com spinner animado (`Buscando sugestão de vínculo...`) em `InboundInvoiceItemsReview.tsx`.
+     - Removida a barra shimmer e o spinner âmbar de `isLoadingSuggestions` no `ProductAutocomplete.tsx` e `InboundInvoiceItemCard.tsx`.
+  2. **Exibição Suave e Transparente**:
+     - A sugestão agora surge suavemente com transição (`animate-in fade-in slide-in-from-top-1 duration-200`) somente quando encontrada, sem poluir visualmente a tela enquanto processa em segundo plano.
+  3. **Desbloqueio do Formulário de NF**:
+     - O processamento de sugestões em background (`isProcessingSuggestions`) não bloqueia mais a confirmação da nota fiscal nem os botões do formulário (`onProcessingSuggestionsChange` só bloqueia durante salvamento explícito de vínculo do usuário).
+  4. **Validação**:
+     - Suíte de testes de `InboundInvoices` e `InboundInvoiceItemsReview` atualizada e 100% aprovada (5 arquivos de teste, 23 testes passando).
+
+---
+
+## 0. Correção da Categorização Indevida como "Aparadores Buffets" (Erro 429 da IA + Fallback Cego)
+- **Status**: Concluído com Sucesso! 🚀
+- **Data**: 14/09/2026
+- **Problema**: O sistema atribuiu "Aparadores Buffets" a um produto cujo nome era "Armario Multiuso Notavel Nt 4015 2pt Nt4015.448459 Branco New".
+- **Causa Raiz Comprovada**:
+  1. **Cota Esgotada no Google Gemini (HTTP 429 RESOURCE_EXHAUSTED)**: A chave de API do Gemini configurada no sistema esgotou os créditos pré-pagos no Google AI Studio.
+  2. **Fallback Cego para `categories[0]`**: Tanto em `aiProductCatalogService.ts` (`suggestCategory`) quanto em `InboundInvoiceItemsReview.tsx`, ao falhar a IA, o código recorria a `categories[0]`.
+  3. **Ordem Alfabética do Supabase**: A tabela `categories` é carregada com `ORDER BY name ASC`. O índice `0` é literalmente **"Aparadores Buffets"**. Toda e qualquer falha na IA forçava qualquer produto a virar "Aparadores Buffets".
+  4. **Ignorava as Regras Determinísticas**: O Morante Hub possui regras locais em `categoryResolutionService.ts` que identificam "multiuso" como "Armários Multiuso" em 0ms sem chamar a IA, mas `InboundInvoiceItemsReview.tsx` e `useProductFormAi.ts` chamavam direto o Gemini.
+- **Implementações Executadas**:
+  1. **Eliminação do Fallback Perigoso `categories[0]`**:
+     - `aiProductCatalogService.ts`: no `catch` de `suggestCategory`, agora retorna `{ category: "" }`, nunca mais forçando a primeira categoria do alfabeto.
+     - `InboundInvoiceItemsReview.tsx`: removido o fallback `|| categories[0]`. Se nenhuma categoria for resolvida, `categoryIds` permanece vazio `[]` para escolha consciente do usuário.
+  2. **Priorização de Regras Determinísticas Locais**:
+     - `InboundInvoiceItemsReview.tsx`: integrado com `resolveAutoCategory`, aplicando primeiro `matchCategoryByRules`. Para o "Armario Multiuso Notavel...", ele resolve imediatamente para "Armários Multiuso" em 0ms e com custo R$ 0,00 de API.
+     - `useProductFormAi.ts`: `handleGenerateCategory` agora executa `matchCategoryByRules` antes de invocar a IA.
+     - `categoryResolutionService.ts`: enriquecida a regra para "multiuso" cobrindo "Armários Multiuso", "Armario Multiuso" e "Multiuso".
+  3. **Testes Automatizados**:
+     - Criados novos testes em `categoryResolutionService.test.ts` cobrindo o produto real e garantindo retorno `null` seguro em caso de falha da IA.
+     - 100% de aprovação nos testes de IA, Categorias e Inbound Invoices (23 testes passando).
+
+---
+
+## 0. Modularização de ProductFormModal.tsx e Organização de Pastas em Products
+- **Status**: Concluído com Sucesso! 🚀
+- **Data**: 14/09/2026
+- **Solicitação**: Aplicar princípios de programação (Clean Code, SOLID, responsabilidade única) em `ProductFormModal.tsx` e reorganizar arquivos e pastas soltos em `src/pages/App/Products/`.
+- **Implementações Executadas**:
+  1. **Decomposição do `ProductFormModal.tsx` (757 → 215 linhas)**:
+     - O arquivo original continha 757 linhas misturando gerenciamento de estado complexo, chamadas ao Supabase (`getFullProduct`), atalhos de teclado (Ctrl+S, ESC), sequenciamento de código manual, validação de regras de catálogo, lógica de tabs e renderização de formulário.
+     - **Criação do Hook Especializado `useProductFormModal.ts` (~260 linhas)**:
+       - Centraliza os estados locais do modal (tab ativa, confirmações, alertas, tags temporárias).
+       - Orquestra carregamento completo com `productQueryService.getFullProduct(product.id)`.
+       - Gerencia geração do próximo código sequencial com `productQueryService.fetchNextCode()`.
+       - Lida com atalhos de teclado de forma segura e limpa.
+       - Aplica validação e chamada ao `onSave` desacoplada da camada visual.
+     - **Criação do Componente `ProductFormFooter.tsx` (~115 linhas)**:
+       - Extrai todo o rodapé de ações: status visual de rascunho/publicação, botões de exclusão de rascunho, cancelar, salvar rascunho e salvar definitivo.
+     - **Criação do Utilitário `productRequirementNavigation.ts` (~40 linhas)**:
+       - Extrai a navegação automática com foco e efeito visual de pulso para campos com pendências de conformidade do e-commerce.
+     - **Componente Visual Declarativo `ProductFormModal.tsx`**:
+       - Reduzido para ~215 linhas puramente focadas em montar o layout do modal, tabs de navegação e renderizar os componentes filhos.
+  2. **Organização Semântica da Pasta `priceHistory/`**:
+     - Arquivos dispersos na raiz de `Products` (`priceHistoryService.ts`, `priceHistory.types.ts`, `priceHistoryBalance.ts`, `priceHistoryBalance.test.ts`) foram agrupados na subpasta dedicada `src/pages/App/Products/priceHistory/`.
+     - Criado `index.ts` em `priceHistory/` como ponto único de entrada do módulo.
+     - Criados proxies de compatibilidade na raiz de `Products/` para garantir que nenhum import legado quebre.
+     - `PriceHistoryModal.tsx` atualizado para importar diretamente de `../priceHistory`.
+  3. **Validação e Regressão**:
+     - 100% dos testes da suíte de Produtos (18 arquivos, 63 testes vitest) executados e aprovados com sucesso.
+
+---
+
+## 0. Correção de Publicação Indevida no Catálogo Digital ao Cadastrar Produto
+- **Status**: Concluído com Sucesso! 🚀
+- **Data**: 14/09/2026
+- **Solicitação**: Ao cadastrar produto, o sistema estava marcando como "publicado" no catálogo mesmo sem o usuário ter clicado para publicar e mesmo sem ter conformidade com os campos obrigatórios (fotos, dimensões, título e categoria).
+- **Causa Raiz Identificada**:
+  1. `productPersistenceService.ts`: no upsert de `product_variations`, variações sem status explícito (`v.status`) recebiam fallback `|| 'published'`.
+  2. `productVariationMapper.ts`: no mapeamento do banco para a aplicação, variações com status nulo recebiam fallback `|| 'published'`.
+  3. `ensureDefaultVariation` e `useProductFormVariations.ts`: variações criadas na inicialização ou adição no formulário não continham a propriedade `status`, chegando ao salvamento como `undefined`.
+  4. `ProductFormModal.tsx`: ao cadastrar produto, o `targetCatalogStatus` era ajustado para `'hidden'`, porém o array de variações filhas (`formData.variations`) não era normalizado com esse status, enviando variações com status `undefined` que eram gravadas como `'published'`. Além disso, a verificação `isProductCreation` não cobria a finalização de rascunhos onde `product.id` já existia.
+  5. `useProductsCatalogActions.ts`: a validação `validateCatalogPublication` não validava os critérios completos de conformidade do e-commerce (`checkEcomLegibility`).
+- **Implementações Executadas**:
+  1. `ProductFormModal.tsx`: Ajustado `targetCatalogStatus` para sempre definir `'hidden'` em novos cadastros ou promoção de rascunhos. Preserva `'published'` unicamente em produtos já previamente cadastrados e publicados que mantenham 100% de conformidade com `checkEcomLegibility`. Variações filhas agora são normalizadas com o `targetCatalogStatus`.
+  2. `productPersistenceService.ts`: Fallback de status de variação alterado de `'published'` para `v.status || product.status || 'hidden'`.
+  3. `productVariationMapper.ts`: Fallback no mapper de `mapDbVariations` e `createDefaultVariation` alterado para `'hidden'`.
+  4. `productVariationDefaults.ts` e `useProductFormVariations.ts`: Variação inicial e novas variações criadas recebem `status: 'hidden'` (ou `'draft'` se em rascunho).
+  5. `ProductSaveResultModal.tsx`: Sincronização estrita de `status` nas variações ao alternar o status do catálogo no modal de resultado.
+  6. `useProducts.ts` e `useProductsCatalogActions.ts`: Fallback corrigido para `'hidden'` e validação integrada com `checkEcomLegibility` impedindo publicação se houver campos obrigatórios pendentes.
+  7. Bateria de testes unitários criada e validada em `catalogPublicationValidation.test.ts` (100% de aprovação na suíte de 63 testes de Produtos).
+
+---
+
 ## 0. Desligamento do READ Legado e Paridade 100% de Pedidos
 - **Status**: Concluído com Sucesso! 🚀
 - **Data**: 12/09/2026
@@ -767,3 +1038,30 @@ Este arquivo centraliza planos, ideias e tarefas pendentes do projeto Morante Hu
      - Compilação TypeScript do mobile (`npx tsc --noEmit`): **0 erros**.
      - Testes unitários do mobile: **100% aprovados**.
 
+---
+
+## 25. Correção da Exibição de Nome e Código/SKU de Produtos Vinculados na NF de Entrada
+- **Status**: Concluído com Sucesso! 🚀
+- **Solicitação do Usuário**:
+  - "nao ta mostrando o codigo de fato do produto cadastrado vinculado nem o nome dele, corrija isso deve msotrar os 2 dados e nao um '-'"
+- **Causa Raiz**:
+  - Quando um item da NF de entrada era mapeado via fornecedor (`findProductSupplierCodes`) ou restaurado do banco, apenas `matchedProductId` e `matchedVariationId` eram atribuídos, deixando `productErpName` como indefinido ou string genérica (`"Produto já vinculado..."` / `"Produto vinculado"`) e `linkedProductCode` como `undefined` / `—`.
+  - Além disso, se o produto tivesse sido recém-cadastrado no modal ou em produtos com variação, o objeto local não trazia os SKUs persistidos sem um reload.
+- **Solução Aplicada**:
+  1. Criado serviço coeso `erp/src/pages/utils/inboundNfe/inboundItemProductResolver.ts` com funções `resolveLinkedProductDetails`, `enrichInboundItemsWithProductDetails` e `isGenericOrEmptyProductName`.
+  2. Implementado cache de consulta em memória por ID e resolução tanto de produto simples quanto de variações específicas (`sku` e `name`).
+  3. Integrado auto-enriquecimento reativo em `useInboundInvoiceItemsReview.ts`, `ManageInboundInvoiceMappingsModal.tsx` e fallback direto em `InboundInvoiceItemRow.tsx`.
+  4. Testes automatizados criados em `inboundItemProductResolver.test.ts` com 100% de aprovação.
+
+---
+
+## 26. Auditoria de Cota e Consumo do Google Gemini (HTTP 429 e Otimização de Custos)
+- **Status**: Diagnosticado e Documentado
+- **Causa Raiz do Erro 429**:
+  - Resposta do Google: `RESOURCE_EXHAUSTED: Your prepayment credits are depleted. Please add more credits or switch to a different plan.`
+  - A conta do Google AI Studio associada à chave configurada esgotou seu saldo de créditos pré-pagos.
+- **Vilões Potenciais de Consumo de Cota Identificados**:
+  1. **Geração de Imagens no Criador de Posts / Marketing (`gemini-2.5-flash-image`)**: Imagens consomem de 10x a 50x mais saldo que chamadas de texto normais.
+  2. **Áudio / TTS (`gemini-3.1-flash-tts` / `gemini-2.5-flash-preview-tts`)**: Modelos de voz possuem custos e quotas por minuto mais restritas.
+  3. **Loops e Consultas em Lote Não Intencionais**: Abertura de telas com N itens pendentes sem interrupção de erro (corrigido: agora aborta imediatamente no primeiro 429 e prioriza regras locais determinísticas a R$ 0,00 e 0ms).
+  4. **Documentos Grandes / OCR de PDFs (`analyze-inbound-invoice`)**: O envio de PDFs digitalizados inteiros consome grande volume de tokens multimodais.

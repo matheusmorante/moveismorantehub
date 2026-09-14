@@ -7,7 +7,7 @@ export interface VariationRowProps {
     readonly v: Variation;
     readonly variationIndex?: number;
     readonly updateVariation?: (id: string, field: keyof Variation, value: unknown) => void;
-    readonly removeVariation: (id: string) => void;
+    readonly removeVariation?: (id: string) => void;
     readonly isCombo?: boolean;
     readonly onEditCombo?: (id: string) => void;
     readonly onEdit?: (id: string) => void;
@@ -120,7 +120,7 @@ export const VariationRow: React.FC<VariationRowProps> = React.memo(({
                 {variationIndex !== 0 && (
                     <button
                         type="button"
-                        onClick={() => removeVariation(v.id)}
+                        onClick={() => removeVariation?.(v.id)}
                         className="text-slate-300 hover:text-red-500 transition-colors p-1.5 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg"
                         title="Excluir variação"
                         aria-label="Excluir variação"

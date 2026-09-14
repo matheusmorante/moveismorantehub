@@ -2,6 +2,8 @@ import { useState, useEffect, useRef } from 'react';
 import type Product from '../../../types/product.type';
 import { aiService } from '@/pages/utils/aiService';
 import { getSettings } from '@/pages/utils/settingsService';
+import { matchCategoryByRules } from '@/pages/utils/categoryResolutionService';
+import { isQuotaExceeded, notifyAiQuotaWarning } from '@/services/aiGateway/aiQuotaNotifier';
 import { toast } from 'react-toastify';
 
 export interface CategoryOptionLike {
@@ -74,9 +76,20 @@ export function useProductFormAi(
         }
         setIsGeneratingCategory(true);
         try {
-            const suggestionRes = await aiService.suggestCategory(title, availableCategories.map(c => c.name || c.category || ''));
+            const direct = matchCategoryByRules(title, availableCategories as any);
+            if (direct) {
+                setFormData((prev: Partial<Product>) => {
+                    if (prev.categoryIds?.includes(direct.id)) return prev;
+                    return { ...prev, categoryIds: [...(prev.categoryIds || []), direct.id] };
+                });
+                if (!isAutoTrigger) toast.success(`Categoria identificada: ${direct.name || direct.category}`);
+                return;
+            }
+
+            const categoryNames = availableCategories.map(c => c.name || c.category || '').filter(Boolean);
+            const suggestionRes = await aiService.suggestCategory(title, categoryNames);
             const suggestedCatName = typeof suggestionRes === 'string' ? suggestionRes : (suggestionRes?.category || '');
-            if (suggestedCatName) {
+            if (suggestedCatName?.trim()) {
                 const found = availableCategories.find(c => (c.name || c.category || '').trim().toLowerCase() === suggestedCatName.trim().toLowerCase());
                 if (found) {
                     setFormData((prev: Partial<Product>) => {
@@ -186,7 +199,9 @@ export function useProductFormAi(
             toast.success(`Dados fiscais preenchidos com IA! NCM: ${fiscalData.ncm}, CFOP: ${fiscalData.cfop}, CSOSN: ${fiscalData.cst}`);
         } catch (error: any) {
             console.error(error);
-            toast.error(error?.message || 'Erro ao preencher dados fiscais com IA.');
+            if (!isQuotaExceeded(error)) {
+                toast.error(error?.message || 'Erro ao preencher dados fiscais com IA.');
+            }
         } finally {
             setIsFillingFiscalWithAI(false);
         }
@@ -276,7 +291,9 @@ export function useProductFormAi(
             toast.success('Descrição aperfeiçoada com sucesso! ✨');
         } catch (error: any) {
             console.error(error);
-            toast.error(error?.message || 'Erro ao aperfeiçoar descrição com IA.');
+            if (!isQuotaExceeded(error)) {
+                toast.error(error?.message || 'Erro ao aperfeiçoar descrição com IA.');
+            }
         } finally {
             setIsImprovingDescription(false);
         }

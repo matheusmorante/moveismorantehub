@@ -139,7 +139,12 @@ export async function prepareNewParentWithVariation(
     const finalCost = item.finalCost || item.unitCost || 0;
 
     // 2. Extração de cor inteligente via IA com fallback local
-    let detectedColor = await aiService.extractProductColor(item.productDescription);
+    let detectedColor: string | null = null;
+    try {
+        detectedColor = await aiService.extractProductColor(item.productDescription);
+    } catch (colorErr) {
+        console.warn('[prepareNewParentWithVariation] Falha ao extrair cor via IA:', colorErr);
+    }
     if (!detectedColor) {
         detectedColor = extractColorCandidateFromTitle(item.productDescription);
     }
@@ -236,7 +241,12 @@ export async function prepareExistingParentNewVariation(
 ): Promise<Product> {
     const finalCost = item.finalCost || item.unitCost || 0;
 
-    let detectedColor = await aiService.extractProductColor(item.productDescription);
+    let detectedColor: string | null = null;
+    try {
+        detectedColor = await aiService.extractProductColor(item.productDescription);
+    } catch (colorErr) {
+        console.warn('[prepareExistingParentNewVariation] Falha ao extrair cor via IA:', colorErr);
+    }
     if (!detectedColor) {
         detectedColor = extractColorCandidateFromTitle(item.productDescription);
     }

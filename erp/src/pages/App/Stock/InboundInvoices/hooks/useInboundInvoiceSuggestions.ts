@@ -1,19 +1,32 @@
 import { useEffect, useRef, useState } from 'react';
 import type { InboundInvoiceItem } from '@/pages/utils/inboundNfe/inboundNfeTypes';
 import { fetchSupplierProductsForContext } from '@/pages/utils/inboundNfe/inboundSupplierProductContext';
-import { suggestInboundProducts, type InboundProductCandidate } from '@/pages/utils/aiService/aiInboundProductSuggestions';
+import { type InboundProductCandidate } from '@/pages/utils/aiService/aiInboundProductSuggestions';
+import { suggestInboundProductsBatch, INBOUND_BATCH_SIZE } from '@/pages/utils/aiService/aiInboundBatchSuggestions';
 import { toast } from 'react-toastify';
-import { rankInboundSuggestionCandidates } from '@/pages/utils/inboundNfe/rankInboundSuggestionCandidates';
 
 export type InboundSuggestion = InboundProductCandidate;
 const SUGGESTION_TIMEOUT_MS = 20000;
-function bounded<T>(promise: Promise<T>, fallback: T): Promise<T> {
+
+function bounded<T>(promise: Promise<T>): Promise<T> {
     return new Promise((resolve, reject) => {
-        const timer = setTimeout(() => resolve(fallback), SUGGESTION_TIMEOUT_MS);
-        promise.then(value => { clearTimeout(timer); resolve(value); }, error => { clearTimeout(timer); reject(error); });
+        const timer = setTimeout(() => reject(new Error('Tempo esgotado na consulta de sugestões')), SUGGESTION_TIMEOUT_MS);
+        promise.then(
+            value => { clearTimeout(timer); resolve(value); },
+            error => { clearTimeout(timer); reject(error); }
+        );
     });
 }
-export function useInboundInvoiceSuggestions({ items, supplierId, enabled = true }: { items: InboundInvoiceItem[]; supplierId?: string; enabled?: boolean }) {
+
+export function useInboundInvoiceSuggestions({
+    items,
+    supplierId,
+    enabled = true,
+}: {
+    items: InboundInvoiceItem[];
+    supplierId?: string;
+    enabled?: boolean;
+}) {
     const [suggestions, setSuggestions] = useState<Record<string, InboundSuggestion>>({});
     const [rejected, setRejected] = useState<Record<string, boolean>>({});
     const [processing, setProcessing] = useState(false);
@@ -28,6 +41,7 @@ export function useInboundInvoiceSuggestions({ items, supplierId, enabled = true
     const keyFor = (item: InboundInvoiceItem) => JSON.stringify([supplierId, item.itemNumber, item.productCode, item.productDescription]);
     const pending = items.filter(item => !item.matchedProductId && !rejected[keyFor(item)]);
     const pendingKey = JSON.stringify(pending.map(item => [item.itemNumber, item.productCode, item.productDescription]));
+
     useEffect(() => {
         if (!hasSupplier) {
             setProcessing(false);
@@ -36,60 +50,77 @@ export function useInboundInvoiceSuggestions({ items, supplierId, enabled = true
             setCompleted({});
             return;
         }
-        if (!enabled || !pending.length) { setProcessing(false); return; }
+        if (!enabled || !pending.length) {
+            setProcessing(false);
+            return;
+        }
+
         setProcessing(true);
         let cancelled = false;
-        const deadline = Date.now() + SUGGESTION_TIMEOUT_MS;
-        const timeout = setTimeout(() => {
-            cancelled = true;
-            for (const item of pending) requests.current.set(keyFor(item), Promise.resolve(null));
-            setCompleted(previous => ({ ...previous, ...Object.fromEntries(pending.map(item => [keyFor(item), true])) }));
-            setProcessing(false);
-        }, SUGGESTION_TIMEOUT_MS);
+        let serviceErrorEncountered = false;
+
         const run = async () => {
             setProcessing(true);
             try {
                 let context = catalog.current.get(supplierId!);
                 if (!context) {
-                    context = bounded(fetchSupplierProductsForContext(supplierId!), []);
+                    context = bounded(fetchSupplierProductsForContext(supplierId!));
                     catalog.current.set(supplierId!, context);
                 }
                 const products = await context;
+
                 for (const item of pending) {
-                    if (cancelled) return;
+                    if (cancelled || serviceErrorEncountered) return;
                     const key = keyFor(item);
                     let request = requests.current.get(key);
                     if (!request) {
-                        request = (async () => {
-                            const rankedProducts = rankInboundSuggestionCandidates(products, item.productDescription);
-                            for (let offset = 0; offset < rankedProducts.length; offset += 40) {
-                                if (cancelled || Date.now() >= deadline) break;
-                                const candidates = rankedProducts.slice(offset, offset + 40);
-                                const results = await suggestInboundProducts(item, candidates);
-                                if (results[0]) return results[0];
-                            }
-                            return null;
-                        })();
-                        request = bounded(request, null);
-                        requests.current.set(key, request);
+                        const batchItems = pending.filter(entry => !requests.current.has(keyFor(entry))).slice(0, INBOUND_BATCH_SIZE);
+                        const batch = suggestInboundProductsBatch(batchItems, products);
+                        for (const entry of batchItems) {
+                            const entryRequest = batch.then(results => results[entry.itemNumber]?.[0] || null);
+                            // Todas as rejeições ficam observadas enquanto a interface aguarda o lote.
+                            void entryRequest.catch(() => undefined);
+                            requests.current.set(keyFor(entry), entryRequest);
+                        }
+                        request = requests.current.get(key)!;
                     }
-                    const suggestion = await request;
+
+                    let suggestion: InboundSuggestion | null = null;
+                    try {
+                        suggestion = await request;
+                    } catch (error) {
+                        requests.current.delete(key);
+                        if (!serviceErrorEncountered) {
+                            serviceErrorEncountered = true;
+                            console.warn('[useInboundInvoiceSuggestions] Sugestões de IA indisponíveis:', error);
+                            if (!cancelled) {
+                                toast.error('Sugestões da IA temporariamente indisponíveis (cota/créditos excedidos). A busca manual continua disponível.');
+                            }
+                        }
+                        break;
+                    }
+
                     if (!cancelled) {
                         setCompleted(previous => ({ ...previous, [key]: true }));
                         if (suggestion) setSuggestions(previous => ({ ...previous, [key]: suggestion }));
                     }
                 }
             } catch (error) {
-                console.error('Erro ao sugerir vínculos com IA:', error);
+                catalog.current.delete(supplierId!);
+                console.warn('[useInboundInvoiceSuggestions] Erro ao carregar contexto de produtos do fornecedor:', error);
                 if (!cancelled) toast.error('Não foi possível consultar sugestões. A busca manual continua disponível.');
             } finally {
-                clearTimeout(timeout);
                 if (!cancelled) setProcessing(false);
             }
         };
+
         const timer = setTimeout(() => { void run(); }, 600);
-        return () => { cancelled = true; clearTimeout(timer); clearTimeout(timeout); };
+        return () => {
+            cancelled = true;
+            clearTimeout(timer);
+        };
     }, [supplierId, hasSupplier, pendingKey, enabled, generation]);
+
     return {
         retrySuggestions: () => {
             if (!isActuallyEnabled || !supplierId?.trim() || processing) return;

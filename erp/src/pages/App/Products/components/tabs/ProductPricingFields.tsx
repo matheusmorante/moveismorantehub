@@ -6,10 +6,10 @@ interface ProductPricingFieldsProps {
     readonly formData: Partial<Product>;
     readonly discountPercent: string;
     readonly discountFixed: string;
-    readonly onPriceChange: (value: string) => void;
-    readonly onDiscountPercentChange: (value: string) => void;
-    readonly onDiscountFixedChange: (value: string) => void;
-    readonly onPromoPriceChange: (value: string) => void;
+    readonly onPriceChange?: (value: string) => void;
+    readonly onDiscountPercentChange?: (value: string) => void;
+    readonly onDiscountFixedChange?: (value: string) => void;
+    readonly onPromoPriceChange?: (value: string) => void;
     readonly validationErrors: Record<string, boolean>;
     readonly setValidationErrors?: React.Dispatch<React.SetStateAction<Record<string, boolean>>>;
 }
@@ -18,10 +18,10 @@ export function ProductPricingFields({
     formData,
     discountPercent,
     discountFixed,
-    onPriceChange,
-    onDiscountPercentChange,
-    onDiscountFixedChange,
-    onPromoPriceChange,
+    onPriceChange = () => {},
+    onDiscountPercentChange = () => {},
+    onDiscountFixedChange = () => {},
+    onPromoPriceChange = () => {},
     validationErrors,
     setValidationErrors,
 }: ProductPricingFieldsProps) {
