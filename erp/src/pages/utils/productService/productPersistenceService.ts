@@ -48,6 +48,12 @@ export const syncProductToSupabase = async (product: Product): Promise<void> => 
             dbData.category_id = null;
         }
 
+        // Sincronizar active com base nas variações quando existirem
+        if (Array.isArray(product.variations) && product.variations.length > 0) {
+            const hasActiveVariation = product.variations.some(v => v.active !== false);
+            dbData.active = product.isDraft ? false : hasActiveVariation;
+        }
+
         // O upsert atende tanto produtos novos quanto edições pelo UUID.
         dbData.name = dbData.name || product.description || 'Produto Sem Nome';
         let { error: productError } = await supabase.from(TABLE_NAME).upsert(dbData);
@@ -161,6 +167,11 @@ export const syncProductToSupabase = async (product: Product): Promise<void> => 
                 if (recordsToSave.length > 0) {
                     const { error: varErr } = await supabase.from("product_variations").upsert(recordsToSave);
                     if (varErr) throw varErr;
+
+                    if (!product.isDraft) {
+                        const hasActive = recordsToSave.some(r => r.active !== false);
+                        await supabase.from(TABLE_NAME).update({ active: hasActive }).eq('id', product.id);
+                    }
                 }
             } else {
                 await supabase.from("product_variations").delete().eq("product_id", product.id);

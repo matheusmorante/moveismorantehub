@@ -1,8 +1,8 @@
 import { useCallback } from 'react';
-import Item from '../../../types/items.type';
-import Product, { Variation } from '../../../types/product.type';
-import { getSelectedProductPricing } from '../../../utils/productPricing';
-import { getSelectedProductDisplayName } from '../../../utils/productVariationDefaults';
+import Item from '@/pages/types/items.type';
+import Product, { Variation } from '@/pages/types/product.type';
+import { getSelectedProductPricing } from '@/pages/utils/productPricing';
+import { getSelectedProductDisplayName } from '@/pages/utils/productVariationDefaults';
 
 export function useOrderProductSelection(
     items: Item[],

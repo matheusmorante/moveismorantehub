@@ -79,8 +79,9 @@ const OrderHistoryCard = ({
     const { hasAssemblyDepot, hasAssemblyOutside } = getOrderAssemblyFlags(order, settings);
     const isPaidTraffic = isPaidTrafficOrder(order);
 
-    const headerAccentClass =
-        order.orderType === 'budget'
+    const headerAccentClass = isCancelled
+        ? 'bg-red-100/90 dark:bg-red-900/60 border-b border-red-200 dark:border-red-800'
+        : order.orderType === 'budget'
             ? (isDraft ? 'bg-indigo-50/60 dark:bg-indigo-950/30 border-b border-indigo-100 dark:border-indigo-900/30' : 'bg-indigo-100/70 dark:bg-indigo-900/30 border-b border-indigo-200/60 dark:border-indigo-900/40')
             : isDraft
                 ? 'bg-slate-100/80 dark:bg-slate-800/40 border-b border-slate-200 dark:border-slate-700'
@@ -117,6 +118,10 @@ const OrderHistoryCard = ({
         }
     };
 
+    const cardBgBorderClass = isCancelled
+        ? 'bg-red-50/90 dark:bg-red-950/40 border-2 border-red-500 dark:border-red-600 shadow-xs ring-1 ring-red-500/20'
+        : 'bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800';
+
     return (
         <div 
             id={id}
@@ -124,9 +129,19 @@ const OrderHistoryCard = ({
             tabIndex={isInteractive ? 0 : undefined}
             onClick={isInteractive ? handleCardClick : undefined}
             onKeyDown={isInteractive ? handleKeyDown : undefined}
-            className={`bg-white dark:bg-slate-900 min-h-fit border border-slate-200 dark:border-slate-800 ${isHighlighted ? 'animate-highlight' : ''} rounded-xl shadow-none transition-all relative overflow-visible ${isInteractive ? 'cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500' : 'cursor-default'}`}
+            className={`${cardBgBorderClass} min-h-fit ${isHighlighted ? 'animate-highlight' : ''} rounded-xl shadow-none transition-all relative overflow-visible ${isInteractive ? 'cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500' : 'cursor-default'}`}
         >
-            {order.status === 'cancelled' && (
+            {/* Botãozinho redondinho com ícone de X no canto superior direito para cancelado */}
+            {isCancelled && (
+                <div 
+                    className="absolute -top-2.5 -right-2.5 z-30 flex h-7 w-7 items-center justify-center rounded-full bg-red-600 text-white shadow-md ring-2 ring-white dark:ring-slate-900 pointer-events-none"
+                    title="Pedido Cancelado"
+                >
+                    <i className="bi bi-x-lg text-xs font-black" />
+                </div>
+            )}
+
+            {isCancelled && (
                 <CancelledOrderBadge 
                     tilted 
                     large 
@@ -200,7 +215,7 @@ const OrderHistoryCard = ({
                     fulfilledLabel="Atendido"
                 />
 
-                <div className="grid grid-cols-2 gap-x-4 gap-y-2 mt-2 pt-2 border-t border-slate-100 dark:border-slate-800/40">
+                <div className={`grid grid-cols-2 gap-x-4 gap-y-2 mt-2 pt-2 border-t ${isCancelled ? 'border-red-200/60 dark:border-red-900/40' : 'border-slate-100 dark:border-slate-800/40'}`}>
                     <div className="flex flex-col">
                         <span className="text-[8px] font-black uppercase tracking-widest opacity-40 mb-0.5">Pedido</span>
                         <div className="flex items-center gap-1.5 text-slate-500 dark:text-slate-400 font-bold">
@@ -239,7 +254,7 @@ const OrderHistoryCard = ({
             </div>
 
             {/* Rodapé do card */}
-            <div className="flex justify-between items-center border-t border-slate-50 dark:border-slate-800/50 px-3 pt-2.5 pb-3">
+            <div className={`flex justify-between items-center border-t ${isCancelled ? 'border-red-200/60 dark:border-red-900/40' : 'border-slate-50 dark:border-slate-800/50'} px-3 pt-2.5 pb-3`}>
                 <div className="flex flex-col">
                     <span className="text-[9px] text-slate-400 dark:text-slate-500 font-bold uppercase tracking-widest mb-0.5">
                         {order.orderType === 'return' ? 'Total devolvido' : 'Total'}

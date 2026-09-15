@@ -178,7 +178,7 @@ export const PurchaseDetailsModal: React.FC<PurchaseDetailsModalProps> = ({
                                 </span>
                                 {purchase.stockProcessed && (
                                     <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-500/20 text-emerald-100 border border-emerald-400/40 flex items-center gap-1">
-                                        <i className="bi bi-check-circle-fill text-xs" aria-hidden="true" /> Estoque Lançado
+                                        <i className="bi bi-clock-history text-xs" aria-hidden="true" /> Movimento legado
                                     </span>
                                 )}
                             </div>
@@ -264,7 +264,7 @@ export const PurchaseDetailsModal: React.FC<PurchaseDetailsModalProps> = ({
 
                         <div className="p-5 bg-slate-50 dark:bg-slate-800/40 rounded-2xl border border-slate-100 dark:border-slate-800 flex flex-col justify-center">
                             <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">
-                                Status da Entrada
+                                Uso no recebimento
                             </p>
                             <p
                                 className={`text-xs font-black uppercase mt-1.5 ${
@@ -273,7 +273,7 @@ export const PurchaseDetailsModal: React.FC<PurchaseDetailsModalProps> = ({
                                         : 'text-amber-600 dark:text-amber-400'
                                 }`}
                             >
-                                {purchase.stockProcessed ? 'Estoque Integrado' : 'Aguardando Lançamento'}
+                                {purchase.stockProcessed ? 'Movimento legado já registrado' : 'Use para preencher um recebimento'}
                             </p>
                         </div>
                     </div>

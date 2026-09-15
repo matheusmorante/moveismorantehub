@@ -1,9 +1,13 @@
 import { supabase } from './supabaseConfig';
+import { isValidUuid } from './uuidUtils';
 
 /** Resolve IDs históricos para a variação canônica usando a regra central do banco. */
 export async function resolveCanonicalVariationIds(variationIds: Array<string | null | undefined>) {
-    const uniqueIds = Array.from(new Set(variationIds.filter((id): id is string => Boolean(id))));
-    const results = await Promise.all(uniqueIds.map(async variationId => {
+    const rawIds = Array.from(new Set(variationIds.filter((id): id is string => Boolean(id))));
+    const validUuids = rawIds.filter((id): id is string => isValidUuid(id));
+    const nonUuidIds = rawIds.filter((id) => !isValidUuid(id));
+
+    const results = await Promise.all(validUuids.map(async variationId => {
         const { data, error } = await supabase.rpc('resolve_canonical_variation_id', {
             p_variation_id: variationId,
         });
@@ -11,12 +15,17 @@ export async function resolveCanonicalVariationIds(variationIds: Array<string | 
         return [variationId, String(data || variationId)] as const;
     }));
 
-    return new Map(results);
+    const allEntries: Array<readonly [string, string]> = [
+        ...results,
+        ...nonUuidIds.map((id) => [id, id] as const),
+    ];
+
+    return new Map(allEntries);
 }
 
 /** Dados atuais da variação canônica para a apresentação de agregações. */
 export async function getCanonicalVariationNames(canonicalVariationIds: Iterable<string>) {
-    const ids = Array.from(new Set(Array.from(canonicalVariationIds).filter(Boolean)));
+    const ids = Array.from(new Set(Array.from(canonicalVariationIds).filter((id): id is string => isValidUuid(id))));
     if (!ids.length) return new Map<string, string>();
 
     const { data, error } = await supabase

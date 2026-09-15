@@ -1,10 +1,10 @@
 import { useState, useRef, useEffect } from 'react';
-import Order from '../../../types/order.type';
-import Item from '../../../types/items.type';
-import Shipping from '../../../types/Shipping.type';
-import Payment from '../../../types/payments.type';
-import CustomerData from '../../../types/customerData.type';
-import { saveOrder } from '../../../utils/orderHistoryService';
+import Order from '@/pages/types/order.type';
+import Item from '@/pages/types/items.type';
+import Shipping from '@/pages/types/Shipping.type';
+import Payment from '@/pages/types/payments.type';
+import CustomerData from '@/pages/types/customerData.type';
+import { saveOrder } from '@/pages/utils/orderHistoryService';
 
 export function useOrderAutoSave(
     items: Item[],

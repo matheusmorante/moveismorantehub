@@ -12,8 +12,8 @@ interface CancelReturnModalProps {
 const CancelReturnModal = ({ order, onCancel, onConfirm }: CancelReturnModalProps) => {
     const [secondsLeft, setSecondsLeft] = useState(5);
     const isFulfilled = order.status === "fulfilled";
-    const actionTitle = isFulfilled ? "Estornar esta devolução?" : "Cancelar esta devolução?";
-    const buttonLabel = isFulfilled ? "Estornar devolução" : "Cancelar devolução";
+    const actionTitle = isFulfilled ? "Desfazer esta devolução?" : "Cancelar esta devolução?";
+    const buttonLabel = isFulfilled ? "Desfazer Devolução" : "Cancelar devolução";
 
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
@@ -61,7 +61,7 @@ const CancelReturnModal = ({ order, onCancel, onConfirm }: CancelReturnModalProp
                 </p>
                 <p className="mt-3 text-sm font-semibold leading-relaxed text-red-700 dark:text-red-300">
                     {isFulfilled 
-                        ? "Esta devolução atendida será marcada como ESTORNADA. Esta ação é definitiva e não poderá ser desfeita."
+                        ? "Esta devolução atendida será desfeita e marcada como CANCELADA. Esta ação é definitiva e não poderá ser revertida."
                         : "Esta devolução agendada será marcada como CANCELADA. Esta ação é definitiva e não poderá ser desfeita."}
                 </p>
                 <div className="mt-6 flex justify-end gap-3">

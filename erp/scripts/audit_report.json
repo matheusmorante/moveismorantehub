@@ -1,0 +1,3104 @@
+{
+  "topFiles": [
+    {
+      "path": "C:\\Users\\mathe\\OneDrive\\Área de Trabalho\\projetos\\morantehub\\erp\\src\\pages\\App\\Stock\\LabelPrinting\\PriceLabelArtEditorModal.tsx",
+      "lines": 3216,
+      "name": "PriceLabelArtEditorModal.tsx"
+    },
+    {
+      "path": "C:\\Users\\mathe\\OneDrive\\Área de Trabalho\\projetos\\morantehub\\erp\\src\\pages\\App\\Stock\\LabelPrinting\\Index.tsx",
+      "lines": 2284,
+      "name": "Index.tsx"
+    },
+    {
+      "path": "C:\\Users\\mathe\\OneDrive\\Área de Trabalho\\projetos\\morantehub\\erp\\src\\pages\\App\\Stock\\LabelPrinting\\modals\\LabelGridModelModal.tsx",
+      "lines": 1486,
+      "name": "LabelGridModelModal.tsx"
+    },
+    {
+      "path": "C:\\Users\\mathe\\OneDrive\\Área de Trabalho\\projetos\\morantehub\\erp\\src\\pages\\App\\SalesOrder\\Reports\\ReportView.tsx",
+      "lines": 1358,
+      "name": "ReportView.tsx"
+    },
+    {
+      "path": "C:\\Users\\mathe\\OneDrive\\Área de Trabalho\\projetos\\morantehub\\erp\\src\\pages\\App\\Stock\\LabelPrinting\\PriceLabelArtRenderer.tsx",
+      "lines": 898,
+      "name": "PriceLabelArtRenderer.tsx"
+    },
+    {
+      "path": "C:\\Users\\mathe\\OneDrive\\Área de Trabalho\\projetos\\morantehub\\erp\\src\\pages\\App\\Stock\\Receipts\\modals\\ReceiptFormModal.tsx",
+      "lines": 864,
+      "name": "ReceiptFormModal.tsx"
+    },
+    {
+      "path": "C:\\Users\\mathe\\OneDrive\\Área de Trabalho\\projetos\\morantehub\\erp\\src\\pages\\App\\Products\\modals\\ProductFormModal.tsx",
+      "lines": 762,
+      "name": "ProductFormModal.tsx"
+    },
+    {
+      "path": "C:\\Users\\mathe\\OneDrive\\Área de Trabalho\\projetos\\morantehub\\erp\\src\\pages\\utils\\settingsService.ts",
+      "lines": 735,
+      "name": "settingsService.ts"
+    },
+    {
+      "path": "C:\\Users\\mathe\\OneDrive\\Área de Trabalho\\projetos\\morantehub\\erp\\src\\pages\\utils\\inboundNfe\\inboundInvoicesService.ts",
+      "lines": 728,
+      "name": "inboundInvoicesService.ts"
+    },
+    {
+      "path": "C:\\Users\\mathe\\OneDrive\\Área de Trabalho\\projetos\\morantehub\\erp\\src\\pages\\App\\Stock\\modals\\InventoryAuditModal.tsx",
+      "lines": 684,
+      "name": "InventoryAuditModal.tsx"
+    },
+    {
+      "path": "C:\\Users\\mathe\\OneDrive\\Área de Trabalho\\projetos\\morantehub\\erp\\src\\components\\shared\\AIChatAssistant.tsx",
+      "lines": 671,
+      "name": "AIChatAssistant.tsx"
+    },
+    {
+      "path": "C:\\Users\\mathe\\OneDrive\\Área de Trabalho\\projetos\\morantehub\\erp\\src\\pages\\App\\Stock\\InboundInvoices\\components\\InboundInvoiceItemsReview.tsx",
+      "lines": 643,
+      "name": "InboundInvoiceItemsReview.tsx"
+    },
+    {
+      "path": "C:\\Users\\mathe\\OneDrive\\Área de Trabalho\\projetos\\morantehub\\erp\\src\\pages\\App\\Stock\\Purchases\\modals\\PurchaseFormModal.tsx",
+      "lines": 634,
+      "name": "PurchaseFormModal.tsx"
+    },
+    {
+      "path": "C:\\Users\\mathe\\OneDrive\\Área de Trabalho\\projetos\\morantehub\\erp\\src\\pages\\App\\SalesOrder\\index.tsx",
+      "lines": 631,
+      "name": "index.tsx"
+    },
+    {
+      "path": "C:\\Users\\mathe\\OneDrive\\Área de Trabalho\\projetos\\morantehub\\erp\\src\\pages\\utils\\whatsappGraphService.ts",
+      "lines": 625,
+      "name": "whatsappGraphService.ts"
+    },
+    {
+      "path": "C:\\Users\\mathe\\OneDrive\\Área de Trabalho\\projetos\\morantehub\\erp\\src\\pages\\App\\Marketing\\ChannelCatalog.tsx",
+      "lines": 610,
+      "name": "ChannelCatalog.tsx"
+    },
+    {
+      "path": "C:\\Users\\mathe\\OneDrive\\Área de Trabalho\\projetos\\morantehub\\mobile\\src\\services\\financial\\financialSlotFilling.ts",
+      "lines": 594,
+      "name": "financialSlotFilling.ts"
+    },
+    {
+      "path": "C:\\Users\\mathe\\OneDrive\\Área de Trabalho\\projetos\\morantehub\\erp\\src\\components\\PurchaseItemsSection.tsx",
+      "lines": 592,
+      "name": "PurchaseItemsSection.tsx"
+    },
+    {
+      "path": "C:\\Users\\mathe\\OneDrive\\Área de Trabalho\\projetos\\morantehub\\erp\\src\\pages\\utils\\personService.ts",
+      "lines": 585,
+      "name": "personService.ts"
+    },
+    {
+      "path": "C:\\Users\\mathe\\OneDrive\\Área de Trabalho\\projetos\\morantehub\\erp\\src\\pages\\utils\\orderHistoryService.ts",
+      "lines": 576,
+      "name": "orderHistoryService.ts"
+    },
+    {
+      "path": "C:\\Users\\mathe\\OneDrive\\Área de Trabalho\\projetos\\morantehub\\erp\\src\\pages\\utils\\maps.ts",
+      "lines": 573,
+      "name": "maps.ts"
+    },
+    {
+      "path": "C:\\Users\\mathe\\OneDrive\\Área de Trabalho\\projetos\\morantehub\\mobile\\src\\services\\financial\\financialIntentValidator.ts",
+      "lines": 548,
+      "name": "financialIntentValidator.ts"
+    },
+    {
+      "path": "C:\\Users\\mathe\\OneDrive\\Área de Trabalho\\projetos\\morantehub\\erp\\src\\pages\\App\\DeliverySchedule\\ScheduleCardView\\Index.tsx",
+      "lines": 547,
+      "name": "Index.tsx"
+    },
+    {
+      "path": "C:\\Users\\mathe\\OneDrive\\Área de Trabalho\\projetos\\morantehub\\mobile\\src\\features\\orders\\components\\MobileOrderCard.tsx",
+      "lines": 544,
+      "name": "MobileOrderCard.tsx"
+    },
+    {
+      "path": "C:\\Users\\mathe\\OneDrive\\Área de Trabalho\\projetos\\morantehub\\mobile\\src\\features\\logistics\\screens\\NativeLogisticsScreen.tsx",
+      "lines": 537,
+      "name": "NativeLogisticsScreen.tsx"
+    },
+    {
+      "path": "C:\\Users\\mathe\\OneDrive\\Área de Trabalho\\projetos\\morantehub\\mobile\\src\\features\\finance\\hooks\\useFinancialAiChat.ts",
+      "lines": 535,
+      "name": "useFinancialAiChat.ts"
+    },
+    {
+      "path": "C:\\Users\\mathe\\OneDrive\\Área de Trabalho\\projetos\\morantehub\\erp\\src\\pages\\App\\SalesOrder\\OrderActions\\orderActionsConfig.ts",
+      "lines": 534,
+      "name": "orderActionsConfig.ts"
+    },
+    {
+      "path": "C:\\Users\\mathe\\OneDrive\\Área de Trabalho\\projetos\\morantehub\\erp\\src\\pages\\App\\Products\\MetaCatalog\\index.tsx",
+      "lines": 524,
+      "name": "index.tsx"
+    },
+    {
+      "path": "C:\\Users\\mathe\\OneDrive\\Área de Trabalho\\projetos\\morantehub\\erp\\src\\pages\\App\\Logistics\\AssemblyListPage.tsx",
+      "lines": 521,
+      "name": "AssemblyListPage.tsx"
+    },
+    {
+      "path": "C:\\Users\\mathe\\OneDrive\\Área de Trabalho\\projetos\\morantehub\\erp\\src\\pages\\App\\SalesOrder\\FiscalDocumentsPage.tsx",
+      "lines": 509,
+      "name": "FiscalDocumentsPage.tsx"
+    },
+    {
+      "path": "C:\\Users\\mathe\\OneDrive\\Área de Trabalho\\projetos\\morantehub\\erp\\src\\pages\\App\\SalesOrder\\Reports\\useSalesReport.ts",
+      "lines": 503,
+      "name": "useSalesReport.ts"
+    },
+    {
+      "path": "C:\\Users\\mathe\\OneDrive\\Área de Trabalho\\projetos\\morantehub\\erp\\src\\pages\\App\\SalesOrder\\ItemsTable\\BodyRow.tsx",
+      "lines": 502,
+      "name": "BodyRow.tsx"
+    },
+    {
+      "path": "C:\\Users\\mathe\\OneDrive\\Área de Trabalho\\projetos\\morantehub\\erp\\src\\pages\\App\\Settings\\components\\WhatsAppConfigSection.tsx",
+      "lines": 499,
+      "name": "WhatsAppConfigSection.tsx"
+    },
+    {
+      "path": "C:\\Users\\mathe\\OneDrive\\Área de Trabalho\\projetos\\morantehub\\erp\\src\\pages\\App\\SalesOrder\\components\\SmartAIFillModal.tsx",
+      "lines": 498,
+      "name": "SmartAIFillModal.tsx"
+    },
+    {
+      "path": "C:\\Users\\mathe\\OneDrive\\Área de Trabalho\\projetos\\morantehub\\erp\\src\\pages\\App\\Stock\\Purchases\\modals\\PurchaseReceiptCheckModal.tsx",
+      "lines": 493,
+      "name": "PurchaseReceiptCheckModal.tsx"
+    },
+    {
+      "path": "C:\\Users\\mathe\\OneDrive\\Área de Trabalho\\projetos\\morantehub\\mobile\\src\\features\\logistics\\components\\deliveryMap\\DeliveryBottomSheet.tsx",
+      "lines": 491,
+      "name": "DeliveryBottomSheet.tsx"
+    },
+    {
+      "path": "C:\\Users\\mathe\\OneDrive\\Área de Trabalho\\projetos\\morantehub\\erp\\src\\pages\\App\\SalesOrder\\useSalesOrderForm.ts",
+      "lines": 478,
+      "name": "useSalesOrderForm.ts"
+    },
+    {
+      "path": "C:\\Users\\mathe\\OneDrive\\Área de Trabalho\\projetos\\morantehub\\erp\\src\\pages\\App\\Stock\\InboundInvoices\\modals\\InboundDocumentImportModal.tsx",
+      "lines": 473,
+      "name": "InboundDocumentImportModal.tsx"
+    },
+    {
+      "path": "C:\\Users\\mathe\\OneDrive\\Área de Trabalho\\projetos\\morantehub\\erp\\src\\pages\\App\\DeliverySchedule\\ScheduleTableView\\Index.tsx",
+      "lines": 466,
+      "name": "Index.tsx"
+    },
+    {
+      "path": "C:\\Users\\mathe\\OneDrive\\Área de Trabalho\\projetos\\morantehub\\mobile\\src\\features\\logistics\\components\\schedule\\ScheduleCard.tsx",
+      "lines": 464,
+      "name": "ScheduleCard.tsx"
+    },
+    {
+      "path": "C:\\Users\\mathe\\OneDrive\\Área de Trabalho\\projetos\\morantehub\\mobile\\src\\features\\dashboard\\components\\NativeBottomNav.tsx",
+      "lines": 458,
+      "name": "NativeBottomNav.tsx"
+    },
+    {
+      "path": "C:\\Users\\mathe\\OneDrive\\Área de Trabalho\\projetos\\morantehub\\erp\\src\\pages\\App\\Marketing\\Posts\\components\\ModelFormModal.tsx",
+      "lines": 456,
+      "name": "ModelFormModal.tsx"
+    },
+    {
+      "path": "C:\\Users\\mathe\\OneDrive\\Área de Trabalho\\projetos\\morantehub\\erp\\src\\pages\\App\\Stock\\Purchases\\modals\\PurchaseDetailsModal.tsx",
+      "lines": 456,
+      "name": "PurchaseDetailsModal.tsx"
+    },
+    {
+      "path": "C:\\Users\\mathe\\OneDrive\\Área de Trabalho\\projetos\\morantehub\\erp\\src\\pages\\App\\SalesOrder\\OrderEditModal.tsx",
+      "lines": 454,
+      "name": "OrderEditModal.tsx"
+    },
+    {
+      "path": "C:\\Users\\mathe\\OneDrive\\Área de Trabalho\\projetos\\morantehub\\erp\\src\\types\\orderParityMapping.ts",
+      "lines": 451,
+      "name": "orderParityMapping.ts"
+    },
+    {
+      "path": "C:\\Users\\mathe\\OneDrive\\Área de Trabalho\\projetos\\morantehub\\erp\\src\\pages\\App\\SalesOrder\\CustomerSearchModal.tsx",
+      "lines": 449,
+      "name": "CustomerSearchModal.tsx"
+    },
+    {
+      "path": "C:\\Users\\mathe\\OneDrive\\Área de Trabalho\\projetos\\morantehub\\mobile\\src\\features\\logistics\\components\\deliveryMap\\NextDeliveryCard.tsx",
+      "lines": 449,
+      "name": "NextDeliveryCard.tsx"
+    },
+    {
+      "path": "C:\\Users\\mathe\\OneDrive\\Área de Trabalho\\projetos\\morantehub\\mobile\\src\\features\\products\\components\\MobileProductCard.tsx",
+      "lines": 449,
+      "name": "MobileProductCard.tsx"
+    },
+    {
+      "path": "C:\\Users\\mathe\\OneDrive\\Área de Trabalho\\projetos\\morantehub\\mobile\\src\\services\\aiAgent\\mobileAgentTools.ts",
+      "lines": 448,
+      "name": "mobileAgentTools.ts"
+    },
+    {
+      "path": "C:\\Users\\mathe\\OneDrive\\Área de Trabalho\\projetos\\morantehub\\erp\\src\\pages\\App\\Products\\Categories\\Index.tsx",
+      "lines": 446,
+      "name": "Index.tsx"
+    },
+    {
+      "path": "C:\\Users\\mathe\\OneDrive\\Área de Trabalho\\projetos\\morantehub\\mobile\\src\\services\\financialAiAssistantService.ts",
+      "lines": 446,
+      "name": "financialAiAssistantService.ts"
+    },
+    {
+      "path": "C:\\Users\\mathe\\OneDrive\\Área de Trabalho\\projetos\\morantehub\\mobile\\src\\utils\\orderUtils.ts",
+      "lines": 446,
+      "name": "orderUtils.ts"
+    },
+    {
+      "path": "C:\\Users\\mathe\\OneDrive\\Área de Trabalho\\projetos\\morantehub\\mobile\\src\\features\\products\\modals\\tabs\\ProductFormPricesTab.tsx",
+      "lines": 443,
+      "name": "ProductFormPricesTab.tsx"
+    },
+    {
+      "path": "C:\\Users\\mathe\\OneDrive\\Área de Trabalho\\projetos\\morantehub\\erp\\src\\pages\\App\\Marketing\\Posts\\components\\PromptPreview\\PromptCopyableImagesList.tsx",
+      "lines": 441,
+      "name": "PromptCopyableImagesList.tsx"
+    },
+    {
+      "path": "C:\\Users\\mathe\\OneDrive\\Área de Trabalho\\projetos\\morantehub\\erp\\src\\pages\\App\\SalesOrder\\AssistanceOrderModal.tsx",
+      "lines": 440,
+      "name": "AssistanceOrderModal.tsx"
+    },
+    {
+      "path": "C:\\Users\\mathe\\OneDrive\\Área de Trabalho\\projetos\\morantehub\\erp\\src\\pages\\App\\Registrations\\shared\\personForm\\usePersonForm.ts",
+      "lines": 439,
+      "name": "usePersonForm.ts"
+    },
+    {
+      "path": "C:\\Users\\mathe\\OneDrive\\Área de Trabalho\\projetos\\morantehub\\erp\\src\\pages\\App\\Products\\hooks\\useVariationForm.ts",
+      "lines": 435,
+      "name": "useVariationForm.ts"
+    },
+    {
+      "path": "C:\\Users\\mathe\\OneDrive\\Área de Trabalho\\projetos\\morantehub\\erp\\src\\pages\\App\\Registrations\\shared\\PersonCard.tsx",
+      "lines": 435,
+      "name": "PersonCard.tsx"
+    },
+    {
+      "path": "C:\\Users\\mathe\\OneDrive\\Área de Trabalho\\projetos\\morantehub\\mobile\\src\\features\\orders\\screens\\DeliveryPreparationScreen.tsx",
+      "lines": 434,
+      "name": "DeliveryPreparationScreen.tsx"
+    },
+    {
+      "path": "C:\\Users\\mathe\\OneDrive\\Área de Trabalho\\projetos\\morantehub\\mobile\\src\\features\\products\\modals\\tabs\\ProductFormPhotosTab.tsx",
+      "lines": 431,
+      "name": "ProductFormPhotosTab.tsx"
+    },
+    {
+      "path": "C:\\Users\\mathe\\OneDrive\\Área de Trabalho\\projetos\\morantehub\\erp\\src\\pages\\App\\Products\\components\\tabs\\ProductGeneralTab.tsx",
+      "lines": 430,
+      "name": "ProductGeneralTab.tsx"
+    },
+    {
+      "path": "C:\\Users\\mathe\\OneDrive\\Área de Trabalho\\projetos\\morantehub\\mobile\\src\\features\\logistics\\components\\deliveryMap\\DeliveryMapView.web.tsx",
+      "lines": 427,
+      "name": "DeliveryMapView.web.tsx"
+    },
+    {
+      "path": "C:\\Users\\mathe\\OneDrive\\Área de Trabalho\\projetos\\morantehub\\erp\\src\\pages\\App\\ApiUsage\\Index.tsx",
+      "lines": 422,
+      "name": "Index.tsx"
+    },
+    {
+      "path": "C:\\Users\\mathe\\OneDrive\\Área de Trabalho\\projetos\\morantehub\\erp\\src\\pages\\App\\Stock\\LabelPrinting\\components\\LabelItem.tsx",
+      "lines": 422,
+      "name": "LabelItem.tsx"
+    },
+    {
+      "path": "C:\\Users\\mathe\\OneDrive\\Área de Trabalho\\projetos\\morantehub\\erp\\src\\pages\\App\\Registrations\\shared\\PersonPage.tsx",
+      "lines": 421,
+      "name": "PersonPage.tsx"
+    },
+    {
+      "path": "C:\\Users\\mathe\\OneDrive\\Área de Trabalho\\projetos\\morantehub\\mobile\\src\\features\\products\\screens\\ProductFormScreen.tsx",
+      "lines": 421,
+      "name": "ProductFormScreen.tsx"
+    },
+    {
+      "path": "C:\\Users\\mathe\\OneDrive\\Área de Trabalho\\projetos\\morantehub\\erp\\src\\pages\\App\\Registrations\\shared\\PersonImportModal.tsx",
+      "lines": 420,
+      "name": "PersonImportModal.tsx"
+    },
+    {
+      "path": "C:\\Users\\mathe\\OneDrive\\Área de Trabalho\\projetos\\morantehub\\erp\\src\\pages\\App\\DeliverySchedule\\index.tsx",
+      "lines": 417,
+      "name": "index.tsx"
+    },
+    {
+      "path": "C:\\Users\\mathe\\OneDrive\\Área de Trabalho\\projetos\\morantehub\\erp\\src\\pages\\App\\Products\\Index.tsx",
+      "lines": 416,
+      "name": "Index.tsx"
+    },
+    {
+      "path": "C:\\Users\\mathe\\OneDrive\\Área de Trabalho\\projetos\\morantehub\\erp\\src\\pages\\App\\Marketing\\Posts\\index.tsx",
+      "lines": 415,
+      "name": "index.tsx"
+    }
+  ],
+  "topDirs": [
+    {
+      "dir": "erp/src/pages/utils",
+      "count": 100,
+      "files": [
+        {
+          "name": "accessRoles.ts",
+          "lines": 47
+        },
+        {
+          "name": "addressParser.ts",
+          "lines": 50
+        },
+        {
+          "name": "addressParsing.ts",
+          "lines": 91
+        },
+        {
+          "name": "aiDescription.ts",
+          "lines": 17
+        },
+        {
+          "name": "aiService.ts",
+          "lines": 37
+        },
+        {
+          "name": "attendanceService.ts",
+          "lines": 107
+        },
+        {
+          "name": "authErrors.ts",
+          "lines": 30
+        },
+        {
+          "name": "calculations.ts",
+          "lines": 156
+        },
+        {
+          "name": "categoryResolutionService.ts",
+          "lines": 237
+        },
+        {
+          "name": "categoryService.ts",
+          "lines": 156
+        },
+        {
+          "name": "crmIntelligenceService.ts",
+          "lines": 161
+        },
+        {
+          "name": "customerSearch.ts",
+          "lines": 35
+        },
+        {
+          "name": "customerShippingValidation.ts",
+          "lines": 64
+        },
+        {
+          "name": "dataMigrationService.ts",
+          "lines": 101
+        },
+        {
+          "name": "deliveryReminderService.ts",
+          "lines": 187
+        },
+        {
+          "name": "draftAnalysisChips.ts",
+          "lines": 209
+        },
+        {
+          "name": "draftCleanupService.ts",
+          "lines": 48
+        },
+        {
+          "name": "duplicateOrder.ts",
+          "lines": 49
+        },
+        {
+          "name": "employeeProfileService.ts",
+          "lines": 112
+        },
+        {
+          "name": "firebaseConfig.ts",
+          "lines": 18
+        },
+        {
+          "name": "fiscalDocumentRule.ts",
+          "lines": 16
+        },
+        {
+          "name": "formatters.ts",
+          "lines": 309
+        },
+        {
+          "name": "geminiQuotaService.ts",
+          "lines": 150
+        },
+        {
+          "name": "goodsReceiptCode.ts",
+          "lines": 43
+        },
+        {
+          "name": "goodsReceiptCostCalculation.ts",
+          "lines": 146
+        },
+        {
+          "name": "goodsReceiptService.ts",
+          "lines": 6
+        },
+        {
+          "name": "handlingMigration.ts",
+          "lines": 105
+        },
+        {
+          "name": "imageFetchCandidates.ts",
+          "lines": 25
+        },
+        {
+          "name": "imageUtils.ts",
+          "lines": 55
+        },
+        {
+          "name": "importMappingTypes.ts",
+          "lines": 114
+        },
+        {
+          "name": "inventoryAuditBalance.ts",
+          "lines": 66
+        },
+        {
+          "name": "inventoryService.ts",
+          "lines": 7
+        },
+        {
+          "name": "inventoryTimelineBalance.ts",
+          "lines": 42
+        },
+        {
+          "name": "mapCoordinates.ts",
+          "lines": 60
+        },
+        {
+          "name": "maps.ts",
+          "lines": 573
+        },
+        {
+          "name": "movingAverageCostRules.ts",
+          "lines": 102
+        },
+        {
+          "name": "movingAverageCostService.ts",
+          "lines": 90
+        },
+        {
+          "name": "ncmClassificationPrompt.ts",
+          "lines": 61
+        },
+        {
+          "name": "nfeAccessKey.ts",
+          "lines": 18
+        },
+        {
+          "name": "noticeTags.ts",
+          "lines": 16
+        },
+        {
+          "name": "notificationService.ts",
+          "lines": 263
+        },
+        {
+          "name": "notificationSoundRouting.ts",
+          "lines": 30
+        },
+        {
+          "name": "operationalSchedule.ts",
+          "lines": 31
+        },
+        {
+          "name": "orderAddressSnapshot.ts",
+          "lines": 33
+        },
+        {
+          "name": "orderChangeDetector.ts",
+          "lines": 202
+        },
+        {
+          "name": "orderCode.ts",
+          "lines": 92
+        },
+        {
+          "name": "orderDeletionRules.ts",
+          "lines": 8
+        },
+        {
+          "name": "orderEventNotificationService.ts",
+          "lines": 102
+        },
+        {
+          "name": "orderFulfillmentCountdown.ts",
+          "lines": 139
+        },
+        {
+          "name": "orderHistoryService.ts",
+          "lines": 576
+        },
+        {
+          "name": "orderInventoryStatus.ts",
+          "lines": 83
+        },
+        {
+          "name": "orderLifecycleOperations.ts",
+          "lines": 146
+        },
+        {
+          "name": "orderMapper.ts",
+          "lines": 238
+        },
+        {
+          "name": "orderSchedulingStatus.ts",
+          "lines": 65
+        },
+        {
+          "name": "orderSearchQueries.ts",
+          "lines": 257
+        },
+        {
+          "name": "orderSnapshotResolution.ts",
+          "lines": 139
+        },
+        {
+          "name": "orderStockOperations.ts",
+          "lines": 107
+        },
+        {
+          "name": "orderSyncQueries.ts",
+          "lines": 216
+        },
+        {
+          "name": "orderTypeColorUtils.ts",
+          "lines": 249
+        },
+        {
+          "name": "permissionConfig.ts",
+          "lines": 181
+        },
+        {
+          "name": "permissionService.ts",
+          "lines": 56
+        },
+        {
+          "name": "personService.ts",
+          "lines": 585
+        },
+        {
+          "name": "pluralize.ts",
+          "lines": 84
+        },
+        {
+          "name": "postSaleActions.ts",
+          "lines": 16
+        },
+        {
+          "name": "productImageLimits.ts",
+          "lines": 4
+        },
+        {
+          "name": "productPricing.ts",
+          "lines": 74
+        },
+        {
+          "name": "productService.ts",
+          "lines": 31
+        },
+        {
+          "name": "productSupplierCodesService.ts",
+          "lines": 158
+        },
+        {
+          "name": "productVariationDefaults.ts",
+          "lines": 147
+        },
+        {
+          "name": "proportionalAllocation.ts",
+          "lines": 90
+        },
+        {
+          "name": "purchaseService.ts",
+          "lines": 271
+        },
+        {
+          "name": "pushNotificationService.ts",
+          "lines": 106
+        },
+        {
+          "name": "receiptAiService.ts",
+          "lines": 57
+        },
+        {
+          "name": "returnCancellation.ts",
+          "lines": 22
+        },
+        {
+          "name": "returnInventoryRules.ts",
+          "lines": 20
+        },
+        {
+          "name": "returnInventoryService.ts",
+          "lines": 64
+        },
+        {
+          "name": "returnPolicy.ts",
+          "lines": 5
+        },
+        {
+          "name": "saleInventoryRules.ts",
+          "lines": 101
+        },
+        {
+          "name": "saleItemInventorySync.ts",
+          "lines": 132
+        },
+        {
+          "name": "sanitization.ts",
+          "lines": 20
+        },
+        {
+          "name": "scheduleOrderVisibility.ts",
+          "lines": 22
+        },
+        {
+          "name": "serviceService.ts",
+          "lines": 140
+        },
+        {
+          "name": "settingsService.ts",
+          "lines": 735
+        },
+        {
+          "name": "shippingPricing.ts",
+          "lines": 5
+        },
+        {
+          "name": "showcaseAssemblyService.ts",
+          "lines": 56
+        },
+        {
+          "name": "storageService.ts",
+          "lines": 45
+        },
+        {
+          "name": "supabaseConfig.ts",
+          "lines": 37
+        },
+        {
+          "name": "textUtils.ts",
+          "lines": 74
+        },
+        {
+          "name": "uniqueSlug.ts",
+          "lines": 34
+        },
+        {
+          "name": "useAutoScroll.ts",
+          "lines": 20
+        },
+        {
+          "name": "userSettingsService.ts",
+          "lines": 62
+        },
+        {
+          "name": "uuidUtils.ts",
+          "lines": 13
+        },
+        {
+          "name": "validations.ts",
+          "lines": 208
+        },
+        {
+          "name": "variationCanonicalService.ts",
+          "lines": 55
+        },
+        {
+          "name": "variationService.ts",
+          "lines": 287
+        },
+        {
+          "name": "whatsapp.ts",
+          "lines": 349
+        },
+        {
+          "name": "whatsappGraphService.ts",
+          "lines": 625
+        },
+        {
+          "name": "whatsappHttpClient.ts",
+          "lines": 58
+        },
+        {
+          "name": "whatsappTemplates.ts",
+          "lines": 372
+        },
+        {
+          "name": "wordToNumberPtBr.ts",
+          "lines": 130
+        }
+      ]
+    },
+    {
+      "dir": "erp/src/pages/App/Marketing/Posts/services",
+      "count": 48,
+      "files": [
+        {
+          "name": "ambientationService.ts",
+          "lines": 84
+        },
+        {
+          "name": "assetService.ts",
+          "lines": 150
+        },
+        {
+          "name": "campaignService.ts",
+          "lines": 144
+        },
+        {
+          "name": "compositionAi.ts",
+          "lines": 51
+        },
+        {
+          "name": "compositionDefaults.ts",
+          "lines": 38
+        },
+        {
+          "name": "compositionLayoutEngine.ts",
+          "lines": 51
+        },
+        {
+          "name": "compositionValidator.ts",
+          "lines": 40
+        },
+        {
+          "name": "elementModels.ts",
+          "lines": 37
+        },
+        {
+          "name": "environmentGuidance.ts",
+          "lines": 29
+        },
+        {
+          "name": "exportPostImage.ts",
+          "lines": 28
+        },
+        {
+          "name": "generationHash.ts",
+          "lines": 11
+        },
+        {
+          "name": "imageClipboardUtils.ts",
+          "lines": 222
+        },
+        {
+          "name": "imageSubjectBounds.ts",
+          "lines": 24
+        },
+        {
+          "name": "index.ts",
+          "lines": 5
+        },
+        {
+          "name": "layoutGeometry.ts",
+          "lines": 25
+        },
+        {
+          "name": "layoutRules.ts",
+          "lines": 17
+        },
+        {
+          "name": "legacyTemplates.ts",
+          "lines": 125
+        },
+        {
+          "name": "postArtDirectionGuidelines.ts",
+          "lines": 162
+        },
+        {
+          "name": "postBenefitsResolver.ts",
+          "lines": 79
+        },
+        {
+          "name": "postCreatorLocalStore.ts",
+          "lines": 10
+        },
+        {
+          "name": "postCreatorService.ts",
+          "lines": 148
+        },
+        {
+          "name": "postGenerationGuidelines.ts",
+          "lines": 5
+        },
+        {
+          "name": "postHtmlStyleOptimizer.ts",
+          "lines": 140
+        },
+        {
+          "name": "postImageAssetCodec.ts",
+          "lines": 119
+        },
+        {
+          "name": "postModelAssetResolver.ts",
+          "lines": 168
+        },
+        {
+          "name": "postModelPreviewCache.ts",
+          "lines": 18
+        },
+        {
+          "name": "postModelPreviewGenerator.ts",
+          "lines": 296
+        },
+        {
+          "name": "postModelPromptBuilder.ts",
+          "lines": 126
+        },
+        {
+          "name": "postOfficialAssetConstants.ts",
+          "lines": 128
+        },
+        {
+          "name": "postOfficialAssetResolver.ts",
+          "lines": 186
+        },
+        {
+          "name": "postProduct.ts",
+          "lines": 19
+        },
+        {
+          "name": "postProductImageResolver.ts",
+          "lines": 401
+        },
+        {
+          "name": "postProductImageSelections.ts",
+          "lines": 40
+        },
+        {
+          "name": "postProductImageUrls.ts",
+          "lines": 28
+        },
+        {
+          "name": "postProductLiteralDataResolver.ts",
+          "lines": 78
+        },
+        {
+          "name": "postShareService.ts",
+          "lines": 125
+        },
+        {
+          "name": "postSpecificationBuilder.ts",
+          "lines": 359
+        },
+        {
+          "name": "postSpecificationPromptRenderer.ts",
+          "lines": 275
+        },
+        {
+          "name": "postTemplateDraft.ts",
+          "lines": 24
+        },
+        {
+          "name": "postTemplateMapper.ts",
+          "lines": 82
+        },
+        {
+          "name": "postTemplatePrompt.ts",
+          "lines": 4
+        },
+        {
+          "name": "postTemplateService.ts",
+          "lines": 191
+        },
+        {
+          "name": "postZipPackageService.ts",
+          "lines": 322
+        },
+        {
+          "name": "previewHistory.ts",
+          "lines": 23
+        },
+        {
+          "name": "productPostsService.ts",
+          "lines": 209
+        },
+        {
+          "name": "templateAutosave.ts",
+          "lines": 31
+        },
+        {
+          "name": "templateMetadata.ts",
+          "lines": 17
+        },
+        {
+          "name": "templateService.ts",
+          "lines": 114
+        }
+      ]
+    },
+    {
+      "dir": "erp/src/pages/App/SalesOrder/OrderHistoryList",
+      "count": 33,
+      "files": [
+        {
+          "name": "CancelledOrderBadge.tsx",
+          "lines": 18
+        },
+        {
+          "name": "CancelReturnModal.tsx",
+          "lines": 95
+        },
+        {
+          "name": "CancelSaleModal.tsx",
+          "lines": 87
+        },
+        {
+          "name": "CancelScheduledSaleButton.tsx",
+          "lines": 52
+        },
+        {
+          "name": "DeleteDraftActionButton.tsx",
+          "lines": 33
+        },
+        {
+          "name": "index.tsx",
+          "lines": 299
+        },
+        {
+          "name": "inventoryBadgeContent.ts",
+          "lines": 179
+        },
+        {
+          "name": "InventoryBadgePopover.tsx",
+          "lines": 195
+        },
+        {
+          "name": "InventoryMovementBadge.tsx",
+          "lines": 174
+        },
+        {
+          "name": "MarkFulfilledModal.tsx",
+          "lines": 18
+        },
+        {
+          "name": "OrderAssemblyBadges.tsx",
+          "lines": 41
+        },
+        {
+          "name": "orderBadgeStyles.ts",
+          "lines": 7
+        },
+        {
+          "name": "OrderCustomerSearchBar.tsx",
+          "lines": 45
+        },
+        {
+          "name": "OrderDeliveryPrompt.tsx",
+          "lines": 83
+        },
+        {
+          "name": "OrderHistoryCard.tsx",
+          "lines": 296
+        },
+        {
+          "name": "OrderHistoryRow.tsx",
+          "lines": 259
+        },
+        {
+          "name": "OrderHistoryTable.tsx",
+          "lines": 299
+        },
+        {
+          "name": "orderItemHandlingUtils.ts",
+          "lines": 63
+        },
+        {
+          "name": "OrderMenuActiveActions.tsx",
+          "lines": 120
+        },
+        {
+          "name": "OrderMenuDraftActions.tsx",
+          "lines": 52
+        },
+        {
+          "name": "OrderMenuTrashActions.tsx",
+          "lines": 51
+        },
+        {
+          "name": "OrderOperationalBadges.tsx",
+          "lines": 185
+        },
+        {
+          "name": "OrderOptionsMenu.tsx",
+          "lines": 132
+        },
+        {
+          "name": "OrderPagination.tsx",
+          "lines": 148
+        },
+        {
+          "name": "OrderStatusMenuActions.tsx",
+          "lines": 38
+        },
+        {
+          "name": "PostSaleActionMenuButton.tsx",
+          "lines": 42
+        },
+        {
+          "name": "ReturnConfirmationModal.tsx",
+          "lines": 50
+        },
+        {
+          "name": "ReturnFulfillmentConfirmModal.tsx",
+          "lines": 71
+        },
+        {
+          "name": "StockCheckModal.tsx",
+          "lines": 199
+        },
+        {
+          "name": "UndoFulfillmentModal.tsx",
+          "lines": 53
+        },
+        {
+          "name": "useOrderHistory.ts",
+          "lines": 235
+        },
+        {
+          "name": "useOrderHistoryFilters.ts",
+          "lines": 117
+        },
+        {
+          "name": "useOrderHistoryOperations.ts",
+          "lines": 199
+        }
+      ]
+    },
+    {
+      "dir": "erp/src/pages/App/SalesOrder",
+      "count": 32,
+      "files": [
+        {
+          "name": "AddressVerificationMap.tsx",
+          "lines": 211
+        },
+        {
+          "name": "AssistanceOrderModal.tsx",
+          "lines": 440
+        },
+        {
+          "name": "BudgetDropdown.tsx",
+          "lines": 97
+        },
+        {
+          "name": "CustomerData.tsx",
+          "lines": 232
+        },
+        {
+          "name": "CustomerSearchModal.tsx",
+          "lines": 449
+        },
+        {
+          "name": "EmployeeSearchModal.tsx",
+          "lines": 158
+        },
+        {
+          "name": "FiscalDocumentsPage.tsx",
+          "lines": 509
+        },
+        {
+          "name": "FormFooter.tsx",
+          "lines": 114
+        },
+        {
+          "name": "FormHeader.tsx",
+          "lines": 116
+        },
+        {
+          "name": "index.tsx",
+          "lines": 631
+        },
+        {
+          "name": "ItemMovementChangeConfirmModal.tsx",
+          "lines": 46
+        },
+        {
+          "name": "NewOrderDropdown.tsx",
+          "lines": 99
+        },
+        {
+          "name": "NewSaleOrder.tsx",
+          "lines": 389
+        },
+        {
+          "name": "OrderEditModal.tsx",
+          "lines": 454
+        },
+        {
+          "name": "OrderFilters.tsx",
+          "lines": 307
+        },
+        {
+          "name": "OrderRouteMap.tsx",
+          "lines": 305
+        },
+        {
+          "name": "OrderSelectionModal.tsx",
+          "lines": 124
+        },
+        {
+          "name": "OrderStatusTimeline.tsx",
+          "lines": 121
+        },
+        {
+          "name": "OrderStepper.tsx",
+          "lines": 107
+        },
+        {
+          "name": "PaymentSimulator.tsx",
+          "lines": 102
+        },
+        {
+          "name": "PdvTabs.tsx",
+          "lines": 33
+        },
+        {
+          "name": "ProductReconciliationItems.tsx",
+          "lines": 61
+        },
+        {
+          "name": "ProductSearchModal.tsx",
+          "lines": 204
+        },
+        {
+          "name": "ReturnFormTabs.tsx",
+          "lines": 30
+        },
+        {
+          "name": "ReturnItemsTable.tsx",
+          "lines": 40
+        },
+        {
+          "name": "SalesOrderFormSection.tsx",
+          "lines": 287
+        },
+        {
+          "name": "Seller.tsx",
+          "lines": 49
+        },
+        {
+          "name": "SellerSearchModal.tsx",
+          "lines": 133
+        },
+        {
+          "name": "ShippingData.tsx",
+          "lines": 398
+        },
+        {
+          "name": "ToggleValueTypeBtn.tsx",
+          "lines": 19
+        },
+        {
+          "name": "UnlinkedReturnOrderModal.tsx",
+          "lines": 95
+        },
+        {
+          "name": "useSalesOrderForm.ts",
+          "lines": 478
+        }
+      ]
+    },
+    {
+      "dir": "erp/src/pages/App/Settings/components",
+      "count": 30,
+      "files": [
+        {
+          "name": "AccessManagementSection.tsx",
+          "lines": 261
+        },
+        {
+          "name": "AIPromptsSection.tsx",
+          "lines": 179
+        },
+        {
+          "name": "AiQualityFeedbackSection.tsx",
+          "lines": 266
+        },
+        {
+          "name": "AiUsageDashboardPanel.tsx",
+          "lines": 154
+        },
+        {
+          "name": "AppearanceSection.tsx",
+          "lines": 40
+        },
+        {
+          "name": "AutoScrollSection.tsx",
+          "lines": 81
+        },
+        {
+          "name": "BlingConfigSection.tsx",
+          "lines": 126
+        },
+        {
+          "name": "BusinessRulesSection.tsx",
+          "lines": 86
+        },
+        {
+          "name": "CardFlagSettings.tsx",
+          "lines": 89
+        },
+        {
+          "name": "ChannelDescriptionsSection.tsx",
+          "lines": 134
+        },
+        {
+          "name": "CompanyFiscalDataSection.tsx",
+          "lines": 264
+        },
+        {
+          "name": "CompanySettingsSection.tsx",
+          "lines": 34
+        },
+        {
+          "name": "FiscalSettingsSection.tsx",
+          "lines": 276
+        },
+        {
+          "name": "HandlingSection.tsx",
+          "lines": 233
+        },
+        {
+          "name": "InventoryAutomationSection.tsx",
+          "lines": 146
+        },
+        {
+          "name": "InventoryNotificationsSection.tsx",
+          "lines": 82
+        },
+        {
+          "name": "LogisticsSection.tsx",
+          "lines": 54
+        },
+        {
+          "name": "OrderAutomationSection.tsx",
+          "lines": 239
+        },
+        {
+          "name": "OrderNotificationTestSection.tsx",
+          "lines": 92
+        },
+        {
+          "name": "ProductMaterialsSection.tsx",
+          "lines": 198
+        },
+        {
+          "name": "ReceiptConfigSection.tsx",
+          "lines": 62
+        },
+        {
+          "name": "SaveButton.tsx",
+          "lines": 25
+        },
+        {
+          "name": "ScannerConfigSection.tsx",
+          "lines": 75
+        },
+        {
+          "name": "settingsCategories.ts",
+          "lines": 24
+        },
+        {
+          "name": "SettingsSection.tsx",
+          "lines": 89
+        },
+        {
+          "name": "SettingsSidebar.tsx",
+          "lines": 71
+        },
+        {
+          "name": "StatusLabelsSection.tsx",
+          "lines": 211
+        },
+        {
+          "name": "ValidationConfigSection.tsx",
+          "lines": 159
+        },
+        {
+          "name": "WhatsAppConfigSection.tsx",
+          "lines": 499
+        },
+        {
+          "name": "WhatsAppTemplatesSection.tsx",
+          "lines": 133
+        }
+      ]
+    },
+    {
+      "dir": "erp/src/pages/App/Products/ProductList",
+      "count": 29,
+      "files": [
+        {
+          "name": "ChannelStatusBadges.tsx",
+          "lines": 3
+        },
+        {
+          "name": "getVariationDisplayName.ts",
+          "lines": 2
+        },
+        {
+          "name": "index.tsx",
+          "lines": 287
+        },
+        {
+          "name": "MergeVariationModal.tsx",
+          "lines": 3
+        },
+        {
+          "name": "MoveVariationFamilyModal.tsx",
+          "lines": 3
+        },
+        {
+          "name": "productActivationState.ts",
+          "lines": 46
+        },
+        {
+          "name": "ProductBulkActionsToolbar.tsx",
+          "lines": 3
+        },
+        {
+          "name": "ProductCard.tsx",
+          "lines": 318
+        },
+        {
+          "name": "ProductCardActions.tsx",
+          "lines": 3
+        },
+        {
+          "name": "ProductCardVariationList.tsx",
+          "lines": 3
+        },
+        {
+          "name": "productCatalogState.ts",
+          "lines": 22
+        },
+        {
+          "name": "productListFiltering.ts",
+          "lines": 2
+        },
+        {
+          "name": "productListTransformers.ts",
+          "lines": 2
+        },
+        {
+          "name": "ProductRow.tsx",
+          "lines": 9
+        },
+        {
+          "name": "ProductRowActionsCell.tsx",
+          "lines": 3
+        },
+        {
+          "name": "ProductRowDescriptionCell.tsx",
+          "lines": 3
+        },
+        {
+          "name": "ProductRowModals.tsx",
+          "lines": 3
+        },
+        {
+          "name": "ProductRowStandardCells.tsx",
+          "lines": 2
+        },
+        {
+          "name": "productSelection.ts",
+          "lines": 43
+        },
+        {
+          "name": "ProductTable.tsx",
+          "lines": 307
+        },
+        {
+          "name": "productTableColumns.ts",
+          "lines": 53
+        },
+        {
+          "name": "registeredVariationCount.ts",
+          "lines": 2
+        },
+        {
+          "name": "useProductMetadata.ts",
+          "lines": 2
+        },
+        {
+          "name": "useProducts.ts",
+          "lines": 241
+        },
+        {
+          "name": "useProductsActivationValidation.ts",
+          "lines": 2
+        },
+        {
+          "name": "useProductsActivePersistence.ts",
+          "lines": 2
+        },
+        {
+          "name": "useProductsCatalogActions.ts",
+          "lines": 200
+        },
+        {
+          "name": "useProductsDeletionActions.ts",
+          "lines": 2
+        },
+        {
+          "name": "useVariationExitFlags.ts",
+          "lines": 2
+        }
+      ]
+    },
+    {
+      "dir": "mobile/src/features/finance/components",
+      "count": 29,
+      "files": [
+        {
+          "name": "AssistantEmptyState.tsx",
+          "lines": 239
+        },
+        {
+          "name": "CategorySelectModal.tsx",
+          "lines": 254
+        },
+        {
+          "name": "FinanceExamplesModal.tsx",
+          "lines": 252
+        },
+        {
+          "name": "FinanceTopTabsBar.tsx",
+          "lines": 119
+        },
+        {
+          "name": "FinancialAiChatView.tsx",
+          "lines": 158
+        },
+        {
+          "name": "MonthCarouselSelector.tsx",
+          "lines": 135
+        },
+        {
+          "name": "MonthSummaryCard.tsx",
+          "lines": 172
+        },
+        {
+          "name": "NewTransactionModal.tsx",
+          "lines": 352
+        },
+        {
+          "name": "PayableAccountsView.tsx",
+          "lines": 294
+        },
+        {
+          "name": "PaymentMethodChips.tsx",
+          "lines": 90
+        },
+        {
+          "name": "StructuredConfirmationCard.tsx",
+          "lines": 361
+        },
+        {
+          "name": "TransactionActionsModal.tsx",
+          "lines": 148
+        },
+        {
+          "name": "TransactionCategoryField.tsx",
+          "lines": 190
+        },
+        {
+          "name": "TransactionCollaboratorSelector.tsx",
+          "lines": 78
+        },
+        {
+          "name": "TransactionDatePickerModal.tsx",
+          "lines": 135
+        },
+        {
+          "name": "TransactionDateSelector.tsx",
+          "lines": 121
+        },
+        {
+          "name": "TransactionDetailsModal.tsx",
+          "lines": 362
+        },
+        {
+          "name": "TransactionEditModal.tsx",
+          "lines": 406
+        },
+        {
+          "name": "TransactionFilterBar.tsx",
+          "lines": 168
+        },
+        {
+          "name": "TransactionFilterModal.tsx",
+          "lines": 260
+        },
+        {
+          "name": "TransactionItemCard.tsx",
+          "lines": 184
+        },
+        {
+          "name": "TransactionListGrouped.tsx",
+          "lines": 131
+        },
+        {
+          "name": "transactionModalUtils.ts",
+          "lines": 48
+        },
+        {
+          "name": "TransactionPreviewCard.tsx",
+          "lines": 306
+        },
+        {
+          "name": "TransactionPurposeSelector.tsx",
+          "lines": 80
+        },
+        {
+          "name": "TransactionsTabContent.tsx",
+          "lines": 152
+        },
+        {
+          "name": "TransactionTypeSelector.tsx",
+          "lines": 110
+        },
+        {
+          "name": "TransactionVehicleSelector.tsx",
+          "lines": 72
+        },
+        {
+          "name": "UnselectedTypePrompt.tsx",
+          "lines": 57
+        }
+      ]
+    },
+    {
+      "dir": "erp/src/pages/App/Marketing/Posts",
+      "count": 21,
+      "files": [
+        {
+          "name": "AvatarLibrary.tsx",
+          "lines": 31
+        },
+        {
+          "name": "ElementImageGallery.tsx",
+          "lines": 21
+        },
+        {
+          "name": "FixedAspectImageCropper.tsx",
+          "lines": 139
+        },
+        {
+          "name": "HeaderFooterModelEditor.tsx",
+          "lines": 39
+        },
+        {
+          "name": "ImageGridControls.tsx",
+          "lines": 43
+        },
+        {
+          "name": "index.tsx",
+          "lines": 415
+        },
+        {
+          "name": "installmentBadgeImage.ts",
+          "lines": 13
+        },
+        {
+          "name": "InstallmentByImageGallery.tsx",
+          "lines": 32
+        },
+        {
+          "name": "InstallmentImageEditor.tsx",
+          "lines": 35
+        },
+        {
+          "name": "InstallmentImageGallery.tsx",
+          "lines": 27
+        },
+        {
+          "name": "opportunitySealImage.ts",
+          "lines": 39
+        },
+        {
+          "name": "OpportunitySealImageEditor.tsx",
+          "lines": 37
+        },
+        {
+          "name": "OpportunitySealLibrary.tsx",
+          "lines": 165
+        },
+        {
+          "name": "postImageGrid.ts",
+          "lines": 94
+        },
+        {
+          "name": "PostImageSourcePicker.tsx",
+          "lines": 31
+        },
+        {
+          "name": "postPriceVisibility.ts",
+          "lines": 9
+        },
+        {
+          "name": "textAlignment.ts",
+          "lines": 30
+        },
+        {
+          "name": "TextAlignmentControls.tsx",
+          "lines": 24
+        },
+        {
+          "name": "TextBackgroundControls.tsx",
+          "lines": 54
+        },
+        {
+          "name": "TextColorPicker.tsx",
+          "lines": 61
+        },
+        {
+          "name": "variationGridImages.ts",
+          "lines": 67
+        }
+      ]
+    },
+    {
+      "dir": "erp/src/pages/App/Products/components",
+      "count": 20,
+      "files": [
+        {
+          "name": "AttributeManagementModal.tsx",
+          "lines": 9
+        },
+        {
+          "name": "AttributeSelectionModal.tsx",
+          "lines": 9
+        },
+        {
+          "name": "attributeValueDraft.ts",
+          "lines": 15
+        },
+        {
+          "name": "cartesianGenerator.ts",
+          "lines": 54
+        },
+        {
+          "name": "CartesianVariationModal.tsx",
+          "lines": 4
+        },
+        {
+          "name": "ComboItemSelector.tsx",
+          "lines": 193
+        },
+        {
+          "name": "InitialStockList.tsx",
+          "lines": 186
+        },
+        {
+          "name": "labelPrintSelection.ts",
+          "lines": 80
+        },
+        {
+          "name": "LabelPrintSelectionModal.tsx",
+          "lines": 9
+        },
+        {
+          "name": "ManageAttributesModal.tsx",
+          "lines": 4
+        },
+        {
+          "name": "ProductConversionModal.tsx",
+          "lines": 9
+        },
+        {
+          "name": "ProductFilters.tsx",
+          "lines": 171
+        },
+        {
+          "name": "ProductFormHeader.tsx",
+          "lines": 192
+        },
+        {
+          "name": "ProductMaterialManagementModal.tsx",
+          "lines": 9
+        },
+        {
+          "name": "ProductMigrationModal.tsx",
+          "lines": 9
+        },
+        {
+          "name": "ProductSalesModal.tsx",
+          "lines": 9
+        },
+        {
+          "name": "ProductSaveResultModal.tsx",
+          "lines": 14
+        },
+        {
+          "name": "ProductTypeManagementModal.tsx",
+          "lines": 9
+        },
+        {
+          "name": "VariationParentImagesSelectModal.tsx",
+          "lines": 3
+        },
+        {
+          "name": "VariationRow.tsx",
+          "lines": 137
+        }
+      ]
+    },
+    {
+      "dir": "mobile/src/services",
+      "count": 20,
+      "files": [
+        {
+          "name": "aiSummaryPrompt.ts",
+          "lines": 19
+        },
+        {
+          "name": "aiSummaryService.ts",
+          "lines": 349
+        },
+        {
+          "name": "apiUsageTracker.ts",
+          "lines": 75
+        },
+        {
+          "name": "canonicalSummaryInput.ts",
+          "lines": 221
+        },
+        {
+          "name": "deliveryAudioCacheService.ts",
+          "lines": 219
+        },
+        {
+          "name": "deliverySummaryAudioGenerationService.ts",
+          "lines": 29
+        },
+        {
+          "name": "deliverySummaryService.ts",
+          "lines": 94
+        },
+        {
+          "name": "financialAiAssistantService.ts",
+          "lines": 446
+        },
+        {
+          "name": "geminiAudioService.ts",
+          "lines": 236
+        },
+        {
+          "name": "googleAuth.ts",
+          "lines": 59
+        },
+        {
+          "name": "locationService.ts",
+          "lines": 129
+        },
+        {
+          "name": "logisticsRealtimeService.ts",
+          "lines": 24
+        },
+        {
+          "name": "mobileAuthProfile.ts",
+          "lines": 63
+        },
+        {
+          "name": "mobileFinanceService.ts",
+          "lines": 13
+        },
+        {
+          "name": "navigationVoiceService.ts",
+          "lines": 158
+        },
+        {
+          "name": "notificationService.ts",
+          "lines": 386
+        },
+        {
+          "name": "scheduleEventsService.ts",
+          "lines": 67
+        },
+        {
+          "name": "supabaseClient.ts",
+          "lines": 30
+        },
+        {
+          "name": "teamLocationService.ts",
+          "lines": 162
+        },
+        {
+          "name": "voiceRecorderService.ts",
+          "lines": 181
+        }
+      ]
+    },
+    {
+      "dir": "mobile/src/services/financial",
+      "count": 19,
+      "files": [
+        {
+          "name": "bankKeywords.ts",
+          "lines": 23
+        },
+        {
+          "name": "draftAnalysisChips.ts",
+          "lines": 211
+        },
+        {
+          "name": "financialAssistantTools.ts",
+          "lines": 141
+        },
+        {
+          "name": "financialBatchQueue.ts",
+          "lines": 33
+        },
+        {
+          "name": "financialIntentValidator.ts",
+          "lines": 548
+        },
+        {
+          "name": "financialPaymentMethodDetector.ts",
+          "lines": 16
+        },
+        {
+          "name": "financialPurposeReply.ts",
+          "lines": 44
+        },
+        {
+          "name": "financialSlotFilling.ts",
+          "lines": 594
+        },
+        {
+          "name": "financialTextParser.ts",
+          "lines": 407
+        },
+        {
+          "name": "financialTypes.ts",
+          "lines": 88
+        },
+        {
+          "name": "mobileCategoryService.ts",
+          "lines": 94
+        },
+        {
+          "name": "mobileDraftConfirmationService.ts",
+          "lines": 113
+        },
+        {
+          "name": "mobileFinanceReports.ts",
+          "lines": 172
+        },
+        {
+          "name": "mobileFinanceTypes.ts",
+          "lines": 92
+        },
+        {
+          "name": "mobilePayablesService.ts",
+          "lines": 164
+        },
+        {
+          "name": "mobileTransactionCrudService.ts",
+          "lines": 258
+        },
+        {
+          "name": "multiTurnIntentClassifier.ts",
+          "lines": 299
+        },
+        {
+          "name": "voiceConfig.ts",
+          "lines": 43
+        },
+        {
+          "name": "wordToNumberPtBr.ts",
+          "lines": 195
+        }
+      ]
+    },
+    {
+      "dir": "erp/src/pages/App/Stock/components",
+      "count": 18,
+      "files": [
+        {
+          "name": "InventoryAudit.tsx",
+          "lines": 289
+        },
+        {
+          "name": "InventoryAuditCards.tsx",
+          "lines": 129
+        },
+        {
+          "name": "InventoryAuditDetailsModal.tsx",
+          "lines": 9
+        },
+        {
+          "name": "InventoryAuditModal.tsx",
+          "lines": 3
+        },
+        {
+          "name": "InventoryAuditTable.tsx",
+          "lines": 115
+        },
+        {
+          "name": "InventoryMoveCard.tsx",
+          "lines": 250
+        },
+        {
+          "name": "InventoryMoveDeleteModal.tsx",
+          "lines": 9
+        },
+        {
+          "name": "InventoryMoveEditModal.tsx",
+          "lines": 9
+        },
+        {
+          "name": "InventoryMovesHistory.tsx",
+          "lines": 327
+        },
+        {
+          "name": "InventoryMovesTable.tsx",
+          "lines": 353
+        },
+        {
+          "name": "InventoryResponsibleSelect.tsx",
+          "lines": 46
+        },
+        {
+          "name": "PurchaseEntryLockedModal.tsx",
+          "lines": 9
+        },
+        {
+          "name": "PurchaseStockEntryModal.tsx",
+          "lines": 2
+        },
+        {
+          "name": "SalesWithdrawalLockedModal.tsx",
+          "lines": 9
+        },
+        {
+          "name": "StockLaunchModal.tsx",
+          "lines": 9
+        },
+        {
+          "name": "StockList.tsx",
+          "lines": 221
+        },
+        {
+          "name": "StockReportModal.tsx",
+          "lines": 9
+        },
+        {
+          "name": "useInventoryOrdersLookup.ts",
+          "lines": 9
+        }
+      ]
+    },
+    {
+      "dir": "erp/src/components/shared",
+      "count": 17,
+      "files": [
+        {
+          "name": "AddressAutocompleteInput.tsx",
+          "lines": 229
+        },
+        {
+          "name": "AddressSuggestionsMenu.tsx",
+          "lines": 65
+        },
+        {
+          "name": "AIChatAssistant.tsx",
+          "lines": 671
+        },
+        {
+          "name": "AppDownloadBanner.tsx",
+          "lines": 60
+        },
+        {
+          "name": "AttendanceVoiceInput.tsx",
+          "lines": 197
+        },
+        {
+          "name": "CatalogDigitalIcon.tsx",
+          "lines": 21
+        },
+        {
+          "name": "ComingSoon.tsx",
+          "lines": 18
+        },
+        {
+          "name": "ConfirmModal.tsx",
+          "lines": 114
+        },
+        {
+          "name": "DrillIcon.tsx",
+          "lines": 51
+        },
+        {
+          "name": "DropdownPortal.tsx",
+          "lines": 113
+        },
+        {
+          "name": "ErrorBoundary.tsx",
+          "lines": 57
+        },
+        {
+          "name": "FloatingActionsHub.tsx",
+          "lines": 54
+        },
+        {
+          "name": "GlobalAutoScroll.tsx",
+          "lines": 8
+        },
+        {
+          "name": "NotificationBell.tsx",
+          "lines": 171
+        },
+        {
+          "name": "QRScannerModal.tsx",
+          "lines": 322
+        },
+        {
+          "name": "RealtimeDraftChips.tsx",
+          "lines": 53
+        },
+        {
+          "name": "SendWhatsAppModal.tsx",
+          "lines": 183
+        }
+      ]
+    },
+    {
+      "dir": "erp/src/pages/App/Products/components/tabs",
+      "count": 17,
+      "files": [
+        {
+          "name": "productCategoryEnvironment.ts",
+          "lines": 69
+        },
+        {
+          "name": "ProductEcommerceTab.tsx",
+          "lines": 205
+        },
+        {
+          "name": "productFiscalDefaults.ts",
+          "lines": 24
+        },
+        {
+          "name": "productFiscalOptions.ts",
+          "lines": 76
+        },
+        {
+          "name": "ProductFiscalTab.tsx",
+          "lines": 317
+        },
+        {
+          "name": "ProductGeneralTab.tsx",
+          "lines": 430
+        },
+        {
+          "name": "productImageOrdering.ts",
+          "lines": 27
+        },
+        {
+          "name": "ProductInventoryTab.tsx",
+          "lines": 120
+        },
+        {
+          "name": "ProductPricingFields.tsx",
+          "lines": 111
+        },
+        {
+          "name": "ProductSupplierField.tsx",
+          "lines": 209
+        },
+        {
+          "name": "ProductTechnicalTab.tsx",
+          "lines": 152
+        },
+        {
+          "name": "ProductTitleTab.tsx",
+          "lines": 215
+        },
+        {
+          "name": "ProductVariationsTab.tsx",
+          "lines": 127
+        },
+        {
+          "name": "squareCropCanvasUtils.ts",
+          "lines": 71
+        },
+        {
+          "name": "squareCropSelection.ts",
+          "lines": 49
+        },
+        {
+          "name": "SquareImageCropper.tsx",
+          "lines": 401
+        },
+        {
+          "name": "VariationPhotosTab.tsx",
+          "lines": 143
+        }
+      ]
+    },
+    {
+      "dir": "erp/src/pages/App/Stock/LabelPrinting",
+      "count": 17,
+      "files": [
+        {
+          "name": "FabricLabelEngine.ts",
+          "lines": 302
+        },
+        {
+          "name": "fixedLabelTextSize.ts",
+          "lines": 26
+        },
+        {
+          "name": "Index.tsx",
+          "lines": 2284
+        },
+        {
+          "name": "LabelConstants.ts",
+          "lines": 188
+        },
+        {
+          "name": "LabelGrid.tsx",
+          "lines": 8
+        },
+        {
+          "name": "LabelGridModelModal.tsx",
+          "lines": 8
+        },
+        {
+          "name": "LabelImageModal.tsx",
+          "lines": 8
+        },
+        {
+          "name": "LabelItem.tsx",
+          "lines": 8
+        },
+        {
+          "name": "LabelModelCreationModal.tsx",
+          "lines": 8
+        },
+        {
+          "name": "LabelPhysicalGeometry.ts",
+          "lines": 66
+        },
+        {
+          "name": "LabelQueue.tsx",
+          "lines": 8
+        },
+        {
+          "name": "LabelUtils.ts",
+          "lines": 297
+        },
+        {
+          "name": "PriceLabelArtEditorModal.tsx",
+          "lines": 3216
+        },
+        {
+          "name": "PriceLabelArtRenderer.tsx",
+          "lines": 898
+        },
+        {
+          "name": "priceLabelTemplateSync.ts",
+          "lines": 51
+        },
+        {
+          "name": "useLabelPrintMode.ts",
+          "lines": 21
+        },
+        {
+          "name": "usePriceLabelFonts.ts",
+          "lines": 34
+        }
+      ]
+    },
+    {
+      "dir": "erp/src/pages/App/Stock/Receipts",
+      "count": 17,
+      "files": [
+        {
+          "name": "ConfirmReverseModal.tsx",
+          "lines": 3
+        },
+        {
+          "name": "InboundInvoiceReceiptPickerModal.tsx",
+          "lines": 2
+        },
+        {
+          "name": "InboundNfeItemsSection.tsx",
+          "lines": 3
+        },
+        {
+          "name": "Index.tsx",
+          "lines": 235
+        },
+        {
+          "name": "PurchaseReceiptPickerModal.tsx",
+          "lines": 3
+        },
+        {
+          "name": "ReceiptActionButtons.tsx",
+          "lines": 2
+        },
+        {
+          "name": "ReceiptAIFillModal.tsx",
+          "lines": 3
+        },
+        {
+          "name": "ReceiptCard.tsx",
+          "lines": 3
+        },
+        {
+          "name": "ReceiptDetailsModal.tsx",
+          "lines": 2
+        },
+        {
+          "name": "ReceiptFiscalDocumentsSection.tsx",
+          "lines": 3
+        },
+        {
+          "name": "ReceiptFormModal.tsx",
+          "lines": 2
+        },
+        {
+          "name": "receiptPeriodFilter.types.ts",
+          "lines": 2
+        },
+        {
+          "name": "ReceiptPeriodSelector.tsx",
+          "lines": 2
+        },
+        {
+          "name": "receiptPeriodUtils.ts",
+          "lines": 2
+        },
+        {
+          "name": "ReceiptsHeader.tsx",
+          "lines": 2
+        },
+        {
+          "name": "ReceiptsTable.tsx",
+          "lines": 2
+        },
+        {
+          "name": "useReceipts.ts",
+          "lines": 2
+        }
+      ]
+    },
+    {
+      "dir": "erp/src/pages/App/Dashboard/components",
+      "count": 16,
+      "files": [
+        {
+          "name": "AlertsPanel.tsx",
+          "lines": 186
+        },
+        {
+          "name": "ApiUsageSummaryCard.tsx",
+          "lines": 139
+        },
+        {
+          "name": "AttentionPanel.tsx",
+          "lines": 116
+        },
+        {
+          "name": "DashboardCharts.tsx",
+          "lines": 119
+        },
+        {
+          "name": "DashboardSkeleton.tsx",
+          "lines": 43
+        },
+        {
+          "name": "GeoMapPanel.tsx",
+          "lines": 41
+        },
+        {
+          "name": "KpiRow.tsx",
+          "lines": 118
+        },
+        {
+          "name": "LogisticsPanel.tsx",
+          "lines": 62
+        },
+        {
+          "name": "OperationPanel.tsx",
+          "lines": 71
+        },
+        {
+          "name": "ProductsPanel.tsx",
+          "lines": 114
+        },
+        {
+          "name": "ProfitHeatMap.tsx",
+          "lines": 269
+        },
+        {
+          "name": "QuickActions.tsx",
+          "lines": 40
+        },
+        {
+          "name": "RecentOrders.tsx",
+          "lines": 84
+        },
+        {
+          "name": "RegionalHeatmap.tsx",
+          "lines": 351
+        },
+        {
+          "name": "SalesChart.tsx",
+          "lines": 167
+        },
+        {
+          "name": "StatsCard.tsx",
+          "lines": 31
+        }
+      ]
+    },
+    {
+      "dir": "erp/src/components",
+      "count": 15,
+      "files": [
+        {
+          "name": "CategoryAutocomplete.tsx",
+          "lines": 200
+        },
+        {
+          "name": "CurrencyDisplay.tsx",
+          "lines": 23
+        },
+        {
+          "name": "CurrencyInput.tsx",
+          "lines": 113
+        },
+        {
+          "name": "CurrencyOrPercentInput.tsx",
+          "lines": 116
+        },
+        {
+          "name": "ErrorBoundary.tsx",
+          "lines": 79
+        },
+        {
+          "name": "NoticeInput.tsx",
+          "lines": 188
+        },
+        {
+          "name": "ProductAutocomplete.tsx",
+          "lines": 326
+        },
+        {
+          "name": "productAutocompleteUtils.tsx",
+          "lines": 75
+        },
+        {
+          "name": "PurchaseItemsSection.tsx",
+          "lines": 592
+        },
+        {
+          "name": "SectionCard.tsx",
+          "lines": 41
+        },
+        {
+          "name": "SmartInput.tsx",
+          "lines": 201
+        },
+        {
+          "name": "SupplierAutocomplete.tsx",
+          "lines": 123
+        },
+        {
+          "name": "TagInput.tsx",
+          "lines": 85
+        },
+        {
+          "name": "UnitDisplay.tsx",
+          "lines": 24
+        },
+        {
+          "name": "ValidatedInput.tsx",
+          "lines": 48
+        }
+      ]
+    },
+    {
+      "dir": "erp/src/pages/utils/productService",
+      "count": 15,
+      "files": [
+        {
+          "name": "productAnalyticsQueryService.ts",
+          "lines": 99
+        },
+        {
+          "name": "productDimensionsExtractor.ts",
+          "lines": 71
+        },
+        {
+          "name": "productFilterBuilder.ts",
+          "lines": 125
+        },
+        {
+          "name": "productImageHelpers.ts",
+          "lines": 58
+        },
+        {
+          "name": "productLocalCache.ts",
+          "lines": 58
+        },
+        {
+          "name": "productMaintenanceService.ts",
+          "lines": 101
+        },
+        {
+          "name": "productMapper.ts",
+          "lines": 138
+        },
+        {
+          "name": "productMutationService.ts",
+          "lines": 390
+        },
+        {
+          "name": "productPersistenceService.ts",
+          "lines": 185
+        },
+        {
+          "name": "productQueryService.ts",
+          "lines": 150
+        },
+        {
+          "name": "productSkuService.ts",
+          "lines": 219
+        },
+        {
+          "name": "productToDbMapper.ts",
+          "lines": 137
+        },
+        {
+          "name": "productVariationActionsService.ts",
+          "lines": 140
+        },
+        {
+          "name": "productVariationMapper.ts",
+          "lines": 123
+        },
+        {
+          "name": "productWhatsAppSyncService.ts",
+          "lines": 65
+        }
+      ]
+    },
+    {
+      "dir": "erp/src/pages/types",
+      "count": 14,
+      "files": [
+        {
+          "name": "attendance.type.ts",
+          "lines": 30
+        },
+        {
+          "name": "customerData.type.ts",
+          "lines": 16
+        },
+        {
+          "name": "finance.type.ts",
+          "lines": 73
+        },
+        {
+          "name": "fullAddress.type.ts",
+          "lines": 25
+        },
+        {
+          "name": "inventoryMove.type.ts",
+          "lines": 28
+        },
+        {
+          "name": "items.type.ts",
+          "lines": 46
+        },
+        {
+          "name": "order.type.ts",
+          "lines": 147
+        },
+        {
+          "name": "payments.type.ts",
+          "lines": 21
+        },
+        {
+          "name": "person.type.ts",
+          "lines": 51
+        },
+        {
+          "name": "product.type.ts",
+          "lines": 259
+        },
+        {
+          "name": "purchase.type.ts",
+          "lines": 55
+        },
+        {
+          "name": "service.type.ts",
+          "lines": 21
+        },
+        {
+          "name": "Shipping.type.ts",
+          "lines": 31
+        },
+        {
+          "name": "variation.type.ts",
+          "lines": 24
+        }
+      ]
+    },
+    {
+      "dir": "erp/src/pages/utils/inboundNfe",
+      "count": 14,
+      "files": [
+        {
+          "name": "additionalCosts.ts",
+          "lines": 120
+        },
+        {
+          "name": "fastNfeKeyExtractor.ts",
+          "lines": 42
+        },
+        {
+          "name": "inboundDocumentImportService.ts",
+          "lines": 57
+        },
+        {
+          "name": "inboundInvoicesService.ts",
+          "lines": 728
+        },
+        {
+          "name": "inboundItemCosts.ts",
+          "lines": 46
+        },
+        {
+          "name": "inboundMatchingRules.ts",
+          "lines": 126
+        },
+        {
+          "name": "inboundNfeTypes.ts",
+          "lines": 98
+        },
+        {
+          "name": "inboundProductClassification.ts",
+          "lines": 43
+        },
+        {
+          "name": "inboundSuggestionInstructions.ts",
+          "lines": 3
+        },
+        {
+          "name": "inboundSupplierProductContext.ts",
+          "lines": 103
+        },
+        {
+          "name": "inboundVariationResolution.ts",
+          "lines": 40
+        },
+        {
+          "name": "inboundXmlParser.ts",
+          "lines": 170
+        },
+        {
+          "name": "productResolutionFeedbackService.ts",
+          "lines": 105
+        },
+        {
+          "name": "rankInboundSuggestionCandidates.ts",
+          "lines": 18
+        }
+      ]
+    },
+    {
+      "dir": "erp/src/pages/App/Products/components/modals",
+      "count": 13,
+      "files": [
+        {
+          "name": "AttributeManagementModal.tsx",
+          "lines": 65
+        },
+        {
+          "name": "AttributeSelectionModal.tsx",
+          "lines": 212
+        },
+        {
+          "name": "CartesianVariationModal.tsx",
+          "lines": 283
+        },
+        {
+          "name": "CategorySearchModal.tsx",
+          "lines": 141
+        },
+        {
+          "name": "LabelPrintSelectionModal.tsx",
+          "lines": 405
+        },
+        {
+          "name": "ManageAttributesModal.tsx",
+          "lines": 373
+        },
+        {
+          "name": "ProductConversionModal.tsx",
+          "lines": 156
+        },
+        {
+          "name": "ProductMaterialManagementModal.tsx",
+          "lines": 235
+        },
+        {
+          "name": "ProductMigrationModal.tsx",
+          "lines": 211
+        },
+        {
+          "name": "ProductSalesModal.tsx",
+          "lines": 300
+        },
+        {
+          "name": "ProductSaveResultModal.tsx",
+          "lines": 371
+        },
+        {
+          "name": "ProductTypeManagementModal.tsx",
+          "lines": 211
+        },
+        {
+          "name": "VariationParentImagesSelectModal.tsx",
+          "lines": 214
+        }
+      ]
+    },
+    {
+      "dir": "erp/src/pages/App/Products",
+      "count": 13,
+      "files": [
+        {
+          "name": "CategorySearchModal.tsx",
+          "lines": 3
+        },
+        {
+          "name": "Index.tsx",
+          "lines": 416
+        },
+        {
+          "name": "priceHistory.types.ts",
+          "lines": 25
+        },
+        {
+          "name": "priceHistoryBalance.ts",
+          "lines": 36
+        },
+        {
+          "name": "PriceHistoryModal.tsx",
+          "lines": 3
+        },
+        {
+          "name": "priceHistoryService.ts",
+          "lines": 80
+        },
+        {
+          "name": "productEnvironmentOptions.ts",
+          "lines": 15
+        },
+        {
+          "name": "ProductFilters.tsx",
+          "lines": 4
+        },
+        {
+          "name": "productFormInitialData.ts",
+          "lines": 50
+        },
+        {
+          "name": "ProductFormModal.tsx",
+          "lines": 7
+        },
+        {
+          "name": "productLegibilityRules.ts",
+          "lines": 160
+        },
+        {
+          "name": "VariationFormModal.tsx",
+          "lines": 3
+        },
+        {
+          "name": "WhatsAppMarketplace.tsx",
+          "lines": 248
+        }
+      ]
+    },
+    {
+      "dir": "erp/src/pages/App/Marketing/Posts/components",
+      "count": 12,
+      "files": [
+        {
+          "name": "CampaignElementsPanel.tsx",
+          "lines": 213
+        },
+        {
+          "name": "CampaignManagerModal.tsx",
+          "lines": 18
+        },
+        {
+          "name": "DeleteTemplateModal.tsx",
+          "lines": 105
+        },
+        {
+          "name": "ElementModelDetailsModal.tsx",
+          "lines": 20
+        },
+        {
+          "name": "GeneralCampaignRules.tsx",
+          "lines": 36
+        },
+        {
+          "name": "GenerationContextModal.tsx",
+          "lines": 158
+        },
+        {
+          "name": "ModelFormModal.tsx",
+          "lines": 456
+        },
+        {
+          "name": "PostCreatorModelModal.tsx",
+          "lines": 23
+        },
+        {
+          "name": "PostCreatorPreview.tsx",
+          "lines": 10
+        },
+        {
+          "name": "PreviewHistory.tsx",
+          "lines": 36
+        },
+        {
+          "name": "PreviewProductPicker.tsx",
+          "lines": 13
+        },
+        {
+          "name": "TemplateGrid.tsx",
+          "lines": 83
+        }
+      ]
+    },
+    {
+      "dir": "erp/src/pages/App/Stock/InboundInvoices/components",
+      "count": 12,
+      "files": [
+        {
+          "name": "GeminiQuotaWarningBanner.tsx",
+          "lines": 68
+        },
+        {
+          "name": "InboundAdditionalCostsSection.tsx",
+          "lines": 102
+        },
+        {
+          "name": "InboundAiExistingVariationModal.tsx",
+          "lines": 3
+        },
+        {
+          "name": "InboundAiNewVariationModal.tsx",
+          "lines": 2
+        },
+        {
+          "name": "InboundInvoiceFiscalReview.tsx",
+          "lines": 78
+        },
+        {
+          "name": "InboundInvoiceItemCard.tsx",
+          "lines": 153
+        },
+        {
+          "name": "InboundInvoiceItemFiscalReview.tsx",
+          "lines": 58
+        },
+        {
+          "name": "InboundInvoiceItemsReview.tsx",
+          "lines": 643
+        },
+        {
+          "name": "InboundInvoicesHeader.tsx",
+          "lines": 172
+        },
+        {
+          "name": "InboundInvoicesPagination.tsx",
+          "lines": 158
+        },
+        {
+          "name": "InboundInvoicesTable.tsx",
+          "lines": 272
+        },
+        {
+          "name": "QuickRegisterVariationModal.tsx",
+          "lines": 3
+        }
+      ]
+    },
+    {
+      "dir": "erp/src/pages/App/Marketing/Posts/components/Editor",
+      "count": 11,
+      "files": [
+        {
+          "name": "ElementModelsPanel.tsx",
+          "lines": 78
+        },
+        {
+          "name": "FittedLayerText.tsx",
+          "lines": 38
+        },
+        {
+          "name": "LayerControlPanel.tsx",
+          "lines": 88
+        },
+        {
+          "name": "ModelProductPicker.tsx",
+          "lines": 36
+        },
+        {
+          "name": "PaymentBrands.tsx",
+          "lines": 10
+        },
+        {
+          "name": "PostCanvas.tsx",
+          "lines": 73
+        },
+        {
+          "name": "ProductPostControls.tsx",
+          "lines": 32
+        },
+        {
+          "name": "TemplateSelector.tsx",
+          "lines": 41
+        },
+        {
+          "name": "usePostEditor.ts",
+          "lines": 109
+        },
+        {
+          "name": "useTemplateWorkspace.ts",
+          "lines": 81
+        },
+        {
+          "name": "VariationGalleryView.tsx",
+          "lines": 54
+        }
+      ]
+    },
+    {
+      "dir": "erp/src/pages/App/Registrations/shared",
+      "count": 10,
+      "files": [
+        {
+          "name": "PersonCard.tsx",
+          "lines": 435
+        },
+        {
+          "name": "PersonFilters.tsx",
+          "lines": 95
+        },
+        {
+          "name": "PersonFormModal.tsx",
+          "lines": 182
+        },
+        {
+          "name": "PersonImportModal.tsx",
+          "lines": 420
+        },
+        {
+          "name": "PersonList.tsx",
+          "lines": 353
+        },
+        {
+          "name": "PersonPage.tsx",
+          "lines": 421
+        },
+        {
+          "name": "PersonPurchaseHistoryModal.tsx",
+          "lines": 175
+        },
+        {
+          "name": "PersonRow.tsx",
+          "lines": 344
+        },
+        {
+          "name": "PersonTable.tsx",
+          "lines": 317
+        },
+        {
+          "name": "usePeople.ts",
+          "lines": 218
+        }
+      ]
+    },
+    {
+      "dir": "erp/src/pages/App/Stock/InboundInvoices/modals",
+      "count": 10,
+      "files": [
+        {
+          "name": "InboundAccessKeyModal.tsx",
+          "lines": 120
+        },
+        {
+          "name": "InboundAiExistingVariationModal.tsx",
+          "lines": 115
+        },
+        {
+          "name": "InboundAiNewVariationModal.tsx",
+          "lines": 125
+        },
+        {
+          "name": "InboundDocumentImportModal.tsx",
+          "lines": 473
+        },
+        {
+          "name": "InboundDuplicateKeyAlertModal.tsx",
+          "lines": 111
+        },
+        {
+          "name": "InboundInvoiceDetailsModal.tsx",
+          "lines": 144
+        },
+        {
+          "name": "InboundPostImportActionModal.tsx",
+          "lines": 103
+        },
+        {
+          "name": "InboundXmlImportModal.tsx",
+          "lines": 173
+        },
+        {
+          "name": "ManageInboundInvoiceMappingsModal.tsx",
+          "lines": 278
+        },
+        {
+          "name": "QuickRegisterVariationModal.tsx",
+          "lines": 191
+        }
+      ]
+    },
+    {
+      "dir": "erp/src/pages/App/Stock/Receipts/components",
+      "count": 10,
+      "files": [
+        {
+          "name": "InboundNfeItemsSection.tsx",
+          "lines": 283
+        },
+        {
+          "name": "ReceiptActionButtons.tsx",
+          "lines": 120
+        },
+        {
+          "name": "receiptBadgeContent.ts",
+          "lines": 126
+        },
+        {
+          "name": "ReceiptCard.tsx",
+          "lines": 224
+        },
+        {
+          "name": "ReceiptFiscalDocumentsSection.tsx",
+          "lines": 166
+        },
+        {
+          "name": "ReceiptMovementBadge.tsx",
+          "lines": 141
+        },
+        {
+          "name": "ReceiptMovementBadgePopover.tsx",
+          "lines": 128
+        },
+        {
+          "name": "ReceiptPeriodSelector.tsx",
+          "lines": 72
+        },
+        {
+          "name": "ReceiptsHeader.tsx",
+          "lines": 89
+        },
+        {
+          "name": "ReceiptsTable.tsx",
+          "lines": 209
+        }
+      ]
+    },
+    {
+      "dir": "mobile/src/features/logistics/components/deliveryMap",
+      "count": 10,
+      "files": [
+        {
+          "name": "DeliveryBottomSheet.tsx",
+          "lines": 491
+        },
+        {
+          "name": "DeliveryMapView.tsx",
+          "lines": 226
+        },
+        {
+          "name": "DeliveryMapView.web.tsx",
+          "lines": 427
+        },
+        {
+          "name": "DeliveryMarker.tsx",
+          "lines": 383
+        },
+        {
+          "name": "googleMapsMarkerIcons.ts",
+          "lines": 67
+        },
+        {
+          "name": "googleMapsScriptLoader.ts",
+          "lines": 42
+        },
+        {
+          "name": "MapErrorBoundary.tsx",
+          "lines": 124
+        },
+        {
+          "name": "NextDeliveryCard.tsx",
+          "lines": 449
+        },
+        {
+          "name": "RouteOptimizationModal.tsx",
+          "lines": 317
+        },
+        {
+          "name": "RouteProgressHeader.tsx",
+          "lines": 136
+        }
+      ]
+    }
+  ]
+}

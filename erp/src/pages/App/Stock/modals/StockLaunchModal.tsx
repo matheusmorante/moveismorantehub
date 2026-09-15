@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { PackageMinus, PackagePlus, Scale } from 'lucide-react';
 import Product, { Variation } from '../../../types/product.type';
 import { saveInventoryMove, subscribeToInventoryMoves } from '@/pages/utils/inventoryService';
 import { toast } from 'react-toastify';
@@ -239,14 +240,11 @@ export const StockLaunchModal: React.FC<StockLaunchModalProps> = ({
                                 }`}
                             >
                                 {t === 'entry' ? (
-                                    <i className="bi bi-box-arrow-up text-lg" aria-hidden="true" />
+                                    <PackagePlus className="h-6 w-6" aria-hidden="true" />
                                 ) : t === 'exit' ? (
-                                    <i className="bi bi-box-arrow-down text-lg" aria-hidden="true" />
+                                    <PackageMinus className="h-6 w-6" aria-hidden="true" />
                                 ) : (
-                                    <span className="inline-flex items-center gap-1 text-lg">
-                                        <i className="bi bi-box-seam" aria-hidden="true" />
-                                        <i className="bi bi-wrench text-xs" aria-hidden="true" />
-                                    </span>
+                                    <Scale className="h-6 w-6" aria-hidden="true" />
                                 )}
                                 <span className="text-[9px] font-black uppercase tracking-widest">
                                     {t === 'entry' ? 'Entrada' : t === 'exit' ? 'Saída' : 'Ajuste'}

@@ -23,10 +23,14 @@ erDiagram
     orders {
         uuid id PK
         string order_number
+        integer order_index
+        string order_type
         string status
         uuid customer_id FK
         string customer_name
         decimal total_amount
+        decimal returned_total_amount
+        decimal original_sold_total
         jsonb order_data
         timestamp created_at
         timestamp updated_at
@@ -62,6 +66,8 @@ erDiagram
         string type
         decimal quantity
         decimal unit_cost
+        string status
+        string reversal_reason
         string related_entity_type
         uuid related_entity_id
         timestamp date
@@ -79,11 +85,11 @@ erDiagram
 
     goods_receipts {
         uuid id PK
-        string receipt_number
+        integer receipt_index
         uuid supplier_id FK
         string status
-        decimal total_cost
-        jsonb receipt_data
+        decimal total_value
+        timestamp received_at
         timestamp date
     }
 ```

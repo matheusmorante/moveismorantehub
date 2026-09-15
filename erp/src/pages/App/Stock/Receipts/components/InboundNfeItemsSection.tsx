@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import ProductAutocomplete from '@/components/ProductAutocomplete';
+import CurrencyInput from '@/components/CurrencyInput';
 import type Product from '@/pages/types/product.type';
 import type { Variation } from '@/pages/types/product.type';
 import type { InboundInvoiceItem } from '@/pages/utils/inboundNfe/inboundNfeTypes';
@@ -179,13 +180,12 @@ export function InboundNfeItemsSection({
                                 <label className="flex-1 min-w-fit flex flex-col gap-1 text-[10px] font-black uppercase tracking-widest text-slate-400">
                                     <span className="whitespace-nowrap">Custo unitário</span>
                                     <span className="text-[9px] font-medium tracking-normal text-slate-400 whitespace-nowrap">Base</span>
-                                    <input
-                                        type="number"
-                                        min="0"
-                                        step="0.01"
-                                        value={item.unitCost}
-                                        onChange={(event) => onChange(item.itemNumber, { unitCost: Math.max(0, Number(event.target.value)) })}
-                                        className="w-full min-w-[70px] bg-white dark:bg-slate-900 border-0 border-b-2 border-slate-200 dark:border-slate-700 focus:border-blue-600 dark:focus:border-blue-500 outline-none px-2 py-1 text-sm font-bold text-slate-800 dark:text-slate-100 rounded-none transition-colors"
+                                    <CurrencyInput
+                                        showBadge={false}
+                                        prefix="R$ "
+                                        value={item.unitCost || 0}
+                                        onChange={(val) => onChange(item.itemNumber, { unitCost: Math.max(0, val) })}
+                                        className="w-full min-w-[85px] bg-white dark:bg-slate-900 border-0 border-b-2 border-slate-200 dark:border-slate-700 focus:border-blue-600 dark:focus:border-blue-500 outline-none px-2 py-1 text-sm font-bold text-slate-800 dark:text-slate-100 rounded-none transition-colors text-right"
                                     />
                                 </label>
 

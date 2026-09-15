@@ -183,4 +183,25 @@ describe('orderSnapshotResolution', () => {
         expect(payload.total_amount).toBe(2999);
         expect(payload.order_data).toEqual(order);
     });
+
+    it('buildOrderPersistencePayload sincroniza colunas de devolução (returned_total_amount, original_sold_total, return_kind)', () => {
+        const returnOrder: Order = {
+            id: 'return-789',
+            orderType: 'return',
+            orderIndex: 2547,
+            status: 'fulfilled',
+            returnedTotalAmount: 450.50,
+            originalSoldTotal: 500.00,
+            returnKind: 'partial',
+            items: [],
+            payments: [],
+            shipping: { deliveryMethod: 'pickup', value: 0, orderType: 'Standard' }
+        } as any;
+
+        const payload = buildOrderPersistencePayload(returnOrder);
+
+        expect(payload.returned_total_amount).toBe(450.50);
+        expect(payload.original_sold_total).toBe(500.00);
+        expect(payload.return_kind).toBe('partial');
+    });
 });

@@ -1,41 +1,31 @@
 # Devoluções Vinculadas e Livres — Morante Hub
 
-Este documento define as regras operacionais, movimentação de estoque, reuso de CMV e regras financeiras aplicadas a devoluções de mercadorias no Morante Hub.
+Uma devolução é um novo pedido com `orderType: return`; ela não altera nem apaga a venda que a originou. O pedido guarda o vínculo (`linkedOrderId`), o tipo (`complete` ou `partial`) e dois snapshots financeiros: `originalSoldTotal` e `returnedTotalAmount`.
 
----
+## Criação e efeito de estoque
 
-## 🔄 Tipos de Devolução
+| Origem | Estado inicial | Custo de entrada | Estoque |
+| --- | --- | --- | --- |
+| Devolução vinculada com coleta | `scheduled` | CMV materializado da venda | entrada imediata |
+| Devolução vinculada entregue na loja | `fulfilled` | CMV materializado da venda | entrada imediata |
+| Devolução sem venda vinculada | `scheduled` | custo registrado no item devolvido | entrada quando houver item de catálogo |
 
-### 1. Devolução Vinculada a Pedido Original (`orderType: 'return'`, `linkedOrderId` presente)
-- Ocorre quando o cliente devolve itens de uma venda previamente cadastrada no ERP.
-- **Regra de CMV/Custo**: A entrada de estoque utiliza **exatamente o mesmo CMV unitário materializado na saída da venda original**. Isso garante perfeita neutralização contábil da margem de lucro.
-- **Entrada Imediata de Estoque**: A devolução cadastrada (seja agendada ou atendida) gera **entrada imediata no estoque no momento do cadastro**.
-- **Ocultação de Montagens**: Em devoluções (`is_return: true`), os selos de montagem (`Drill`) **não são exibidos**, pois devoluções não geram nova ordem de montagem.
-
-### 2. Devolução Livre / Não Vinculada (`UnlinkedReturnOrderModal`)
-- Ocorre quando um cliente devolve um produto sem a localização prévia do pedido original no sistema.
-- **Regra de Custo**: Utiliza o **CMPM vigente** da variação no momento da devolução.
-
----
-
-## 🔁 Fluxo de Entrada de Estoque em Devolução
+A entrada é uma `inventory_move` `entry`, vinculada ao pedido de devolução e criada para item de catálogo não temporário. Sua data é a data de cadastro da devolução. A devolução vinculada preserva o valor originalmente vendido e permite que o valor efetivamente devolvido seja diferente.
 
 ```mermaid
 flowchart TD
-    A[Cadastrar Devolução] --> B{Possui Pedido Vinculado?}
-    B -- Sim --> C[Busca CMV Unitário Materializado na Venda Original]
-    B -- Não --> D[Busca CMPM Atual da Variação]
-    C --> E[Gera inventory_move tipo return_entry]
-    D --> E[Gera inventory_move tipo return_entry]
-    E --> F[Incrementa Saldo em Estoque Imediatamente]
-    F --> G[Gera Crédito Financeiro ou Estorno em Contas a Receber/Pagar]
+  A[Criar devolução] --> B{Venda vinculada?}
+  B -->|Sim| C[Copiar itens e CMV histórico]
+  B -->|Não| D[Registrar itens e custo informado]
+  C --> E[Salvar pedido de devolução]
+  D --> E
+  E --> F[Criar entradas effective]
+  F --> G[Atualizar saldo e vínculo da venda quando existir]
 ```
 
----
+## Implementação
 
-## 🔗 Mapeamento em Código e Testes
-
-- **Regras de Estoque e Custo**: `[returnInventoryRules.ts](file:///c:/Users/mathe/OneDrive/%C3%81rea%20de%20Trabalho/projetos/morantehub/erp/src/pages/utils/returnInventoryRules.ts)`
-- **Processamento de Entradas**: `[returnInventoryService.ts](file:///c:/Users/mathe/OneDrive/%C3%81rea%20de%20Trabalho/projetos/morantehub/erp/src/pages/utils/returnInventoryService.ts)` → `processReturnInventoryEntries()`
-- **Modais**: `[ReturnOrderModal.tsx](file:///c:/Users/mathe/OneDrive/%C3%81rea%20de%20Trabalho/projetos/morantehub/erp/src/pages/App/SalesOrder/OrderActions/ReturnOrderModal.tsx)` e `[UnlinkedReturnOrderModal.tsx](file:///c:/Users/mathe/OneDrive/%C3%81rea%20de%20Trabalho/projetos/morantehub/erp/src/pages/App/SalesOrder/UnlinkedReturnOrderModal.tsx)`
-- **Testes de Proteção**: `[latestRulesBattery.test.ts](file:///c:/Users/mathe/OneDrive/%C3%81rea%20de%20Trabalho/projetos/morantehub/erp/src/pages/utils/latestRulesBattery.test.ts)`
+- [Criação vinculada](../../../erp/src/pages/App/SalesOrder/OrderActions/ReturnOrderModal.tsx)
+- [Criação sem vínculo](../../../erp/src/pages/App/SalesOrder/UnlinkedReturnOrderModal.tsx)
+- [Entrada de estoque](../../../erp/src/pages/utils/returnInventoryService.ts)
+- [Regras de entrada](../../../erp/src/pages/utils/returnInventoryRules.ts)

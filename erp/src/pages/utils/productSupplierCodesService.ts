@@ -1,4 +1,5 @@
 import { supabase } from './supabaseConfig';
+import { isValidUuid } from './uuidUtils';
 
 export type ProductSupplierCode = {
     productId: string;
@@ -11,27 +12,6 @@ export type ProductSupplierCode = {
 };
 
 const normalizeSupplierProductCode = (value: string) => value.trim().toLocaleUpperCase('pt-BR');
-const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-
-/** Resolve a chave visual produto_SKU para a identidade UUID exigida pelo banco. */
-const resolveVariationUuid = async (productId: string, variationId?: string | null): Promise<string | null> => {
-    if (!variationId) return null;
-    if (UUID_PATTERN.test(variationId)) return variationId;
-
-    const compositePrefix = `${productId}_`;
-    if (!variationId.startsWith(compositePrefix)) return null;
-
-    const sku = variationId.slice(compositePrefix.length);
-    const { data, error } = await supabase
-        .from('product_variations')
-        .select('id')
-        .eq('product_id', productId)
-        .eq('sku', sku)
-        .maybeSingle();
-    if (error) throw error;
-
-    return data?.id || null;
-};
 
 export const findProductSupplierCodes = async (supplierId: string, supplierCodes: string[]) => {
     const codes = [...new Set(supplierCodes.map(normalizeSupplierProductCode).filter(Boolean))];
@@ -50,7 +30,9 @@ export const findProductSupplierCodes = async (supplierId: string, supplierCodes
     // novos recebimentos e movimentações, porém, usamos a canônica quando a
     // original já foi mesclada. Assim o histórico não é reescrito.
     const resolvedRows = await Promise.all((data || []).map(async (row) => {
-        let productVariationId = await resolveVariationUuid(row.product_id, row.product_variation_id);
+        let productVariationId = (row.product_variation_id && isValidUuid(row.product_variation_id))
+            ? row.product_variation_id
+            : undefined;
 
         if (productVariationId) {
             const { data: canonicalVariationId, error: resolutionError } = await supabase.rpc(
@@ -95,7 +77,9 @@ export const saveProductSupplierCode = async (reference: ProductSupplierCode): P
     if (!reference.supplierId || !reference.productId || !reference.supplierProductCode.trim()) return;
 
     let productId = reference.productId;
-    let productVariationId = await resolveVariationUuid(reference.productId, reference.productVariationId);
+    let productVariationId = (reference.productVariationId && isValidUuid(reference.productVariationId))
+        ? reference.productVariationId
+        : null;
 
     if (productVariationId) {
         const { data: canonicalVariationId, error: resolutionError } = await supabase.rpc(
@@ -139,7 +123,7 @@ export const fetchSupplierCodesForProduct = async (
         .eq('product_id', productId)
         .eq('is_active', true);
 
-    if (productVariationId) {
+    if (productVariationId && isValidUuid(productVariationId)) {
         query = query.eq('product_variation_id', productVariationId);
     }
 

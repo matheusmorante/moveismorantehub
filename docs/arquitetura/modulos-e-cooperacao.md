@@ -66,6 +66,7 @@ flowchart LR
 | **Vendas** | **Estoque** | Escreve / Movimenta | Lança saída de estoque (`inventory_moves`) usando CMPM atual |
 | **Vendas** | **Financeiro** | Escreve / Registra | Lança títulos a receber em `orders.payment_methods` e apura margem comercial |
 | **Vendas** | **Operação** | Dispara Evento | Inclui agendamento na agenda de entregas e sincroniza App Mobile |
+| **Pedidos de Compra** | **Recebimentos** | Lê / Pré-preenche | Fornece fornecedor e itens planejados; não movimenta estoque |
 | **Recebimentos** | **Estoque** | Escreve / Recalcula | Incrementa saldo físico e recalcula CMPM da variação |
 | **Recebimentos** | **Financeiro** | Escreve | Lança obrigações a pagar ao fornecedor |
 | **NF-e Entrada** | **Produtos** | Lê / Vincula | Mapeia `product_supplier_codes` entre fornecedor e variação ERP |
@@ -92,7 +93,7 @@ sequenceDiagram
     Service->>DB: INSERT INTO orders (order_data, customer_id, ...)
     DB-->>Service: OK (id, order_number)
     Service->>Inventory: handleStockAndBusinessRules(rowId, order)
-    Inventory->>DB: INSERT INTO inventory_moves (EXIT, unit_cost=CMPM)
+    Inventory->>DB: INSERT INTO inventory_moves (exit, unit_cost=CMPM, status=effective)
     DB-->>Inventory: Confirmação
     DB-->>Realtime: Dispara Webhook / Evento Realtime
     Realtime-->>Mobile: Notificação Push / Atualização de Agendamento

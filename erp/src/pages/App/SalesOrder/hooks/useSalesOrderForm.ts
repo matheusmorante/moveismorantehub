@@ -1,0 +1,477 @@
+import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import Order, { AssistanceItem } from "@/pages/types/order.type";
+import Item from "@/pages/types/items.type";
+import useItems from './useItems';
+import useShipping from './useShipping';
+import usePaymentsData from './usePayments';
+import { useCustomerData } from './useCustomerData';
+import { calcPaymentsSummary, calcItemsSummary } from "@/pages/utils/calculations";
+import { toast } from "react-toastify";
+import { saveOrder, resolveCompletedOrderStatus } from "@/pages/utils/orderHistoryService";
+import { validateBase, validateOrder, ValidationErrors } from "@/pages/utils/validations";
+import Shipping from "@/pages/types/Shipping.type";
+import CustomerData from "@/pages/types/customerData.type";
+import { migrateOrderHandlings } from '@/pages/utils/handlingMigration';
+import { getOrderIndex } from "@/pages/utils/orderCode";
+import { getCurrentDatetimeLocal, formatToStorageDate, parseStorageDateToLocal } from './orderDateFormatting';
+import { useOrderCodeGenerator } from './useOrderCodeGenerator';
+import { useOrderDistanceCalculator } from './useOrderDistanceCalculator';
+import { useOrderProductSelection } from './useOrderProductSelection';
+import { useOrderAutoSave } from './useOrderAutoSave';
+
+export { parseStorageDateToLocal };
+
+export const useSalesOrderForm = (initialDeliveryMethod?: 'delivery' | 'pickup', initialOrderType: Order['orderType'] = 'sale') => {
+    const { items, setItems } = useItems();
+    const { shipping, setShipping } = useShipping(initialDeliveryMethod);
+    const { payments, setPayments } = usePaymentsData();
+    const { customerData, setCustomerData } = useCustomerData();
+    
+    const [observation, setObservation] = useState("");
+    const [seller, setSeller] = useState("");
+    const [sellerId, setSellerId] = useState<string | undefined>(undefined);
+    const [marketingOrigin, setMarketingOrigin] = useState("organic");
+    const [orderDate, setOrderDate] = useState(() => getCurrentDatetimeLocal());
+    const [currentOrderId, setCurrentOrderId] = useState<string | undefined>(undefined);
+    const [status, setStatus] = useState<string>('draft');
+    const [isSaving, setIsSaving] = useState(false);
+    const [errors, setErrors] = useState<ValidationErrors>({});
+    const [orderType, setOrderType] = useState<Order['orderType']>(initialOrderType);
+    const [assistanceItems, setAssistanceItems] = useState<AssistanceItem[]>([]);
+    const [assistanceServiceValue, setAssistanceServiceValue] = useState(0);
+    const [assistanceCost, setAssistanceCost] = useState(0);
+    const [linkedOrderId, setLinkedOrderId] = useState("");
+    const [isButtonsClicked, setIsButtonsClicked] = useState<Order['isButtonsClicked']>(undefined);
+    const [currentStep, setCurrentStep] = useState(1);
+
+    // Estado React só é refletido após o próximo render. Esta trava síncrona
+    // protege o intervalo entre o clique e a confirmação do insert no banco.
+    const submissionInFlightRef = useRef(false);
+
+    const prevDeliveryMethodRef = useRef(shipping.deliveryMethod);
+
+    const itemsSummary = calcItemsSummary(items);
+    const paymentsSummary = calcPaymentsSummary(payments, itemsSummary, shipping.value);
+
+    // Stable state ref for callbacks and async operations
+    const latestState = useRef<any>({});
+    useEffect(() => {
+        latestState.current = {
+            currentOrderId, orderIndex: null, isGeneratingCode: false, status, items, itemsSummary, shipping, payments, paymentsSummary, customerData, observation, seller, sellerId, marketingOrigin, orderDate, isSaving, isSavingDraft: false,
+            orderType, assistanceItems, assistanceServiceValue, assistanceCost, linkedOrderId, isButtonsClicked, currentStep
+        };
+    });
+
+    // Sub-hooks modularizados
+    const {
+        orderIndex,
+        setOrderIndex,
+        isGeneratingCode,
+        generateCodeForCopyOrNew,
+        ensureOrderCode,
+    } = useOrderCodeGenerator(currentOrderId, latestState);
+
+    const {
+        isCalculatingDistance,
+        handleAutoCalculateDistance,
+    } = useOrderDistanceCalculator(shipping, customerData, setShipping);
+
+    const {
+        handleSelectProduct,
+        handleItemChange,
+    } = useOrderProductSelection(items, setItems);
+
+    const getOrderData = useCallback((newStatus?: 'draft' | 'scheduled' | 'fulfilled' | 'cancelled'): Order => {
+        const s = latestState.current;
+        const currentItemsSummary = calcItemsSummary(s.items);
+        const firstHandling = (s.items || []).find((i: any) => i.handlingType?.trim())?.handlingType || '';
+
+        return {
+            id: s.currentOrderId,
+            orderIndex: orderIndex || s.orderIndex || undefined,
+            orderNumber: orderIndex || s.orderIndex || undefined,
+            orderType: s.orderType,
+            status: newStatus || s.status,
+            items: s.items,
+            itemsSummary: currentItemsSummary,
+            shipping: {
+                ...s.shipping,
+                orderType: firstHandling || s.shipping?.orderType || ''
+            },
+            payments: s.payments,
+            paymentsSummary: s.paymentsSummary,
+            customerData: s.customerData,
+            observation: s.observation,
+            seller: s.seller,
+            sellerId: s.sellerId,
+            marketingOrigin: s.marketingOrigin,
+            date: formatToStorageDate(s.orderDate),
+            assistanceItems: s.assistanceItems,
+            assistanceServiceValue: s.assistanceServiceValue,
+            assistanceCost: s.assistanceCost,
+            linkedOrderId: s.linkedOrderId || undefined,
+            isButtonsClicked: s.isButtonsClicked,
+        };
+    }, [orderIndex]);
+
+    const {
+        isSavingDraft,
+        autoSaveTimerRef,
+    } = useOrderAutoSave(
+        items, shipping, payments, customerData, observation, seller, marketingOrigin, orderDate, status, currentOrderId, orderIndex,
+        getOrderData, setCurrentOrderId, latestState
+    );
+
+    const loadOrderForEditing = useCallback((order: Order) => {
+        const migratedOrder = migrateOrderHandlings(order);
+        const existingIndex = getOrderIndex(order);
+
+        if (order.id && existingIndex) {
+            setOrderIndex(existingIndex);
+            setCurrentOrderId(order.id);
+            latestState.current.orderIndex = existingIndex;
+            latestState.current.orderNumber = existingIndex as any;
+            latestState.current.currentOrderId = order.id;
+        } else {
+            setCurrentOrderId(undefined);
+            setOrderIndex(null);
+            latestState.current.currentOrderId = undefined;
+            latestState.current.orderIndex = null;
+            generateCodeForCopyOrNew();
+        }
+
+        setItems(migratedOrder.items || []);
+        const defaultScheduling = {
+            date: "",
+            endDate: "",
+            dateType: "fixed" as const,
+            time: "",
+            startTime: "",
+            endTime: "",
+            type: "range" as const,
+            notInformed: false
+        };
+
+        const defaultShipping: Shipping = {
+            value: 0,
+            deliveryMethod: 'delivery',
+            orderType: '',
+            scheduling: defaultScheduling,
+            autoCalculateValue: true,
+            useCustomerAddress: true,
+            deliveryAddress: {
+                cep: '', street: '', number: '', complement: '', observation: '', neighborhood: '', city: '', state: 'PR'
+            }
+        };
+
+        if (migratedOrder.shipping) {
+            setShipping({
+                ...defaultShipping,
+                ...migratedOrder.shipping,
+                scheduling: {
+                    ...defaultScheduling,
+                    ...(migratedOrder.shipping.scheduling || {})
+                },
+                deliveryAddress: {
+                    ...defaultShipping.deliveryAddress!,
+                    ...(migratedOrder.shipping.deliveryAddress || {}),
+                    state: migratedOrder.shipping.deliveryAddress?.state || 'PR'
+                }
+            });
+        } else {
+            setShipping(defaultShipping);
+        }
+        setPayments(order.payments || []);
+        if (order.customerData) {
+            setCustomerData({
+                ...order.customerData,
+                noAddress: order.customerData.noAddress || !!(order.customerData.fullAddress as any)?.noAddress
+            });
+        } else {
+            setCustomerData({
+                fullName: '', phone: '', noPhone: false, noAddress: false,
+                fullAddress: { cep: '', street: '', number: '', complement: '', observation: '', neighborhood: '', city: '' },
+                additionalContacts: []
+            });
+        }
+        setObservation(order.observation || "");
+        setSeller((order as any).seller || "");
+        setSellerId((order as any).sellerId || undefined);
+        setMarketingOrigin(order.marketingOrigin || "organic");
+        setStatus(order.status || 'draft');
+        setOrderType(order.orderType || 'sale');
+        setAssistanceItems(order.assistanceItems || []);
+        setAssistanceServiceValue(order.assistanceServiceValue || 0);
+        setAssistanceCost(order.assistanceCost || 0);
+        setLinkedOrderId(order.linkedOrderId || "");
+        setIsButtonsClicked(order.isButtonsClicked);
+        
+        if (order.date) {
+            setOrderDate(parseStorageDateToLocal(order.date));
+        }
+    }, [setItems, setShipping, setPayments, setCustomerData, setOrderIndex, generateCodeForCopyOrNew]);
+
+    // Sincronizar o manuseio operacional (shipping.orderType) a partir dos itens selecionados,
+    // garantindo que as escolhas individuais de manuseio de cada item persistam intactas
+    // e que o manuseio principal do pedido reflita fielmente o que o usuário selecionou.
+    useEffect(() => {
+        const firstHandling = items.find(i => i.handlingType?.trim())?.handlingType || '';
+        if (firstHandling && firstHandling !== shipping.orderType) {
+            setShipping(prev => ({
+                ...prev,
+                orderType: firstHandling
+            }));
+        }
+    }, [items, shipping.orderType, setShipping]);
+
+    useEffect(() => {
+        prevDeliveryMethodRef.current = shipping.deliveryMethod;
+    }, [shipping.deliveryMethod]);
+
+    const handleSaveOrder = useCallback(async (e?: React.MouseEvent) => {
+        if (e) e.preventDefault();
+
+        if (submissionInFlightRef.current) return false;
+        submissionInFlightRef.current = true;
+
+        try {
+            const currentIdx = await ensureOrderCode();
+            if (!currentIdx) return false;
+
+            const isBudgetOrder = latestState.current.orderType === 'budget';
+            const savedStatus = isBudgetOrder
+                ? 'draft'
+                : (latestState.current.currentOrderId && latestState.current.status !== 'draft'
+                    ? latestState.current.status
+                    : 'draft');
+            const orderData = getOrderData(savedStatus as 'draft' | 'scheduled' | 'fulfilled' | 'cancelled');
+            const validationErrors = validateOrder(orderData);
+
+            if (Object.keys(validationErrors).length > 0) {
+                setErrors(validationErrors);
+                toast.error("Existem campos obrigatórios não preenchidos.");
+                return false;
+            }
+
+            if (latestState.current.isSaving) return false;
+            setIsSaving(true);
+            setErrors({});
+
+            try {
+                const savedId = await saveOrder(orderData);
+                if (!latestState.current.currentOrderId && savedId) {
+                    setCurrentOrderId(savedId);
+                }
+                setStatus(savedStatus);
+                toast.success(savedStatus === 'draft' ? (isBudgetOrder ? "Orçamento salvo com sucesso!" : "Pedido salvo como rascunho!") : "Alterações do pedido salvas!");
+                return savedId;
+            } catch (error: any) {
+                toast.error(error?.message || "Erro ao salvar pedido.");
+                return false;
+            } finally {
+                setIsSaving(false);
+            }
+        } finally {
+            submissionInFlightRef.current = false;
+        }
+    }, [getOrderData, ensureOrderCode]);
+
+    const handleCompleteOrder = useCallback(async (e?: React.MouseEvent) => {
+        if (e) e.preventDefault();
+
+        if (submissionInFlightRef.current) return false;
+        submissionInFlightRef.current = true;
+
+        try {
+            const currentIdx = await ensureOrderCode();
+            if (!currentIdx) return false;
+
+            const resolvedStatus = resolveCompletedOrderStatus(latestState.current);
+            const orderData = getOrderData(resolvedStatus);
+            const validationErrors = validateOrder(orderData);
+
+            if (Object.keys(validationErrors).length > 0) {
+                setErrors(validationErrors);
+                toast.error("Existem campos obrigatórios não preenchidos.");
+                return false;
+            }
+
+            if (latestState.current.isSaving) return false;
+            setIsSaving(true);
+            setErrors({});
+
+            try {
+                if (autoSaveTimerRef.current) {
+                    clearTimeout(autoSaveTimerRef.current);
+                }
+                const savedId = await saveOrder(orderData);
+                // Atualizar currentOrderId IMEDIATAMENTE após o insert confirmado.
+                // Isso garante que qualquer falha posterior (UI, notificação, etc.)
+                // não cause duplicação: a próxima tentativa do usuário fará UPDATE.
+                if (savedId) {
+                    setCurrentOrderId(savedId);
+                    latestState.current.currentOrderId = savedId;
+                }
+                setStatus(resolvedStatus);
+                latestState.current.status = resolvedStatus;
+
+                if (resolvedStatus === 'fulfilled') {
+                    toast.success("Pedido CADASTRADO e ATENDIDO com sucesso! ✨");
+                } else {
+                    toast.success("Pedido CADASTRADO com sucesso!");
+                }
+                return {
+                    ...orderData,
+                    id: savedId,
+                    status: resolvedStatus,
+                    orderIndex: orderData.orderIndex || orderIndex || undefined,
+                    orderNumber: orderData.orderIndex || orderIndex || undefined
+                } as any;
+            } catch (error: any) {
+                toast.error(error?.message || "Erro ao cadastrar pedido.");
+                return false;
+            } finally {
+                setIsSaving(false);
+            }
+        } finally {
+            submissionInFlightRef.current = false;
+        }
+    }, [getOrderData, ensureOrderCode, autoSaveTimerRef, orderIndex]);
+
+    const clearForm = useCallback(() => {
+        if (window.confirm("Deseja limpar o formulário para um novo pedido?")) {
+            window.location.reload();
+        }
+    }, []);
+
+    const currentOrder = useMemo((): Order => {
+        const firstHandling = items.find(i => i.handlingType?.trim())?.handlingType || '';
+        return {
+            id: currentOrderId,
+            orderIndex: orderIndex || undefined,
+            orderNumber: orderIndex || undefined,
+            orderType,
+            status: status as any,
+            items,
+            itemsSummary,
+            shipping: {
+                ...shipping,
+                orderType: firstHandling || shipping.orderType || ''
+            },
+            payments,
+            paymentsSummary,
+            customerData,
+            observation,
+            seller,
+            marketingOrigin,
+            date: formatToStorageDate(orderDate),
+            assistanceItems,
+            assistanceServiceValue,
+            assistanceCost,
+            linkedOrderId,
+            isButtonsClicked,
+        };
+    }, [currentOrderId, orderIndex, items, itemsSummary, shipping, payments, paymentsSummary, customerData, observation, seller, marketingOrigin, status, orderDate, assistanceItems, assistanceServiceValue, assistanceCost, linkedOrderId, isButtonsClicked, orderType]);
+
+    const isValidForCompletion = useMemo(() => validateBase(getOrderData('scheduled')), [getOrderData]);
+
+    const state = useMemo(() => ({
+        items,
+        shipping,
+        payments,
+        customerData,
+        observation,
+        seller,
+        sellerId,
+        marketingOrigin,
+        currentOrderId,
+        orderIndex,
+        isGeneratingCode,
+        status,
+        isSaving,
+        isSavingDraft,
+        isCalculatingDistance,
+        itemsSummary,
+        paymentsSummary,
+        currentOrder,
+        isValidForCompletion,
+        errors,
+        orderDate,
+        currentStep,
+    }), [items, shipping, payments, customerData, observation, seller, sellerId, marketingOrigin, currentOrderId, orderIndex, isGeneratingCode, status, isSaving, isSavingDraft, isCalculatingDistance, itemsSummary, paymentsSummary, currentOrder, isValidForCompletion, errors, orderDate, currentStep]);
+
+    const actions = useMemo(() => ({
+        setItems,
+        setShipping: (val: React.SetStateAction<Shipping>) => {
+            setShipping(val);
+            setErrors(prev => {
+                const next = { ...prev };
+                Object.keys(next).forEach(key => {
+                    if (key.startsWith('shipping_')) delete next[key];
+                });
+                return next;
+            });
+        },
+        setPayments,
+        setCustomerData: (val: React.SetStateAction<CustomerData>) => {
+            setCustomerData(val);
+            setErrors(prev => {
+                const next = { ...prev };
+                Object.keys(next).forEach(key => {
+                    if (key.startsWith('customer_')) delete next[key];
+                });
+                return next;
+            });
+        },
+        setObservation,
+        handleItemChange,
+        setSeller: (val: string) => {
+            setSeller(val);
+            setErrors(prev => {
+                const next = { ...prev };
+                delete next['seller'];
+                return next;
+            });
+        },
+        setSellerId,
+        setSellerData: (data: { name: string; id?: string }) => {
+            setSeller(data.name);
+            setSellerId(data.id);
+            setErrors(prev => {
+                const next = { ...prev };
+                delete next['seller'];
+                return next;
+            });
+        },
+        setMarketingOrigin,
+        setOrderIndex,
+        loadOrderForEditing,
+        handleAutoCalculateDistance,
+        handleSelectProduct,
+        handleSaveOrder,
+        handleCompleteOrder,
+        clearForm,
+        setErrors,
+        validateOrder,
+        setOrderDate,
+        goToNextStep: () => {
+            setCurrentStep(prev => {
+                const isBudget = orderType === 'budget';
+                if (isBudget && prev === 4) return 6;
+                return Math.min(prev + 1, 6);
+            });
+        },
+        goToPrevStep: () => {
+            setCurrentStep(prev => {
+                const isBudget = orderType === 'budget';
+                if (isBudget && prev === 6) return 4;
+                return Math.max(prev - 1, 1);
+            });
+        },
+        jumpToStep: (step: number) => {
+            setCurrentStep(step);
+        },
+    }), [setItems, setShipping, setPayments, setCustomerData, setObservation, handleItemChange, setSeller, setSellerId, setMarketingOrigin, setOrderIndex, loadOrderForEditing, handleAutoCalculateDistance, handleSelectProduct, handleSaveOrder, handleCompleteOrder, clearForm, orderType]);
+
+    return { state, actions };
+};

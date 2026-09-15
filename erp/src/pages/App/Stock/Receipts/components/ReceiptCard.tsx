@@ -2,13 +2,16 @@ import React, { useState, useCallback } from 'react';
 import { GoodsReceipt } from '@/pages/utils/goodsReceiptService';
 import { formatCurrency, formatToBRDate } from '@/pages/utils/formatters';
 import { formatGoodsReceiptCode } from '@/pages/utils/goodsReceiptCode';
+import { ReceiptMovementBadge } from './ReceiptMovementBadge';
 
 export interface ReceiptCardProps {
     readonly receipt: GoodsReceipt;
     readonly onClick: (receipt: GoodsReceipt) => void;
     readonly onEdit?: (receipt: GoodsReceipt) => void;
+    readonly onCopyReceipt?: (receipt: GoodsReceipt) => void;
     readonly onDelete?: (e: React.MouseEvent, id: string) => void;
     readonly onReverse?: (e: React.MouseEvent, receipt: GoodsReceipt) => void;
+    readonly onUnreverse?: (e: React.MouseEvent, receipt: GoodsReceipt) => void;
     readonly onViewDetails?: (receipt: GoodsReceipt) => void;
 }
 
@@ -19,8 +22,10 @@ export const ReceiptCard: React.FC<ReceiptCardProps> = ({
     receipt,
     onClick,
     onEdit,
+    onCopyReceipt,
     onDelete,
     onReverse,
+    onUnreverse,
     onViewDetails
 }) => {
     const [showMenu, setShowMenu] = useState(false);
@@ -50,6 +55,7 @@ export const ReceiptCard: React.FC<ReceiptCardProps> = ({
                     <span className="font-mono text-xs font-black text-slate-500 bg-slate-100 dark:bg-slate-800 px-2.5 py-1 rounded-lg">
                         #{formatGoodsReceiptCode(receipt)}
                     </span>
+                    <ReceiptMovementBadge receipt={receipt} />
                     <span className="rounded-full bg-emerald-50 dark:bg-emerald-950/40 px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wider text-emerald-600 dark:text-emerald-400">
                         {receipt.items.length} item(ns)
                     </span>
@@ -64,17 +70,9 @@ export const ReceiptCard: React.FC<ReceiptCardProps> = ({
                         <i className="bi bi-arrow-counterclockwise text-xs" /> Estornado
                     </span>
                 ) : (
-                    <button
-                        type="button"
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            if (onReverse) onReverse(e, receipt);
-                        }}
-                        className="inline-flex items-center gap-1.5 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-1 text-[10px] font-black uppercase tracking-wider text-emerald-600 hover:bg-red-50 hover:text-red-600 hover:border-red-200 transition-all dark:border-emerald-900/40 dark:bg-emerald-950/30 dark:text-emerald-400 dark:hover:bg-red-950/30 dark:hover:text-red-400 cursor-pointer"
-                        title="Clique para estornar este recebimento"
-                    >
+                    <span className="inline-flex items-center gap-1.5 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-1 text-[10px] font-black uppercase tracking-wider text-emerald-600 dark:border-emerald-900/40 dark:bg-emerald-950/30 dark:text-emerald-400">
                         <i className="bi bi-check-circle-fill text-xs" /> Recebido
-                    </button>
+                    </span>
                 )}
             </div>
 
@@ -159,6 +157,20 @@ export const ReceiptCard: React.FC<ReceiptCardProps> = ({
                                 </button>
                             )}
 
+                            {onCopyReceipt && (
+                                <button
+                                    type="button"
+                                    role="menuitem"
+                                    onClick={() => {
+                                        setShowMenu(false);
+                                        onCopyReceipt(receipt);
+                                    }}
+                                    className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-left text-xs font-bold text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950/30 cursor-pointer"
+                                >
+                                    <i className="bi bi-copy" /> Copiar recebimento
+                                </button>
+                            )}
+
                             {!isDraft && !isEstornado && onReverse && (
                                 <button
                                     type="button"
@@ -170,6 +182,20 @@ export const ReceiptCard: React.FC<ReceiptCardProps> = ({
                                     className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-left text-xs font-bold text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30 cursor-pointer"
                                 >
                                     <i className="bi bi-arrow-counterclockwise" /> Estornar Recebimento
+                                </button>
+                            )}
+
+                            {!isDraft && isEstornado && onUnreverse && (
+                                <button
+                                    type="button"
+                                    role="menuitem"
+                                    onClick={(e) => {
+                                        setShowMenu(false);
+                                        onUnreverse(e, receipt);
+                                    }}
+                                    className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-left text-xs font-bold text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/30 cursor-pointer"
+                                >
+                                    <i className="bi bi-arrow-clockwise" /> Desfazer Estorno
                                 </button>
                             )}
 

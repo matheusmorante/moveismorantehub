@@ -3,6 +3,8 @@ import { supabase } from '@/pages/utils/supabaseConfig';
 import { assertDeletedOrderId, canPermanentlyDeleteDraft } from './orderDeletionRules';
 import { buildCancelledReturn, clearReturnLink } from './returnCancellation';
 import { mapOrderFromDatabase } from './orderMapper';
+import { cancelInventoryMovesByRelatedEntity } from './inventoryService';
+import { formatOrderCode } from './orderCode';
 
 const TABLE_NAME = "orders";
 
@@ -71,25 +73,22 @@ export const undoReturn = async (
     if (!order.id) return;
     
     try {
-        let originalOrder: Order;
+        let originalOrder: Order | undefined;
         let returnOrder: Order;
 
         if (order.orderType === 'return') {
             returnOrder = order;
-            if (!order.linkedOrderId) {
-                throw new Error("Este pedido de devolução não possui um pedido original vinculado.");
+            if (order.linkedOrderId) {
+                const { data: origRow, error: origError } = await supabase
+                    .from(TABLE_NAME)
+                    .select('*')
+                    .eq('id', order.linkedOrderId)
+                    .single();
+                
+                if (!origError && origRow) {
+                    originalOrder = mapOrderFromDatabase(origRow);
+                }
             }
-
-            const { data: origRow, error: origError } = await supabase
-                .from(TABLE_NAME)
-                .select('*')
-                .eq('id', order.linkedOrderId)
-                .single();
-            
-            if (origError || !origRow) {
-                throw new Error("Pedido original não encontrado.");
-            }
-            originalOrder = mapOrderFromDatabase(origRow);
         } else {
             originalOrder = order;
             let returnId = originalOrder.returnOrderId;
@@ -123,8 +122,22 @@ export const undoReturn = async (
             returnOrder = mapOrderFromDatabase(returnRow);
         }
 
+        // Estornar a movimentação de entrada no estoque gerada por esta devolução
+        const orderCode = formatOrderCode(returnOrder);
+        const customerName = returnOrder.customerData?.fullName || (returnOrder as any).customerName || '';
+        const cancelReason = customerName
+            ? `Estorno de devolução #${orderCode} - ${customerName}`
+            : `Estorno de devolução #${orderCode}`;
+
+        await cancelInventoryMovesByRelatedEntity(returnOrder.id!, 'sales_order', cancelReason);
+
+        // Atualizar a devolução como cancelada com flags de estorno de estoque
         await updateOrderFn(returnOrder.id!, buildCancelledReturn(returnOrder), returnOrder);
-        await updateOrderFn(originalOrder.id!, clearReturnLink(), originalOrder);
+
+        // Se houver pedido original de venda vinculado, desvincular
+        if (originalOrder && originalOrder.id) {
+            await updateOrderFn(originalOrder.id, clearReturnLink(), originalOrder);
+        }
     } catch (error) {
         console.error("Erro ao desfazer devolução:", error);
         throw error;

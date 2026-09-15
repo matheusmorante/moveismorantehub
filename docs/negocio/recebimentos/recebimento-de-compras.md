@@ -1,37 +1,45 @@
-# Recebimento de Compras e Entrada de Estoque — Morante Hub
+# Recebimento de Compras — Morante Hub
 
-Este documento descreve o fluxo de conferência, confirmação física de compras de fornecedores, atualização de saldos, recálculo de CMPM e lançamento no contas a pagar.
+Um recebimento confirma a chegada física de mercadoria e cria uma entrada de estoque por item vinculado ao catálogo. Seus estados são `draft`, `received` e `estornado`.
 
----
+## Pedido de compra como referência
 
-## 🚛 Fluxo Completo de Recebimento de Compra
+O pedido de compra registra apenas o planejado com o fornecedor: itens, quantidades, valores esperados e condições comerciais. Ele **não** cria movimentos de estoque, não altera saldo e não recalcula o CMPM.
+
+Ao abrir um novo recebimento, o usuário pode selecionar um pedido de compra para preencher fornecedor e itens. O identificador do pedido é preservado como referência no recebimento. A conferência do que chegou, inclusive divergências de quantidade e custo, ocorre no recebimento. Somente sua finalização efetiva as entradas de estoque.
 
 ```mermaid
-flowchart TD
-    A[Pedido de Compra com Fornecedor] --> B[Chegada da Mercadoria no Depósito]
-    B --> C[Conferência Física / XML de Entrada]
-    C --> D{Itens Conferem com o Pedido?}
-    D -- Não --> E[Registra Divergência / Avaria]
-    D -- Sim --> F[Confirmar Recebimento em goodsReceiptService.ts]
-    F --> G[Gera Entrada de Estoque purchase_entry para cada variação]
-    G --> H[Recalcula CMPM de cada variação com a fórmula ponderada]
-    H --> I[Gera Título em Contas a Pagar ao Fornecedor]
-    I --> J[Atualiza status do recebimento para confirmed]
+stateDiagram-v2
+  [*] --> draft: salvar conferência
+  draft --> received: finalizar recebimento
+  received --> estornado: estornar
+  estornado --> received: desfazer estorno
 ```
 
----
+## Finalização
 
-## 📋 Regras de Atualização de Custo no Recebimento
+Ao finalizar, o sistema:
 
-1. **Inclusão de Custos Adicionais (Frete e Seguro)**:
-   - Se o recebimento contiver frete ou despesas acessórias de compra, estes custos são rateados proporcionalmente ao valor de cada item para compor o **custo final de aquisição unitário (`finalUnitCost`)**.
-2. **Impacto Imediato no Estoque**:
-   - Assim que o recebimento é confirmado, a quantidade entrada fica imediatamente disponível para vendas e entregas no ERP e App Mobile.
+1. grava o cabeçalho em `goods_receipts` e os itens normalizados em `goods_receipt_items`;
+2. cria uma `inventory_move` `entry`, `effective`, para cada item com produto vinculado;
+3. armazena o ID da movimentação no snapshot do item (`inventoryMoveId`) e o vincula ao recebimento;
+4. usa o custo unitário calculado após rateios fiscais e não fiscais para atualizar o CMPM da variação.
 
----
+Itens sem produto vinculado não geram entrada de estoque até serem conciliados. O recebimento preserva o snapshot do item e seus componentes de custo (base, frete, desconto e despesas).
 
-## 🔗 Mapeamento em Código e Testes
+## Estorno e desfazimento
 
-- **Orquestrador de Recebimentos**: `[goodsReceiptService.ts](file:///c:/Users/mathe/OneDrive/%C3%81rea%20de%20Trabalho/projetos/morantehub/erp/src/pages/utils/goodsReceiptService.ts)`
-- **Resolução de Status**: `[goodsReceiptStatus.ts](file:///c:/Users/mathe/OneDrive/%C3%81rea%20de%20Trabalho/projetos/morantehub/erp/src/pages/utils/goodsReceiptStatus.ts)`
-- **Testes de Proteção**: `[goodsReceiptCostCalculation.test.ts](file:///c:/Users/mathe/OneDrive/%C3%81rea%20de%20Trabalho/projetos/morantehub/erp/src/pages/utils/goodsReceiptCostCalculation.test.ts)`
+Estornar não cria uma nova saída artificial. O sistema marca as entradas vinculadas como `reversed`, preservando os fatos e recompondo o saldo. O estorno busca primeiro os `inventoryMoveId` gravados no item e também procura movimentos ligados ao recebimento para cobrir registros legados.
+
+Desfazer o estorno reativa esses movimentos como `effective`. Somente se um recebimento legado não tiver movimento recuperável, novas entradas são criadas e seus IDs são registrados nos itens.
+
+## Implementação e testes
+
+- [Serviço de recebimentos](../../../erp/src/pages/utils/goodsReceiptService.ts)
+- [Cálculo e persistência de estoque](../../../erp/src/pages/utils/inventoryService.ts)
+- [Teste de desfazer estorno](../../../erp/src/pages/App/Stock/Receipts/utils/goodsReceiptUnreverse.test.ts)
+## Integridade transacional
+
+A confirmação de um recebimento persistido usa a RPC `confirm_goods_receipt_transaction`. Ela bloqueia o recebimento, grava cabeçalho, itens normalizados e as entradas de estoque na mesma transação. O par `source_receipt_id` e `source_item_index` torna o reenvio idempotente: repetir a confirmação devolve a movimentação já criada e não aumenta o saldo.
+
+O estorno e seu desfazimento usam `set_goods_receipt_inventory_status_transaction`; ambos alteram o status do recebimento e de todas as movimentações identificadas pelo recebimento no mesmo commit. Não há busca por texto de fornecedor, nota ou descrição para localizar movimentos novos.

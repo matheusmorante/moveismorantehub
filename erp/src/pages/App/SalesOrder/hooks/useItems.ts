@@ -1,5 +1,5 @@
 import { useState } from "react";
-import Item from "../../../types/items.type";
+import Item from '@/pages/types/items.type';
 
 const useItems = () => {
     const [items, setItems] = useState<Item[]>([

@@ -98,8 +98,11 @@ async function decompressGzipBase64(b64: string): Promise<string> {
 }
 
 // Montar Envelope SOAP oficial
-function buildSoapEnvelope(cleanCnpj: string, nsu: string, tpAmb: "1" | "2"): string {
+function buildSoapEnvelope(cleanCnpj: string, nsu: string, tpAmb: "1" | "2", accessKey?: string): string {
   const paddedNsu = nsu.padStart(15, "0");
+  const query = accessKey
+    ? `<consChNFe><chNFe>${accessKey}</chNFe></consChNFe>`
+    : `<distNSU><ultNSU>${paddedNsu}</ultNSU></distNSU>`;
   return `<?xml version="1.0" encoding="utf-8"?>
 <soap12:Envelope xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:soap12="http://www.w3.org/2003/05/soap-envelope">
   <soap12:Body>
@@ -109,9 +112,7 @@ function buildSoapEnvelope(cleanCnpj: string, nsu: string, tpAmb: "1" | "2"): st
           <tpAmb>${tpAmb}</tpAmb>
           <cUFAutor>41</cUFAutor>
           <CNPJ>${cleanCnpj}</CNPJ>
-          <distNSU>
-            <ultNSU>${paddedNsu}</ultNSU>
-          </distNSU>
+          ${query}
         </distDFeInt>
       </nfeDadosMsg>
     </nfeDistDFeInteresse>
@@ -258,6 +259,11 @@ serve(async (req) => {
 
     const body = await req.json().catch(() => ({}));
     const { cnpj: requestedCnpj, environment = "production" } = body;
+    const accessKey = String(body.accessKey || "").replace(/\D/g, "");
+    const isAccessKeyQuery = Boolean(accessKey);
+    if (isAccessKeyQuery && accessKey.length !== 44) {
+      return new Response(JSON.stringify({ success: false, code: "ACCESS_KEY_INVALID", message: "A chave de acesso deve conter exatamente 44 dígitos." }), { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 400 });
+    }
 
     // 1. Obter dados da empresa e certificado de forma segura (Prioridade: Secrets > Settings)
     let certBase64 = Deno.env.get("SEFAZ_CERTIFICATE_BASE64") || "";
@@ -318,6 +324,15 @@ serve(async (req) => {
         );
       }
     }
+    if (nsuRecord?.status === "rate_limited") {
+      const retryAt = new Date(new Date(nsuRecord.last_sync_at || Date.now()).getTime() + 60 * 60 * 1000);
+      if (retryAt.getTime() > Date.now()) {
+        return new Response(JSON.stringify({
+          success: false, code: "SEFAZ_RATE_LIMIT", retryAfter: retryAt.toISOString(),
+          message: "A SEFAZ exige aguardar uma hora antes de uma nova consulta.",
+        }), { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 429 });
+      }
+    }
 
     let currentUltNsu = nsuRecord?.last_nsu || "0";
     let currentMaxNsu = nsuRecord?.max_nsu || "0";
@@ -339,7 +354,10 @@ serve(async (req) => {
     // 4. Parâmetros da consulta e URL da ponte Node.js mTLS
     const tpAmb = environment === "production" ? "1" : "2";
     const nodeBridgeUrl = Deno.env.get("SEFAZ_NODE_BRIDGE_URL") || "https://morantehub.vercel.app/api/dist-dfe";
-    const bridgeToken = Deno.env.get("SEFAZ_BRIDGE_TOKEN") || Deno.env.get("MORANTEHUB_MCP_ACCESS_TOKEN") || "morante_mcp_master_8b4e2a9d6c1f3e5a7b0d2c4e";
+    const bridgeToken = Deno.env.get("SEFAZ_BRIDGE_TOKEN") || Deno.env.get("MORANTEHUB_MCP_ACCESS_TOKEN");
+    if (!bridgeToken) {
+      throw new Error("Ponte fiscal não configurada no servidor.");
+    }
 
     let totalPersisted = 0;
     let keepConsuming = true;
@@ -348,12 +366,14 @@ serve(async (req) => {
 
     let finalCStat = "";
     let finalXMotivo = "";
+    let consultedDocument: { kind: "full" | "summary"; xml: string } | null = null;
+    let rateLimitUntil: string | null = null;
 
     console.log(`[sefaz-inbound-sync] Iniciando consulta DF-e via ponte Node.js (${nodeBridgeUrl}). NSU inicial: ${currentUltNsu}`);
 
-    while (keepConsuming && iteration < MAX_ITERATIONS) {
+    while (keepConsuming && iteration < (isAccessKeyQuery ? 1 : MAX_ITERATIONS)) {
       iteration++;
-      const soapEnvelope = buildSoapEnvelope(cleanCnpj, currentUltNsu, tpAmb);
+      const soapEnvelope = buildSoapEnvelope(cleanCnpj, currentUltNsu, tpAmb, accessKey || undefined);
 
       console.log(`[sefaz-inbound-sync] Iteração ${iteration}: Delegando mTLS para serviço Node.js...`);
       const bridgeResponse = await fetch(nodeBridgeUrl, {
@@ -400,7 +420,8 @@ serve(async (req) => {
       // cStat 137: Nenhum documento localizado para o NSU solicitado
       // cStat 656: Consumo indevido (deve aguardar 1 hora)
       if (cStat === "656") {
-        console.warn(`[sefaz-inbound-sync] Consumo indevido detectado pela SEFAZ (cStat 656). Encerrando ciclo.`);
+        rateLimitUntil = new Date(Date.now() + 60 * 60 * 1000).toISOString();
+        console.warn(`[sefaz-inbound-sync] Consumo indevido detectado pela SEFAZ (cStat 656). Nova tentativa após ${rateLimitUntil}.`);
         keepConsuming = false;
         break;
       }
@@ -421,6 +442,15 @@ serve(async (req) => {
           const parsed = parseNfeXml(unzippedXml, ultNsuRetornado);
 
           if (parsed && parsed.chave_acesso) {
+            // A resposta ao formulário não pode depender da persistência de uma
+            // cópia auxiliar. Se a SEFAZ entregou o XML correto, o usuário deve
+            // poder conferi-lo mesmo que o upsert local falhe.
+            if (isAccessKeyQuery && parsed.chave_acesso === accessKey) {
+              consultedDocument = {
+                kind: unzippedXml.includes("<infNFe") || unzippedXml.includes("<nfeProc") ? "full" : "summary",
+                xml: unzippedXml,
+              };
+            }
             // Upsert seguro: nunca duplicar NF-e; chave_acesso é UNIQUE
             const { error: upsertErr } = await supabaseClient
               .from("inbound_invoices")
@@ -466,16 +496,28 @@ serve(async (req) => {
     }
 
     const durationMs = Date.now() - startTime;
+    if (rateLimitUntil) {
+      await supabaseClient.from("sefaz_nsu_control").upsert({
+        id: "default", cnpj: cleanCnpj, status: "rate_limited", last_error: finalXMotivo,
+        last_sync_at: new Date().toISOString(),
+      });
+      return new Response(JSON.stringify({
+        success: false, code: "SEFAZ_RATE_LIMIT", cStat: finalCStat, retryAfter: rateLimitUntil,
+        message: "A SEFAZ bloqueou novas consultas por consumo indevido. Tente novamente após uma hora.",
+      }), { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 429 });
+    }
     console.log(`[sefaz-inbound-sync] Ciclo finalizado em ${durationMs}ms. cStat=${finalCStat}, xMotivo="${finalXMotivo}", ultNSU=${currentUltNsu}, maxNSU=${currentMaxNsu}, notas_persistidas=${totalPersisted}`);
 
     return new Response(
       JSON.stringify({
         success: true,
+        queryType: isAccessKeyQuery ? "consChNFe" : "distNSU",
         cStat: finalCStat,
         xMotivo: finalXMotivo,
         ultNSU: currentUltNsu,
         maxNSU: currentMaxNsu,
         newDocsCount: totalPersisted,
+        document: consultedDocument,
         durationMs,
         message: `Sincronização real com NFeDistribuicaoDFe concluída. cStat: ${finalCStat} (${finalXMotivo}).`,
       }),

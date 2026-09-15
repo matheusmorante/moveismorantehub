@@ -274,10 +274,20 @@ export const checkProductHasMoves = async (productId: string, variationId?: stri
 
 export const deactivateProduct = async (id: string): Promise<void> => {
     await updateProduct(id, { active: false, deleted: false });
+    const realId = String(id).split('_')[0];
+    const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(realId);
+    if (isUUID) {
+        await supabase.from('product_variations').update({ active: false }).eq('product_id', realId);
+    }
 };
 
 export const activateProduct = async (id: string): Promise<void> => {
     await updateProduct(id, { active: true, deleted: false });
+    const realId = String(id).split('_')[0];
+    const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(realId);
+    if (isUUID) {
+        await supabase.from('product_variations').update({ active: true }).eq('product_id', realId);
+    }
 };
 
 export const moveToTrash = async (id: string): Promise<void> => {
@@ -360,6 +370,12 @@ export const bulkRestoreProducts = async (ids: string[]): Promise<void> => {
         });
         saveLocalProducts(products);
         notifySubscribers();
+
+        const validUuids = ids.filter(id => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id));
+        if (validUuids.length > 0) {
+            await supabase.from(TABLE_NAME).update({ active: true, deleted: false, updated_at: new Date().toISOString() }).in('id', validUuids);
+            await supabase.from('product_variations').update({ active: true }).in('product_id', validUuids);
+        }
     } catch (error) {
         console.error("Erro no bulkRestoreProducts:", error);
         throw error;

@@ -27,4 +27,4 @@ Este documento define a semântica, diferenças operacionais e regras de revers�
 
 - **Serviço de Operações**: `[orderLifecycleOperations.ts](file:///c:/Users/mathe/OneDrive/%C3%81rea%20de%20Trabalho/projetos/morantehub/erp/src/pages/utils/orderLifecycleOperations.ts)`
 - **Estorno de Estoque**: `[inventoryService.ts](file:///c:/Users/mathe/OneDrive/%C3%81rea%20de%20Trabalho/projetos/morantehub/erp/src/pages/utils/inventoryService.ts)` → `cancelInventoryMovesByRelatedEntity()`
-- **Testes de Proteção**: `[divergenciasCorrecao.test.ts](file:///c:/Users/mathe/OneDrive/%C3%81rea%20de%20Trabalho/projetos/morantehub/erp/src/pages/utils/divergenciasCorrecao.test.ts)`
+- **Testes de Proteção**: [orderLifecycleOperations.undoReturn.test.ts](../../../erp/src/pages/utils/orderLifecycleOperations.undoReturn.test.ts)

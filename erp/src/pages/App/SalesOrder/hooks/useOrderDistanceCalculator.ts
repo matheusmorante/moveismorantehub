@@ -1,9 +1,9 @@
 import { useState, useRef, useCallback } from 'react';
 import { toast } from 'react-toastify';
-import { autoCalculateRouteDistance } from '../../../utils/maps';
-import { calculateFreightByDistance } from '../../../utils/shippingPricing';
-import Shipping from '../../../types/Shipping.type';
-import CustomerData from '../../../types/customerData.type';
+import { autoCalculateRouteDistance } from '@/pages/utils/maps';
+import { calculateFreightByDistance } from '@/pages/utils/shippingPricing';
+import Shipping from '@/pages/types/Shipping.type';
+import CustomerData from '@/pages/types/customerData.type';
 
 export function useOrderDistanceCalculator(
     shipping: Shipping,

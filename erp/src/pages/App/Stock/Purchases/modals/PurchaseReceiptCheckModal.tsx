@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import Purchase, { PurchaseItem } from '../../../../types/purchase.type';
-import { toggleStockProcessing, updatePurchase } from '../../../../utils/purchaseService';
-import { saveGoodsReceipt } from '../../../../utils/goodsReceiptService';
+import { updatePurchase } from '../../../../utils/purchaseService';
 import QRScannerModal from '@/components/shared/QRScannerModal';
 import ErrorBoundary from '@/components/shared/ErrorBoundary';
 import { toast } from 'react-toastify';
@@ -248,38 +247,7 @@ export const PurchaseReceiptCheckModal: React.FC<PurchaseReceiptCheckModalProps>
                     : purchase.observation,
             });
 
-            if (!purchase.stockProcessed && isAnyReceived) {
-                await toggleStockProcessing({ ...purchase, items: updatedItems, status: newStatus });
-            }
-
-            if (isAnyReceived) {
-                const receivedItems = updatedItems
-                    .filter((item) => (item.receivedQuantity || 0) > 0)
-                    .map((item) => {
-                        const recQty = item.receivedQuantity || 0;
-                        const qty = item.quantity || 1;
-                        const itemCost = Number(item.totalCost) || 0;
-                        const proportionalCost = qty > 0 ? (itemCost * (recQty / qty)) : 0;
-                        return {
-                            ...item,
-                            quantity: recQty,
-                            totalCost: Number.isFinite(proportionalCost) ? proportionalCost : 0,
-                        };
-                    });
-
-                await saveGoodsReceipt({
-                    purchaseId: purchase.id,
-                    supplierName: purchase.supplierName,
-                    receivedAt: new Date().toISOString(),
-                    invoiceNumber,
-                    invoiceDate,
-                    items: receivedItems,
-                    totalValue: receivedItems.reduce((acc, i) => acc + (Number(i.totalCost) || 0), 0),
-                    status: 'completed',
-                });
-            }
-
-            toast.success('Conferência realizada e compras atualizadas!');
+            toast.success('Conferência salva. Registre o recebimento em Recebimentos de Mercadorias para movimentar o estoque.');
             onClose();
         } catch (error: unknown) {
             const message = error instanceof Error ? error.message : 'Erro ao salvar conferência.';
@@ -503,7 +471,7 @@ export const PurchaseReceiptCheckModal: React.FC<PurchaseReceiptCheckModalProps>
                         ) : (
                             <i className="bi bi-check-lg text-xl" aria-hidden="true" />
                         )}
-                        Finalizar Conferência e Atualizar Estoque
+                        Finalizar Conferência
                     </button>
                 </div>
             </div>

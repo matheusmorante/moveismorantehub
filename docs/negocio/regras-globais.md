@@ -21,9 +21,9 @@ Este documento especifica as **regras de ouro e invariantes de negócio permanen
 ### 4. Transparência de Data Efetiva de Estoque e Venda
 - A saída de estoque provocada por uma venda agendada ou atendida possui data de movimentação efetiva igual à **data de cadastro do pedido (`order.date`)**, garantindo que relatórios mensais de vendas e estoque sejam perfeitamente alinhados na mesma competência.
 
-### 5. Reversões Exigem Eventos Compensatórios
+### 5. Reversões Preservam o Fato Histórico
 - O sistema proíbe a exclusão física ou "limpeza silenciosa" de registros com histórico operacional.
-- Cancelamentos, desfez e estornos funcionam gerando **movimentações compensatórias inversas** (ex: devolução gera entrada; cancelamento de devolução reverte a entrada via evento compensatório).
+- Cancelamentos e estornos alteram a movimentação vinculada de `effective` para `reversed`, aplicando a recomposição de saldo e mantendo o motivo e a data de estorno. Quando permitido pelo documento de origem, o fato pode ser reativado como `effective`.
 
 ### 6. App Mobile Offline-First com Backend Autoridade
 - O aplicativo mobile executa operações offline registrando eventos atômicos locais no SQLite (`PENDING`).
@@ -36,8 +36,8 @@ Este documento especifica as **regras de ouro e invariantes de negócio permanen
 | Invariante | Arquivo de Implementação | Teste de Proteção |
 | :--- | :--- | :--- |
 | **Imutabilidade de Snapshots** | `[orderSnapshotResolution.ts](file:///c:/Users/mathe/OneDrive/%C3%81rea%20de%20Trabalho/projetos/morantehub/erp/src/pages/utils/orderSnapshotResolution.ts)` | `[duplicateOrder.test.ts](file:///c:/Users/mathe/OneDrive/%C3%81rea%20de%20Trabalho/projetos/morantehub/erp/src/pages/utils/duplicateOrder.test.ts)` |
-| **CMV Materializado Imutável** | `[movingAverageCostRules.ts](file:///c:/Users/mathe/OneDrive/%C3%81rea%20de%20Trabalho/projetos/morantehub/erp/src/pages/utils/movingAverageCostRules.ts)` | `[goodsReceiptCostCalculation.test.ts](file:///c:/Users/mathe/OneDrive/%C3%81rea%20de%20Trabalho/projetos/morantehub/erp/src/pages/utils/goodsReceiptCostCalculation.test.ts)` |
+| **CMV Materializado Imutável** | [orderStockOperations.ts](../../../erp/src/pages/utils/orderStockOperations.ts) | [orderLifecycleOperations.undoReturn.test.ts](../../../erp/src/pages/utils/orderLifecycleOperations.undoReturn.test.ts) |
 | **Identidade de Variação por UUID** | `[productVariationActionsService.ts](file:///c:/Users/mathe/OneDrive/%C3%81rea%20de%20Trabalho/projetos/morantehub/erp/src/pages/utils/productService/productVariationActionsService.ts)` | `[2026-09-09-identidade-variacao-uuid.md](file:///c:/Users/mathe/OneDrive/%C3%81rea%20de%20Trabalho/projetos/morantehub/docs/auditorias/2026-09-09-identidade-variacao-uuid.md)` |
 | **Data Efetiva da Venda** | `[saleInventoryRules.ts](file:///c:/Users/mathe/OneDrive/%C3%81rea%20de%20Trabalho/projetos/morantehub/erp/src/pages/utils/saleInventoryRules.ts)` | `[latestRulesBattery.test.ts](file:///c:/Users/mathe/OneDrive/%C3%81rea%20de%20Trabalho/projetos/morantehub/erp/src/pages/utils/latestRulesBattery.test.ts)` |
-| **Reversões Compensatórias** | `[orderStockOperations.ts](file:///c:/Users/mathe/OneDrive/%C3%81rea%20de%20Trabalho/projetos/morantehub/erp/src/pages/utils/orderStockOperations.ts)` | `[divergenciasCorrecao.test.ts](file:///c:/Users/mathe/OneDrive/%C3%81rea%20de%20Trabalho/projetos/morantehub/erp/src/pages/utils/divergenciasCorrecao.test.ts)` |
+| **Reversões com Histórico** | [inventoryReversalService.ts](../../../erp/src/pages/utils/inventoryService/inventoryReversalService.ts) | [goodsReceiptUnreverse.test.ts](../../../erp/src/pages/App/Stock/Receipts/utils/goodsReceiptUnreverse.test.ts) |
 | **Offline-First Eventos** | `[offlineSyncService.ts](file:///c:/Users/mathe/OneDrive/%C3%81rea%20de%20Trabalho/projetos/morantehub/mobile/src/services/offlineSyncService.ts)` | `[mobile-transactions.spec.ts](file:///c:/Users/mathe/OneDrive/%C3%81rea%20de%20Trabalho/projetos/morantehub/erp/tests/mobile-transactions.spec.ts)` |

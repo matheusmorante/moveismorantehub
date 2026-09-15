@@ -72,12 +72,12 @@ export const InventoryMoveDeleteModal: React.FC<InventoryMoveDeleteModalProps> =
 
                 <form onSubmit={handleSubmit} className="mt-4">
                     <label className="block text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500 mb-1.5">
-                        Motivo do Estorno <span className="text-red-500">*</span>
+                        Observação <span className="text-red-500">*</span>
                     </label>
                     <textarea
                         value={reason}
                         onChange={(e) => setReason(e.target.value)}
-                        placeholder="Informe a motivação do estorno..."
+                        placeholder="Informe a observação do estorno..."
                         rows={2}
                         required
                         className="w-full text-xs p-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all resize-none"

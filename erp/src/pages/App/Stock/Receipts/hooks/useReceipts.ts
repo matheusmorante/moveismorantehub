@@ -4,6 +4,7 @@ import {
     GoodsReceipt,
     deleteGoodsReceipt,
     reverseGoodsReceipt,
+    unreverseGoodsReceipt,
     subscribeToGoodsReceipts
 } from '@/pages/utils/goodsReceiptService';
 import { subscribeToPeople } from '@/pages/utils/personService';
@@ -27,6 +28,8 @@ export interface UseReceiptsReturn {
     setCustomEndDate: (date: string) => void;
     isFormOpen: boolean;
     setIsFormOpen: (open: boolean) => void;
+    isCopyingReceipt: boolean;
+    setIsCopyingReceipt: (copying: boolean) => void;
     selectedReceipt: GoodsReceipt | null;
     setSelectedReceipt: (receipt: GoodsReceipt | null) => void;
     isDetailsOpen: boolean;
@@ -38,13 +41,19 @@ export interface UseReceiptsReturn {
     reverseCandidate: GoodsReceipt | null;
     setReverseCandidate: (receipt: GoodsReceipt | null) => void;
     isReversing: boolean;
+    unreverseCandidate: GoodsReceipt | null;
+    setUnreverseCandidate: (receipt: GoodsReceipt | null) => void;
+    isUnreversing: boolean;
     handleOpenNew: () => void;
     handleOpenEdit: (receipt: GoodsReceipt) => void;
+    handleCopyReceipt: (receipt: GoodsReceipt) => void;
     handleOpenDetails: (receipt: GoodsReceipt) => void;
     handleRowClick: (receipt: GoodsReceipt) => void;
     handleDelete: (e: React.MouseEvent, id: string) => Promise<void>;
     handleReverseRequest: (e: React.MouseEvent | null, receipt: GoodsReceipt) => void;
     handleConfirmReverse: () => Promise<void>;
+    handleUnreverseRequest: (e: React.MouseEvent | null, receipt: GoodsReceipt) => void;
+    handleConfirmUnreverse: () => Promise<void>;
 }
 
 /**
@@ -67,6 +76,7 @@ export const useReceipts = (): UseReceiptsReturn => {
     });
 
     const [isFormOpen, setIsFormOpen] = useState(false);
+    const [isCopyingReceipt, setIsCopyingReceipt] = useState(false);
     const [selectedReceipt, setSelectedReceipt] = useState<GoodsReceipt | null>(null);
 
     const [isDetailsOpen, setIsDetailsOpen] = useState(false);
@@ -75,6 +85,9 @@ export const useReceipts = (): UseReceiptsReturn => {
     const [openMenuId, setOpenMenuId] = useState<string | null>(null);
     const [reverseCandidate, setReverseCandidate] = useState<GoodsReceipt | null>(null);
     const [isReversing, setIsReversing] = useState(false);
+
+    const [unreverseCandidate, setUnreverseCandidate] = useState<GoodsReceipt | null>(null);
+    const [isUnreversing, setIsUnreversing] = useState(false);
 
     useEffect(() => subscribeToGoodsReceipts(setReceipts), []);
 
@@ -95,11 +108,19 @@ export const useReceipts = (): UseReceiptsReturn => {
 
     const handleOpenNew = useCallback(() => {
         setSelectedReceipt(null);
+        setIsCopyingReceipt(false);
         setIsFormOpen(true);
     }, []);
 
     const handleOpenEdit = useCallback((receipt: GoodsReceipt) => {
         setSelectedReceipt(receipt);
+        setIsCopyingReceipt(false);
+        setIsFormOpen(true);
+    }, []);
+
+    const handleCopyReceipt = useCallback((receipt: GoodsReceipt) => {
+        setSelectedReceipt(receipt);
+        setIsCopyingReceipt(true);
         setIsFormOpen(true);
     }, []);
 
@@ -109,13 +130,8 @@ export const useReceipts = (): UseReceiptsReturn => {
     }, []);
 
     const handleRowClick = useCallback((receipt: GoodsReceipt) => {
-        const isDraft = receipt.isDraft || receipt.status === 'draft';
-        if (isDraft) {
-            handleOpenEdit(receipt);
-        } else {
-            handleOpenDetails(receipt);
-        }
-    }, [handleOpenEdit, handleOpenDetails]);
+        handleOpenDetails(receipt);
+    }, [handleOpenDetails]);
 
     const handleDelete = useCallback(async (e: React.MouseEvent, id: string) => {
         e.stopPropagation();
@@ -149,6 +165,27 @@ export const useReceipts = (): UseReceiptsReturn => {
             setIsReversing(false);
         }
     }, [reverseCandidate]);
+
+    const handleUnreverseRequest = useCallback((e: React.MouseEvent | null, receipt: GoodsReceipt) => {
+        if (e) e.stopPropagation();
+        setUnreverseCandidate(receipt);
+    }, []);
+
+    const handleConfirmUnreverse = useCallback(async () => {
+        if (!unreverseCandidate) return;
+        setIsUnreversing(true);
+        try {
+            await unreverseGoodsReceipt(unreverseCandidate.id);
+            toast.success(`Estorno desfeito com sucesso! Recebimento reativado e movimentação de entrada efetivada.`);
+            setUnreverseCandidate(null);
+            setIsDetailsOpen(false);
+        } catch (err: unknown) {
+            const message = err instanceof Error ? err.message : 'Não foi possível desfazer o estorno do recebimento.';
+            toast.error(message);
+        } finally {
+            setIsUnreversing(false);
+        }
+    }, [unreverseCandidate]);
 
     // Filtra por fornecedor (se selecionado) e por período
     const filteredReceipts = useMemo(() => {
@@ -185,6 +222,8 @@ export const useReceipts = (): UseReceiptsReturn => {
         setCustomEndDate,
         isFormOpen,
         setIsFormOpen,
+        isCopyingReceipt,
+        setIsCopyingReceipt,
         selectedReceipt,
         setSelectedReceipt,
         isDetailsOpen,
@@ -196,12 +235,18 @@ export const useReceipts = (): UseReceiptsReturn => {
         reverseCandidate,
         setReverseCandidate,
         isReversing,
+        unreverseCandidate,
+        setUnreverseCandidate,
+        isUnreversing,
         handleOpenNew,
         handleOpenEdit,
+        handleCopyReceipt,
         handleOpenDetails,
         handleRowClick,
         handleDelete,
         handleReverseRequest,
-        handleConfirmReverse
+        handleConfirmReverse,
+        handleUnreverseRequest,
+        handleConfirmUnreverse
     };
 };

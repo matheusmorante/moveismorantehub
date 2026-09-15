@@ -74,7 +74,7 @@ export const ConfirmReverseModal: React.FC<ConfirmReverseModalProps> = ({
                     <ul className="list-disc list-inside space-y-1 text-[11px] opacity-90 pl-1">
                         <li>As quantidades dos {receipt.items.length} item(ns) serão debitadas do saldo no estoque.</li>
                         <li>O status do recebimento passará para <span className="font-bold uppercase text-red-600">Estornado</span>.</li>
-                        <li>Esta operação <span className="font-bold underline">não poderá ser desfeita</span>.</li>
+                        <li>Você poderá desfazer o estorno futuramente se necessário.</li>
                     </ul>
                 </div>
 

@@ -52,9 +52,186 @@ const PersonCard = ({
     const [isMenuOpen, setIsMenuOpen] = React.useState(false);
     const menuAnchorRef = React.useRef<HTMLButtonElement>(null);
     const isSupplier = person.type === 'suppliers';
+    const isCustomer = person.type === 'customers' || person.type === 'customer';
     const canSelect = allowsSelection && person.type !== 'employees' && !isSupplier;
 
     const hasActions = showTrash || person.type !== 'employees' || Boolean(onViewPurchaseHistory);
+
+    if (isCustomer) {
+        return (
+            <div 
+                role="button"
+                tabIndex={0}
+                aria-label={`Editar ${person.fullName || 'cliente'}`}
+                onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        onEdit(person);
+                    }
+                }}
+                className={`bg-white dark:bg-slate-900 border ${isSelected ? 'border-blue-500 ring-1 ring-blue-500' : 'border-slate-100 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700'} rounded-xl px-3 py-2 sm:py-2.5 shadow-2xs active:scale-[0.99] cursor-pointer transition-all`}
+                onClick={() => onEdit(person)}
+            >
+                <div className="flex items-center justify-between gap-2.5">
+                    {/* Informações na mesma linha do nome do cliente (com flex-wrap responsivo) */}
+                    <div className="flex items-center gap-x-2.5 gap-y-1 flex-wrap min-w-0 flex-1">
+                        {/* Nome do Cliente */}
+                        <div className="flex items-center gap-1.5 min-w-0">
+                            <span className="font-bold text-xs sm:text-sm text-slate-800 dark:text-slate-100 truncate">
+                                {person.fullName}
+                            </span>
+                            {person.tradeName && person.tradeName !== person.fullName && (
+                                <span className="hidden md:inline text-[10px] text-slate-400 font-semibold truncate max-w-[130px]">
+                                    ({person.tradeName})
+                                </span>
+                            )}
+                        </div>
+
+                        {/* Status Ativo/Inativo */}
+                        <span className={`text-[8px] sm:text-[9px] px-1.5 py-0.5 rounded-full font-black uppercase tracking-wider shrink-0 ${
+                            person.active 
+                                ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-400 border border-emerald-200/50 dark:border-emerald-800/40' 
+                                : 'bg-slate-100 text-slate-400 dark:bg-slate-800 dark:text-slate-500'
+                        }`}>
+                            {person.active ? 'Ativo' : 'Inativo'}
+                        </span>
+
+                        {/* CPF / CNPJ */}
+                        {person.cpfCnpj && (
+                            <span className="inline-flex items-center gap-1 text-[10px] font-mono font-medium text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-slate-800/60 px-1.5 py-0.5 rounded border border-slate-100 dark:border-slate-800 shrink-0">
+                                <i className="bi bi-person-vcard text-[9px] text-slate-400" />
+                                {person.cpfCnpj}
+                            </span>
+                        )}
+
+                        {/* Telefone */}
+                        {person.phone && (
+                            <span className="inline-flex items-center gap-1 text-[10px] font-medium text-slate-600 dark:text-slate-300 bg-slate-50 dark:bg-slate-800/40 px-1.5 py-0.5 rounded shrink-0">
+                                <i className="bi bi-telephone text-[9px] text-slate-400" />
+                                {person.phone}
+                            </span>
+                        )}
+
+                        {/* E-mail (telas sm+) */}
+                        {person.email && (
+                            <span className="hidden sm:inline-flex items-center gap-1 text-[10px] text-slate-500 dark:text-slate-400 truncate max-w-[180px]">
+                                <i className="bi bi-envelope text-[9px] text-slate-400" />
+                                <span className="truncate">{person.email}</span>
+                            </span>
+                        )}
+
+                        {/* Cidade / Estado (telas lg+) */}
+                        {person.fullAddress?.city && (
+                            <span className="hidden lg:inline-flex items-center gap-1 text-[10px] text-slate-400 dark:text-slate-500 truncate max-w-[160px]">
+                                <i className="bi bi-geo-alt text-[9px] text-slate-400" />
+                                <span className="truncate">{person.fullAddress.city}{person.fullAddress.state ? ` - ${person.fullAddress.state}` : ''}</span>
+                            </span>
+                        )}
+                    </div>
+
+                    {/* Ações (Direita) */}
+                    <div className="flex items-center gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
+                        {onViewPurchaseHistory && (
+                            <button
+                                type="button"
+                                onClick={(e) => { e.stopPropagation(); onViewPurchaseHistory(person); }}
+                                className="w-7 h-7 flex items-center justify-center rounded-lg text-slate-400 hover:text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-950/30 transition-colors"
+                                title="Histórico de Pedidos"
+                            >
+                                <i className="bi bi-bag-check text-xs" />
+                            </button>
+                        )}
+
+                        <button
+                            ref={menuAnchorRef}
+                            onClick={(e) => { e.stopPropagation(); setIsMenuOpen(!isMenuOpen); }}
+                            className={`w-7 h-7 flex items-center justify-center rounded-lg transition-all border shrink-0 ${
+                                isMenuOpen 
+                                    ? 'bg-indigo-50 dark:bg-indigo-900/20 border-indigo-200 text-indigo-600' 
+                                    : 'bg-slate-50 dark:bg-slate-800/60 border-slate-100 dark:border-slate-800 text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:hover:bg-slate-800'
+                            }`}
+                            title="Mais Ações"
+                        >
+                            <i className="bi bi-three-dots text-xs" />
+                        </button>
+
+                        <DropdownPortal
+                            isOpen={isMenuOpen}
+                            onClose={() => setIsMenuOpen(false)}
+                            anchorRef={menuAnchorRef}
+                            className="min-w-[190px]"
+                        >
+                            <div 
+                                className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl shadow-2xl py-2 flex flex-col z-[9999] animate-slide-up"
+                                onMouseLeave={() => setIsMenuOpen(false)}
+                            >
+                                {showTrash ? (
+                                    <>
+                                        <button
+                                            onClick={(e) => { e.stopPropagation(); setIsMenuOpen(false); onRestore(person.id!); }}
+                                            className="flex items-center gap-3 px-4 py-2.5 hover:bg-slate-50 dark:hover:bg-slate-955 transition-colors text-left group"
+                                        >
+                                            <i className="bi bi-arrow-counterclockwise text-emerald-500" />
+                                            <span className="text-[10px] font-black uppercase tracking-widest text-slate-700 dark:text-slate-200">Restaurar</span>
+                                        </button>
+                                        <button
+                                            onClick={(e) => { e.stopPropagation(); setIsMenuOpen(false); onPermanentDelete(person.id!); }}
+                                            className="flex items-center gap-3 px-4 py-2.5 hover:bg-red-50 dark:hover:bg-red-955/20 transition-colors text-left group border-t border-slate-50 dark:border-slate-800/50"
+                                        >
+                                            <i className="bi bi-trash3-fill text-red-500" />
+                                            <span className="text-[10px] font-black uppercase tracking-widest text-red-600 dark:text-red-400">Excluir Permanentemente</span>
+                                        </button>
+                                    </>
+                                ) : (
+                                    <>
+                                        <button
+                                            onClick={(e) => { e.stopPropagation(); setIsMenuOpen(false); onEdit(person); }}
+                                            className="flex items-center gap-3 px-4 py-2.5 hover:bg-slate-50 dark:hover:bg-slate-955 transition-colors text-left group"
+                                        >
+                                            <i className="bi bi-pencil-fill text-blue-500" />
+                                            <span className="text-[10px] font-black uppercase tracking-widest text-slate-700 dark:text-slate-200">Editar</span>
+                                        </button>
+
+                                        {onViewPurchaseHistory && (
+                                            <button
+                                                onClick={(e) => { e.stopPropagation(); setIsMenuOpen(false); onViewPurchaseHistory(person); }}
+                                                className="flex items-center gap-3 px-4 py-2.5 hover:bg-slate-50 dark:hover:bg-slate-955 transition-colors text-left group"
+                                            >
+                                                <i className="bi bi-bag-check-fill text-amber-500" />
+                                                <span className="text-[10px] font-black uppercase tracking-widest text-slate-700 dark:text-slate-200">Histórico de Pedidos</span>
+                                            </button>
+                                        )}
+
+                                        <button
+                                            onClick={(e) => { 
+                                                 e.stopPropagation(); 
+                                                 setIsMenuOpen(false);
+                                                 import('../../../utils/whatsapp').then(({ sendDirectPersonGroupInviteMessage }) => {
+                                                     sendDirectPersonGroupInviteMessage(person);
+                                                 });
+                                            }}
+                                            className="flex items-center gap-3 px-4 py-2.5 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 transition-colors text-left group"
+                                        >
+                                            <i className="bi bi-person-lines-fill text-indigo-500" />
+                                            <span className="text-[10px] font-black uppercase tracking-widest text-indigo-700 dark:text-indigo-300">Enviar Convite VIP</span>
+                                        </button>
+
+                                        <button
+                                            onClick={(e) => { e.stopPropagation(); setIsMenuOpen(false); onDelete(person.id!); }}
+                                            className="flex items-center gap-3 px-4 py-2.5 hover:bg-red-50 dark:hover:bg-red-955/20 transition-colors text-left group border-t border-slate-50 dark:border-slate-800/50"
+                                        >
+                                            <i className="bi bi-trash-fill text-red-500" />
+                                            <span className="text-[10px] font-black uppercase tracking-widest text-red-600 dark:text-red-400">Mover para Lixeira</span>
+                                        </button>
+                                    </>
+                                )}
+                            </div>
+                        </DropdownPortal>
+                    </div>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div 

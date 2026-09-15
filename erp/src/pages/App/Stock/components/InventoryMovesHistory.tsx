@@ -275,8 +275,6 @@ export const InventoryMovesHistory = ({
                                     onToggleExpand={() => {
                                         if (move.id) toggleExpand(move.id);
                                     }}
-                                    onEdit={canManageStock ? () => setEditingMove(move) : undefined}
-                                    onDelete={canManageStock ? () => handleDelete(move) : undefined}
                                 />
                             );
                         })}
@@ -290,8 +288,6 @@ export const InventoryMovesHistory = ({
                             toggleExpand={toggleExpand}
                             getCleanObservation={getCleanObservation}
                             isOrderLinked={isOrderLinked}
-                            onEdit={canManageStock ? (m) => setEditingMove(m) : undefined}
-                            onDelete={canManageStock ? (m) => handleDelete(m) : undefined}
                         />
                     </div>
                 </div>

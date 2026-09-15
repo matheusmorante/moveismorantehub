@@ -1,5 +1,5 @@
 import { useState } from "react"
-import CustomerData from "../../../types/customerData.type";
+import CustomerData from '@/pages/types/customerData.type';
 
 export function useCustomerData() {
     const [customerData, setCustomerData] = useState<CustomerData>({

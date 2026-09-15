@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Product, { Variation } from '../../../../types/product.type';
 import { computeVariationName } from '@/pages/utils/productVariationDefaults';
 import { toTitleCase } from '@/pages/utils/textUtils';
 import { toast } from 'react-toastify';
+import { VariationAttributeValueInput } from './VariationAttributeValueInput';
 
 export interface DbAttributeItem {
     readonly id: string;
@@ -26,6 +27,7 @@ interface VariationIdentificationTabProps {
     readonly setIsManageAttributesOpen: (open: boolean) => void;
     readonly getDefaultVariationName: (attributes?: Variation['attributes']) => string;
     readonly getDefaultVariationTitle: (attributes?: Variation['attributes']) => string;
+    readonly fetchDbAttributes?: () => Promise<void>;
 }
 
 export const VariationIdentificationTab: React.FC<VariationIdentificationTabProps> = ({
@@ -38,9 +40,14 @@ export const VariationIdentificationTab: React.FC<VariationIdentificationTabProp
     dbAttributeValues,
     setIsManageAttributesOpen,
     getDefaultVariationName,
-    getDefaultVariationTitle
+    getDefaultVariationTitle,
+    fetchDbAttributes
 }) => {
-    const [openValueSuggestionsFor, setOpenValueSuggestionsFor] = useState<number | null>(null);
+    const [localAttributeValues, setLocalAttributeValues] = useState<readonly DbAttributeValueItem[]>(dbAttributeValues);
+
+    useEffect(() => {
+        setLocalAttributeValues(dbAttributeValues);
+    }, [dbAttributeValues]);
 
     const updateAttributeValue = (index: number, value: string) => {
         setFormData(prev => {
@@ -49,13 +56,7 @@ export const VariationIdentificationTab: React.FC<VariationIdentificationTabProp
             updated[index] = { ...updated[index], value };
             const autoName = getDefaultVariationName(updated);
             const autoTitle = getDefaultVariationTitle(updated);
-            return {
-                ...prev,
-                attributes: updated,
-                name: autoName,
-                title: autoTitle,
-                marketplaceTitle: autoTitle,
-            };
+            return { ...prev, attributes: updated, name: autoName, title: autoTitle, marketplaceTitle: autoTitle };
         });
     };
 
@@ -164,30 +165,21 @@ export const VariationIdentificationTab: React.FC<VariationIdentificationTabProp
                 </div>
 
                 {(formData.attributes || []).length === 0 ? (
-                    <div className="rounded-2xl border border-amber-200 bg-amber-50/80 p-3 text-center dark:border-amber-900/40 dark:bg-amber-950/20">
-                        <p className="text-xs font-bold text-amber-800 dark:text-amber-300">
-                            ⚠️ É obrigatório adicionar pelo menos um atributo e definir seu respectivo valor para salvar a variação.
-                        </p>
-                    </div>
+                    <p className="text-xs text-slate-400 italic text-center py-2">Nenhum atributo vinculado.</p>
                 ) : (
                     <div className="space-y-3">
                         {(formData.attributes || []).map((attr, idx) => {
                             const currentAttr = dbAttributes.find(a => a.name === attr.name);
-                            const attrVals = currentAttr ? dbAttributeValues.filter(val => val.attribute_id === currentAttr.id) : [];
-                            const isNameMissing = !String(attr.name || '').trim();
-                            const isValMissing = !String(attr.value || '').trim();
+                            const attrVals = currentAttr ? localAttributeValues.filter(val => val.attribute_id === currentAttr.id) : [];
 
                             return (
-                                <div key={idx} className="flex items-end gap-3 animate-in fade-in duration-200">
-                                    <div className="relative flex-1 space-y-1">
-                                        <label className="text-[9px] text-slate-400 font-bold uppercase flex items-center justify-between">
-                                            <span>Atributo <span className="text-red-500">*</span></span>
-                                            {isNameMissing && <span className="text-red-500 font-bold text-[8px]">Obrigatório</span>}
-                                        </label>
+                                <div key={idx} className="flex items-start gap-3 animate-in fade-in duration-200">
+                                    <div className="flex-1 space-y-1">
+                                        <label className="text-[9px] text-slate-400 font-bold uppercase">Atributo</label>
                                         <select
                                             value={attr.name}
                                             onChange={e => {
-                                                const newName = toTitleCase(e.target.value);
+                                                const newName = e.target.value;
                                                 setFormData(prev => {
                                                     if (!prev) return null;
                                                     const updated = [...prev.attributes];
@@ -203,73 +195,26 @@ export const VariationIdentificationTab: React.FC<VariationIdentificationTabProp
                                                     };
                                                 });
                                             }}
-                                            className={`w-full bg-transparent border-b-2 border-t-0 border-x-0 outline-none px-1 py-2 text-xs font-bold transition-all ${
-                                                isNameMissing
-                                                    ? 'border-red-500 text-red-600 dark:text-red-400'
-                                                    : 'border-slate-200 dark:border-slate-800 text-slate-800 dark:text-slate-200 focus:border-blue-600 dark:focus:border-blue-400'
-                                            }`}
+                                            className="w-full bg-transparent border-b-2 border-t-0 border-x-0 border-slate-200 dark:border-slate-800 outline-none px-1 py-2 text-xs font-bold text-slate-800 dark:text-slate-200 focus:border-blue-600 dark:focus:border-blue-400 transition-all"
                                         >
                                             <option value="">Selecione um atributo...</option>
                                             {dbAttributes.map(a => (
-                                                <option key={a.id} value={a.name}>{toTitleCase(a.name)}</option>
+                                                <option key={a.id} value={a.name}>{a.name}</option>
                                             ))}
                                         </select>
                                     </div>
 
-                                    <div className="flex-1 space-y-1">
-                                        <label className="text-[9px] text-slate-400 font-bold uppercase flex items-center justify-between">
-                                            <span>Valor <span className="text-red-500">*</span></span>
-                                            {isValMissing && <span className="text-red-500 font-bold text-[8px]">Defina o valor</span>}
-                                        </label>
-                                        <input
-                                            type="text"
-                                            aria-label={`Pesquisar valor para ${attr.name || 'atributo'}`}
-                                            placeholder={attr.name ? 'Pesquise ou digite um novo valor...' : 'Selecione o atributo primeiro...'}
-                                            disabled={!attr.name}
-                                            value={attr.value}
-                                            onFocus={() => setOpenValueSuggestionsFor(idx)}
-                                            onBlur={() => {
-                                                setOpenValueSuggestionsFor(current => current === idx ? null : current);
-                                                const formatted = toTitleCase(attr.value);
-                                                if (formatted !== attr.value) updateAttributeValue(idx, formatted);
-                                            }}
-                                            onChange={e => {
-                                                updateAttributeValue(idx, e.target.value);
-                                                setOpenValueSuggestionsFor(idx);
-                                            }}
-                                            className={`w-full bg-transparent border-b-2 border-t-0 border-x-0 outline-none px-1 py-2 text-xs font-bold transition-all disabled:cursor-not-allowed disabled:opacity-50 ${
-                                                isValMissing
-                                                    ? 'border-red-500 text-red-600 dark:text-red-400 placeholder:text-red-300'
-                                                    : 'border-slate-200 dark:border-slate-800 text-slate-800 dark:text-slate-200 focus:border-blue-600 dark:focus:border-blue-400'
-                                            }`}
-                                        />
-                                        {openValueSuggestionsFor === idx && attr.name && (
-                                            <div className="absolute z-30 mt-1 max-h-48 w-full overflow-y-auto rounded-xl border border-slate-200 bg-white p-1 shadow-xl dark:border-slate-700 dark:bg-slate-900">
-                                                {attrVals
-                                                    .filter(option => option.value.toLocaleLowerCase('pt-BR').includes(attr.value.toLocaleLowerCase('pt-BR')))
-                                                    .map(option => (
-                                                        <button
-                                                            key={option.id}
-                                                            type="button"
-                                                            onMouseDown={event => event.preventDefault()}
-                                                            onClick={() => {
-                                                                updateAttributeValue(idx, toTitleCase(option.value));
-                                                                setOpenValueSuggestionsFor(null);
-                                                            }}
-                                                            className="block w-full rounded-lg px-3 py-2 text-left text-xs font-bold text-slate-700 hover:bg-blue-50 hover:text-blue-700 dark:text-slate-200 dark:hover:bg-slate-800 dark:hover:text-blue-300"
-                                                        >
-                                                            {toTitleCase(option.value)}
-                                                        </button>
-                                                    ))}
-                                                {attrVals.length === 0 && (
-                                                    <p className="px-3 py-2 text-xs text-slate-500">Digite para criar o primeiro valor deste atributo.</p>
-                                                )}
-                                                {attrVals.length > 0 && !attrVals.some(option => option.value.toLocaleLowerCase('pt-BR').includes(attr.value.toLocaleLowerCase('pt-BR'))) && (
-                                                    <p className="px-3 py-2 text-xs text-slate-500">Nenhuma sugestão encontrada. Você pode usar o valor digitado.</p>
-                                                )}
-                                            </div>
-                                        )}
-                                    </div>
+                                    <VariationAttributeValueInput
+                                        attributeId={currentAttr?.id}
+                                        attributeName={currentAttr?.name || attr.name}
+                                        value={attr.value}
+                                        registeredValues={attrVals}
+                                        onChange={(newVal) => updateAttributeValue(idx, newVal)}
+                                        onValueRegistered={(newVal) => {
+                                            setLocalAttributeValues((prev) => [...prev, newVal]);
+                                            void fetchDbAttributes?.();
+                                        }}
+                                    />
 
                                     <button
                                         type="button"

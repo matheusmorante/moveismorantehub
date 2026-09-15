@@ -1,21 +1,18 @@
-# Estorno de Recebimento de Compras — Morante Hub
+# Estorno de Recebimento — Morante Hub
 
-Este documento descreve as regras de reversão, compensação e cancelamento de recebimentos de compras incorretos ou rejeitados no Morante Hub.
+O recebimento permanece registrado após um estorno. O cabeçalho passa de `received` para `estornado` e as entradas de estoque associadas passam de `effective` para `reversed`.
 
----
+| Ação | Recebimento | Movimentações vinculadas | Saldo |
+| --- | --- | --- | --- |
+| Finalizar | `received` | `entry` / `effective` | soma a entrada |
+| Estornar | `estornado` | mesmas entradas / `reversed` | desfaz a entrada |
+| Desfazer estorno | `received` | mesmas entradas / `effective` | reaplica a entrada |
 
-## 🛑 Regras de Estorno de Recebimento
+O serviço impede estorno manual de movimento vinculado a documento. A reversão deve partir do recebimento para preservar a ligação, o motivo e a capacidade de reativação.
 
-1. **Reversão Compensatória de Saldo**:
-   - Estornar um recebimento gera um lançamento inverso no livro de estoque, deduzindo do saldo a exata quantidade que havia sido dada entrada pela compra.
-2. **Ajuste Compensatório no CMPM**:
-   - O CMPM da variação é reajustado proporcionalmente para neutralizar a entrada que havia sido incorporada incorretamente ao custo médio.
-3. **Cancelamento no Contas a Pagar**:
-   - Os títulos a pagar gerados ao fornecedor por aquele recebimento específico são marcados como cancelados/estornados no módulo financeiro.
+Para recebimentos anteriores à vinculação por ID, há busca de compatibilidade e recriação somente quando não existir movimento a reativar. Esse caminho é uma medida de compatibilidade, não o fluxo padrão.
 
----
+## Implementação
 
-## 🔗 Mapeamento em Código e Testes
-
-- **Serviço**: `[goodsReceiptService.ts](file:///c:/Users/mathe/OneDrive/%C3%81rea%20de%20Trabalho/projetos/morantehub/erp/src/pages/utils/goodsReceiptService.ts)` → `reverseGoodsReceipt()`
-- **Testes de Proteção**: `[goodsReceiptCostCalculation.test.ts](file:///c:/Users/mathe/OneDrive/%C3%81rea%20de%20Trabalho/projetos/morantehub/erp/src/pages/utils/goodsReceiptCostCalculation.test.ts)`
+- [reverseGoodsReceipt e unreverseGoodsReceipt](../../../erp/src/pages/utils/goodsReceiptService.ts)
+- [Reversão de movimentos](../../../erp/src/pages/utils/inventoryService/inventoryReversalService.ts)

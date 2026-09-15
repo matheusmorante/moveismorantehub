@@ -14,6 +14,8 @@ export type InventoryMove = {
     parentMoveId?: string; // Links withdrawal to original entry for FIFO
     relatedEntityId?: string; // e.g., orderId, purchaseId
     relatedEntityType?: 'sales_order' | 'purchase_order' | 'adjustment' | 'manual';
+    sourceReceiptId?: string;
+    sourceItemIndex?: number;
     observation?: string;
     status?: 'effective' | 'reversed' | 'active' | 'cancelled';
     reversalReason?: string;

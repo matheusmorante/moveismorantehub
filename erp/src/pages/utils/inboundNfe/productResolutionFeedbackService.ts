@@ -1,4 +1,5 @@
 import { supabase } from '../supabaseConfig';
+import { isValidUuid } from '../uuidUtils';
 
 export const PRODUCT_RESOLUTION_DECISIONS = ['accepted', 'rejected', 'corrected'] as const;
 export const PRODUCT_RESOLUTION_RELATIONS = ['existing_variation', 'new_variation', 'same_nf_product_family', 'new_product', 'different_parent_products'] as const;
@@ -38,28 +39,24 @@ export function validateProductResolutionFeedback(input: ProductResolutionFeedba
 }
 
 export async function recordProductResolutionFeedback(input: ProductResolutionFeedbackInput): Promise<void> {
-    try {
-        validateProductResolutionFeedback(input);
-        const { error } = await supabase.from('product_resolution_feedback').insert({
-            supplier_id: clean(input.supplierId),
-            supplier_product_code: normalizeCode(input.supplierProductCode) || null,
-            supplier_code_family: clean(input.supplierCodeFamily) || null,
-            nf_item_description: clean(input.nfItemDescription),
-            normalized_parent_name: clean(input.normalizedParentName) || null,
-            detected_attributes: input.detectedAttributes || {},
-            unit_cost: Number.isFinite(input.unitCost) ? input.unitCost : null,
-            ai_suggestion: input.aiSuggestion || {},
-            user_decision: input.userDecision,
-            final_product_id: clean(input.finalProductId) || null,
-            final_variation_id: clean(input.finalVariationId) || null,
-            relation_type: input.relationType,
-        });
-        if (error) {
-            console.warn('[productResolutionFeedbackService] Aviso ao salvar feedback (tabela opcional ou cache):', error.message);
-        }
-    } catch (err: any) {
-        console.warn('[productResolutionFeedbackService] Falha não impeditiva ao registrar feedback de resolução:', err?.message || err);
-    }
+    validateProductResolutionFeedback(input);
+    const finalProductId = clean(input.finalProductId);
+    const finalVariationId = clean(input.finalVariationId);
+    const { error } = await supabase.from('product_resolution_feedback').insert({
+        supplier_id: clean(input.supplierId),
+        supplier_product_code: normalizeCode(input.supplierProductCode) || null,
+        supplier_code_family: clean(input.supplierCodeFamily) || null,
+        nf_item_description: clean(input.nfItemDescription),
+        normalized_parent_name: clean(input.normalizedParentName) || null,
+        detected_attributes: input.detectedAttributes || {},
+        unit_cost: Number.isFinite(input.unitCost) ? input.unitCost : null,
+        ai_suggestion: input.aiSuggestion || {},
+        user_decision: input.userDecision,
+        final_product_id: (finalProductId && isValidUuid(finalProductId)) ? finalProductId : null,
+        final_variation_id: (finalVariationId && isValidUuid(finalVariationId)) ? finalVariationId : null,
+        relation_type: input.relationType,
+    });
+    if (error) throw error;
 }
 
 const asExample = (row: any): ProductResolutionExample => ({
@@ -83,31 +80,23 @@ export async function findProductResolutionExamples(input: {
     normalizedParentName?: string;
 }): Promise<ProductResolutionExample[]> {
     if (!clean(input.supplierId)) return [];
-    try {
-        const { data, error } = await supabase
-            .from('product_resolution_feedback')
-            .select('supplier_product_code, supplier_code_family, nf_item_description, normalized_parent_name, detected_attributes, user_decision, final_product_id, final_variation_id, relation_type, created_at')
-            .eq('supplier_id', input.supplierId)
-            .order('created_at', { ascending: false })
-            .limit(80);
-        if (error) {
-            console.warn('[productResolutionFeedbackService] Aviso ao buscar exemplos de feedback:', error.message);
-            return [];
-        }
+    const { data, error } = await supabase
+        .from('product_resolution_feedback')
+        .select('supplier_product_code, supplier_code_family, nf_item_description, normalized_parent_name, detected_attributes, user_decision, final_product_id, final_variation_id, relation_type, created_at')
+        .eq('supplier_id', input.supplierId)
+        .order('created_at', { ascending: false })
+        .limit(80);
+    if (error) throw error;
 
-        const code = normalizeCode(input.supplierProductCode);
-        const family = clean(input.supplierCodeFamily);
-        const parent = clean(input.normalizedParentName)?.toLocaleUpperCase('pt-BR');
-        const relevant = (data || []).filter((row: any) =>
-            (code && normalizeCode(row.supplier_product_code) === code) ||
-            (family && row.supplier_code_family === family) ||
-            (parent && String(row.normalized_parent_name || '').toLocaleUpperCase('pt-BR') === parent),
-        );
-        return relevant.slice(0, MAX_PRODUCT_RESOLUTION_EXAMPLES).map(asExample);
-    } catch (err: any) {
-        console.warn('[productResolutionFeedbackService] Falha ao consultar exemplos:', err?.message || err);
-        return [];
-    }
+    const code = normalizeCode(input.supplierProductCode);
+    const family = clean(input.supplierCodeFamily);
+    const parent = clean(input.normalizedParentName)?.toLocaleUpperCase('pt-BR');
+    const relevant = (data || []).filter((row: any) =>
+        (code && normalizeCode(row.supplier_product_code) === code) ||
+        (family && row.supplier_code_family === family) ||
+        (parent && String(row.normalized_parent_name || '').toLocaleUpperCase('pt-BR') === parent),
+    );
+    return relevant.slice(0, MAX_PRODUCT_RESOLUTION_EXAMPLES).map(asExample);
 }
 
 export function shouldActivateSupplierPattern(confirmationCount: number, contradictionCount: number): boolean {

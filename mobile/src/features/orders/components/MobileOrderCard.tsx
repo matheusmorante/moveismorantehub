@@ -105,8 +105,8 @@ export function MobileOrderCard({ order, dark, handlingOptions, onDetails }: Pro
   let headerBg = dark ? '#022c22' : '#a7f3d0'; // Emerald-200 no tom exato do ERP
   let headerBorder = dark ? '#065f46' : '#6ee7b7';
   if (cancelled) {
-    headerBg = dark ? '#1e293b' : '#e2e8f0';
-    headerBorder = dark ? '#334155' : '#cbd5e1';
+    headerBg = dark ? '#450a0a' : '#fee2e2'; // Vermelho suave condizente com a moldura e fundo
+    headerBorder = dark ? '#7f1d1d' : '#fca5a5';
   } else if (isDraft) {
     headerBg = dark ? '#334155' : '#f1f5f9';
     headerBorder = dark ? '#475569' : '#e2e8f0';
@@ -133,9 +133,17 @@ export function MobileOrderCard({ order, dark, handlingOptions, onDetails }: Pro
       style={[
         styles.card,
         dark && styles.cardDark,
-        cancelled && styles.cardCancelled,
+        cancelled && (dark ? styles.cardCancelledDark : styles.cardCancelled),
+        cancelled && { overflow: 'visible' },
       ]}
     >
+      {/* Botãozinho redondinho com X no canto superior direito quando cancelado */}
+      {cancelled && (
+        <View style={styles.topRightCloseBadge}>
+          <Text style={styles.topRightCloseText}>✕</Text>
+        </View>
+      )}
+
       {/* Overlay escuro / brilho baixo quando cancelado (idêntico ao ERP) */}
       {cancelled && <View style={styles.cancelledOverlay} />}
 
@@ -143,6 +151,9 @@ export function MobileOrderCard({ order, dark, handlingOptions, onDetails }: Pro
       {cancelled && (
         <View style={styles.stampContainer}>
           <View style={styles.stampBadge}>
+            <View style={styles.stampIconCircle}>
+              <Text style={styles.stampIconText}>✕</Text>
+            </View>
             <Text style={styles.stampText}>CANCELADO</Text>
           </View>
         </View>
@@ -268,11 +279,44 @@ const styles = StyleSheet.create({
     borderColor: '#334155',
   },
   cardCancelled: {
-    borderColor: '#cbd5e1',
+    borderColor: '#ef4444',
+    borderWidth: 2,
+    backgroundColor: '#fef2f2',
+  },
+  cardCancelledDark: {
+    borderColor: '#dc2626',
+    borderWidth: 2,
+    backgroundColor: '#450a0a',
+  },
+  topRightCloseBadge: {
+    position: 'absolute',
+    top: -6,
+    right: -6,
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: '#dc2626',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 40,
+    borderWidth: 2,
+    borderColor: '#ffffff',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.35,
+    shadowRadius: 3,
+    elevation: 8,
+  },
+  topRightCloseText: {
+    color: '#ffffff',
+    fontSize: 12,
+    fontWeight: '900',
+    textAlign: 'center',
+    lineHeight: 14,
   },
   cancelledOverlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(2, 6, 23, 0.55)',
+    backgroundColor: 'rgba(2, 6, 23, 0.45)',
     zIndex: 10,
     borderRadius: 20,
     pointerEvents: 'none',
@@ -286,10 +330,13 @@ const styles = StyleSheet.create({
     pointerEvents: 'none',
   },
   stampBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
     backgroundColor: '#dc2626',
     borderColor: '#ffffff',
     borderWidth: 3,
-    paddingHorizontal: 24,
+    paddingHorizontal: 20,
     paddingVertical: 10,
     borderRadius: 12,
     transform: [{ rotate: '-12deg' }],
@@ -299,14 +346,27 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 10,
     maxWidth: '85%',
+    justifyContent: 'center',
+  },
+  stampIconCircle: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: '#ffffff',
     alignItems: 'center',
     justifyContent: 'center',
   },
+  stampIconText: {
+    color: '#dc2626',
+    fontSize: 11,
+    fontWeight: '900',
+    lineHeight: 13,
+  },
   stampText: {
     color: '#ffffff',
-    fontSize: 22,
+    fontSize: 20,
     fontWeight: '900',
-    letterSpacing: 4,
+    letterSpacing: 3,
     textTransform: 'uppercase',
     textAlign: 'center',
   },

@@ -2,6 +2,9 @@ import { supabase } from '../supabaseConfig';
 import { InboundInvoice } from './inboundNfeTypes';
 import { parseInboundNfeXml } from './inboundXmlParser';
 import { DateFilterConfig } from '../../App/Stock/InboundInvoices/InboundInvoicesHeader';
+import { isValidUuid } from '../uuidUtils';
+
+export { isValidUuid };
 
 const STORAGE_KEY = 'morante_inbound_invoices_cache';
 const LAST_SYNC_KEY = 'morante_inbound_invoices_last_sync_at';
@@ -120,8 +123,6 @@ const saveLocalInvoices = (invoices: InboundInvoice[]) => {
     }
 };
 
-const isValidUuid = (str?: string) => Boolean(str && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str));
-
 const isSampleInvoice = (inv: { id?: string; nfeKey?: string; nfeNumber?: string; emitterCnpj?: string }) => {
     return inv.id === 'inbound_41260944512248000107550010000012341000012345' ||
         inv.nfeKey === '41260944512248000107550010000012341000012345' ||
@@ -132,7 +133,14 @@ export const deleteInboundInvoice = async (invoiceIdOrKey: string): Promise<void
     const local = getLocalInvoices().filter((inv) => inv.id !== invoiceIdOrKey && inv.nfeKey !== invoiceIdOrKey && !isSampleInvoice(inv));
     saveLocalInvoices(local);
     try {
-        await supabase.from('inbound_invoices').delete().or(`id.eq.${invoiceIdOrKey},chave_acesso.eq.${invoiceIdOrKey}`);
+        if (isValidUuid(invoiceIdOrKey)) {
+            await supabase.from('inbound_invoices').delete().or(`id.eq.${invoiceIdOrKey},chave_acesso.eq.${invoiceIdOrKey}`);
+        } else {
+            const cleanKey = invoiceIdOrKey.replace(/^inbound_/, '').replace(/\D/g, '');
+            if (cleanKey.length === 44) {
+                await supabase.from('inbound_invoices').delete().eq('chave_acesso', cleanKey);
+            }
+        }
     } catch (err) {
         console.warn('Erro ao deletar NF no Supabase:', err);
     }
@@ -451,7 +459,7 @@ export const checkInboundInvoiceKeyExists = async (
             .select('*')
             .eq('chave_acesso', cleanKey);
 
-        if (currentInvoiceId) {
+        if (currentInvoiceId && isValidUuid(currentInvoiceId)) {
             query = query.neq('id', currentInvoiceId);
         }
 
@@ -672,6 +680,48 @@ export const syncSefazDfe = async (options?: { forceMock?: boolean }): Promise<{
         newInvoicesCount: 0,
         updatedInvoicesCount: 0,
         message: 'Consulta SEFAZ finalizada.'
+    };
+};
+
+export const consultInboundInvoiceByAccessKey = async (accessKey: string): Promise<{ invoice?: InboundInvoice; rawXml?: string; message?: string }> => {
+    const cleanKey = accessKey.replace(/\D/g, '');
+    if (cleanKey.length !== 44) {
+        throw new Error('A chave de acesso deve conter exatamente 44 dígitos numéricos.');
+    }
+
+    // 1. Verifica se já existe em banco ou cache local
+    const existing = await checkInboundInvoiceKeyExists(cleanKey);
+    if (existing) {
+        return { invoice: existing, message: 'Nota fiscal já cadastrada no sistema.' };
+    }
+
+    // 2. Consulta a SEFAZ via Edge Function
+    const { data, error } = await supabase.functions.invoke('sefaz-inbound-sync', {
+        body: { accessKey: cleanKey, environment: 'production' }
+    });
+
+    if (error) {
+        throw new Error(error.message || 'Erro ao comunicar com a SEFAZ.');
+    }
+
+    if (!data?.success) {
+        throw new Error(data?.message || 'A SEFAZ não retornou dados para esta chave de acesso.');
+    }
+
+    // 3. Se retornou o XML completo do documento
+    if (data.document?.xml) {
+        const parsed = parseInboundNfeXml(data.document.xml);
+        return { invoice: parsed, rawXml: data.document.xml, message: data.message };
+    }
+
+    // 4. Se a nota foi persistida diretamente pelo Edge Function
+    const savedInDb = await checkInboundInvoiceKeyExists(cleanKey);
+    if (savedInDb) {
+        return { invoice: savedInDb, message: data.message };
+    }
+
+    return {
+        message: data.message || 'A SEFAZ processou a requisição, mas o XML completo dos itens ainda não foi liberado. Envie o arquivo XML ou DANFE para importar todos os itens.'
     };
 };
 

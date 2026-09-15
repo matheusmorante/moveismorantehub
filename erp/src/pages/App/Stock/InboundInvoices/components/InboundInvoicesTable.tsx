@@ -139,7 +139,7 @@ export const InboundInvoicesTable: React.FC<InboundInvoicesTableProps> = ({
                                                         className="flex w-full items-center gap-2.5 px-4 py-2 text-left text-xs font-bold text-slate-700 hover:bg-slate-50 dark:text-slate-200 dark:hover:bg-slate-800 cursor-pointer"
                                                     >
                                                         <i className="bi bi-link-45deg text-blue-600 text-sm" aria-hidden="true" />
-                                                        Editar Vínculos
+                                                        Gerenciar vínculos
                                                     </button>
 
                                                     {inv.rawXml && (
@@ -229,7 +229,7 @@ export const InboundInvoicesTable: React.FC<InboundInvoicesTableProps> = ({
                                                     className="flex w-full items-center gap-2.5 px-4 py-2 text-left text-xs font-bold text-slate-700 hover:bg-slate-50 dark:text-slate-200 dark:hover:bg-slate-800 cursor-pointer"
                                                 >
                                                     <i className="bi bi-link-45deg text-blue-600 text-sm" aria-hidden="true" />
-                                                    Editar Vínculos
+                                                    Gerenciar vínculos
                                                 </button>
 
                                                 {inv.rawXml && (

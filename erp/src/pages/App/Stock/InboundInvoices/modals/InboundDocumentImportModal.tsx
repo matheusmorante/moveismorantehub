@@ -1,48 +1,92 @@
-import { useEffect, useRef, useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { toast } from 'react-toastify';
-import PersonFormModal from '@/pages/App/Registrations/shared/PersonFormModal';
 import { analyzeInboundInvoiceDocument, invoiceFromDocumentAnalysis } from '@/pages/utils/inboundNfe/inboundDocumentImportService';
 import type { InboundDocumentAnalysisStage } from '@/pages/utils/inboundNfe/inboundDocumentImportService';
-import { saveInboundInvoice, checkInboundInvoiceKeyExists } from '@/pages/utils/inboundNfe/inboundInvoicesService';
+import {
+    saveInboundInvoice,
+    checkInboundInvoiceKeyExists,
+    consultInboundInvoiceByAccessKey,
+} from '@/pages/utils/inboundNfe/inboundInvoicesService';
 import { fastExtractNfeAccessKey } from '@/pages/utils/inboundNfe/fastNfeKeyExtractor';
 import { parseInboundNfeXml } from '@/pages/utils/inboundNfe/inboundXmlParser';
-import { InboundInvoice, InboundInvoiceItem } from '@/pages/utils/inboundNfe/inboundNfeTypes';
-import { fetchPersons } from '@/pages/utils/personService';
-import { saveProductSupplierCode } from '@/pages/utils/productSupplierCodesService';
+import { InboundInvoice } from '@/pages/utils/inboundNfe/inboundNfeTypes';
+import { fetchPersons, savePerson } from '@/pages/utils/personService';
 import { findProductSupplierCodes } from '@/pages/utils/productSupplierCodesService';
-import { recordProductResolutionFeedback } from '@/pages/utils/inboundNfe/productResolutionFeedbackService';
 import Person from '@/pages/types/person.type';
-import SupplierAutocomplete from '@/components/SupplierAutocomplete';
-import { InboundInvoiceFiscalReview } from '../components/InboundInvoiceFiscalReview';
-import { InboundInvoiceItemsReview } from '../components/InboundInvoiceItemsReview';
 import { InboundDuplicateKeyAlertModal } from './InboundDuplicateKeyAlertModal';
 
-type Props = { isOpen: boolean; onClose: () => void; onImportSuccess: (invoice: InboundInvoice) => void };
-const accepted = 'application/pdf,image/png,image/jpeg,text/xml,application/xml,.pdf,.png,.jpg,.jpeg,.xml';
+interface InboundDocumentImportModalProps {
+    readonly isOpen: boolean;
+    readonly onClose: () => void;
+    readonly onImportSuccess: (invoice: InboundInvoice) => void;
+}
 
-export function InboundDocumentImportModal({ isOpen, onClose, onImportSuccess }: Props) {
-    const input = useRef<HTMLInputElement>(null);
-    const [file, setFile] = useState<File | null>(null);
-    const [invoice, setInvoice] = useState<InboundInvoice | null>(null);
-    const [suppliers, setSuppliers] = useState<Person[]>([]);
-    const [newSupplier, setNewSupplier] = useState(false);
-    const [loading, setLoading] = useState(false);
-    const [isSuggestingLinks, setIsSuggestingLinks] = useState(false);
-    const [checkedMappingsKey, setCheckedMappingsKey] = useState('');
-    const mappingsKey = JSON.stringify([invoice?.id, invoice?.nfeKey, invoice?.supplierId]);
-    const [analysisStage, setAnalysisStage] = useState<InboundDocumentAnalysisStage | null>(null);
+const ACCEPTED_FILE_TYPES = 'application/pdf,image/png,image/jpeg,text/xml,application/xml,.pdf,.png,.jpg,.jpeg,.xml';
+
+/**
+ * Localiza ou cria automaticamente o fornecedor para vincular à nota de entrada
+ */
+async function ensureSupplier(
+    emitterName?: string,
+    emitterTradeName?: string,
+    emitterCnpj?: string
+): Promise<Person | null> {
+    const cleanDoc = (emitterCnpj || '').replace(/\D/g, '');
+    try {
+        const suppliers = await fetchPersons('suppliers');
+        if (cleanDoc) {
+            const matchByCnpj = suppliers.find((p) => (p.cpfCnpj || '').replace(/\D/g, '') === cleanDoc);
+            if (matchByCnpj) return matchByCnpj;
+        }
+
+        if (emitterName?.trim()) {
+            const matchByName = suppliers.find(
+                (p) => (p.fullName || '').trim().toLowerCase() === emitterName.trim().toLowerCase()
+            );
+            if (matchByName) return matchByName;
+        }
+
+        // Se ainda não existir no cadastro, cria o fornecedor automaticamente
+        if (emitterName || cleanDoc) {
+            const newSupplier = await savePerson('suppliers', {
+                type: 'suppliers',
+                personType: cleanDoc.length > 11 ? 'PJ' : 'PF',
+                fullName: emitterName || 'Fornecedor sem Razão Social',
+                tradeName: emitterTradeName || emitterName || '',
+                cpfCnpj: cleanDoc,
+                active: true,
+            } as Person);
+            return newSupplier;
+        }
+    } catch (err) {
+        console.warn('[InboundDocumentImportModal] Aviso ao localizar/cadastrar fornecedor:', err);
+    }
+    return null;
+}
+
+export const InboundDocumentImportModal: React.FC<InboundDocumentImportModalProps> = ({
+    isOpen,
+    onClose,
+    onImportSuccess,
+}) => {
+    const fileInputRef = useRef<HTMLInputElement>(null);
+    const [accessKeyInput, setAccessKeyInput] = useState('');
+    const [isLoading, setIsLoading] = useState(false);
+    const [statusMessage, setStatusMessage] = useState('');
     const [isDraggingFile, setIsDraggingFile] = useState(false);
+    const [analysisStage, setAnalysisStage] = useState<InboundDocumentAnalysisStage | null>(null);
 
-    // Estado do Alerta de Nota Duplicada
+    // Alerta de chave duplicada
     const [duplicateAlertOpen, setDuplicateAlertOpen] = useState(false);
     const [duplicateKey, setDuplicateKey] = useState('');
     const [duplicateExistingInvoice, setDuplicateExistingInvoice] = useState<InboundInvoice | null>(null);
 
     useEffect(() => {
         if (!isOpen) {
-            setFile(null);
-            setInvoice(null);
-            setLoading(false);
+            setAccessKeyInput('');
+            setIsLoading(false);
+            setStatusMessage('');
+            setIsDraggingFile(false);
             setAnalysisStage(null);
             setDuplicateAlertOpen(false);
             setDuplicateKey('');
@@ -50,161 +94,22 @@ export function InboundDocumentImportModal({ isOpen, onClose, onImportSuccess }:
         }
     }, [isOpen]);
 
-    const setSupplier = (id: string) => setInvoice((current) => current ? ({
-        ...current,
-        supplierId: id || undefined,
-        items: current.items.map((item) => ({ ...item, matchedProductId: undefined, matchedVariationId: undefined })),
-    }) : current);
-
-    // Vínculo confirmado é a primeira fonte de verdade: ele evita chamada à IA
-    // e impede que um item já conhecido seja interpretado outra vez.
-    useEffect(() => {
-        if (!isOpen || !invoice?.supplierId) return;
-        let active = true;
-        const resolveConfirmedMappings = async () => {
-            try {
-                const mappings = await findProductSupplierCodes(invoice.supplierId!, invoice.items.map((item) => item.productCode));
-                if (!active || !mappings.size) return;
-                setInvoice((current) => {
-                    if (!current || current.supplierId !== invoice.supplierId) return current;
-                    return {
-                    ...current,
-                    items: current.items.map((item) => {
-                        const mapping = mappings.get(item.productCode.trim().toLocaleUpperCase('pt-BR'));
-                        return mapping && !item.matchedProductId ? {
-                            ...item,
-                            matchedProductId: mapping.productId,
-                            matchedVariationId: mapping.productVariationId,
-                            productErpName: 'Variação vinculada anteriormente a este código do fornecedor',
-                        } : item;
-                    }),
-                };
-                });
-            } catch (error) {
-                console.warn('Não foi possível consultar vínculos confirmados do fornecedor.', error);
-            } finally {
-                if (active) setCheckedMappingsKey(mappingsKey);
-            }
-        };
-        void resolveConfirmedMappings();
-        return () => { active = false; };
-    }, [isOpen, mappingsKey]);
-
-    const analyze = async (fileToAnalyze = file) => {
-        if (!fileToAnalyze || loading) return;
-        try {
-            setLoading(true);
-            setAnalysisStage('validating');
-
-            // 1. Verificação ultra-rápida preliminar da Chave de Acesso (evita chamada de IA caso a nota já exista)
-            const fastKey = await fastExtractNfeAccessKey(fileToAnalyze);
-            if (fastKey) {
-                const existing = await checkInboundInvoiceKeyExists(fastKey);
-                if (existing) {
-                    setDuplicateKey(fastKey);
-                    setDuplicateExistingInvoice(existing);
-                    setDuplicateAlertOpen(true);
-                    setFile(null);
-                    setInvoice(null);
-                    toast.warning(`Esta Nota Fiscal (Chave: ${fastKey}) já foi cadastrada no sistema!`);
-                    return;
-                }
-            }
-
-            // 2. Análise completa por IA/Vision somente se a nota fiscal não existir no banco
-            const result = invoiceFromDocumentAnalysis(await analyzeInboundInvoiceDocument(fileToAnalyze, setAnalysisStage));
-
-            if (result.nfeKey && result.nfeKey !== fastKey) {
-                const existing = await checkInboundInvoiceKeyExists(result.nfeKey);
-                if (existing) {
-                    setDuplicateKey(result.nfeKey);
-                    setDuplicateExistingInvoice(existing);
-                    setDuplicateAlertOpen(true);
-                    setFile(null);
-                    setInvoice(null);
-                    return;
-                }
-            }
-
-            const list = await fetchPersons('suppliers');
-            const document = result.emitterCnpj.replace(/\D/g, '');
-            const match = document ? list.find((person) => (person.cpfCnpj || '').replace(/\D/g, '') === document) : undefined;
-            setSuppliers(list);
-            setInvoice({ ...result, supplierId: match?.id });
-        } catch (error: any) {
-            toast.error(error.message || 'Falha ao analisar a NF.');
-        } finally {
-            setLoading(false);
-            setAnalysisStage(null);
-        }
-    };
-
-    const handleFile = async (selectedFile?: File) => {
-        if (!selectedFile) return;
-
-        const isXml = selectedFile.name.toLowerCase().endsWith('.xml') || selectedFile.type.includes('xml');
-        const isPdfOrImage = ['application/pdf', 'image/png', 'image/jpeg'].includes(selectedFile.type) || /\.(pdf|png|jpg|jpeg)$/i.test(selectedFile.name);
-
-        if (isXml) {
-            try {
-                setLoading(true);
-                const xmlText = await selectedFile.text();
-                const parsedInvoice = parseInboundNfeXml(xmlText);
-
-                if (parsedInvoice.nfeKey) {
-                    const existing = await checkInboundInvoiceKeyExists(parsedInvoice.nfeKey);
-                    if (existing) {
-                        setDuplicateKey(parsedInvoice.nfeKey);
-                        setDuplicateExistingInvoice(existing);
-                        setDuplicateAlertOpen(true);
-                        setFile(null);
-                        setInvoice(null);
-                        return;
-                    }
-                }
-
-                const list = await fetchPersons('suppliers');
-                const document = (parsedInvoice.emitterCnpj || '').replace(/\D/g, '');
-                const match = document ? list.find((person) => (person.cpfCnpj || '').replace(/\D/g, '') === document) : undefined;
-                
-                setFile(selectedFile);
-                setSuppliers(list);
-                setInvoice({ ...parsedInvoice, supplierId: match?.id });
-                toast.success('Arquivo XML lido e processado com sucesso!');
-            } catch (error: unknown) {
-                const message = error instanceof Error ? error.message : 'Falha ao ler o arquivo XML.';
-                toast.error(message);
-                setFile(null);
-                setInvoice(null);
-            } finally {
-                setLoading(false);
-            }
-            return;
+    /**
+     * Persiste a nota no banco de dados e aciona o callback de sucesso
+     */
+    const persistAndFinish = async (parsedInvoice: InboundInvoice) => {
+        if (String(parsedInvoice.model || '').replace(/\D/g, '') === '65') {
+            throw new Error('NFC-e (modelo 65) não pode ser cadastrada como NF de Entrada.');
         }
 
-        if (isPdfOrImage && selectedFile.size <= 12 * 1024 * 1024) {
-            setFile(selectedFile);
-            setInvoice(null);
-            void analyze(selectedFile);
-            return;
-        }
-
-        toast.error('Envie um arquivo XML, PDF, PNG ou JPG de até 12 MB.');
-    };
-
-    const save = async () => {
-        if (isSuggestingLinks) return;
-        if (!invoice) return;
-        if (String(invoice.model || '').replace(/\D/g, '') === '65') return toast.error('NFC-e não pode ser cadastrada como NF de Entrada.');
-        
-        const cleanKey = (invoice.nfeKey || '').replace(/\D/g, '');
+        const cleanKey = (parsedInvoice.nfeKey || '').replace(/\D/g, '');
         if (!cleanKey || cleanKey.length !== 44) {
-            return toast.error('A chave de acesso da nota fiscal é obrigatória e deve conter 44 dígitos.');
+            throw new Error('A chave de acesso da nota fiscal deve conter exatamente 44 dígitos.');
         }
 
-        if (!invoice.supplierId) return toast.error('Selecione ou crie o fornecedor antes de salvar.');
-
-        const existing = await checkInboundInvoiceKeyExists(cleanKey, invoice.id);
+        // Verifica duplicidade no banco
+        setStatusMessage('Verificando notas existentes...');
+        const existing = await checkInboundInvoiceKeyExists(cleanKey);
         if (existing) {
             setDuplicateKey(cleanKey);
             setDuplicateExistingInvoice(existing);
@@ -212,167 +117,348 @@ export function InboundDocumentImportModal({ isOpen, onClose, onImportSuccess }:
             return;
         }
 
+        // Localiza ou cadastra fornecedor
+        setStatusMessage('Identificando fornecedor...');
+        const supplier = await ensureSupplier(
+            parsedInvoice.emitterName,
+            parsedInvoice.emitterTradeName,
+            parsedInvoice.emitterCnpj
+        );
+        const supplierId = supplier?.id;
+
+        // Auto-match com vínculos anteriores do fornecedor
+        let itemsWithMatches = parsedInvoice.items || [];
+        if (supplierId && itemsWithMatches.length > 0) {
+            setStatusMessage('Consultando vínculos de produtos...');
+            try {
+                const mappings = await findProductSupplierCodes(
+                    supplierId,
+                    itemsWithMatches.map((i) => i.productCode)
+                );
+                if (mappings.size > 0) {
+                    itemsWithMatches = itemsWithMatches.map((item) => {
+                        const map = mappings.get((item.productCode || '').trim().toLocaleUpperCase('pt-BR'));
+                        return map
+                            ? {
+                                  ...item,
+                                  matchedProductId: map.productId,
+                                  matchedVariationId: map.productVariationId,
+                                  productErpName: 'Variação vinculada anteriormente a este código do fornecedor',
+                              }
+                            : item;
+                    });
+                }
+            } catch (mErr) {
+                console.warn('[InboundDocumentImportModal] Erro ao recuperar histórico de vínculos:', mErr);
+            }
+        }
+
         const invoiceToSave: InboundInvoice = {
-            ...invoice,
+            ...parsedInvoice,
             nfeKey: cleanKey,
+            supplierId: supplierId || parsedInvoice.supplierId,
+            items: itemsWithMatches,
         };
 
+        setStatusMessage('Salvando nota fiscal no sistema...');
+        const saved = await saveInboundInvoice(invoiceToSave);
+        toast.success(`NF-e #${saved.nfeNumber || ''} adicionada com sucesso!`);
+        onImportSuccess(saved);
+        onClose();
+    };
+
+    /**
+     * Processa o arquivo selecionado (XML instantâneo ou PDF/Foto com OCR/IA)
+     */
+    const handleFile = async (selectedFile?: File) => {
+        if (!selectedFile || isLoading) return;
+
+        const isXml = selectedFile.name.toLowerCase().endsWith('.xml') || selectedFile.type.includes('xml');
+        const isPdfOrImage =
+            ['application/pdf', 'image/png', 'image/jpeg'].includes(selectedFile.type) ||
+            /\.(pdf|png|jpg|jpeg)$/i.test(selectedFile.name);
+
         try {
-            await Promise.all(invoiceToSave.items.filter((item) => item.matchedProductId && item.productCode).map((item) => saveProductSupplierCode({
-                supplierId: invoiceToSave.supplierId!,
-                productId: item.matchedProductId!,
-                productVariationId: item.matchedVariationId,
-                supplierProductCode: item.productCode,
-                supplierDescription: item.productDescription,
-                normalizedDescription: item.normalizedParentName,
-            })));
-            await Promise.all(invoiceToSave.items.filter((item) => item.matchedProductId).map((item) => recordProductResolutionFeedback({
-                supplierId: invoiceToSave.supplierId!,
-                supplierProductCode: item.productCode,
-                supplierCodeFamily: item.detectedSupplierCodeFamily,
-                nfItemDescription: item.productDescription,
-                normalizedParentName: item.normalizedParentName,
-                detectedAttributes: Object.fromEntries(Object.entries(item.extractedAttributes || {}).filter(([, value]) => typeof value === 'string')) as Record<string, string>,
-                unitCost: item.unitCost,
-                userDecision: 'accepted',
-                finalProductId: item.matchedProductId!,
-                finalVariationId: item.matchedVariationId,
-                relationType: item.matchedVariationId ? 'existing_variation' : 'new_product',
-            })));
-            const saved = await saveInboundInvoice(invoiceToSave);
-            toast.success('NF salva e pronta para recebimento.');
-            onImportSuccess(saved);
-            onClose();
-        } catch (error: unknown) {
-            const message = error instanceof Error ? error.message : 'Não foi possível salvar a NF.';
-            toast.error(message);
+            setIsLoading(true);
+
+            // 1. Arquivo XML: leitura instantânea
+            if (isXml) {
+                setStatusMessage('Lendo e interpretando arquivo XML...');
+                const xmlText = await selectedFile.text();
+                const parsed = parseInboundNfeXml(xmlText);
+                await persistAndFinish(parsed);
+                return;
+            }
+
+            // 2. Arquivo PDF ou Imagem
+            if (isPdfOrImage) {
+                if (selectedFile.size > 12 * 1024 * 1024) {
+                    throw new Error('O arquivo não pode exceder 12 MB.');
+                }
+
+                // 2.1 Verificação preliminar ultrarrápida da chave
+                setStatusMessage('Verificando chave de acesso do documento...');
+                const fastKey = await fastExtractNfeAccessKey(selectedFile);
+                if (fastKey) {
+                    const existing = await checkInboundInvoiceKeyExists(fastKey);
+                    if (existing) {
+                        setDuplicateKey(fastKey);
+                        setDuplicateExistingInvoice(existing);
+                        setDuplicateAlertOpen(true);
+                        toast.warning(`Esta Nota Fiscal (Chave: ${fastKey}) já foi cadastrada.`);
+                        return;
+                    }
+                }
+
+                // 2.2 Análise OCR/Vision completa
+                setStatusMessage('Extraindo dados do documento com inteligência artificial...');
+                const analysisResult = await analyzeInboundInvoiceDocument(selectedFile, setAnalysisStage);
+                const parsed = invoiceFromDocumentAnalysis(analysisResult);
+                await persistAndFinish(parsed);
+                return;
+            }
+
+            toast.error('Envie um arquivo XML, PDF, PNG ou JPG de até 12 MB.');
+        } catch (error: any) {
+            console.error('[InboundDocumentImportModal] Erro ao processar arquivo:', error);
+            toast.error(error.message || 'Falha ao processar o arquivo da nota fiscal.');
+        } finally {
+            setIsLoading(false);
+            setStatusMessage('');
+            setAnalysisStage(null);
+            if (fileInputRef.current) fileInputRef.current.value = '';
+        }
+    };
+
+    /**
+     * Consulta a nota diretamente pela chave de acesso de 44 dígitos
+     */
+    const handleConsultAccessKey = async () => {
+        const cleanKey = accessKeyInput.replace(/\D/g, '');
+        if (cleanKey.length !== 44) {
+            toast.warning('A chave de acesso deve conter exatamente 44 dígitos.');
+            return;
+        }
+
+        try {
+            setIsLoading(true);
+            setStatusMessage('Consultando chave de acesso na SEFAZ...');
+
+            const result = await consultInboundInvoiceByAccessKey(cleanKey);
+
+            if (result.invoice) {
+                await persistAndFinish(result.invoice);
+                return;
+            }
+
+            toast.info(
+                result.message ||
+                    'A SEFAZ não liberou o XML completo dos itens para esta chave. Por favor, anexe o arquivo XML ou DANFE.'
+            );
+        } catch (error: any) {
+            console.error('[InboundDocumentImportModal] Erro ao consultar chave:', error);
+            toast.error(error.message || 'Não foi possível consultar a nota fiscal pela chave informada.');
+        } finally {
+            setIsLoading(false);
+            setStatusMessage('');
         }
     };
 
     if (!isOpen) return null;
-    const isPreparingMappings = Boolean(invoice?.supplierId && invoice.items.length && checkedMappingsKey !== mappingsKey);
+
+    const formattedKeyLength = accessKeyInput.replace(/\D/g, '').length;
 
     return (
         <>
-            <div 
+            <div
                 role="dialog"
                 aria-modal="true"
                 aria-labelledby="inbound-doc-modal-title"
-                onKeyDown={(e) => { if (e.key === 'Escape') onClose(); }}
-                className="fixed inset-0 z-[1000002] flex flex-col w-screen h-screen bg-white dark:bg-slate-900 overflow-hidden animate-in fade-in"
+                onKeyDown={(e) => {
+                    if (e.key === 'Escape' && !isLoading) onClose();
+                }}
+                className="fixed inset-0 z-[1000002] flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm animate-in fade-in"
             >
-                <section className="relative flex h-full w-full flex-col overflow-hidden bg-white dark:bg-slate-900">
-                    <header className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 p-5 px-6 shrink-0 bg-white dark:bg-slate-900">
+                <div className="relative w-full max-w-xl rounded-3xl bg-white shadow-2xl border border-slate-100 dark:bg-slate-900 dark:border-slate-800 animate-in zoom-in-95 duration-150 overflow-hidden">
+                    {/* Header */}
+                    <header className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 p-5 px-6">
                         <div>
-                            <h2 id="inbound-doc-modal-title" className="text-lg font-black text-slate-800 dark:text-slate-100">Adicionar Nota Fiscal de Entrada</h2>
+                            <h2
+                                id="inbound-doc-modal-title"
+                                className="text-base font-black text-slate-800 dark:text-slate-100 flex items-center gap-2"
+                            >
+                                <i className="bi bi-file-earmark-arrow-up text-blue-600 text-lg" aria-hidden="true" />
+                                Adicionar Nota Fiscal de Entrada
+                            </h2>
+                            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                                Importe o arquivo da nota ou consulte pela chave de acesso de 44 dígitos.
+                            </p>
                         </div>
-                        <button 
+                        <button
                             type="button"
-                            onClick={onClose} 
-                            aria-label="Fechar importação de documento"
-                            className="rounded-xl p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                            disabled={isLoading}
+                            onClick={onClose}
+                            aria-label="Fechar modal"
+                            className="rounded-xl p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
                         >
-                            <i className="bi bi-x-lg text-lg" aria-hidden="true" />
+                            <i className="bi bi-x-lg text-sm" aria-hidden="true" />
                         </button>
                     </header>
-                    <main className="flex-1 space-y-6 overflow-y-auto p-6 max-w-7xl mx-auto w-full">
-                        <div className="min-w-0 space-y-6">
-                        <input ref={input} type="file" accept={accepted} capture="environment" className="hidden" onChange={(event) => void handleFile(event.target.files?.[0])} />
-                        {!invoice && <button
-                            type="button"
-                            disabled={loading || isSuggestingLinks}
-                            onClick={() => input.current?.click()}
-                            onDragOver={(event) => { event.preventDefault(); if (!loading) setIsDraggingFile(true); }}
-                            onDragLeave={() => setIsDraggingFile(false)}
-                            onDrop={(event) => { event.preventDefault(); setIsDraggingFile(false); void handleFile(event.dataTransfer.files?.[0]); }}
-                            className={`flex w-full flex-col items-center rounded-2xl border-2 border-dashed p-8 transition-colors ${isDraggingFile ? 'border-indigo-500 bg-indigo-50 text-indigo-700 dark:bg-indigo-955/30' : 'border-slate-200 text-indigo-700 hover:border-indigo-400 hover:bg-indigo-50/40 dark:border-slate-700 dark:hover:bg-slate-800'} disabled:cursor-wait disabled:opacity-80`}
-                        >
-                            {loading ? <i className="bi bi-arrow-repeat animate-spin text-3xl text-indigo-600" /> : <i className="bi bi-cloud-arrow-up text-3xl" />}
-                            <b className="mt-2 text-xs">{loading ? (analysisStage === 'uploading' ? 'Enviando documento...' : 'Extraindo dados da nota fiscal...') : 'Adicionar foto, documento ou XML'}</b>
-                            {!loading && <span className="mt-1 text-[11px] text-slate-400">Clique ou arraste um arquivo XML, PDF, PNG ou JPG para esta área</span>}
-                        </button>}
-                        {file && <div className="flex justify-between rounded-xl bg-slate-50 p-3"><span className="text-xs font-bold">{file.name}</span><button className="text-xs text-red-600" onClick={() => { setFile(null); setInvoice(null); }}>Remover</button></div>}
 
-                        {invoice && (isPreparingMappings ? <div className="flex min-h-72 flex-col items-center justify-center gap-3 text-center">
-                            <i className="bi bi-arrow-repeat animate-spin text-3xl text-blue-600" aria-hidden="true" />
-                            <div>
-                                <p className="text-sm font-black text-slate-800 dark:text-slate-100">Carregando vínculos da nota...</p>
-                                <p className="mt-1 text-xs text-slate-500">Conferindo os produtos já vinculados a este fornecedor.</p>
+                    {/* Conteúdo Principal */}
+                    <main className="p-6 space-y-6">
+                        {/* Estado de Carregamento / Progresso */}
+                        {isLoading && (
+                            <div className="rounded-2xl border border-blue-100 bg-blue-50/70 p-4 dark:border-blue-900/50 dark:bg-blue-950/40 flex items-center gap-3 animate-pulse">
+                                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-600 text-white shadow-md">
+                                    <i className="bi bi-arrow-repeat animate-spin text-xl" aria-hidden="true" />
+                                </div>
+                                <div className="min-w-0 flex-1">
+                                    <p className="text-xs font-black text-blue-900 dark:text-blue-100">
+                                        {statusMessage || 'Processando nota fiscal...'}
+                                    </p>
+                                    <p className="text-[11px] text-blue-700/80 dark:text-blue-300">
+                                        {analysisStage === 'uploading'
+                                            ? 'Enviando documento...'
+                                            : analysisStage === 'extracting'
+                                            ? 'Lendo dados e itens com IA...'
+                                            : 'Aguarde enquanto salvamos as informações.'}
+                                    </p>
+                                </div>
                             </div>
-                        </div> : <div className="space-y-4">
-                            {invoice.extractionWarnings?.length ? <section className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900"><b>Confira os dados extraídos</b><ul className="mt-2 list-disc pl-5 text-xs">{invoice.extractionWarnings.map((warning) => <li key={warning}>{warning === 'access_key_missing' ? 'A chave de acesso não foi localizada; ela é obrigatória e deve ser informada.' : warning === 'access_key_needs_review' || warning === 'access_key_check_digit_invalid' ? 'Confira a chave de acesso lida; é necessário conter 44 dígitos válidos.' : warning}</li>)}</ul></section> : null}
-                            <InboundInvoiceFiscalReview invoice={invoice} />
-                            <section className="rounded-2xl border p-4"><h3 className="text-xs font-black uppercase text-slate-500">Dados da NF</h3><label className="mt-3 block text-xs font-bold text-slate-600 dark:text-slate-300">Chave de acesso <span className="text-red-500">*</span><input value={invoice.nfeKey} onChange={(event) => setInvoice((current) => current ? ({ ...current, nfeKey: event.target.value.replace(/\D/g, '') }) : current)} inputMode="numeric" maxLength={44} placeholder="Ex.: 3524 0511 1111 1111..." className="mt-1 w-full border-0 border-b-2 border-slate-200 dark:border-slate-700 bg-transparent p-2 text-sm font-bold text-slate-800 dark:text-slate-100 outline-none focus:border-blue-600 rounded-none transition-colors" /></label><p className="mt-1 text-[11px] text-slate-500">No DANFE ela costuma aparecer em grupos de quatro dígitos sob “Chave de Acesso”.</p></section>
-                            
-                            {(() => {
-                                const hasMatchedProducts = invoice.items.some((item) => Boolean(item.matchedProductId));
-                                return (
-                                    <section className="rounded-2xl border p-4">
-                                        <h3 className="text-xs font-black uppercase text-slate-500">Fornecedor</h3>
-                                        <p className="mt-2 font-bold">{invoice.emitterName || 'Emitente não identificado'}</p>
-                                        <p className="text-xs text-slate-500">{invoice.emitterCnpj || 'CNPJ/CPF não encontrado'}</p>
-                                        <div className="mt-3 flex items-center gap-2">
-                                            <div className="min-w-0 flex-1">
-                                                <SupplierAutocomplete
-                                                    suppliers={suppliers}
-                                                    selectedSupplierId={invoice.supplierId || ''}
-                                                    onSelect={(id) => setSupplier(id)}
-                                                    disabled={hasMatchedProducts}
-                                                    disabledReason={hasMatchedProducts ? 'Para alterar o fornecedor da NF, desvincule primeiro todos os produtos da nota.' : undefined}
-                                                    hideLabel={true}
-                                                    inputClassName="w-full border-0 border-b-2 border-slate-200 dark:border-slate-700 bg-transparent p-2 text-sm font-bold text-slate-800 dark:text-slate-100 outline-none focus:border-blue-600 rounded-none transition-colors"
-                                                    placeholder="Digite 2 ou mais letras para buscar fornecedor..."
-                                                    minChars={2}
-                                                />
-                                            </div>
-                                            <button
-                                                disabled={hasMatchedProducts}
-                                                className="rounded-xl border border-emerald-200 px-3 py-2 text-xs font-black text-emerald-700 hover:bg-emerald-50 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition-colors shrink-0"
-                                                onClick={() => setNewSupplier(true)}
-                                            >
-                                                + Novo fornecedor
-                                            </button>
-                                        </div>
-                                        {hasMatchedProducts ? (
-                                            <p className="mt-2 text-xs font-semibold text-amber-700 dark:text-amber-400 flex items-center gap-1">
-                                                <i className="bi bi-lock-fill text-amber-600" />
-                                                Para alterar o fornecedor da NF, desvincule primeiro todos os produtos da nota.
-                                            </p>
-                                        ) : invoice.supplierId ? (
-                                            <p className="mt-2 text-xs font-bold text-emerald-700">Fornecedor vinculado. Os produtos estão liberados.</p>
-                                        ) : (
-                                            <p className="mt-2 text-xs text-amber-700">Selecione o fornecedor para habilitar os produtos.</p>
-                                        )}
-                                    </section>
-                                );
-                            })()}
+                        )}
 
-                            <InboundInvoiceItemsReview
-                                suggestionsEnabled={Boolean(invoice.supplierId?.trim()) && checkedMappingsKey === mappingsKey}
-                                onProcessingSuggestionsChange={setIsSuggestingLinks}
-                                items={invoice.items}
-                                supplierId={invoice.supplierId}
-                                suppliers={suppliers}
-                                onChange={(itemNumber, update) =>
-                                    setInvoice((current) =>
-                                        current
-                                            ? {
-                                                  ...current,
-                                                  items: current.items.map((item) =>
-                                                      item.itemNumber === itemNumber ? { ...item, ...update } : item
-                                                  ),
-                                              }
-                                            : current
-                                    )
-                                }
+                        {/* Dropzone de Arquivo */}
+                        <div>
+                            <label className="block text-xs font-black uppercase tracking-wider text-slate-500 mb-2">
+                                Opção 1: Inserir Arquivo (XML, PDF ou Foto)
+                            </label>
+                            <input
+                                ref={fileInputRef}
+                                type="file"
+                                accept={ACCEPTED_FILE_TYPES}
+                                capture="environment"
+                                className="hidden"
+                                onChange={(event) => void handleFile(event.target.files?.[0])}
                             />
-                            <button disabled={loading || isSuggestingLinks} onClick={() => void save()} className="rounded-xl bg-emerald-600 px-4 py-2 text-xs font-black text-white disabled:opacity-50 disabled:cursor-wait cursor-pointer hover:bg-emerald-700 transition-colors">Confirmar Nota Fiscal</button>
-                        </div>)}
+                            <button
+                                type="button"
+                                disabled={isLoading}
+                                onClick={() => fileInputRef.current?.click()}
+                                onDragOver={(e) => {
+                                    e.preventDefault();
+                                    if (!isLoading) setIsDraggingFile(true);
+                                }}
+                                onDragLeave={() => setIsDraggingFile(false)}
+                                onDrop={(e) => {
+                                    e.preventDefault();
+                                    setIsDraggingFile(false);
+                                    void handleFile(e.dataTransfer.files?.[0]);
+                                }}
+                                className={`flex w-full flex-col items-center justify-center rounded-2xl border-2 border-dashed p-6 text-center transition-all cursor-pointer ${
+                                    isDraggingFile
+                                        ? 'border-blue-500 bg-blue-50 text-blue-700 dark:bg-blue-950/40'
+                                        : 'border-slate-200 bg-slate-50/50 text-slate-600 hover:border-blue-400 hover:bg-blue-50/30 dark:border-slate-700 dark:bg-slate-950/40 dark:text-slate-300'
+                                } disabled:cursor-wait disabled:opacity-60`}
+                            >
+                                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-blue-100 text-blue-600 dark:bg-blue-950/80 dark:text-blue-400 mb-2 shadow-sm">
+                                    <i className="bi bi-cloud-arrow-up text-2xl" aria-hidden="true" />
+                                </div>
+                                <span className="text-xs font-bold text-slate-700 dark:text-slate-200">
+                                    Clique para escolher ou arraste o arquivo aqui
+                                </span>
+                                <span className="text-[11px] text-slate-400 mt-1">
+                                    Formatos aceitos: <b>XML</b> (instantâneo), <b>PDF</b> ou <b>PNG/JPG</b> (até 12 MB)
+                                </span>
+                            </button>
+                        </div>
+
+                        {/* Divisor "OU" */}
+                        <div className="relative flex items-center justify-center">
+                            <div className="w-full border-t border-slate-200 dark:border-slate-800" />
+                            <span className="absolute bg-white px-3 text-[11px] font-black uppercase text-slate-400 dark:bg-slate-900">
+                                Ou digite a chave de acesso
+                            </span>
+                        </div>
+
+                        {/* Campo Chave de Acesso */}
+                        <div>
+                            <div className="flex justify-between items-center mb-1.5">
+                                <label
+                                    htmlFor="nfe-access-key-input"
+                                    className="text-xs font-black uppercase tracking-wider text-slate-500"
+                                >
+                                    Opção 2: Chave de Acesso da NF-e
+                                </label>
+                                <span
+                                    className={`text-[10px] font-mono font-bold ${
+                                        formattedKeyLength === 44
+                                            ? 'text-emerald-600 dark:text-emerald-400'
+                                            : 'text-slate-400'
+                                    }`}
+                                >
+                                    {formattedKeyLength}/44 dígitos
+                                </span>
+                            </div>
+
+                            <div className="flex gap-2">
+                                <div className="relative flex-1">
+                                    <input
+                                        id="nfe-access-key-input"
+                                        type="text"
+                                        inputMode="numeric"
+                                        maxLength={44}
+                                        value={accessKeyInput}
+                                        disabled={isLoading}
+                                        onChange={(e) => setAccessKeyInput(e.target.value.replace(/\D/g, ''))}
+                                        onKeyDown={(e) => {
+                                            if (e.key === 'Enter') {
+                                                e.preventDefault();
+                                                void handleConsultAccessKey();
+                                            }
+                                        }}
+                                        placeholder="Ex.: 4126 0402 8697 6300 5168 5500 1000 1298 5310 5075 8366"
+                                        className="w-full rounded-xl border border-slate-200 bg-slate-50/50 p-2.5 font-mono text-xs font-bold text-slate-800 placeholder-slate-400 focus:border-blue-600 focus:bg-white focus:outline-none dark:border-slate-700 dark:bg-slate-850 dark:text-slate-100 transition-colors"
+                                    />
+                                    {formattedKeyLength === 44 && (
+                                        <i
+                                            className="bi bi-check-circle-fill text-emerald-500 absolute right-3 top-3 text-sm"
+                                            aria-hidden="true"
+                                        />
+                                    )}
+                                </div>
+
+                                <button
+                                    type="button"
+                                    disabled={isLoading || formattedKeyLength !== 44}
+                                    onClick={() => void handleConsultAccessKey()}
+                                    className="inline-flex items-center gap-1.5 rounded-xl bg-blue-600 px-4 py-2.5 text-xs font-black uppercase tracking-wider text-white shadow-sm hover:bg-blue-700 active:scale-[0.98] transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed shrink-0"
+                                >
+                                    <i className="bi bi-search" aria-hidden="true" />
+                                    Consultar
+                                </button>
+                            </div>
+                            <p className="mt-1.5 text-[11px] text-slate-400">
+                                A chave de acesso numérica encontra-se no cabeçalho do DANFE da nota fiscal.
+                            </p>
                         </div>
                     </main>
-                </section>
+
+                    {/* Footer */}
+                    <footer className="flex justify-end border-t border-slate-100 dark:border-slate-800 p-4 px-6 bg-slate-50/50 dark:bg-slate-950/40">
+                        <button
+                            type="button"
+                            disabled={isLoading}
+                            onClick={onClose}
+                            className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700 transition-colors cursor-pointer disabled:opacity-50"
+                        >
+                            Cancelar
+                        </button>
+                    </footer>
+                </div>
             </div>
-            <PersonFormModal isOpen={newSupplier} onClose={() => setNewSupplier(false)} collectionName="suppliers" title="Novo Fornecedor" onSuccess={(person) => { setSuppliers((current) => [...current, person]); setSupplier(person.id || ''); setNewSupplier(false); }} />
+
+            {/* Modal de Alerta de Chave Duplicada */}
             <InboundDuplicateKeyAlertModal
                 isOpen={duplicateAlertOpen}
                 duplicateKey={duplicateKey}
@@ -381,4 +467,6 @@ export function InboundDocumentImportModal({ isOpen, onClose, onImportSuccess }:
             />
         </>
     );
-}
+};
+
+export default InboundDocumentImportModal;

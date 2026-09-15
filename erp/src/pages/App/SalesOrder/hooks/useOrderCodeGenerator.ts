@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { toast } from 'react-toastify';
-import { getNextOrderIndex } from '../../../utils/orderCode';
+import { getNextOrderIndex } from '@/pages/utils/orderCode';
 
 export function useOrderCodeGenerator(currentOrderId: string | undefined, latestStateRef: React.MutableRefObject<any>) {
     const [orderIndex, setOrderIndex] = useState<number | null>(null);

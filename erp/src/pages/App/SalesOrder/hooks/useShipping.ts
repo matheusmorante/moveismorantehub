@@ -1,4 +1,4 @@
-import Shipping from "../../../types/Shipping.type";
+import Shipping from '@/pages/types/Shipping.type';
 import { useState } from "react";
 
 const useShipping = (initialDeliveryMethod: 'delivery' | 'pickup' = 'delivery') => {

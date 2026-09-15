@@ -27,6 +27,7 @@ export type PurchaseItem = {
     otherExpensesNonFiscalUnit?: number;
     otherExpensesUnit?: number;
     netBaseCost?: number;
+    inventoryMoveId?: string;
 };
 
 export type Purchase = {

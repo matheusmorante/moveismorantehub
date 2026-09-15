@@ -14,7 +14,7 @@ O custo de aquisição de mercadorias oscila constantemente com novos recebiment
 
 ## 💡 Decisão Arquitetural
 
-1. **Custo Médio Ponderado Móvel (CMPM)**: O custo unitário do estoque é atualizado exclusivamente nas entradas por compra (`purchase_entry`) ou recebimento físico utilizando a fórmula de média ponderada.
+1. **Custo Médio Ponderado Móvel (CMPM)**: O custo unitário do estoque é atualizado nas movimentações de entrada (`inventory_moves.type = entry`) de compras, recebimentos e devoluções valorizadas, sempre por variação.
 2. **CMV Materializado na Saída**: No instante em que uma venda gera saída efetiva de estoque, o CMV unitário é congelado na movimentação (`inventory_moves.unit_cost`) com o valor do CMPM vigente.
 3. **Reversão com Custo Original em Devoluções**: Devoluções de vendas reutilizam o CMV da saída original, anulando a margem da venda sem distorcer o custo médio do estoque.
 
@@ -32,5 +32,5 @@ O custo de aquisição de mercadorias oscila constantemente com novos recebiment
 
 ## 🔗 Mapeamento no Código
 
-- **Fórmulas de Custo**: `[movingAverageCostRules.ts](file:///c:/Users/mathe/OneDrive/%C3%81rea%20de%20Trabalho/projetos/morantehub/erp/src/pages/utils/movingAverageCostRules.ts)`
-- **Movimentação de Estoque**: `[inventoryService.ts](file:///c:/Users/mathe/OneDrive/%C3%81rea%20de%20Trabalho/projetos/morantehub/erp/src/pages/utils/inventoryService.ts)`
+- **Custo corrente e replay**: [movingAverageCostService.ts](../../erp/src/pages/utils/movingAverageCostService.ts)
+- **Movimentação e normalização**: [inventoryService.ts](../../erp/src/pages/utils/inventoryService.ts)

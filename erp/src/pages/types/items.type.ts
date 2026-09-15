@@ -22,6 +22,16 @@ export type Item = {
     isComboItem?: boolean;
     currentStock?: number;
     minStock?: number;
+    /** Quantidade devolvida no pedido de devolução */
+    returnedQuantity?: number;
+    /** Valor unitário devolvido/estornado */
+    returnedUnitPrice?: number;
+    /** Valor total devolvido do item (returnedUnitPrice * returnedQuantity) */
+    returnedTotalValue?: number;
+    /** Preço unitário original vendido (snapshot da venda) */
+    originalUnitPrice?: number;
+    /** Valor total original vendido do item */
+    originalTotalValue?: number;
 }
 
 export type ItemsSummary = {
