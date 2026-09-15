@@ -35,6 +35,7 @@ import {
 import { 
     fetchOrdersPage, 
     subscribeToOrders, 
+    subscribeToOrderChanges,
     enrichOrdersWithPeopleOrigins 
 } from './orderSyncQueries';
 import { 
@@ -57,6 +58,7 @@ export {
     fetchOrderById,
     fetchOrdersPage,
     subscribeToOrders,
+    subscribeToOrderChanges,
     permanentDeleteDraftOrder,
 };
 

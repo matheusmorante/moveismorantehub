@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import Order, { IsButtonsClicked } from "../../../types/order.type";
 import { 
-    subscribeToOrders, 
+    subscribeToOrderChanges, 
     fetchOrdersPage, 
     updateOrder, 
     undoReturn 
@@ -59,7 +59,7 @@ export const useOrderHistory = (filters?: any) => {
     }, [currentPage, filters, refreshSignal]);
 
     useEffect(() => {
-        const unsub = subscribeToOrders(() => {
+        const unsub = subscribeToOrderChanges(() => {
             refresh();
         });
         return () => unsub();

@@ -143,6 +143,24 @@ export default function App() {
     } catch (err) {}
   };
 
+  const handleSelectNotificationOrder = async (order: any) => {
+    if (!order?.__notificationOrderReference) {
+      setAppSelectedOrder(order);
+      return;
+    }
+
+    try {
+      const { data, error } = await supabase
+        .from('orders')
+        .select('*')
+        .eq('id', order.id)
+        .maybeSingle();
+      if (!error && data) setAppSelectedOrder(data);
+    } catch (error) {
+      console.warn('[Notifications] Não foi possível carregar o pedido:', error);
+    }
+  };
+
   const handleTabChange = (newTab: string, url: string) => {
     if (newTab === 'configuracoes') {
       void url;
@@ -440,7 +458,11 @@ export default function App() {
   // Carregar Notificações e Inicialização
   const fetchNotifications = async () => {
     try {
-      const { data, error } = await supabase.from('app_notifications').select('*').order('created_at', { ascending: false }).limit(50);
+      const { data, error } = await supabase
+        .from('app_notifications')
+        .select('id, order_id, title, message, type, schedule_text, read, created_at')
+        .order('created_at', { ascending: false })
+        .limit(50);
       if (!error && Array.isArray(data)) {
         const formatted = data.map((n: any) => ({
           id: n.id,
@@ -450,7 +472,7 @@ export default function App() {
           createdAt: n.created_at,
           timestamp: new Date(n.created_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
           scheduleText: n.schedule_text,
-          order: n.order_data,
+          order: n.order_id ? { id: n.order_id, __notificationOrderReference: true } : null,
           read: n.read
         }));
         setNotifications(formatted);
@@ -589,9 +611,6 @@ export default function App() {
     fetchDashboardStats();
     fetchNotifications();
 
-    generateDeliveryAISummary('today', false, setAiSummaryToday, setAiSummaryTomorrow, setIsGeneratingAISummary);
-    generateDeliveryAISummary('tomorrow', false, setAiSummaryToday, setAiSummaryTomorrow, setIsGeneratingAISummary);
-
     // Realtime Listener
     const notifChannel = supabase
       .channel('realtime-app-notifications')
@@ -607,7 +626,7 @@ export default function App() {
           createdAt: newNotif.created_at || new Date().toISOString(),
           timestamp: new Date(newNotif.created_at || Date.now()).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
           scheduleText: newNotif.schedule_text,
-          order: newNotif.order_data,
+          order: newNotif.order_id ? { id: newNotif.order_id, __notificationOrderReference: true } : null,
           read: false
         }, ...prev]);
         setUnreadCount(prev => prev + 1);
@@ -642,7 +661,7 @@ export default function App() {
 
     const pollingInterval = setInterval(() => {
       fetchNotifications();
-    }, 15000);
+    }, 60000);
 
     return () => {
       cleanTokenListeners();
@@ -790,7 +809,7 @@ export default function App() {
           onClose={() => setShowNotificationsModal(false)}
           isDarkMode={isDarkMode}
           notifications={notifications}
-          onSelectOrder={setAppSelectedOrder}
+          onSelectOrder={handleSelectNotificationOrder}
         />
 
         <ProfileModal

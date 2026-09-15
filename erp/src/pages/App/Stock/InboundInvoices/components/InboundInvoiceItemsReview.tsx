@@ -487,7 +487,7 @@ export function InboundInvoiceItemsReview({ items, supplierId, suppliers, onChan
                         const totalUnit = finalItemCost(item);
                         const itemDescription = item.productDescription || (item as any).descricao || (item as any).xProd || (item as any).xprod || 'Descrição não encontrada';
 
-                        return <div key={item.itemNumber} className="grid gap-5 p-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+                        return <div key={item.itemNumber} className="grid gap-5 p-5 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
                             <div className="min-w-0 space-y-2">
                                 <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Dados da NF</span>
                                 <h4 className="text-sm font-black text-slate-800 dark:text-slate-100">{item.itemNumber}. {itemDescription}</h4>

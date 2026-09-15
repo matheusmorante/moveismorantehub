@@ -123,27 +123,28 @@ export const getOrdersByProductId = async (productId: string, variationId?: stri
  */
 export const getOrdersByCustomerInfo = async (fullName: string, phone?: string, email?: string): Promise<Order[]> => {
     try {
-        let query = supabase.from(TABLE_NAME).select('*').order('created_at', { ascending: false });
+        // Sem um nome normalizado, a consulta anterior buscava todos os pedidos
+        // para filtrar telefone/e-mail no navegador. Nesses casos, use apenas
+        // os filtros legados abaixo, que são executados no banco.
+        if (fullName.trim()) {
+            const { data, error } = await supabase
+                .from(TABLE_NAME)
+                .select('*')
+                .ilike('customer_name', `%${fullName.trim()}%`)
+                .order('created_at', { ascending: false });
 
-        if (fullName) {
-            query = query.ilike('customer_name', `%${fullName.trim()}%`);
-        }
+            if (!error && data && data.length > 0) {
+                const filtered = data
+                    .filter((r: any) => !r.deleted)
+                    .map((row: any) => mapOrderFromDatabase(row))
+                    .filter(o => {
+                        const matchName = o.customerData?.fullName?.toLowerCase() === fullName.toLowerCase();
+                        const matchPhone = !phone || o.customerData?.phone === phone;
+                        const matchEmail = !email || o.customerData?.email === email;
+                        return matchName && matchPhone && matchEmail;
+                    });
 
-        const { data, error } = await query;
-        if (!error && data && data.length > 0) {
-            const mapped = data
-                .filter((r: any) => !r.deleted)
-                .map((row: any) => mapOrderFromDatabase(row));
-
-            const filtered = mapped.filter(o => {
-                const matchName = !fullName || o.customerData?.fullName?.toLowerCase() === fullName.toLowerCase();
-                const matchPhone = !phone || o.customerData?.phone === phone;
-                const matchEmail = !email || o.customerData?.email === email;
-                return matchName && matchPhone && matchEmail;
-            });
-
-            if (filtered.length > 0) {
-                return filtered;
+                if (filtered.length > 0) return filtered;
             }
         }
 
@@ -194,13 +195,27 @@ export const getOrdersByCustomerInfo = async (fullName: string, phone?: string, 
  */
 export const getOrdersCustomerDataOnly = async (): Promise<{ id: string, date: string, customerData: any, deleted: boolean }[]> => {
     try {
-        const { data, error } = await supabase
+        const { data: normalizedRows, error } = await supabase
             .from(TABLE_NAME)
-            .select('id, created_at, customer_id, customer_name, deleted, order_data');
+            .select('id, created_at, customer_id, customer_name, deleted');
         
         if (error) throw error;
+
+        // Mantém a compatibilidade com pedidos realmente legados, sem baixar
+        // snapshots de todos os pedidos que já possuem cliente normalizado.
+        const { data: legacyRows, error: legacyError } = await supabase
+            .from(TABLE_NAME)
+            .select('id, created_at, customer_id, customer_name, deleted, order_data')
+            .is('customer_name', null);
+
+        if (legacyError) throw legacyError;
+
+        const rows = [
+            ...(normalizedRows || []).filter((row: any) => row.customer_name != null),
+            ...(legacyRows || []),
+        ];
         
-        return (data || []).map((row: any) => {
+        return rows.map((row: any) => {
             const rawLegacy = row.order_data || {};
             const customerData = {
                 ...(rawLegacy.customerData || {}),
