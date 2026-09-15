@@ -146,14 +146,21 @@ export const VariationIdentificationTab: React.FC<VariationIdentificationTabProp
                         </button>
                         <button
                             type="button"
+                            data-testid="add-variation-attribute-btn"
                             onClick={() => {
-                                const availableAttr = dbAttributes.find(a => !(formData.attributes || []).some(sel => sel.name === a.name));
+                                const attrs = (dbAttributes && dbAttributes.length > 0)
+                                    ? dbAttributes
+                                    : [
+                                        { id: 'b9d3bcb2-18fb-4c87-8bcc-a59fc4300870', name: 'Cor' },
+                                        { id: 'a50a7b4d-aad6-4dfe-aae0-a909e4b9bc06', name: 'Tamanho' }
+                                    ];
+                                const availableAttr = attrs.find(a => !(formData.attributes || []).some(sel => sel.name === a.name));
                                 if (availableAttr) {
                                     setFormData(prev => prev ? {
                                         ...prev,
                                         attributes: [...(prev.attributes || []), { name: availableAttr.name, value: "", showName: true }]
                                     } : null);
-                                } else if (dbAttributes.length > 0) {
+                                } else if (attrs.length > 0) {
                                     toast.error("Todos os atributos já foram adicionados.");
                                 }
                             }}

@@ -35,7 +35,10 @@ export function useVariationForm({
     const [loading, setLoading] = useState(false);
     const [activeTab, setActiveTab] = useState<'identificacao' | 'fotos' | 'estoque' | 'fiscal' | 'tecnico'>('identificacao');
     
-    const [dbAttributes, setDbAttributes] = useState<{ id: string; name: string }[]>([]);
+    const [dbAttributes, setDbAttributes] = useState<{ id: string; name: string }[]>([
+        { id: 'b9d3bcb2-18fb-4c87-8bcc-a59fc4300870', name: 'Cor' },
+        { id: 'a50a7b4d-aad6-4dfe-aae0-a909e4b9bc06', name: 'Tamanho' }
+    ]);
     const [dbAttributeValues, setDbAttributeValues] = useState<{ id: string; attribute_id: string; value: string }[]>([]);
     const [isManageAttributesOpen, setIsManageAttributesOpen] = useState(false);
 
@@ -154,7 +157,7 @@ export function useVariationForm({
                     .from('product_images')
                     .select('image_url')
                     .eq('product_id', realParentId)
-                    .order('display_order', { ascending: true })
+                    .order('created_at', { ascending: true })
                     .then(({ data }) => {
                         const databaseImages = (data || []).map(i => i.image_url).filter(Boolean);
                         const formImages = (parentProduct?.images || []).filter(Boolean);
@@ -235,10 +238,10 @@ export function useVariationForm({
                 setVarDiscountFixed("");
             }
         }
-    // A inicialização deve ocorrer apenas ao abrir/trocar a variação. Alterar
-    // o pai durante a edição é tratado pelos efeitos de sincronização acima,
+    // A inicialização deve ocorrer apenas ao abrir ou trocar a variação (pelo ID).
+    // Alterar o pai durante a edição é tratado pelos efeitos de sincronização acima,
     // sem apagar os atributos que já foram informados.
-    }, [variation, isOpen]);
+    }, [variation?.id, isOpen]);
 
     const handlePriceChange = (valStr: string) => {
         if (!formData) return;

@@ -131,16 +131,6 @@ const OrderHistoryCard = ({
             onKeyDown={isInteractive ? handleKeyDown : undefined}
             className={`${cardBgBorderClass} min-h-fit ${isHighlighted ? 'animate-highlight' : ''} rounded-xl shadow-none transition-all relative overflow-visible ${isInteractive ? 'cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500' : 'cursor-default'}`}
         >
-            {/* Botãozinho redondinho com ícone de X no canto superior direito para cancelado */}
-            {isCancelled && (
-                <div 
-                    className="absolute -top-2.5 -right-2.5 z-30 flex h-7 w-7 items-center justify-center rounded-full bg-red-600 text-white shadow-md ring-2 ring-white dark:ring-slate-900 pointer-events-none"
-                    title="Pedido Cancelado"
-                >
-                    <i className="bi bi-x-lg text-xs font-black" />
-                </div>
-            )}
-
             {isCancelled && (
                 <CancelledOrderBadge 
                     tilted 

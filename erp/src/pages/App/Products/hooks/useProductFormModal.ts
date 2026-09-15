@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import Product from '@/pages/types/product.type';
+import Product, { Variation } from '@/pages/types/product.type';
 import Person from '@/pages/types/person.type';
 import { saveProduct, getFullProduct, getNextSequentialProductCode } from '@/pages/utils/productService';
 import { subscribeToPeople } from '@/pages/utils/personService';
@@ -11,6 +11,7 @@ import { ensureDefaultVariation, hasMissingRequiredAttributes, hasVariationAttri
 import { INITIAL_PRODUCT_FORM_DATA } from '../productFormInitialData';
 import { checkERPLegibility, checkEcomLegibility } from '../productLegibilityRules';
 import { scrollToRequirementField, ProductFormTabKey } from '../utils/productRequirementNavigation';
+import { getProductFormTabs, isExistingRegisteredProduct } from '../modals/productFormTabs';
 
 // Sub-hooks
 import { useProductFormPricing } from './useProductFormPricing';
@@ -18,6 +19,7 @@ import { useProductFormAi } from './useProductFormAi';
 import { useProductFormDraft } from './useProductFormDraft';
 import { useProductFormImages } from './useProductFormImages';
 import { useProductFormVariations } from './useProductFormVariations';
+import { useProductFormSync } from './useProductFormSync';
 
 export interface UseProductFormModalProps {
     readonly isOpen: boolean;
@@ -27,6 +29,7 @@ export interface UseProductFormModalProps {
     readonly initialTab?: 'geral' | 'ambientes' | 'estoque' | 'variacoes' | 'ecommerce' | 'fiscal';
     readonly openAddVariationOnOpen?: boolean;
     readonly onSuccess?: (newProduct: Product) => void;
+    readonly onSave?: (savedProduct?: Product) => void | Promise<void>;
     readonly isQuickRegister?: boolean;
 }
 
@@ -38,6 +41,7 @@ export function useProductFormModal({
     initialTab,
     openAddVariationOnOpen,
     onSuccess,
+    onSave,
     isQuickRegister = false
 }: UseProductFormModalProps) {
     const [activeTab, setActiveTab] = useState<ProductFormTabKey>('geral');
@@ -60,8 +64,8 @@ export function useProductFormModal({
     const initialFormDataRef = useRef<string>("");
     const isService = formData.itemType === 'service';
     const isProductCreation = !product?.id;
-    const isExistingRegisteredProduct = Boolean(product?.id && product.isDraft !== true && product.status !== 'draft');
-    const isDraftProduct = (!product || Boolean(formData.isDraft));
+    const isRegisteredProduct = isExistingRegisteredProduct(product);
+    const isDraftProduct = (!product || Boolean(formData.isDraft) || Boolean((formData as any).is_draft) || formData.status === 'draft');
 
     // Sub-hooks Integration
     const pricing = useProductFormPricing(formData, setFormData);
@@ -69,6 +73,9 @@ export function useProductFormModal({
     const variations = useProductFormVariations(formData, setFormData);
     const draft = useProductFormDraft(formData, setFormData, isOpen, isProductCreation, variations.editingVariationId, hasChanged);
     const images = useProductFormImages(formData, setFormData, setLoading);
+
+    // Sincronização contínua de campos computados, herança e agregados
+    useProductFormSync({ formData, setFormData });
 
     const navigateToRequirementField = useCallback((fieldKey: string) => {
         scrollToRequirementField(fieldKey, setActiveTab, () => setSaveResult(null));
@@ -106,7 +113,6 @@ export function useProductFormModal({
             return;
         }
 
-        // Se o modal já estava aberto e para o mesmo produto/sessão, não reseta o que o usuário digitou!
         const currentTargetId = product?.id || initialData?.code || 'new_product';
         const isJustOpened = !prevOpenRef.current;
         const isTargetChanged = loadedProductIdRef.current !== currentTargetId;
@@ -137,8 +143,10 @@ export function useProductFormModal({
                     ? (product.variations || []).filter(variation => !(baseProduct.variations || []).some(saved => saved.id === variation.id))
                     : [];
 
+                const isDraftFromBase = Boolean(baseProduct.isDraft) || Boolean((baseProduct as any).is_draft) || baseProduct.status === 'draft';
                 const nextFormData = ensureDefaultVariation({
                     ...baseProduct,
+                    isDraft: isDraftFromBase,
                     variations: [...(baseProduct.variations || []), ...pendingVariations],
                     hasVariations: true
                 });
@@ -150,7 +158,6 @@ export function useProductFormModal({
 
                 if (openAddVariationOnOpen) {
                     if (pendingVariations.length > 0) {
-                        // Variação já preparada pelo cadastro rápido: abre diretamente ela para edição sem duplicar
                         targetVariationIdToOpen = pendingVariations[pendingVariations.length - 1].id;
                     }
                 }
@@ -177,9 +184,17 @@ export function useProductFormModal({
                     ...initialData,
                     hasVariations: true
                 });
-                resolvedFormData = nextFormData;
+                resolvedFormData = nextFormData as Product;
                 initialFormDataRef.current = JSON.stringify(nextFormData);
-                setFormData(nextFormData);
+                setFormData(prev => ensureDefaultVariation({
+                    ...nextFormData,
+                    ...prev,
+                    id: prev.id || generatedId,
+                    code: prev.code || generatedSku,
+                    name: prev.name || nextFormData.name,
+                    title: prev.title || nextFormData.title,
+                    hasVariations: true
+                }));
                 pricing.setDiscountFixed("");
                 pricing.setDiscountPercent("");
             }
@@ -234,49 +249,6 @@ export function useProductFormModal({
         };
     }, [isOpen]);
 
-    // Atalhos globais do teclado
-    useEffect(() => {
-        if (!isOpen) return;
-
-        const handleKeyDown = (e: KeyboardEvent) => {
-            if (e.key === 'Escape') {
-                if (saveResult) {
-                    setSaveResult(null);
-                    return;
-                }
-                if (isCategorySearchOpen) {
-                    setIsCategorySearchOpen(false);
-                    return;
-                }
-                if (isConversionModalOpen) {
-                    setIsConversionModalOpen(false);
-                    return;
-                }
-                if (variations.editingVariationId) {
-                    const pendingVariationId = variations.pendingNewVariationIdRef.current;
-                    if (pendingVariationId) {
-                        setFormData(prev => ({
-                            ...prev,
-                            variations: prev.variations?.filter(v => v.id !== pendingVariationId && String(v.id) !== String(pendingVariationId))
-                        }));
-                        variations.pendingNewVariationIdRef.current = null;
-                    }
-                    variations.setEditingVariationId(null);
-                    return;
-                }
-                handleCloseWithAutoSave();
-            }
-
-            if ((e.ctrlKey || e.metaKey) && e.key === 's') {
-                e.preventDefault();
-                handleSubmit();
-            }
-        };
-
-        window.addEventListener('keydown', handleKeyDown);
-        return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [isOpen, hasChanged.current, isCategorySearchOpen, isConversionModalOpen, variations.editingVariationId, saveResult, formData]);
-
     // Sincronização de ambiente baseada em categorias
     useEffect(() => {
         if (formData.categoryIds?.length && availableCategories.length) {
@@ -317,7 +289,7 @@ export function useProductFormModal({
 
     // Submissão do formulário
     const handleSubmit = async (showResult = true, saveAsDraft = false): Promise<boolean> => {
-        const actualSaveAsDraft = isExistingRegisteredProduct ? false : saveAsDraft;
+        const actualSaveAsDraft = isRegisteredProduct ? false : saveAsDraft;
 
         if (!actualSaveAsDraft) {
             const errors: Record<string, boolean> = {};
@@ -332,13 +304,16 @@ export function useProductFormModal({
                 errors.variationsAttributes = true;
             }
 
-            // Validação de Preço de Venda
-            const hasValidPrice = formData.unitPrice !== undefined && 
+            // Validação de Preço de Venda (no produto pai ou em alguma variação)
+            const hasParentPrice = formData.unitPrice !== undefined && 
                 formData.unitPrice !== null && 
                 !isNaN(Number(formData.unitPrice)) && 
                 Number(formData.unitPrice) > 0;
+            const hasVariationWithPrice = (formData.variations || []).some(v => 
+                v.unitPrice !== undefined && v.unitPrice !== null && !isNaN(Number(v.unitPrice)) && Number(v.unitPrice) > 0
+            );
 
-            if (!hasValidPrice) {
+            if (!hasParentPrice && !hasVariationWithPrice) {
                 errors.unitPrice = true;
             }
 
@@ -398,16 +373,14 @@ export function useProductFormModal({
             let targetCatalogStatus: 'draft' | 'published' | 'hidden' = 'hidden';
             if (actualSaveAsDraft) {
                 targetCatalogStatus = 'draft';
-            } else if (isExistingRegisteredProduct && product?.status === 'published' && ecomVal.isLegible) {
+            } else if (isRegisteredProduct && product?.status === 'published' && ecomVal.isLegible) {
                 targetCatalogStatus = 'published';
             } else {
                 targetCatalogStatus = 'hidden';
             }
 
-            // Ao concluir um rascunho, o canal ERP inicia ativo para o produto
-            // e para todas as suas variações. A desativação permanece uma ação
-            // explícita do operador depois do cadastro.
-            const isCompletingDraft = !actualSaveAsDraft && !isExistingRegisteredProduct;
+            // Ao concluir um rascunho, o canal ERP inicia ativo para o produto e variações
+            const isCompletingDraft = !actualSaveAsDraft && !isRegisteredProduct;
             const erpActive = actualSaveAsDraft
                 ? false
                 : (isCompletingDraft ? true : formData.active !== false);
@@ -442,7 +415,9 @@ export function useProductFormModal({
             }));
             hasChanged.current = false;
             
-            if (isProductCreation && !actualSaveAsDraft) {
+            // Abre modal de canais tanto para produto novo quanto para conclusão de rascunho
+            const isFinalizingDraft = !actualSaveAsDraft && !isRegisteredProduct;
+            if (isFinalizingDraft) {
                 const erpLeg = checkERPLegibility(normalizedData);
                 const ecomLeg = checkEcomLegibility(normalizedData);
                 setSaveResult({
@@ -456,6 +431,7 @@ export function useProductFormModal({
             } else {
                 toast.success("Produto salvo com sucesso!");
                 if (onSuccess) onSuccess(normalizedData);
+                if (onSave) await onSave(normalizedData);
                 onClose();
             }
             return true;
@@ -479,7 +455,7 @@ export function useProductFormModal({
         }
     };
 
-    const handleCloseWithAutoSave = () => {
+    const handleCloseWithAutoSave = useCallback(() => {
         if (hasChanged.current) {
             if (window.confirm("Você tem alterações não salvas. Deseja realmente sair e descartar?")) {
                 onClose();
@@ -487,9 +463,52 @@ export function useProductFormModal({
         } else {
             onClose();
         }
-    };
+    }, [onClose]);
 
-    const handleCategorySelect = (cid: string) => {
+    // Atalhos globais do teclado
+    useEffect(() => {
+        if (!isOpen) return;
+
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if (e.key === 'Escape') {
+                if (saveResult) {
+                    setSaveResult(null);
+                    return;
+                }
+                if (isCategorySearchOpen) {
+                    setIsCategorySearchOpen(false);
+                    return;
+                }
+                if (isConversionModalOpen) {
+                    setIsConversionModalOpen(false);
+                    return;
+                }
+                if (variations.editingVariationId) {
+                    const pendingVariationId = variations.pendingNewVariationIdRef.current;
+                    if (pendingVariationId) {
+                        setFormData(prev => ({
+                            ...prev,
+                            variations: prev.variations?.filter(v => v.id !== pendingVariationId && String(v.id) !== String(pendingVariationId))
+                        }));
+                        variations.pendingNewVariationIdRef.current = null;
+                    }
+                    variations.setEditingVariationId(null);
+                    return;
+                }
+                handleCloseWithAutoSave();
+            }
+
+            if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+                e.preventDefault();
+                handleSubmit();
+            }
+        };
+
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [isOpen, isCategorySearchOpen, isConversionModalOpen, variations.editingVariationId, saveResult, handleCloseWithAutoSave, handleSubmit]);
+
+    const handleCategorySelect = useCallback((cid: string) => {
         const isSelected = formData.categoryIds?.includes(cid);
         const newIds = isSelected 
             ? formData.categoryIds?.filter(id => id !== cid) 
@@ -515,7 +534,45 @@ export function useProductFormModal({
             categoryIds: newIds,
             environment: detectedEnv 
         }));
-    };
+    }, [formData.categoryIds, formData.environment, availableCategories]);
+
+    const handleCloseVariationModal = useCallback(() => {
+        const pendingVariationId = variations.pendingNewVariationIdRef.current;
+        if (pendingVariationId) {
+            setFormData(prev => ({
+                ...prev,
+                variations: prev.variations?.filter(v => v.id !== pendingVariationId && String(v.id) !== String(pendingVariationId))
+            }));
+            variations.pendingNewVariationIdRef.current = null;
+        }
+        variations.setEditingVariationId(null);
+    }, [variations, setFormData]);
+
+    const handleSaveVariation = useCallback((updatedVar: Variation) => {
+        variations.pendingNewVariationIdRef.current = null;
+        setFormData(prev => ({
+            ...prev,
+            variations: prev.variations?.map(v => (v.id === updatedVar.id || String(v.id) === String(updatedVar.id)) ? updatedVar : v)
+        }));
+        variations.setEditingVariationId(null);
+    }, [variations, setFormData]);
+
+    const handleConvertProduct = useCallback((updated: Partial<Product>) => {
+        setFormData(updated);
+        setActiveTab('variacoes');
+        toast.success("Produto convertido! O código e estoque agora estão na primeira variação.");
+    }, [setFormData, setActiveTab]);
+
+    const formTabs = getProductFormTabs(isService);
+    const currentTabIndex = formTabs.findIndex((t) => t.id === activeTab);
+    const isLastStep = currentTabIndex === formTabs.length - 1;
+    const nextTabObj = formTabs[currentTabIndex + 1];
+
+    const handleNextStep = useCallback(() => {
+        if (nextTabObj) {
+            setActiveTab(nextTabObj.id);
+        }
+    }, [nextTabObj, setActiveTab]);
 
     return {
         activeTab,
@@ -538,6 +595,7 @@ export function useProductFormModal({
         isService,
         isProductCreation,
         isDraftProduct,
+        isRegisteredProduct,
         ecomStatus,
         pricing,
         ai,
@@ -548,5 +606,11 @@ export function useProductFormModal({
         handleSubmit,
         handleCloseWithAutoSave,
         handleCategorySelect,
+        handleCloseVariationModal,
+        handleSaveVariation,
+        handleConvertProduct,
+        handleNextStep,
+        isLastStep,
+        formTabs
     };
 }

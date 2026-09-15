@@ -59,7 +59,7 @@ export const mapFromDB = (data: any, index?: number): Product => {
         minStock: Number(data.min_stock || 0),
         unit: data.unit || 'UN',
         active: finalVariations.length > 0 ? finalVariations.some(v => v.active) : Boolean(data.active),
-        isDraft: Boolean(data.is_draft),
+        isDraft: Boolean(data.is_draft ?? data.isDraft) || data.status === 'draft',
         deleted: data.deleted ?? false,
         supplierId: data.supplier_id || data.main_supplier_id || '',
         mainSupplierId: data.main_supplier_id || data.supplier_id || '',

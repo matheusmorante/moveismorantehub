@@ -4,6 +4,10 @@ import { supabase } from '@/pages/utils/supabaseConfig';
 import { processProductData } from '../LabelUtils';
 import { getSelectedProductDisplayName } from '@/pages/utils/productVariationDefaults';
 
+const LABEL_PRODUCT_COLUMNS = 'id, title, name, description, code, sku, unit_price, cost_price, price, promo_price, stock, active, deleted_at, has_variations, variations, category_ids, category, unit, images';
+const LABEL_VARIATION_COLUMNS = `id, product_id, name, description, sku, price, unit_price, promo_price, stock, images, image_url, active,
+    products(${LABEL_PRODUCT_COLUMNS})`;
+
 interface ProductSearchInputProps {
     products: Product[];
     selectedProduct?: Product | null;
@@ -113,14 +117,14 @@ export const ProductSearchInput: React.FC<ProductSearchInputProps> = ({
                 // com os seus campos reais, inclusive o SKU da variação.
                 const productsQuery = supabase
                     .from('products')
-                    .select('*')
+                    .select(LABEL_PRODUCT_COLUMNS)
                     .is('deleted_at', null)
                     .or(buildProductSearchFilter(term))
                     .limit(50);
 
                 const variationsQuery = supabase
                     .from('product_variations')
-                    .select('*, products(*)')
+                    .select(LABEL_VARIATION_COLUMNS)
                     .or(buildVariationSearchFilter(term))
                     .limit(50);
 

@@ -13,7 +13,9 @@ export const AiUsageDashboardPanel: React.FC = () => {
 
   useEffect(() => {
     loadUsage();
-    const interval = setInterval(loadUsage, 10000);
+    // O painel é informativo; atualizar a cada minuto mantém a leitura atual
+    // sem consultar todo o histórico diário de uso a cada 10 segundos.
+    const interval = setInterval(loadUsage, 60000);
     return () => clearInterval(interval);
   }, []);
 

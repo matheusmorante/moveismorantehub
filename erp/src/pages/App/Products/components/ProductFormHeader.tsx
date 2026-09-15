@@ -12,6 +12,7 @@ export interface ProductTabItem {
 
 interface ProductFormHeaderProps {
     readonly product?: Product | null;
+    readonly isDraftProduct?: boolean;
     readonly formData: Partial<Product>;
     readonly ecomStatus: { isLegible: boolean; checks: Record<string, boolean> };
     readonly isService: boolean;
@@ -24,6 +25,7 @@ interface ProductFormHeaderProps {
 
 export const ProductFormHeader: React.FC<ProductFormHeaderProps> = ({
     product,
+    isDraftProduct = false,
     formData,
     ecomStatus,
     isService,
@@ -51,7 +53,9 @@ export const ProductFormHeader: React.FC<ProductFormHeaderProps> = ({
             <div className="px-6 py-4 border-b border-slate-50 dark:border-slate-800/50 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shrink-0 bg-white dark:bg-slate-900">
                 <div className="flex items-center gap-4 flex-wrap">
                     <h2 className="text-xl font-black text-slate-800 dark:text-slate-100 tracking-tight">
-                        {product ? 'Editar Produto' : 'Cadastro de Produto'}
+                        {isDraftProduct
+                            ? (product?.id ? 'Continuar Cadastramento' : 'Cadastro de Produto')
+                            : (product ? 'Editar Produto' : 'Cadastro de Produto')}
                     </h2>
 
                     <div className="flex items-center gap-2 flex-wrap">

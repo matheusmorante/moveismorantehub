@@ -44,7 +44,7 @@ export const ProductRowActionsCell: React.FC<ProductRowActionsCellProps> = ({
 }) => {
     const [isMenuOpen, setIsMenuOpen] = useState(false);
     const menuAnchorRef = useRef<HTMLButtonElement>(null);
-    const isDraft = Boolean(product.isDraft) || Boolean(product.is_draft);
+    const isDraft = Boolean(product.isDraft) || Boolean((product as any).is_draft) || product.status === 'draft';
 
     const handleCopyAiInstructions = useCallback(async (e: React.MouseEvent) => {
         e.stopPropagation();
@@ -142,10 +142,10 @@ export const ProductRowActionsCell: React.FC<ProductRowActionsCellProps> = ({
                                 onEdit(product);
                             }}
                             className="w-8 h-8 flex items-center justify-center bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/40 rounded-xl transition-all border border-slate-200/80 dark:border-slate-700 shadow-2xs cursor-pointer active:scale-95"
-                            title="Editar Produto"
-                            aria-label="Editar Produto"
+                            title={isDraft ? "Continuar Cadastramento" : "Editar Produto"}
+                            aria-label={isDraft ? "Continuar Cadastramento" : "Editar Produto"}
                         >
-                            <i className="bi bi-pencil text-xs font-bold" />
+                            <i className={isDraft ? "bi bi-pencil-square text-xs font-bold text-amber-600 dark:text-amber-400" : "bi bi-pencil text-xs font-bold"} />
                         </button>
 
                         <div className="relative">

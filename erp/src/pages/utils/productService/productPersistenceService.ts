@@ -132,7 +132,18 @@ export const syncProductToSupabase = async (product: Product): Promise<void> => 
                     const rawSku = v.sku && typeof v.sku === 'string' ? normalizeVariationSku(v.sku.trim()) : '';
                     let resolvedSku = rawSku || defaultSku;
                     if (usedSkus.has(resolvedSku)) {
-                        throw new Error(`O SKU da variação "${resolvedSku}" já está em uso por outro produto.`);
+                        // Se o SKU foi gerado automaticamente ou é um rascunho, evita travar o salvamento gerando um SKU livre
+                        if (!rawSku || rawSku === defaultSku || product.isDraft) {
+                            let attempts = 1;
+                            let candidateSku = `${parentCode}_${Date.now().toString().slice(-4)}-${suffix}`;
+                            while (usedSkus.has(candidateSku) && attempts < 10) {
+                                candidateSku = `${parentCode}_${Date.now().toString().slice(-4)}_${attempts}-${suffix}`;
+                                attempts++;
+                            }
+                            resolvedSku = candidateSku;
+                        } else {
+                            throw new Error(`O SKU da variação "${resolvedSku}" já está em uso por outro produto.`);
+                        }
                     }
                     usedSkus.add(resolvedSku);
                     v.sku = resolvedSku;

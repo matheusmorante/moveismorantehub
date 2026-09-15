@@ -45,7 +45,9 @@ export const mapToDB = (product: Partial<Product>) => {
     if (product.minStock !== undefined) data.min_stock = product.minStock;
     if (product.unit !== undefined) data.unit = product.unit;
     if (product.active !== undefined) data.active = product.active;
-    if (product.isDraft !== undefined) data.is_draft = product.isDraft;
+    if (product.isDraft !== undefined || (product as any).is_draft !== undefined) {
+        data.is_draft = Boolean(product.isDraft ?? (product as any).is_draft);
+    }
     if (product.deleted !== undefined) data.deleted = product.deleted;
     
     const supplierCandidate = product.mainSupplierId || product.supplierId || (product as any).main_supplier_id || (product as any).supplier_id || null;

@@ -29,7 +29,7 @@ export const ProductCardActions: React.FC<ProductCardActionsProps> = ({
 }) => {
     const [isMenuOpen, setIsMenuOpen] = useState(false);
     const menuAnchorRef = useRef<HTMLButtonElement>(null);
-    const isDraft = Boolean(product.isDraft) || Boolean(product.is_draft);
+    const isDraft = Boolean(product.isDraft) || Boolean((product as any).is_draft) || product.status === 'draft';
 
     const handleWhatsAppClick = useCallback((e: React.MouseEvent) => {
         e.stopPropagation();
@@ -65,10 +65,10 @@ export const ProductCardActions: React.FC<ProductCardActionsProps> = ({
                     onEdit(product);
                 }}
                 className="w-7 h-7 flex items-center justify-center bg-slate-50 dark:bg-slate-800 text-slate-400 hover:text-blue-600 hover:bg-slate-100 rounded-lg transition-all border border-slate-100 dark:border-slate-700 shrink-0 cursor-pointer"
-                title="Editar Produto"
-                aria-label="Editar Produto"
+                title={isDraft ? "Continuar Cadastramento" : "Editar Produto"}
+                aria-label={isDraft ? "Continuar Cadastramento" : "Editar Produto"}
             >
-                <i className="bi bi-pencil text-xs" />
+                <i className={isDraft ? "bi bi-pencil-square text-xs text-amber-600 dark:text-amber-400" : "bi bi-pencil text-xs"} />
             </button>
 
             <button

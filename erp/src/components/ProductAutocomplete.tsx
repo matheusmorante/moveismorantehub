@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import Product, { Variation } from '../pages/types/product.type';
 import DropdownPortal from './shared/DropdownPortal';
+import TruncatedProductTitle from './TruncatedProductTitle';
 import { fetchAllProductSearchResults, getVariationDisplayName, normalizeProductSearch, renderHighlightedProductText, SuggestionItem } from './productAutocompleteUtils';
 
 interface ProductAutocompleteProps {
@@ -305,9 +306,11 @@ const ProductAutocomplete: React.FC<ProductAutocompleteProps> = ({
                                 className="w-full px-4 py-2.5 text-left hover:bg-emerald-50/70 dark:hover:bg-slate-800/60 transition-all flex items-center justify-between gap-3 group"
                             >
                                 <div className="flex flex-col min-w-0 flex-1">
-                                    <span className="text-xs font-bold text-slate-800 dark:text-slate-100 group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors truncate">
-                                        {renderHighlightedProductText(displayName, query)}
-                                    </span>
+                                    <TruncatedProductTitle
+                                        fullName={fullName}
+                                        displayName={displayName}
+                                        query={query}
+                                    />
                                     {!onlyName && displayCode && (
                                         <span className="text-[10px] font-mono text-slate-400">
                                             Cód: {displayCode}

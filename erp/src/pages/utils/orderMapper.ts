@@ -158,26 +158,30 @@ export function mapOrderFromDatabase(row: OrderDatabaseRow): Order {
         }
     };
 
-    // Frete e Agendamento
-    const shipping = rawLegacy.shipping || {
-        deliveryMethod: row.delivery_method || 'delivery',
-        value: 0,
-        orderType: 'Standard',
+    // Frete e agendamento: as colunas normalizadas são a fonte principal.
+    // O snapshot só completa pedidos antigos que ainda não foram migrados.
+    const legacyShipping = rawLegacy.shipping || {};
+    const legacyScheduling = legacyShipping.scheduling || {};
+    const normalizedStartTime = row.scheduled_start_time || '';
+    const normalizedEndTime = row.scheduled_end_time || '';
+    const hasScheduledTime = Boolean(
+        normalizedStartTime || normalizedEndTime || legacyScheduling.startTime || legacyScheduling.time || legacyScheduling.endTime
+    );
+    const shipping = {
+        ...legacyShipping,
+        deliveryMethod: row.delivery_method || legacyShipping.deliveryMethod || 'delivery',
+        value: legacyShipping.value ?? 0,
+        orderType: legacyShipping.orderType || 'Standard',
         scheduling: {
-            date: row.scheduled_date || '',
-            startTime: row.scheduled_start_time || '',
-            endTime: row.scheduled_end_time || '',
-            type: 'range'
+            ...legacyScheduling,
+            date: row.scheduled_date || legacyScheduling.date || '',
+            startTime: normalizedStartTime || legacyScheduling.startTime || legacyScheduling.time || '',
+            endTime: normalizedEndTime || legacyScheduling.endTime || '',
+            type: legacyScheduling.type || 'range',
+            // Um horário registrado não pode ser exibido como “não informado”.
+            notInformed: hasScheduledTime ? false : (legacyScheduling.notInformed ?? false)
         }
     };
-
-    if (row.scheduled_date && (!shipping.scheduling || !shipping.scheduling.date)) {
-        if (!shipping.scheduling) shipping.scheduling = {};
-        shipping.scheduling.date = row.scheduled_date;
-    }
-    if (row.delivery_method) {
-        shipping.deliveryMethod = row.delivery_method;
-    }
 
     // Flags operacionais
     const deleted = row.deleted != null ? Boolean(row.deleted) : Boolean(rawLegacy.deleted);
@@ -219,7 +223,7 @@ export function mapOrderFromDatabase(row: OrderDatabaseRow): Order {
         payments,
         paymentsSummary,
         shipping,
-        observation: rawLegacy.observation || row.notes || '',
+        observation: row.notes || rawLegacy.observation || '',
         deleted,
         deletedAt,
         stockProcessed,

@@ -71,7 +71,7 @@ export const InboundInvoiceItemRow: React.FC<InboundInvoiceItemRowProps> = ({
         : resolvedFallback?.code || item.linkedProductCode || '—';
 
     return (
-        <div className="grid gap-5 p-5 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+        <div className="grid grid-cols-1 gap-5 p-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
             {/* Lado Esquerdo: Dados da NF */}
             <div className="min-w-0 space-y-2">
                 <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Dados da NF</span>

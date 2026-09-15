@@ -136,3 +136,17 @@ Redução medida por leitura: **87,7%**. A diferença de frequência reduz mais 
 - `logisticsRealtimeService.ts` agrupa eventos em 250 ms e remove o canal no desmontar.
 - A fila offline possui estados `PENDING`, `SYNCING`, `CONFIRMED` e `REJECTED`; mídia fica em fila separada.
 - Risco pendente: `useDeliveryRoute` armazena uma leitura integral em `logistics_orders`; o cache deve ser limitado ao roteiro do operador, não à tabela completa.
+
+### Ampliação da auditoria — módulos adicionais
+
+| Sistema/módulo | Evidência encontrada | Situação |
+|---|---|---|
+| ERP · Impressão de etiquetas | Busca por texto retornava produto e pai de variação completos, até 50 de cada | **Corrigido:** projeção limitada aos campos de etiqueta (nome, código, preço, estoque, imagens, categoria e variações). |
+| ERP · Monitor de uso de IA | Consultava todos os registros de uso do dia a cada 10 segundos; há 1.242 registros na base atual | **Corrigido:** atualização passou para 60 segundos. |
+| ERP · Sincronização do catálogo Meta | `products(*)` e variações completas | Ação manual de administrador, não fonte de egress recorrente. |
+| ERP · Categorias/atributos | há `select('*')` | Baixo: 44 categorias, 2 atributos e 72 valores na base atual. |
+| ERP · Conciliação Rede | polling global de 30 segundos | Baixo na amostra: não há transações pendentes; mantido para não atrasar PIX. |
+| Mobile · Roteiro de entrega | `useDeliveryRoute` usa `orders.select('*')` sem limite e grava no working set | Alto pendente: precisa de consulta por roteiro/data antes de reduzir campos, pois depende de endereço, itens e janelas. |
+| Mobile · Logística e montagens | ambas leem até 300 pedidos com `order_data` e assinam Realtime | Médio: cache comum, mas podem duplicar leitura se ambas as telas forem abertas. |
+| Mobile · Lista de pedidos | paginação server-side de 30 + cache local | Adequado; `order_data` ainda é necessário para compatibilidade de renderização. |
+| Mobile · Financeiro | leituras `select('*')` filtradas por período | Médio: requer medição em base com transações antes de reduzir projeções. |
