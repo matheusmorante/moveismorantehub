@@ -1,9 +1,9 @@
 import React from "react";
-import SectionCard from "../../../components/SectionCard";
-import Item from "../../types/items.type";
-import { calcItemsSummary } from "../../utils/calculations";
-import { getSelectedProductDisplayName } from "../../utils/productVariationDefaults";
-import { getSelectedProductPricing } from "../../utils/productPricing";
+import SectionCard from '@/components/SectionCard';
+import Item from '@/pages/types/items.type';
+import { calcItemsSummary } from '@/pages/utils/calculations';
+import { getSelectedProductDisplayName } from '@/pages/utils/productVariationDefaults';
+import { getSelectedProductPricing } from '@/pages/utils/productPricing';
 import ItemsTable from '../ItemsTable';
 
 type Props = { items: Item[]; setItems: React.Dispatch<React.SetStateAction<Item[]>>; deliveryMethod: "delivery" | "pickup" };

@@ -1,15 +1,15 @@
 import React, { useState, useEffect, useMemo, useRef } from "react";
 import { toast } from "react-toastify";
-import Order, { AssistanceItem } from "../../types/order.type";
-import Item from "../../types/items.type";
-import CustomerData from "../../types/customerData.type";
-import { saveOrder, subscribeToOrders } from "../../utils/orderHistoryService";
-import { validateAssistanceOrder } from "../../utils/validations";
+import Order, { AssistanceItem } from '@/pages/types/order.type';
+import Item from '@/pages/types/items.type';
+import CustomerData from '@/pages/types/customerData.type';
+import { saveOrder, subscribeToOrders } from '@/pages/utils/orderHistoryService';
+import { validateAssistanceOrder } from '@/pages/utils/validations';
 
 // Sub-modals
-import ProductSearchModal from '../ProductSearchModal';
-import OrderSelectionModal from '../OrderSelectionModal';
-import CustomerSearchModal from '../CustomerSearchModal';
+import ProductSearchModal from './ProductSearchModal';
+import OrderSelectionModal from './OrderSelectionModal';
+import CustomerSearchModal from './CustomerSearchModal';
 
 // Modular Components
 import AssistanceOrderHeader from '../AssistanceOrderModalComponents/AssistanceOrderHeader';

@@ -2,11 +2,11 @@ import React, { useEffect, useRef, useState } from 'react';
 import maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { getSettings } from '@/pages/utils/settingsService';
-import { autoCalculateRouteDistance, searchAddressSuggestions, RouteResult } from '../../utils/maps';
-import { formatCurrency } from '../../utils/formatters';
+import { autoCalculateRouteDistance, searchAddressSuggestions, RouteResult } from '@/pages/utils/maps';
+import { formatCurrency } from '@/pages/utils/formatters';
 import DropdownPortal from '@/components/shared/DropdownPortal';
 import { AddressAutocompleteInput } from '@/components/shared/AddressAutocompleteInput';
-import { calculateFreightByDistance } from '../../utils/shippingPricing';
+import { calculateFreightByDistance } from '@/pages/utils/shippingPricing';
 
 const FreightCalculation = () => {
     const mapContainer = useRef<HTMLDivElement>(null);

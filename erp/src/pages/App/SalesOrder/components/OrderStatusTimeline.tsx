@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { supabase } from '@/pages/utils/supabaseConfig';
-import { formatDateTime } from "../../utils/formatters";
+import { formatDateTime } from '@/pages/utils/formatters';
 
 interface StatusHistoryEntry {
     id: string;

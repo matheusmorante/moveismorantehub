@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from "react";
-import Order from "../../types/order.type";
-import { formatCurrency, formatToBRDate } from "../../utils/formatters";
-import { normalizeSearchTerm } from "../../utils/textUtils";
+import Order from '@/pages/types/order.type';
+import { formatCurrency, formatToBRDate } from '@/pages/utils/formatters';
+import { normalizeSearchTerm } from '@/pages/utils/textUtils';
 
 interface OrderSelectionModalProps {
     orders: Order[];

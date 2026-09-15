@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { supabase } from '../../../utils/supabaseConfig';
-import { AI_LIMITS } from '../../../../services/aiGateway/config/aiLimitsConfig';
-import { AiCircuitBreaker } from '../../../../services/aiGateway/core/AiCircuitBreaker';
+import { supabase } from '@/pages/utils/supabaseConfig';
+import { AI_LIMITS } from '@/services/aiGateway/config/aiLimitsConfig';
+import { AiCircuitBreaker } from '@/services/aiGateway/core/AiCircuitBreaker';
 
 export const AiUsageDashboardPanel: React.FC = () => {
   const [counts, setCounts] = useState({

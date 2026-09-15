@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
-import SmartInput from "../../../components/SmartInput";
-import { ValidationErrors } from "../../utils/validations";
-import { subscribeToPeople } from "../../utils/personService";
+import SmartInput from '@/components/SmartInput';
+import { ValidationErrors } from '@/pages/utils/validations';
+import { subscribeToPeople } from '@/pages/utils/personService';
 import { isValidEmployee } from "@/pages/utils/accessRoles";
 
 interface Props {

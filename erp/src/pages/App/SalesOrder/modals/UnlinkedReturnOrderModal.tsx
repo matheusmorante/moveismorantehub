@@ -1,18 +1,18 @@
 import React, { useState } from "react";
 import { Undo2 } from "lucide-react";
 import { toast } from "react-toastify";
-import CustomerData from "../../types/customerData.type";
-import Item from "../../types/items.type";
-import Order from "../../types/order.type";
-import Shipping from "../../types/Shipping.type";
-import { calcItemsSummary } from "../../utils/calculations";
-import { saveOrder } from "../../utils/orderHistoryService";
-import CustomerSearchModal from '../CustomerSearchModal';
+import CustomerData from '@/pages/types/customerData.type';
+import Item from '@/pages/types/items.type';
+import Order from '@/pages/types/order.type';
+import Shipping from '@/pages/types/Shipping.type';
+import { calcItemsSummary } from '@/pages/utils/calculations';
+import { saveOrder } from '@/pages/utils/orderHistoryService';
+import CustomerSearchModal from './CustomerSearchModal';
 import ReturnCollectionSection from '../OrderActions/ReturnCollectionSection';
-import PersonFormModal from "../Registrations/shared/PersonFormModal";
+import PersonFormModal from '@/pages/App/Registrations/shared/PersonFormModal';
 import ReturnItemsTable from '../ReturnItemsTable';
 import ReturnFormTabs, { ReturnFormTab } from '../ReturnFormTabs';
-import { canSearchCustomers } from "../../utils/customerSearch";
+import { canSearchCustomers } from '@/pages/utils/customerSearch';
 
 type Props = { onClose: () => void; onSaveSuccess: (id?: string, order?: Order) => void };
 const EMPTY_SCHEDULING: Shipping['scheduling'] = { dateType: 'fixed', date: '', endDate: '', time: '', type: 'fixed', startTime: '', endTime: '', notInformed: false };

@@ -1,7 +1,7 @@
 /** @jsxImportSource react */
 import React, { useState } from 'react';
 import { AppSettings } from '@/pages/utils/settingsService';
-import { whatsappGraphService } from '../../../utils/whatsappGraphService';
+import { whatsappGraphService } from '@/pages/utils/whatsappGraphService';
 import { toast } from 'react-toastify';
 
 interface WhatsAppConfigSectionProps {

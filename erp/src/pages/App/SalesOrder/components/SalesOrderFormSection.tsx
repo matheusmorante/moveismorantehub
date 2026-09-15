@@ -1,18 +1,18 @@
 import React from "react";
 import ItemsTable from '../ItemsTable';
-import ShippingInputs from '../ShippingData';
+import ShippingInputs from './ShippingData';
 import PaymentsTable from '../PaymentsTable/Index';
-import PersonalInfos from '../CustomerData';
-import FormHeader from '../FormHeader';
-import FormFooter from '../FormFooter';
-import SectionCard from "../../../components/SectionCard";
+import PersonalInfos from './CustomerData';
+import FormHeader from './FormHeader';
+import FormFooter from './FormFooter';
+import SectionCard from '@/components/SectionCard';
 import { useSalesOrderForm } from '../useSalesOrderForm';
-import NoticeInput from "../../../components/NoticeInput";
+import NoticeInput from '@/components/NoticeInput';
 
 
-import { getSettings } from "../../../pages/utils/settingsService";
+import { getSettings } from '@/pages/utils/settingsService';
 
-import SellerInput from '../SellerInput';
+import SellerInput from './SellerInput';
 
 type SalesOrderFormSectionProps = {
     form: ReturnType<typeof useSalesOrderForm>;

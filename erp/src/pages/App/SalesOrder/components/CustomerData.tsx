@@ -1,12 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import DropdownPortal from "@/components/shared/DropdownPortal";
 import { subscribeToPeople } from "@/pages/utils/personService";
-import CustomerData from "../../types/customerData.type";
-import Person from "../../types/person.type";
-import { ValidationErrors } from "../../utils/validations";
-import { toTitleCase } from "../../utils/formatters";
-import { canSearchCustomers, getCustomerSearchQuery, matchesCustomerSearch } from "../../utils/customerSearch";
-import PersonFormModal from "../Registrations/shared/PersonFormModal";
+import CustomerData from '@/pages/types/customerData.type';
+import Person from '@/pages/types/person.type';
+import { ValidationErrors } from '@/pages/utils/validations';
+import { toTitleCase } from '@/pages/utils/formatters';
+import { canSearchCustomers, getCustomerSearchQuery, matchesCustomerSearch } from '@/pages/utils/customerSearch';
+import PersonFormModal from '@/pages/App/Registrations/shared/PersonFormModal';
 
 interface Props {
     customerData: CustomerData;

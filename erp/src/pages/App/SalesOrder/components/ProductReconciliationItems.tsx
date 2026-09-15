@@ -1,7 +1,7 @@
 import React from "react";
-import ProductAutocomplete from "../../../components/ProductAutocomplete";
-import Item from "../../types/items.type";
-import Product, { Variation } from "../../types/product.type";
+import ProductAutocomplete from '@/components/ProductAutocomplete';
+import Item from '@/pages/types/items.type';
+import Product, { Variation } from '@/pages/types/product.type';
 
 type Props = {
     items: Item[];

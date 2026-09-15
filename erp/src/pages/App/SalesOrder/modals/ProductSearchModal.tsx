@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
-import Product, { Variation } from "../../types/product.type";
+import Product, { Variation } from '@/pages/types/product.type';
 import { subscribeToProducts } from '@/pages/utils/productService';
-import { formatCurrency } from "../../utils/formatters";
-import ProductFormModal from "../Products/ProductFormModal";
+import { formatCurrency } from '@/pages/utils/formatters';
+import ProductFormModal from '@/pages/App/Products/ProductFormModal';
 import { normalizeSearchTerm } from "@/pages/utils/textUtils";
 
 interface Props {

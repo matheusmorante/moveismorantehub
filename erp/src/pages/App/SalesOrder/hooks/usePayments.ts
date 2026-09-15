@@ -1,4 +1,4 @@
-import { Payment } from "../../../types/payments.type";
+import { Payment } from '@/pages/types/payments.type';
 import { useState } from "react";
 
 const usePayments = () => {

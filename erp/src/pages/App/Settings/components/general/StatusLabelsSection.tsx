@@ -1,7 +1,7 @@
 /** @jsxImportSource react */
 import React from "react";
 import { AppSettings, OrderStatusConfig, OrderTypeColor } from '@/pages/utils/settingsService';
-import { ORDER_TYPE_COLOR_OPTIONS } from "../../../utils/orderTypeColorUtils";
+import { ORDER_TYPE_COLOR_OPTIONS } from '@/pages/utils/orderTypeColorUtils';
 
 interface Props {
     settings: AppSettings;

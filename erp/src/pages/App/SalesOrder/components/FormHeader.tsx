@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
-import Order from "../../types/order.type";
-import { subscribeToPeople } from "../../utils/personService";
-import SmartAIFillModal from '../SmartAIFillModal';
+import Order from '@/pages/types/order.type';
+import { subscribeToPeople } from '@/pages/utils/personService';
+import SmartAIFillModal from './SmartAIFillModal';
 
 interface FormHeaderProps {
     currentOrder?: Order | null;

@@ -5,12 +5,12 @@ import {
   listAgentFeedbacks,
   updateAgentFeedbackStatus,
   generateGoldenTestCaseSnippet,
-} from '../../../../services/aiAgent/aiFeedbackService';
+} from '@/services/aiAgent/aiFeedbackService';
 import {
   AgentFeedbackCategory,
   AgentFeedbackItem,
   AgentFeedbackStatus,
-} from '../../../../services/aiAgent/aiFeedbackTypes';
+} from '@/services/aiAgent/aiFeedbackTypes';
 
 const CATEGORY_LABELS: Record<AgentFeedbackCategory, { label: string; color: string }> = {
   misunderstanding: { label: 'Compreensão de Intenção', color: 'bg-purple-100 text-purple-800 dark:bg-purple-950/60 dark:text-purple-300' },

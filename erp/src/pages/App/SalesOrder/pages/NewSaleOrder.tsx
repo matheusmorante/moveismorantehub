@@ -1,11 +1,11 @@
 import React, { useCallback, useRef, useState, useEffect } from "react";
 import { useSalesOrderForm } from '../useSalesOrderForm';
-import Order from "../../types/order.type";
+import Order from '@/pages/types/order.type';
 import SalesOrderFormSection from '../SalesOrderFormSection';
 import OrderStepper from '../OrderStepper';
 import { toast } from "react-toastify";
 import SellerSearchModal from '../SellerSearchModal';
-import PersonFormModal from "../Registrations/shared/PersonFormModal";
+import PersonFormModal from '@/pages/App/Registrations/shared/PersonFormModal';
 import { useSearchParams } from "react-router-dom";
 
 type NewSaleOrderProps = {

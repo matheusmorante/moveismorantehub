@@ -1,17 +1,17 @@
 import React from "react";
 import { AddressAutocompleteInput } from "@/components/shared/AddressAutocompleteInput";
-import Shipping from "../../types/Shipping.type";
-import CustomerData from "../../types/customerData.type";
-import { getShippingRouteUrl, getAddressByCep } from "../../utils/maps";
-import { ValidationErrors } from "../../utils/validations";
-import { calculateFreightByDistance } from "../../utils/shippingPricing";
+import Shipping from '@/pages/types/Shipping.type';
+import CustomerData from '@/pages/types/customerData.type';
+import { getShippingRouteUrl, getAddressByCep } from '@/pages/utils/maps';
+import { ValidationErrors } from '@/pages/utils/validations';
+import { calculateFreightByDistance } from '@/pages/utils/shippingPricing';
 import FreteDistancia from '../ShippingComponents/FreteDistancia';
 import Agendamento from '../ShippingComponents/Agendamento';
 import MapRoute from '../ShippingComponents/MapRoute';
 import { PatternFormat as PatternFormatBase } from "react-number-format";
 const PatternFormat = PatternFormatBase as any;
-import SmartInput from "../../../components/SmartInput";
-import AddressVerificationMap from '../AddressVerificationMap';
+import SmartInput from '@/components/SmartInput';
+import AddressVerificationMap from './AddressVerificationMap';
 
 interface Props {
     shipping: Shipping;

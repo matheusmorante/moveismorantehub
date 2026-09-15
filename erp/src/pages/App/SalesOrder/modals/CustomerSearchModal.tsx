@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useMemo } from "react";
-import CustomerData from "../../types/customerData.type";
-import Person from "../../types/person.type";
-import Order from "../../types/order.type";
+import CustomerData from '@/pages/types/customerData.type';
+import Person from '@/pages/types/person.type';
+import Order from '@/pages/types/order.type';
 import { subscribeToPeople } from '@/pages/utils/personService';
-import { getOrdersCustomerDataOnly } from "../../utils/orderHistoryService";
+import { getOrdersCustomerDataOnly } from '@/pages/utils/orderHistoryService';
 import { canSearchCustomers, getCustomerSearchQuery, matchesCustomerSearch } from "@/pages/utils/customerSearch";
 
 interface CustomerSearchEntry {

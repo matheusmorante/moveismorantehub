@@ -1,6 +1,6 @@
 import React from "react";
 import OrderActions from '../OrderActions/Index';
-import Order from "../../types/order.type";
+import Order from '@/pages/types/order.type';
 import { actionsMap } from '../OrderActions/orderActionsConfig';
 
 interface FormFooterProps {

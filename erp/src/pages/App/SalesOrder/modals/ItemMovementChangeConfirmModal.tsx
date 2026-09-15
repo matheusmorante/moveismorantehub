@@ -1,4 +1,4 @@
-import Order from "../../types/order.type";
+import Order from '@/pages/types/order.type';
 
 type ChangedItem = { before?: any; after?: any };
 

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from "react";
-import Person from "../../types/person.type";
+import Person from '@/pages/types/person.type';
 import { subscribeToPeople } from '@/pages/utils/personService';
 import { normalizeSearchTerm } from "@/pages/utils/textUtils";
 
