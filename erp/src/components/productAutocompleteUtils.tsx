@@ -23,34 +23,34 @@ export const getVariationDisplayName = (product: Product, variation?: Variation)
     return [parentName, attrValues].filter(Boolean).join(' ');
 };
 
-// Cache em memória de curta duração para digitação ágil (indexado por fornecedor)
-const cachedActiveProductsBySupplier = new Map<string, { data: Product[]; timestamp: number }>();
+// Cache em memória de curta duração para digitação ágil (indexado por fornecedor e filtro de ativos)
+const cachedProductsBySupplier = new Map<string, { data: Product[]; timestamp: number }>();
 const CACHE_TTL_MS = 30 * 1000; // 30 segundos
 
-export const fetchAllProductSearchResults = async (search: string, supplierId?: string) => {
+export const fetchAllProductSearchResults = async (search: string, supplierId?: string, includeDeactivated = false) => {
     const products: Product[] = [];
     let page = 1;
     const pageSize = 100;
 
     while (true) {
-        const result = await fetchProductsPage(page, pageSize, { search, activeOnly: true, isDraft: false, supplierId });
+        const result = await fetchProductsPage(page, pageSize, { search, activeOnly: includeDeactivated ? undefined : true, isDraft: false, supplierId });
         products.push(...result.data);
         if (!result.data.length || products.length >= result.total) break;
         page += 1;
     }
 
     // Se a busca direta retornar vazia ou incompleta devido a variações de acentuação,
-    // utiliza a lista de produtos ativos do fornecedor em cache para filtragem precisa no cliente
+    // utiliza a lista de produtos do fornecedor em cache para filtragem precisa no cliente
     if (products.length === 0) {
-        const cacheKey = supplierId ? `supplier_${supplierId}` : '__all__';
+        const cacheKey = `${supplierId ? `supplier_${supplierId}` : '__all__'}:${includeDeactivated ? 'all' : 'active'}`;
         const now = Date.now();
-        const cached = cachedActiveProductsBySupplier.get(cacheKey);
+        const cached = cachedProductsBySupplier.get(cacheKey);
         if (cached && now - cached.timestamp < CACHE_TTL_MS) {
             return cached.data;
         }
 
-        const fallback = await fetchProductsPage(1, 500, { activeOnly: true, isDraft: false, supplierId });
-        cachedActiveProductsBySupplier.set(cacheKey, { data: fallback.data, timestamp: now });
+        const fallback = await fetchProductsPage(1, 500, { activeOnly: includeDeactivated ? undefined : true, isDraft: false, supplierId });
+        cachedProductsBySupplier.set(cacheKey, { data: fallback.data, timestamp: now });
         return fallback.data;
     }
 

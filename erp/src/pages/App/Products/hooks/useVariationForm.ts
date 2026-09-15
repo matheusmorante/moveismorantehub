@@ -54,6 +54,20 @@ export function useVariationForm({
         }
     }, [formData?.name, diferenciarTitulo]);
 
+    // O nome da variação é sempre composto pelo nome atual do pai e pelos
+    // atributos. Isso mantém o valor salvo igual ao que é mostrado na tela.
+    useEffect(() => {
+        setFormData(previous => {
+            if (!previous) return previous;
+            const nextName = computeVariationName(
+                parentProduct.name || parentProduct.description || '',
+                previous.attributes || []
+            ) || 'Variação';
+
+            return previous.name === nextName ? previous : { ...previous, name: nextName };
+        });
+    }, [parentProduct.name, parentProduct.description, formData?.attributes]);
+
     // Atualiza a cópia de trabalho da variação enquanto o pai é editado. Isso
     // preserva a prévia correta ao alternar de "Herdado" para "Manual", sem
     // persistir a alteração fora do fluxo normal de salvar.
@@ -103,12 +117,10 @@ export function useVariationForm({
     };
 
     const getDefaultVariationName = (attributes: Variation['attributes'] = []) => {
-        const parentName = (parentProduct.name || parentProduct.description || '').trim();
-        const attributeValues = getVariationAttributeValuesInNameOrder(attributes);
-        if (attributeValues.length > 0) {
-            return toTitleCase([parentName, ...attributeValues].filter(Boolean).join(' '));
-        }
-        return toTitleCase(parentName || 'Variação');
+        return computeVariationName(
+            parentProduct.name || parentProduct.description || '',
+            attributes
+        ) || 'Variação';
     };
 
     const getDefaultVariationTitle = (attributes: Variation['attributes'] = []) => {
@@ -223,7 +235,10 @@ export function useVariationForm({
                 setVarDiscountFixed("");
             }
         }
-    }, [variation, isOpen, parentProduct]);
+    // A inicialização deve ocorrer apenas ao abrir/trocar a variação. Alterar
+    // o pai durante a edição é tratado pelos efeitos de sincronização acima,
+    // sem apagar os atributos que já foram informados.
+    }, [variation, isOpen]);
 
     const handlePriceChange = (valStr: string) => {
         if (!formData) return;
@@ -352,8 +367,8 @@ export function useVariationForm({
             ...formData,
             attributes: cleanAttributes,
             name: toTitleCase(generatedName || formData.name || ''),
-            title: toTitleCase(formData.title || generatedName || formData.name || ''),
-            marketplaceTitle: toTitleCase(formData.marketplaceTitle || formData.title || generatedName || formData.name || ''),
+            title: toTitleCase(diferenciarTitulo ? (formData.title || generatedName || formData.name || '') : generatedName),
+            marketplaceTitle: toTitleCase(diferenciarTitulo ? (formData.marketplaceTitle || formData.title || generatedName || formData.name || '') : generatedName),
             syncFiscal: true
         };
 

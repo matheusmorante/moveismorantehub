@@ -7,7 +7,7 @@ import { InboundDocumentImportModal } from './modals/InboundDocumentImportModal'
 import { ManageInboundInvoiceMappingsModal } from './modals/ManageInboundInvoiceMappingsModal';
 import { InboundPostImportActionModal } from './modals/InboundPostImportActionModal';
 import { InboundInvoicesPagination } from './components/InboundInvoicesPagination';
-import { fetchInboundInvoicesPage } from '@/pages/utils/inboundNfe/inboundInvoicesService';
+import { fetchInboundInvoicesPage, deleteInboundInvoice } from '@/pages/utils/inboundNfe/inboundInvoicesService';
 import { InboundInvoice } from '@/pages/utils/inboundNfe/inboundNfeTypes';
 
 const getCurrentYearMonth = (): string => {
@@ -87,6 +87,16 @@ export default function InboundInvoicesPage() {
         URL.revokeObjectURL(url);
     };
 
+    const handleDeleteInvoice = useCallback(async (invoice: InboundInvoice) => {
+        try {
+            await deleteInboundInvoice(invoice.id);
+            toast.success(`NF-e #${invoice.nfeNumber} removida com sucesso.`);
+            void loadInvoices(currentPage);
+        } catch (err: any) {
+            toast.error(err?.message || 'Erro ao remover nota fiscal.');
+        }
+    }, [currentPage, loadInvoices]);
+
     return (
         <div className="flex flex-col">
             <InboundInvoicesHeader
@@ -102,6 +112,7 @@ export default function InboundInvoicesPage() {
                 onViewDetails={setSelectedInvoice}
                 onDownloadXml={handleDownloadXml}
                 onManageMappings={setSelectedMappingInvoice}
+                onDelete={handleDeleteInvoice}
             />
 
             <InboundInvoicesPagination

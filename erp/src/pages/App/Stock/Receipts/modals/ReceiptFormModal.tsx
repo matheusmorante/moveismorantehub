@@ -9,7 +9,7 @@ import { formatCurrency } from '@/pages/utils/formatters';
 import { subscribeToPeople } from '@/pages/utils/personService';
 import { type GoodsReceipt, finalizeGoodsReceipt, saveGoodsReceiptDraft } from '@/pages/utils/goodsReceiptService';
 import type { InboundInvoice } from '@/pages/utils/inboundNfe/inboundNfeTypes';
-import { markInvoiceAsReceived, normalizeInvoiceItem } from '@/pages/utils/inboundNfe/inboundInvoicesService';
+import { markInvoiceAsReceived, normalizeInvoiceItem, ensureInboundInvoiceAttachment } from '@/pages/utils/inboundNfe/inboundInvoicesService';
 import type Purchase from '@/pages/types/purchase.type';
 import type Product from '@/pages/types/product.type';
 import ReceiptFiscalDocumentsSection from '../ReceiptFiscalDocumentsSection';
@@ -67,6 +67,7 @@ export function ReceiptFormModal({
     const [invoiceNumber, setInvoiceNumber] = useState('');
     const [invoiceDate, setInvoiceDate] = useState('');
     const [isSaving, setIsSaving] = useState(false);
+    const [isAttachingInboundDocument, setIsAttachingInboundDocument] = useState(false);
     const [fiscalKey, setFiscalKey] = useState('');
     const [attachments, setAttachments] = useState<string[]>([]);
     const [observations, setObservations] = useState<string[]>([]);
@@ -372,6 +373,18 @@ export function ReceiptFormModal({
         setFiscalDiscount(invoice.totalDiscount || 0);
         const calcFiscalOther = (invoice.totalOtherExpenses || 0) + (invoice.totalInsurance || 0) + (invoice.totalIcmsSt || 0);
         setFiscalOtherExpenses(calcFiscalOther);
+
+        // Copia o documento/XML para os anexos antes de concluir a seleção. O
+        // recebimento mantém seu próprio snapshot mesmo se a NF for removida.
+        setIsAttachingInboundDocument(true);
+        try {
+            const attachmentUrl = await ensureInboundInvoiceAttachment(invoice);
+            if (attachmentUrl) {
+                setAttachments((prev) => (prev.includes(attachmentUrl) ? prev : [...prev, attachmentUrl]));
+            }
+        } finally {
+            setIsAttachingInboundDocument(false);
+        }
 
         const rawNormalizedItems = (invoice.items || []).map((item, idx) => normalizeInvoiceItem(item, idx));
 
@@ -736,11 +749,11 @@ export function ReceiptFormModal({
                         </button>
                         <button
                             type="button"
-                            disabled={isSaving}
+                            disabled={isSaving || isAttachingInboundDocument}
                             onClick={handleFinalize}
                             className="flex-1 sm:flex-initial rounded-2xl bg-emerald-600 px-6 py-3 text-xs font-black uppercase text-white hover:bg-emerald-700 disabled:opacity-50 transition-all shadow-md"
                         >
-                            {isSaving ? 'Confirmando...' : 'Confirmar recebimento'}
+                            {isAttachingInboundDocument ? 'Anexando XML...' : isSaving ? 'Confirmando...' : 'Confirmar recebimento'}
                         </button>
                     </div>
                 </footer>

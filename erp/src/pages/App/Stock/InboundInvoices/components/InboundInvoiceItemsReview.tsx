@@ -20,6 +20,7 @@ import { extractColorCandidateFromTitle } from '@/pages/utils/inboundNfe/inbound
 import { QuickRegisterVariationModal, QuickRegisterItem, QuickRegisterSelection } from './QuickRegisterVariationModal';
 import { prepareNewParentWithVariation, prepareExistingParentNewVariation } from '../services/inboundProductPreparationService';
 import { useInboundInvoiceSuggestions, type InboundSuggestion } from '../hooks/useInboundInvoiceSuggestions';
+import { enrichInboundItemsWithProductDetails, isGenericOrEmptyProductName, resolveLinkedProductDetails } from '@/pages/utils/inboundNfe/inboundItemProductResolver';
 
 type AiClassification = {
     decision: 'EXISTING_VARIATION' | 'NEW_VARIATION_OF_EXISTING_PRODUCT' | 'NEW_PRODUCT' | 'UNSURE';
@@ -43,7 +44,7 @@ type Props = {
 const productName = (product: Product, variation?: Variation) => variation?.name || variation?.title || product.name || product.title || product.description || '';
 const finalItemCost = itemCostWithAdditionalCosts;
 
-export function InboundInvoiceItemsReview({ items, supplierId, suppliers, onChange, onProcessingSuggestionsChange, suggestionsEnabled = true }: Props) {
+export function InboundInvoiceItemsReview({ items, supplierId, suppliers, onChange, onProcessingSuggestionsChange, suggestionsEnabled = false }: Props) {
     const isSuggestionsActuallyEnabled = Boolean(supplierId?.trim()) && suggestionsEnabled;
     const { suggestionFor, rejectSuggestion, isProcessingSuggestions, isItemProcessing, retrySuggestions } = useInboundInvoiceSuggestions({ items, supplierId, enabled: isSuggestionsActuallyEnabled });
     const [acceptingSuggestion, setAcceptingSuggestion] = useState<number | null>(null);
@@ -72,6 +73,34 @@ export function InboundInvoiceItemsReview({ items, supplierId, suppliers, onChan
         onProcessingSuggestionsChange?.(isProcessingSuggestions || acceptingSuggestion !== null || removingLink !== null);
         return () => onProcessingSuggestionsChange?.(false);
     }, [isProcessingSuggestions, acceptingSuggestion, removingLink, onProcessingSuggestionsChange]);
+
+    // Vínculos recuperados do histórico trazem apenas os IDs. Completa nome e
+    // código/SKU do produto para que o cartão não exiba informações genéricas.
+    useEffect(() => {
+        const incompleteItem = items.find((item) => item.matchedProductId && (
+            // Com uma variação vinculada, o nome dela é a fonte de verdade,
+            // mesmo quando o snapshot anterior contém o nome do produto-pai.
+            Boolean(item.matchedVariationId) ||
+            !item.linkedProductCode ||
+            isGenericOrEmptyProductName(item.productErpName)
+        ));
+        if (!incompleteItem) return;
+
+        let active = true;
+        void enrichInboundItemsWithProductDetails([incompleteItem]).then(([enrichedItem]) => {
+            if (!active) return;
+            if (enrichedItem && (
+                incompleteItem.linkedProductCode !== enrichedItem.linkedProductCode ||
+                incompleteItem.productErpName !== enrichedItem.productErpName
+            )) {
+                onChange(incompleteItem.itemNumber, {
+                    linkedProductCode: enrichedItem.linkedProductCode,
+                    productErpName: enrichedItem.productErpName,
+                });
+            }
+        });
+        return () => { active = false; };
+    }, [items, onChange]);
     const [creatingItemNumber, setCreatingItemNumber] = useState<number | null>(null);
     const [creationQueue, setCreationQueue] = useState<number[]>([]);
     const [initialProductData, setInitialProductData] = useState<Partial<Product> | null>(null);
@@ -125,7 +154,13 @@ export function InboundInvoiceItemsReview({ items, supplierId, suppliers, onChan
             const existing = await findProductSupplierCodes(supplierId, [item.productCode]);
             const match = existing.get(item.productCode.trim().toLocaleUpperCase('pt-BR'));
             if (match) {
-                onChange(item.itemNumber, { matchedProductId: match.productId, matchedVariationId: match.productVariationId, productErpName: 'Produto já vinculado ao código do fornecedor' });
+                const details = await resolveLinkedProductDetails(match.productId, match.productVariationId);
+                onChange(item.itemNumber, {
+                    matchedProductId: match.productId,
+                    matchedVariationId: match.productVariationId,
+                    linkedProductCode: details?.linkedProductCode,
+                    productErpName: details?.productErpName || 'Produto vinculado',
+                });
                 toast.info('Este código do fornecedor já possui um produto vinculado.');
                 return;
             }
@@ -319,22 +354,32 @@ export function InboundInvoiceItemsReview({ items, supplierId, suppliers, onChan
         const currentItem = items.find((item) => item.itemNumber === creatingItemNumber);
         if (currentItem) {
             try {
-                const firstVar = createdProduct.variations?.[0];
+                // O retorno imediato do formulário pode trazer o pai com dados
+                // ainda desatualizados. Recarregar garante o nome e SKU reais
+                // da variação que acabou de ser criada.
+                let productToUse = createdProduct;
+                if (createdProduct.id) {
+                    const reloadedProduct = await getFullProduct(createdProduct.id);
+                    if (reloadedProduct) productToUse = reloadedProduct;
+                }
+                const firstVar = productToUse.variations?.[0];
                 const firstVarId = (firstVar?.id && !firstVar.isVirtual && isValidUuid(firstVar.id)) ? firstVar.id : undefined;
+                const resolvedName = firstVar?.name || firstVar?.title || productToUse.name || productToUse.title || currentItem.productDescription;
+                const resolvedCode = firstVar?.sku || productToUse.code || productToUse.sku || '';
                 await saveProductSupplierCode({
                     supplierId,
-                    productId: createdProduct.id,
+                    productId: productToUse.id,
                     productVariationId: firstVarId,
                     supplierProductCode: currentItem.productCode,
                     supplierDescription: currentItem.productDescription,
                 });
                 onChange(currentItem.itemNumber, {
-                    matchedProductId: createdProduct.id,
+                    matchedProductId: productToUse.id,
                     matchedVariationId: firstVarId,
-                    linkedProductCode: firstVar?.sku || createdProduct.code || '',
-                    productErpName: createdProduct.name || createdProduct.title || currentItem.productDescription,
+                    linkedProductCode: resolvedCode,
+                    productErpName: resolvedName,
                 });
-                toast.success(`Produto "${createdProduct.name || createdProduct.title}" cadastrado e vinculado.`);
+                toast.success(`Produto "${resolvedName}" cadastrado e vinculado.`);
             } catch (error: any) {
                 toast.error('Produto cadastrado, mas não foi possível vincular o código do fornecedor.');
             }
@@ -421,7 +466,7 @@ export function InboundInvoiceItemsReview({ items, supplierId, suppliers, onChan
                         <h3 className="text-xs font-black uppercase tracking-widest text-slate-700 dark:text-slate-200">Itens da NF ({items.length})</h3>
                         <p className="mt-1 text-xs text-slate-500">{linkedCount} vinculados · {items.length - linkedCount} não vinculados</p>
                     </div>
-                    <button
+                    {suggestionsEnabled && <button
                         type="button"
                         onClick={retrySuggestions}
                         disabled={!supplierId?.trim() || !suggestionsEnabled || isProcessingSuggestions || !unlinkedItems.length || acceptingSuggestion !== null || removingLink !== null}
@@ -429,7 +474,7 @@ export function InboundInvoiceItemsReview({ items, supplierId, suppliers, onChan
                     >
                         <i className="bi bi-stars" aria-hidden="true" />
                         Sugestão de vínculos
-                    </button>
+                    </button>}
                 </header>
                 <div className="divide-y divide-slate-100 dark:divide-slate-800">
                     {items.map((item) => {
@@ -492,13 +537,14 @@ export function InboundInvoiceItemsReview({ items, supplierId, suppliers, onChan
                                         {/* Campo de busca manual: livre para digitar a qualquer momento */}
                                         <ProductAutocomplete
                                             supplierId={supplierId}
+                                            includeDeactivated
                                             isSelected={false}
                                             placeholder="Digite 2 ou mais letras para buscar..."
                                             onSelect={(product, variation) => selectProduct(item.itemNumber, product, variation)}
                                         />
 
                                         {/* Indicador de carregamento da IA abaixo da linha do input */}
-                                        {isItemProcessing(item) && !suggestion && (
+                                        {suggestionsEnabled && isItemProcessing(item) && !suggestion && (
                                             <div className="flex items-center gap-2 rounded-xl border border-amber-300/70 bg-amber-50/60 px-3 py-1.5 text-xs text-amber-900 dark:border-amber-800/60 dark:bg-amber-950/30 dark:text-amber-200">
                                                 <i className="bi bi-arrow-repeat animate-spin text-amber-600 dark:text-amber-400 text-xs shrink-0" />
                                                 <span className="font-medium text-[11px]">Buscando sugestão de vínculo...</span>
@@ -506,7 +552,7 @@ export function InboundInvoiceItemsReview({ items, supplierId, suppliers, onChan
                                         )}
 
                                         {/* Sugestão da IA em uma única linha compacta */}
-                                        {suggestion && (
+                                        {suggestionsEnabled && suggestion && (
                                             <div className="rounded-xl border border-amber-300 bg-amber-50/70 px-3 py-1.5 dark:border-amber-700/80 dark:bg-amber-950/30 flex items-center justify-between gap-2 shadow-xs transition-all">
                                                 <span className="text-xs font-bold text-slate-800 dark:text-slate-100 truncate min-w-0" title={suggestion.displayName}>
                                                     {suggestion.displayName}

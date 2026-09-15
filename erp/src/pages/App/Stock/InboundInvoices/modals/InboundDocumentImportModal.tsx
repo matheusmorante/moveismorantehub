@@ -1,17 +1,15 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { toast } from 'react-toastify';
-import { analyzeInboundInvoiceDocument, invoiceFromDocumentAnalysis } from '@/pages/utils/inboundNfe/inboundDocumentImportService';
-import type { InboundDocumentAnalysisStage } from '@/pages/utils/inboundNfe/inboundDocumentImportService';
 import {
     saveInboundInvoice,
     checkInboundInvoiceKeyExists,
     consultInboundInvoiceByAccessKey,
 } from '@/pages/utils/inboundNfe/inboundInvoicesService';
-import { fastExtractNfeAccessKey } from '@/pages/utils/inboundNfe/fastNfeKeyExtractor';
 import { parseInboundNfeXml } from '@/pages/utils/inboundNfe/inboundXmlParser';
 import { InboundInvoice } from '@/pages/utils/inboundNfe/inboundNfeTypes';
-import { fetchPersons, savePerson } from '@/pages/utils/personService';
+import { fetchPersons } from '@/pages/utils/personService';
 import { findProductSupplierCodes } from '@/pages/utils/productSupplierCodesService';
+import { resolveLinkedProductDetails } from '@/pages/utils/inboundNfe/inboundItemProductResolver';
 import Person from '@/pages/types/person.type';
 import { InboundDuplicateKeyAlertModal } from './InboundDuplicateKeyAlertModal';
 
@@ -21,10 +19,11 @@ interface InboundDocumentImportModalProps {
     readonly onImportSuccess: (invoice: InboundInvoice) => void;
 }
 
-const ACCEPTED_FILE_TYPES = 'application/pdf,image/png,image/jpeg,text/xml,application/xml,.pdf,.png,.jpg,.jpeg,.xml';
+const ACCEPTED_FILE_TYPES = 'text/xml,application/xml,.xml';
 
 /**
- * Localiza ou cria automaticamente o fornecedor para vincular à nota de entrada
+ * Localiza o fornecedor já cadastrado para vincular à nota de entrada.
+ * A importação não cria fornecedores: a confirmação do cadastro é sempre manual.
  */
 async function ensureSupplier(
     emitterName?: string,
@@ -45,21 +44,8 @@ async function ensureSupplier(
             );
             if (matchByName) return matchByName;
         }
-
-        // Se ainda não existir no cadastro, cria o fornecedor automaticamente
-        if (emitterName || cleanDoc) {
-            const newSupplier = await savePerson('suppliers', {
-                type: 'suppliers',
-                personType: cleanDoc.length > 11 ? 'PJ' : 'PF',
-                fullName: emitterName || 'Fornecedor sem Razão Social',
-                tradeName: emitterTradeName || emitterName || '',
-                cpfCnpj: cleanDoc,
-                active: true,
-            } as Person);
-            return newSupplier;
-        }
     } catch (err) {
-        console.warn('[InboundDocumentImportModal] Aviso ao localizar/cadastrar fornecedor:', err);
+        console.warn('[InboundDocumentImportModal] Aviso ao localizar fornecedor:', err);
     }
     return null;
 }
@@ -74,7 +60,6 @@ export const InboundDocumentImportModal: React.FC<InboundDocumentImportModalProp
     const [isLoading, setIsLoading] = useState(false);
     const [statusMessage, setStatusMessage] = useState('');
     const [isDraggingFile, setIsDraggingFile] = useState(false);
-    const [analysisStage, setAnalysisStage] = useState<InboundDocumentAnalysisStage | null>(null);
 
     // Alerta de chave duplicada
     const [duplicateAlertOpen, setDuplicateAlertOpen] = useState(false);
@@ -87,7 +72,6 @@ export const InboundDocumentImportModal: React.FC<InboundDocumentImportModalProp
             setIsLoading(false);
             setStatusMessage('');
             setIsDraggingFile(false);
-            setAnalysisStage(null);
             setDuplicateAlertOpen(false);
             setDuplicateKey('');
             setDuplicateExistingInvoice(null);
@@ -136,17 +120,18 @@ export const InboundDocumentImportModal: React.FC<InboundDocumentImportModalProp
                     itemsWithMatches.map((i) => i.productCode)
                 );
                 if (mappings.size > 0) {
-                    itemsWithMatches = itemsWithMatches.map((item) => {
+                    itemsWithMatches = await Promise.all(itemsWithMatches.map(async (item) => {
                         const map = mappings.get((item.productCode || '').trim().toLocaleUpperCase('pt-BR'));
-                        return map
-                            ? {
-                                  ...item,
-                                  matchedProductId: map.productId,
-                                  matchedVariationId: map.productVariationId,
-                                  productErpName: 'Variação vinculada anteriormente a este código do fornecedor',
-                              }
-                            : item;
-                    });
+                        if (!map) return item;
+                        const details = await resolveLinkedProductDetails(map.productId, map.productVariationId);
+                        return {
+                            ...item,
+                            matchedProductId: map.productId,
+                            matchedVariationId: map.productVariationId,
+                            linkedProductCode: details?.linkedProductCode,
+                            productErpName: details?.productErpName || 'Produto vinculado',
+                        };
+                    }));
                 }
             } catch (mErr) {
                 console.warn('[InboundDocumentImportModal] Erro ao recuperar histórico de vínculos:', mErr);
@@ -168,64 +153,28 @@ export const InboundDocumentImportModal: React.FC<InboundDocumentImportModalProp
     };
 
     /**
-     * Processa o arquivo selecionado (XML instantâneo ou PDF/Foto com OCR/IA)
+     * Processa exclusivamente o XML oficial da NF-e. A importação por foto/PDF
+     * e a extração por IA não fazem mais parte deste fluxo.
      */
     const handleFile = async (selectedFile?: File) => {
         if (!selectedFile || isLoading) return;
 
         const isXml = selectedFile.name.toLowerCase().endsWith('.xml') || selectedFile.type.includes('xml');
-        const isPdfOrImage =
-            ['application/pdf', 'image/png', 'image/jpeg'].includes(selectedFile.type) ||
-            /\.(pdf|png|jpg|jpeg)$/i.test(selectedFile.name);
-
         try {
             setIsLoading(true);
 
-            // 1. Arquivo XML: leitura instantânea
-            if (isXml) {
-                setStatusMessage('Lendo e interpretando arquivo XML...');
-                const xmlText = await selectedFile.text();
-                const parsed = parseInboundNfeXml(xmlText);
-                await persistAndFinish(parsed);
-                return;
-            }
+            if (!isXml) throw new Error('Envie somente o arquivo XML oficial da NF-e.');
 
-            // 2. Arquivo PDF ou Imagem
-            if (isPdfOrImage) {
-                if (selectedFile.size > 12 * 1024 * 1024) {
-                    throw new Error('O arquivo não pode exceder 12 MB.');
-                }
-
-                // 2.1 Verificação preliminar ultrarrápida da chave
-                setStatusMessage('Verificando chave de acesso do documento...');
-                const fastKey = await fastExtractNfeAccessKey(selectedFile);
-                if (fastKey) {
-                    const existing = await checkInboundInvoiceKeyExists(fastKey);
-                    if (existing) {
-                        setDuplicateKey(fastKey);
-                        setDuplicateExistingInvoice(existing);
-                        setDuplicateAlertOpen(true);
-                        toast.warning(`Esta Nota Fiscal (Chave: ${fastKey}) já foi cadastrada.`);
-                        return;
-                    }
-                }
-
-                // 2.2 Análise OCR/Vision completa
-                setStatusMessage('Extraindo dados do documento com inteligência artificial...');
-                const analysisResult = await analyzeInboundInvoiceDocument(selectedFile, setAnalysisStage);
-                const parsed = invoiceFromDocumentAnalysis(analysisResult);
-                await persistAndFinish(parsed);
-                return;
-            }
-
-            toast.error('Envie um arquivo XML, PDF, PNG ou JPG de até 12 MB.');
+            setStatusMessage('Lendo e interpretando arquivo XML...');
+            const xmlText = await selectedFile.text();
+            const parsed = parseInboundNfeXml(xmlText);
+            await persistAndFinish(parsed);
         } catch (error: any) {
             console.error('[InboundDocumentImportModal] Erro ao processar arquivo:', error);
             toast.error(error.message || 'Falha ao processar o arquivo da nota fiscal.');
         } finally {
             setIsLoading(false);
             setStatusMessage('');
-            setAnalysisStage(null);
             if (fileInputRef.current) fileInputRef.current.value = '';
         }
     };
@@ -318,11 +267,7 @@ export const InboundDocumentImportModal: React.FC<InboundDocumentImportModalProp
                                         {statusMessage || 'Processando nota fiscal...'}
                                     </p>
                                     <p className="text-[11px] text-blue-700/80 dark:text-blue-300">
-                                        {analysisStage === 'uploading'
-                                            ? 'Enviando documento...'
-                                            : analysisStage === 'extracting'
-                                            ? 'Lendo dados e itens com IA...'
-                                            : 'Aguarde enquanto salvamos as informações.'}
+                                        Aguarde enquanto salvamos as informações.
                                     </p>
                                 </div>
                             </div>
@@ -331,13 +276,12 @@ export const InboundDocumentImportModal: React.FC<InboundDocumentImportModalProp
                         {/* Dropzone de Arquivo */}
                         <div>
                             <label className="block text-xs font-black uppercase tracking-wider text-slate-500 mb-2">
-                                Opção 1: Inserir Arquivo (XML, PDF ou Foto)
+                                Opção 1: Inserir arquivo XML
                             </label>
                             <input
                                 ref={fileInputRef}
                                 type="file"
                                 accept={ACCEPTED_FILE_TYPES}
-                                capture="environment"
                                 className="hidden"
                                 onChange={(event) => void handleFile(event.target.files?.[0])}
                             />
@@ -368,7 +312,7 @@ export const InboundDocumentImportModal: React.FC<InboundDocumentImportModalProp
                                     Clique para escolher ou arraste o arquivo aqui
                                 </span>
                                 <span className="text-[11px] text-slate-400 mt-1">
-                                    Formatos aceitos: <b>XML</b> (instantâneo), <b>PDF</b> ou <b>PNG/JPG</b> (até 12 MB)
+                                    Formato aceito: <b>XML</b> oficial da NF-e
                                 </span>
                             </button>
                         </div>
@@ -441,6 +385,15 @@ export const InboundDocumentImportModal: React.FC<InboundDocumentImportModalProp
                             <p className="mt-1.5 text-[11px] text-slate-400">
                                 A chave de acesso numérica encontra-se no cabeçalho do DANFE da nota fiscal.
                             </p>
+                            <a
+                                href="https://www.nfe.fazenda.gov.br/portal/consultaRecaptcha.aspx?tipoConsulta=resumo&tipoConteudo=7PhJ+gAVw2g="
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="mt-3 inline-flex items-center gap-2 rounded-xl border border-blue-200 bg-blue-50 px-3 py-2 text-[11px] font-black text-blue-700 transition-colors hover:bg-blue-100 dark:border-blue-900/60 dark:bg-blue-950/30 dark:text-blue-300 dark:hover:bg-blue-950/50"
+                            >
+                                <i className="bi bi-box-arrow-up-right" aria-hidden="true" />
+                                Consultar NF-e no portal da Fazenda
+                            </a>
                         </div>
                     </main>
 

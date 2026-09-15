@@ -7,7 +7,7 @@ import { subscribeToPeople } from '@/pages/utils/personService';
 import { fetchGroupsAndCategories } from '@/pages/utils/categoryService';
 import { getNextSequentialProductCode } from '@/pages/utils/productService';
 import { toast } from "react-toastify";
-import { ensureDefaultVariation, hasMissingRequiredAttributes, hasVariationAttribute } from '@/pages/utils/productVariationDefaults';
+import { computeVariationName, ensureDefaultVariation, hasMissingRequiredAttributes, hasVariationAttribute } from '@/pages/utils/productVariationDefaults';
 
 // Modular Components
 import VariationFormModal from "./VariationFormModal";
@@ -305,6 +305,14 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, initialTab, o
                     newV.promoPrice = formData.promoPrice;
                     updated = true;
                 }
+                const variationName = computeVariationName(
+                    formData.name || formData.description || '',
+                    v.attributes || []
+                ) || 'Variação';
+                if (newV.name !== variationName) {
+                    newV.name = variationName;
+                    updated = true;
+                }
                 inherit('description', Boolean(v.syncDescription), formData.description);
                 inherit('width', Boolean(v.syncWidth), formData.width);
                 inherit('height', Boolean(v.syncHeight), formData.height);
@@ -321,7 +329,7 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, initialTab, o
                 setFormData(prev => ({ ...prev, variations: nextVariations }));
             }
         }
-    }, [formData.unitPrice, formData.costPrice, formData.promoPrice, formData.description, formData.width, formData.height, formData.depth, formData.weight, formData.condition, formData.fiscal]);
+    }, [formData.name, formData.unitPrice, formData.costPrice, formData.promoPrice, formData.description, formData.width, formData.height, formData.depth, formData.weight, formData.condition, formData.fiscal]);
 
     // Sync variation aggregates (Children -> Parent)
     useEffect(() => {

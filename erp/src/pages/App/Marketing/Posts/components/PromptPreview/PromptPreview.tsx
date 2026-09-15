@@ -68,7 +68,7 @@ export function PromptPreview({
   const effectiveModels = useMemo(() => {
     const list = activeModels || models || [];
     const elements = (elementModels as ElementModel[]) || [];
-    // Mescla garantindo que modelos com o mesmo ID ou configurados para o elemento estejam disponíveis
+    // Combina modelos com o mesmo ID ou configurados para o elemento, mantendo-os disponíveis
     const combined = [...list];
     for (const em of elements) {
       if (!combined.some(c => c.id === em.id)) {

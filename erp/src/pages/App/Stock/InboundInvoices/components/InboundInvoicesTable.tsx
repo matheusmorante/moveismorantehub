@@ -7,6 +7,7 @@ interface InboundInvoicesTableProps {
     readonly onViewDetails: (invoice: InboundInvoice) => void;
     readonly onDownloadXml: (invoice: InboundInvoice) => void;
     readonly onManageMappings: (invoice: InboundInvoice) => void;
+    readonly onDelete: (invoice: InboundInvoice) => void;
 }
 
 export const InboundInvoicesTable: React.FC<InboundInvoicesTableProps> = ({
@@ -14,8 +15,10 @@ export const InboundInvoicesTable: React.FC<InboundInvoicesTableProps> = ({
     onViewDetails,
     onDownloadXml,
     onManageMappings,
+    onDelete,
 }) => {
     const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+    const [confirmingDeleteId, setConfirmingDeleteId] = useState<string | null>(null);
     const desktopMenuRef = useRef<HTMLDivElement>(null);
     const mobileMenuRef = useRef<HTMLDivElement>(null);
 
@@ -95,15 +98,26 @@ export const InboundInvoicesTable: React.FC<InboundInvoicesTableProps> = ({
                                         {formatCurrency(inv.totalInvoice)}
                                     </td>
                                     <td className="px-3 py-4">
-                                        {inv.status === 'received' ? (
-                                            <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-100 px-2.5 py-1 text-[10px] font-black uppercase text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300">
-                                                <i className="bi bi-check-circle-fill text-[11px]" aria-hidden="true" /> Recebida no Estoque
-                                            </span>
-                                        ) : (
-                                            <span className="inline-flex items-center gap-1.5 rounded-full bg-blue-100 px-2.5 py-1 text-[10px] font-black uppercase text-blue-700 dark:bg-blue-950/60 dark:text-blue-300">
-                                                <i className="bi bi-hourglass-split text-[11px]" aria-hidden="true" /> Disponível
-                                            </span>
-                                        )}
+                                        <div className="flex flex-wrap items-center gap-1.5">
+                                            {inv.status === 'received' ? (
+                                                <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-100 px-2.5 py-1 text-[10px] font-black uppercase text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300">
+                                                    <i className="bi bi-check-circle-fill text-[11px]" aria-hidden="true" /> Recebida no Estoque
+                                                </span>
+                                            ) : (
+                                                <span className="inline-flex items-center gap-1.5 rounded-full bg-blue-100 px-2.5 py-1 text-[10px] font-black uppercase text-blue-700 dark:bg-blue-950/60 dark:text-blue-300">
+                                                    <i className="bi bi-hourglass-split text-[11px]" aria-hidden="true" /> Disponível
+                                                </span>
+                                            )}
+                                            {Boolean(inv.items && inv.items.length > 0 && inv.items.every((item) => Boolean(item.matchedProductId))) ? (
+                                                <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2.5 py-1 text-[10px] font-black uppercase text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300">
+                                                    <i className="bi bi-check2-all text-xs" aria-hidden="true" /> Vinculação Completa
+                                                </span>
+                                            ) : (
+                                                <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2.5 py-1 text-[10px] font-black uppercase text-amber-800 dark:bg-amber-950/60 dark:text-amber-300">
+                                                    <i className="bi bi-exclamation-circle text-xs" aria-hidden="true" /> Vinculações Pendentes
+                                                </span>
+                                            )}
+                                        </div>
                                     </td>
                                     <td className={`py-4 pl-3 pr-6 text-right ${isMenuOpen ? 'relative z-50' : 'relative z-10'}`} onClick={(e) => e.stopPropagation()}>
                                         <div className="relative inline-block text-left" ref={openMenuId === inv.id ? desktopMenuRef : null}>
@@ -157,6 +171,49 @@ export const InboundInvoicesTable: React.FC<InboundInvoicesTableProps> = ({
                                                             Baixar XML
                                                         </button>
                                                     )}
+
+                                                    <div className="my-1 border-t border-slate-100 dark:border-slate-800" />
+
+                                                    {confirmingDeleteId === inv.id ? (
+                                                        <div className="px-4 py-2 space-y-1.5">
+                                                            <p className="text-[10px] font-bold text-red-600 dark:text-red-400">Confirmar remoção?</p>
+                                                            <p className="text-[9px] text-slate-400">Recebimentos e vínculos não são afetados.</p>
+                                                            <div className="flex gap-2 pt-0.5">
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={(e) => {
+                                                                        e.stopPropagation();
+                                                                        setOpenMenuId(null);
+                                                                        setConfirmingDeleteId(null);
+                                                                        onDelete(inv);
+                                                                    }}
+                                                                    className="flex-1 rounded-lg bg-red-600 py-1 text-[10px] font-black text-white hover:bg-red-700 cursor-pointer"
+                                                                >
+                                                                    Remover
+                                                                </button>
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={(e) => { e.stopPropagation(); setConfirmingDeleteId(null); }}
+                                                                    className="flex-1 rounded-lg bg-slate-100 py-1 text-[10px] font-black text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 cursor-pointer"
+                                                                >
+                                                                    Cancelar
+                                                                </button>
+                                                            </div>
+                                                        </div>
+                                                    ) : (
+                                                        <button
+                                                            type="button"
+                                                            role="menuitem"
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                setConfirmingDeleteId(inv.id);
+                                                            }}
+                                                            className="flex w-full items-center gap-2.5 px-4 py-2 text-left text-xs font-bold text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/30 cursor-pointer"
+                                                        >
+                                                            <i className="bi bi-trash3 text-sm" aria-hidden="true" />
+                                                            Remover NF de entrada
+                                                        </button>
+                                                    )}
                                                 </div>
                                             )}
                                         </div>
@@ -185,7 +242,7 @@ export const InboundInvoicesTable: React.FC<InboundInvoicesTableProps> = ({
                                     <span className="text-xs font-bold text-slate-800 dark:text-slate-100">NF-e #{inv.nfeNumber}</span>
                                     <span className="ml-2 text-[10px] text-slate-400 font-mono">Série {inv.series}</span>
                                 </div>
-                                <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                                <div className="flex items-center gap-1.5 flex-wrap" onClick={(e) => e.stopPropagation()}>
                                     {inv.status === 'received' ? (
                                         <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[9px] font-black uppercase text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300">
                                             Recebida
@@ -193,6 +250,16 @@ export const InboundInvoicesTable: React.FC<InboundInvoicesTableProps> = ({
                                     ) : (
                                         <span className="rounded-full bg-blue-100 px-2 py-0.5 text-[9px] font-black uppercase text-blue-700 dark:bg-blue-950/60 dark:text-blue-300">
                                             Disponível
+                                        </span>
+                                    )}
+
+                                    {Boolean(inv.items && inv.items.length > 0 && inv.items.every((item) => Boolean(item.matchedProductId))) ? (
+                                        <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[9px] font-black uppercase text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300">
+                                            Vinculação Completa
+                                        </span>
+                                    ) : (
+                                        <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[9px] font-black uppercase text-amber-800 dark:bg-amber-950/60 dark:text-amber-300">
+                                            Vinculações Pendentes
                                         </span>
                                     )}
 
@@ -245,6 +312,49 @@ export const InboundInvoicesTable: React.FC<InboundInvoicesTableProps> = ({
                                                     >
                                                         <i className="bi bi-download text-slate-400 text-sm" aria-hidden="true" />
                                                         Baixar XML
+                                                    </button>
+                                                )}
+
+                                                <div className="my-1 border-t border-slate-100 dark:border-slate-800" />
+
+                                                {confirmingDeleteId === inv.id ? (
+                                                    <div className="px-4 py-2 space-y-1.5">
+                                                        <p className="text-[10px] font-bold text-red-600 dark:text-red-400">Confirmar remoção?</p>
+                                                        <p className="text-[9px] text-slate-400">Recebimentos e vínculos não são afetados.</p>
+                                                        <div className="flex gap-2 pt-0.5">
+                                                            <button
+                                                                type="button"
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    setOpenMenuId(null);
+                                                                    setConfirmingDeleteId(null);
+                                                                    onDelete(inv);
+                                                                }}
+                                                                className="flex-1 rounded-lg bg-red-600 py-1 text-[10px] font-black text-white hover:bg-red-700 cursor-pointer"
+                                                            >
+                                                                Remover
+                                                            </button>
+                                                            <button
+                                                                type="button"
+                                                                onClick={(e) => { e.stopPropagation(); setConfirmingDeleteId(null); }}
+                                                                className="flex-1 rounded-lg bg-slate-100 py-1 text-[10px] font-black text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 cursor-pointer"
+                                                            >
+                                                                Cancelar
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                ) : (
+                                                    <button
+                                                        type="button"
+                                                        role="menuitem"
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            setConfirmingDeleteId(inv.id);
+                                                        }}
+                                                        className="flex w-full items-center gap-2.5 px-4 py-2 text-left text-xs font-bold text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/30 cursor-pointer"
+                                                    >
+                                                        <i className="bi bi-trash3 text-sm" aria-hidden="true" />
+                                                        Remover NF de entrada
                                                     </button>
                                                 )}
                                             </div>

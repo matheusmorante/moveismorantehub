@@ -52,7 +52,7 @@ export const postCreatorService = {
       const { data, error } = await supabase.from('post_creator_element_models').select('*').order('created_at', { ascending: false });
       if (!error && data && data.length > 0) {
         const values = data.map(modelFromRow);
-        // Mesclar: modelos do banco têm precedência, mas modelos locais que não estão no banco são preservados
+        // Combinar: modelos do banco têm precedência, mas modelos locais que não estão no banco são preservados
         const merged = [...values, ...local.filter(l => !values.some(v => v.id === l.id))];
         writeLocal('models', merged);
         return merged;

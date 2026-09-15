@@ -23,6 +23,8 @@ interface ProductAutocompleteProps {
     variationsOnly?: boolean;
     /** Limita a busca aos cadastros de produto, sem oferecer variações filhas. */
     parentsOnly?: boolean;
+    /** Inclui produtos e variações desativados; variações fundidas continuam ocultas. */
+    includeDeactivated?: boolean;
     products?: Product[];
     clearOnSelect?: boolean;
     disabled?: boolean;
@@ -47,6 +49,7 @@ const ProductAutocomplete: React.FC<ProductAutocompleteProps> = ({
     onlyName = false,
     variationsOnly = false,
     parentsOnly = false,
+    includeDeactivated = false,
     products: localProducts,
     clearOnSelect = false,
     disabled = false,
@@ -85,7 +88,7 @@ const ProductAutocomplete: React.FC<ProductAutocompleteProps> = ({
                 const words = trimmed.split(/\s+/).filter(w => w.length > 0);
                 const productsData = localProducts?.length
                     ? localProducts
-                    : await fetchAllProductSearchResults(trimmed, supplierId || undefined);
+                    : await fetchAllProductSearchResults(trimmed, supplierId || undefined, includeDeactivated);
                 const items: SuggestionItem[] = [];
                 const searchNormWords = words.map(normalizeProductSearch);
 
@@ -107,7 +110,7 @@ const ProductAutocomplete: React.FC<ProductAutocompleteProps> = ({
                     } else if (variations.length > 0) {
                         variations.forEach((v) => {
                             const baseName = (p.name || p.title || '').trim();
-                            if (v.active !== false) {
+                            if ((includeDeactivated || v.active !== false) && !v.mergedToVariationId) {
                                 const fullName = getVariationDisplayName(p, v);
                                 const normFullName = normalizeProductSearch(fullName);
                                 const normSku = normalizeProductSearch(v.sku || '');
@@ -140,7 +143,7 @@ const ProductAutocomplete: React.FC<ProductAutocompleteProps> = ({
 
         const timeoutId = setTimeout(fetchSuggestions, 250);
         return () => clearTimeout(timeoutId);
-    }, [query, supplierId, variationsOnly, parentsOnly, localProducts]);
+    }, [query, supplierId, variationsOnly, parentsOnly, includeDeactivated, localProducts]);
 
     return (
         <div ref={wrapperRef} className={`relative ${className}`}>

@@ -130,19 +130,36 @@ const isSampleInvoice = (inv: { id?: string; nfeKey?: string; nfeNumber?: string
 };
 
 export const deleteInboundInvoice = async (invoiceIdOrKey: string): Promise<void> => {
-    const local = getLocalInvoices().filter((inv) => inv.id !== invoiceIdOrKey && inv.nfeKey !== invoiceIdOrKey && !isSampleInvoice(inv));
-    saveLocalInvoices(local);
+    // A remoção é deliberadamente limitada ao cabeçalho da NF e aos seus itens
+    // dependentes. Produtos, códigos de fornecedor e recebimentos são entidades
+    // independentes e não recebem nenhuma atualização ou exclusão neste fluxo.
     try {
+        let error: { message?: string } | null = null;
+
         if (isValidUuid(invoiceIdOrKey)) {
-            await supabase.from('inbound_invoices').delete().or(`id.eq.${invoiceIdOrKey},chave_acesso.eq.${invoiceIdOrKey}`);
+            ({ error } = await supabase
+                .from('inbound_invoices')
+                .delete()
+                .eq('id', invoiceIdOrKey));
         } else {
             const cleanKey = invoiceIdOrKey.replace(/^inbound_/, '').replace(/\D/g, '');
             if (cleanKey.length === 44) {
-                await supabase.from('inbound_invoices').delete().eq('chave_acesso', cleanKey);
+                ({ error } = await supabase
+                    .from('inbound_invoices')
+                    .delete()
+                    .eq('chave_acesso', cleanKey));
             }
         }
+
+        if (error) throw new Error(error.message || 'Não foi possível remover a NF de entrada.');
+
+        const local = getLocalInvoices().filter((inv) =>
+            inv.id !== invoiceIdOrKey && inv.nfeKey !== invoiceIdOrKey && !isSampleInvoice(inv)
+        );
+        saveLocalInvoices(local);
     } catch (err) {
         console.warn('Erro ao deletar NF no Supabase:', err);
+        throw err;
     }
 };
 
@@ -236,20 +253,29 @@ export const fetchInboundInvoicesPage = async (options?: FetchInboundInvoicesOpt
     const local = getLocalInvoices().filter((inv) => !isSampleInvoice(inv));
 
     try {
+        const cleanNum = searchTerm.replace(/\D/g, '');
+        // Chave de acesso NF-e tem exatamente 44 dígitos.
+        // Quando detectada, ignora filtro de data — a chave é identificador único global.
+        const isAccessKeySearch = cleanNum.length === 44;
+
         let query = supabase
             .from('inbound_invoices')
             .select('*, inbound_invoice_items(*)', { count: 'exact' });
 
-        if (startDate) {
-            query = query.gte('data_emissao', startDate);
-        }
-        if (endDate) {
-            query = query.lte('data_emissao', endDate);
+        if (!isAccessKeySearch) {
+            if (startDate) {
+                query = query.gte('data_emissao', startDate);
+            }
+            if (endDate) {
+                query = query.lte('data_emissao', endDate);
+            }
         }
 
         if (searchTerm) {
-            const cleanNum = searchTerm.replace(/\D/g, '');
-            if (cleanNum.length > 0) {
+            if (isAccessKeySearch) {
+                // Busca exata pela chave (sem wildcards laterais desnecessários, mas mantém ilike para compatibilidade)
+                query = query.or(`chave_acesso.ilike.%${cleanNum}%,chave_acesso.eq.${cleanNum}`);
+            } else if (cleanNum.length > 0) {
                 query = query.or(`emitente_nome.ilike.%${searchTerm}%,chave_acesso.ilike.%${cleanNum}%,numero_nfe.ilike.%${searchTerm}%,emitente_cnpj.ilike.%${searchTerm}%`);
             } else {
                 query = query.ilike('emitente_nome', `%${searchTerm}%`);
@@ -373,17 +399,20 @@ export const fetchInboundInvoicesPage = async (options?: FetchInboundInvoicesOpt
             const remoteKeysAndIds = new Set(mapped.flatMap((inv) => [inv.nfeKey, inv.id].filter(Boolean)));
             let localOnly = local.filter((inv) => (inv.nfeKey ? !remoteKeysAndIds.has(inv.nfeKey) : !remoteKeysAndIds.has(inv.id)));
 
-            if (startDate) {
-                localOnly = localOnly.filter((inv) => !inv.issuedAt || inv.issuedAt >= startDate!);
-            }
-            if (endDate) {
-                localOnly = localOnly.filter((inv) => !inv.issuedAt || inv.issuedAt <= endDate!);
+            if (!isAccessKeySearch) {
+                if (startDate) {
+                    localOnly = localOnly.filter((inv) => !inv.issuedAt || inv.issuedAt >= startDate!);
+                }
+                if (endDate) {
+                    localOnly = localOnly.filter((inv) => !inv.issuedAt || inv.issuedAt <= endDate!);
+                }
             }
             if (searchTerm) {
                 const term = searchTerm.toLowerCase();
+                const cleanNumLocal = searchTerm.replace(/\D/g, '');
                 localOnly = localOnly.filter((inv) =>
                     (inv.emitterName || '').toLowerCase().includes(term) ||
-                    (inv.nfeKey || '').includes(term) ||
+                    (inv.nfeKey || '').includes(cleanNumLocal) ||
                     (inv.nfeNumber || '').includes(term)
                 );
             }
@@ -723,5 +752,84 @@ export const consultInboundInvoiceByAccessKey = async (accessKey: string): Promi
     return {
         message: data.message || 'A SEFAZ processou a requisição, mas o XML completo dos itens ainda não foi liberado. Envie o arquivo XML ou DANFE para importar todos os itens.'
     };
+};
+
+
+/**
+ * Garante que a NF de entrada tenha uma cópia/snapshot no bucket de anexos de recebimento (`purchase-attachments`),
+ * permitindo que o recebimento preserve o anexo de forma independente e perpétua mesmo se a NF de entrada for removida.
+ */
+export const ensureInboundInvoiceAttachment = async (invoice: InboundInvoice): Promise<string | null> => {
+    if (!invoice) return null;
+
+    try {
+        let docPath = invoice.originalDocumentPath;
+        let xmlContent = invoice.rawXml;
+
+        // Se faltar path ou xml e tiver ID válido, busca do Supabase para garantir
+        if ((!docPath || !xmlContent) && isValidUuid(invoice.id)) {
+            const { data } = await supabase
+                .from('inbound_invoices')
+                .select('documento_original_path, documento_original_mime, xml_conteudo')
+                .eq('id', invoice.id)
+                .maybeSingle();
+
+            if (data) {
+                if (!docPath && data.documento_original_path) docPath = data.documento_original_path;
+                if (!xmlContent && data.xml_conteudo) xmlContent = data.xml_conteudo;
+            }
+        }
+
+        // 1. Tenta transferir o documento original (PDF/imagem) para o bucket de recebimentos
+        if (docPath) {
+            const { data: fileBlob, error: downloadErr } = await supabase.storage
+                .from('inbound-invoice-documents')
+                .download(docPath);
+
+            if (!downloadErr && fileBlob) {
+                const rawName = docPath.split('/').pop() || 'documento.pdf';
+                const cleanName = rawName.replace(/[^a-zA-Z0-9._-]/g, '_');
+                const targetPath = `receipts/${Date.now()}-NFe_${invoice.nfeNumber || invoice.nfeKey || 'entrada'}_${cleanName}`;
+                const { error: uploadErr } = await supabase.storage
+                    .from('purchase-attachments')
+                    .upload(targetPath, fileBlob, {
+                        contentType: invoice.originalDocumentMime || fileBlob.type || 'application/pdf',
+                        upsert: true,
+                    });
+
+                if (!uploadErr) {
+                    const { data } = supabase.storage.from('purchase-attachments').getPublicUrl(targetPath);
+                    if (data?.publicUrl) return data.publicUrl;
+                }
+            } else {
+                // Fallback: tenta obter signedUrl do bucket original caso não consiga baixar diretamente
+                const { data: signed } = await supabase.storage
+                    .from('inbound-invoice-documents')
+                    .createSignedUrl(docPath, 60 * 60 * 24 * 365 * 10);
+                if (signed?.signedUrl) return signed.signedUrl;
+            }
+        }
+
+        // 2. Se tem XML disponível (importação por XML ou consulta SEFAZ), salva o XML como anexo no recebimento
+        if (xmlContent) {
+            const xmlBlob = new Blob([xmlContent], { type: 'application/xml;charset=utf-8' });
+            const targetPath = `receipts/${Date.now()}-NFe_${invoice.nfeNumber || invoice.nfeKey || 'entrada'}.xml`;
+            const { error: uploadErr } = await supabase.storage
+                .from('purchase-attachments')
+                .upload(targetPath, xmlBlob, {
+                    contentType: 'application/xml',
+                    upsert: true,
+                });
+
+            if (!uploadErr) {
+                const { data } = supabase.storage.from('purchase-attachments').getPublicUrl(targetPath);
+                if (data?.publicUrl) return data.publicUrl;
+            }
+        }
+    } catch (err) {
+        console.warn('[inboundNfe] Erro ao criar anexo snapshot da NF de entrada para o recebimento:', err);
+    }
+
+    return null;
 };
 

@@ -5,9 +5,7 @@ import { saveInboundInvoice } from '@/pages/utils/inboundNfe/inboundInvoicesServ
 import { parseInboundNfeXml } from '@/pages/utils/inboundNfe/inboundXmlParser';
 import { InboundInvoice, InboundInvoiceItem } from '@/pages/utils/inboundNfe/inboundNfeTypes';
 import { fetchPersons } from '@/pages/utils/personService';
-import { saveProductSupplierCode, findProductSupplierCodes } from '@/pages/utils/productSupplierCodesService';
-import { isValidUuid } from '@/pages/utils/uuidUtils';
-import { recordProductResolutionFeedback } from '@/pages/utils/inboundNfe/productResolutionFeedbackService';
+import { findProductSupplierCodes } from '@/pages/utils/productSupplierCodesService';
 import SupplierAutocomplete from '@/components/SupplierAutocomplete';
 import Person from '@/pages/types/person.type';
 import { InboundInvoiceItemsReview } from '../components/InboundInvoiceItemsReview';
@@ -23,10 +21,6 @@ export function ManageInboundInvoiceMappingsModal({ isOpen, onClose, invoice: in
     const [invoice, setInvoice] = useState<InboundInvoice | null>(initialInvoice);
     const [suppliers, setSuppliers] = useState<Person[]>([]);
     const [newSupplier, setNewSupplier] = useState(false);
-    const [loading, setLoading] = useState(false);
-    const [checkedMappingsKey, setCheckedMappingsKey] = useState<string | null>(null);
-    const [isSuggestingLinks, setIsSuggestingLinks] = useState(false);
-
     const mappingsKey = `${invoice?.supplierId || ''}:${invoice?.items?.map((item) => `${item.itemNumber}:${item.productCode}`).join('|') || ''}`;
 
     useEffect(() => {
@@ -86,8 +80,6 @@ export function ManageInboundInvoiceMappingsModal({ isOpen, onClose, invoice: in
                 });
             } catch (error) {
                 console.warn('Erro ao carregar dados do fornecedor/vínculos:', error);
-            } finally {
-                if (active) setCheckedMappingsKey(mappingsKey);
             }
         };
         void loadInitialData();
@@ -98,65 +90,32 @@ export function ManageInboundInvoiceMappingsModal({ isOpen, onClose, invoice: in
 
     const hasMatchedProducts = invoice.items.some((item) => Boolean(item.matchedProductId));
 
-    const setSupplier = (id: string) => setInvoice((current) => current ? ({
-        ...current,
-        supplierId: id || undefined,
-        items: current.items.map((item) => ({ ...item, matchedProductId: undefined, matchedVariationId: undefined })),
-    }) : current);
-
-    const handleSave = async () => {
-        if (!invoice.supplierId) return toast.error('Selecione um fornecedor antes de salvar.');
-
+    const persistInvoice = async (nextInvoice: InboundInvoice, previousInvoice: InboundInvoice) => {
+        setInvoice(nextInvoice);
         try {
-            setLoading(true);
-
-            // Salvar vínculos confirmados para produtos selecionados
-            await Promise.all(
-                invoice.items
-                    .filter((item) => item.matchedProductId && item.productCode)
-                    .map((item) =>
-                        saveProductSupplierCode({
-                            supplierId: invoice.supplierId!,
-                            productId: item.matchedProductId!,
-                            productVariationId: (item.matchedVariationId && isValidUuid(item.matchedVariationId)) ? item.matchedVariationId : undefined,
-                            supplierProductCode: item.productCode,
-                            supplierDescription: item.productDescription,
-                        })
-                    )
-            );
-
-            await Promise.all(
-                invoice.items
-                    .filter((item) => item.matchedProductId)
-                    .map((item) => {
-                        const hasRealVariation = Boolean(item.matchedVariationId && isValidUuid(item.matchedVariationId));
-                        return recordProductResolutionFeedback({
-                            supplierId: invoice.supplierId!,
-                            supplierProductCode: item.productCode,
-                            supplierCodeFamily: item.detectedSupplierCodeFamily,
-                            nfItemDescription: item.productDescription,
-                            normalizedParentName: item.normalizedParentName,
-                            detectedAttributes: Object.fromEntries(
-                                Object.entries(item.extractedAttributes || {}).filter(([, value]) => typeof value === 'string')
-                            ) as Record<string, string>,
-                            unitCost: item.unitCost,
-                            userDecision: 'accepted',
-                            finalProductId: item.matchedProductId!,
-                            finalVariationId: hasRealVariation ? item.matchedVariationId : undefined,
-                            relationType: hasRealVariation ? 'existing_variation' : 'new_product',
-                        });
-                    })
-            );
-
-            await saveInboundInvoice(invoice);
-            toast.success('Vínculos da nota fiscal atualizados com sucesso.');
+            await saveInboundInvoice(nextInvoice);
             onSaveSuccess();
-            onClose();
         } catch (error: any) {
-            toast.error(error.message || 'Não foi possível salvar os vínculos.');
-        } finally {
-            setLoading(false);
+            setInvoice(previousInvoice);
+            toast.error(error.message || 'Não foi possível salvar a alteração do vínculo.');
         }
+    };
+
+    const setSupplier = (id: string) => {
+        const nextInvoice = {
+            ...invoice,
+            supplierId: id || undefined,
+            items: invoice.items.map((item) => ({ ...item, matchedProductId: undefined, matchedVariationId: undefined })),
+        };
+        void persistInvoice(nextInvoice, invoice);
+    };
+
+    const handleItemChange = (itemNumber: number, update: Partial<InboundInvoiceItem>) => {
+        const nextInvoice = {
+            ...invoice,
+            items: invoice.items.map((item) => (item.itemNumber === itemNumber ? { ...item, ...update } : item)),
+        };
+        void persistInvoice(nextInvoice, invoice);
     };
 
     return (
@@ -170,9 +129,6 @@ export function ManageInboundInvoiceMappingsModal({ isOpen, onClose, invoice: in
                                 <i className="bi bi-link-45deg text-blue-600 text-lg" />
                                 Gerenciar Vínculos - NF-e #{invoice.nfeNumber}
                             </h2>
-                            <p className="text-xs text-slate-500">
-                                Gerencie o fornecedor e a vinculação dos produtos desta nota aos produtos do sistema.
-                            </p>
                         </div>
                         <button onClick={onClose} className="rounded-xl p-2 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800">
                             <i className="bi bi-x-lg" />
@@ -223,41 +179,13 @@ export function ManageInboundInvoiceMappingsModal({ isOpen, onClose, invoice: in
 
                         {/* Revisão de Itens e Vínculos */}
                         <InboundInvoiceItemsReview
-                            suggestionsEnabled={Boolean(invoice.supplierId?.trim()) && checkedMappingsKey === mappingsKey}
-                            onProcessingSuggestionsChange={setIsSuggestingLinks}
+                            suggestionsEnabled={false}
                             items={invoice.items}
                             supplierId={invoice.supplierId}
                             suppliers={suppliers}
-                            onChange={(itemNumber, update) =>
-                                setInvoice((current) =>
-                                    current
-                                        ? {
-                                              ...current,
-                                              items: current.items.map((item) => (item.itemNumber === itemNumber ? { ...item, ...update } : item)),
-                                          }
-                                        : current
-                                )
-                            }
+                            onChange={handleItemChange}
                         />
                     </main>
-
-                    <footer className="flex items-center justify-end gap-3 border-t p-4 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950/40">
-                        <button
-                            type="button"
-                            onClick={onClose}
-                            className="rounded-xl px-4 py-2 text-xs font-bold text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800"
-                        >
-                            Cancelar
-                        </button>
-                        <button
-                            type="button"
-                            disabled={loading || isSuggestingLinks}
-                            onClick={() => void handleSave()}
-                            className="rounded-xl bg-blue-600 px-5 py-2.5 text-xs font-black text-white hover:bg-blue-700 disabled:opacity-50 transition-colors shadow-sm cursor-pointer"
-                        >
-                            {loading ? 'Salvando...' : 'Salvar Alterações'}
-                        </button>
-                    </footer>
                 </section>
             </div>
 

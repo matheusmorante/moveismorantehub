@@ -13,7 +13,7 @@
 // - productQueryService.ts: paginação, busca insensível a acentos, estatísticas
 // - productPersistenceService.ts: upsert no Supabase, relacionamentos de categorias e imagens
 // - productMutationService.ts: salvar, atualizar, desativar e deleção em lote
-// - productVariationActionsService.ts: salvar variação, mover entre famílias, mesclar variações
+// - productVariationActionsService.ts: salvar variação, mover entre famílias, fundir variações
 // - productWhatsAppSyncService.ts: sincronização do catálogo com WhatsApp
 // - productMaintenanceService.ts: conversão em massa, limpeza de rascunhos, migração
 // ============================================================================

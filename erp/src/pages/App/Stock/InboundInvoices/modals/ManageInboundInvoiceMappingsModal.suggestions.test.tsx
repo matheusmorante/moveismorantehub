@@ -18,24 +18,25 @@ vi.mock('@/pages/utils/inboundNfe/inboundItemProductResolver', () => ({
     resolveLinkedProductDetails: vi.fn(),
     isGenericOrEmptyProductName: vi.fn(),
 }));
-vi.mock('../components/InboundInvoiceItemsReview', () => ({ InboundInvoiceItemsReview: ({ suggestionsEnabled, items, onProcessingSuggestionsChange }: { suggestionsEnabled: boolean; items: { matchedProductId?: string }[]; onProcessingSuggestionsChange: (value: boolean) => void }) => {
-    React.useEffect(() => { onProcessingSuggestionsChange(true); }, [onProcessingSuggestionsChange]);
+vi.mock('../components/InboundInvoiceItemsReview', () => ({ InboundInvoiceItemsReview: ({ suggestionsEnabled, items }: { suggestionsEnabled: boolean; items: { matchedProductId?: string }[] }) => {
     return <div data-testid="review" data-enabled={String(suggestionsEnabled)} data-linked={String(Boolean(items[0]?.matchedProductId))}><button type="button">Remover</button></div>;
 } }));
 afterEach(cleanup);
 const invoice = { id: 'nota', supplierId: 'fornecedor', nfeNumber: '1', items: [{ itemNumber: 1, productCode: 'ABC', productDescription: 'Beliche Rubim' }] } as InboundInvoice;
 
-it.each([false, true])('libera a IA somente após concluir a consulta dos vínculos (encontrado: %s)', async (found) => {
+it.each([false, true])('mantém as sugestões desabilitadas após consultar os vínculos existentes (encontrado: %s)', async (found) => {
     let finish!: (value: Awaited<ReturnType<typeof findProductSupplierCodes>>) => void;
     vi.mocked(findProductSupplierCodes).mockReturnValue(new Promise(resolve => { finish = resolve; }));
     const view = render(<ManageInboundInvoiceMappingsModal isOpen invoice={invoice} onClose={vi.fn()} onSaveSuccess={vi.fn()} />);
     await waitFor(() => expect(findProductSupplierCodes).toHaveBeenCalled());
     expect(view.getByTestId('review').getAttribute('data-enabled')).toBe('false');
     await act(async () => { finish(found ? new Map([['ABC', { productId: 'produto', supplierId: 'fornecedor', supplierProductCode: 'ABC' }]]) : new Map()); });
-    await waitFor(() => expect(view.getByTestId('review').getAttribute('data-enabled')).toBe('true'));
+    await waitFor(() => expect(view.getByTestId('review').getAttribute('data-linked')).toBe(String(found)));
+    expect(view.getByTestId('review').getAttribute('data-enabled')).toBe('false');
     expect(view.getByTestId('review').getAttribute('data-linked')).toBe(String(found));
     expect(view.getByRole('button', { name: 'Remover' }).matches(':disabled')).toBe(false);
-    expect(view.getByRole('button', { name: 'Salvar Alterações' }).matches(':disabled')).toBe(true);
+    expect(view.queryByRole('button', { name: 'Salvar Alterações' })).toBeNull();
+    expect(view.queryByRole('button', { name: 'Cancelar' })).toBeNull();
 });
 
 it('mantém sugestões desabilitadas quando a nota fiscal não tem fornecedor selecionado', async () => {

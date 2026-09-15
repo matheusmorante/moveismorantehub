@@ -85,7 +85,7 @@ export const VariationAttributeValueInput: React.FC<VariationAttributeValueInput
     );
 
     return (
-        <div ref={containerRef} className="relative flex-1 space-y-1">
+        <div ref={containerRef} className="relative flex-1 self-end space-y-1">
             <label className="text-[9px] text-slate-400 font-bold uppercase block">Valor</label>
 
             <div className="relative flex items-center">
@@ -99,7 +99,7 @@ export const VariationAttributeValueInput: React.FC<VariationAttributeValueInput
                         setIsOpenSuggestions(true);
                     }}
                     onKeyDown={handleKeyDown}
-                    className={`w-full bg-transparent border-b-2 border-t-0 border-x-0 outline-none px-1 py-2 pr-8 text-xs font-bold transition-all ${
+                    className={`box-border h-[34px] w-full bg-transparent border-b-2 border-t-0 border-x-0 outline-none px-1 py-0 pr-8 text-xs font-bold transition-all ${
                         isRegisteredValue
                             ? 'border-emerald-500 dark:border-emerald-400 text-emerald-700 dark:text-emerald-400 focus:border-emerald-600 dark:focus:border-emerald-300'
                             : isUnregisteredValue
@@ -111,7 +111,7 @@ export const VariationAttributeValueInput: React.FC<VariationAttributeValueInput
                 {/* Ícone de check verde quando o valor é confirmado/cadastrado */}
                 {isRegisteredValue && (
                     <span
-                        className="absolute right-1 bottom-2.5 flex items-center justify-center text-emerald-600 dark:text-emerald-400 pointer-events-none animate-in fade-in"
+                        className="absolute right-1 top-1/2 -translate-y-1/2 flex items-center justify-center text-emerald-600 dark:text-emerald-400 pointer-events-none animate-in fade-in"
                         title="Valor cadastrado e selecionado"
                         data-testid="attribute-registered-check"
                     >
@@ -125,7 +125,7 @@ export const VariationAttributeValueInput: React.FC<VariationAttributeValueInput
                         type="button"
                         onClick={() => void handleRegisterNewValue()}
                         disabled={isSaving}
-                        className="absolute right-1 bottom-2 p-1 rounded-md bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white transition-all shadow-sm flex items-center justify-center cursor-pointer disabled:opacity-50"
+                        className="absolute right-1 top-1/2 -translate-y-1/2 p-1 rounded-md bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white transition-all shadow-sm flex items-center justify-center cursor-pointer disabled:opacity-50"
                         title="Cadastrar este valor"
                         aria-label="Cadastrar este valor"
                         data-testid="attribute-register-button"

@@ -28,7 +28,7 @@ export const findProductSupplierCodes = async (supplierId: string, supplierCodes
 
     // A referência do fornecedor continua guardando a variação original. Para
     // novos recebimentos e movimentações, porém, usamos a canônica quando a
-    // original já foi mesclada. Assim o histórico não é reescrito.
+    // original já foi fundida. Assim o histórico não é reescrito.
     const resolvedRows = await Promise.all((data || []).map(async (row) => {
         let productVariationId = (row.product_variation_id && isValidUuid(row.product_variation_id))
             ? row.product_variation_id

@@ -192,7 +192,7 @@ export const ProductSearchInput: React.FC<ProductSearchInputProps> = ({
             return pTitle.includes(term) || pDesc.includes(term) || pCode.includes(term) || pSku.includes(term) || pCat.includes(term);
         });
 
-        // 2. Mesclar com resultados remotos do Supabase evitando duplicatas por ID
+        // 2. Combinar com resultados remotos do Supabase evitando duplicatas por ID
         const map = new Map<string, Product>();
         localFiltered.forEach(p => { if (p.id) map.set(String(p.id), p); });
         dbSearchResults.forEach(p => { if (p.id) map.set(String(p.id), p); });

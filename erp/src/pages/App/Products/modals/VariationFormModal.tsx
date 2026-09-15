@@ -6,7 +6,6 @@ import VariationPhotosTab from '../components/tabs/VariationPhotosTab';
 import { useVariationForm } from '../hooks/useVariationForm';
 import { VariationIdentificationTab } from '../components/variationTabs/VariationIdentificationTab';
 import { VariationPricingTab } from '../components/variationTabs/VariationPricingTab';
-import { VariationFiscalTab } from '../components/variationTabs/VariationFiscalTab';
 import { VariationTechnicalTab } from '../components/variationTabs/VariationTechnicalTab';
 import { checkERPLegibility, checkEcomLegibility } from '../productLegibilityRules';
 
@@ -20,7 +19,7 @@ interface VariationFormModalProps {
     readonly onSave?: (updatedVariation: Variation) => void;
 }
 
-type VariationTabId = 'identificacao' | 'fotos' | 'estoque' | 'tecnico' | 'fiscal';
+type VariationTabId = 'identificacao' | 'fotos' | 'estoque' | 'tecnico';
 
 interface TabDefinition {
     readonly id: VariationTabId;
@@ -33,7 +32,6 @@ const formTabs: readonly TabDefinition[] = [
     { id: 'fotos', label: 'Fotos da Variação', icon: 'bi-images' },
     { id: 'estoque', label: 'Estoque e Precificação', icon: 'bi-box-seam' },
     { id: 'tecnico', label: 'Informações Técnicas', icon: 'bi-gear' },
-    { id: 'fiscal', label: 'Tributário / NF', icon: 'bi-file-earmark-text' },
 ];
 
 export const VariationFormModal: React.FC<VariationFormModalProps> = (props) => {
@@ -252,13 +250,6 @@ export const VariationFormModal: React.FC<VariationFormModalProps> = (props) => 
                         />
                     )}
 
-                    {activeTab === 'fiscal' && (
-                        <VariationFiscalTab
-                            formData={formData}
-                            setFormData={setFormData}
-                            parentProduct={parentProduct}
-                        />
-                    )}
                 </div>
 
                 {/* Footer Controls */}
