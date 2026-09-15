@@ -1,8 +1,7 @@
 import { supabase } from '@/pages/utils/supabaseConfig';
 import Purchase from "../types/purchase.type";
-import { saveInventoryMove, deleteInventoryMove, cancelInventoryMovesByRelatedEntity } from '@/pages/utils/inventoryService';
+import { cancelInventoryMovesByRelatedEntity } from '@/pages/utils/inventoryService';
 import { getSettings } from '@/pages/utils/settingsService';
-import { formatToBRDate } from '@/pages/utils/formatters';
 
 const TABLE_NAME = "purchases";
 
@@ -60,45 +59,6 @@ const syncPurchaseItems = async (purchaseId: string, items: any[]) => {
 };
 
 
-const processInventoryMoves = async (purchase: Purchase, savedId: string) => {
-    const formattedDate = formatToBRDate(purchase.date);
-    const purchaseNum = purchase.purchaseNumber || 1;
-    const supplierName = purchase.supplierName || (purchase as any).supplier?.name || (purchase as any).supplier?.tradeName || '';
-    const moveLabel = purchase.invoiceNumber 
-        ? `Entrada NF-${purchase.invoiceNumber}${supplierName ? ` - ${supplierName}` : ''}` 
-        : `Entrada do Pedido #${purchaseNum}${supplierName ? ` - ${supplierName}` : ''} (${formattedDate})`;
-
-    for (const item of purchase.items) {
-        const { data: p } = await supabase.from('products').select('stock').eq('id', item.productId).single();
-        const currentStockValue = p?.stock || 0;
-
-        const qtyToMove = (item.receivedQuantity !== undefined) ? item.receivedQuantity : item.quantity;
-        if (qtyToMove <= 0) continue;
-
-        await saveInventoryMove({
-            productId: item.productId,
-            variationId: item.variationId,
-            productDescription: item.description,
-            type: 'entry',
-            quantity: qtyToMove,
-            date: new Date().toISOString(),
-            label: moveLabel,
-            relatedEntityId: savedId,
-            relatedEntityType: 'purchase_order',
-            observation: `Pedido de Compra #${purchaseNum}${supplierName ? ` - ${supplierName}` : ''}${purchase.invoiceNumber ? ` | NF: ${purchase.invoiceNumber}` : ''}${purchase.observation ? ` | ${purchase.observation}` : ''}`,
-            unitCost: item.unitCost,
-            status: 'effective'
-        }, currentStockValue);
-    }
-    
-    await supabase.from(TABLE_NAME).update({ stockProcessed: true }).eq('id', savedId);
-
-    currentPurchases = currentPurchases.map(p => 
-        p.id === savedId ? { ...p, stockProcessed: true } : p
-    );
-    notifyListeners();
-};
-
 export const reverseInventoryMoves = async (purchaseOrId: Purchase | string, customReason?: string) => {
     const purchaseId = typeof purchaseOrId === 'string' ? purchaseOrId : purchaseOrId.id!;
     const purchase = typeof purchaseOrId === 'object' ? purchaseOrId : currentPurchases.find(p => p.id === purchaseId);
@@ -143,26 +103,6 @@ export const cancelPurchase = async (purchase: Purchase): Promise<void> => {
         p.id === purchase.id ? { ...p, status: 'cancelled', stockProcessed: false } : p
     );
     notifyListeners();
-};
-
-export const toggleStockProcessing = async (purchase: Purchase): Promise<boolean> => {
-    if (!purchase.id) return false;
-    
-    if (purchase.stockProcessed) {
-        await reverseInventoryMoves(purchase.id);
-        return false;
-    }
-
-    const { data: savedPurchase, error } = await supabase
-        .from(TABLE_NAME)
-        .select('stockProcessed')
-        .eq('id', purchase.id)
-        .single();
-    if (error) throw error;
-    if (savedPurchase?.stockProcessed) return true;
-
-    await processInventoryMoves(purchase, purchase.id);
-    return true;
 };
 
 export const subscribeToPurchases = (callback: (purchases: Purchase[]) => void) => {
@@ -268,28 +208,6 @@ export const updatePurchase = async (id: string, updates: Partial<Purchase>): Pr
         currentPurchases = currentPurchases.map(p => p.id === id ? merged : p);
         notifyListeners();
 
-        if (updates.items && merged.stockProcessed) {
-            for (const item of updates.items) {
-                let moveQuery = supabase
-                    .from('inventory_moves')
-                    .update({ unit_cost: item.unitCost })
-                    .eq('order_id', id)
-                    .eq('type', 'entry');
-
-                if (item.variationId) {
-                    moveQuery = moveQuery
-                        .eq('variation_id', item.variationId)
-                        .eq('product_id', item.productId);
-                } else {
-                    moveQuery = moveQuery
-                        .eq('product_id', item.productId)
-                        .is('variation_id', null);
-                }
-
-                const { error: moveUpdateError } = await moveQuery;
-                if (moveUpdateError) throw moveUpdateError;
-            }
-        }
     } catch (error) {
         console.error("Erro ao atualizar compra: ", error);
         throw error;

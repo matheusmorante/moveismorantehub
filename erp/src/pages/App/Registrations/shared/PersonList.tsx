@@ -226,7 +226,7 @@ const PersonList = forwardRef<PersonListRef, PersonListProps>(({
 
     return (
         <div className="flex flex-col">
-            <div className="p-4 md:p-8">
+            <div className={collectionName === 'customers' || collectionName === 'suppliers' ? "p-2 sm:p-3 md:p-4" : "p-4 md:p-8"}>
                 <PersonTable
                     people={people}
                     onEdit={onEdit}

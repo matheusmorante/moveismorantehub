@@ -23,9 +23,6 @@ function validateAuthToken(authHeader?: string): boolean {
     process.env.SUPABASE_SERVICE_ROLE_KEY,
   ].filter(Boolean) as string[];
 
-  // Token mestre padrão do projeto para fallback controlado
-  validTokens.push('morante_mcp_master_8b4e2a9d6c1f3e5a7b0d2c4e');
-
   return validTokens.includes(token);
 }
 

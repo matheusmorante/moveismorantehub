@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import ProductAutocomplete from './ProductAutocomplete';
+import CurrencyInput from './CurrencyInput';
 import { PurchaseItem } from '../pages/types/purchase.type';
 import Product, { Variation } from '../pages/types/product.type';
 import { toast } from 'react-toastify';
@@ -244,11 +245,12 @@ export const PurchaseItemsSection = ({
 
                         <div className="sm:col-span-3 flex flex-col gap-1.5">
                             <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 text-center">Custo unitário</label>
-                            <input 
-                                type="number"
-                                placeholder="0.00"
-                                value={currentCost || ""}
-                                onChange={(e) => setCurrentCost(Number(e.target.value))}
+                            <CurrencyInput 
+                                showBadge={false}
+                                prefix="R$ "
+                                placeholder="R$ 0,00"
+                                value={currentCost || 0}
+                                onChange={(val) => setCurrentCost(val)}
                                 className="w-full bg-white dark:bg-slate-900 border-0 border-b-2 border-slate-200 dark:border-slate-700 p-2 focus:border-blue-600 dark:focus:border-blue-500 outline-none text-sm font-bold text-slate-700 dark:text-slate-300 transition-all text-center rounded-none"
                             />
                         </div>
@@ -356,13 +358,12 @@ export const PurchaseItemsSection = ({
                                     </td>
                                     {/* Custo Unitário: Editável -> Fundo Branco, borda apenas embaixo cinza, focus azul */}
                                     <td className="px-4 py-3.5 text-right">
-                                        <input
-                                            type="number"
-                                            step="0.01"
-                                            min="0"
-                                            value={item.baseCost || ''}
-                                            onChange={(e) => handleCostChange(idx, Number(e.target.value))}
-                                            className="w-24 bg-white dark:bg-slate-900 border-0 border-b-2 border-slate-200 dark:border-slate-700 focus:border-blue-600 dark:focus:border-blue-500 outline-none px-2 py-1 text-right text-sm font-bold text-slate-800 dark:text-slate-100 rounded-none transition-colors"
+                                        <CurrencyInput
+                                            showBadge={false}
+                                            prefix="R$ "
+                                            value={item.baseCost || 0}
+                                            onChange={(val) => handleCostChange(idx, val)}
+                                            className="w-28 bg-white dark:bg-slate-900 border-0 border-b-2 border-slate-200 dark:border-slate-700 focus:border-blue-600 dark:focus:border-blue-500 outline-none px-2 py-1 text-right text-sm font-bold text-slate-800 dark:text-slate-100 rounded-none transition-colors"
                                         />
                                     </td>
                                     {/* Não-Editáveis (Calculados): Fundo Cinza */}
@@ -515,13 +516,12 @@ export const PurchaseItemsSection = ({
                                 {/* Custo Unitário: Editável -> Fundo Branco, borda apenas embaixo cinza, focus azul */}
                                 <div className="flex-1 min-w-fit p-2 sm:p-2.5 bg-white dark:bg-slate-900 rounded-xl border border-slate-100 dark:border-slate-800 shadow-sm flex flex-col justify-center">
                                     <span className="text-slate-400 uppercase tracking-wider text-[9px] font-black block mb-0.5 whitespace-nowrap">Custo unitário</span>
-                                    <input
-                                        type="number"
-                                        step="0.01"
-                                        min="0"
-                                        value={item.baseCost || ''}
-                                        onChange={(e) => handleCostChange(idx, Number(e.target.value))}
-                                        className="w-full min-w-[70px] bg-white dark:bg-slate-900 border-0 border-b-2 border-slate-200 dark:border-slate-700 focus:border-blue-600 dark:focus:border-blue-500 outline-none text-xs font-bold text-slate-800 dark:text-slate-200 px-1 py-1 mt-0.5 rounded-none transition-colors"
+                                    <CurrencyInput
+                                        showBadge={false}
+                                        prefix="R$ "
+                                        value={item.baseCost || 0}
+                                        onChange={(val) => handleCostChange(idx, val)}
+                                        className="w-full min-w-[85px] bg-white dark:bg-slate-900 border-0 border-b-2 border-slate-200 dark:border-slate-700 focus:border-blue-600 dark:focus:border-blue-500 outline-none text-xs font-bold text-slate-800 dark:text-slate-200 px-1 py-1 mt-0.5 rounded-none transition-colors text-right"
                                     />
                                 </div>
 

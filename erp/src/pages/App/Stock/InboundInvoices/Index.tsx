@@ -5,6 +5,7 @@ import { InboundInvoicesTable } from './components/InboundInvoicesTable';
 import { InboundInvoiceDetailsModal } from './modals/InboundInvoiceDetailsModal';
 import { InboundDocumentImportModal } from './modals/InboundDocumentImportModal';
 import { ManageInboundInvoiceMappingsModal } from './modals/ManageInboundInvoiceMappingsModal';
+import { InboundPostImportActionModal } from './modals/InboundPostImportActionModal';
 import { InboundInvoicesPagination } from './components/InboundInvoicesPagination';
 import { fetchInboundInvoicesPage } from '@/pages/utils/inboundNfe/inboundInvoicesService';
 import { InboundInvoice } from '@/pages/utils/inboundNfe/inboundNfeTypes';
@@ -42,6 +43,7 @@ export default function InboundInvoicesPage() {
     const [selectedInvoice, setSelectedInvoice] = useState<InboundInvoice | null>(null);
     const [selectedMappingInvoice, setSelectedMappingInvoice] = useState<InboundInvoice | null>(null);
     const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+    const [postImportInvoice, setPostImportInvoice] = useState<InboundInvoice | null>(null);
 
     const loadInvoices = useCallback(async (pageToLoad = 1) => {
         setIsLoading(true);
@@ -126,7 +128,23 @@ export default function InboundInvoicesPage() {
             <InboundDocumentImportModal
                 isOpen={isImportModalOpen}
                 onClose={() => setIsImportModalOpen(false)}
-                onImportSuccess={() => { void loadInvoices(currentPage); }}
+                onImportSuccess={(savedInvoice) => {
+                    void loadInvoices(currentPage);
+                    setPostImportInvoice(savedInvoice);
+                }}
+            />
+
+            <InboundPostImportActionModal
+                isOpen={Boolean(postImportInvoice)}
+                invoice={postImportInvoice}
+                onClose={() => setPostImportInvoice(null)}
+                onManageMappings={() => {
+                    const targetInvoice = postImportInvoice;
+                    setPostImportInvoice(null);
+                    if (targetInvoice) {
+                        setSelectedMappingInvoice(targetInvoice);
+                    }
+                }}
             />
         </div>
     );

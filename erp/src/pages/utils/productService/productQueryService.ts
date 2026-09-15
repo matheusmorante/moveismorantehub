@@ -73,7 +73,7 @@ export const fetchProductsPage = async (
             return { data: [], total: 0 };
         }
 
-        const mapped: Product[] = (data || []).map((p, idx) => mapFromDB(p, idx));
+        const mapped: Product[] = (data || []).map((p: any, idx: number) => mapFromDB(p, idx));
         const filteredBySupplier = options?.supplierId
             ? mapped.filter((product) => {
                 const supplierIds = product.supplierIds || [];

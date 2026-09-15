@@ -214,6 +214,7 @@ export const VariationFormModal: React.FC<VariationFormModalProps> = (props) => 
                             setIsManageAttributesOpen={setIsManageAttributesOpen}
                             getDefaultVariationName={getDefaultVariationName}
                             getDefaultVariationTitle={getDefaultVariationTitle}
+                            fetchDbAttributes={fetchDbAttributes}
                         />
                     )}
 

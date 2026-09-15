@@ -1,4 +1,5 @@
 import { supabase } from './supabaseConfig';
+import { isValidUuid } from './uuidUtils';
 
 export type ProductSupplierCode = {
     productId: string;
@@ -29,7 +30,9 @@ export const findProductSupplierCodes = async (supplierId: string, supplierCodes
     // novos recebimentos e movimentações, porém, usamos a canônica quando a
     // original já foi mesclada. Assim o histórico não é reescrito.
     const resolvedRows = await Promise.all((data || []).map(async (row) => {
-        let productVariationId = row.product_variation_id || undefined;
+        let productVariationId = (row.product_variation_id && isValidUuid(row.product_variation_id))
+            ? row.product_variation_id
+            : undefined;
 
         if (productVariationId) {
             const { data: canonicalVariationId, error: resolutionError } = await supabase.rpc(
@@ -74,7 +77,9 @@ export const saveProductSupplierCode = async (reference: ProductSupplierCode): P
     if (!reference.supplierId || !reference.productId || !reference.supplierProductCode.trim()) return;
 
     let productId = reference.productId;
-    let productVariationId = reference.productVariationId || null;
+    let productVariationId = (reference.productVariationId && isValidUuid(reference.productVariationId))
+        ? reference.productVariationId
+        : null;
 
     if (productVariationId) {
         const { data: canonicalVariationId, error: resolutionError } = await supabase.rpc(
@@ -118,7 +123,7 @@ export const fetchSupplierCodesForProduct = async (
         .eq('product_id', productId)
         .eq('is_active', true);
 
-    if (productVariationId) {
+    if (productVariationId && isValidUuid(productVariationId)) {
         query = query.eq('product_variation_id', productVariationId);
     }
 

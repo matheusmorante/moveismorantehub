@@ -283,7 +283,7 @@ const PersonTable = ({
             </div>
 
             {/* Mobile Card View */}
-            <div className="lg:hidden grid grid-cols-1 gap-4 overflow-y-auto pb-4">
+            <div className={`lg:hidden grid grid-cols-1 ${collectionName === 'customers' ? 'gap-1.5 sm:gap-2' : 'gap-4'} overflow-y-auto pb-4`}>
                 {people.length === 0 ? (
                     <div className="flex flex-col items-center justify-center py-12 text-slate-400">
                         <i className="bi bi-people text-4xl mb-3 opacity-20" />

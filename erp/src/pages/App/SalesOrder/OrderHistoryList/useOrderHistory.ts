@@ -129,7 +129,7 @@ export const useOrderHistory = (filters?: any) => {
                 : item.id === order.id && order.orderType !== "return"
                     ? { ...item, returnOrderId: undefined, returnKind: undefined }
                     : item));
-            const msg = order.status === "fulfilled" ? "Devolução estornada com sucesso!" : "Devolução cancelada com sucesso!";
+            const msg = order.status === "fulfilled" ? "Devolução desfeita e estornada com sucesso!" : "Devolução cancelada com sucesso!";
             toast.success(msg);
             refresh();
         } catch (error: any) {

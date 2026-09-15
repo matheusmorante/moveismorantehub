@@ -33,6 +33,36 @@ export const ensureAttributeValue = async (attributeName: string, value: string)
     return { name: attribute.name, value: values?.[0]?.value || normalizedValue };
 };
 
+/**
+ * Salva um novo valor para um atributo existente, evitando duplicidades.
+ */
+export const saveAttributeValue = async (
+    attributeId: string,
+    value: string
+): Promise<{ id: string; attribute_id: string; value: string }> => {
+    const trimmed = value.trim();
+    if (!trimmed) throw new Error("O valor do atributo não pode ser vazio.");
+
+    const { data: existing, error: findError } = await supabase
+        .from('attribute_values')
+        .select('id, attribute_id, value')
+        .eq('attribute_id', attributeId)
+        .ilike('value', trimmed)
+        .maybeSingle();
+
+    if (findError) throw findError;
+    if (existing) return existing;
+
+    const { data, error } = await supabase
+        .from('attribute_values')
+        .insert({ attribute_id: attributeId, value: trimmed })
+        .select('id, attribute_id, value')
+        .single();
+
+    if (error) throw error;
+    return data;
+};
+
 export const checkVariationUsage = async (attributeName: string, optionValue?: string): Promise<boolean> => {
     try {
         let query = supabase

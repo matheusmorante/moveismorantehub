@@ -36,6 +36,9 @@ export interface OrderDatabaseRow {
     deleted_at?: string | null;
     return_order_id?: string | null;
     linked_order_id?: string | null;
+    returned_total_amount?: number | null;
+    original_sold_total?: number | null;
+    return_kind?: string | null;
     created_at?: string | null;
     updated_at?: string | null;
     items?: any[] | null;
@@ -111,7 +114,12 @@ export function mapOrderFromDatabase(row: OrderDatabaseRow): Order {
                 condition: item.condition || snapshot.condition || 'novo',
                 handlingType: item.handling_type || snapshot.handlingType || '',
                 observation: item.observation !== undefined ? item.observation : snapshot.observation,
-                isTemporaryProduct: item.is_temporary_product != null ? Boolean(item.is_temporary_product) : Boolean(snapshot.isTemporaryProduct)
+                isTemporaryProduct: item.is_temporary_product != null ? Boolean(item.is_temporary_product) : Boolean(snapshot.isTemporaryProduct),
+                returnedQuantity: item.returned_quantity != null ? Number(item.returned_quantity) : snapshot.returnedQuantity,
+                returnedUnitPrice: item.returned_unit_price != null ? Number(item.returned_unit_price) : snapshot.returnedUnitPrice,
+                returnedTotalValue: item.returned_total_value != null ? Number(item.returned_total_value) : snapshot.returnedTotalValue,
+                originalUnitPrice: item.original_unit_price != null ? Number(item.original_unit_price) : snapshot.originalUnitPrice,
+                originalTotalValue: item.original_total_value != null ? Number(item.original_total_value) : snapshot.originalTotalValue
             };
         });
     } else if (Array.isArray(row.items) && row.items.length > 0) {
@@ -219,7 +227,10 @@ export function mapOrderFromDatabase(row: OrderDatabaseRow): Order {
         isRegisteredInBling,
         marketingOrigin,
         returnOrderId: row.return_order_id || rawLegacy.returnOrderId || undefined,
-        linkedOrderId: row.linked_order_id || rawLegacy.linkedOrderId || undefined
+        linkedOrderId: row.linked_order_id || rawLegacy.linkedOrderId || undefined,
+        returnKind: (row.return_kind as any) || rawLegacy.returnKind || undefined,
+        returnedTotalAmount: row.returned_total_amount != null ? Number(row.returned_total_amount) : rawLegacy.returnedTotalAmount,
+        originalSoldTotal: row.original_sold_total != null ? Number(row.original_sold_total) : rawLegacy.originalSoldTotal
     };
 
     return capitalizeOrder(orderDomain);

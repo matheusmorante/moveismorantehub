@@ -2,6 +2,7 @@ import React from 'react';
 import { GoodsReceipt } from '@/pages/utils/goodsReceiptService';
 import { formatCurrency, formatToBRDate } from '@/pages/utils/formatters';
 import { formatGoodsReceiptCode } from '@/pages/utils/goodsReceiptCode';
+import { ReceiptMovementBadge } from './ReceiptMovementBadge';
 
 export interface ReceiptsTableProps {
     readonly receipts: readonly GoodsReceipt[];
@@ -10,7 +11,9 @@ export interface ReceiptsTableProps {
     readonly onRowClick: (receipt: GoodsReceipt) => void;
     readonly onOpenDetails: (receipt: GoodsReceipt) => void;
     readonly onOpenEdit: (receipt: GoodsReceipt) => void;
+    readonly onCopyReceipt: (receipt: GoodsReceipt) => void;
     readonly onReverseRequest: (e: React.MouseEvent | null, receipt: GoodsReceipt) => void;
+    readonly onUnreverseRequest?: (e: React.MouseEvent | null, receipt: GoodsReceipt) => void;
     readonly onDelete: (e: React.MouseEvent, id: string) => void;
 }
 
@@ -24,7 +27,9 @@ export const ReceiptsTable: React.FC<ReceiptsTableProps> = ({
     onRowClick,
     onOpenDetails,
     onOpenEdit,
+    onCopyReceipt,
     onReverseRequest,
+    onUnreverseRequest,
     onDelete
 }) => {
     return (
@@ -58,19 +63,22 @@ export const ReceiptsTable: React.FC<ReceiptsTableProps> = ({
                                     <p className="text-[10px] font-black uppercase tracking-widest text-emerald-600">{receipt.items.length} itens recebidos</p>
                                 </td>
                                 <td className="px-6 py-4">
-                                    {isDraft ? (
-                                        <span className="inline-flex items-center gap-1 px-2.5 py-1 text-[10px] font-black uppercase tracking-wider bg-amber-50 text-amber-600 dark:bg-amber-950/30 dark:text-amber-400 rounded-md border border-amber-200 dark:border-amber-900/40">
-                                            <i className="bi bi-clock-history text-[11px]" /> Rascunho
-                                        </span>
-                                    ) : isEstornado ? (
-                                        <span className="inline-flex items-center gap-1 px-2.5 py-1 text-[10px] font-black uppercase tracking-wider bg-red-50 text-red-600 dark:bg-red-950/40 dark:text-red-400 rounded-md border border-red-200 dark:border-red-900/50">
-                                            <i className="bi bi-arrow-counterclockwise text-[11px]" /> Estornado
-                                        </span>
-                                    ) : (
-                                        <span className="inline-flex items-center gap-1 px-2.5 py-1 text-[10px] font-black uppercase tracking-wider bg-emerald-50 text-emerald-600 dark:bg-emerald-950/30 dark:text-emerald-400 rounded-md border border-emerald-200 dark:border-emerald-900/40">
-                                            <i className="bi bi-check-circle-fill text-[11px]" /> Recebido
-                                        </span>
-                                    )}
+                                    <div className="flex items-center gap-2">
+                                        {isDraft ? (
+                                            <span className="inline-flex items-center gap-1 px-2.5 py-1 text-[10px] font-black uppercase tracking-wider bg-amber-50 text-amber-600 dark:bg-amber-950/30 dark:text-amber-400 rounded-md border border-amber-200 dark:border-amber-900/40">
+                                                <i className="bi bi-clock-history text-[11px]" /> Rascunho
+                                            </span>
+                                        ) : isEstornado ? (
+                                            <span className="inline-flex items-center gap-1 px-2.5 py-1 text-[10px] font-black uppercase tracking-wider bg-red-50 text-red-600 dark:bg-red-950/40 dark:text-red-400 rounded-md border border-red-200 dark:border-red-900/50">
+                                                <i className="bi bi-arrow-counterclockwise text-[11px]" /> Estornado
+                                            </span>
+                                        ) : (
+                                            <span className="inline-flex items-center gap-1 px-2.5 py-1 text-[10px] font-black uppercase tracking-wider bg-emerald-50 text-emerald-600 dark:bg-emerald-950/30 dark:text-emerald-400 rounded-md border border-emerald-200 dark:border-emerald-900/40">
+                                                <i className="bi bi-check-circle-fill text-[11px]" /> Recebido
+                                            </span>
+                                        )}
+                                        <ReceiptMovementBadge receipt={receipt} />
+                                    </div>
                                 </td>
                                 <td className="px-6 py-4 text-sm font-bold text-slate-800 dark:text-slate-100">{receipt.supplierName}</td>
                                 <td className="px-6 py-4 text-sm text-slate-500">{formatToBRDate(receipt.receivedAt)}</td>
@@ -133,6 +141,18 @@ export const ReceiptsTable: React.FC<ReceiptsTableProps> = ({
                                                     </button>
                                                 )}
 
+                                                <button
+                                                    type="button"
+                                                    role="menuitem"
+                                                    onClick={() => {
+                                                        setOpenMenuId(null);
+                                                        onCopyReceipt(receipt);
+                                                    }}
+                                                    className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-left text-xs font-bold text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950/30 cursor-pointer"
+                                                >
+                                                    <i className="bi bi-copy" /> Copiar recebimento
+                                                </button>
+
                                                 {!isDraft && !isEstornado && (
                                                     <button
                                                         type="button"
@@ -144,6 +164,20 @@ export const ReceiptsTable: React.FC<ReceiptsTableProps> = ({
                                                         className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-left text-xs font-bold text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30 cursor-pointer"
                                                     >
                                                         <i className="bi bi-arrow-counterclockwise" /> Estornar Recebimento
+                                                    </button>
+                                                )}
+
+                                                {!isDraft && isEstornado && onUnreverseRequest && (
+                                                    <button
+                                                        type="button"
+                                                        role="menuitem"
+                                                        onClick={(e) => {
+                                                            setOpenMenuId(null);
+                                                            onUnreverseRequest(e, receipt);
+                                                        }}
+                                                        className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-left text-xs font-bold text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/30 cursor-pointer"
+                                                    >
+                                                        <i className="bi bi-arrow-clockwise" /> Desfazer Estorno
                                                     </button>
                                                 )}
 

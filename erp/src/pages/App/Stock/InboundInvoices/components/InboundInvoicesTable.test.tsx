@@ -12,7 +12,7 @@ const invoice = {
     status: 'pending', issuedAt: '2026-09-13',
 } as InboundInvoice;
 
-it.each([0, 1])('executa Editar Vínculos após mousedown no layout %s', (layout) => {
+it.each([0, 1])('executa Gerenciar vínculos após mousedown no layout %s', (layout) => {
     const onManageMappings = vi.fn();
     const onViewDetails = vi.fn();
     const view = render(<InboundInvoicesTable invoices={[invoice]} onManageMappings={onManageMappings}
@@ -20,7 +20,7 @@ it.each([0, 1])('executa Editar Vínculos após mousedown no layout %s', (layout
     // Ambos os layouts ficam montados; o CSS alterna qual está visível.
     fireEvent.click(view.getAllByRole('button', { name: 'Mais opções' })[layout]);
     const menu = view.getAllByRole('menu')[layout];
-    const action = within(menu).getByRole('menuitem', { name: 'Editar Vínculos' });
+    const action = within(menu).getByRole('menuitem', { name: 'Gerenciar vínculos' });
     fireEvent.mouseDown(action);
     expect(document.body.contains(action)).toBe(true);
     fireEvent.click(action);

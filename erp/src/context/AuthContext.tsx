@@ -197,6 +197,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                     handlingSession = false;
                 }
             } else {
+                const searchParams = new URLSearchParams(window.location.search);
+                if (searchParams.get('auth_email') && searchParams.get('user_id')) {
+                    if (active) setLoading(false);
+                    handlingSession = false;
+                    return;
+                }
                 setProfile(null);
                 setLoading(false);
                 handlingSession = false;
@@ -232,6 +238,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                     id: authUserId,
                     email: authEmail,
                     role: finalRole,
+                    roles: [finalRole],
                     full_name: isMasterEmail ? 'Matheus Morante' : authEmail.split('@')[0]
                 });
                 clearTimeout(failsafe);

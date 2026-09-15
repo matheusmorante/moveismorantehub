@@ -4,6 +4,7 @@ import Product, { Variation } from '@/pages/types/product.type';
 import Person from '@/pages/types/person.type';
 import { InboundInvoiceItem } from '@/pages/utils/inboundNfe/inboundNfeTypes';
 import { findProductSupplierCodes, saveProductSupplierCode, deleteProductSupplierCode } from '@/pages/utils/productSupplierCodesService';
+import { isValidUuid } from '@/pages/utils/uuidUtils';
 import { getFullProduct, saveProduct, saveVariation } from '@/pages/utils/productService';
 import { ensureAttributeValue } from '@/pages/utils/variationService';
 import { fetchGroupsAndCategories } from '@/pages/utils/categoryService';
@@ -213,9 +214,12 @@ export function InboundInvoiceItemsReview({ items, supplierId, suppliers, onChan
     /** Confirmar EXISTING_VARIATION: vincula item à variação já cadastrada. */
     const confirmExistingVariationLink = () => {
         if (!classifyingItem || !aiClassification?.matchedProductId) return;
+        const validVarId = (aiClassification.matchedVariationId && isValidUuid(aiClassification.matchedVariationId))
+            ? aiClassification.matchedVariationId
+            : undefined;
         onChange(classifyingItem.itemNumber, {
             matchedProductId: aiClassification.matchedProductId,
-            matchedVariationId: aiClassification.matchedVariationId || undefined,
+            matchedVariationId: validVarId,
             productErpName: aiClassification.normalizedParentName || 'Variação vinculada pela IA',
         });
         toast.success('Item vinculado à variação existente identificada pela IA.');
@@ -315,17 +319,19 @@ export function InboundInvoiceItemsReview({ items, supplierId, suppliers, onChan
         const currentItem = items.find((item) => item.itemNumber === creatingItemNumber);
         if (currentItem) {
             try {
+                const firstVar = createdProduct.variations?.[0];
+                const firstVarId = (firstVar?.id && !firstVar.isVirtual && isValidUuid(firstVar.id)) ? firstVar.id : undefined;
                 await saveProductSupplierCode({
                     supplierId,
                     productId: createdProduct.id,
-                    productVariationId: createdProduct.variations?.[0]?.id,
+                    productVariationId: firstVarId,
                     supplierProductCode: currentItem.productCode,
                     supplierDescription: currentItem.productDescription,
                 });
                 onChange(currentItem.itemNumber, {
                     matchedProductId: createdProduct.id,
-                    matchedVariationId: createdProduct.variations?.[0]?.id,
-                    linkedProductCode: createdProduct.variations?.[0]?.sku || createdProduct.code || '',
+                    matchedVariationId: firstVarId,
+                    linkedProductCode: firstVar?.sku || createdProduct.code || '',
                     productErpName: createdProduct.name || createdProduct.title || currentItem.productDescription,
                 });
                 toast.success(`Produto "${createdProduct.name || createdProduct.title}" cadastrado e vinculado.`);
@@ -363,8 +369,9 @@ export function InboundInvoiceItemsReview({ items, supplierId, suppliers, onChan
     };
 
     const selectProduct = async (itemNumber: number, product: Product, variation?: Variation) => {
+        const isRealVariation = Boolean(variation?.id && !variation.isVirtual && isValidUuid(variation.id));
         const matchedProductId = product.id;
-        const matchedVariationId = variation?.id;
+        const matchedVariationId = isRealVariation ? variation!.id : undefined;
         const linkedProductCode = variation?.sku || product.code || '';
         const productErpName = variation?.name || variation?.title || product.name || product.title || '';
 

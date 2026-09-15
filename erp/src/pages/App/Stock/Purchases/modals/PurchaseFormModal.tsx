@@ -5,7 +5,7 @@ import Product from '../../../../types/product.type';
 import Person from '../../../../types/person.type';
 import { subscribeToProducts } from '@/pages/utils/productService';
 import { subscribeToPeople } from '@/pages/utils/personService';
-import { savePurchase, toggleStockProcessing, updatePurchase } from '../../../../utils/purchaseService';
+import { savePurchase, updatePurchase } from '../../../../utils/purchaseService';
 import { toast } from 'react-toastify';
 import { formatCurrency } from '../../../../utils/formatters';
 import SupplierAutocomplete from '@/components/SupplierAutocomplete';
@@ -345,34 +345,14 @@ export const PurchaseFormModal: React.FC<PurchaseFormModalProps> = ({
             const hasOnlyRegisteredProducts = processedItems.every((item) =>
                 products.some((product) => String(product.id) === String(item.productId))
             );
-            let stockLaunched = false;
-
             if (purchaseId) {
                 await updatePurchase(purchaseId, purchasePayload);
-                const wasAlreadyProcessed = Boolean(activePurchase?.stockProcessed);
-                if (hasOnlyRegisteredProducts && !wasAlreadyProcessed) {
-                    await toggleStockProcessing({ ...purchasePayload, id: purchaseId, stockProcessed: false });
-                    stockLaunched = true;
-                }
-                toast.success(
-                    stockLaunched
-                        ? 'Pedido atualizado e entrada no estoque registrada! 📦'
-                        : 'Pedido de compra atualizado com sucesso! ✨'
-                );
+                toast.success('Pedido de compra atualizado com sucesso!');
             } else {
                 const savedId = await savePurchase(purchasePayload);
-                if (savedId && hasOnlyRegisteredProducts) {
-                    await toggleStockProcessing({ ...purchasePayload, id: savedId, stockProcessed: false });
-                    stockLaunched = true;
-                }
-                let message = stockLaunched
-                    ? 'Pedido confirmado e entrada no estoque registrada! 📦'
-                    : 'Pedido confirmado!';
+                let message = savedId ? 'Pedido de compra confirmado!' : 'Não foi possível salvar o pedido de compra.';
                 if (!hasOnlyRegisteredProducts) {
-                    message += ' Há item temporário; o estoque não foi lançado automaticamente.';
-                }
-                if (status === 'fulfilled' && stockLaunched) {
-                    message = 'Pedido atendido e entrada no estoque registrada! ✨';
+                    message += ' Há item temporário para vincular antes do recebimento.';
                 }
                 toast.success(message);
             }

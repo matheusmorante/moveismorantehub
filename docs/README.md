@@ -92,3 +92,5 @@ Registra os **fundamentos históricos e justificativas técnicas** das escolhas 
 Esta documentação é mantida sob as diretrizes do [.agents/AGENTS.md](file:///c:/Users/mathe/OneDrive/%C3%81rea%20de%20Trabalho/projetos/morantehub/.agents/AGENTS.md) e governada pela Skill [.agents/skills/modelagem-negocio-arquitetura/SKILL.md](file:///c:/Users/mathe/OneDrive/%C3%81rea%20de%20Trabalho/projetos/morantehub/.agents/skills/modelagem-negocio-arquitetura/SKILL.md).
 
 > **Regra de Ouro do Desenvolvedor/Agente**: Sempre que uma alteração de código modificar regras de negócio, contratos de API, tabelas ou fluxos de estado, atualize a documentação correspondente na mesma tarefa antes de declarar a atividade como concluída.
+
+Revisão transversal das regras de estoque, recebimentos, devoluções e schema: 14 de setembro de 2026.

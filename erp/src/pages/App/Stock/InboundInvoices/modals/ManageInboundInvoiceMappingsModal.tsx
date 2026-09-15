@@ -6,6 +6,7 @@ import { parseInboundNfeXml } from '@/pages/utils/inboundNfe/inboundXmlParser';
 import { InboundInvoice, InboundInvoiceItem } from '@/pages/utils/inboundNfe/inboundNfeTypes';
 import { fetchPersons } from '@/pages/utils/personService';
 import { saveProductSupplierCode, findProductSupplierCodes } from '@/pages/utils/productSupplierCodesService';
+import { isValidUuid } from '@/pages/utils/uuidUtils';
 import { recordProductResolutionFeedback } from '@/pages/utils/inboundNfe/productResolutionFeedbackService';
 import SupplierAutocomplete from '@/components/SupplierAutocomplete';
 import Person from '@/pages/types/person.type';
@@ -117,7 +118,7 @@ export function ManageInboundInvoiceMappingsModal({ isOpen, onClose, invoice: in
                         saveProductSupplierCode({
                             supplierId: invoice.supplierId!,
                             productId: item.matchedProductId!,
-                            productVariationId: item.matchedVariationId,
+                            productVariationId: (item.matchedVariationId && isValidUuid(item.matchedVariationId)) ? item.matchedVariationId : undefined,
                             supplierProductCode: item.productCode,
                             supplierDescription: item.productDescription,
                         })
@@ -127,8 +128,9 @@ export function ManageInboundInvoiceMappingsModal({ isOpen, onClose, invoice: in
             await Promise.all(
                 invoice.items
                     .filter((item) => item.matchedProductId)
-                    .map((item) =>
-                        recordProductResolutionFeedback({
+                    .map((item) => {
+                        const hasRealVariation = Boolean(item.matchedVariationId && isValidUuid(item.matchedVariationId));
+                        return recordProductResolutionFeedback({
                             supplierId: invoice.supplierId!,
                             supplierProductCode: item.productCode,
                             supplierCodeFamily: item.detectedSupplierCodeFamily,
@@ -140,10 +142,10 @@ export function ManageInboundInvoiceMappingsModal({ isOpen, onClose, invoice: in
                             unitCost: item.unitCost,
                             userDecision: 'accepted',
                             finalProductId: item.matchedProductId!,
-                            finalVariationId: item.matchedVariationId,
-                            relationType: item.matchedVariationId ? 'existing_variation' : 'new_product',
-                        })
-                    )
+                            finalVariationId: hasRealVariation ? item.matchedVariationId : undefined,
+                            relationType: hasRealVariation ? 'existing_variation' : 'new_product',
+                        });
+                    })
             );
 
             await saveInboundInvoice(invoice);
@@ -166,7 +168,7 @@ export function ManageInboundInvoiceMappingsModal({ isOpen, onClose, invoice: in
                         <div>
                             <h2 className="text-base font-black text-slate-800 dark:text-slate-100 flex items-center gap-2">
                                 <i className="bi bi-link-45deg text-blue-600 text-lg" />
-                                Editar Vínculos - NF-e #{invoice.nfeNumber}
+                                Gerenciar Vínculos - NF-e #{invoice.nfeNumber}
                             </h2>
                             <p className="text-xs text-slate-500">
                                 Gerencie o fornecedor e a vinculação dos produtos desta nota aos produtos do sistema.

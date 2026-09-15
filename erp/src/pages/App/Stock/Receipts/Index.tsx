@@ -7,6 +7,7 @@ import { ReceiptCard } from './components/ReceiptCard';
 import ReceiptFormModal from './ReceiptFormModal';
 import ReceiptDetailsModal from './ReceiptDetailsModal';
 import { ConfirmReverseModal } from './modals/ConfirmReverseModal';
+import { ConfirmUnreverseModal } from './modals/ConfirmUnreverseModal';
 import InboundInvoiceReceiptPickerModal from './InboundInvoiceReceiptPickerModal';
 import { PurchaseReceiptPickerModal } from './modals/PurchaseReceiptPickerModal';
 import { InboundInvoice } from '@/pages/utils/inboundNfe/inboundNfeTypes';
@@ -35,6 +36,8 @@ export default function ReceiptsPage() {
         setCustomEndDate,
         isFormOpen,
         setIsFormOpen,
+        isCopyingReceipt,
+        setIsCopyingReceipt,
         selectedReceipt,
         setSelectedReceipt,
         isDetailsOpen,
@@ -46,13 +49,19 @@ export default function ReceiptsPage() {
         reverseCandidate,
         setReverseCandidate,
         isReversing,
+        unreverseCandidate,
+        setUnreverseCandidate,
+        isUnreversing,
         handleOpenNew,
         handleOpenEdit,
+        handleCopyReceipt,
         handleOpenDetails,
         handleRowClick,
         handleDelete,
         handleReverseRequest,
-        handleConfirmReverse
+        handleConfirmReverse,
+        handleUnreverseRequest,
+        handleConfirmUnreverse
     } = useReceipts();
 
     // Pré-carrega NF-e de entrada se veio por query param da tela de Notas Fiscais de Entrada
@@ -143,7 +152,9 @@ export default function ReceiptsPage() {
                             onRowClick={handleRowClick}
                             onOpenDetails={handleOpenDetails}
                             onOpenEdit={handleOpenEdit}
+                            onCopyReceipt={handleCopyReceipt}
                             onReverseRequest={handleReverseRequest}
+                            onUnreverseRequest={handleUnreverseRequest}
                             onDelete={handleDelete}
                         />
 
@@ -156,8 +167,10 @@ export default function ReceiptsPage() {
                                         receipt={receipt}
                                         onClick={handleRowClick}
                                         onEdit={handleOpenEdit}
+                                        onCopyReceipt={handleCopyReceipt}
                                         onDelete={handleDelete}
                                         onReverse={handleReverseRequest}
+                                        onUnreverse={handleUnreverseRequest}
                                         onViewDetails={handleOpenDetails}
                                     />
                                 ))}
@@ -171,11 +184,13 @@ export default function ReceiptsPage() {
                 isOpen={isFormOpen}
                 onClose={() => {
                     setIsFormOpen(false);
+                    setIsCopyingReceipt(false);
                     setSelectedReceipt(null);
                     setSelectedInboundInvoice(null);
                     setSelectedPurchase(null);
                 }}
                 initialReceipt={selectedReceipt}
+                copyReceipt={isCopyingReceipt}
                 initialInboundInvoice={selectedInboundInvoice}
                 initialPurchase={selectedPurchase}
             />
@@ -184,7 +199,6 @@ export default function ReceiptsPage() {
                 isOpen={isDetailsOpen}
                 onClose={() => { setIsDetailsOpen(false); setDetailsReceipt(null); }}
                 receipt={detailsReceipt}
-                onReverse={(receipt) => handleReverseRequest(null, receipt)}
             />
 
             <ConfirmReverseModal
@@ -193,6 +207,14 @@ export default function ReceiptsPage() {
                 onConfirm={handleConfirmReverse}
                 receipt={reverseCandidate}
                 isProcessing={isReversing}
+            />
+
+            <ConfirmUnreverseModal
+                isOpen={Boolean(unreverseCandidate)}
+                onClose={() => setUnreverseCandidate(null)}
+                onConfirm={handleConfirmUnreverse}
+                receipt={unreverseCandidate}
+                isProcessing={isUnreversing}
             />
 
             <InboundInvoiceReceiptPickerModal

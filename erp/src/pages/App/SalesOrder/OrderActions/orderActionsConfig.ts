@@ -453,9 +453,9 @@ export const buttons: OrderButton[] = [
         key: "undoReturn",
         icon: "bi-arrow-counterclockwise",
         action: "UNDO_RETURN",
-        label: (order: Order) => order?.status === 'fulfilled' ? "Estornar Devolução" : "Cancelar Devolução",
+        label: (order: Order) => (order?.status === 'fulfilled' || order?.orderType === 'return') ? "Desfazer Devolução" : "Cancelar Devolução",
         color: "text-red-600 hover:bg-red-50",
-        tooltip: "Cancelar ou estornar a devolução e suas movimentações de estoque",
+        tooltip: "Desfazer ou estornar a devolução e suas movimentações de estoque",
         orderTypes: ['sale', 'showroom', 'return']
     },
     {

@@ -30,6 +30,7 @@ const EMPTY_SCHEDULING: Shipping["scheduling"] = {
 
 const ReturnOrderModal = ({ order, onClose, onSuccess }: Props) => {
     const [quantities, setQuantities] = useState<Record<string, number>>({});
+    const [returnUnitPrices, setReturnUnitPrices] = useState<Record<string, number>>({});
     const [collectAtAddress, setCollectAtAddress] = useState<boolean | null>(null);
     const [scheduling, setScheduling] = useState<Shipping["scheduling"]>(EMPTY_SCHEDULING);
     const [observations, setObservations] = useState<string[]>([]);
@@ -46,39 +47,125 @@ const ReturnOrderModal = ({ order, onClose, onSuccess }: Props) => {
         return () => window.removeEventListener("keydown", handleKeyDown);
     }, [onClose]);
 
-    const selectedTotal = order.items.reduce((total, item) => total + ((quantities[item.productId || item.description] || 0) * item.unitPrice), 0);
+    const selectedTotal = order.items.reduce((total, item) => {
+        const itemId = item.productId || item.description;
+        const qty = quantities[itemId] || 0;
+        const unitPrice = returnUnitPrices[itemId] !== undefined ? returnUnitPrices[itemId] : item.unitPrice;
+        return total + (qty * unitPrice);
+    }, 0);
 
-    const toggleItem = (id: string, max: number) => setQuantities((current) => current[id] ? Object.fromEntries(Object.entries(current).filter(([key]) => key !== id)) : { ...current, [id]: max });
-    const updateQuantity = (id: string, quantity: number, max: number) => setQuantities((current) => ({ ...current, [id]: Math.max(1, Math.min(quantity, max)) }));
+    const toggleItem = (id: string, max: number, defaultUnitPrice: number) => {
+        setQuantities((current) => {
+            if (current[id]) {
+                const next = { ...current };
+                delete next[id];
+                return next;
+            }
+            return { ...current, [id]: max };
+        });
+        setReturnUnitPrices((current) => {
+            if (current[id] !== undefined) {
+                const next = { ...current };
+                delete next[id];
+                return next;
+            }
+            return { ...current, [id]: defaultUnitPrice };
+        });
+    };
+
+    const updateQuantity = (id: string, quantity: number, max: number) =>
+        setQuantities((current) => ({ ...current, [id]: Math.max(1, Math.min(quantity, max)) }));
+
+    const updateUnitPrice = (id: string, unitPrice: number) =>
+        setReturnUnitPrices((current) => ({ ...current, [id]: Math.max(0, unitPrice) }));
+
     const generateReturn = async () => {
         if (!Object.keys(quantities).length) return toast.warning("Selecione pelo menos um item para devolver.");
         if (collectAtAddress === null) return toast.warning("Informe se a devolução foi entregue na loja ou se será coletada no endereço.");
-        const items = order.items.reduce<Item[]>((selected, item) => { const quantity = quantities[item.productId || item.description]; return quantity ? [...selected, { ...item, quantity }] : selected; }, []);
-        const total = items.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0);
+
+        const items = order.items.reduce<Item[]>((selected, item) => {
+            const itemId = item.productId || item.description;
+            const quantity = quantities[itemId];
+            if (!quantity) return selected;
+
+            const returnedUnitPrice = returnUnitPrices[itemId] !== undefined ? returnUnitPrices[itemId] : item.unitPrice;
+            const returnedTotalValue = quantity * returnedUnitPrice;
+            const originalUnitPrice = item.unitPrice;
+            const originalTotalValue = quantity * originalUnitPrice;
+
+            return [...selected, {
+                ...item,
+                quantity,
+                returnedQuantity: quantity,
+                unitPrice: returnedUnitPrice,
+                returnedUnitPrice,
+                returnedTotalValue,
+                originalUnitPrice,
+                originalTotalValue,
+            }];
+        }, []);
+
+        const total = items.reduce((sum, item) => sum + (item.returnedTotalValue ?? item.quantity * item.unitPrice), 0);
+        const originalSoldTotal = items.reduce((sum, item) => sum + (item.originalTotalValue ?? item.quantity * (item.originalUnitPrice ?? item.unitPrice)), 0);
         const isCompleteReturn = order.items.every((item) =>
             (quantities[item.productId || item.description] || 0) >= item.quantity
         );
+
         const returnOrder: Order = {
-            ...order, id: undefined, orderIndex: undefined, orderNumber: undefined, orderType: "return", status: collectAtAddress ? "scheduled" : "fulfilled", returnStockProcessed: false, date: dateNow(), items, linkedOrderId: order.id, linkedOrderCode: formatOrderCode(order),
-            observation: `Devolução vinculada ao pedido #${formatOrderCode(order)}. ${order.observation || ""}`, collectionObservation: collectAtAddress ? observations.join("\n") : undefined,
-            itemsSummary: { totalQuantity: items.reduce((sum, item) => sum + item.quantity, 0), itemsSubtotal: total, totalFixedDiscount: 0, itemsTotalValue: total, totalItemsCost: items.reduce((sum, item) => sum + item.quantity * (item.costPrice || 0), 0) },
-            shipping: { ...order.shipping, deliveryMethod: collectAtAddress ? order.shipping.deliveryMethod : "pickup", scheduling: collectAtAddress ? scheduling : EMPTY_SCHEDULING }, payments: [], paymentsSummary: { totalPaymentsFee: 0, totalOrderValue: total, totalPaid: 0, totalAmountPaid: 0, amountRemaining: total }
+            ...order,
+            id: undefined,
+            orderIndex: undefined,
+            orderNumber: undefined,
+            orderType: "return",
+            status: collectAtAddress ? "scheduled" : "fulfilled",
+            returnStockProcessed: false,
+            date: dateNow(),
+            items,
+            linkedOrderId: order.id,
+            linkedOrderCode: formatOrderCode(order),
+            returnedTotalAmount: total,
+            originalSoldTotal: originalSoldTotal,
+            returnKind: isCompleteReturn ? 'complete' : 'partial',
+            observation: `Devolução vinculada ao pedido #${formatOrderCode(order)}. ${order.observation || ""}`,
+            collectionObservation: collectAtAddress ? observations.join("\n") : undefined,
+            itemsSummary: {
+                totalQuantity: items.reduce((sum, item) => sum + item.quantity, 0),
+                itemsSubtotal: total,
+                totalFixedDiscount: 0,
+                itemsTotalValue: total,
+                totalItemsCost: items.reduce((sum, item) => sum + item.quantity * (item.costPrice || 0), 0)
+            },
+            shipping: {
+                ...order.shipping,
+                deliveryMethod: collectAtAddress ? order.shipping.deliveryMethod : "pickup",
+                scheduling: collectAtAddress ? scheduling : EMPTY_SCHEDULING
+            },
+            payments: [],
+            paymentsSummary: {
+                totalPaymentsFee: 0,
+                totalOrderValue: total,
+                totalPaid: 0,
+                totalAmountPaid: 0,
+                amountRemaining: total
+            }
         };
+
         setSubmitting(true);
         try {
             const id = await saveOrder(returnOrder);
             await updateOrder(order.id!, {
                 returnOrderId: id,
                 returnKind: isCompleteReturn ? 'complete' : 'partial',
+                returnedTotalAmount: total,
             }, order);
             toast.success("Pedido de devolução gerado com sucesso!");
             onSuccess(id);
-        }
-        catch (error: unknown) {
+        } catch (error: unknown) {
             console.error("Erro ao gerar devolução:", error);
             toast.error("Erro ao processar devolução.");
+        } finally {
+            setSubmitting(false);
         }
-        finally { setSubmitting(false); }
     };
 
     return (
@@ -113,7 +200,14 @@ const ReturnOrderModal = ({ order, onClose, onSuccess }: Props) => {
                 <div className="custom-scrollbar flex-1 space-y-6 overflow-y-auto p-6">
                     <ReturnFormTabs activeTab={activeTab} onChange={setActiveTab} />
                     {activeTab === "items" ? (
-                        <ReturnItemsSelection order={order} quantities={quantities} onToggle={toggleItem} onQuantityChange={updateQuantity} />
+                        <ReturnItemsSelection
+                            order={order}
+                            quantities={quantities}
+                            returnUnitPrices={returnUnitPrices}
+                            onToggle={toggleItem}
+                            onQuantityChange={updateQuantity}
+                            onUnitPriceChange={updateUnitPrice}
+                        />
                     ) : (
                         <ReturnCollectionSection collectAtAddress={collectAtAddress} onCollectChange={setCollectAtAddress} scheduling={scheduling} onSchedulingChange={(key, value) => setScheduling((current) => ({ ...current, [key]: value }))} observations={observations} onObservationsChange={setObservations} />
                     )}

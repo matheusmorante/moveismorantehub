@@ -280,12 +280,19 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, initialTab, o
         }
     }, [formData.costPrice, formData.ipiPercent, formData.ipiType, formData.freightCost, formData.freightType]);
 
-    // Sync variation prices/costs/promo (Parent -> Children)
+    // Mantém, apenas no estado do formulário, todos os campos que a variação
+    // declarou como herdados. A persistência continua acontecendo só no salvar.
     useEffect(() => {
         if (formData.variations?.length) {
             const nextVariations = formData.variations.map(v => {
                 let updated = false;
                 const newV = { ...v };
+                const inherit = <K extends keyof typeof newV>(field: K, enabled: boolean, value: typeof newV[K]) => {
+                    if (enabled && newV[field] !== value) {
+                        newV[field] = value;
+                        updated = true;
+                    }
+                };
                 if (v.syncUnitPrice && v.unitPrice !== formData.unitPrice) {
                     newV.unitPrice = formData.unitPrice || 0;
                     updated = true;
@@ -298,13 +305,23 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, initialTab, o
                     newV.promoPrice = formData.promoPrice;
                     updated = true;
                 }
+                inherit('description', Boolean(v.syncDescription), formData.description);
+                inherit('width', Boolean(v.syncWidth), formData.width);
+                inherit('height', Boolean(v.syncHeight), formData.height);
+                inherit('depth', Boolean(v.syncDepth), formData.depth);
+                inherit('weight', Boolean(v.syncWeight), formData.weight);
+                inherit('condition', Boolean(v.syncCondition), formData.condition);
+                if (v.syncFiscal && JSON.stringify(v.fiscal || {}) !== JSON.stringify(formData.fiscal || {})) {
+                    newV.fiscal = formData.fiscal ? { ...formData.fiscal } : undefined;
+                    updated = true;
+                }
                 return updated ? newV : v;
             });
             if (JSON.stringify(nextVariations) !== JSON.stringify(formData.variations)) {
                 setFormData(prev => ({ ...prev, variations: nextVariations }));
             }
         }
-    }, [formData.unitPrice, formData.costPrice, formData.promoPrice]);
+    }, [formData.unitPrice, formData.costPrice, formData.promoPrice, formData.description, formData.width, formData.height, formData.depth, formData.weight, formData.condition, formData.fiscal]);
 
     // Sync variation aggregates (Children -> Parent)
     useEffect(() => {
@@ -400,12 +417,6 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, initialTab, o
             if (!enteredName) return false;
         }
 
-        const ecomVal = checkEcomLegibility(formData);
-        if (formData.status === 'published' && !ecomVal.isLegible) {
-            toast.error("Despublique o Catálogo antes de remover ou alterar um campo obrigatório.");
-            return false;
-        }
-
         setLoading(true);
         try {
             const enteredName = getEnteredProductName(formData);
@@ -413,18 +424,20 @@ const ProductFormModal = ({ isOpen, onClose, product, initialData, initialTab, o
             let targetCatalogStatus = formData.status;
             if (actualSaveAsDraft) {
                 targetCatalogStatus = 'draft';
-            } else if (!ecomVal.isLegible && formData.status === 'published') {
-                targetCatalogStatus = 'hidden';
             } else if (isProductCreation && (!formData.status || formData.status === 'draft')) {
                 // Ao cadastrar, o produto não deve ser publicado automaticamente no Catálogo Digital
                 targetCatalogStatus = 'hidden';
             }
 
+            const hasActiveVariations = Boolean(formData.hasVariations) && Array.isArray(formData.variations) && formData.variations.length > 0
+                ? formData.variations.some(v => v.active !== false)
+                : (formData.active !== undefined ? formData.active : true);
+
             const normalizedData = { 
                 ...formData, 
                 name: enteredName || formData.name || 'Produto',
                 isDraft: actualSaveAsDraft,
-                active: actualSaveAsDraft ? false : (formData.active !== undefined ? formData.active : true),
+                active: actualSaveAsDraft ? false : hasActiveVariations,
                 status: targetCatalogStatus
             } as Product;
 

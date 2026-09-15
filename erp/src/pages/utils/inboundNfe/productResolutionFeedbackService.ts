@@ -1,4 +1,5 @@
 import { supabase } from '../supabaseConfig';
+import { isValidUuid } from '../uuidUtils';
 
 export const PRODUCT_RESOLUTION_DECISIONS = ['accepted', 'rejected', 'corrected'] as const;
 export const PRODUCT_RESOLUTION_RELATIONS = ['existing_variation', 'new_variation', 'same_nf_product_family', 'new_product', 'different_parent_products'] as const;
@@ -39,6 +40,8 @@ export function validateProductResolutionFeedback(input: ProductResolutionFeedba
 
 export async function recordProductResolutionFeedback(input: ProductResolutionFeedbackInput): Promise<void> {
     validateProductResolutionFeedback(input);
+    const finalProductId = clean(input.finalProductId);
+    const finalVariationId = clean(input.finalVariationId);
     const { error } = await supabase.from('product_resolution_feedback').insert({
         supplier_id: clean(input.supplierId),
         supplier_product_code: normalizeCode(input.supplierProductCode) || null,
@@ -49,8 +52,8 @@ export async function recordProductResolutionFeedback(input: ProductResolutionFe
         unit_cost: Number.isFinite(input.unitCost) ? input.unitCost : null,
         ai_suggestion: input.aiSuggestion || {},
         user_decision: input.userDecision,
-        final_product_id: clean(input.finalProductId) || null,
-        final_variation_id: clean(input.finalVariationId) || null,
+        final_product_id: (finalProductId && isValidUuid(finalProductId)) ? finalProductId : null,
+        final_variation_id: (finalVariationId && isValidUuid(finalVariationId)) ? finalVariationId : null,
         relation_type: input.relationType,
     });
     if (error) throw error;

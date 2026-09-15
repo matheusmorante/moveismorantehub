@@ -1,6 +1,6 @@
 import React from "react";
 import { createPortal } from "react-dom";
-import { Package, PackageCheck, PackageMinus, PackageX, X } from "lucide-react";
+import { Check, Package, PackageMinus, PackagePlus, PackageX, X } from "lucide-react";
 import Order from "../../../types/order.type";
 import { InventoryBadgeContentResult, ItemMovementDisplay, getOrderItemsMovementList } from "./inventoryBadgeContent";
 
@@ -104,15 +104,18 @@ export const InventoryBadgePopover = ({
             {/* Cabeçalho do Popover */}
             <div className="flex items-start justify-between gap-2.5 shrink-0">
                 <div className="flex items-center gap-2.5">
-                    <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-xl ${content.badgeColorClass}`}>
-                        {isPartialReturn || isFullReturn ? (
-                            <PackageMinus className="h-4 w-4" />
-                        ) : isReversed ? (
+                    <div className={`relative flex h-8 w-8 shrink-0 items-center justify-center rounded-xl ${content.badgeColorClass}`}>
+                        {isReversed ? (
                             <PackageX className="h-4 w-4" />
-                        ) : hasMovement ? (
-                            <PackageCheck className="h-4 w-4" />
+                        ) : isReturn ? (
+                            <PackagePlus className="h-4 w-4" />
                         ) : (
-                            <Package className="h-4 w-4" />
+                            <PackageMinus className="h-4 w-4" />
+                        )}
+                        {hasMovement && !isReversed && (
+                            <span className="absolute -top-1 -right-1 flex h-3 w-3 items-center justify-center rounded-full bg-emerald-800 text-white shadow-2xs ring-1 ring-white dark:ring-slate-900 pointer-events-none">
+                                <Check className="h-2 w-2 stroke-[3]" />
+                            </span>
                         )}
                     </div>
                     <div>

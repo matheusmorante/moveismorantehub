@@ -46,6 +46,36 @@ export function useVariationForm({
         }
     }, [formData?.name, diferenciarTitulo]);
 
+    // Atualiza a cópia de trabalho da variação enquanto o pai é editado. Isso
+    // preserva a prévia correta ao alternar de "Herdado" para "Manual", sem
+    // persistir a alteração fora do fluxo normal de salvar.
+    useEffect(() => {
+        setFormData(previous => {
+            if (!previous) return previous;
+            const next = { ...previous };
+            let changed = false;
+            const inherit = <K extends keyof Variation>(field: K, enabled: boolean, value: Variation[K]) => {
+                if (enabled && next[field] !== value) {
+                    next[field] = value;
+                    changed = true;
+                }
+            };
+            inherit('unitPrice', Boolean(previous.syncUnitPrice), parentProduct.unitPrice || 0);
+            inherit('promoPrice', previous.syncPromoPrice !== false && Boolean(previous.syncUnitPrice), parentProduct.promoPrice);
+            inherit('costPrice', Boolean(previous.syncCostPrice), parentProduct.costPrice || 0);
+            inherit('description', Boolean(previous.syncDescription), parentProduct.description);
+            inherit('width', Boolean(previous.syncWidth), parentProduct.width);
+            inherit('height', Boolean(previous.syncHeight), parentProduct.height);
+            inherit('depth', Boolean(previous.syncDepth), parentProduct.depth);
+            inherit('weight', Boolean(previous.syncWeight), parentProduct.weight);
+            if (previous.syncFiscal && JSON.stringify(previous.fiscal || {}) !== JSON.stringify(parentProduct.fiscal || {})) {
+                next.fiscal = parentProduct.fiscal ? { ...parentProduct.fiscal } : undefined;
+                changed = true;
+            }
+            return changed ? next : previous;
+        });
+    }, [parentProduct.unitPrice, parentProduct.promoPrice, parentProduct.costPrice, parentProduct.description, parentProduct.width, parentProduct.height, parentProduct.depth, parentProduct.weight, parentProduct.fiscal]);
+
     const getParentDiscountPercent = () => {
         const orig = parentProduct?.unitPrice || 0;
         const promo = parentProduct?.promoPrice || 0;

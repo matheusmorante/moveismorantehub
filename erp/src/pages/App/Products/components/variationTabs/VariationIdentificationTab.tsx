@@ -1,8 +1,9 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import Product, { Variation } from '../../../../types/product.type';
 import { computeVariationName } from '@/pages/utils/productVariationDefaults';
 import { toTitleCase } from '@/pages/utils/textUtils';
 import { toast } from 'react-toastify';
+import { VariationAttributeValueInput } from './VariationAttributeValueInput';
 
 export interface DbAttributeItem {
     readonly id: string;
@@ -26,6 +27,7 @@ interface VariationIdentificationTabProps {
     readonly setIsManageAttributesOpen: (open: boolean) => void;
     readonly getDefaultVariationName: (attributes?: Variation['attributes']) => string;
     readonly getDefaultVariationTitle: (attributes?: Variation['attributes']) => string;
+    readonly fetchDbAttributes?: () => Promise<void>;
 }
 
 export const VariationIdentificationTab: React.FC<VariationIdentificationTabProps> = ({
@@ -38,8 +40,25 @@ export const VariationIdentificationTab: React.FC<VariationIdentificationTabProp
     dbAttributeValues,
     setIsManageAttributesOpen,
     getDefaultVariationName,
-    getDefaultVariationTitle
+    getDefaultVariationTitle,
+    fetchDbAttributes
 }) => {
+    const [localAttributeValues, setLocalAttributeValues] = useState<readonly DbAttributeValueItem[]>(dbAttributeValues);
+
+    useEffect(() => {
+        setLocalAttributeValues(dbAttributeValues);
+    }, [dbAttributeValues]);
+
+    const updateAttributeValue = (index: number, value: string) => {
+        setFormData(prev => {
+            if (!prev) return null;
+            const updated = [...prev.attributes];
+            updated[index] = { ...updated[index], value };
+            const autoName = getDefaultVariationName(updated);
+            const autoTitle = getDefaultVariationTitle(updated);
+            return { ...prev, attributes: updated, name: autoName, title: autoTitle, marketplaceTitle: autoTitle };
+        });
+    };
 
     return (
         <div className="space-y-6 animate-in fade-in duration-350">
@@ -151,10 +170,10 @@ export const VariationIdentificationTab: React.FC<VariationIdentificationTabProp
                     <div className="space-y-3">
                         {(formData.attributes || []).map((attr, idx) => {
                             const currentAttr = dbAttributes.find(a => a.name === attr.name);
-                            const attrVals = currentAttr ? dbAttributeValues.filter(val => val.attribute_id === currentAttr.id) : [];
+                            const attrVals = currentAttr ? localAttributeValues.filter(val => val.attribute_id === currentAttr.id) : [];
 
                             return (
-                                <div key={idx} className="flex items-end gap-3 animate-in fade-in duration-200">
+                                <div key={idx} className="flex items-start gap-3 animate-in fade-in duration-200">
                                     <div className="flex-1 space-y-1">
                                         <label className="text-[9px] text-slate-400 font-bold uppercase">Atributo</label>
                                         <select
@@ -185,61 +204,17 @@ export const VariationIdentificationTab: React.FC<VariationIdentificationTabProp
                                         </select>
                                     </div>
 
-                                    <div className="flex-1 space-y-1">
-                                        <label className="text-[9px] text-slate-400 font-bold uppercase">Valor</label>
-                                        {attrVals.length > 0 ? (
-                                            <select
-                                                value={attr.value}
-                                                onChange={e => {
-                                                    const newVal = e.target.value;
-                                                    setFormData(prev => {
-                                                        if (!prev) return null;
-                                                        const updated = [...prev.attributes];
-                                                        updated[idx] = { ...updated[idx], value: newVal };
-                                                        const autoName = getDefaultVariationName(updated);
-                                                        const autoTitle = getDefaultVariationTitle(updated);
-                                                        return { 
-                                                            ...prev, 
-                                                            attributes: updated, 
-                                                            name: autoName,
-                                                            title: autoTitle,
-                                                            marketplaceTitle: autoTitle
-                                                        };
-                                                    });
-                                                }}
-                                                className="w-full bg-transparent border-b-2 border-t-0 border-x-0 border-slate-200 dark:border-slate-800 outline-none px-1 py-2 text-xs font-bold text-slate-800 dark:text-slate-200 focus:border-blue-600 dark:focus:border-blue-400 transition-all"
-                                            >
-                                                <option value="">Selecione o valor...</option>
-                                                {attrVals.map(v => (
-                                                    <option key={v.id} value={v.value}>{v.value}</option>
-                                                ))}
-                                            </select>
-                                        ) : (
-                                            <input
-                                                type="text"
-                                                placeholder="Ex: Vermelho, G..."
-                                                value={attr.value}
-                                                onChange={e => {
-                                                    const newVal = e.target.value;
-                                                    setFormData(prev => {
-                                                        if (!prev) return null;
-                                                        const updated = [...prev.attributes];
-                                                        updated[idx] = { ...updated[idx], value: newVal };
-                                                        const autoName = getDefaultVariationName(updated);
-                                                        const autoTitle = getDefaultVariationTitle(updated);
-                                                        return { 
-                                                            ...prev, 
-                                                            attributes: updated, 
-                                                            name: autoName,
-                                                            title: autoTitle,
-                                                            marketplaceTitle: autoTitle
-                                                        };
-                                                    });
-                                                }}
-                                                className="w-full bg-transparent border-b-2 border-t-0 border-x-0 border-slate-200 dark:border-slate-800 outline-none px-1 py-2 text-xs font-bold text-slate-800 dark:text-slate-200 focus:border-blue-600 dark:focus:border-blue-400 transition-all"
-                                            />
-                                        )}
-                                    </div>
+                                    <VariationAttributeValueInput
+                                        attributeId={currentAttr?.id}
+                                        attributeName={currentAttr?.name || attr.name}
+                                        value={attr.value}
+                                        registeredValues={attrVals}
+                                        onChange={(newVal) => updateAttributeValue(idx, newVal)}
+                                        onValueRegistered={(newVal) => {
+                                            setLocalAttributeValues((prev) => [...prev, newVal]);
+                                            void fetchDbAttributes?.();
+                                        }}
+                                    />
 
                                     <button
                                         type="button"

@@ -1,22 +1,11 @@
-# Desfazer e Estorno de Devolução — Morante Hub
+# Estorno de Devolução — Morante Hub
 
-Este documento descreve as regras de reversão de devoluções no Morante Hub, incluindo os mecanismos de proteção e o timer de segurança de 5 segundos.
+A ação de cancelamento preserva o pedido de devolução e marca suas entradas de estoque como `reversed`. Para devolução agendada a interface apresenta **Cancelar devolução**; para devolução atendida apresenta **Estornar devolução**. Ambas exigem confirmação protegida por contagem regressiva de cinco segundos.
 
----
+Ao confirmar, o sistema localiza a devolução vinculada, estorna suas movimentações de estoque relacionadas, atualiza o pedido como cancelado e remove o vínculo de retorno da venda original quando ele existir. Não é criada uma saída duplicada nem a venda original é excluída.
 
-## ⏱️ Trava de Segurança e Reversão
+## Implementação e teste
 
-1. **Modal de Confirmação com Timer de 5 Segundos**:
-   - Acionar a opção "Desfazer Devolução" abre um modal de confirmação com um timer regressivo obrigatório de 5 segundos.
-   - O botão de confirmação permanece bloqueado até o término da contagem, prevenindo acionamentos acidentais por duplo clique.
-2. **Efeito Compensatório no Estoque**:
-   - O estorno da devolução gera uma saída compensatória deduzindo a quantidade que havia entrado pela devolução, restaurando o saldo exatamente ao estado anterior.
-3. **Cancelamento do Crédito Financeiro**:
-   - Estorna os lançamentos de crédito gerados pela devolução no módulo financeiro.
-
----
-
-## 🔗 Mapeamento em Código e Testes
-
-- **Operação de Reversão**: `[orderLifecycleOperations.ts](file:///c:/Users/mathe/OneDrive/%C3%81rea%20de%20Trabalho/projetos/morantehub/erp/src/pages/utils/orderLifecycleOperations.ts)` → `undoReturn()`
-- **Testes de Proteção**: `[divergenciasCorrecao.test.ts](file:///c:/Users/mathe/OneDrive/%C3%81rea%20de%20Trabalho/projetos/morantehub/erp/src/pages/utils/divergenciasCorrecao.test.ts)`
+- [undoReturn](../../../erp/src/pages/utils/orderLifecycleOperations.ts)
+- [Teste de regressão](../../../erp/src/pages/utils/orderLifecycleOperations.undoReturn.test.ts)
+- [Reversão de estoque](../../../erp/src/pages/utils/inventoryService/inventoryReversalService.ts)

@@ -98,6 +98,9 @@ export const buildOrderPersistencePayload = (order: Order) => {
     const deletedAt = order.deletedAt ? new Date(order.deletedAt).toISOString() : null;
     const returnOrderId = (order as any).returnOrderId || null;
     const linkedOrderId = (order as any).linkedOrderId || null;
+    const returnedTotalAmount = order.returnedTotalAmount ?? null;
+    const originalSoldTotal = order.originalSoldTotal ?? null;
+    const returnKind = order.returnKind || null;
 
     return {
         order_data: order,
@@ -127,6 +130,9 @@ export const buildOrderPersistencePayload = (order: Order) => {
         deleted_at: deletedAt,
         return_order_id: returnOrderId,
         linked_order_id: linkedOrderId,
+        returned_total_amount: returnedTotalAmount,
+        original_sold_total: originalSoldTotal,
+        return_kind: returnKind,
         updated_at: new Date().toISOString()
     };
 };

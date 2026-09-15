@@ -5,10 +5,10 @@ const Suppliers = () => (
         title="Fornecedores"
         subtitle=""
         newLabel="Novo Fornecedor"
-        newIcon="bi bi-truck"
+        newIcon="bi bi-plus-lg"
         collectionName="suppliers"
         storageKey="suppliers_table"
-        canImport={true}
+        canImport={false}
     />
 );
 

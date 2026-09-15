@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import InventoryMove from '../../../types/inventoryMove.type';
+import { PackageMinus, PackagePlus, Scale } from 'lucide-react';
+import type InventoryMove from '@/pages/types/inventoryMove.type';
 import { updateInventoryMove } from '@/pages/utils/inventoryService';
 import { toast } from 'react-toastify';
 
@@ -149,14 +150,11 @@ export const InventoryMoveEditModal: React.FC<InventoryMoveEditModalProps> = ({
                                 }`}
                             >
                                 {t === 'entry' ? (
-                                    <i className="bi bi-box-arrow-up text-sm" aria-hidden="true" />
+                                    <PackagePlus className="h-5 w-5" aria-hidden="true" />
                                 ) : t === 'withdrawal' ? (
-                                    <i className="bi bi-box-arrow-down text-sm" aria-hidden="true" />
+                                    <PackageMinus className="h-5 w-5" aria-hidden="true" />
                                 ) : (
-                                    <span className="inline-flex items-center gap-0.5">
-                                        <i className="bi bi-box-seam text-sm" aria-hidden="true" />
-                                        <i className="bi bi-wrench text-[10px]" aria-hidden="true" />
-                                    </span>
+                                    <Scale className="h-5 w-5" aria-hidden="true" />
                                 )}
                                 <span className="text-[9px] font-black uppercase tracking-wider">
                                     {t === 'entry' ? 'Entrada' : t === 'withdrawal' ? 'Saída' : 'Ajuste'}

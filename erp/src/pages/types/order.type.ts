@@ -54,6 +54,10 @@ export type Order = {
     returnStockProcessed?: boolean,
     stockReversed?: boolean,
     returnStockReversed?: boolean,
+    /** Valor total financeiro da devolução */
+    returnedTotalAmount?: number,
+    /** Valor total original vendido dos itens da devolução */
+    originalSoldTotal?: number,
     /** Estado da entrada de estoque do pedido de devolução vinculado. Usado apenas para consulta na venda original. */
     linkedReturnMovement?: {
         status?: string,

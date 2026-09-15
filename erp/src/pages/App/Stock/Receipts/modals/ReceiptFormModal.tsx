@@ -26,6 +26,7 @@ interface ReceiptFormModalProps {
     readonly isOpen: boolean;
     readonly onClose: () => void;
     readonly initialReceipt?: GoodsReceipt | null;
+    readonly copyReceipt?: boolean;
     readonly initialInboundInvoice?: InboundInvoice | null;
     readonly initialPurchase?: Purchase | null;
 }
@@ -34,12 +35,14 @@ export function ReceiptFormModal({
     isOpen,
     onClose,
     initialReceipt,
+    copyReceipt = false,
     initialInboundInvoice,
     initialPurchase
 }: ReceiptFormModalProps) {
     const [suppliers, setSuppliers] = useState<Person[]>([]);
     const [draftId, setDraftId] = useState<string>('');
     const [receiptIndex, setReceiptIndex] = useState<number | undefined>(undefined);
+    const [sourcePurchaseId, setSourcePurchaseId] = useState<string>('');
     const [supplierId, setSupplierId] = useState<string>('');
     const [items, setItems] = useState<PurchaseItem[]>([]);
     const [inboundItems, setInboundItems] = useState<InboundReceiptItem[] | null>(null);
@@ -83,10 +86,11 @@ export function ReceiptFormModal({
     useEffect(() => {
         if (!isOpen) return;
         if (initialReceipt) {
-            setDraftId(initialReceipt.id);
-            setReceiptIndex(initialReceipt.receiptIndex);
+            setDraftId(copyReceipt ? '' : initialReceipt.id);
+            setReceiptIndex(copyReceipt ? undefined : initialReceipt.receiptIndex);
+            setSourcePurchaseId(copyReceipt ? '' : initialReceipt.purchaseId || '');
             setSupplierId(initialReceipt.supplierId || '');
-            setItems(initialReceipt.items || []);
+            setItems(initialReceipt.items.map(({ inventoryMoveId: _inventoryMoveId, ...item }) => ({ ...item })));
             setInboundItems(null);
             setIpiPercent(initialReceipt.ipiPercent || 0);
             setFreightPercent(initialReceipt.freightPercent || 0);
@@ -100,16 +104,17 @@ export function ReceiptFormModal({
             setFiscalFreight(initialReceipt.fiscalFreight || 0);
             setFiscalDiscount(initialReceipt.fiscalDiscount || 0);
             setFiscalOtherExpenses(initialReceipt.fiscalOtherExpenses || 0);
-            setReceiptDate(initialReceipt.receivedAt ? initialReceipt.receivedAt.slice(0, 10) : new Date().toISOString().slice(0, 10));
+            setReceiptDate(copyReceipt ? new Date().toISOString().slice(0, 10) : (initialReceipt.receivedAt ? initialReceipt.receivedAt.slice(0, 10) : new Date().toISOString().slice(0, 10)));
             setInvoiceNumber(initialReceipt.invoiceNumber || '');
             setInvoiceDate(initialReceipt.invoiceDate || '');
             setFiscalKey(initialReceipt.fiscalKey || '');
             setAttachments(initialReceipt.attachments || []);
             setObservations(initialReceipt.observation ? initialReceipt.observation.split('\n').map((s) => s.trim()).filter(Boolean) : []);
-            setIsDraftSaved(initialReceipt.isDraft);
+            setIsDraftSaved(copyReceipt ? false : initialReceipt.isDraft);
         } else if (initialPurchase) {
             setDraftId('');
             setReceiptIndex(undefined);
+            setSourcePurchaseId(initialPurchase.id || '');
             applyPurchase(initialPurchase);
             setInboundItems(null);
             setReceiptDate(new Date().toISOString().slice(0, 10));
@@ -128,6 +133,7 @@ export function ReceiptFormModal({
         } else if (initialInboundInvoice) {
             setDraftId('');
             setReceiptIndex(undefined);
+            setSourcePurchaseId('');
             setSupplierId('');
             setObservations([]);
             setNonFiscalDiscountMode('percent');
@@ -140,6 +146,7 @@ export function ReceiptFormModal({
         } else {
             setDraftId('');
             setReceiptIndex(undefined);
+            setSourcePurchaseId('');
             setSupplierId('');
             setItems([]);
             setIpiPercent(0);
@@ -164,7 +171,7 @@ export function ReceiptFormModal({
             setIsDraftSaved(false);
         }
         return subscribeToPeople('suppliers', (data) => setSuppliers(data.filter((person) => !person.deleted && person.type === 'suppliers')));
-    }, [isOpen, initialReceipt, initialInboundInvoice, initialPurchase]);
+    }, [isOpen, initialReceipt, copyReceipt, initialInboundInvoice, initialPurchase]);
 
     const processedItems = calculateReceiptItems(items, {
         fallbackIpiPercent: ipiPercent,
@@ -206,7 +213,8 @@ export function ReceiptFormModal({
                 const currentSupplier = suppliers.find((p) => p.id === supplierId);
                 const savedDraft = await saveGoodsReceiptDraft({
                     id: draftId || undefined,
-                    receiptIndex: receiptIndex || initialReceipt?.receiptIndex,
+                    receiptIndex: receiptIndex || (copyReceipt ? undefined : initialReceipt?.receiptIndex),
+                    purchaseId: sourcePurchaseId || undefined,
                     supplierId,
                     supplierName: currentSupplier?.fullName || 'Fornecedor',
                     receivedAt: new Date(`${receiptDate}T12:00:00`).toISOString(),
@@ -241,7 +249,7 @@ export function ReceiptFormModal({
         return () => {
             if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
         };
-    }, [isOpen, supplierId, items, inboundItems, draftId, receiptIndex, ipiPercent, freightPercent, nonFiscalDiscountMode, nonFiscalDiscountValue, nonFiscalFreightMode, nonFiscalFreightValue, nonFiscalOtherExpensesMode, nonFiscalOtherExpensesValue, fiscalIpi, fiscalFreight, fiscalDiscount, fiscalOtherExpenses, receiptDate, invoiceNumber, invoiceDate, fiscalKey, attachments, observations]);
+    }, [isOpen, supplierId, items, inboundItems, draftId, receiptIndex, sourcePurchaseId, ipiPercent, freightPercent, nonFiscalDiscountMode, nonFiscalDiscountValue, nonFiscalFreightMode, nonFiscalFreightValue, nonFiscalOtherExpensesMode, nonFiscalOtherExpensesValue, fiscalIpi, fiscalFreight, fiscalDiscount, fiscalOtherExpenses, receiptDate, invoiceNumber, invoiceDate, fiscalKey, attachments, observations]);
 
     if (!isOpen) return null;
     const supplier = suppliers.find((person) => person.id === supplierId);
@@ -269,7 +277,7 @@ export function ReceiptFormModal({
         }
         setIsSaving(true);
         try {
-            const receiptId = draftId || `rcpt_${Date.now()}`;
+            const receiptId = draftId || crypto.randomUUID();
             if (inboundItems) {
                 await Promise.all(inboundItems.map((item) => saveProductSupplierCode({
                     supplierId,
@@ -281,7 +289,8 @@ export function ReceiptFormModal({
             }
             await finalizeGoodsReceipt({
                 id: receiptId,
-                receiptIndex: receiptIndex || initialReceipt?.receiptIndex,
+                receiptIndex: receiptIndex || (copyReceipt ? undefined : initialReceipt?.receiptIndex),
+                purchaseId: sourcePurchaseId || undefined,
                 supplierId,
                 supplierName: supplier.fullName,
                 receivedAt: new Date(`${receiptDate}T12:00:00`).toISOString(),
@@ -519,9 +528,9 @@ export function ReceiptFormModal({
                                 </p>
                             )}
                         </div>
-                        {(receiptIndex || initialReceipt?.receiptIndex) && (
+                        {(receiptIndex || (!copyReceipt && initialReceipt?.receiptIndex)) && (
                             <span className="font-mono text-xs font-black bg-emerald-800/60 border border-emerald-400/40 px-2.5 py-0.5 rounded-lg text-emerald-100">
-                                #{formatGoodsReceiptCode({ receiptIndex: receiptIndex || initialReceipt?.receiptIndex })}
+                                #{formatGoodsReceiptCode({ receiptIndex: receiptIndex || (!copyReceipt ? initialReceipt?.receiptIndex : undefined) })}
                             </span>
                         )}
                         {isDraftSaved && (
@@ -596,9 +605,9 @@ export function ReceiptFormModal({
                                     suppliers={suppliers}
                                     selectedSupplierId={supplierId}
                                     onSelect={(id) => setSupplierId(id)}
-                                    disabled={Boolean(initialPurchase) || Boolean(initialReceipt) || items.length > 0}
+                                    disabled={Boolean(initialPurchase) || (Boolean(initialReceipt) && !copyReceipt) || items.length > 0}
                                     disabledReason={
-                                        (initialPurchase || initialReceipt)
+                                        (initialPurchase || (initialReceipt && !copyReceipt))
                                             ? 'O fornecedor foi pré-definido pelo documento/pedido de origem.'
                                             : items.length > 0
                                             ? 'Para alterar o fornecedor, remova os itens adicionados e selecione o fornecedor correto.'

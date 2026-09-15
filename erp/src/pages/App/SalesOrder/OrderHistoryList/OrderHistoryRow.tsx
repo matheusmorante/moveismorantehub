@@ -85,8 +85,8 @@ const OrderHistoryRow = ({
     const { hasAssemblyDepot, hasAssemblyOutside } = getOrderAssemblyFlags(order, settings);
     const isPaidTraffic = isPaidTrafficOrder(order);
 
-    const cellBgClass = 'bg-white dark:bg-slate-900';
-    const baseTdClass = `px-1 py-1 ${cellBgClass} border-b border-white dark:border-slate-800/50 align-middle relative`;
+    const cellBgClass = isCancelled ? 'bg-red-50/80 dark:bg-red-950/40' : 'bg-white dark:bg-slate-900';
+    const baseTdClass = `px-1 py-1 ${cellBgClass} ${isCancelled ? 'border-b border-red-200 dark:border-red-900/50' : 'border-b border-white dark:border-slate-800/50'} align-middle relative`;
 
     const renderCell = (key: string) => {
         if (visibilitySettings[key as keyof VisibilitySettings] === false) return null;
@@ -231,14 +231,25 @@ const OrderHistoryRow = ({
                 </>
             )}
             {isCancelled && (
-                <div 
-                    aria-hidden="true" 
-                    className="pointer-events-none absolute inset-0 z-10 bg-slate-950/35 flex items-center justify-center"
-                >
-                    <span className="max-w-[82%] truncate whitespace-nowrap rounded-md border-2 border-white bg-red-600 font-black uppercase tracking-[0.2em] text-white opacity-100 shadow-2xl drop-shadow-md px-4 py-1.5 text-xs">
-                        {order.orderType === 'return' && order.returnStockReversed ? 'Estornado' : 'Cancelado'}
-                    </span>
-                </div>
+                <>
+                    <div 
+                        className="absolute -top-1.5 right-2 z-30 flex h-5 w-5 items-center justify-center rounded-full bg-red-600 text-white shadow-md ring-2 ring-white dark:ring-slate-900 pointer-events-none"
+                        title="Pedido Cancelado"
+                    >
+                        <i className="bi bi-x-lg text-[8px] font-black" />
+                    </div>
+                    <div 
+                        aria-hidden="true" 
+                        className="pointer-events-none absolute inset-0 z-10 bg-slate-950/25 flex items-center justify-center"
+                    >
+                        <span className="inline-flex max-w-[82%] items-center gap-1.5 truncate whitespace-nowrap rounded-md border-2 border-white bg-red-600 font-black uppercase tracking-[0.2em] text-white opacity-100 shadow-2xl drop-shadow-md px-3.5 py-1.5 text-xs">
+                            <span className="flex h-4 w-4 items-center justify-center rounded-full bg-white text-red-600 shrink-0">
+                                <i className="bi bi-x-lg font-black text-[9px]" />
+                            </span>
+                            <span className="truncate">{order.orderType === 'return' && order.returnStockReversed ? 'Estornado' : 'Cancelado'}</span>
+                        </span>
+                    </div>
+                </>
             )}
         </tr>
     );
