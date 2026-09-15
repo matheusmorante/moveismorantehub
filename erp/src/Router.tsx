@@ -152,6 +152,7 @@ function Router() {
             <Route path='/api-usage' element={<AdminRoute><ApiUsagePage /></AdminRoute>} />
 
             {/* Registrations */}
+            <Route path='/products' element={<Navigate to="/registrations/products" replace />} />
             <Route path='/registrations/products' element={<Products />} />
             <Route path='/registrations/meta-catalog' element={<MetaCatalog />} />
             <Route path='/registrations/whatsapp-marketplace' element={<WhatsAppMarketplace />} />

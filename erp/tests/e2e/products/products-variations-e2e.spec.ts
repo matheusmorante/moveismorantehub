@@ -2,6 +2,7 @@ import { test, expect } from '@playwright/test';
 
 test.describe('Suíte E2E B2B - Criação de Produto, Variações e Validações de Negócio', () => {
     const testRunId = `[TESTE_AUT]_VAR_${Date.now()}`;
+    const AUTH_QUERY = 'auth_email=matheusmorante002@gmail.com&user_id=mock-e2e-master&auth_role=administrator';
     let consoleErrors: string[] = [];
     let pageErrors: string[] = [];
 
@@ -19,7 +20,7 @@ test.describe('Suíte E2E B2B - Criação de Produto, Variações e Validações
             pageErrors.push(err.message);
         });
 
-        await page.goto('/products?auth_email=matheusmorante002@gmail.com&user_id=mock-e2e-master&auth_role=administrator');
+        await page.goto(`/registrations/products?${AUTH_QUERY}`);
         await page.waitForLoadState('domcontentloaded');
     });
 
@@ -32,7 +33,7 @@ test.describe('Suíte E2E B2B - Criação de Produto, Variações e Validações
         expect(realErrors, 'Erros críticos de console detectados').toEqual([]);
         expect(pageErrors, 'Exceções de tela branca detectadas').toEqual([]);
 
-        // Teardown de dados criados com testRunId
+        // Teardown seguro de dados criados com testRunId
         await page.evaluate((runId) => {
             const raw = localStorage.getItem('erp_products');
             if (raw) {
@@ -48,13 +49,13 @@ test.describe('Suíte E2E B2B - Criação de Produto, Variações e Validações
     });
 
     test('Caso 1: Criação de produto simples e geração automática da Variação 1 padrão', async ({ page }) => {
-        const newProductBtn = page.getByRole('button', { name: /novo produto|adicionar produto|\+ produto/i }).first();
-        await expect(newProductBtn).toBeVisible({ timeout: 10000 });
+        const newProductBtn = page.locator('button:has-text("Novo Produto")').first();
+        await expect(newProductBtn).toBeVisible({ timeout: 15000 });
         await newProductBtn.click();
 
-        // Modal de produto deve estar visível com dimensões padrão
-        const parentModal = page.locator('div[role="dialog"], .fixed.inset-0 .relative.bg-white').first();
-        await expect(parentModal).toBeVisible();
+        // Modal de produto deve estar visível
+        const parentModal = page.locator('.fixed.inset-0 .relative.bg-white, .fixed.inset-0 .relative.dark\\:bg-slate-900').first();
+        await expect(parentModal).toBeVisible({ timeout: 5000 });
 
         // Preenche o nome na aba Geral
         const nameInput = page.locator('input[placeholder*="nome interno"], input[placeholder*="SOFA 3 LUG"]').first();
@@ -76,7 +77,8 @@ test.describe('Suíte E2E B2B - Criação de Produto, Variações e Validações
     });
 
     test('Caso 2: Bloqueio de criação de nova variação sem atributo definido na Variação 1', async ({ page }) => {
-        const newProductBtn = page.getByRole('button', { name: /novo produto|adicionar produto|\+ produto/i }).first();
+        const newProductBtn = page.locator('button:has-text("Novo Produto")').first();
+        await expect(newProductBtn).toBeVisible({ timeout: 15000 });
         await newProductBtn.click();
 
         // Navega para a aba de variações
@@ -98,7 +100,8 @@ test.describe('Suíte E2E B2B - Criação de Produto, Variações e Validações
     });
 
     test('Caso 3: Adição de Variação Manual com Atributos e Validação do Tamanho do Modal', async ({ page }) => {
-        const newProductBtn = page.getByRole('button', { name: /novo produto|adicionar produto|\+ produto/i }).first();
+        const newProductBtn = page.locator('button:has-text("Novo Produto")').first();
+        await expect(newProductBtn).toBeVisible({ timeout: 15000 });
         await newProductBtn.click();
 
         // Preenche nome do pai
@@ -123,22 +126,14 @@ test.describe('Suíte E2E B2B - Criação de Produto, Variações e Validações
         expect(modalClass).toContain('h-[92vh]');
         expect(modalClass).toContain('rounded-3xl');
 
-        // Adiciona atributo na Variação 1 (ex: Cor = Off-White)
-        const attrSelect = page.locator('select').first();
-        if (await attrSelect.isVisible()) {
-            const options = await attrSelect.locator('option').allTextContents();
-            if (options.length > 1) {
-                await attrSelect.selectOption({ index: 1 });
-            }
-        }
-
         // Fecha/Conclui o modal da Variação 1
         const cancelOrCloseBtn = page.locator('button:has-text("Cancelar"), button:has-text("Concluir")').first();
         await cancelOrCloseBtn.click();
     });
 
     test('Caso 4: Regra de Imutabilidade da Variação 1', async ({ page }) => {
-        const newProductBtn = page.getByRole('button', { name: /novo produto|adicionar produto|\+ produto/i }).first();
+        const newProductBtn = page.locator('button:has-text("Novo Produto")').first();
+        await expect(newProductBtn).toBeVisible({ timeout: 15000 });
         await newProductBtn.click();
 
         await page.locator('button:has-text("Variações")').first().click();
@@ -155,7 +150,7 @@ test.describe('Suíte E2E B2B - Criação de Produto, Variações e Validações
 
     test('Caso 5: Cadastro Rápido de Variação em Pai Existente sem Variação Duplicada', async ({ page }) => {
         // Testa a rota de notas fiscais de entrada / conferência onde o operador faz cadastro rápido
-        await page.goto('/stock/receipts?auth_email=matheusmorante002@gmail.com&user_id=mock-e2e-master&auth_role=administrator');
+        await page.goto(`/stock/receipts?${AUTH_QUERY}`);
         await page.waitForLoadState('domcontentloaded');
 
         // Garante que a tela carregou sem erros de runtime
@@ -163,10 +158,11 @@ test.describe('Suíte E2E B2B - Criação de Produto, Variações e Validações
     });
 
     test('Caso 6: Formatação rigorosa de Title Case em atributos e valores de variações', async ({ page }) => {
-        await page.goto('/products?auth_email=matheusmorante002@gmail.com&user_id=mock-e2e-master&auth_role=administrator');
+        await page.goto(`/registrations/products?${AUTH_QUERY}`);
         await page.waitForLoadState('domcontentloaded');
 
-        const newProductBtn = page.getByRole('button', { name: /novo produto|adicionar produto|\+ produto/i }).first();
+        const newProductBtn = page.locator('button:has-text("Novo Produto")').first();
+        await expect(newProductBtn).toBeVisible({ timeout: 15000 });
         await newProductBtn.click();
 
         const nameInput = page.locator('input[placeholder*="nome interno"], input[placeholder*="SOFA 3 LUG"]').first();

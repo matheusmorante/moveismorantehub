@@ -1,7 +1,19 @@
 import React, { useEffect } from 'react';
 import type { InboundInvoice } from '@/pages/utils/inboundNfe/inboundNfeTypes';
-import { formatCurrency } from '@/pages/utils/formatters';
+import { formatCurrency, formatToBRDate } from '@/pages/utils/formatters';
 import { InboundInvoiceFiscalReview } from '../components/InboundInvoiceFiscalReview';
+
+const STATUS_LABEL: Record<string, string> = {
+    pending: 'Pendente',
+    received: 'Recebida',
+    manifested: 'Manifestada',
+};
+
+const STATUS_CLASS: Record<string, string> = {
+    pending: 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300',
+    received: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300',
+    manifested: 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300',
+};
 
 interface InboundInvoiceDetailsModalProps {
     readonly invoice: InboundInvoice | null;
@@ -43,12 +55,25 @@ export const InboundInvoiceDetailsModal: React.FC<InboundInvoiceDetailsModalProp
                             <i className="bi bi-file-earmark-text text-lg" aria-hidden="true" />
                         </div>
                         <div>
-                            <h2 id="invoice-details-modal-title" className="text-base font-black text-slate-800 dark:text-slate-100">
-                                NF-e #{invoice.nfeNumber} - Série {invoice.series}
-                            </h2>
+                            <div className="flex items-center gap-2">
+                                <h2 id="invoice-details-modal-title" className="text-base font-black text-slate-800 dark:text-slate-100">
+                                    NF-e #{invoice.nfeNumber} - Série {invoice.series}
+                                </h2>
+                                <span className={`rounded-full px-2 py-0.5 text-[10px] font-black uppercase ${STATUS_CLASS[invoice.status] ?? 'bg-slate-100 text-slate-500'}`}>
+                                    {STATUS_LABEL[invoice.status] ?? invoice.status}
+                                </span>
+                            </div>
                             <p className="text-[11px] font-mono text-slate-400">
                                 {invoice.nfeKey}
                             </p>
+                            {invoice.issuedAt && (
+                                <p className="text-[11px] text-slate-400">
+                                    Emissão: <span className="font-semibold text-slate-600 dark:text-slate-300">{formatToBRDate(invoice.issuedAt)}</span>
+                                    {invoice.receivedAt && (
+                                        <> · Recebida em: <span className="font-semibold text-slate-600 dark:text-slate-300">{formatToBRDate(invoice.receivedAt)}</span></>
+                                    )}
+                                </p>
+                            )}
                         </div>
                     </div>
                     <button
@@ -79,39 +104,46 @@ export const InboundInvoiceDetailsModal: React.FC<InboundInvoiceDetailsModalProp
 
                     <div className="rounded-2xl border border-slate-100 overflow-hidden dark:border-slate-800">
                         <div className="bg-slate-100/60 px-4 py-2.5 text-xs font-black uppercase tracking-wider text-slate-600 dark:bg-slate-800 dark:text-slate-300">
-                            Itens da Nota Fiscal ({invoice.items.length})
+                            Itens da Nota Fiscal ({(invoice.items ?? []).length})
                         </div>
                         <div className="max-h-64 overflow-y-auto divide-y divide-slate-100 dark:divide-slate-800">
-                            {invoice.items.map((item, idx) => (
-                                <div key={idx} className="flex items-center justify-between p-3.5 hover:bg-slate-50/50 dark:hover:bg-slate-800/30">
-                                    <div className="flex-1 min-w-0 pr-4">
-                                        <p className="text-xs font-bold text-slate-800 dark:text-slate-100 truncate">
-                                            {item.productDescription}
-                                        </p>
-                                        <div className="flex items-center gap-3 text-[10px] text-slate-400">
-                                            <span>Cód: {item.productCode || 'S/C'}</span>
-                                            <span>EAN: {item.ean || '—'}</span>
-                                            <span>NCM: {item.ncm}</span>
-                                            <span>CEST: {item.cest || '—'}</span>
-                                            <span>CFOP: {item.cfop}</span>
+                            {(invoice.items ?? []).length === 0 ? (
+                                <p className="p-4 text-center text-xs text-slate-400">
+                                    Itens não disponíveis para esta nota fiscal.
+                                </p>
+                            ) : (
+                                (invoice.items ?? []).map((item, idx) => (
+                                    <div key={idx} className="flex items-center justify-between p-3.5 hover:bg-slate-50/50 dark:hover:bg-slate-800/30">
+                                        <div className="flex-1 min-w-0 pr-4">
+                                            <p className="text-xs font-bold text-slate-800 dark:text-slate-100 truncate">
+                                                {item.productDescription}
+                                            </p>
+                                            <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[10px] text-slate-400">
+                                                <span>Cód: {item.productCode || 'S/C'}</span>
+                                                <span>EAN: {item.ean || '—'}</span>
+                                                <span>NCM: {item.ncm || '—'}</span>
+                                                <span>CEST: {item.cest || '—'}</span>
+                                                <span>CFOP: {item.cfop || '—'}</span>
+                                                {item.unit && <span>UN: {item.unit}</span>}
+                                            </div>
+                                        </div>
+                                        <div className="text-right shrink-0">
+                                            <p className="text-xs font-bold text-slate-800 dark:text-slate-100">
+                                                {item.quantity} {item.unit} × {formatCurrency(item.unitCost)}
+                                            </p>
+                                            <p className="text-xs font-black text-emerald-600 dark:text-emerald-400">
+                                                {formatCurrency(item.totalCost)}
+                                            </p>
+                                            <p className="text-[10px] text-slate-500">
+                                                Frete {formatCurrency(item.freightValue || 0)} · IPI {formatCurrency(item.ipiValue || 0)} ({Number(item.ipiPercent || 0).toFixed(2)}%)
+                                            </p>
+                                            <p className="text-[10px] text-slate-500">
+                                                ICMS {formatCurrency(item.icmsValue || 0)} ({Number(item.icmsPercent || 0).toFixed(2)}%) · ST {formatCurrency(item.icmsStValue || 0)}
+                                            </p>
                                         </div>
                                     </div>
-                                    <div className="text-right shrink-0">
-                                        <p className="text-xs font-bold text-slate-800 dark:text-slate-100">
-                                            {item.quantity} {item.unit} × {formatCurrency(item.unitCost)}
-                                        </p>
-                                        <p className="text-xs font-black text-emerald-600 dark:text-emerald-400">
-                                            {formatCurrency(item.totalCost)}
-                                        </p>
-                                        <p className="text-[10px] text-slate-500">
-                                            Frete {formatCurrency(item.freightValue || 0)} · IPI {formatCurrency(item.ipiValue || 0)} ({Number(item.ipiPercent || 0).toFixed(2)}%)
-                                        </p>
-                                        <p className="text-[10px] text-slate-500">
-                                            ICMS {formatCurrency(item.icmsValue || 0)} ({Number(item.icmsPercent || 0).toFixed(2)}%) · ST {formatCurrency(item.icmsStValue || 0)}
-                                        </p>
-                                    </div>
-                                </div>
-                            ))}
+                                ))
+                            )}
                         </div>
                     </div>
 

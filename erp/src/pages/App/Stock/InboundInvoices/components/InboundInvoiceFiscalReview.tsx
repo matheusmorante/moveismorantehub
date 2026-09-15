@@ -1,5 +1,5 @@
 import type { InboundInvoice } from '@/pages/utils/inboundNfe/inboundNfeTypes';
-import { formatCurrency } from '@/pages/utils/formatters';
+import { formatCurrency, formatToBRDate } from '@/pages/utils/formatters';
 
 interface InboundInvoiceFiscalReviewProps {
     readonly invoice: InboundInvoice;
@@ -8,6 +8,28 @@ interface InboundInvoiceFiscalReviewProps {
 const percent = (value?: number): string => {
     const num = Number(value || 0);
     return `${Number.isNaN(num) ? '0.00' : num.toFixed(2)}%`;
+};
+
+/**
+ * Formata a data da NF respeitando o que veio extraído:
+ * - Se o valor tem componente de hora (contém 'T'), exibe data + hora no fuso BR.
+ * - Se é só data, exibe apenas DD/MM/YYYY.
+ */
+const formatNfeDate = (value: string | undefined | null): string => {
+    if (!value) return 'Não informada';
+    const hasTime = value.includes('T') && /T\d{2}:\d{2}/.test(value);
+    if (hasTime) {
+        const date = new Date(value);
+        if (isNaN(date.getTime())) return value;
+        return date.toLocaleString('pt-BR', {
+            day: '2-digit',
+            month: '2-digit',
+            year: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
+        });
+    }
+    return formatToBRDate(value);
 };
 
 export function InboundInvoiceFiscalReview({ invoice }: InboundInvoiceFiscalReviewProps) {
@@ -63,7 +85,7 @@ export function InboundInvoiceFiscalReview({ invoice }: InboundInvoiceFiscalRevi
                 </p>
             </div>
             <p className="mt-3 text-[11px] text-slate-500 dark:text-slate-400">
-                Natureza: {invoice.operationNature || 'Não informada'} · Emissão: {invoice.issuedAt || 'Não informada'} · Saída/entrada: {invoice.entryExitAt || 'Não informada'}
+                Natureza: {invoice.operationNature || 'Não informada'} · Emissão: {formatNfeDate(invoice.issuedAt)} · Saída/entrada: {formatNfeDate(invoice.entryExitAt)}
             </p>
             {invoice.additionalInfo && (
                 <p className="mt-2 text-[11px] text-slate-500 dark:text-slate-400">
