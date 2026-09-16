@@ -32,6 +32,7 @@ const PERIODS: { label: string; value: Period }[] = [
 ];
 
 export default function Dashboard() {
+    const [activeTab, setActiveTab] = useState<'overview' | 'logistics' | 'system'>('overview');
     const [period, setPeriod] = useState<Period>('month');
     const [customStartDate, setCustomStartDate] = useState(() => {
         const d = new Date(); d.setDate(d.getDate() - 7); return d.toISOString().split('T')[0];

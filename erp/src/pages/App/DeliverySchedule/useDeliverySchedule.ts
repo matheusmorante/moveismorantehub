@@ -240,12 +240,21 @@ export const useDeliverySchedule = () => {
         };
         fetchShowroom();
 
+        let debounceTimer: ReturnType<typeof setTimeout> | null = null;
+        const requestFetchShowroom = () => {
+            if (debounceTimer) clearTimeout(debounceTimer);
+            debounceTimer = setTimeout(() => {
+                fetchShowroom();
+            }, 3000);
+        };
+
         const channel = supabase
             .channel(`showroom-assemblies-schedule-${Date.now()}`)
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'showroom_assemblies' }, fetchShowroom)
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'showroom_assemblies' }, requestFetchShowroom)
             .subscribe();
 
         return () => {
+            if (debounceTimer) clearTimeout(debounceTimer);
             supabase.removeChannel(channel);
         };
     }, []);

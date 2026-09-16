@@ -129,12 +129,21 @@ export const subscribeToPurchases = (callback: (purchases: Purchase[]) => void) 
     }
     fetchAll();
 
+    let debounceTimer: ReturnType<typeof setTimeout> | null = null;
+    const requestFetchAll = () => {
+        if (debounceTimer) clearTimeout(debounceTimer);
+        debounceTimer = setTimeout(() => {
+            fetchAll();
+        }, 3000);
+    };
+
     const channel = supabase.channel(`purchases_changes_${Date.now()}`)
-        .on('postgres_changes', { event: '*', schema: 'public', table: TABLE_NAME }, fetchAll)
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'purchase_items' }, fetchAll)
+        .on('postgres_changes', { event: '*', schema: 'public', table: TABLE_NAME }, requestFetchAll)
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'purchase_items' }, requestFetchAll)
         .subscribe();
 
     return () => {
+        if (debounceTimer) clearTimeout(debounceTimer);
         listeners = listeners.filter(l => l !== callback);
         supabase.removeChannel(channel);
     };

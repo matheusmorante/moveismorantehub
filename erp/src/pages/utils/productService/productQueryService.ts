@@ -15,17 +15,33 @@ export const LIGHT_COLUMNS_WITH_CATS = LIGHT_COLUMNS + ", product_categories(cat
 export const initializeProductsIfEmpty = async (): Promise<Product[]> => {
     try {
         console.log("[ProductService] Carregando produtos a partir da tabela do Supabase do e-commerce...");
-        const { data, error } = await supabase
-            .from(TABLE_NAME)
-            .select('*, product_variations(*), product_categories(*, categories(*)), product_images(*)')
-            .order('created_at', { ascending: false });
+        let allData: any[] = [];
+        let from = 0;
+        const step = 1000;
+        let fetchMore = true;
 
-        if (error) {
-            console.error("[ProductService] Erro ao buscar produtos do Supabase:", error);
-            return getLocalProducts();
+        while (fetchMore) {
+            const { data, error } = await supabase
+                .from(TABLE_NAME)
+                .select('*, product_variations(*), product_categories(*, categories(*)), product_images(*)')
+                .order('created_at', { ascending: false })
+                .range(from, from + step - 1);
+
+            if (error) {
+                console.error("[ProductService] Erro ao buscar produtos do Supabase:", error);
+                return getLocalProducts();
+            }
+
+            if (data && data.length > 0) {
+                allData = [...allData, ...data];
+                from += step;
+                if (data.length < step) fetchMore = false;
+            } else {
+                fetchMore = false;
+            }
         }
 
-        let fetchedProducts: Product[] = (data || []).map((p, idx) => mapFromDB(p, idx));
+        let fetchedProducts: Product[] = allData.map((p, idx) => mapFromDB(p, idx));
         saveLocalProducts(fetchedProducts);
         return fetchedProducts;
     } catch (e) {

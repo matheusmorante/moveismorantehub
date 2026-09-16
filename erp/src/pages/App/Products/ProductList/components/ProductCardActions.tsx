@@ -3,7 +3,8 @@ import { Link } from 'react-router-dom';
 import Product from '@/pages/types/product.type';
 import { formatCurrency } from '@/pages/utils/formatters';
 import DropdownPortal from '@/components/shared/DropdownPortal';
-
+import Swal from 'sweetalert2';
+import { checkProductIsUsed, physicalDeleteProduct } from '@/pages/utils/productService/productMutationService';
 export interface ProductCardActionsProps {
     readonly product: Product;
     readonly onEdit: (product: Product) => void;
@@ -28,8 +29,67 @@ export const ProductCardActions: React.FC<ProductCardActionsProps> = ({
     onOpenWhatsApp,
 }) => {
     const [isMenuOpen, setIsMenuOpen] = useState(false);
+    const [isUsed, setIsUsed] = useState<boolean | null>(null);
     const menuAnchorRef = useRef<HTMLButtonElement>(null);
     const isDraft = Boolean(product.isDraft) || Boolean((product as any).is_draft) || product.status === 'draft';
+
+    React.useEffect(() => {
+        if (isMenuOpen && !isDraft) {
+            setIsUsed(null);
+            checkProductIsUsed(product.id!).then(setIsUsed).catch(() => setIsUsed(true));
+        }
+    }, [isMenuOpen, product.id, isDraft]);
+
+    const handleDeleteClick = useCallback(async (e: React.MouseEvent) => {
+        e.stopPropagation();
+        setIsMenuOpen(false);
+
+        if (isDraft) {
+            if (product.id) onDelete(product.id);
+            return;
+        }
+
+        let timerInterval: any;
+        const result = await Swal.fire({
+            title: 'Excluir Produto?',
+            text: 'Este item não está sendo usado por nada, então não haverá problema nenhum ao excluí-lo definitivamente.',
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#d33',
+            cancelButtonColor: '#3085d6',
+            confirmButtonText: 'Confirmar Exclusão (5s)',
+            cancelButtonText: 'Cancelar',
+            didOpen: () => {
+                const confirmBtn = Swal.getConfirmButton();
+                if (confirmBtn) {
+                    confirmBtn.disabled = true;
+                    let timeLeft = 5;
+                    timerInterval = setInterval(() => {
+                        timeLeft -= 1;
+                        if (timeLeft > 0) {
+                            confirmBtn.textContent = `Confirmar Exclusão (${timeLeft}s)`;
+                        } else {
+                            clearInterval(timerInterval);
+                            confirmBtn.disabled = false;
+                            confirmBtn.textContent = 'Confirmar Exclusão';
+                        }
+                    }, 1000);
+                }
+            },
+            willClose: () => {
+                clearInterval(timerInterval);
+            }
+        });
+
+        if (result.isConfirmed) {
+            const res = await physicalDeleteProduct(product.id!);
+            if (res.success) {
+                onDelete(product.id!);
+            } else {
+                Swal.fire('Erro', res.message || 'Não foi possível excluir.', 'error');
+            }
+        }
+    }, [product.id, isDraft, onDelete]);
 
     const handleWhatsAppClick = useCallback((e: React.MouseEvent) => {
         e.stopPropagation();
@@ -200,24 +260,25 @@ export const ProductCardActions: React.FC<ProductCardActionsProps> = ({
                             </button>
                         )}
 
-                        {isDraft && (
-                            <div className="border-t border-slate-50 dark:border-slate-800/50 my-1">
-                                <button
-                                    type="button"
-                                    role="menuitem"
-                                    onClick={(e) => {
-                                        e.stopPropagation();
-                                        setIsMenuOpen(false);
-                                        if (product.id) onDelete(product.id);
-                                    }}
-                                    className="flex items-center gap-3 px-4 py-2.5 hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors text-left group w-full text-red-600 dark:text-red-400 cursor-pointer"
-                                    title="Descartar Rascunho"
-                                >
-                                    <i className="bi bi-trash3-fill text-red-500" />
-                                    <span className="text-[10px] font-black uppercase tracking-widest font-bold">Descartar Rascunho</span>
-                                </button>
-                            </div>
-                        )}
+                        <div className="border-t border-slate-50 dark:border-slate-800/50 my-1">
+                            <button
+                                type="button"
+                                role="menuitem"
+                                disabled={!isDraft && isUsed === true}
+                                title={!isDraft && isUsed === true ? "Este produto est├í sendo usado e n├úo pode ser deletado." : (isDraft ? "Descartar Rascunho" : "Deletar Produto")}
+                                onClick={!isDraft && isUsed === true ? undefined : handleDeleteClick}
+                                className={`flex items-center gap-3 px-4 py-2.5 transition-colors text-left group w-full ${!isDraft && isUsed === true ? 'opacity-50 cursor-not-allowed' : 'hover:bg-red-50 dark:hover:bg-red-950/30 text-red-600 dark:text-red-400 cursor-pointer'}`}
+                            >
+                                {(!isDraft && isUsed === null) ? (
+                                    <i className="bi bi-arrow-repeat animate-spin text-slate-400" />
+                                ) : (
+                                    <i className={`bi bi-trash3-fill ${!isDraft && isUsed === true ? 'text-slate-400' : 'text-red-500'}`} />
+                                )}
+                                <span className={`text-[10px] uppercase tracking-widest font-bold ${!isDraft && isUsed === true ? 'text-slate-500' : ''}`}>
+                                    {isDraft ? 'Descartar Rascunho' : (!isDraft && isUsed === null ? 'Verificando Uso...' : 'Deletar Produto')}
+                                </span>
+                            </button>
+                        </div>
                     </div>
                 </DropdownPortal>
             )}

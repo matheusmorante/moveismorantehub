@@ -104,6 +104,24 @@ export default function ApiUsagePage() {
                     </div>
                 </div>
 
+                {/* ALERTA DE REDIRECIONAMENTO PARA NOVO MONITOR SUPABASE */}
+                <div className="bg-gradient-to-r from-blue-600 to-indigo-700 rounded-3xl p-6 text-white shadow-lg flex items-center justify-between flex-wrap gap-4 animate-slide-in">
+                    <div className="flex items-center gap-4">
+                        <div className="w-12 h-12 bg-white/20 rounded-2xl flex items-center justify-center shrink-0">
+                            <i className="bi bi-hdd-network text-2xl"></i>
+                        </div>
+                        <div>
+                            <h3 className="font-black text-lg">Procurando pelo Monitor do Supabase com Drill-Down?</h3>
+                            <p className="text-blue-100 text-sm font-medium mt-1">
+                                Para n├úo misturar APIs de terceiros (Google, Meta) com banco de dados, criamos um painel exclusivo para o Supabase com 4 n├¡veis de Drill-Down, heur├¡sticas e risco de Egress.
+                            </p>
+                        </div>
+                    </div>
+                    <a href="/settings/supabase-monitor" className="px-5 py-2.5 bg-white text-blue-700 hover:bg-blue-50 font-black rounded-xl shadow-sm transition-colors flex items-center gap-2 whitespace-nowrap">
+                        Acessar Novo Monitor Supabase <i className="bi bi-arrow-right"></i>
+                    </a>
+                </div>
+
                 <div className="flex items-center gap-2.5 flex-wrap">
                     {/* Ambiente */}
                     <div className="flex bg-slate-100 dark:bg-slate-800/80 p-1 rounded-xl border border-slate-200/60 dark:border-slate-700/60 text-xs font-black">
@@ -250,7 +268,7 @@ export default function ApiUsagePage() {
                         <i className="bi bi-piggy-bank-fill text-indigo-600 text-base" />
                     </div>
                     <div className="text-2xl font-black text-indigo-600 dark:text-indigo-400">
-                        R$ {metrics?.totalSavingsBrl.toFixed(2) || '0,00'}
+                        R$ {metrics?.totalSavingsBrl?.toFixed(2) || '0,00'}
                     </div>
                     <p className="text-[10px] font-bold text-slate-400 mt-1">Economia obtida com cache</p>
                 </div>

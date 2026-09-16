@@ -12,6 +12,7 @@ import OrderPage from './pages/OrderPage';
 import Products from './pages/App/Products/Index';
 import Categories from './pages/App/Products/Categories/Index';
 import Settings from './pages/App/Settings';
+import SupabaseMonitorDashboard from './pages/App/Settings/SupabaseMonitor/Index';
 import ProductTypes from './pages/App/Products/ProductTypes/Index';
 import Customers from './pages/App/Customers/Index';
 import Suppliers from './pages/App/Suppliers/Index';
@@ -107,6 +108,23 @@ const AdminRoute = ({ children }: { children: React.ReactNode }) => {
 
 import ResetPassword from './pages/ResetPassword';
 
+const DashboardRoute = () => {
+  const { isAdmin, loading } = useAuth();
+  const searchParams = new URLSearchParams(window.location.search);
+  const isMobileAuth = searchParams.has('auth_email') || 
+                       searchParams.has('user_id') || 
+                       window.location.search.includes('auth_email') || 
+                       Boolean((window as any).ReactNativeWebView);
+
+  if (loading && !isMobileAuth) return null;
+
+  if (!isAdmin && !isMobileAuth) {
+    return <Navigate to="/sales-order" replace />;
+  }
+
+  return <Dashboard />;
+};
+
 function Router() {
   return (
     <AuthProvider>
@@ -133,7 +151,7 @@ function Router() {
 
           {/* Protected ERP Application */}
           <Route path='/' element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
-            <Route index element={<Dashboard />} />
+            <Route index element={<DashboardRoute />} />
             <Route path='/sales-order' element={<SalesOrder />} />
             <Route path='/sales-order/new' element={<NewSaleOrder />} />
             <Route path='/sales-order/edit/:id' element={<OrderEditModal />} />
@@ -149,6 +167,7 @@ function Router() {
             <Route path='/warranty-term' element={<WarrantyTermPage />} />
             <Route path='/delivery-schedule' element={<DeliverySchedule />} />
             <Route path='/settings' element={<AdminRoute><Settings /></AdminRoute>} />
+            <Route path='/settings/supabase-monitor' element={<AdminRoute><SupabaseMonitorDashboard /></AdminRoute>} />
             <Route path='/api-usage' element={<AdminRoute><ApiUsagePage /></AdminRoute>} />
 
             {/* Registrations */}

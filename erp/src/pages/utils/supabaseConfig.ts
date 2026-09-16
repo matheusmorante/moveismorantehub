@@ -30,7 +30,11 @@ const supabaseKey = isTestEnvironment
   ? testSupabaseKey
   : import.meta.env.VITE_SUPABASE_ANON_KEY || DEFAULT_SUPABASE_ANON_KEY;
 
-export const supabase = createClient(supabaseUrl!, supabaseKey!);
+export const supabase = createClient(supabaseUrl!, supabaseKey!, {
+  global: {
+    fetch: supabaseMonitor.customFetch
+  }
+});
 export const supabasePublicUrl = supabaseUrl!;
 export const supabasePublicAnonKey = supabaseKey!;
 export const ecommerceSupabase = supabase;

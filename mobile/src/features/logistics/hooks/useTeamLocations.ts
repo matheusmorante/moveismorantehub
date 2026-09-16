@@ -5,7 +5,7 @@ import {
   broadcastMyLocation,
   subscribeToTeamLocations,
 } from '../../../services/teamLocationService';
-import { DriverCoordinates } from '../../../services/locationService';
+import { DriverCoordinates, calculateDistanceInMeters } from '../../../services/locationService';
 
 interface UseTeamLocationsOptions {
   userProfile?: { id: string; fullName?: string; role?: string } | null;
@@ -27,6 +27,7 @@ export function useTeamLocations({
 
   const myUserId = userProfile?.id;
   const lastBroadcastCoordsRef = useRef<{ lat: number; lng: number } | null>(null);
+  const lastBroadcastTimeRef = useRef<number>(0);
 
   const loadLocations = useCallback(async () => {
     const list = await fetchTeamLocations(myUserId);
@@ -58,21 +59,15 @@ export function useTeamLocations({
   useEffect(() => {
     loadLocations();
 
-    const interval = setInterval(() => {
-      syncMyLocation();
-      loadLocations();
-    }, 20000);
-
-    // Escuta em tempo real via Supabase
+  // Escuta em tempo real via Supabase para atualizar a vis├úo dos colegas no mapa
     const unsubscribe = subscribeToTeamLocations(() => {
       loadLocations();
     });
 
     return () => {
-      clearInterval(interval);
       unsubscribe();
     };
-  }, [loadLocations, syncMyLocation]);
+  }, [loadLocations]);
 
   return {
     teamMembers,

@@ -28,6 +28,7 @@ export default function AppLayout() {
   const { user, profile, logout, isAdmin } = useAuth();
   const [isAssistanceModalOpen, setIsAssistanceModalOpen] = useState(false);
   const [assistanceInitialData, setAssistanceInitialData] = useState<any>(null);
+  const [anomaly, setAnomaly] = useState<any>(null);
 
   const handleProfileMouseEnter = () => {
     if (profileCloseTimeoutRef.current) {

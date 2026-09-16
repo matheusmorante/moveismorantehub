@@ -28,7 +28,8 @@ export async function fetchTeamLocations(excludeUserId?: string): Promise<TeamMe
   try {
     const { data, error } = await supabase
       .from('team_locations')
-      .select('*')
+      .select('user_id, latitude, longitude, is_delivering, active_order_code, updated_at')
+      .eq('is_delivering', true)
       .order('updated_at', { ascending: false });
 
     if (error || !data) return [];

@@ -91,12 +91,21 @@ const AssemblyListPage = () => {
     }, [settingsLoaded, settings]);
 
     useEffect(() => {
+        let debounceTimer: ReturnType<typeof setTimeout> | null = null;
+        const requestFetchAssemblies = () => {
+            if (debounceTimer) clearTimeout(debounceTimer);
+            debounceTimer = setTimeout(() => {
+                fetchAllAssemblies();
+            }, 3000);
+        };
+
         const channel = supabase
             .channel(`showroom-assemblies-list-${Date.now()}`)
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'showroom_assemblies' }, () => fetchAllAssemblies())
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'showroom_assemblies' }, requestFetchAssemblies)
             .subscribe();
 
         return () => {
+            if (debounceTimer) clearTimeout(debounceTimer);
             supabase.removeChannel(channel);
         };
     }, []);

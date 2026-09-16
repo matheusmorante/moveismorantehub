@@ -294,6 +294,58 @@ export const moveToTrash = async (id: string): Promise<void> => {
     await deactivateProduct(id);
 };
 
+export const checkProductIsUsed = async (productId: string): Promise<boolean> => {
+    try {
+        const realId = String(productId).split('_')[0];
+        const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(realId);
+        if (!isUUID) return false;
+
+        const [movesRes, ordersRes, receiptsRes, inboundRes] = await Promise.all([
+            supabase.from('inventory_moves').select('id').eq('product_id', realId).limit(1),
+            supabase.from('orders').select('id').filter('order_data', 'cs', `"{\\"items\\": [{\\"productId\\": \\"${realId}\\"}]}"`).limit(1),
+            supabase.from('goods_receipt_items').select('id').eq('product_id', realId).limit(1),
+            supabase.from('inbound_invoices').select('id').filter('items', 'cs', `[{"productId": "${realId}"}]`).limit(1)
+        ]);
+
+        return (
+            (movesRes.data && movesRes.data.length > 0) ||
+            (ordersRes.data && ordersRes.data.length > 0) ||
+            (receiptsRes.data && receiptsRes.data.length > 0) ||
+            (inboundRes.data && inboundRes.data.length > 0)
+        ) as boolean;
+    } catch (error) {
+        console.error("Erro ao verificar uso do produto:", error);
+        return true; 
+    }
+};
+
+export const physicalDeleteProduct = async (id: string): Promise<{ success: boolean; message?: string }> => {
+    try {
+        const realId = String(id).split('_')[0];
+        const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(realId);
+        
+        if (isUUID) {
+            const isUsed = await checkProductIsUsed(realId);
+            if (isUsed) {
+                return { success: false, message: "Produto em uso. N├úo pode ser exclu├¡do." };
+            }
+            
+            const { error } = await supabase.from('products').delete().eq('id', realId);
+            if (error) throw error;
+            
+            let products = getLocalProducts();
+            products = products.filter(p => String(p.id).split('_')[0] !== realId);
+            saveLocalProducts(products);
+            notifySubscribers();
+        }
+
+        return { success: true, message: "Produto exclu├¡do definitivamente." };
+    } catch (error: any) {
+        console.error("Erro ao excluir produto fisicamente:", error);
+        return { success: false, message: error.message || "Erro ao excluir o produto." };
+    }
+};
+
 export const restoreProduct = async (id: string): Promise<void> => {
     await activateProduct(id);
 };

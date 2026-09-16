@@ -85,6 +85,13 @@ export const applyProductFiltersAndSort = async (
                 orConditions.push(`name.ilike.%${t}%`);
             });
 
+            // Adicionar condi├º├úo AND palavra por palavra para ser mais tolerante a espa├ºos extras ou ordem das palavras
+            const words = unaccented.split(/\s+/).filter(Boolean);
+            if (words.length > 0) {
+                const andCondition = `and(${words.map(w => `name.ilike.%${w}%`).join(',')})`;
+                orConditions.push(andCondition);
+            }
+
             if (variationParentIds.length > 0) {
                 variationParentIds.forEach(id => {
                     orConditions.push(`id.eq.${id}`);

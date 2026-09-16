@@ -1,6 +1,7 @@
 import { Link, useNavigate } from "react-router-dom";
 import logoMorante from "../../assets/logo.jpeg";
 import { MenuKey } from "../../AppLayout";
+import { useAuth } from "../../context/AuthContext";
 
 interface MobileNavProps {
     isOpen: boolean;
@@ -103,6 +104,7 @@ const menuItems = [
 
 const MobileNav = ({ isOpen, onClose, activeMenu, setActiveMenu }: MobileNavProps) => {
     const navigate = useNavigate();
+    const { isAdmin } = useAuth();
 
     if (!isOpen) return null;
 

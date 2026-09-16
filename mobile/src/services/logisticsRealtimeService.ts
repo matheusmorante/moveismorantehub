@@ -7,7 +7,7 @@ export const subscribeToLogisticsChanges = (onChange: ChangeHandler) => {
   let refreshTimer: ReturnType<typeof setTimeout> | undefined;
   const requestRefresh = () => {
     if (refreshTimer) clearTimeout(refreshTimer);
-    refreshTimer = setTimeout(onChange, 250);
+    refreshTimer = setTimeout(onChange, 3000);
   };
 
   const channel = supabase

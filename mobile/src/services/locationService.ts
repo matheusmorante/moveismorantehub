@@ -3,6 +3,22 @@ import * as Location from 'expo-location';
 export interface DriverCoordinates {
   latitude: number;
   longitude: number;
+  accuracy?: number | null;
+}
+
+/**
+ * Calcula a dist├óncia em metros entre duas coordenadas usando a f├│rmula de Haversine.
+ */
+export function calculateDistanceInMeters(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  const R = 6371e3; // Raio da Terra em metros
+  const toRadians = (degrees: number) => degrees * Math.PI / 180;
+  const dLat = toRadians(lat2 - lat1);
+  const dLon = toRadians(lon2 - lon1);
+  const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+            Math.cos(toRadians(lat1)) * Math.cos(toRadians(lat2)) *
+            Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
 }
 
 export interface LocationResult {
@@ -57,6 +73,7 @@ export async function getCurrentDriverLocation(): Promise<LocationResult> {
         coords: {
           latitude: lastKnown.coords.latitude,
           longitude: lastKnown.coords.longitude,
+          accuracy: lastKnown.coords.accuracy,
         },
         permissionGranted: true,
       };
@@ -71,6 +88,7 @@ export async function getCurrentDriverLocation(): Promise<LocationResult> {
       coords: {
         latitude: position.coords.latitude,
         longitude: position.coords.longitude,
+        accuracy: position.coords.accuracy,
       },
       permissionGranted: true,
     };
@@ -103,15 +121,16 @@ export async function watchDriverLocation(
 
     const subscription = await Location.watchPositionAsync(
       {
-        accuracy: Location.Accuracy.High,
-        timeInterval: 3000,
-        distanceInterval: 2,
+        accuracy: Location.Accuracy.Balanced, // Balanceado para bateria e ERP (sem navega├º├úo curva-a-curva)
+        timeInterval: 10000, // 10 segundos
+        distanceInterval: 20, // 20 metros
       },
       (location) => {
         if (location?.coords) {
           onLocation({
             latitude: location.coords.latitude,
             longitude: location.coords.longitude,
+            accuracy: location.coords.accuracy,
           });
         }
       }
