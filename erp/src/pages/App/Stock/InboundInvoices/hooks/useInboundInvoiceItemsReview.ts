@@ -13,18 +13,10 @@ import { itemCostWithAdditionalCosts } from '@/pages/utils/inboundNfe/inboundIte
 import { prepareNewParentWithVariation, prepareExistingParentNewVariation } from '../services/inboundProductPreparationService';
 import { resolveLinkedProductDetails, enrichInboundItemsWithProductDetails, isGenericOrEmptyProductName } from '@/pages/utils/inboundNfe/inboundItemProductResolver';
 import { useInboundInvoiceSuggestions, type InboundSuggestion } from './useInboundInvoiceSuggestions';
-import type { QuickRegisterItem, QuickRegisterSelection } from '../modals/QuickRegisterVariationModal';
+import { useInboundInvoiceQuickRegister } from './useInboundInvoiceQuickRegister';
 import { toast } from 'react-toastify';
 
-export interface AiClassification {
-    decision: 'EXISTING_VARIATION' | 'NEW_VARIATION_OF_EXISTING_PRODUCT' | 'NEW_PRODUCT' | 'UNSURE';
-    matchedProductId: string | null;
-    matchedVariationId: string | null;
-    normalizedParentName: string;
-    extractedAttributes: { color: string | null; measure: string | null; material: string | null };
-    confidence: number;
-    reasons: string[];
-}
+import { useInboundInvoiceClassification, type AiClassification } from './useInboundInvoiceClassification';
 
 export interface UseInboundInvoiceItemsReviewParams {
     items: InboundInvoiceItem[];
@@ -35,8 +27,8 @@ export interface UseInboundInvoiceItemsReviewParams {
     suggestionsEnabled?: boolean;
 }
 
-/** Flag de controle de recurso: sugestão de vínculos desativada a pedido do usuário; código preservado para futura ativação */
-export const INBOUND_SUGGESTIONS_FEATURE_ENABLED = false;
+/** Sugestões de vínculos determinísticas (sem IA, execução 100% local) */
+export const INBOUND_SUGGESTIONS_FEATURE_ENABLED = true;
 
 export function useInboundInvoiceItemsReview({
     items,
@@ -91,28 +83,44 @@ export function useInboundInvoiceItemsReview({
         };
     }, [items, onChange]);
 
-    const [creatingItemNumber, setCreatingItemNumber] = useState<number | null>(null);
-    // No cadastro rápido de uma nova variação, esta é a identidade que deve
-    // receber o vínculo da NF. Nunca inferir pela posição no array do pai.
-    const [creatingVariationId, setCreatingVariationId] = useState<string | null>(null);
+    const {
+        quickRegisterTarget,
+        setQuickRegisterTarget,
+        handleQuickRegisterConfirm,
+        isPreparingProduct,
+        setIsPreparingProduct,
+        creatingItemNumber,
+        setCreatingItemNumber,
+        creatingVariationId,
+        setCreatingVariationId,
+        editingParentProduct,
+        setEditingParentProduct,
+        initialProductData,
+        setInitialProductData,
+        isProductModalOpen,
+        setIsProductModalOpen,
+        suggestedCategory,
+        setSuggestedCategory,
+        editProduct,
+        closeProductModal
+    } = useInboundInvoiceQuickRegister(supplierId);
+
+    // Fila de criação sequencial
     const [creationQueue, setCreationQueue] = useState<number[]>([]);
-    const [initialProductData, setInitialProductData] = useState<Partial<Product> | null>(null);
     const [isSuggestingName, setIsSuggestingName] = useState(false);
+
+    const {
+        isClassifying,
+        aiClassification,
+        setAiClassification,
+        classifyingItem,
+        setClassifyingItem,
+        classifyWithAI,
+        resetClassification
+    } = useInboundInvoiceClassification(supplierId);
+
     const [individualItem, setIndividualItem] = useState<InboundInvoiceItem | null>(null);
     const [individualMarkup, setIndividualMarkup] = useState('');
-    const [suggestedCategory, setSuggestedCategory] = useState<{ id: string; name: string } | null>(null);
-    const [isPreparingProduct, setIsPreparingProduct] = useState(false);
-    const [isProductModalOpen, setIsProductModalOpen] = useState(false);
-    const [editingParentProduct, setEditingParentProduct] = useState<Product | null>(null);
-    const [quickRegisterTarget, setQuickRegisterTarget] = useState<{ itemNumber: number; item: QuickRegisterItem } | null>(null);
-
-    // IA com contexto de fornecedor
-    const [isClassifying, setIsClassifying] = useState(false);
-    const [aiClassification, setAiClassification] = useState<AiClassification | null>(null);
-    const [classifyingItem, setClassifyingItem] = useState<InboundInvoiceItem | null>(null);
-
-    // Cache de produtos do fornecedor
-    const supplierProductsCacheRef = useRef<{ supplierId: string; products: SupplierProductSummary[] } | null>(null);
 
     const linkedCount = useMemo(() => items.filter((item) => Boolean(item.matchedProductId)).length, [items]);
     const unlinkedItems = useMemo(() => items.filter((item) => !item.matchedProductId), [items]);
@@ -121,19 +129,7 @@ export function useInboundInvoiceItemsReview({
     const effectiveMarkup = individualMarkup;
     const setEffectiveMarkup = setIndividualMarkup;
 
-    const getSupplierProducts = async (): Promise<SupplierProductSummary[]> => {
-        if (!supplierId) return [];
-        if (supplierProductsCacheRef.current?.supplierId === supplierId) return supplierProductsCacheRef.current.products;
-        const products = await fetchSupplierProductsForContext(supplierId);
-        supplierProductsCacheRef.current = { supplierId, products };
-        return products;
-    };
 
-    useEffect(() => {
-        if (supplierId && supplierProductsCacheRef.current?.supplierId !== supplierId) {
-            supplierProductsCacheRef.current = null;
-        }
-    }, [supplierId]);
 
     const removeLink = async (item: InboundInvoiceItem) => {
         if (removalInProgress.current) return;
@@ -229,32 +225,14 @@ export function useInboundInvoiceItemsReview({
                 return;
             }
         }
-        setIsClassifying(true);
-        setClassifyingItem(item);
+        
         setCreationQueue(queue);
-        try {
-            const supplierProducts = await getSupplierProducts();
-            if (!supplierProducts.length) {
-                setIsClassifying(false);
-                void startCreation(item, queue, undefined, markupInput);
-                return;
-            }
-            const contextSummary = buildSupplierContextSummary(supplierProducts);
-            const classification = await aiService.classifyInboundItemWithSupplierContext({
-                itemDescription: item.productDescription,
-                itemProductCode: item.productCode || undefined,
-                supplierContextSummary: contextSummary,
-            });
-            setIsClassifying(false);
-            if (classification.decision === 'NEW_PRODUCT' || classification.decision === 'UNSURE' || !classification.matchedProductId) {
-                void startCreation(item, queue, undefined, markupInput);
-                return;
-            }
-            setAiClassification(classification);
-        } catch {
-            setIsClassifying(false);
+        const classification = await classifyWithAI(item);
+        if (!classification || classification.decision === 'NEW_PRODUCT' || classification.decision === 'UNSURE' || !classification.matchedProductId) {
             void startCreation(item, queue, undefined, markupInput);
+            return;
         }
+        setAiClassification(classification);
     };
 
     const confirmExistingVariationLink = async () => {
@@ -268,8 +246,7 @@ export function useInboundInvoiceItemsReview({
         });
         toast.success('Item vinculado à variação existente identificada pela IA.');
         const queue = creationQueue.filter((n) => n !== classifyingItem.itemNumber);
-        setAiClassification(null);
-        setClassifyingItem(null);
+        resetClassification();
         advanceQueue(queue);
     };
 
@@ -311,8 +288,7 @@ export function useInboundInvoiceItemsReview({
             });
             toast.success(`Variação cadastrada no produto pai "${family.name || family.title}".`);
             const queue = creationQueue.filter((n) => n !== classifyingItem.itemNumber);
-            setAiClassification(null);
-            setClassifyingItem(null);
+            resetClassification();
             advanceQueue(queue);
         } catch (error: any) {
             toast.error(error.message || 'Não foi possível cadastrar a variação no produto pai.');
@@ -322,54 +298,11 @@ export function useInboundInvoiceItemsReview({
     const discardClassificationAndCreateNew = () => {
         const item = classifyingItem;
         const queue = [...creationQueue];
-        setAiClassification(null);
-        setClassifyingItem(null);
+        resetClassification();
         if (item) void startCreation(item, queue);
     };
 
-    const handleQuickRegisterConfirm = async (selection: QuickRegisterSelection) => {
-        if (!quickRegisterTarget) return;
-        const { itemNumber, item } = quickRegisterTarget;
-        setQuickRegisterTarget(null);
 
-        if (selection.mode === 'EXISTING_PARENT') {
-            try {
-                setIsPreparingProduct(true);
-                const parentProduct = await getFullProduct(selection.parentProductId);
-                if (!parentProduct) {
-                    setIsPreparingProduct(false);
-                    toast.error('Produto pai não encontrado.');
-                    return;
-                }
-
-                const updatedParentProduct = await prepareExistingParentNewVariation(parentProduct, item);
-
-                setIsPreparingProduct(false);
-                setCreatingItemNumber(itemNumber);
-                setCreatingVariationId(updatedParentProduct.variations?.[updatedParentProduct.variations.length - 1]?.id || null);
-                setEditingParentProduct(updatedParentProduct);
-                setIsProductModalOpen(true);
-            } catch (err: any) {
-                setIsPreparingProduct(false);
-                toast.error(err.message || 'Erro ao carregar produto pai.');
-            }
-        } else {
-            try {
-                setIsPreparingProduct(true);
-                const preparedData = await prepareNewParentWithVariation(item, supplierId);
-                setIsPreparingProduct(false);
-
-                setCreatingItemNumber(itemNumber);
-                setCreatingVariationId(preparedData.variations?.[0]?.id || null);
-                setEditingParentProduct(null);
-                setInitialProductData(preparedData);
-                setIsProductModalOpen(true);
-            } catch (err: any) {
-                setIsPreparingProduct(false);
-                toast.error(err.message || 'Erro ao preparar formulário de cadastro.');
-            }
-        }
-    };
 
     const handleCreatedProductFromModal = async (createdProduct: Product) => {
         setIsProductModalOpen(false);
@@ -481,14 +414,7 @@ export function useInboundInvoiceItemsReview({
         }
     };
 
-    const closeProductModal = () => {
-        setIsProductModalOpen(false);
-        setCreatingItemNumber(null);
-        setCreatingVariationId(null);
-        setEditingParentProduct(null);
-        setInitialProductData(null);
-        setSuggestedCategory(null);
-    };
+
 
     return {
         // Estatísticas e listas
@@ -534,5 +460,6 @@ export function useInboundInvoiceItemsReview({
         initialProductData,
         closeProductModal,
         handleCreatedProductFromModal,
+        editProduct,
     };
 }

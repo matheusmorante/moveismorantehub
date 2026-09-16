@@ -6,6 +6,7 @@ import { subscribeToPeople } from '@/pages/utils/personService';
 import { fetchGroupsAndCategories } from '@/pages/utils/categoryService';
 import { toast } from "react-toastify";
 import { ensureDefaultVariation, hasMissingRequiredAttributes, hasVariationAttribute, getIncompleteVariationAttributes } from '@/pages/utils/productVariationDefaults';
+import { supabase } from '@/pages/utils/supabaseConfig';
 
 // Initial Data & Rules
 import { INITIAL_PRODUCT_FORM_DATA } from '../productFormInitialData';
@@ -54,6 +55,7 @@ export function useProductFormModal({
     const [suppliers, setSuppliers] = useState<Person[]>([]);
     const [availableCategories, setAvailableCategories] = useState<any[]>([]);
     const [isConversionModalOpen, setIsConversionModalOpen] = useState(false);
+    const [variationsInUse, setVariationsInUse] = useState<Set<string>>(new Set());
 
     const [formData, setFormData] = useState<Partial<Product>>({
         ...INITIAL_PRODUCT_FORM_DATA,
@@ -76,6 +78,41 @@ export function useProductFormModal({
 
     // Sincronização contínua de campos computados, herança e agregados
     useProductFormSync({ formData, setFormData });
+
+    // Fetch variations usage
+    useEffect(() => {
+        if (!isOpen || !formData.variations || formData.variations.length === 0) {
+            setVariationsInUse(new Set());
+            return;
+        }
+
+        const variationIds = formData.variations.map(v => v.id).filter(Boolean);
+        if (variationIds.length === 0) return;
+
+        let isMounted = true;
+        const checkUsage = async () => {
+            try {
+                const { data, error } = await supabase.rpc('get_variations_in_use', {
+                    p_variation_ids: variationIds
+                });
+                
+                if (error) {
+                    console.warn('Falha na RPC get_variations_in_use (pode não estar criada ainda):', error);
+                    return;
+                }
+                
+                if (isMounted && data && Array.isArray(data)) {
+                    setVariationsInUse(new Set(data));
+                }
+            } catch (err) {
+                console.error('Erro ao buscar uso das variações:', err);
+            }
+        };
+
+        checkUsage();
+
+        return () => { isMounted = false; };
+    }, [isOpen, formData.variations]);
 
     const navigateToRequirementField = useCallback((fieldKey: string) => {
         scrollToRequirementField(fieldKey, setActiveTab, () => setSaveResult(null));
@@ -125,6 +162,7 @@ export function useProductFormModal({
         loadedProductIdRef.current = currentTargetId;
         hasChanged.current = false;
         initialFormDataRef.current = "";
+        setValidationErrors({});
         let isMounted = true;
         const loadFullData = async () => {
             let resolvedFormData: Product | null = null;
@@ -186,15 +224,7 @@ export function useProductFormModal({
                 });
                 resolvedFormData = nextFormData as Product;
                 initialFormDataRef.current = JSON.stringify(nextFormData);
-                setFormData(prev => ensureDefaultVariation({
-                    ...nextFormData,
-                    ...prev,
-                    id: prev.id || generatedId,
-                    code: prev.code || generatedSku,
-                    name: prev.name || nextFormData.name,
-                    title: prev.title || nextFormData.title,
-                    hasVariations: true
-                }));
+                setFormData(nextFormData);
                 pricing.setDiscountFixed("");
                 pricing.setDiscountPercent("");
             }
@@ -584,6 +614,7 @@ export function useProductFormModal({
         setSaveResult,
         validationErrors,
         setValidationErrors,
+        variationsInUse,
         isCategorySearchOpen,
         setIsCategorySearchOpen,
         suppliers,

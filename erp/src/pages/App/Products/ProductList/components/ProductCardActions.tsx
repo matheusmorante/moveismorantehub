@@ -4,7 +4,7 @@ import Product from '@/pages/types/product.type';
 import { formatCurrency } from '@/pages/utils/formatters';
 import DropdownPortal from '@/components/shared/DropdownPortal';
 import Swal from 'sweetalert2';
-import { checkProductIsUsed, physicalDeleteProduct } from '@/pages/utils/productService/productMutationService';
+import { checkProductIsUsed, physicalDeleteProduct } from '@/pages/utils/productService';
 export interface ProductCardActionsProps {
     readonly product: Product;
     readonly onEdit: (product: Product) => void;

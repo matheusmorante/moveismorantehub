@@ -1,8 +1,9 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React from 'react';
 import Product, { Variation } from '../pages/types/product.type';
 import DropdownPortal from './shared/DropdownPortal';
 import TruncatedProductTitle from './TruncatedProductTitle';
-import { fetchAllProductSearchResults, getVariationDisplayName, normalizeProductSearch, renderHighlightedProductText, SuggestionItem } from './productAutocompleteUtils';
+import { getVariationDisplayName } from './productAutocompleteUtils';
+import { useProductAutocomplete } from './hooks/useProductAutocomplete';
 
 interface ProductAutocompleteProps {
     onSelect: (product: Product, variation?: Variation) => void;
@@ -30,6 +31,7 @@ interface ProductAutocompleteProps {
     clearOnSelect?: boolean;
     disabled?: boolean;
     isLoadingSuggestions?: boolean;
+    onEditClick?: (product: Product, variation?: Variation) => void;
 }
 
 const ProductAutocomplete: React.FC<ProductAutocompleteProps> = ({
@@ -55,96 +57,26 @@ const ProductAutocomplete: React.FC<ProductAutocompleteProps> = ({
     clearOnSelect = false,
     disabled = false,
     isLoadingSuggestions = false,
+    onEditClick,
 }) => {
-    const [query, setQuery] = useState(value);
-    const [suggestions, setSuggestions] = useState<SuggestionItem[]>([]);
-    const [isLoading, setIsLoading] = useState(false);
-    const [showSuggestions, setShowSuggestions] = useState(false);
-    const wrapperRef = useRef<HTMLDivElement>(null);
-
-    useEffect(() => {
-        setQuery(value);
-    }, [value]);
-
-    useEffect(() => {
-        const handleClickOutside = (event: MouseEvent) => {
-            if (wrapperRef.current && !wrapperRef.current.contains(event.target as Node)) {
-                setShowSuggestions(false);
-            }
-        };
-        document.addEventListener('mousedown', handleClickOutside);
-        return () => document.removeEventListener('mousedown', handleClickOutside);
-    }, []);
-
-    useEffect(() => {
-        const fetchSuggestions = async () => {
-            const trimmed = query.trim();
-            if (trimmed.length < 2) {
-                setSuggestions([]);
-                return;
-            }
-
-            setIsLoading(true);
-            try {
-                const words = trimmed.split(/\s+/).filter(w => w.length > 0);
-                const productsData = localProducts?.length
-                    ? localProducts
-                    : await fetchAllProductSearchResults(trimmed, supplierId || undefined, includeDeactivated);
-                const items: SuggestionItem[] = [];
-                const searchNormWords = words.map(normalizeProductSearch);
-
-                (productsData || []).forEach((p: Product) => {
-                    const supplierIds = p.supplierIds || (p as any).supplier_ids || [];
-                    const prodSupplierId = p.mainSupplierId || p.supplierId || (p as any).main_supplier_id || (p as any).supplier_id;
-                    if (supplierId && !supplierIds.includes(supplierId) && prodSupplierId !== supplierId) {
-                        return;
-                    }
-
-                    const variations = p.variations || [];
-
-                    if (parentsOnly) {
-                        const baseName = (p.name || p.title || '').trim();
-                        const matchesAll = searchNormWords.every((word) =>
-                            normalizeProductSearch(baseName).includes(word) || normalizeProductSearch(p.code || '').includes(word)
-                        );
-                        if (matchesAll) items.push({ product: p });
-                    } else if (variations.length > 0) {
-                        variations.forEach((v) => {
-                            const baseName = (p.name || p.title || '').trim();
-                            if ((includeDeactivated || v.active !== false) && !v.mergedToVariationId) {
-                                const fullName = getVariationDisplayName(p, v);
-                                const normFullName = normalizeProductSearch(fullName);
-                                const normSku = normalizeProductSearch(v.sku || '');
-
-                                const matchesAll = searchNormWords.every(nw => 
-                                    normFullName.includes(nw) || normSku.includes(nw)
-                                );
-
-                                if (matchesAll) {
-                                    items.push({ product: p, variation: v });
-                                }
-                            }
-                        });
-                    } else if (!variationsOnly) {
-                        const baseName = (p.name || p.title || '').trim();
-                        const matchesAll = searchNormWords.every((word) =>
-                            normalizeProductSearch(baseName).includes(word) || normalizeProductSearch(p.code || '').includes(word)
-                        );
-                        if (matchesAll) items.push({ product: p });
-                    }
-                });
-
-                setSuggestions(items);
-            } catch (error) {
-                console.error('Erro ao buscar sugestões:', error);
-            } finally {
-                setIsLoading(false);
-            }
-        };
-
-        const timeoutId = setTimeout(fetchSuggestions, 250);
-        return () => clearTimeout(timeoutId);
-    }, [query, supplierId, variationsOnly, parentsOnly, includeDeactivated, localProducts]);
+    const {
+        query,
+        setQuery,
+        handleQueryChange,
+        suggestions,
+        isLoading,
+        showSuggestions,
+        setShowSuggestions,
+        wrapperRef,
+    } = useProductAutocomplete({
+        value,
+        supplierId,
+        parentsOnly,
+        variationsOnly,
+        includeDeactivated,
+        localProducts,
+        onChange,
+    });
 
     return (
         <div ref={wrapperRef} className={`relative ${className}`}>
@@ -157,10 +89,7 @@ const ProductAutocomplete: React.FC<ProductAutocompleteProps> = ({
                         disabled={disabled}
                         value={query || ''}
                         onChange={(e) => {
-                            const val = e.target.value;
-                            setQuery(val);
-                            setShowSuggestions(val.trim().length >= 2);
-                            if (onChange) onChange(val);
+                            handleQueryChange(e.target.value);
                         }}
                         onFocus={() => setShowSuggestions(query.trim().length >= 2)}
                         placeholder={placeholder}
@@ -323,9 +252,23 @@ const ProductAutocomplete: React.FC<ProductAutocompleteProps> = ({
                                         <span className="text-xs font-black text-blue-600 dark:text-blue-400 font-sans">
                                             {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(displayPrice)}
                                         </span>
-                                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md ${displayStock > 0 ? 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400' : 'bg-red-50 dark:bg-red-900/30 text-red-500'}`}>
-                                            {displayStock > 0 ? `${displayStock} un` : 'Sem estoque'}
-                                        </span>
+                                        {onEditClick ? (
+                                            <button
+                                                type="button"
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    onEditClick(p, v);
+                                                }}
+                                                className="p-1 text-slate-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-md transition-colors"
+                                                title="Editar produto/variação"
+                                            >
+                                                <i className="bi bi-pencil-square text-sm" />
+                                            </button>
+                                        ) : (
+                                            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md ${displayStock > 0 ? 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400' : 'bg-red-50 dark:bg-red-900/30 text-red-500'}`}>
+                                                {displayStock > 0 ? `${displayStock} un` : 'Sem estoque'}
+                                            </span>
+                                        )}
                                     </div>
                                 )}
                             </button>

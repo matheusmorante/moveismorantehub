@@ -102,7 +102,7 @@ export function matchCategoryByRules(title: string, categories: readonly Categor
     }
 
     // 6. Dormitório / Quarto
-    if (normTitle.includes('guarda roupa') || normTitle.includes('roupeiro')) {
+    if (normTitle.includes('guarda roupa') || normTitle.includes('roupeiro') || normTitle.includes('g roupa')) {
         const matched = findByName('Guarda-Roupas') || findByName('Guarda Roupa');
         if (matched) return matched;
     }

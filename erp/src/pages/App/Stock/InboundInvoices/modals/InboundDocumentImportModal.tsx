@@ -1,17 +1,7 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { toast } from 'react-toastify';
-import {
-    saveInboundInvoice,
-    checkInboundInvoiceKeyExists,
-    consultInboundInvoiceByAccessKey,
-} from '@/pages/utils/inboundNfe/inboundInvoicesService';
-import { parseInboundNfeXml } from '@/pages/utils/inboundNfe/inboundXmlParser';
+import React, { useRef } from 'react';
 import { InboundInvoice } from '@/pages/utils/inboundNfe/inboundNfeTypes';
-import { fetchPersons } from '@/pages/utils/personService';
-import { findProductSupplierCodes } from '@/pages/utils/productSupplierCodesService';
-import { resolveLinkedProductDetails } from '@/pages/utils/inboundNfe/inboundItemProductResolver';
-import Person from '@/pages/types/person.type';
 import { InboundDuplicateKeyAlertModal } from './InboundDuplicateKeyAlertModal';
+import { useInboundDocumentImport } from '../hooks/useInboundDocumentImport';
 
 interface InboundDocumentImportModalProps {
     readonly isOpen: boolean;
@@ -21,217 +11,26 @@ interface InboundDocumentImportModalProps {
 
 const ACCEPTED_FILE_TYPES = 'text/xml,application/xml,.xml';
 
-/**
- * Localiza o fornecedor já cadastrado para vincular à nota de entrada.
- * A importação não cria fornecedores: a confirmação do cadastro é sempre manual.
- */
-async function ensureSupplier(
-    emitterName?: string,
-    emitterTradeName?: string,
-    emitterCnpj?: string
-): Promise<Person | null> {
-    const cleanDoc = (emitterCnpj || '').replace(/\D/g, '');
-    try {
-        const suppliers = await fetchPersons('suppliers');
-        if (cleanDoc) {
-            const matchByCnpj = suppliers.find((p) => (p.cpfCnpj || '').replace(/\D/g, '') === cleanDoc);
-            if (matchByCnpj) return matchByCnpj;
-        }
-
-        if (emitterName?.trim()) {
-            const matchByName = suppliers.find(
-                (p) => (p.fullName || '').trim().toLowerCase() === emitterName.trim().toLowerCase()
-            );
-            if (matchByName) return matchByName;
-        }
-    } catch (err) {
-        console.warn('[InboundDocumentImportModal] Aviso ao localizar fornecedor:', err);
-    }
-    return null;
-}
-
 export const InboundDocumentImportModal: React.FC<InboundDocumentImportModalProps> = ({
     isOpen,
     onClose,
     onImportSuccess,
 }) => {
     const fileInputRef = useRef<HTMLInputElement>(null);
-    const [accessKeyInput, setAccessKeyInput] = useState('');
-    const [isLoading, setIsLoading] = useState(false);
-    const [statusMessage, setStatusMessage] = useState('');
-    const [isDraggingFile, setIsDraggingFile] = useState(false);
-
-    // Alerta de chave duplicada
-    const [duplicateAlertOpen, setDuplicateAlertOpen] = useState(false);
-    const [duplicateKey, setDuplicateKey] = useState('');
-    const [duplicateExistingInvoice, setDuplicateExistingInvoice] = useState<InboundInvoice | null>(null);
-
-    useEffect(() => {
-        if (!isOpen) {
-            setAccessKeyInput('');
-            setIsLoading(false);
-            setStatusMessage('');
-            setIsDraggingFile(false);
-            setDuplicateAlertOpen(false);
-            setDuplicateKey('');
-            setDuplicateExistingInvoice(null);
-        }
-    }, [isOpen]);
-
-    /**
-     * Persiste a nota no banco de dados e aciona o callback de sucesso
-     */
-    const persistAndFinish = async (parsedInvoice: InboundInvoice) => {
-        if (String(parsedInvoice.model || '').replace(/\D/g, '') === '65') {
-            throw new Error('NFC-e (modelo 65) não pode ser cadastrada como NF de Entrada.');
-        }
-
-        const cleanKey = (parsedInvoice.nfeKey || '').replace(/\D/g, '');
-        if (!cleanKey || cleanKey.length !== 44) {
-            throw new Error('A chave de acesso da nota fiscal deve conter exatamente 44 dígitos.');
-        }
-
-        // Verifica duplicidade no banco
-        setStatusMessage('Verificando notas existentes...');
-        const existing = await checkInboundInvoiceKeyExists(cleanKey);
-        if (existing) {
-            setDuplicateKey(cleanKey);
-            setDuplicateExistingInvoice(existing);
-            setDuplicateAlertOpen(true);
-            return;
-        }
-
-        // Localiza ou cadastra fornecedor
-        setStatusMessage('Identificando fornecedor...');
-        const supplier = await ensureSupplier(
-            parsedInvoice.emitterName,
-            parsedInvoice.emitterTradeName,
-            parsedInvoice.emitterCnpj
-        );
-        const supplierId = supplier?.id;
-
-        // Auto-match com vínculos anteriores do fornecedor
-        let itemsWithMatches = parsedInvoice.items || [];
-        if (supplierId && itemsWithMatches.length > 0) {
-            setStatusMessage('Consultando vínculos de produtos...');
-            try {
-                const mappings = await findProductSupplierCodes(
-                    supplierId,
-                    itemsWithMatches.map((i) => i.productCode)
-                );
-                if (mappings.size > 0) {
-                    itemsWithMatches = await Promise.all(itemsWithMatches.map(async (item) => {
-                        const map = mappings.get((item.productCode || '').trim().toLocaleUpperCase('pt-BR'));
-                        if (!map) return item;
-                        const details = await resolveLinkedProductDetails(map.productId, map.productVariationId);
-                        return {
-                            ...item,
-                            matchedProductId: map.productId,
-                            matchedVariationId: map.productVariationId,
-                            linkedProductCode: details?.linkedProductCode,
-                            productErpName: details?.productErpName || 'Produto vinculado',
-                        };
-                    }));
-                }
-            } catch (mErr) {
-                console.warn('[InboundDocumentImportModal] Erro ao recuperar histórico de vínculos:', mErr);
-            }
-        }
-
-        const invoiceToSave: InboundInvoice = {
-            ...parsedInvoice,
-            nfeKey: cleanKey,
-            supplierId: supplierId || parsedInvoice.supplierId,
-            items: itemsWithMatches,
-        };
-
-        setStatusMessage('Salvando nota fiscal no sistema...');
-        const saved = await saveInboundInvoice(invoiceToSave);
-        toast.success(`NF-e #${saved.nfeNumber || ''} adicionada com sucesso!`);
-        onImportSuccess(saved);
-        onClose();
-    };
-
-    /**
-     * Processa exclusivamente o XML oficial da NF-e. A importação por foto/PDF
-     * e a extração por IA não fazem mais parte deste fluxo.
-     */
-    const handleFile = async (selectedFile?: File) => {
-        if (!selectedFile || isLoading) return;
-
-        const isXml = selectedFile.name.toLowerCase().endsWith('.xml') || selectedFile.type.includes('xml');
-        try {
-            setIsLoading(true);
-
-            if (!isXml) throw new Error('Envie somente o arquivo XML oficial da NF-e.');
-
-            setStatusMessage('Lendo e interpretando arquivo XML...');
-            const xmlText = await selectedFile.text();
-            const parsed = parseInboundNfeXml(xmlText);
-            await persistAndFinish(parsed);
-        } catch (error: any) {
-            console.error('[InboundDocumentImportModal] Erro ao processar arquivo:', error);
-            toast.error(error.message || 'Falha ao processar o arquivo da nota fiscal.');
-        } finally {
-            setIsLoading(false);
-            setStatusMessage('');
-            if (fileInputRef.current) fileInputRef.current.value = '';
-        }
-    };
-
-    /**
-     * Consulta a nota diretamente pela chave de acesso de 44 dígitos
-     */
-    const handleConsultAccessKey = async () => {
-        const cleanKey = accessKeyInput.replace(/\D/g, '');
-        if (cleanKey.length !== 44) {
-            toast.warning('A chave de acesso deve conter exatamente 44 dígitos.');
-            return;
-        }
-
-        try {
-            setIsLoading(true);
-            setStatusMessage('Sincronizando com a SEFAZ...');
-
-            const { syncSefazDfe, fetchInboundInvoicesPage } = await import('@/pages/utils/inboundNfe/inboundInvoicesService');
-            await syncSefazDfe();
-
-            setStatusMessage('Consultando chave de acesso...');
-            const res = await fetchInboundInvoicesPage({
-                page: 1,
-                pageSize: 1,
-                searchTerm: cleanKey,
-                dateFilter: { mode: 'custom_range', startMonth: '', endMonth: '', customMonth: '' }
-            });
-            const foundInvoice = res.invoices.find((candidate) => candidate.nfeKey === cleanKey);
-
-            if (foundInvoice) {
-                toast.success('Nota Fiscal encontrada e importada com sucesso!');
-                onImportSuccess(foundInvoice);
-                onClose();
-                return;
-            }
-
-            // Fallback (se não achou na listagem)
-            const result = await consultInboundInvoiceByAccessKey(cleanKey);
-
-            if (result.invoice) {
-                await persistAndFinish(result.invoice);
-                return;
-            }
-
-            toast.info(
-                result.message ||
-                    'A SEFAZ não liberou o XML completo dos itens para esta chave. Por favor, anexe o arquivo XML ou DANFE.'
-            );
-        } catch (error: any) {
-            console.error('[InboundDocumentImportModal] Erro ao consultar chave:', error);
-            toast.error(error.message || 'Não foi possível consultar a nota fiscal pela chave informada.');
-        } finally {
-            setIsLoading(false);
-            setStatusMessage('');
-        }
-    };
+    const {
+        accessKeyInput,
+        setAccessKeyInput,
+        isLoading,
+        statusMessage,
+        isDraggingFile,
+        setIsDraggingFile,
+        duplicateAlertOpen,
+        setDuplicateAlertOpen,
+        duplicateKey,
+        duplicateExistingInvoice,
+        handleFile,
+        handleConsultAccessKey,
+    } = useInboundDocumentImport({ isOpen, onClose, onImportSuccess });
 
     if (!isOpen) return null;
 
@@ -371,10 +170,11 @@ export const InboundDocumentImportModal: React.FC<InboundDocumentImportModalProp
                                         id="nfe-access-key-input"
                                         type="text"
                                         inputMode="numeric"
-                                        maxLength={44}
+                                        maxLength={60}
                                         value={accessKeyInput}
                                         disabled={isLoading}
-                                        onChange={(e) => setAccessKeyInput(e.target.value.replace(/\D/g, ''))}
+                                        onChange={(e) => setAccessKeyInput(e.target.value.replace(/\D/g, '').slice(0, 44))}
+                                        onBlur={(e) => setAccessKeyInput(e.target.value.replace(/\D/g, '').slice(0, 44))}
                                         onKeyDown={(e) => {
                                             if (e.key === 'Enter') {
                                                 e.preventDefault();
@@ -402,18 +202,33 @@ export const InboundDocumentImportModal: React.FC<InboundDocumentImportModalProp
                                     Consultar
                                 </button>
                             </div>
-                            <p className="mt-1.5 text-[11px] text-slate-400">
-                                A chave de acesso numérica encontra-se no cabeçalho do DANFE da nota fiscal.
-                            </p>
-                            <a
-                                href="https://www.nfe.fazenda.gov.br/portal/consultaRecaptcha.aspx?tipoConsulta=resumo&tipoConteudo=7PhJ+gAVw2g="
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="mt-3 inline-flex items-center gap-2 rounded-xl border border-blue-200 bg-blue-50 px-3 py-2 text-[11px] font-black text-blue-700 transition-colors hover:bg-blue-100 dark:border-blue-900/60 dark:bg-blue-950/30 dark:text-blue-300 dark:hover:bg-blue-950/50"
-                            >
-                                <i className="bi bi-box-arrow-up-right" aria-hidden="true" />
-                                Consultar NF-e no portal da Fazenda
-                            </a>
+                            <div className="mt-4 bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-800 rounded-xl p-3 flex gap-3 items-start">
+                                <i className="bi bi-info-circle-fill text-blue-500 mt-0.5" aria-hidden="true" />
+                                <div className="space-y-2.5">
+                                    <p className="text-[11px] text-slate-700 dark:text-slate-300">
+                                        <strong>Consulta automática do XML:</strong> disponível para NF-e recebidas nos últimos 90 dias.
+                                    </p>
+                                    <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg p-2.5">
+                                        <p className="text-[11px] font-bold text-slate-700 dark:text-slate-200 flex items-center gap-1.5">
+                                            <i className="bi bi-clock-history text-slate-400" aria-hidden="true" />
+                                            NF-e com mais de 90 dias?
+                                        </p>
+                                        <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">
+                                            A consulta automática do XML pelo serviço de distribuição da SEFAZ possui janela de até 90 dias e pode não estar mais disponível. 
+                                            Você ainda pode <strong>importar o arquivo XML</strong> (opção 1 acima) ou consultar a chave manualmente no Portal da NF-e.
+                                        </p>
+                                        <a
+                                            href="https://www.nfe.fazenda.gov.br/portal/consultaRecaptcha.aspx?tipoConsulta=resumo&tipoConteudo=7PhJ+gAVw2g="
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="mt-2.5 inline-flex items-center gap-1.5 rounded-lg border border-blue-100 bg-blue-50/50 px-2.5 py-1.5 text-[10px] font-black text-blue-700 transition-colors hover:bg-blue-100 dark:border-blue-900/60 dark:bg-blue-950/30 dark:text-blue-300 dark:hover:bg-blue-950/50"
+                                        >
+                                            <i className="bi bi-box-arrow-up-right" aria-hidden="true" />
+                                            Consultar manualmente no Portal da NF-e
+                                        </a>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     </main>
 

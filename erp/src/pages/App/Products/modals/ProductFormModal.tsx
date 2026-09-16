@@ -76,6 +76,7 @@ const ProductFormModal: React.FC<ProductFormModalProps> = (props) => {
         handleCloseVariationModal,
         handleSaveVariation,
         handleConvertProduct,
+        variationsInUse,
         handleNextStep,
         isLastStep
     } = useProductFormModal(props);
@@ -184,6 +185,7 @@ const ProductFormModal: React.FC<ProductFormModalProps> = (props) => {
                             onEdit={(id) => variations.setEditingVariationId(id)}
                             addVariation={variations.addVariation}
                             removeVariation={variations.removeVariation}
+                            variationsInUse={variationsInUse}
                         />
                     )}
 

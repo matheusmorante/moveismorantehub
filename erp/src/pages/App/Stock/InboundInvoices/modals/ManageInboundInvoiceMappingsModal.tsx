@@ -179,7 +179,7 @@ export function ManageInboundInvoiceMappingsModal({ isOpen, onClose, invoice: in
 
                         {/* Revisão de Itens e Vínculos */}
                         <InboundInvoiceItemsReview
-                            suggestionsEnabled={false}
+                            suggestionsEnabled={true}
                             items={invoice.items}
                             supplierId={invoice.supplierId}
                             suppliers={suppliers}

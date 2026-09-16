@@ -231,51 +231,17 @@ const DeliveryOrderCard = ({ order, index, onOrderClick, isReadOnly, hasInitialS
                     )}
                 </div>
 
-                <div className="relative" onClick={(e) => e.stopPropagation()}>
-                    <button
-                        onClick={(e) => { e.stopPropagation(); setShowStatusPicker(!showStatusPicker); }}
-                        className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg border transition-all active:scale-95 ${order.status === 'fulfilled' 
+                <div className="relative">
+                    <div
+                        className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg border ${order.status === 'fulfilled' 
                             ? 'bg-emerald-500 text-white border-emerald-400' 
-                            : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-blue-400'}`}
+                            : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700'}`}
                     >
                         <i className={`bi ${getStatusIcon(order.status || 'draft')} ${order.status === 'fulfilled' ? 'text-white' : `text-${currentStatus.color}-500`} text-[9px]`} />
                         <span className="text-[9px] font-black uppercase tracking-wider">
                             {currentStatus.label}
                         </span>
-                        <i className="bi bi-chevron-down text-[8px] opacity-50" />
-                    </button>
-
-                    {!isReadOnly && showStatusPicker && (
-                        <>
-                            <div className="fixed inset-0 z-10" onClick={() => setShowStatusPicker(false)} />
-                            <div className="absolute top-full right-0 mt-2 w-60 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl shadow-2xl z-[100] p-2 flex flex-col gap-1 animate-slide-up">
-                                <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-2 mb-1">Status do Pedido</p>
-                                {statuses.filter((s) => ['scheduled', 'fulfilled', 'cancelled'].includes(s.id)).map((s) => (
-                                    <button
-                                        key={s.id}
-                                        onClick={async (e) => {
-                                            e.stopPropagation();
-                                            try {
-                                                await updateOrder(order.id!, { status: s.id as any }, order);
-                                                toast.success(`Pedido #${order.id?.slice(-4)} alterado para ${s.label}`);
-                                            } catch (err: any) {
-                                                toast.error(`Falha: ${err.message}`);
-                                            }
-                                            setShowStatusPicker(false);
-                                        }}
-                                        className={`flex items-start gap-2.5 w-full p-2 rounded-xl transition-all hover:bg-slate-50 dark:hover:bg-slate-800 ${order.status === s.id ? 'bg-blue-50/50 dark:bg-blue-900/10' : ''}`}
-                                    >
-                                        <i className={`bi ${getStatusIcon(s.id)} text-${s.color}-500 text-sm mt-0.5`} />
-                                        <div className="flex flex-col text-left">
-                                            <span className={`text-[10px] font-black uppercase tracking-widest ${order.status === s.id ? 'text-blue-600 dark:text-blue-400' : 'text-slate-700 dark:text-slate-200'}`}>
-                                                {s.label}
-                                            </span>
-                                        </div>
-                                    </button>
-                                ))}
-                            </div>
-                        </>
-                    )}
+                    </div>
                 </div>
             </div>
 

@@ -24,20 +24,28 @@ export const AiUsageDashboardPanel: React.FC = () => {
       const today = new Date().toISOString().split('T')[0];
       const startOfDay = `${today}T00:00:00.000Z`;
 
-      const { data } = await supabase
-        .from('api_usage_logs')
-        .select('module_source')
-        .eq('provider', 'gemini')
-        .eq('status', 'SUCCESS')
-        .gte('created_at', startOfDay);
+      const getCount = async (mod?: string) => {
+        let q = supabase
+          .from('api_usage_logs')
+          .select('id', { count: 'exact', head: true })
+          .eq('provider', 'gemini')
+          .eq('status', 'SUCCESS')
+          .gte('created_at', startOfDay);
+        if (mod) q = q.eq('module_source', mod);
+        
+        const { count, error } = await q;
+        if (error) console.warn('[AiUsageDashboardPanel] Erro ao contar uso:', error);
+        return count || 0;
+      };
 
-      const logs = data || [];
-      setCounts({
-        textToday: logs.filter((l: any) => l.module_source === 'TEXT').length,
-        imageToday: logs.filter((l: any) => l.module_source === 'IMAGE').length,
-        ttsToday: logs.filter((l: any) => l.module_source === 'TTS').length,
-        globalToday: logs.length
-      });
+      const [textToday, imageToday, ttsToday, globalToday] = await Promise.all([
+        getCount('TEXT'),
+        getCount('IMAGE'),
+        getCount('TTS'),
+        getCount()
+      ]);
+
+      setCounts({ textToday, imageToday, ttsToday, globalToday });
     } catch (e) {
       console.warn('[AiUsageDashboardPanel] Erro ao carregar contadores de IA:', e);
     }

@@ -14,6 +14,7 @@ export interface VariationRowProps {
     readonly parentPrice?: number;
     readonly parentPromoPrice?: number;
     readonly parentSku?: string;
+    readonly inUse?: boolean;
 }
 
 /**
@@ -29,6 +30,7 @@ export const VariationRow: React.FC<VariationRowProps> = React.memo(({
     parentPrice,
     parentPromoPrice,
     parentSku,
+    inUse,
 }) => {
     const [imageError, setImageError] = React.useState(false);
     const varImage = v.images && v.images.length > 0 && !imageError ? v.images[0] : null;
@@ -118,15 +120,23 @@ export const VariationRow: React.FC<VariationRowProps> = React.memo(({
                     <i className="bi bi-pencil-square text-lg" aria-hidden="true" />
                 </button>
                 {variationIndex !== 0 && (
-                    <button
-                        type="button"
-                        onClick={() => removeVariation?.(v.id)}
-                        className="text-slate-300 hover:text-red-500 transition-colors p-1.5 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg"
-                        title="Excluir variação"
-                        aria-label="Excluir variação"
+                    <span
+                        title={inUse ? "Não é possível excluir: Variação já está sendo utilizada em operações do sistema (venda, recebimento, etc)." : "Excluir variação"}
                     >
-                        <i className="bi bi-trash" aria-hidden="true" />
-                    </button>
+                        <button
+                            type="button"
+                            disabled={inUse}
+                            onClick={() => removeVariation?.(v.id)}
+                            className={`p-1.5 rounded-lg transition-colors ${
+                                inUse 
+                                    ? 'text-slate-300 bg-slate-50 cursor-not-allowed dark:bg-slate-800/30 dark:text-slate-600' 
+                                    : 'text-slate-300 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 cursor-pointer'
+                            }`}
+                            aria-label="Excluir variação"
+                        >
+                            <i className="bi bi-trash" aria-hidden="true" />
+                        </button>
+                    </span>
                 )}
             </td>
         </tr>

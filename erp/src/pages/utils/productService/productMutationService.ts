@@ -7,42 +7,20 @@ import { getLocalProducts, saveLocalProducts, notifySubscribers } from './produc
 import { TABLE_NAME, generateUniqueCode, checkSkusUniquenessBatch } from './productSkuService';
 import { mapToDB, mapFromDB } from './productMapper';
 import { ensureUuidFormat, syncProductToSupabase } from './productPersistenceService';
-import { toTitleCase } from '../textUtils';
+import { formatProductTextData } from './productValidation';
+import { 
+    checkProductLinkedToSales, 
+    checkProductHasMoves, 
+    checkProductIsUsed, 
+    deactivateProduct, 
+    activateProduct, 
+    moveToTrash, 
+    physicalDeleteProduct, 
+    restoreProduct, 
+    deleteProduct 
+} from './productDependencyCheck';
 
-export const formatProductTextData = (product: Product): Product => {
-    if (product.name) product.name = toTitleCase(product.name);
-    if (product.title) product.title = toTitleCase(product.title);
-    if (product.marketplaceTitle) product.marketplaceTitle = toTitleCase(product.marketplaceTitle);
-    if (product.brand) product.brand = toTitleCase(product.brand);
-    if (product.line) product.line = toTitleCase(product.line);
-    if (product.material) product.material = toTitleCase(product.material);
-    if (product.colors) product.colors = toTitleCase(product.colors);
-    if (product.environment) product.environment = toTitleCase(product.environment);
 
-    if (Array.isArray(product.variations)) {
-        product.variations = product.variations.map(v => {
-            const cleanAttrs = (v.attributes || []).map((attr: any) => ({
-                ...attr,
-                name: toTitleCase(attr.name),
-                value: toTitleCase(attr.value),
-            }));
-            const varName = v.name ? toTitleCase(v.name) : (product.name ? toTitleCase(product.name) : '');
-            return {
-                ...v,
-                name: varName,
-                ...(v.title ? { title: toTitleCase(v.title) } : {}),
-                ...(v.marketplaceTitle ? { marketplaceTitle: toTitleCase(v.marketplaceTitle) } : {}),
-                attributes: cleanAttrs,
-            };
-        });
-    }
-
-    return product;
-};
-
-export const checkProductLinkedToSales = async (id: string | number): Promise<string | null> => {
-    return null;
-};
 
 export const saveProduct = async (product: Product, forceInsert = false): Promise<string> => {
     validateProductImageLimits(product);
@@ -152,6 +130,9 @@ export const saveProduct = async (product: Product, forceInsert = false): Promis
         }
     }
 
+    if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('product-updated', { detail: { productId: resolvedId } }));
+    }
     return resolvedId;
 };
 
@@ -234,143 +215,7 @@ export const updateProduct = async (id: string, productToUpdate: Partial<Product
     await syncProductToSupabase(updatedProduct);
 };
 
-export const checkProductHasMoves = async (productId: string, variationId?: string): Promise<boolean> => {
-    try {
-        const realId = String(productId).split('_')[0];
-        const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(realId);
-        if (!isUUID) return false;
 
-        let query = supabase
-            .from('inventory_moves')
-            .select('id')
-            .eq('product_id', realId)
-            .limit(1);
-
-        if (variationId) {
-            query = query.eq('variation_id', variationId);
-        }
-
-        const { data: movesData, error: movesErr } = await query;
-        if (!movesErr && movesData && movesData.length > 0) {
-            return true;
-        }
-
-        const { data: ordersData, error: ordersErr } = await supabase
-            .from('orders')
-            .select('id')
-            .filter('order_data', 'cs', `"{\\"items\\": [{\\"productId\\": \\"${realId}\\"}]}"`)
-            .limit(1);
-
-        if (!ordersErr && ordersData && ordersData.length > 0) {
-            return true;
-        }
-
-        return false;
-    } catch (error) {
-        console.error("Erro ao verificar movimentações do produto:", error);
-        return true;
-    }
-};
-
-export const deactivateProduct = async (id: string): Promise<void> => {
-    await updateProduct(id, { active: false, deleted: false });
-    const realId = String(id).split('_')[0];
-    const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(realId);
-    if (isUUID) {
-        await supabase.from('product_variations').update({ active: false }).eq('product_id', realId);
-    }
-};
-
-export const activateProduct = async (id: string): Promise<void> => {
-    await updateProduct(id, { active: true, deleted: false });
-    const realId = String(id).split('_')[0];
-    const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(realId);
-    if (isUUID) {
-        await supabase.from('product_variations').update({ active: true }).eq('product_id', realId);
-    }
-};
-
-export const moveToTrash = async (id: string): Promise<void> => {
-    await deactivateProduct(id);
-};
-
-export const checkProductIsUsed = async (productId: string): Promise<boolean> => {
-    try {
-        const realId = String(productId).split('_')[0];
-        const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(realId);
-        if (!isUUID) return false;
-
-        const [movesRes, ordersRes, receiptsRes, inboundRes] = await Promise.all([
-            supabase.from('inventory_moves').select('id').eq('product_id', realId).limit(1),
-            supabase.from('orders').select('id').filter('order_data', 'cs', `"{\\"items\\": [{\\"productId\\": \\"${realId}\\"}]}"`).limit(1),
-            supabase.from('goods_receipt_items').select('id').eq('product_id', realId).limit(1),
-            supabase.from('inbound_invoices').select('id').filter('items', 'cs', `[{"productId": "${realId}"}]`).limit(1)
-        ]);
-
-        return (
-            (movesRes.data && movesRes.data.length > 0) ||
-            (ordersRes.data && ordersRes.data.length > 0) ||
-            (receiptsRes.data && receiptsRes.data.length > 0) ||
-            (inboundRes.data && inboundRes.data.length > 0)
-        ) as boolean;
-    } catch (error) {
-        console.error("Erro ao verificar uso do produto:", error);
-        return true; 
-    }
-};
-
-export const physicalDeleteProduct = async (id: string): Promise<{ success: boolean; message?: string }> => {
-    try {
-        const realId = String(id).split('_')[0];
-        const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(realId);
-        
-        if (isUUID) {
-            const isUsed = await checkProductIsUsed(realId);
-            if (isUsed) {
-                return { success: false, message: "Produto em uso. N├úo pode ser exclu├¡do." };
-            }
-            
-            const { error } = await supabase.from('products').delete().eq('id', realId);
-            if (error) throw error;
-            
-            let products = getLocalProducts();
-            products = products.filter(p => String(p.id).split('_')[0] !== realId);
-            saveLocalProducts(products);
-            notifySubscribers();
-        }
-
-        return { success: true, message: "Produto exclu├¡do definitivamente." };
-    } catch (error: any) {
-        console.error("Erro ao excluir produto fisicamente:", error);
-        return { success: false, message: error.message || "Erro ao excluir o produto." };
-    }
-};
-
-export const restoreProduct = async (id: string): Promise<void> => {
-    await activateProduct(id);
-};
-
-export const deleteProduct = async (id: string): Promise<{ success: boolean; message?: string }> => {
-    try {
-        const realId = String(id).split('_')[0];
-        const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(realId);
-        
-        if (isUUID) {
-            await deactivateProduct(realId);
-        }
-
-        return { 
-            success: true, 
-            message: "Produto desativado com sucesso. Deleções físicas não são permitidas para preservar o histórico do sistema."
-        };
-    } catch (error: any) {
-        console.error("Erro ao desativar produto:", error);
-        return {
-            success: false,
-            message: error.message || "Erro ao desativar o produto."
-        };
-    }
-};
 
 export const bulkMoveToTrash = async (ids: string[]): Promise<{ successCount: number, errorCount: number, errors: string[], deactivatedIds: string[] }> => {
     try {

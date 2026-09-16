@@ -103,28 +103,37 @@ export class AiQuotaManager {
       const startOfMonth = this.getStartOfMonthIso();
 
       // 1. Consultar consumo do dia para a categoria e global
-      const { data: logs, error } = await supabase
-        .from('api_usage_logs')
-        .select('module_source, created_at')
-        .eq('provider', 'gemini')
-        .eq('status', 'SUCCESS')
-        .gte('created_at', startOfDay);
+      const [globalRes, categoryRes] = await Promise.all([
+        supabase
+          .from('api_usage_logs')
+          .select('id', { count: 'exact', head: true })
+          .eq('provider', 'gemini')
+          .eq('status', 'SUCCESS')
+          .gte('created_at', startOfDay),
+        supabase
+          .from('api_usage_logs')
+          .select('id', { count: 'exact', head: true })
+          .eq('provider', 'gemini')
+          .eq('status', 'SUCCESS')
+          .eq('module_source', category)
+          .gte('created_at', startOfDay)
+      ]);
 
-      if (error) {
+      if (globalRes.error || categoryRes.error) {
+        const error = globalRes.error || categoryRes.error;
         if (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')) {
           return { allowed: true, usedToday: 0, limitToday: categoryConfig.perDay };
         }
-        console.error('[AiQuotaManager] FAIL CLOSED: Erro de banco ao consultar cotas:', error.message);
+        console.error('[AiQuotaManager] FAIL CLOSED: Erro de banco ao consultar cotas:', error?.message);
         return {
           allowed: false,
           errorCode: 'AI_FAIL_CLOSED_BLOCKED',
-          errorMessage: `FAIL CLOSED: Erro de comunicação com o sistema de cota (${error.message}). Requisição IA bloqueada preventivamente.`
+          errorMessage: `FAIL CLOSED: Erro de comunicação com o sistema de cota (${error?.message}). Requisição IA bloqueada preventivamente.`
         };
       }
 
-      const logsList = logs || [];
-      const globalTodayCount = logsList.length;
-      const categoryTodayCount = logsList.filter((l: any) => l.module_source === category).length;
+      const globalTodayCount = globalRes.count || 0;
+      const categoryTodayCount = categoryRes.count || 0;
 
       // 2. Validar Limite Global Diário
       if (globalTodayCount >= globalConfig.perDay) {

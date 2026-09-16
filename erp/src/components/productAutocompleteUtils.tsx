@@ -27,6 +27,12 @@ export const getVariationDisplayName = (product: Product, variation?: Variation)
 const cachedProductsBySupplier = new Map<string, { data: Product[]; timestamp: number }>();
 const CACHE_TTL_MS = 30 * 1000; // 30 segundos
 
+if (typeof window !== 'undefined') {
+    window.addEventListener('product-updated', () => {
+        cachedProductsBySupplier.clear();
+    });
+}
+
 export const fetchAllProductSearchResults = async (search: string, supplierId?: string, includeDeactivated = false) => {
     const products: Product[] = [];
     let page = 1;

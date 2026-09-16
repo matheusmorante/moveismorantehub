@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { activateProduct, deactivateProduct, bulkRestoreProducts } from './productMutationService';
+import { bulkRestoreProducts } from './productMutationService';
+import { activateProduct, deactivateProduct } from './productDependencyCheck';
 
 const mockDb = vi.hoisted(() => ({ from: vi.fn() }));
 vi.mock('@/pages/utils/supabaseConfig', () => ({ supabase: mockDb }));

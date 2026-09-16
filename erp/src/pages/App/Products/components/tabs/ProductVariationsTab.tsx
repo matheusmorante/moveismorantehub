@@ -40,6 +40,7 @@ interface ProductVariationsTabProps {
     readonly setEditingVariationId?: (id: string | null) => void;
     readonly validationErrors?: Record<string, boolean>;
     readonly onOpenConversionModal?: () => void;
+    readonly variationsInUse?: Set<string>;
 }
 
 const ProductVariationsTab: React.FC<ProductVariationsTabProps> = ({
@@ -56,6 +57,7 @@ const ProductVariationsTab: React.FC<ProductVariationsTabProps> = ({
     onEdit,
     onEditVariation,
     setEditingVariationId,
+    variationsInUse,
 }) => {
     const list = variations || [];
     const canAddVariation = list.length > 0 && hasVariationAttribute(list[0]);
@@ -135,6 +137,7 @@ const ProductVariationsTab: React.FC<ProductVariationsTabProps> = ({
                                     parentPrice={parentPrice}
                                     parentPromoPrice={parentPromoPrice}
                                     parentSku={parentSku}
+                                    inUse={variationsInUse?.has(variation.id)}
                                 />
                             ))}
                         </tbody>

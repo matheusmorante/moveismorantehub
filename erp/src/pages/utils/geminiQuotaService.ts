@@ -77,15 +77,15 @@ export const checkGeminiQuotaStatus = async (forceRefresh = false): Promise<Gemi
         const today = new Date().toISOString().split('T')[0];
         const startOfDay = `${today}T00:00:00.000Z`;
 
-        const { data, error } = await supabase
+        const { count, error } = await supabase
             .from('api_usage_logs')
-            .select('id')
+            .select('id', { count: 'exact', head: true })
             .eq('provider', 'gemini')
             .eq('status', 'SUCCESS')
             .gte('created_at', startOfDay);
 
-        if (!error && data) {
-            const usedToday = data.length;
+        if (!error && count !== null) {
+            const usedToday = count;
             const limitToday = AI_LIMITS.global.perDay || 120;
             const isExceeded = usedToday >= limitToday;
 

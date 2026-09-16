@@ -21,6 +21,7 @@ interface InboundInvoiceItemRowProps {
     onRejectSuggestion: (item: InboundInvoiceItem) => void;
     onRemoveLink: (item: InboundInvoiceItem) => void;
     onRequestQuickRegister: (target: { itemNumber: number; item: QuickRegisterItem }) => void;
+    onRequestEditProduct: (product: Product, variation?: Variation) => void;
 }
 
 export const InboundInvoiceItemRow: React.FC<InboundInvoiceItemRowProps> = ({
@@ -34,6 +35,7 @@ export const InboundInvoiceItemRow: React.FC<InboundInvoiceItemRowProps> = ({
     onRejectSuggestion,
     onRemoveLink,
     onRequestQuickRegister,
+    onRequestEditProduct,
 }) => {
     const linked = Boolean(item.matchedProductId);
     const totalUnit = itemCostWithAdditionalCosts(item);
@@ -154,6 +156,7 @@ export const InboundInvoiceItemRow: React.FC<InboundInvoiceItemRowProps> = ({
                             isSelected={false}
                             placeholder="Digite 2 ou mais letras para buscar..."
                             onSelect={(product, variation) => onSelectProduct(item.itemNumber, product, variation)}
+                            onEditClick={onRequestEditProduct}
                         />
 
                         {/* Sugestão da IA (surge suavemente quando encontrada) */}
