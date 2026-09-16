@@ -227,10 +227,11 @@ const ProductGeneralTab: React.FC<ProductGeneralTabProps> = ({
                                             window.focus();
                                         }
                                     }}
-                                    className="text-slate-400 hover:text-slate-600 transition-colors p-0.5 rounded"
+                                    className="inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-wider text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors p-0.5 rounded"
                                     title="Gerenciar Categorias"
                                     aria-label="Gerenciar Categorias de Produtos"
                                 >
+                                    <span>GERENCIAR</span>
                                     <i className="bi bi-gear-fill text-xs" />
                                 </button>
                                 {isGeneratingCategory && (

@@ -279,7 +279,7 @@ const scheduleSharedOrdersRefresh = () => {
     sharedOrdersRefreshTimer = setTimeout(() => {
         sharedOrdersRefreshTimer = null;
         void fetchSharedOrders();
-    }, 350);
+    }, 3000);
 };
 
 const notifyOrderChange = () => {

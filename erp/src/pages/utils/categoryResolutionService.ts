@@ -107,6 +107,11 @@ export function matchCategoryByRules(title: string, categories: readonly Categor
         if (matched) return matched;
     }
 
+    if (normTitle.includes('berco') || normTitle.includes('berço')) {
+        const matched = findByName('Berço') || findByName('Berços');
+        if (matched) return matched;
+    }
+
     if (normTitle.includes('comoda')) {
         const matched = findByName('Cômodas') || findByName('Comoda');
         if (matched) return matched;

@@ -67,7 +67,7 @@ export const InboundInvoicesHeader: React.FC<InboundInvoicesHeaderProps> = ({
                         className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-3.5 py-2 text-xs font-black uppercase tracking-wider text-white shadow-sm transition-all hover:bg-blue-700 cursor-pointer"
                     >
                         <i className="bi bi-file-earmark-plus-fill text-sm" />
-                        Adicionar Nota Fiscal de Entrada
+                        Importar XML da NF-e
                     </button>
                 </div>
             </div>

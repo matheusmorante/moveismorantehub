@@ -2,8 +2,8 @@ import React, { useState, useEffect, useMemo } from "react";
 import CustomerData from '@/pages/types/customerData.type';
 import Person from '@/pages/types/person.type';
 import Order from '@/pages/types/order.type';
-import { subscribeToPeople } from '@/pages/utils/personService';
-import { getOrdersCustomerDataOnly } from '@/pages/utils/orderHistoryService';
+import { getRecentPeople, searchPeople } from '@/pages/utils/personService';
+import { getOrdersByCustomerInfo } from '@/pages/utils/orderSearchQueries';
 import { canSearchCustomers, getCustomerSearchQuery, matchesCustomerSearch } from "@/pages/utils/customerSearch";
 
 interface CustomerSearchEntry {
@@ -40,56 +40,55 @@ const CustomerSearchModal = ({ onSelect, onClose, onAddNew, initialSearch = "" }
         return () => window.removeEventListener("keydown", handleKeyDown);
     }, [onClose]);
 
+    // Load recent on mount
     useEffect(() => {
-        // Fetch everyone to allow filtering matching the user's request
-        const unsubCustomers = subscribeToPeople('customers', (data) => {
-            setPeople(prev => {
-                const combined = [...prev, ...data];
-                // Unique by ID
-                const unique = Array.from(new Map(combined.map(p => [p.id, p])).values());
-                return unique.filter(p => p.active && !p.deleted);
-            });
-            setLoadingPeople(false);
-        });
-
-        const unsubEmployees = subscribeToPeople('employees', (data) => {
-            setPeople(prev => {
-                const combined = [...prev, ...data];
-                // Unique by ID
-                const unique = Array.from(new Map(combined.map(p => [p.id, p])).values());
-                return unique.filter(p => p.active && !p.deleted);
-            });
-        });
-
-        return () => { 
-            if (unsubCustomers) unsubCustomers(); 
-            if (unsubEmployees) unsubEmployees();
+        const loadRecent = async () => {
+            setLoadingPeople(true);
+            setLoadingOrders(true);
+            try {
+                const recents = await getRecentPeople('customers', 20);
+                setPeople(recents);
+            } catch (err) {
+                console.error("Erro ao carregar recentes:", err);
+            } finally {
+                setLoadingPeople(false);
+                setLoadingOrders(false);
+            }
         };
+        loadRecent();
     }, []);
 
+    // Debounced search
     useEffect(() => {
-        setLoadingOrders(true);
-        getOrdersCustomerDataOnly()
-            .then((data) => {
-                const mappedOrders: Partial<Order>[] = data
-                    .filter(o => !o.deleted && o.customerData?.fullName)
-                    .map(o => ({
-                        id: o.id,
-                        date: o.date,
-                        customerData: o.customerData,
-                        deleted: o.deleted
-                    }));
-                setOrders(mappedOrders);
-                setLoadingOrders(false);
-            })
-            .catch((err: unknown) => {
-                console.error("Erro ao buscar histórico reduzido para busca de clientes:", err);
-                setOrders([]);
-                setLoadingOrders(false);
-            });
-    }, []);
+        if (!search.trim() || search.trim().length < 2) return;
 
+        const delay = setTimeout(async () => {
+            setLoadingPeople(true);
+            setLoadingOrders(true);
+            try {
+                const [foundPeople, foundOrders] = await Promise.all([
+                    searchPeople(search, 'customers', 30),
+                    getOrdersByCustomerInfo(search)
+                ]);
+                setPeople(foundPeople);
+                setOrders(foundOrders.map(o => ({
+                    id: o.id,
+                    date: o.date,
+                    customerData: o.customerData,
+                    deleted: o.deleted
+                })));
+            } catch (e) {
+                console.error("Erro ao pesquisar clientes:", e);
+            } finally {
+                setLoadingPeople(false);
+                setLoadingOrders(false);
+            }
+        }, 350);
 
+        return () => clearTimeout(delay);
+    }, [search]);
+
+    // Orders are now loaded in the search effect.
     // Build unified customer list: merge cadastro + order history
     const customerList = useMemo<CustomerSearchEntry[]>(() => {
         const map = new Map<string, CustomerSearchEntry>();
@@ -184,6 +183,8 @@ const CustomerSearchModal = ({ onSelect, onClose, onAddNew, initialSearch = "" }
             });
         }
 
+        // We already searched in the server, but we can do a local filter to match the UI behavior
+        // if the server returned broader results than what the user specifically typed.
         if (!search.trim()) return list;
         if (!canSearchCustomers(search)) return [];
         const query = getCustomerSearchQuery(search);

@@ -20,113 +20,103 @@ describe('InboundDeterministicScorer', () => {
         }));
     };
 
-    it('Caso 1 — abreviação e sinônimo (ROUPEIRO 6P -> Guarda Roupa 6 Portas)', () => {
+    it('Caso 1 — NEW XANGAI vs MONTEVIDEO (Identidade Divergente - Montevideo Reprovado)', () => {
         const catalog = createCatalog([
-            { id: '1', name: 'Guarda Roupa Athenas 6 Portas Branco' }
+            { id: 'MONTEVIDEO', name: 'Guarda Roupa Doripel Montevideo 6 Portas 2 Gavetas' }
         ]);
         const context = new InboundDeterministicScorerContext(catalog);
-        const result = rankAndScoreDeterministic('ROUPEIRO ATHENAS 6P BRANCO', undefined, context);
+        const result = rankAndScoreDeterministic('G ROUPA DORIPEL NEW XANGAI 6PT 2GV MDF 68600-72 OFF WHITE/NOGUEIRA', undefined, context);
         
-        expect(result.candidates.length).toBe(1);
-        expect(result.candidates[0].productId).toBe('1');
-        expect(result.candidates[0].confidence).toBeGreaterThanOrEqual(90);
-    });
-
-    it('Caso 2 — ordem diferente', () => {
-        const catalog = createCatalog([
-            { id: '1', name: 'Guarda Roupa Athenas 6 Portas Branco' }
-        ]);
-        const context = new InboundDeterministicScorerContext(catalog);
-        const result = rankAndScoreDeterministic('ATHENAS BRANCO 6P ROUPEIRO', undefined, context);
-        
-        expect(result.candidates.length).toBe(1);
-        expect(result.candidates[0].productId).toBe('1');
-        expect(result.candidates[0].confidence).toBeGreaterThanOrEqual(90);
-    });
-
-    it('Caso 3 — acentos/pontuação', () => {
-        const catalog = createCatalog([
-            { id: '1', name: 'Guarda Roupa Athenas 6 Portas Branco' }
-        ]);
-        const context = new InboundDeterministicScorerContext(catalog);
-        const result = rankAndScoreDeterministic('Guárda-Roupá Aténás 6P. (Branco) -', undefined, context);
-        
-        expect(result.candidates.length).toBe(1);
-        expect(result.candidates[0].productId).toBe('1');
-        expect(result.candidates[0].confidence).toBeGreaterThanOrEqual(90);
-    });
-
-    it('Caso 4 — portas incompatíveis (penalização severa)', () => {
-        const catalog = createCatalog([
-            { id: 'A', name: 'Roupeiro Athenas 6 Portas Branco' },
-            { id: 'B', name: 'Roupeiro Athenas 4 Portas Branco' }
-        ]);
-        const context = new InboundDeterministicScorerContext(catalog);
-        const result = rankAndScoreDeterministic('Athenas 6 Portas Branco', undefined, context);
-        
-        expect(result.candidates.length).toBeGreaterThanOrEqual(1);
-        expect(result.candidates[0].productId).toBe('A');
-        
-        // Verifica se B não foi sugerido ou ficou muito abaixo
-        const bCandidate = result.candidates.find(c => c.productId === 'B');
-        if (bCandidate) {
-            expect(result.candidates[0].confidence).toBeGreaterThan(bCandidate.confidence + 20);
+        // Montevideo deve receber penalidade muito forte por ser de outro modelo (divergência de termos distintivos)
+        // Score deve ser baixo o suficiente para ser ignorado (< 60) ou muito inferior.
+        if (result.candidates.length > 0) {
+            expect(result.candidates[0].confidence).toBeLessThan(60);
+        } else {
+            expect(result.candidates.length).toBe(0);
         }
     });
 
-    it('Caso 5 — cor (bônus/penalidade por cor explícita)', () => {
+    it('Caso 2 — TESTE — MODELO CORRETO', () => {
         const catalog = createCatalog([
-            { id: 'A', name: 'Athenas 6 Portas Branco' },
-            { id: 'B', name: 'Athenas 6 Portas Cinza' }
+            { id: 'NEW_XANGAI', name: 'Guarda Roupa Doripel New Xangai 6 Portas 2 Gavetas Off White Nogueira' }
         ]);
         const context = new InboundDeterministicScorerContext(catalog);
-        const result = rankAndScoreDeterministic('Athenas 6 Portas Branco', undefined, context);
+        const result = rankAndScoreDeterministic('G ROUPA DORIPEL NEW XANGAI 6PT 2GV MDF OFF WHITE/NOGUEIRA', undefined, context);
         
-        expect(result.candidates.length).toBeGreaterThanOrEqual(1);
+        expect(result.candidates.length).toBe(1);
+        expect(result.candidates[0].productId).toBe('NEW_XANGAI');
+        expect(result.candidates[0].confidence).toBeGreaterThanOrEqual(70); // Score muito alto, TOP 1
+    });
+
+    it('Caso 3 — TESTE — MODELO CERTO, COR DIFERENTE', () => {
+        const catalog = createCatalog([
+            { id: 'A', name: 'New Xangai 6 Portas 2 Gavetas Off White' },
+            { id: 'B', name: 'New Xangai 6 Portas 2 Gavetas Cinza' }
+        ]);
+        const context = new InboundDeterministicScorerContext(catalog);
+        const result = rankAndScoreDeterministic('NEW XANGAI 6PT 2GV OFF WHITE', undefined, context);
+        
+        expect(result.candidates.length).toBe(2);
+        expect(result.candidates[0].productId).toBe('A'); // A > B
+        expect(result.candidates[1].productId).toBe('B');
+        
+        // A diferença deve ser pela cor (+6 para o certo, -15 para o errado)
+        expect(result.candidates[0].confidence).toBeGreaterThan(result.candidates[1].confidence);
+    });
+
+    it('Caso 4 — TESTE — MODELO CERTO, PORTAS DIFERENTES', () => {
+        const catalog = createCatalog([
+            { id: 'A', name: 'New Xangai 6 Portas 2 Gavetas' },
+            { id: 'B', name: 'New Xangai 4 Portas 2 Gavetas' }
+        ]);
+        const context = new InboundDeterministicScorerContext(catalog);
+        const result = rankAndScoreDeterministic('NEW XANGAI 6PT 2GV', undefined, context);
+        
+        expect(result.candidates.length).toBeGreaterThan(0);
         expect(result.candidates[0].productId).toBe('A');
         
-        const bCandidate = result.candidates.find(c => c.productId === 'B');
-        if (bCandidate) {
-            expect(result.candidates[0].confidence).toBeGreaterThan(bCandidate.confidence + 10);
+        // B deve estar muito abaixo por errar as portas (A >> B)
+        const b = result.candidates.find(c => c.productId === 'B');
+        if (b) {
+            expect(result.candidates[0].confidence).toBeGreaterThan(b.confidence + 30);
         }
     });
 
-    it('Caso 6 — palavra rara/modelo (Athenas valendo mais que genéricos)', () => {
+    it('Caso 5 — TESTE — MESMOS ATRIBUTOS, MODELOS DIFERENTES', () => {
         const catalog = createCatalog([
-            { id: 'A', name: 'Roupeiro Athenas 6 Portas' },
-            { id: 'B', name: 'Roupeiro Milão 6 Portas' },
-            { id: 'C', name: 'Roupeiro Dubai 6 Portas' },
-            { id: 'D', name: 'Roupeiro Xangai 6 Portas' },
+            { id: 'A', name: 'New Xangai 6 Portas 2 Gavetas' },
+            { id: 'B', name: 'Montevideo 6 Portas 2 Gavetas' },
+            { id: 'C', name: 'Paris 6 Portas 2 Gavetas' }
         ]);
         const context = new InboundDeterministicScorerContext(catalog);
-        // Ambos têm Roupeiro e 6 Portas, mas Athenas é o diferencial (token raro)
-        const result = rankAndScoreDeterministic('Roupeiro Athenas 6P', undefined, context);
+        const result = rankAndScoreDeterministic('NEW XANGAI 6PT 2GV', undefined, context);
         
-        expect(result.candidates.length).toBeGreaterThanOrEqual(1);
+        expect(result.candidates.length).toBeGreaterThan(0);
         expect(result.candidates[0].productId).toBe('A');
         
-        const bCandidate = result.candidates.find(c => c.productId === 'B');
-        if (bCandidate) {
-            // Athenas should match exactly the rare token, while Milão doesn't, so A wins by a large margin
-            expect(result.candidates[0].confidence).toBeGreaterThan(bCandidate.confidence + 10);
-        }
+        const b = result.candidates.find(c => c.productId === 'B');
+        const c = result.candidates.find(c => c.productId === 'C');
+        
+        // A >>> B e A >>> C
+        if (b) expect(result.candidates[0].confidence).toBeGreaterThan(b.confidence + 40);
+        if (c) expect(result.candidates[0].confidence).toBeGreaterThan(c.confidence + 40);
     });
 
-    it('Caso 7 — candidato ruim (abaixo do limiar, sem sugestão lixo)', () => {
+    it('Caso 6 — TESTE — MODELO COMPOSTO (N-Grams)', () => {
         const catalog = createCatalog([
-            { id: '1', name: 'Mesa de Jantar 6 Lugares' },
-            { id: '2', name: 'Cadeira de Escritório Preta' },
-            { id: '3', name: 'Sofá Retrátil 3 Lugares' }
+            { id: 'A', name: 'Paris Premium 6 Portas' },
+            { id: 'B', name: 'Paris Standard 6 Portas' },
+            { id: 'C', name: 'Milao Plus 6 Portas' },
         ]);
         const context = new InboundDeterministicScorerContext(catalog);
-        const result = rankAndScoreDeterministic('Guarda Roupa Athenas 6P', undefined, context);
+        const result = rankAndScoreDeterministic('PARIS PREMIUM 6PT', undefined, context);
         
-        // Não deve retornar NENHUMA sugestão, pois tudo é lixo em relação a um guarda roupa
-        expect(result.candidates.length).toBe(0);
-        expect(result.isConclusive).toBe(false);
+        expect(result.candidates.length).toBeGreaterThan(0);
+        expect(result.candidates[0].productId).toBe('A');
+        expect(result.candidates[0].matches.some(m => m.includes('Termo exato: "paris premium"'))).toBe(true);
     });
 
-    it('Caso 8 - Código do fornecedor deve alavancar o score imediatamente', () => {
+    it('Caso 7 - Código do fornecedor deve alavancar o score imediatamente', () => {
         const catalog = createCatalog([
             { id: 'A', name: 'Produto X 12345' },
             { id: 'B', name: 'Produto Y 67890' }

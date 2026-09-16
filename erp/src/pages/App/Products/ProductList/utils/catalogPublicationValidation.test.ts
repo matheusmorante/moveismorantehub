@@ -4,7 +4,7 @@ vi.mock('@/pages/utils/supabaseConfig', () => ({
     supabase: {},
     isTestEnvironment: false
 }));
-import { validateCatalogPublication } from './useProductsCatalogActions';
+import { validateCatalogPublication } from '../hooks/useProductsCatalogActions';
 import { mapDbVariations, createDefaultVariation } from '@/pages/utils/productService/productVariationMapper';
 import Product from '@/pages/types/product.type';
 

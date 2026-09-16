@@ -88,12 +88,21 @@ export const subscribeToGoodsReceipts = (callback: (items: GoodsReceipt[]) => vo
 
     load();
 
+    let debounceTimer: ReturnType<typeof setTimeout> | null = null;
+    const debouncedLoad = () => {
+        if (debounceTimer) clearTimeout(debounceTimer);
+        debounceTimer = setTimeout(() => {
+            load();
+        }, 3000);
+    };
+
     const channel = supabase.channel(`goods_receipts_${Date.now()}`)
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'goods_receipts' }, load)
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'goods_receipt_items' }, load)
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'goods_receipts' }, debouncedLoad)
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'goods_receipt_items' }, debouncedLoad)
         .subscribe();
 
     return () => {
+        if (debounceTimer) clearTimeout(debounceTimer);
         removeReceiptListener(callback);
         supabase.removeChannel(channel);
     };

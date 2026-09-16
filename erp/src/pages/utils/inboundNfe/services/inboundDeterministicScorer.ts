@@ -3,6 +3,7 @@ import type { InboundProductCandidate } from '../../aiService/aiInboundProductSu
 
 export interface ExtractedFeatures {
     tokens: string[];
+    ngrams: string[];
     doors?: number;
     drawers?: number;
     shelves?: number;
@@ -135,7 +136,13 @@ export function extractFeatures(normalizedName: string): ExtractedFeatures {
         .split(/\s+/)
         .filter(w => w.length > 0 && !STOP_TOKENS.has(w));
 
-    return { tokens: filteredTokens, doors, drawers, shelves, widthCm, colors };
+    // N-Grams (Bigrams) para contextos de identidade como "new xangai"
+    const ngrams: string[] = [];
+    for (let i = 0; i < filteredTokens.length - 1; i++) {
+        ngrams.push(`${filteredTokens[i]} ${filteredTokens[i+1]}`);
+    }
+
+    return { tokens: filteredTokens, ngrams, doors, drawers, shelves, widthCm, colors };
 }
 
 export function levenshteinDistance(a: string, b: string): number {
@@ -173,6 +180,13 @@ export function tokenSimilarity(t1: string, t2: string): number {
     return sim >= 0.75 ? sim : 0;
 }
 
+const GENERIC_TERMS = new Set([
+    'guarda_roupa', 'roupeiro', 'balcao', 'mesa', 'cadeira', 'cabeceira', 'armario', 'estante', 
+    'painel', 'rack', 'cama', 'colchao', 'sofa', 'poltrona', 'cozinha', 'quarto', 'sala',
+    'mdf', 'mdp', 'madeira', 'aco', 'vidro', 'espelho', 'branco', 'preto', 'cinza', 'off', 'white',
+    'doripel', 'madesa', 'kappesberg', 'itatiaia', 'g', 'roupa' // 'g' can be abbreviation for guarda
+]);
+
 export class InboundDeterministicScorerContext {
     idf: Map<string, number> = new Map();
     totalDocs: number = 0;
@@ -188,12 +202,18 @@ export class InboundDeterministicScorerContext {
 
     constructor(products: SupplierProductSummary[]) {
         const df = new Map<string, number>();
+        let docCount = 0;
+
+        const indexFeatures = (features: ExtractedFeatures) => {
+            const uniqueTerms = new Set([...features.tokens, ...features.ngrams]);
+            uniqueTerms.forEach(t => df.set(t, (df.get(t) || 0) + 1));
+            docCount++;
+        };
 
         products.forEach(p => {
             const pNorm = normalizeProductName(p.name);
             const pFeatures = extractFeatures(pNorm);
             
-            // If it has variations, we consider both the parent as a candidate and each variation as a candidate
             if (p.variations && p.variations.length > 0) {
                 p.variations.forEach(v => {
                     const displayName = `${p.name} ${v.name}`;
@@ -201,29 +221,28 @@ export class InboundDeterministicScorerContext {
                     const vFeatures = extractFeatures(vNorm);
                     
                     this.catalogCache.push({ productId: p.id, variationId: v.id, displayName, norm: vNorm, features: vFeatures });
-                    
-                    const uniqueTokens = new Set(vFeatures.tokens);
-                    uniqueTokens.forEach(t => df.set(t, (df.get(t) || 0) + 1));
-                    this.totalDocs++;
+                    indexFeatures(vFeatures);
                 });
             } else {
                 this.catalogCache.push({ productId: p.id, variationId: undefined, displayName: p.name, norm: pNorm, features: pFeatures });
-                
-                const uniqueTokens = new Set(pFeatures.tokens);
-                uniqueTokens.forEach(t => df.set(t, (df.get(t) || 0) + 1));
-                this.totalDocs++;
+                indexFeatures(pFeatures);
             }
         });
 
-        const minDocs = Math.max(1, this.totalDocs);
-        df.forEach((count, token) => {
-            this.idf.set(token, 1 + Math.log10(minDocs / count));
+        this.totalDocs = docCount;
+        const effectiveTotal = Math.max(20, this.totalDocs);
+        df.forEach((count, term) => {
+            if (GENERIC_TERMS.has(term)) {
+                this.idf.set(term, 1.1); // Always common
+            } else {
+                this.idf.set(term, 1 + Math.log10(effectiveTotal / count));
+            }
         });
     }
 
     getTokenWeight(token: string): number {
-        // If totally unknown, treat as moderately rare
-        return this.idf.get(token) ?? (1 + Math.log10(Math.max(10, this.totalDocs) / 1));
+        if (GENERIC_TERMS.has(token)) return 1.1;
+        return this.idf.get(token) ?? (1 + Math.log10(Math.max(20, this.totalDocs) / 1));
     }
 }
 
@@ -246,8 +265,12 @@ export function rankAndScoreDeterministic(
     const nfNorm = normalizeProductName(nfDescription);
     const nfFeatures = extractFeatures(nfNorm);
 
-    // Calculate max possible token score for normalization (0-100 scale)
-    const maxTokenScore = nfFeatures.tokens.reduce((sum, t) => sum + context.getTokenWeight(t), 0);
+    // Calculate max possible token score for normalization
+    const maxTokenScore = nfFeatures.tokens.reduce((sum, t) => sum + context.getTokenWeight(t), 0) +
+                          nfFeatures.ngrams.reduce((sum, g) => sum + (context.getTokenWeight(g) * 2.0), 0);
+                          
+    const STRONG_IDF_THRESHOLD = 1.35; // Termos muito discriminantes (modelos)
+    const nfStrongTokens = nfFeatures.tokens.filter(t => context.getTokenWeight(t) >= STRONG_IDF_THRESHOLD);
     
     const scoredEntries: Array<{ candidate: InboundProductCandidate, score: number, isSupplierCodeMatch: boolean }> = [];
 
@@ -263,40 +286,63 @@ export function rankAndScoreDeterministic(
             matches.push(`Código do fornecedor (${nfCode}) presente no nome.`);
         }
 
-        // 1. Token Overlap Score
-        let tokenScore = 0;
+        // 1. Text Similarity (Tokens & N-Grams)
+        let textScore = 0;
         const matchedTokens = new Set<string>();
         
         for (const nfToken of nfFeatures.tokens) {
             let bestSim = 0;
-            
             for (const catToken of cat.features.tokens) {
                 const sim = tokenSimilarity(nfToken, catToken);
-                if (sim > bestSim) {
-                    bestSim = sim;
-                }
+                if (sim > bestSim) bestSim = sim;
             }
-            
             if (bestSim > 0) {
-                const weight = context.getTokenWeight(nfToken);
-                tokenScore += (weight * bestSim);
-                matchedTokens.add(nfToken);
+                textScore += (context.getTokenWeight(nfToken) * bestSim);
+                if (bestSim >= 0.8) matchedTokens.add(nfToken);
             }
         }
         
-        // Normalize token score to 0-60 points
-        const normalizedTokenScore = maxTokenScore > 0 ? (tokenScore / maxTokenScore) * 60 : 0;
-        baseScore += normalizedTokenScore;
+        for (const nfNgram of nfFeatures.ngrams) {
+            if (cat.features.ngrams.includes(nfNgram)) {
+                textScore += (context.getTokenWeight(nfNgram) * 2.0); // Multiplier for sequence
+                matches.push(`Termo exato: "${nfNgram}"`);
+            }
+        }
+        
+        const maxTextCeiling = Math.max(1, maxTokenScore * 1.0);
+        const normalizedTextScore = Math.min(75, (textScore / maxTextCeiling) * 75); // Identity rules the score
+        baseScore += normalizedTextScore;
 
         if (matchedTokens.size > 0) {
-            matches.push(`Sobreposição de termos: ${Array.from(matchedTokens).slice(0, 3).join(', ')}`);
+            matches.push(`Sobreposição de termos: ${Array.from(matchedTokens).slice(0, 4).join(', ')}`);
+        }
+
+        // 1.5 PENALTY FOR DIVERGENT IDENTITY (CHOQUE DE MODELOS)
+        const candStrongTokens = cat.features.tokens.filter(t => context.getTokenWeight(t) >= STRONG_IDF_THRESHOLD);
+        
+        let nfMissedStrong = 0;
+        for (const t of nfStrongTokens) {
+            if (!cat.features.tokens.some(ct => tokenSimilarity(t, ct) > 0.8)) nfMissedStrong++;
+        }
+        
+        let candExtraStrong = 0;
+        for (const t of candStrongTokens) {
+            if (!nfFeatures.tokens.some(nft => tokenSimilarity(t, nft) > 0.8)) candExtraStrong++;
+        }
+        
+        if (nfMissedStrong > 0 && candExtraStrong > 0) {
+            baseScore -= 60;
+            divergences.push(`Choque de Identidade: Produto possui termos distintivos conflitantes com a NF.`);
+        } else if (nfMissedStrong > 0) {
+            baseScore -= 20;
+            divergences.push(`Falta termo identificador da NF.`);
         }
 
         // 2. Attributes Score
         if (nfFeatures.doors !== undefined) {
             if (cat.features.doors !== undefined) {
                 if (nfFeatures.doors === cat.features.doors) {
-                    baseScore += 15;
+                    baseScore += 8;
                     matches.push(`${nfFeatures.doors} portas`);
                 } else {
                     baseScore -= 40;
@@ -308,7 +354,7 @@ export function rankAndScoreDeterministic(
         if (nfFeatures.drawers !== undefined) {
             if (cat.features.drawers !== undefined) {
                 if (nfFeatures.drawers === cat.features.drawers) {
-                    baseScore += 15;
+                    baseScore += 8;
                     matches.push(`${nfFeatures.drawers} gavetas`);
                 } else {
                     baseScore -= 40;
@@ -320,7 +366,7 @@ export function rankAndScoreDeterministic(
         if (nfFeatures.shelves !== undefined) {
             if (cat.features.shelves !== undefined) {
                 if (nfFeatures.shelves === cat.features.shelves) {
-                    baseScore += 12;
+                    baseScore += 6;
                     matches.push(`${nfFeatures.shelves} prateleiras`);
                 } else {
                     baseScore -= 35;
@@ -329,35 +375,28 @@ export function rankAndScoreDeterministic(
             }
         }
 
-        // 3. Colors Score
         if (nfFeatures.colors.length > 0) {
             const commonColors = nfFeatures.colors.filter(c => cat.features.colors.includes(c));
             if (commonColors.length > 0) {
-                baseScore += 10;
+                baseScore += 6;
                 matches.push(`Cor compatível: ${commonColors.join(', ')}`);
             } else if (cat.features.colors.length > 0) {
-                // NF specifies a color, catalog specifies a different color
-                baseScore -= 20;
+                baseScore -= 5;
                 divergences.push(`Diferença de cor: NF tem [${nfFeatures.colors.join(', ')}], ERP tem [${cat.features.colors.join(', ')}]`);
             }
         }
 
-        // 4. Bonus for exact string inclusion (after normalization)
-        if (cat.norm.includes(nfNorm) || nfNorm.includes(cat.norm)) {
-            baseScore += 10;
-        }
-
-        // 5. Token coverage bonus: reward when NF tokens are well-covered in catalog
+        // 4. Token coverage bonus
         const coverageRatio = nfFeatures.tokens.length > 0 ? matchedTokens.size / nfFeatures.tokens.length : 0;
         if (coverageRatio >= 0.80) {
-            // >= 80% dos tokens da NF encontrados no catálogo — bônus de completude
-            baseScore += 15;
+            baseScore += 10;
         } else if (coverageRatio >= 0.60) {
-            baseScore += 8;
+            baseScore += 5;
         }
 
         // Clamp the confidence score to 0-99 max (100 is reserved for perfect deterministic match)
         let confidence = Math.max(0, Math.min(99, Math.round(baseScore)));
+
         
         if (isSupplierCodeMatch) {
             confidence = 99;

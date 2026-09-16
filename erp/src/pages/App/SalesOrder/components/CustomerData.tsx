@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import DropdownPortal from "@/components/shared/DropdownPortal";
-import { subscribeToPeople } from "@/pages/utils/personService";
+import { getRecentPeople, searchPeople } from "@/pages/utils/personService";
 import CustomerData from '@/pages/types/customerData.type';
 import Person from '@/pages/types/person.type';
 import { ValidationErrors } from '@/pages/utils/validations';
@@ -32,10 +32,31 @@ const CustomerDataInputs = ({ customerData, setCustomerData, errors, marketingOr
     const wrapperRef = useRef<HTMLDivElement>(null);
     const hasError = Boolean(errors.customer_fullName || errors.customer_phone);
 
-    useEffect(() => subscribeToPeople("customers", (items) => {
-        setCustomers(items.filter((customer) => customer.active && !customer.deleted));
-    }), []);
+    // Load recent on mount
+    useEffect(() => {
+        getRecentPeople('customers', 20).then(data => {
+            setCustomers(data.filter((customer) => customer.active && !customer.deleted));
+        });
+    }, []);
 
+    // Debounced search on typing
+    useEffect(() => {
+        if (!searchTerm.trim() || searchTerm.trim().length < 2) return;
+
+        const delay = setTimeout(async () => {
+            try {
+                const found = await searchPeople(searchTerm, 'customers', 20);
+                setCustomers(prev => {
+                    const combined = [...prev, ...found.filter(c => c.active && !c.deleted)];
+                    return Array.from(new Map(combined.map(p => [p.id, p])).values());
+                });
+            } catch (e) {
+                console.error("Erro ao pesquisar clientes no input:", e);
+            }
+        }, 300);
+
+        return () => clearTimeout(delay);
+    }, [searchTerm]);
     useEffect(() => {
         if (!isOpen) setSearchTerm(customerData.fullName || "");
     }, [customerData.fullName, isOpen]);

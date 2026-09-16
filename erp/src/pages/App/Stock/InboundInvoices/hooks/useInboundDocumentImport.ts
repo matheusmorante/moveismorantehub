@@ -45,9 +45,10 @@ export interface UseInboundDocumentImportProps {
     readonly isOpen: boolean;
     readonly onClose: () => void;
     readonly onImportSuccess: (invoice: InboundInvoice) => void;
+    readonly initialFile?: File | null;
 }
 
-export function useInboundDocumentImport({ isOpen, onClose, onImportSuccess }: UseInboundDocumentImportProps) {
+export function useInboundDocumentImport({ isOpen, onClose, onImportSuccess, initialFile }: UseInboundDocumentImportProps) {
     const [accessKeyInput, setAccessKeyInput] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     const [statusMessage, setStatusMessage] = useState('');
@@ -57,18 +58,6 @@ export function useInboundDocumentImport({ isOpen, onClose, onImportSuccess }: U
     const [duplicateAlertOpen, setDuplicateAlertOpen] = useState(false);
     const [duplicateKey, setDuplicateKey] = useState('');
     const [duplicateExistingInvoice, setDuplicateExistingInvoice] = useState<InboundInvoice | null>(null);
-
-    useEffect(() => {
-        if (!isOpen) {
-            setAccessKeyInput('');
-            setIsLoading(false);
-            setStatusMessage('');
-            setIsDraggingFile(false);
-            setDuplicateAlertOpen(false);
-            setDuplicateKey('');
-            setDuplicateExistingInvoice(null);
-        }
-    }, [isOpen]);
 
     /**
      * Persiste a nota no banco de dados e aciona o callback de sucesso
@@ -233,6 +222,22 @@ export function useInboundDocumentImport({ isOpen, onClose, onImportSuccess }: U
             setStatusMessage('');
         }
     };
+
+    useEffect(() => {
+        if (!isOpen) {
+            setAccessKeyInput('');
+            setIsLoading(false);
+            setStatusMessage('');
+            setIsDraggingFile(false);
+            setDuplicateAlertOpen(false);
+            setDuplicateKey('');
+            setDuplicateExistingInvoice(null);
+        } else if (initialFile) {
+            // Process the dropped file automatically when the modal opens
+            void handleFile(initialFile);
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [isOpen, initialFile]);
 
     return {
         accessKeyInput,

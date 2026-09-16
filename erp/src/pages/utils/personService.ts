@@ -581,4 +581,49 @@ export const fetchPersonById = async (id: string): Promise<Person | null> => {
         return null;
     }
 };
+export const searchPeople = async (query: string, collectionName: string, limit = 30): Promise<Person[]> => {
+    if (!query || query.trim().length < 2) return [];
 
+    let peopleQuery = supabase.from(TABLE_NAME).select('*').or('deleted.eq.false,deleted.is.null');
+
+    if (collectionName === 'employees') {
+        peopleQuery = peopleQuery.or(`person_type.ilike.${collectionName},and(position.not.is.null,position.neq."")`);
+    } else if (collectionName === 'customers') {
+        peopleQuery = peopleQuery.or(`person_type.ilike.customers,person_type.ilike.customer`);
+    } else {
+        peopleQuery = peopleQuery.or(`person_type.ilike.suppliers,person_type.ilike.supplier`);
+    }
+
+    const searchTerm = `%${query.trim()}%`;
+    peopleQuery = peopleQuery.or(`full_name.ilike.${searchTerm},cpf_cnpj.ilike.${searchTerm},phone.ilike.${searchTerm},email.ilike.${searchTerm}`);
+
+    try {
+        const { data, error } = await peopleQuery.order('created_at', { ascending: false }).limit(limit);
+        if (error || !data) return [];
+        return data.map(mapFromDB);
+    } catch (e) {
+        console.error("Erro ao buscar pessoas no searchPeople:", e);
+        return [];
+    }
+};
+
+export const getRecentPeople = async (collectionName: string, limit = 20): Promise<Person[]> => {
+    let peopleQuery = supabase.from(TABLE_NAME).select('*').or('deleted.eq.false,deleted.is.null');
+
+    if (collectionName === 'employees') {
+        peopleQuery = peopleQuery.or(`person_type.ilike.${collectionName},and(position.not.is.null,position.neq."")`);
+    } else if (collectionName === 'customers') {
+        peopleQuery = peopleQuery.or(`person_type.ilike.customers,person_type.ilike.customer`);
+    } else {
+        peopleQuery = peopleQuery.or(`person_type.ilike.suppliers,person_type.ilike.supplier`);
+    }
+
+    try {
+        const { data, error } = await peopleQuery.order('created_at', { ascending: false }).limit(limit);
+        if (error || !data) return [];
+        return data.map(mapFromDB);
+    } catch (e) {
+        console.error("Erro ao buscar pessoas recentes:", e);
+        return [];
+    }
+};

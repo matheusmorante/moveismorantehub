@@ -29,7 +29,7 @@ serve(async (req) => {
     const accessKey = String(body.accessKey || "").replace(/\D/g, "");
     const isAccessKeyQuery = Boolean(accessKey);
     if (isAccessKeyQuery && accessKey.length !== 44) {
-      return new Response(JSON.stringify({ success: false, code: "ACCESS_KEY_INVALID", message: "A chave de acesso deve conter exatamente 44 dígitos." }), { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 400 });
+      return new Response(JSON.stringify({ success: false, code: "ACCESS_KEY_INVALID", message: "A chave de acesso deve conter exatamente 44 dígitos." }), { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 });
     }
 
     // 1. Obter dados da empresa e certificado de forma segura (Prioridade: Secrets > Settings)
@@ -87,7 +87,7 @@ serve(async (req) => {
             success: false,
             message: "Uma sincronização já está em andamento para este CNPJ.",
           }),
-          { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 429 }
+          { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 }
         );
       }
     }
@@ -97,7 +97,7 @@ serve(async (req) => {
         return new Response(JSON.stringify({
           success: false, code: "SEFAZ_RATE_LIMIT", retryAfter: retryAt.toISOString(),
           message: "A SEFAZ exige aguardar uma hora antes de uma nova consulta.",
-        }), { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 429 });
+        }), { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 });
       }
     }
 
@@ -271,7 +271,7 @@ serve(async (req) => {
       return new Response(JSON.stringify({
         success: false, code: "SEFAZ_RATE_LIMIT", cStat: finalCStat, retryAfter: rateLimitUntil,
         message: "A SEFAZ bloqueou novas consultas por consumo indevido. Tente novamente após uma hora.",
-      }), { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 429 });
+      }), { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 });
     }
     console.log(`[sefaz-inbound-sync] Ciclo finalizado em ${durationMs}ms. cStat=${finalCStat}, xMotivo="${finalXMotivo}", ultNSU=${currentUltNsu}, maxNSU=${currentMaxNsu}, notas_persistidas=${totalPersisted}`);
 

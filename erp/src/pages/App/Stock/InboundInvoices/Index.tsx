@@ -45,6 +45,10 @@ export default function InboundInvoicesPage() {
     const [isImportModalOpen, setIsImportModalOpen] = useState(false);
     const [postImportInvoice, setPostImportInvoice] = useState<InboundInvoice | null>(null);
 
+    // Global Drag & Drop State
+    const [globalDragging, setGlobalDragging] = useState(false);
+    const [droppedFile, setDroppedFile] = useState<File | null>(null);
+
     const loadInvoices = useCallback(async (pageToLoad = 1) => {
         setIsLoading(true);
         try {
@@ -76,6 +80,36 @@ export default function InboundInvoicesPage() {
         void loadInvoices(newPage);
     };
 
+    const handleDragOver = useCallback((e: React.DragEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (e.dataTransfer.types.includes('Files')) {
+            setGlobalDragging(true);
+        }
+    }, []);
+
+    const handleDragLeave = useCallback((e: React.DragEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (e.currentTarget === e.target) {
+            setGlobalDragging(false);
+        }
+    }, []);
+
+    const handleDrop = useCallback((e: React.DragEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setGlobalDragging(false);
+        
+        const file = e.dataTransfer.files?.[0];
+        if (file && (file.name.toLowerCase().endsWith('.xml') || file.type.includes('xml'))) {
+            setDroppedFile(file);
+            setIsImportModalOpen(true);
+        } else if (file) {
+            toast.error('Formato inválido. Arraste apenas o arquivo XML da NF-e.');
+        }
+    }, []);
+
     const handleDownloadXml = (invoice: InboundInvoice) => {
         if (!invoice.rawXml) return toast.info('XML completo não armazenado para esta nota.');
         const blob = new Blob([invoice.rawXml], { type: 'application/xml' });
@@ -98,7 +132,28 @@ export default function InboundInvoicesPage() {
     }, [currentPage, loadInvoices]);
 
     return (
-        <div className="flex flex-col">
+        <div 
+            className="flex flex-col relative min-h-screen"
+            onDragOver={handleDragOver}
+            onDragLeave={handleDragLeave}
+            onDrop={handleDrop}
+        >
+            {globalDragging && (
+                <div className="fixed inset-0 z-[999999] flex items-center justify-center bg-blue-900/40 backdrop-blur-sm border-[6px] border-blue-500 border-dashed m-4 rounded-3xl animate-in fade-in pointer-events-none">
+                    <div className="flex flex-col items-center justify-center bg-white dark:bg-slate-900 p-8 rounded-2xl shadow-2xl">
+                        <div className="flex h-20 w-20 items-center justify-center rounded-3xl bg-blue-100 text-blue-600 dark:bg-blue-900/50 dark:text-blue-400 mb-4 animate-bounce">
+                            <i className="bi bi-cloud-arrow-up-fill text-4xl" />
+                        </div>
+                        <h2 className="text-2xl font-black text-slate-800 dark:text-slate-100 mb-2">
+                            Solte o XML da Nota Fiscal Aqui
+                        </h2>
+                        <p className="text-sm text-slate-500 dark:text-slate-400">
+                            A nota será importada automaticamente para o Morante Hub.
+                        </p>
+                    </div>
+                </div>
+            )}
+
             <InboundInvoicesHeader
                 searchTerm={searchTerm}
                 onSearchChange={setSearchTerm}
@@ -138,10 +193,15 @@ export default function InboundInvoicesPage() {
 
             <InboundDocumentImportModal
                 isOpen={isImportModalOpen}
-                onClose={() => setIsImportModalOpen(false)}
+                initialFile={droppedFile}
+                onClose={() => {
+                    setIsImportModalOpen(false);
+                    setDroppedFile(null);
+                }}
                 onImportSuccess={(savedInvoice) => {
                     void loadInvoices(currentPage);
                     setPostImportInvoice(savedInvoice);
+                    setDroppedFile(null);
                 }}
             />
 

@@ -111,11 +111,12 @@ export const subscribeToPurchases = (callback: (purchases: Purchase[]) => void) 
     const fetchAll = () => {
         supabase.from(TABLE_NAME)
             .select('*, purchase_items(*)')
-            .order('created_at', { ascending: true })
+            .order('created_at', { ascending: false })
+            .limit(100)
             .then((response: any) => {
                 const { data, error } = response;
                 if (data && !error) {
-                    currentPurchases = assignPurchaseNumbers(data);
+                    currentPurchases = assignPurchaseNumbers(data.reverse()); // Reverse back since we ordered DESC to get latest
                     notifyListeners();
                 } else if (error) {
                     console.error("Erro ao buscar compras iniciais:", error);

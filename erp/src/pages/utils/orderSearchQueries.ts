@@ -150,7 +150,7 @@ export const getOrdersByCustomerInfo = async (fullName: string, phone?: string, 
 
         // Fallback de compatibilidade se busca relacional não retornar resultados
         const queryPromises: any[] = [];
-        const baseQuery = () => supabase.from(TABLE_NAME).select('*').order('created_at', { ascending: false });
+        const baseQuery = () => supabase.from(TABLE_NAME).select('id, created_at, order_data, status, deleted').order('created_at', { ascending: false }).limit(30);
 
         if (fullName) {
             queryPromises.push(baseQuery().contains('order_data', { customerData: { fullName } }));
