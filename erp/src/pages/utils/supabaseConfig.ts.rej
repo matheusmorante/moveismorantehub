@@ -1,0 +1,7 @@
+diff a/erp/src/pages/utils/supabaseConfig.ts b/erp/src/pages/utils/supabaseConfig.ts	(rejected hunks)
+@@ -1,4 +1,5 @@
+ import { createClient } from "@supabase/supabase-js";
++import { supabaseMonitor } from "./SupabaseMonitorService";
+ 
+ // Base de Dados Centralizada do Supabase - MoranteHub (Compartilhada entre ERP e Cat├ílogo Digital)
+ const DEFAULT_SUPABASE_URL = 'https://hkoxhourxwlddgsfdgws.supabase.co';

@@ -1,0 +1,47 @@
+diff a/erp/src/pages/App/Products/MetaCatalog/index.tsx b/erp/src/pages/App/Products/MetaCatalog/index.tsx	(rejected hunks)
+@@ -152,13 +152,39 @@ export default function MetaCatalog() {
+             const { supabase } = await import('@/pages/utils/supabaseConfig');
+             const { whatsappGraphService } = await import('@/pages/utils/whatsappGraphService');
+ 
+-            // 1. Buscar todos os produtos cadastrados no Supabase (ativos e inativos para sync completo)
+-            const { data: products, error: prodErr } = await supabase.from('products').select('*');
+-            if (prodErr) throw prodErr;
++            // 1. Buscar todos os produtos cadastrados no Supabase (ativos e inativos para sync completo) em lotes
++            let products: any[] = [];
++            let pFrom = 0;
++            const pStep = 1000;
++            let pFetchMore = true;
++            while (pFetchMore) {
++                const { data: pData, error: prodErr } = await supabase.from('products').select('*').range(pFrom, pFrom + pStep - 1);
++                if (prodErr) throw prodErr;
++                if (pData && pData.length > 0) {
++                    products = [...products, ...pData];
++                    pFrom += pStep;
++                    if (pData.length < pStep) pFetchMore = false;
++                } else {
++                    pFetchMore = false;
++                }
++            }
+ 
+-            // 2. Buscar varia├º├Áes e oportunidades
+-            const { data: variations, error: varErr } = await supabase.from('product_variations').select('*');
+-            if (varErr) throw varErr;
++            // 2. Buscar varia├º├Áes e oportunidades em lotes
++            let variations: any[] = [];
++            let vFrom = 0;
++            const vStep = 1000;
++            let vFetchMore = true;
++            while (vFetchMore) {
++                const { data: vData, error: varErr } = await supabase.from('product_variations').select('*').range(vFrom, vFrom + vStep - 1);
++                if (varErr) throw varErr;
++                if (vData && vData.length > 0) {
++                    variations = [...variations, ...vData];
++                    vFrom += vStep;
++                    if (vData.length < vStep) vFetchMore = false;
++                } else {
++                    vFetchMore = false;
++                }
++            }
+ 
+             const { data: opps } = await supabase.from('opportunities').select('id, name, observations');
+             const oppMap: Record<string, any> = {};

@@ -1,0 +1,19 @@
+diff a/erp/src/pages/App/Stock/InboundInvoices/modals/ManageInboundInvoiceMappingsModal.tsx b/erp/src/pages/App/Stock/InboundInvoices/modals/ManageInboundInvoiceMappingsModal.tsx	(rejected hunks)
+@@ -166,7 +166,7 @@ export function ManageInboundInvoiceMappingsModal({ isOpen, onClose, invoice: in
+                         <div>
+                             <h2 className="text-base font-black text-slate-800 dark:text-slate-100 flex items-center gap-2">
+                                 <i className="bi bi-link-45deg text-blue-600 text-lg" />
+-                                Editar V├¡nculos - NF-e #{invoice.nfeNumber}
++                                Editar V├¡nculos - Nota Fiscal de Entrada #{invoice.nfeNumber}
+                             </h2>
+                             <p className="text-xs text-slate-500">
+                                 Gerencie o fornecedor e a vincula├º├úo dos produtos desta nota aos produtos do sistema.
+@@ -221,7 +221,7 @@ export function ManageInboundInvoiceMappingsModal({ isOpen, onClose, invoice: in
+ 
+                         {/* Revis├úo de Itens e V├¡nculos */}
+                         <InboundInvoiceItemsReview
+-                            suggestionsEnabled={Boolean(invoice.supplierId?.trim()) && checkedMappingsKey === mappingsKey}
++                            suggestionsEnabled={false} // Boolean(invoice.supplierId?.trim()) && checkedMappingsKey === mappingsKey
+                             onProcessingSuggestionsChange={setIsSuggestingLinks}
+                             items={invoice.items}
+                             supplierId={invoice.supplierId}

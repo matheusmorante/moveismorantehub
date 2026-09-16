@@ -1,0 +1,115 @@
+diff a/erp/src/pages/App/Stock/InboundInvoices/modals/InboundDocumentImportModal.tsx b/erp/src/pages/App/Stock/InboundInvoices/modals/InboundDocumentImportModal.tsx	(rejected hunks)
+@@ -16,6 +16,8 @@ import SupplierAutocomplete from '@/components/SupplierAutocomplete';
+ import { InboundInvoiceFiscalReview } from '../components/InboundInvoiceFiscalReview';
+ import { InboundInvoiceItemsReview } from '../components/InboundInvoiceItemsReview';
+ import { InboundDuplicateKeyAlertModal } from './InboundDuplicateKeyAlertModal';
++import { InboundAccessKeyModal } from './InboundAccessKeyModal';
++import { syncSefazDfe, fetchInboundInvoicesPage } from '@/pages/utils/inboundNfe/inboundInvoicesService';
+ 
+ type Props = { isOpen: boolean; onClose: () => void; onImportSuccess: (invoice: InboundInvoice) => void };
+ const accepted = 'application/pdf,image/png,image/jpeg,text/xml,application/xml,.pdf,.png,.jpg,.jpeg,.xml';
+@@ -32,6 +34,7 @@ export function InboundDocumentImportModal({ isOpen, onClose, onImportSuccess }:
+     const mappingsKey = JSON.stringify([invoice?.id, invoice?.nfeKey, invoice?.supplierId]);
+     const [analysisStage, setAnalysisStage] = useState<InboundDocumentAnalysisStage | null>(null);
+     const [isDraggingFile, setIsDraggingFile] = useState(false);
++    const [isAccessKeyModalOpen, setIsAccessKeyModalOpen] = useState(false);
+ 
+     // Estado do Alerta de Nota Duplicada
+     const [duplicateAlertOpen, setDuplicateAlertOpen] = useState(false);
+@@ -249,6 +252,30 @@ export function InboundDocumentImportModal({ isOpen, onClose, onImportSuccess }:
+         }
+     };
+ 
++    const handleAccessKeyLookup = async (accessKey: string) => {
++        try {
++            setIsAccessKeyModalOpen(false);
++            setLoading(true);
++            // Sincroniza com a Sefaz
++            await syncSefazDfe();
++            // Verifica se a nota chegou
++            const res = await fetchInboundInvoicesPage({ page: 1, pageSize: 1, searchTerm: accessKey, dateFilter: { mode: 'custom_range', startMonth: '', endMonth: '', customMonth: '' } });
++            const foundInvoice = res.invoices.find((candidate) => candidate.nfeKey === accessKey);
++            
++            if (foundInvoice) {
++                toast.success('Nota Fiscal encontrada e importada do SEFAZ com sucesso!');
++                onImportSuccess(foundInvoice);
++                onClose();
++            } else {
++                toast.info('A chave informada ainda n├úo foi disponibilizada na distribui├º├úo DF-e. Tente novamente mais tarde.');
++            }
++        } catch (error: any) {
++            toast.error(error.message || 'Erro ao consultar a chave na SEFAZ.');
++        } finally {
++            setLoading(false);
++        }
++    };
++
+     if (!isOpen) return null;
+ 
+     return (
+@@ -277,19 +304,39 @@ export function InboundDocumentImportModal({ isOpen, onClose, onImportSuccess }:
+                     <main className="flex-1 space-y-6 overflow-y-auto p-6 max-w-7xl mx-auto w-full">
+                         <div className="min-w-0 space-y-6">
+                         <input ref={input} type="file" accept={accepted} capture="environment" className="hidden" onChange={(event) => void handleFile(event.target.files?.[0])} />
+-                        {!invoice && <button
+-                            type="button"
+-                            disabled={loading || isSuggestingLinks}
+-                            onClick={() => input.current?.click()}
+-                            onDragOver={(event) => { event.preventDefault(); if (!loading) setIsDraggingFile(true); }}
+-                            onDragLeave={() => setIsDraggingFile(false)}
+-                            onDrop={(event) => { event.preventDefault(); setIsDraggingFile(false); void handleFile(event.dataTransfer.files?.[0]); }}
+-                            className={`flex w-full flex-col items-center rounded-2xl border-2 border-dashed p-8 transition-colors ${isDraggingFile ? 'border-indigo-500 bg-indigo-50 text-indigo-700 dark:bg-indigo-955/30' : 'border-slate-200 text-indigo-700 hover:border-indigo-400 hover:bg-indigo-50/40 dark:border-slate-700 dark:hover:bg-slate-800'} disabled:cursor-wait disabled:opacity-80`}
+-                        >
+-                            {loading ? <i className="bi bi-arrow-repeat animate-spin text-3xl text-indigo-600" /> : <i className="bi bi-cloud-arrow-up text-3xl" />}
+-                            <b className="mt-2 text-xs">{loading ? (analysisStage === 'uploading' ? 'Enviando documento...' : 'Extraindo dados da nota fiscal...') : 'Adicionar foto, documento ou XML'}</b>
+-                            {!loading && <span className="mt-1 text-[11px] text-slate-400">Clique ou arraste um arquivo XML, PDF, PNG ou JPG para esta ├írea</span>}
+-                        </button>}
++                        {!invoice && (
++                            <div className="flex flex-col gap-6">
++                                <button
++                                    type="button"
++                                    disabled={loading || isSuggestingLinks}
++                                    onClick={() => input.current?.click()}
++                                    onDragOver={(event) => { event.preventDefault(); if (!loading) setIsDraggingFile(true); }}
++                                    onDragLeave={() => setIsDraggingFile(false)}
++                                    onDrop={(event) => { event.preventDefault(); setIsDraggingFile(false); void handleFile(event.dataTransfer.files?.[0]); }}
++                                    className={`flex w-full flex-col items-center rounded-2xl border-2 border-dashed p-8 transition-colors ${isDraggingFile ? 'border-indigo-500 bg-indigo-50 text-indigo-700 dark:bg-indigo-955/30' : 'border-slate-200 text-indigo-700 hover:border-indigo-400 hover:bg-indigo-50/40 dark:border-slate-700 dark:hover:bg-slate-800'} disabled:cursor-wait disabled:opacity-80`}
++                                >
++                                    {loading ? <i className="bi bi-arrow-repeat animate-spin text-3xl text-indigo-600" /> : <i className="bi bi-cloud-arrow-up text-3xl" />}
++                                    <b className="mt-2 text-xs">{loading ? (analysisStage === 'uploading' ? 'Enviando documento...' : 'Extraindo dados da nota fiscal...') : 'Adicionar foto, documento ou XML'}</b>
++                                    {!loading && <span className="mt-1 text-[11px] text-slate-400">Clique ou arraste um arquivo XML, PDF, PNG ou JPG para esta ├írea</span>}
++                                </button>
++                                
++                                <div className="flex items-center gap-4">
++                                    <div className="h-px flex-1 bg-slate-200 dark:bg-slate-800" />
++                                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">ou</span>
++                                    <div className="h-px flex-1 bg-slate-200 dark:bg-slate-800" />
++                                </div>
++
++                                <button
++                                    type="button"
++                                    disabled={loading || isSuggestingLinks}
++                                    onClick={() => setIsAccessKeyModalOpen(true)}
++                                    className="flex w-full items-center justify-center gap-3 rounded-2xl border border-slate-200 bg-white p-4 text-sm font-bold text-slate-600 transition-colors hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800 disabled:opacity-50"
++                                >
++                                    <i className="bi bi-key-fill text-lg text-slate-400" />
++                                    Consultar por chave de acesso
++                                </button>
++                            </div>
++                        )}
+                         {file && <div className="flex justify-between rounded-xl bg-slate-50 p-3"><span className="text-xs font-bold">{file.name}</span><button className="text-xs text-red-600" onClick={() => { setFile(null); setInvoice(null); }}>Remover</button></div>}
+ 
+                         {invoice && <div className="space-y-4">
+@@ -372,6 +419,12 @@ export function InboundDocumentImportModal({ isOpen, onClose, onImportSuccess }:
+                 existingInvoice={duplicateExistingInvoice}
+                 onClose={() => setDuplicateAlertOpen(false)}
+             />
++            <InboundAccessKeyModal
++                isOpen={isAccessKeyModalOpen}
++                isLoading={loading}
++                onClose={() => setIsAccessKeyModalOpen(false)}
++                onSubmit={handleAccessKeyLookup}
++            />
+         </>
+     );
+ }

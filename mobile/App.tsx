@@ -671,6 +671,7 @@ export default function App() {
       if (ordersDebounceTimer) clearTimeout(ordersDebounceTimer);
       ordersChannel.unsubscribe();
       deepLinkSubscription.remove();
+      clearInterval(pollingInterval);
     };
   }, []);
 

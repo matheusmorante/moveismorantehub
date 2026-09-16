@@ -1,0 +1,24 @@
+diff a/erp/src/pages/App/Settings/index.tsx b/erp/src/pages/App/Settings/index.tsx	(rejected hunks)
+@@ -163,6 +163,22 @@ export default function Settings(): any {
+                         <AiUsageDashboardPanel />
+                     </div>
+ 
++                    {/* Bot├úo de Acesso ao Monitor Supabase */}
++                    <div className="my-4 px-3">
++                        <Link to="/settings/supabase-monitor" className="flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl hover:border-blue-500 hover:shadow-sm transition-all group">
++                            <div className="flex items-center gap-4">
++                                <div className="w-10 h-10 rounded-xl bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 flex items-center justify-center">
++                                    <i className="bi bi-activity text-xl"></i>
++                                </div>
++                                <div>
++                                    <h4 className="font-bold text-slate-800 dark:text-slate-200 text-sm">Monitor de Egress (Supabase)</h4>
++                                    <p className="text-xs text-slate-500">Telemetria, detec├º├úo de loops e painel de consumo</p>
++                                </div>
++                            </div>
++                            <i className="bi bi-chevron-right text-slate-400 group-hover:text-blue-500 transition-colors"></i>
++                        </Link>
++                    </div>
++
+                     <SettingsSection id="labels" title="R├│tulos do Sistema" icon="bi-tags-fill" isVisible={isVisible('labels')} isSearching={!!search.trim()} isAdminOnly={isAdminGroup('labels')}>
+                         <StatusLabelsSection settings={settings} onChange={handleChange} />
+                     </SettingsSection>

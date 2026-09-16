@@ -1,0 +1,1390 @@
+﻿diff --git a/.agents/AGENTS.md b/.agents/AGENTS.md
+index efd98aa1..827ef57a 100644
+--- a/.agents/AGENTS.md
++++ b/.agents/AGENTS.md
+@@ -65,6 +65,7 @@ Consulte a skill correspondente para obter o procedimento operacional detalhado:
+ | **Modelagem & Docs** | `modelagem-negocio-arquitetura` | Alterar processos, atualizar diagramas Mermaid e manter a documenta├º├úo viva em `docs/`. |
+ | **Regras de Neg├│cio ERP** | `regras-de-negocio-erp` | Alterar vendas, estoque, CMPM, CMV, recebimentos, devolu├º├Áes e despesas. |
+ | **Banco de Dados** | `database-supabase` | Criar migrations, tabelas, consultas Supabase, otimiza├º├úo de Egress e RLS. |
++| **Prote├º├úo Egress Supabase** | `supabase-egress-guard` | **OBRIGAT├ôRIO:** Proteger o Free Tier, evitar efeito metralhadora, auditar consumos pesados no Supabase e solicitar aprova├º├úo pr├®via do usu├írio. |
+ | **Mobile & Offline** | `mobile-offline-first` | Funcionalidades offline no App, SQLite local e sincronia em 4 estados. |
+ | **Fiscal & Notas** | `nfe-sefaz-direto` | Emiss├úo de NF-e/NFC-e, XML, tributa├º├úo e comunica├º├úo SEFAZ-PR. |
+ | **Intelig├¬ncia Artificial** | `arquitetura-agente-gemini` | Function Calling, tools do assistente IA, prompts e agentes Gemini. |
+diff --git a/erp/package-lock.json b/erp/package-lock.json
+index baecdc7c..f957273d 100644
+--- a/erp/package-lock.json
++++ b/erp/package-lock.json
+@@ -37,6 +37,7 @@
+         "react-router-dom": "^6.22.3",
+         "react-toastify": "^11.0.5",
+         "recharts": "^2.15.0",
++        "sweetalert2": "^11.26.25",
+         "web-vitals": "^2.1.4"
+       },
+       "devDependencies": {
+@@ -10311,6 +10312,16 @@
+         "url": "https://github.com/sponsors/ljharb"
+       }
+     },
++    "node_modules/sweetalert2": {
++      "version": "11.26.25",
++      "resolved": "https://registry.npmjs.org/sweetalert2/-/sweetalert2-11.26.25.tgz",
++      "integrity": "sha512-+hunCOJdJ6FLj04T9YSLvvZXRjsvIkTeTKP2e4VF8CaBias961BTnWiSFAy7F/CM5eq3QK2Rraoc5Gzftslvkg==",
++      "license": "MIT",
++      "funding": {
++        "type": "individual",
++        "url": "https://github.com/sponsors/limonte"
++      }
++    },
+     "node_modules/symbol-tree": {
+       "version": "3.2.4",
+       "resolved": "https://registry.npmjs.org/symbol-tree/-/symbol-tree-3.2.4.tgz",
+diff --git a/erp/package.json b/erp/package.json
+index a5008c2b..0133d8f7 100644
+--- a/erp/package.json
++++ b/erp/package.json
+@@ -33,6 +33,7 @@
+     "react-router-dom": "^6.22.3",
+     "react-toastify": "^11.0.5",
+     "recharts": "^2.15.0",
++    "sweetalert2": "^11.26.25",
+     "web-vitals": "^2.1.4"
+   },
+   "scripts": {
+diff --git a/erp/src/AppLayout.tsx b/erp/src/AppLayout.tsx
+index 4a012a2c..ab726350 100644
+--- a/erp/src/AppLayout.tsx
++++ b/erp/src/AppLayout.tsx
+@@ -27,6 +27,7 @@ export default function AppLayout() {
+   const { user, profile, logout, isAdmin } = useAuth();
+   const [isAssistanceModalOpen, setIsAssistanceModalOpen] = useState(false);
+   const [assistanceInitialData, setAssistanceInitialData] = useState<any>(null);
++  const [anomaly, setAnomaly] = useState<any>(null);
+ 
+   const handleProfileMouseEnter = () => {
+     if (profileCloseTimeoutRef.current) {
+@@ -76,10 +77,17 @@ export default function AppLayout() {
+   }, []);
+ 
+   useEffect(() => {
+-    // Polling de transa├º├Áes Rede a cada 30 segundos
++    if (!isAdmin) return;
++    const handleAnomaly = (e: any) => setAnomaly(e.detail);
++    window.addEventListener('SUPABASE_ANOMALY', handleAnomaly);
++    return () => window.removeEventListener('SUPABASE_ANOMALY', handleAnomaly);
++  }, [isAdmin]);
++
++  useEffect(() => {
++    // Polling de transa├º├Áes Rede a cada 5 minutos (evita consumo massivo de Egress)
+     const syncInterval = setInterval(() => {
+       redeConciliationService.syncPendingTransactions();
+-    }, 30000);
++    }, 300000);
+ 
+     // Primeira execu├º├úo imediata
+     redeConciliationService.syncPendingTransactions();
+@@ -111,6 +119,27 @@ export default function AppLayout() {
+         draggable
+       />
+ 
++      {/* Top Banner Alertas Supabase (Admin Only) */}
++      {isAdmin && anomaly && !isMobileAppView && !isTemplateEditor && (
++        <div className={`w-full ${anomaly.level === 'CRITICAL' ? 'bg-red-600' : 'bg-amber-500'} text-white px-4 py-2 flex items-center justify-between text-xs font-bold animate-slide-down z-[999999]`}>
++          <div className="flex items-center gap-3">
++            <i className={`bi ${anomaly.level === 'CRITICAL' ? 'bi-exclamation-octagon-fill' : 'bi-exclamation-triangle-fill'} text-lg`}></i>
++            <div>
++              <span className="block font-black uppercase tracking-wide">{anomaly.title}</span>
++              <span className="block opacity-90 font-medium">{anomaly.message}</span>
++            </div>
++          </div>
++          <div className="flex items-center gap-3">
++            <Link to="/settings/supabase-monitor" onClick={() => setAnomaly(null)} className="px-3 py-1 bg-white/20 hover:bg-white/30 rounded-lg transition-colors border border-white/20 backdrop-blur-sm shadow-sm whitespace-nowrap">
++              Ver Diagn├│stico
++            </Link>
++            <button onClick={() => setAnomaly(null)} className="p-1 hover:bg-white/20 rounded-lg transition-colors">
++              <i className="bi bi-x-lg"></i>
++            </button>
++          </div>
++        </div>
++      )}
++
+       {/* Header (Oculto no App Mobile e telas menores para evitar cabe├ºalho duplo) */}
+       {!isMobileAppView && !isTemplateEditor && (
+         <header className={`w-full glass-header px-4 lg:px-8 xl:px-12 h-14 xl:h-16 flex items-center justify-between sticky top-0 ${activeMenu || isProfileMenuOpen ? 'z-[99999]' : 'z-50 hover:z-[99999] focus-within:z-[99999]'} shadow-premium transition-all duration-500`}>
+diff --git a/erp/src/Router.tsx b/erp/src/Router.tsx
+index 9414b52e..b1ddde47 100644
+--- a/erp/src/Router.tsx
++++ b/erp/src/Router.tsx
+@@ -12,6 +12,7 @@ import OrderPage from './pages/OrderPage';
+ import Products from './pages/App/Products/Index';
+ import Categories from './pages/App/Products/Categories/Index';
+ import Settings from './pages/App/Settings';
++import SupabaseMonitorDashboard from './pages/App/Settings/SupabaseMonitor/Index';
+ import ProductTypes from './pages/App/Products/ProductTypes/Index';
+ import Customers from './pages/App/Customers/Index';
+ import Suppliers from './pages/App/Suppliers/Index';
+@@ -107,6 +108,23 @@ const AdminRoute = ({ children }: { children: React.ReactNode }) => {
+ 
+ import ResetPassword from './pages/ResetPassword';
+ 
++const DashboardRoute = () => {
++  const { isAdmin, loading } = useAuth();
++  const searchParams = new URLSearchParams(window.location.search);
++  const isMobileAuth = searchParams.has('auth_email') || 
++                       searchParams.has('user_id') || 
++                       window.location.search.includes('auth_email') || 
++                       Boolean((window as any).ReactNativeWebView);
++
++  if (loading && !isMobileAuth) return null;
++
++  if (!isAdmin && !isMobileAuth) {
++    return <Navigate to="/sales-order" replace />;
++  }
++
++  return <Dashboard />;
++};
++
+ function Router() {
+   return (
+     <AuthProvider>
+@@ -133,7 +151,7 @@ function Router() {
+ 
+           {/* Protected ERP Application */}
+           <Route path='/' element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
+-            <Route index element={<Dashboard />} />
++            <Route index element={<DashboardRoute />} />
+             <Route path='/sales-order' element={<SalesOrder />} />
+             <Route path='/sales-order/new' element={<NewSaleOrder />} />
+             <Route path='/sales-order/edit/:id' element={<OrderEditModal />} />
+@@ -149,6 +167,7 @@ function Router() {
+             <Route path='/warranty-term' element={<WarrantyTermPage />} />
+             <Route path='/delivery-schedule' element={<DeliverySchedule />} />
+             <Route path='/settings' element={<AdminRoute><Settings /></AdminRoute>} />
++            <Route path='/settings/supabase-monitor' element={<AdminRoute><SupabaseMonitorDashboard /></AdminRoute>} />
+             <Route path='/api-usage' element={<AdminRoute><ApiUsagePage /></AdminRoute>} />
+ 
+             {/* Registrations */}
+diff --git a/erp/src/components/layout/DesktopNav.tsx b/erp/src/components/layout/DesktopNav.tsx
+index e76f9483..bdf8ee1b 100644
+--- a/erp/src/components/layout/DesktopNav.tsx
++++ b/erp/src/components/layout/DesktopNav.tsx
+@@ -24,10 +24,12 @@ const DesktopNav = ({ activeMenu, setActiveMenu }: DesktopNavProps) => {
+ 
+     return (
+         <nav className="hidden xl:flex items-center gap-2 h-full">
+-            <Link to="/" className={navLinkClass}>
+-                <i className="bi bi-grid-fill"></i>
+-                Dashboard
+-            </Link>
++            {isAdmin && (
++                <Link to="/" className={navLinkClass}>
++                    <i className="bi bi-grid-fill"></i>
++                    Dashboard
++                </Link>
++            )}
+ 
+             {/* Produtos do Bling e Importa├º├úo */}
+             <div
+diff --git a/erp/src/components/layout/MobileNav.tsx b/erp/src/components/layout/MobileNav.tsx
+index 7f4592f0..a4587060 100644
+--- a/erp/src/components/layout/MobileNav.tsx
++++ b/erp/src/components/layout/MobileNav.tsx
+@@ -1,6 +1,7 @@
+ import { Link, useNavigate } from "react-router-dom";
+ import logoMorante from "../../assets/logo.jpeg";
+ import { MenuKey } from "../../AppLayout";
++import { useAuth } from "../../context/AuthContext";
+ 
+ interface MobileNavProps {
+     isOpen: boolean;
+@@ -103,6 +104,7 @@ const menuItems = [
+ 
+ const MobileNav = ({ isOpen, onClose, activeMenu, setActiveMenu }: MobileNavProps) => {
+     const navigate = useNavigate();
++    const { isAdmin } = useAuth();
+ 
+     if (!isOpen) return null;
+ 
+@@ -139,14 +141,16 @@ const MobileNav = ({ isOpen, onClose, activeMenu, setActiveMenu }: MobileNavProp
+                 </div>
+ 
+                 {/* Atalho: Dashboard & Documenta├º├úo */}
+-                <div className="grid grid-cols-2 gap-2 px-4 pt-4">
+-                    <button
+-                        onClick={() => handleLink('/')}
+-                        className="flex items-center justify-center gap-2 px-3 py-3 rounded-2xl bg-gradient-to-r from-blue-600 to-blue-500 text-white font-black text-xs shadow-md hover:from-blue-700 hover:to-blue-600 transition-all active:scale-95"
+-                    >
+-                        <i className="bi bi-grid-fill text-base"></i>
+-                        Dashboard
+-                    </button>
++                <div className={`grid ${isAdmin ? 'grid-cols-2' : 'grid-cols-1'} gap-2 px-4 pt-4`}>
++                    {isAdmin && (
++                        <button
++                            onClick={() => handleLink('/')}
++                            className="flex items-center justify-center gap-2 px-3 py-3 rounded-2xl bg-gradient-to-r from-blue-600 to-blue-500 text-white font-black text-xs shadow-md hover:from-blue-700 hover:to-blue-600 transition-all active:scale-95"
++                        >
++                            <i className="bi bi-grid-fill text-base"></i>
++                            Dashboard
++                        </button>
++                    )}
+                     <button
+                         onClick={() => handleLink('/system-docs')}
+                         className="flex items-center justify-center gap-2 px-3 py-3 rounded-2xl bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800 text-indigo-700 dark:text-indigo-300 font-black text-xs shadow-sm hover:bg-indigo-100 transition-all active:scale-95"
+diff --git a/erp/src/pages/App/ApiUsage/Index.tsx b/erp/src/pages/App/ApiUsage/Index.tsx
+index 4efcdd79..12da4f4a 100644
+--- a/erp/src/pages/App/ApiUsage/Index.tsx
++++ b/erp/src/pages/App/ApiUsage/Index.tsx
+@@ -104,6 +104,24 @@ export default function ApiUsagePage() {
+                     </div>
+                 </div>
+ 
++                {/* ALERTA DE REDIRECIONAMENTO PARA NOVO MONITOR SUPABASE */}
++                <div className="bg-gradient-to-r from-blue-600 to-indigo-700 rounded-3xl p-6 text-white shadow-lg flex items-center justify-between flex-wrap gap-4 animate-slide-in">
++                    <div className="flex items-center gap-4">
++                        <div className="w-12 h-12 bg-white/20 rounded-2xl flex items-center justify-center shrink-0">
++                            <i className="bi bi-hdd-network text-2xl"></i>
++                        </div>
++                        <div>
++                            <h3 className="font-black text-lg">Procurando pelo Monitor do Supabase com Drill-Down?</h3>
++                            <p className="text-blue-100 text-sm font-medium mt-1">
++                                Para n├úo misturar APIs de terceiros (Google, Meta) com banco de dados, criamos um painel exclusivo para o Supabase com 4 n├¡veis de Drill-Down, heur├¡sticas e risco de Egress.
++                            </p>
++                        </div>
++                    </div>
++                    <a href="/settings/supabase-monitor" className="px-5 py-2.5 bg-white text-blue-700 hover:bg-blue-50 font-black rounded-xl shadow-sm transition-colors flex items-center gap-2 whitespace-nowrap">
++                        Acessar Novo Monitor Supabase <i className="bi bi-arrow-right"></i>
++                    </a>
++                </div>
++
+                 <div className="flex items-center gap-2.5 flex-wrap">
+                     {/* Ambiente */}
+                     <div className="flex bg-slate-100 dark:bg-slate-800/80 p-1 rounded-xl border border-slate-200/60 dark:border-slate-700/60 text-xs font-black">
+@@ -215,7 +233,7 @@ export default function ApiUsagePage() {
+                         <i className="bi bi-arrow-down-up text-blue-600 text-base" />
+                     </div>
+                     <div className="text-2xl font-black text-slate-900 dark:text-slate-100">
+-                        {metrics?.totalRequests.toLocaleString() || 0}
++                        {metrics?.totalRequests?.toLocaleString() || 0}
+                     </div>
+                     <p className="text-[10px] font-bold text-slate-400 mt-1">Requisi├º├Áes externas reais</p>
+                 </div>
+@@ -226,7 +244,7 @@ export default function ApiUsagePage() {
+                         <i className="bi bi-cash-stack text-emerald-600 text-base" />
+                     </div>
+                     <div className="text-2xl font-black text-emerald-600 dark:text-emerald-400">
+-                        R$ {metrics?.totalCostBrl.toFixed(2) || '0,00'}
++                        R$ {metrics?.totalCostBrl?.toFixed(2) || '0,00'}
+                     </div>
+                     <p className="text-[10px] font-bold text-slate-400 mt-1">
+                         {metrics?.totalCostUsd ? `+ US$ ${metrics.totalCostUsd.toFixed(2)}` : 'Sem cobran├ºa em USD'}
+@@ -239,7 +257,7 @@ export default function ApiUsagePage() {
+                         <i className="bi bi-lightning-charge-fill text-amber-500 text-base" />
+                     </div>
+                     <div className="text-2xl font-black text-amber-500">
+-                        {metrics?.totalCacheHits.toLocaleString() || 0}
++                        {metrics?.totalCacheHits?.toLocaleString() || 0}
+                     </div>
+                     <p className="text-[10px] font-bold text-slate-400 mt-1">Requisi├º├Áes salvas em cache</p>
+                 </div>
+@@ -250,7 +268,7 @@ export default function ApiUsagePage() {
+                         <i className="bi bi-piggy-bank-fill text-indigo-600 text-base" />
+                     </div>
+                     <div className="text-2xl font-black text-indigo-600 dark:text-indigo-400">
+-                        R$ {metrics?.totalSavingsBrl.toFixed(2) || '0,00'}
++                        R$ {metrics?.totalSavingsBrl?.toFixed(2) || '0,00'}
+                     </div>
+                     <p className="text-[10px] font-bold text-slate-400 mt-1">Economia obtida com cache</p>
+                 </div>
+diff --git a/erp/src/pages/App/Dashboard/Index.tsx b/erp/src/pages/App/Dashboard/Index.tsx
+index dd3b41bb..5d96e501 100644
+--- a/erp/src/pages/App/Dashboard/Index.tsx
++++ b/erp/src/pages/App/Dashboard/Index.tsx
+@@ -25,6 +25,7 @@ const PERIODS: { label: string; value: Period }[] = [
+     { label: 'Ontem', value: 'yesterday' },
+     { label: 'Esta Semana', value: 'week' },
+     { label: 'Este M├¬s', value: 'month' },
++
+     { label: '├Ültimos 30 Dias', value: 'last_30_days' },
+     { label: 'M├¬s Passado', value: 'last_month' },
+     { label: 'Este Ano', value: 'year' },
+@@ -32,6 +33,7 @@ const PERIODS: { label: string; value: Period }[] = [
+ ];
+ 
+ export default function Dashboard() {
++    const [activeTab, setActiveTab] = useState<'overview' | 'logistics' | 'system'>('overview');
+     const [period, setPeriod] = useState<Period>('month');
+     const [customStartDate, setCustomStartDate] = useState(() => {
+         const d = new Date(); d.setDate(d.getDate() - 7); return d.toISOString().split('T')[0];
+@@ -93,57 +95,132 @@ export default function Dashboard() {
+                 </div>
+             )}
+ 
+-            {/* ÔöÇÔöÇ KPIs ÔöÇÔöÇ */}
+-            {loading ? <KpiSkeleton /> : (
+-                <KpiRow stats={stats} prevStats={prevStats} />
+-            )}
++            {/* Tabs de Navega├º├úo Interna */}
++            <div className="flex flex-wrap items-center gap-2 mb-2 border-b border-slate-200/80 dark:border-slate-800/80">
++                <button
++                    onClick={() => setActiveTab('overview')}
++                    className={`px-5 py-3 text-[11px] uppercase tracking-wider font-black border-b-2 transition-all flex items-center gap-2 ${
++                        activeTab === 'overview'
++                            ? 'border-blue-600 text-blue-600 dark:text-blue-400'
++                            : 'border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-300'
++                    }`}
++                >
++                    <i className="bi bi-graph-up-arrow text-sm"></i>
++                    Vis├úo Geral
++                </button>
++                <button
++                    onClick={() => setActiveTab('logistics')}
++                    className={`px-5 py-3 text-[11px] uppercase tracking-wider font-black border-b-2 transition-all flex items-center gap-2 ${
++                        activeTab === 'logistics'
++                            ? 'border-emerald-600 text-emerald-600 dark:text-emerald-400'
++                            : 'border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-300'
++                    }`}
++                >
++                    <i className="bi bi-truck text-sm"></i>
++                    Opera├º├úo & Log├¡stica
++                </button>
++                <button
++                    onClick={() => setActiveTab('system')}
++                    className={`px-5 py-3 text-[11px] uppercase tracking-wider font-black border-b-2 transition-all flex items-center gap-2 ${
++                        activeTab === 'system'
++                            ? 'border-indigo-600 text-indigo-600 dark:text-indigo-400'
++                            : 'border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-300'
++                    }`}
++                >
++                    <i className="bi bi-hdd-network text-sm"></i>
++                    Sa├║de do Sistema
++                </button>
++            </div>
+ 
+-            {/* ÔöÇÔöÇ Chart + Attention ÔöÇÔöÇ */}
+-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+-                <div className="lg:col-span-2">
+-                    {loading ? <ChartSkeleton /> : (
+-                        <ChartContainer title="Desempenho de Vendas" subtitle={`Evolu├º├úo no per├¡odo ┬À ${PERIODS.find(p => p.value === period)?.label || ''}`}>
+-                            <SalesChart data={salesOverTime} />
+-                        </ChartContainer>
++            {/* ÔöÇÔöÇ CONTE├ÜDO: Vis├úo Geral ÔöÇÔöÇ */}
++            {activeTab === 'overview' && (
++                <div className="space-y-6 animate-slide-in">
++                    {/* KPIs Principais */}
++                    {loading ? <KpiSkeleton /> : (
++                        <KpiRow stats={stats} prevStats={prevStats} />
+                     )}
+-                </div>
+-                <div>
+-                    <AttentionPanel stockData={stockData} />
+-                </div>
+-            </div>
+ 
+-            {/* ÔöÇÔöÇ Central Operacional ÔöÇÔöÇ */}
+-            {loading ? <PanelSkeleton rows={2} /> : (
+-                <OperationPanel data={operational} />
++                    {/* Gr├íficos e Pedidos Recentes */}
++                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
++                        <div className="lg:col-span-2">
++                            {loading ? <ChartSkeleton /> : (
++                                <ChartContainer title="Desempenho de Vendas" subtitle={`Evolu├º├úo no per├¡odo ┬À ${PERIODS.find(p => p.value === period)?.label || ''}`}>
++                                    <SalesChart data={salesOverTime} />
++                                </ChartContainer>
++                            )}
++                        </div>
++                        <div className="lg:col-span-1 space-y-6">
++                            {loading ? <PanelSkeleton rows={5} /> : (
++                                <RecentOrders orders={allActiveOrders} />
++                            )}
++                        </div>
++                    </div>
++                </div>
+             )}
+ 
+-            {/* ÔöÇÔöÇ Estoque + Produtos ÔöÇÔöÇ */}
+-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+-                {/* Alertas do sistema (estoque baixo e outros) */}
+-                <AlertsPanel maxItems={5} />
+-                {/* Produtos do per├¡odo */}
+-                {loading ? <PanelSkeleton rows={5} /> : (
+-                    <ProductsPanel data={productsData} />
+-                )}
+-            </div>
++            {/* ÔöÇÔöÇ CONTE├ÜDO: Opera├º├úo & Log├¡stica ÔöÇÔöÇ */}
++            {activeTab === 'logistics' && (
++                <div className="space-y-6 animate-slide-in">
++                    {/* Central Operacional R├ípida */}
++                    {loading ? <PanelSkeleton rows={2} /> : (
++                        <OperationPanel data={operational} />
++                    )}
+ 
+-            {/* ÔöÇÔöÇ Pedidos Recentes ÔöÇÔöÇ */}
+-            {loading ? <PanelSkeleton rows={5} /> : (
+-                <RecentOrders orders={allActiveOrders} />
++                    {/* Mapa e Painel Log├¡stico */}
++                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 pb-8">
++                        <div className="lg:col-span-2">
++                            <GeoMapPanel orders={filteredOrders.filter(isDashboardSaleOrder)} />
++                        </div>
++                        <div className="space-y-6">
++                            {loading ? <PanelSkeleton rows={4} /> : (
++                                <LogisticsPanel filteredOrders={filteredOrders} allActiveOrders={allActiveOrders} />
++                            )}
++                        </div>
++                    </div>
++                </div>
+             )}
+ 
+-            {/* ÔöÇÔöÇ Mapa + Log├¡stica + Consumo de APIs ÔöÇÔöÇ */}
+-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 pb-16">
+-                <div className="lg:col-span-2">
+-                    <GeoMapPanel orders={filteredOrders.filter(isDashboardSaleOrder)} />
+-                </div>
+-                <div className="space-y-6">
+-                    {loading ? <PanelSkeleton rows={4} /> : (
+-                        <LogisticsPanel filteredOrders={filteredOrders} allActiveOrders={allActiveOrders} />
+-                    )}
+-                    <ApiUsageSummaryCard />
++            {/* ÔöÇÔöÇ CONTE├ÜDO: Sa├║de do Sistema & Integra├º├Áes ÔöÇÔöÇ */}
++            {activeTab === 'system' && (
++                <div className="space-y-6 animate-slide-in pb-16">
++                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
++                        {/* Coluna 1: Alertas e Estoque */}
++                        <div className="space-y-6">
++                            <AttentionPanel stockData={stockData} />
++                            <AlertsPanel maxItems={5} />
++                        </div>
++
++                        {/* Coluna 2: Consumo T├®cnico */}
++                        <div className="space-y-6">
++                            {loading ? <PanelSkeleton rows={5} /> : (
++                                <ProductsPanel data={productsData} />
++                            )}
++                            <ApiUsageSummaryCard />
++                            
++                            {/* Link para o Monitor Supabase (Novo) */}
++                            <a href="/settings/supabase-monitor" className="block bg-gradient-to-br from-indigo-900 to-blue-900 rounded-3xl p-6 text-white shadow-lg shadow-indigo-900/20 relative overflow-hidden group transition-all hover:scale-[1.01] hover:shadow-indigo-900/40">
++                                <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-10 mix-blend-overlay transition-opacity group-hover:opacity-20"></div>
++                                <div className="relative z-10 flex items-center justify-between">
++                                    <div className="flex items-center gap-4">
++                                        <div className="w-12 h-12 rounded-2xl bg-white/10 backdrop-blur-sm flex items-center justify-center shrink-0">
++                                            <i className="bi bi-database-fill text-2xl text-blue-300"></i>
++                                        </div>
++                                        <div>
++                                            <h3 className="font-black text-lg text-white">Monitor do Supabase</h3>
++                                            <p className="text-blue-100/80 text-xs font-bold mt-0.5">
++                                                An├ílise de Egress, RPCs, Telemetria e diagn├│stico.
++                                            </p>
++                                        </div>
++                                    </div>
++                                    <div className="w-10 h-10 bg-white/10 rounded-xl flex items-center justify-center transition-all backdrop-blur-md group-hover:bg-white/20 group-hover:translate-x-1">
++                                        <i className="bi bi-arrow-right text-lg"></i>
++                                    </div>
++                                </div>
++                            </a>
++                        </div>
++                    </div>
+                 </div>
+-            </div>
++            )}
+         </div>
+     );
+ }
+diff --git a/erp/src/pages/App/DeliverySchedule/useDeliverySchedule.ts b/erp/src/pages/App/DeliverySchedule/useDeliverySchedule.ts
+index 0d3cefd2..d2015d26 100644
+--- a/erp/src/pages/App/DeliverySchedule/useDeliverySchedule.ts
++++ b/erp/src/pages/App/DeliverySchedule/useDeliverySchedule.ts
+@@ -240,12 +240,21 @@ export const useDeliverySchedule = () => {
+         };
+         fetchShowroom();
+ 
++        let debounceTimer: ReturnType<typeof setTimeout> | null = null;
++        const requestFetchShowroom = () => {
++            if (debounceTimer) clearTimeout(debounceTimer);
++            debounceTimer = setTimeout(() => {
++                fetchShowroom();
++            }, 3000);
++        };
++
+         const channel = supabase
+             .channel(`showroom-assemblies-schedule-${Date.now()}`)
+-            .on('postgres_changes', { event: '*', schema: 'public', table: 'showroom_assemblies' }, fetchShowroom)
++            .on('postgres_changes', { event: '*', schema: 'public', table: 'showroom_assemblies' }, requestFetchShowroom)
+             .subscribe();
+ 
+         return () => {
++            if (debounceTimer) clearTimeout(debounceTimer);
+             supabase.removeChannel(channel);
+         };
+     }, []);
+diff --git a/erp/src/pages/App/Logistics/AssemblyListPage.tsx b/erp/src/pages/App/Logistics/AssemblyListPage.tsx
+index 9bee5a7e..cdf90ca0 100644
+--- a/erp/src/pages/App/Logistics/AssemblyListPage.tsx
++++ b/erp/src/pages/App/Logistics/AssemblyListPage.tsx
+@@ -91,12 +91,21 @@ const AssemblyListPage = () => {
+     }, [settingsLoaded, settings]);
+ 
+     useEffect(() => {
++        let debounceTimer: ReturnType<typeof setTimeout> | null = null;
++        const requestFetchAssemblies = () => {
++            if (debounceTimer) clearTimeout(debounceTimer);
++            debounceTimer = setTimeout(() => {
++                fetchAllAssemblies();
++            }, 3000);
++        };
++
+         const channel = supabase
+             .channel(`showroom-assemblies-list-${Date.now()}`)
+-            .on('postgres_changes', { event: '*', schema: 'public', table: 'showroom_assemblies' }, () => fetchAllAssemblies())
++            .on('postgres_changes', { event: '*', schema: 'public', table: 'showroom_assemblies' }, requestFetchAssemblies)
+             .subscribe();
+ 
+         return () => {
++            if (debounceTimer) clearTimeout(debounceTimer);
+             supabase.removeChannel(channel);
+         };
+     }, []);
+diff --git a/erp/src/pages/App/Products/MetaCatalog/index.tsx b/erp/src/pages/App/Products/MetaCatalog/index.tsx
+index 91d037dd..608e2960 100644
+--- a/erp/src/pages/App/Products/MetaCatalog/index.tsx
++++ b/erp/src/pages/App/Products/MetaCatalog/index.tsx
+@@ -152,13 +152,39 @@ export default function MetaCatalog() {
+             const { supabase } = await import('@/pages/utils/supabaseConfig');
+             const { whatsappGraphService } = await import('@/pages/utils/whatsappGraphService');
+ 
+-            // 1. Buscar todos os produtos cadastrados no Supabase (ativos e inativos para sync completo)
+-            const { data: products, error: prodErr } = await supabase.from('products').select('*');
+-            if (prodErr) throw prodErr;
++            // 1. Buscar todos os produtos cadastrados no Supabase (ativos e inativos para sync completo) em lotes
++            let products: any[] = [];
++            let pFrom = 0;
++            const pStep = 1000;
++            let pFetchMore = true;
++            while (pFetchMore) {
++                const { data: pData, error: prodErr } = await supabase.from('products').select('*').range(pFrom, pFrom + pStep - 1);
++                if (prodErr) throw prodErr;
++                if (pData && pData.length > 0) {
++                    products = [...products, ...pData];
++                    pFrom += pStep;
++                    if (pData.length < pStep) pFetchMore = false;
++                } else {
++                    pFetchMore = false;
++                }
++            }
+ 
+-            // 2. Buscar varia├º├Áes e oportunidades
+-            const { data: variations, error: varErr } = await supabase.from('product_variations').select('*');
+-            if (varErr) throw varErr;
++            // 2. Buscar varia├º├Áes e oportunidades em lotes
++            let variations: any[] = [];
++            let vFrom = 0;
++            const vStep = 1000;
++            let vFetchMore = true;
++            while (vFetchMore) {
++                const { data: vData, error: varErr } = await supabase.from('product_variations').select('*').range(vFrom, vFrom + vStep - 1);
++                if (varErr) throw varErr;
++                if (vData && vData.length > 0) {
++                    variations = [...variations, ...vData];
++                    vFrom += vStep;
++                    if (vData.length < vStep) vFetchMore = false;
++                } else {
++                    vFetchMore = false;
++                }
++            }
+ 
+             const { data: opps } = await supabase.from('opportunities').select('id, name, observations');
+             const oppMap: Record<string, any> = {};
+diff --git a/erp/src/pages/App/Products/ProductList/components/ProductCardActions.tsx b/erp/src/pages/App/Products/ProductList/components/ProductCardActions.tsx
+index dc1ea913..afab5274 100644
+--- a/erp/src/pages/App/Products/ProductList/components/ProductCardActions.tsx
++++ b/erp/src/pages/App/Products/ProductList/components/ProductCardActions.tsx
+@@ -3,7 +3,8 @@ import { Link } from 'react-router-dom';
+ import Product from '@/pages/types/product.type';
+ import { formatCurrency } from '@/pages/utils/formatters';
+ import DropdownPortal from '@/components/shared/DropdownPortal';
+-
++import Swal from 'sweetalert2';
++import { checkProductIsUsed, physicalDeleteProduct } from '@/pages/utils/productService/productMutationService';
+ export interface ProductCardActionsProps {
+     readonly product: Product;
+     readonly onEdit: (product: Product) => void;
+@@ -28,9 +29,69 @@ export const ProductCardActions: React.FC<ProductCardActionsProps> = ({
+     onOpenWhatsApp,
+ }) => {
+     const [isMenuOpen, setIsMenuOpen] = useState(false);
++    const [isUsed, setIsUsed] = useState<boolean | null>(null);
+     const menuAnchorRef = useRef<HTMLButtonElement>(null);
+     const isDraft = Boolean(product.isDraft) || Boolean(product.is_draft);
+ 
++    React.useEffect(() => {
++        if (isMenuOpen && !isDraft) {
++            setIsUsed(null);
++            checkProductIsUsed(product.id!).then(setIsUsed).catch(() => setIsUsed(true));
++        }
++    }, [isMenuOpen, product.id, isDraft]);
++
++    const handleDeleteClick = useCallback(async (e: React.MouseEvent) => {
++        e.stopPropagation();
++        setIsMenuOpen(false);
++
++        if (isDraft) {
++            if (product.id) onDelete(product.id);
++            return;
++        }
++
++        let timerInterval: any;
++        const result = await Swal.fire({
++            title: 'Excluir Produto?',
++            text: 'Este item n├úo est├í sendo usado por nada, ent├úo n├úo haver├í problema nenhum ao exclu├¡-lo definitivamente.',
++            icon: 'warning',
++            showCancelButton: true,
++            confirmButtonColor: '#d33',
++            cancelButtonColor: '#3085d6',
++            confirmButtonText: 'Confirmar Exclus├úo (5s)',
++            cancelButtonText: 'Cancelar',
++            didOpen: () => {
++                const confirmBtn = Swal.getConfirmButton();
++                if (confirmBtn) {
++                    confirmBtn.disabled = true;
++                    let timeLeft = 5;
++                    timerInterval = setInterval(() => {
++                        timeLeft -= 1;
++                        if (timeLeft > 0) {
++                            confirmBtn.textContent = `Confirmar Exclus├úo (${timeLeft}s)`;
++                        } else {
++                            clearInterval(timerInterval);
++                            confirmBtn.disabled = false;
++                            confirmBtn.textContent = 'Confirmar Exclus├úo';
++                        }
++                    }, 1000);
++                }
++            },
++            willClose: () => {
++                clearInterval(timerInterval);
++            }
++        });
++
++        if (result.isConfirmed) {
++            const res = await physicalDeleteProduct(product.id!);
++            if (res.success) {
++                // Call onDelete just to trigger refresh or whatever the parent does
++                onDelete(product.id!);
++            } else {
++                Swal.fire('Erro', res.message || 'N├úo foi poss├¡vel excluir.', 'error');
++            }
++        }
++    }, [product.id, isDraft, onDelete]);
++
+     const handleWhatsAppClick = useCallback((e: React.MouseEvent) => {
+         e.stopPropagation();
+         setIsMenuOpen(false);
+@@ -200,24 +261,25 @@ export const ProductCardActions: React.FC<ProductCardActionsProps> = ({
+                             </button>
+                         )}
+ 
+-                        {isDraft && (
+-                            <div className="border-t border-slate-50 dark:border-slate-800/50 my-1">
+-                                <button
+-                                    type="button"
+-                                    role="menuitem"
+-                                    onClick={(e) => {
+-                                        e.stopPropagation();
+-                                        setIsMenuOpen(false);
+-                                        if (product.id) onDelete(product.id);
+-                                    }}
+-                                    className="flex items-center gap-3 px-4 py-2.5 hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors text-left group w-full text-red-600 dark:text-red-400 cursor-pointer"
+-                                    title="Descartar Rascunho"
+-                                >
+-                                    <i className="bi bi-trash3-fill text-red-500" />
+-                                    <span className="text-[10px] font-black uppercase tracking-widest font-bold">Descartar Rascunho</span>
+-                                </button>
+-                            </div>
+-                        )}
++                        <div className="border-t border-slate-50 dark:border-slate-800/50 my-1">
++                            <button
++                                type="button"
++                                role="menuitem"
++                                disabled={!isDraft && isUsed === true}
++                                title={!isDraft && isUsed === true ? "Este produto est├í sendo usado e n├úo pode ser deletado." : (isDraft ? "Descartar Rascunho" : "Deletar Produto")}
++                                onClick={!isDraft && isUsed === true ? undefined : handleDeleteClick}
++                                className={`flex items-center gap-3 px-4 py-2.5 transition-colors text-left group w-full ${!isDraft && isUsed === true ? 'opacity-50 cursor-not-allowed' : 'hover:bg-red-50 dark:hover:bg-red-950/30 text-red-600 dark:text-red-400 cursor-pointer'}`}
++                            >
++                                {(!isDraft && isUsed === null) ? (
++                                    <i className="bi bi-arrow-repeat animate-spin text-slate-400" />
++                                ) : (
++                                    <i className={`bi bi-trash3-fill ${!isDraft && isUsed === true ? 'text-slate-400' : 'text-red-500'}`} />
++                                )}
++                                <span className={`text-[10px] uppercase tracking-widest font-bold ${!isDraft && isUsed === true ? 'text-slate-500' : ''}`}>
++                                    {isDraft ? 'Descartar Rascunho' : (!isDraft && isUsed === null ? 'Verificando Uso...' : 'Deletar Produto')}
++                                </span>
++                            </button>
++                        </div>
+                     </div>
+                 </DropdownPortal>
+             )}
+diff --git a/erp/src/pages/App/Settings/components/AiUsageDashboardPanel.tsx b/erp/src/pages/App/Settings/components/AiUsageDashboardPanel.tsx
+index 4ce74e6a..f67783b2 100644
+--- a/erp/src/pages/App/Settings/components/AiUsageDashboardPanel.tsx
++++ b/erp/src/pages/App/Settings/components/AiUsageDashboardPanel.tsx
+@@ -13,8 +13,6 @@ export const AiUsageDashboardPanel: React.FC = () => {
+ 
+   useEffect(() => {
+     loadUsage();
+-    const interval = setInterval(loadUsage, 10000);
+-    return () => clearInterval(interval);
+   }, []);
+ 
+   const loadUsage = async () => {
+diff --git a/erp/src/pages/App/Settings/index.tsx b/erp/src/pages/App/Settings/index.tsx
+index 0dabc904..eed72e3a 100644
+--- a/erp/src/pages/App/Settings/index.tsx
++++ b/erp/src/pages/App/Settings/index.tsx
+@@ -163,6 +163,22 @@ export default function Settings(): any {
+                         <AiUsageDashboardPanel />
+                     </div>
+ 
++                    {/* Bot├úo de Acesso ao Monitor Supabase */}
++                    <div className="my-4 px-3">
++                        <Link to="/settings/supabase-monitor" className="flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl hover:border-blue-500 hover:shadow-sm transition-all group">
++                            <div className="flex items-center gap-4">
++                                <div className="w-10 h-10 rounded-xl bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 flex items-center justify-center">
++                                    <i className="bi bi-activity text-xl"></i>
++                                </div>
++                                <div>
++                                    <h4 className="font-bold text-slate-800 dark:text-slate-200 text-sm">Monitor de Egress (Supabase)</h4>
++                                    <p className="text-xs text-slate-500">Telemetria, detec├º├úo de loops e painel de consumo</p>
++                                </div>
++                            </div>
++                            <i className="bi bi-chevron-right text-slate-400 group-hover:text-blue-500 transition-colors"></i>
++                        </Link>
++                    </div>
++
+                     <SettingsSection id="labels" title="R├│tulos do Sistema" icon="bi-tags-fill" isVisible={isVisible('labels')} isSearching={!!search.trim()} isAdminOnly={isAdminGroup('labels')}>
+                         <StatusLabelsSection settings={settings} onChange={handleChange} />
+                     </SettingsSection>
+diff --git a/erp/src/pages/App/Stock/InboundInvoices/modals/InboundDocumentImportModal.tsx b/erp/src/pages/App/Stock/InboundInvoices/modals/InboundDocumentImportModal.tsx
+index 42f0ede8..4b275cf0 100644
+--- a/erp/src/pages/App/Stock/InboundInvoices/modals/InboundDocumentImportModal.tsx
++++ b/erp/src/pages/App/Stock/InboundInvoices/modals/InboundDocumentImportModal.tsx
+@@ -16,6 +16,8 @@ import SupplierAutocomplete from '@/components/SupplierAutocomplete';
+ import { InboundInvoiceFiscalReview } from '../components/InboundInvoiceFiscalReview';
+ import { InboundInvoiceItemsReview } from '../components/InboundInvoiceItemsReview';
+ import { InboundDuplicateKeyAlertModal } from './InboundDuplicateKeyAlertModal';
++import { InboundAccessKeyModal } from './InboundAccessKeyModal';
++import { syncSefazDfe, fetchInboundInvoicesPage } from '@/pages/utils/inboundNfe/inboundInvoicesService';
+ 
+ type Props = { isOpen: boolean; onClose: () => void; onImportSuccess: (invoice: InboundInvoice) => void };
+ const accepted = 'application/pdf,image/png,image/jpeg,text/xml,application/xml,.pdf,.png,.jpg,.jpeg,.xml';
+@@ -32,6 +34,7 @@ export function InboundDocumentImportModal({ isOpen, onClose, onImportSuccess }:
+     const mappingsKey = JSON.stringify([invoice?.id, invoice?.nfeKey, invoice?.supplierId]);
+     const [analysisStage, setAnalysisStage] = useState<InboundDocumentAnalysisStage | null>(null);
+     const [isDraggingFile, setIsDraggingFile] = useState(false);
++    const [isAccessKeyModalOpen, setIsAccessKeyModalOpen] = useState(false);
+ 
+     // Estado do Alerta de Nota Duplicada
+     const [duplicateAlertOpen, setDuplicateAlertOpen] = useState(false);
+@@ -249,6 +252,30 @@ export function InboundDocumentImportModal({ isOpen, onClose, onImportSuccess }:
+         }
+     };
+ 
++    const handleAccessKeyLookup = async (accessKey: string) => {
++        try {
++            setIsAccessKeyModalOpen(false);
++            setLoading(true);
++            // Sincroniza com a Sefaz
++            await syncSefazDfe();
++            // Verifica se a nota chegou
++            const res = await fetchInboundInvoicesPage({ page: 1, pageSize: 1, searchTerm: accessKey, dateFilter: { mode: 'custom_range', startMonth: '', endMonth: '', customMonth: '' } });
++            const foundInvoice = res.invoices.find((candidate) => candidate.nfeKey === accessKey);
++            
++            if (foundInvoice) {
++                toast.success('Nota Fiscal encontrada e importada do SEFAZ com sucesso!');
++                onImportSuccess(foundInvoice);
++                onClose();
++            } else {
++                toast.info('A chave informada ainda n├úo foi disponibilizada na distribui├º├úo DF-e. Tente novamente mais tarde.');
++            }
++        } catch (error: any) {
++            toast.error(error.message || 'Erro ao consultar a chave na SEFAZ.');
++        } finally {
++            setLoading(false);
++        }
++    };
++
+     if (!isOpen) return null;
+ 
+     return (
+@@ -277,19 +304,39 @@ export function InboundDocumentImportModal({ isOpen, onClose, onImportSuccess }:
+                     <main className="flex-1 space-y-6 overflow-y-auto p-6 max-w-7xl mx-auto w-full">
+                         <div className="min-w-0 space-y-6">
+                         <input ref={input} type="file" accept={accepted} capture="environment" className="hidden" onChange={(event) => void handleFile(event.target.files?.[0])} />
+-                        {!invoice && <button
+-                            type="button"
+-                            disabled={loading || isSuggestingLinks}
+-                            onClick={() => input.current?.click()}
+-                            onDragOver={(event) => { event.preventDefault(); if (!loading) setIsDraggingFile(true); }}
+-                            onDragLeave={() => setIsDraggingFile(false)}
+-                            onDrop={(event) => { event.preventDefault(); setIsDraggingFile(false); void handleFile(event.dataTransfer.files?.[0]); }}
+-                            className={`flex w-full flex-col items-center rounded-2xl border-2 border-dashed p-8 transition-colors ${isDraggingFile ? 'border-indigo-500 bg-indigo-50 text-indigo-700 dark:bg-indigo-955/30' : 'border-slate-200 text-indigo-700 hover:border-indigo-400 hover:bg-indigo-50/40 dark:border-slate-700 dark:hover:bg-slate-800'} disabled:cursor-wait disabled:opacity-80`}
+-                        >
+-                            {loading ? <i className="bi bi-arrow-repeat animate-spin text-3xl text-indigo-600" /> : <i className="bi bi-cloud-arrow-up text-3xl" />}
+-                            <b className="mt-2 text-xs">{loading ? (analysisStage === 'uploading' ? 'Enviando documento...' : 'Extraindo dados da nota fiscal...') : 'Adicionar foto, documento ou XML'}</b>
+-                            {!loading && <span className="mt-1 text-[11px] text-slate-400">Clique ou arraste um arquivo XML, PDF, PNG ou JPG para esta ├írea</span>}
+-                        </button>}
++                        {!invoice && (
++                            <div className="flex flex-col gap-6">
++                                <button
++                                    type="button"
++                                    disabled={loading || isSuggestingLinks}
++                                    onClick={() => input.current?.click()}
++                                    onDragOver={(event) => { event.preventDefault(); if (!loading) setIsDraggingFile(true); }}
++                                    onDragLeave={() => setIsDraggingFile(false)}
++                                    onDrop={(event) => { event.preventDefault(); setIsDraggingFile(false); void handleFile(event.dataTransfer.files?.[0]); }}
++                                    className={`flex w-full flex-col items-center rounded-2xl border-2 border-dashed p-8 transition-colors ${isDraggingFile ? 'border-indigo-500 bg-indigo-50 text-indigo-700 dark:bg-indigo-955/30' : 'border-slate-200 text-indigo-700 hover:border-indigo-400 hover:bg-indigo-50/40 dark:border-slate-700 dark:hover:bg-slate-800'} disabled:cursor-wait disabled:opacity-80`}
++                                >
++                                    {loading ? <i className="bi bi-arrow-repeat animate-spin text-3xl text-indigo-600" /> : <i className="bi bi-cloud-arrow-up text-3xl" />}
++                                    <b className="mt-2 text-xs">{loading ? (analysisStage === 'uploading' ? 'Enviando documento...' : 'Extraindo dados da nota fiscal...') : 'Adicionar foto, documento ou XML'}</b>
++                                    {!loading && <span className="mt-1 text-[11px] text-slate-400">Clique ou arraste um arquivo XML, PDF, PNG ou JPG para esta ├írea</span>}
++                                </button>
++                                
++                                <div className="flex items-center gap-4">
++                                    <div className="h-px flex-1 bg-slate-200 dark:bg-slate-800" />
++                                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">ou</span>
++                                    <div className="h-px flex-1 bg-slate-200 dark:bg-slate-800" />
++                                </div>
++
++                                <button
++                                    type="button"
++                                    disabled={loading || isSuggestingLinks}
++                                    onClick={() => setIsAccessKeyModalOpen(true)}
++                                    className="flex w-full items-center justify-center gap-3 rounded-2xl border border-slate-200 bg-white p-4 text-sm font-bold text-slate-600 transition-colors hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800 disabled:opacity-50"
++                                >
++                                    <i className="bi bi-key-fill text-lg text-slate-400" />
++                                    Consultar por chave de acesso
++                                </button>
++                            </div>
++                        )}
+                         {file && <div className="flex justify-between rounded-xl bg-slate-50 p-3"><span className="text-xs font-bold">{file.name}</span><button className="text-xs text-red-600" onClick={() => { setFile(null); setInvoice(null); }}>Remover</button></div>}
+ 
+                         {invoice && <div className="space-y-4">
+@@ -372,6 +419,12 @@ export function InboundDocumentImportModal({ isOpen, onClose, onImportSuccess }:
+                 existingInvoice={duplicateExistingInvoice}
+                 onClose={() => setDuplicateAlertOpen(false)}
+             />
++            <InboundAccessKeyModal
++                isOpen={isAccessKeyModalOpen}
++                isLoading={loading}
++                onClose={() => setIsAccessKeyModalOpen(false)}
++                onSubmit={handleAccessKeyLookup}
++            />
+         </>
+     );
+ }
+diff --git a/erp/src/pages/App/Stock/InboundInvoices/modals/ManageInboundInvoiceMappingsModal.tsx b/erp/src/pages/App/Stock/InboundInvoices/modals/ManageInboundInvoiceMappingsModal.tsx
+index 3b4e6bd0..068286a3 100644
+--- a/erp/src/pages/App/Stock/InboundInvoices/modals/ManageInboundInvoiceMappingsModal.tsx
++++ b/erp/src/pages/App/Stock/InboundInvoices/modals/ManageInboundInvoiceMappingsModal.tsx
+@@ -166,7 +166,7 @@ export function ManageInboundInvoiceMappingsModal({ isOpen, onClose, invoice: in
+                         <div>
+                             <h2 className="text-base font-black text-slate-800 dark:text-slate-100 flex items-center gap-2">
+                                 <i className="bi bi-link-45deg text-blue-600 text-lg" />
+-                                Editar V├¡nculos - NF-e #{invoice.nfeNumber}
++                                Editar V├¡nculos - Nota Fiscal de Entrada #{invoice.nfeNumber}
+                             </h2>
+                             <p className="text-xs text-slate-500">
+                                 Gerencie o fornecedor e a vincula├º├úo dos produtos desta nota aos produtos do sistema.
+@@ -221,7 +221,7 @@ export function ManageInboundInvoiceMappingsModal({ isOpen, onClose, invoice: in
+ 
+                         {/* Revis├úo de Itens e V├¡nculos */}
+                         <InboundInvoiceItemsReview
+-                            suggestionsEnabled={Boolean(invoice.supplierId?.trim()) && checkedMappingsKey === mappingsKey}
++                            suggestionsEnabled={false} // Boolean(invoice.supplierId?.trim()) && checkedMappingsKey === mappingsKey
+                             onProcessingSuggestionsChange={setIsSuggestingLinks}
+                             items={invoice.items}
+                             supplierId={invoice.supplierId}
+diff --git a/erp/src/pages/utils/goodsReceiptService.ts b/erp/src/pages/utils/goodsReceiptService.ts
+index 1741929d..0c34e781 100644
+--- a/erp/src/pages/utils/goodsReceiptService.ts
++++ b/erp/src/pages/utils/goodsReceiptService.ts
+@@ -576,12 +576,21 @@ export const subscribeToGoodsReceipts = (callback: (items: GoodsReceipt[]) => vo
+ 
+     load();
+ 
++    let debounceTimer: ReturnType<typeof setTimeout> | null = null;
++    const requestLoad = () => {
++        if (debounceTimer) clearTimeout(debounceTimer);
++        debounceTimer = setTimeout(() => {
++            load();
++        }, 3000);
++    };
++
+     const channel = supabase.channel(`goods_receipts_${Date.now()}`)
+-        .on('postgres_changes', { event: '*', schema: 'public', table: 'goods_receipts' }, load)
+-        .on('postgres_changes', { event: '*', schema: 'public', table: 'goods_receipt_items' }, load)
++        .on('postgres_changes', { event: '*', schema: 'public', table: 'goods_receipts' }, requestLoad)
++        .on('postgres_changes', { event: '*', schema: 'public', table: 'goods_receipt_items' }, requestLoad)
+         .subscribe();
+ 
+     return () => {
++        if (debounceTimer) clearTimeout(debounceTimer);
+         listeners = listeners.filter((cb) => cb !== callback);
+         supabase.removeChannel(channel);
+     };
+diff --git a/erp/src/pages/utils/orderSyncQueries.ts b/erp/src/pages/utils/orderSyncQueries.ts
+index 169a8721..f28cd85d 100644
+--- a/erp/src/pages/utils/orderSyncQueries.ts
++++ b/erp/src/pages/utils/orderSyncQueries.ts
+@@ -156,6 +156,7 @@ export const fetchOrdersPage = async (
+ export const subscribeToOrders = (callback: (orders: Order[]) => void) => {
+     let aborted = false;
+     let currentOrders: Order[] = [];
++    let debounceTimer: ReturnType<typeof setTimeout> | null = null;
+ 
+     const fetchAndCallback = async () => {
+         if (aborted) return;
+@@ -193,23 +194,25 @@ export const subscribeToOrders = (callback: (orders: Order[]) => void) => {
+         }
+     };
+ 
++    const requestFetch = () => {
++        if (aborted) return;
++        if (debounceTimer) clearTimeout(debounceTimer);
++        debounceTimer = setTimeout(() => {
++            fetchAndCallback();
++        }, 3000);
++    };
++
+     fetchAndCallback();
+ 
+     const channel = supabase.channel(`orders_changes_${Date.now()}`)
+-        .on('postgres_changes', { event: '*', schema: 'public', table: TABLE_NAME }, (payload: any) => {
+-            if (aborted) return;
+-            fetchAndCallback();
+-        })
+-        .on('postgres_changes', { event: '*', schema: 'public', table: 'order_items' }, () => {
+-            if (!aborted) fetchAndCallback();
+-        })
+-        .on('postgres_changes', { event: '*', schema: 'public', table: 'order_payments' }, () => {
+-            if (!aborted) fetchAndCallback();
+-        })
++        .on('postgres_changes', { event: '*', schema: 'public', table: TABLE_NAME }, () => requestFetch())
++        .on('postgres_changes', { event: '*', schema: 'public', table: 'order_items' }, () => requestFetch())
++        .on('postgres_changes', { event: '*', schema: 'public', table: 'order_payments' }, () => requestFetch())
+         .subscribe();
+ 
+     return () => {
+         aborted = true;
++        if (debounceTimer) clearTimeout(debounceTimer);
+         supabase.removeChannel(channel);
+     };
+ };
+diff --git a/erp/src/pages/utils/productService/productFilterBuilder.ts b/erp/src/pages/utils/productService/productFilterBuilder.ts
+index 27770216..07323ee7 100644
+--- a/erp/src/pages/utils/productService/productFilterBuilder.ts
++++ b/erp/src/pages/utils/productService/productFilterBuilder.ts
+@@ -85,6 +85,13 @@ export const applyProductFiltersAndSort = async (
+                 orConditions.push(`name.ilike.%${t}%`);
+             });
+ 
++            // Adicionar condi├º├úo AND palavra por palavra para ser mais tolerante a espa├ºos extras ou ordem das palavras
++            const words = unaccented.split(/\s+/).filter(Boolean);
++            if (words.length > 0) {
++                const andCondition = `and(${words.map(w => `name.ilike.%${w}%`).join(',')})`;
++                orConditions.push(andCondition);
++            }
++
+             if (variationParentIds.length > 0) {
+                 variationParentIds.forEach(id => {
+                     orConditions.push(`id.eq.${id}`);
+diff --git a/erp/src/pages/utils/productService/productMutationService.ts b/erp/src/pages/utils/productService/productMutationService.ts
+index 6507bfb2..07fcc838 100644
+--- a/erp/src/pages/utils/productService/productMutationService.ts
++++ b/erp/src/pages/utils/productService/productMutationService.ts
+@@ -250,6 +250,58 @@ export const moveToTrash = async (id: string): Promise<void> => {
+     await deactivateProduct(id);
+ };
+ 
++export const checkProductIsUsed = async (productId: string): Promise<boolean> => {
++    try {
++        const realId = String(productId).split('_')[0];
++        const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(realId);
++        if (!isUUID) return false;
++
++        const [movesRes, ordersRes, receiptsRes, inboundRes] = await Promise.all([
++            supabase.from('inventory_moves').select('id').eq('product_id', realId).limit(1),
++            supabase.from('orders').select('id').filter('order_data', 'cs', `"{\\"items\\": [{\\"productId\\": \\"${realId}\\"}]}"`).limit(1),
++            supabase.from('goods_receipt_items').select('id').eq('product_id', realId).limit(1),
++            supabase.from('inbound_invoices').select('id').filter('items', 'cs', `[{"productId": "${realId}"}]`).limit(1)
++        ]);
++
++        return (
++            (movesRes.data && movesRes.data.length > 0) ||
++            (ordersRes.data && ordersRes.data.length > 0) ||
++            (receiptsRes.data && receiptsRes.data.length > 0) ||
++            (inboundRes.data && inboundRes.data.length > 0)
++        ) as boolean;
++    } catch (error) {
++        console.error("Erro ao verificar uso do produto:", error);
++        return true; 
++    }
++};
++
++export const physicalDeleteProduct = async (id: string): Promise<{ success: boolean; message?: string }> => {
++    try {
++        const realId = String(id).split('_')[0];
++        const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(realId);
++        
++        if (isUUID) {
++            const isUsed = await checkProductIsUsed(realId);
++            if (isUsed) {
++                return { success: false, message: "Produto em uso. N├úo pode ser exclu├¡do." };
++            }
++            
++            const { error } = await supabase.from('products').delete().eq('id', realId);
++            if (error) throw error;
++            
++            let products = getLocalProducts();
++            products = products.filter(p => String(p.id).split('_')[0] !== realId);
++            saveLocalProducts(products);
++            notifySubscribers();
++        }
++
++        return { success: true, message: "Produto exclu├¡do definitivamente." };
++    } catch (error: any) {
++        console.error("Erro ao excluir produto fisicamente:", error);
++        return { success: false, message: error.message || "Erro ao excluir o produto." };
++    }
++};
++
+ export const restoreProduct = async (id: string): Promise<void> => {
+     await activateProduct(id);
+ };
+diff --git a/erp/src/pages/utils/productService/productQueryService.ts b/erp/src/pages/utils/productService/productQueryService.ts
+index e2e40107..e6032c09 100644
+--- a/erp/src/pages/utils/productService/productQueryService.ts
++++ b/erp/src/pages/utils/productService/productQueryService.ts
+@@ -15,17 +15,33 @@ export const LIGHT_COLUMNS_WITH_CATS = LIGHT_COLUMNS + ", product_categories(cat
+ export const initializeProductsIfEmpty = async (): Promise<Product[]> => {
+     try {
+         console.log("[ProductService] Carregando produtos a partir da tabela do Supabase do e-commerce...");
+-        const { data, error } = await supabase
+-            .from(TABLE_NAME)
+-            .select('*, product_variations(*), product_categories(*, categories(*)), product_images(*)')
+-            .order('created_at', { ascending: false });
++        let allData: any[] = [];
++        let from = 0;
++        const step = 1000;
++        let fetchMore = true;
+ 
+-        if (error) {
+-            console.error("[ProductService] Erro ao buscar produtos do Supabase:", error);
+-            return getLocalProducts();
++        while (fetchMore) {
++            const { data, error } = await supabase
++                .from(TABLE_NAME)
++                .select('*, product_variations(*), product_categories(*, categories(*)), product_images(*)')
++                .order('created_at', { ascending: false })
++                .range(from, from + step - 1);
++
++            if (error) {
++                console.error("[ProductService] Erro ao buscar produtos do Supabase:", error);
++                return getLocalProducts();
++            }
++
++            if (data && data.length > 0) {
++                allData = [...allData, ...data];
++                from += step;
++                if (data.length < step) fetchMore = false;
++            } else {
++                fetchMore = false;
++            }
+         }
+ 
+-        let fetchedProducts: Product[] = (data || []).map((p, idx) => mapFromDB(p, idx));
++        let fetchedProducts: Product[] = allData.map((p, idx) => mapFromDB(p, idx));
+         saveLocalProducts(fetchedProducts);
+         return fetchedProducts;
+     } catch (e) {
+diff --git a/erp/src/pages/utils/purchaseService.ts b/erp/src/pages/utils/purchaseService.ts
+index 1c75dcdc..2374ae71 100644
+--- a/erp/src/pages/utils/purchaseService.ts
++++ b/erp/src/pages/utils/purchaseService.ts
+@@ -189,12 +189,21 @@ export const subscribeToPurchases = (callback: (purchases: Purchase[]) => void)
+     }
+     fetchAll();
+ 
++    let debounceTimer: ReturnType<typeof setTimeout> | null = null;
++    const requestFetchAll = () => {
++        if (debounceTimer) clearTimeout(debounceTimer);
++        debounceTimer = setTimeout(() => {
++            fetchAll();
++        }, 3000);
++    };
++
+     const channel = supabase.channel(`purchases_changes_${Date.now()}`)
+-        .on('postgres_changes', { event: '*', schema: 'public', table: TABLE_NAME }, fetchAll)
+-        .on('postgres_changes', { event: '*', schema: 'public', table: 'purchase_items' }, fetchAll)
++        .on('postgres_changes', { event: '*', schema: 'public', table: TABLE_NAME }, requestFetchAll)
++        .on('postgres_changes', { event: '*', schema: 'public', table: 'purchase_items' }, requestFetchAll)
+         .subscribe();
+ 
+     return () => {
++        if (debounceTimer) clearTimeout(debounceTimer);
+         listeners = listeners.filter(l => l !== callback);
+         supabase.removeChannel(channel);
+     };
+diff --git a/erp/src/pages/utils/supabaseConfig.ts b/erp/src/pages/utils/supabaseConfig.ts
+index 32c1e567..35d545bd 100644
+--- a/erp/src/pages/utils/supabaseConfig.ts
++++ b/erp/src/pages/utils/supabaseConfig.ts
+@@ -1,4 +1,5 @@
+ import { createClient } from "@supabase/supabase-js";
++import { supabaseMonitor } from "./SupabaseMonitorService";
+ 
+ // Base de Dados Centralizada do Supabase - MoranteHub (Compartilhada entre ERP e Cat├ílogo Digital)
+ const DEFAULT_SUPABASE_URL = 'https://hkoxhourxwlddgsfdgws.supabase.co';
+@@ -30,7 +31,11 @@ const supabaseKey = isTestEnvironment
+   ? testSupabaseKey
+   : import.meta.env.VITE_SUPABASE_ANON_KEY || DEFAULT_SUPABASE_ANON_KEY;
+ 
+-export const supabase = createClient(supabaseUrl!, supabaseKey!);
++export const supabase = createClient(supabaseUrl!, supabaseKey!, {
++  global: {
++    fetch: supabaseMonitor.customFetch
++  }
++});
+ export const supabasePublicUrl = supabaseUrl!;
+ export const supabasePublicAnonKey = supabaseKey!;
+ export const ecommerceSupabase = supabase;
+diff --git a/mobile/App.tsx b/mobile/App.tsx
+index 1800bf3e..4aaf51be 100644
+--- a/mobile/App.tsx
++++ b/mobile/App.tsx
+@@ -626,20 +626,16 @@ export default function App() {
+         if (ordersDebounceTimer) clearTimeout(ordersDebounceTimer);
+         ordersDebounceTimer = setTimeout(() => {
+           fetchDashboardStats();
+-        }, 400);
++        }, 5000);
+       })
+       .on('postgres_changes', { event: '*', schema: 'public', table: 'settings' }, () => {
+         if (ordersDebounceTimer) clearTimeout(ordersDebounceTimer);
+         ordersDebounceTimer = setTimeout(() => {
+           fetchDashboardStats();
+-        }, 400);
++        }, 5000);
+       })
+       .subscribe();
+ 
+-    const pollingInterval = setInterval(() => {
+-      fetchNotifications();
+-    }, 15000);
+-
+     return () => {
+       cleanTokenListeners();
+       appStateSub.remove();
+@@ -648,7 +644,6 @@ export default function App() {
+       if (ordersDebounceTimer) clearTimeout(ordersDebounceTimer);
+       ordersChannel.unsubscribe();
+       deepLinkSubscription.remove();
+-      clearInterval(pollingInterval);
+     };
+   }, []);
+ 
+diff --git a/mobile/src/features/logistics/hooks/useTeamLocations.ts b/mobile/src/features/logistics/hooks/useTeamLocations.ts
+index aa2f8780..2cc3d3e1 100644
+--- a/mobile/src/features/logistics/hooks/useTeamLocations.ts
++++ b/mobile/src/features/logistics/hooks/useTeamLocations.ts
+@@ -5,7 +5,7 @@ import {
+   broadcastMyLocation,
+   subscribeToTeamLocations,
+ } from '../../../services/teamLocationService';
+-import { DriverCoordinates } from '../../../services/locationService';
++import { DriverCoordinates, calculateDistanceInMeters } from '../../../services/locationService';
+ 
+ interface UseTeamLocationsOptions {
+   userProfile?: { id: string; fullName?: string; role?: string } | null;
+@@ -27,6 +27,7 @@ export function useTeamLocations({
+ 
+   const myUserId = userProfile?.id;
+   const lastBroadcastCoordsRef = useRef<{ lat: number; lng: number } | null>(null);
++  const lastBroadcastTimeRef = useRef<number>(0);
+ 
+   const loadLocations = useCallback(async () => {
+     const list = await fetchTeamLocations(myUserId);
+@@ -34,20 +35,56 @@ export function useTeamLocations({
+     setLoading(false);
+   }, [myUserId]);
+ 
+-  // Transmiss├úo da localiza├º├úo do usu├írio atual (incluindo se est├í em entrega ativa)
++  // Transmiss├úo inteligente da localiza├º├úo do usu├írio atual
+   const syncMyLocation = useCallback(async () => {
+     if (!userProfile?.id) return;
+ 
+     const lat = myCoords?.latitude;
+     const lng = myCoords?.longitude;
++    const accuracy = myCoords?.accuracy;
+ 
+-    if (lat && lng && isGpsActive) {
++    if (!lat || !lng || !isGpsActive) {
++      await broadcastMyLocation(userProfile, null, false, isDelivering, activeOrder);
++      return;
++    }
++
++    // Se n├úo est├í em entrega ativa, n├úo consumimos banda atualizando a posi├º├úo no mapa
++    if (!isDelivering) {
++      return;
++    }
++
++    // Ignorar coordenadas com precis├úo muito ruim (margem de erro > 50 metros)
++    if (accuracy && accuracy > 50) {
++      return;
++    }
++
++    const now = Date.now();
++    let shouldBroadcast = false;
++
++    if (!lastBroadcastCoordsRef.current) {
++      shouldBroadcast = true;
++    } else {
++      const distance = calculateDistanceInMeters(
++        lastBroadcastCoordsRef.current.lat,
++        lastBroadcastCoordsRef.current.lng,
++        lat,
++        lng
++      );
++      const timeElapsed = now - lastBroadcastTimeRef.current;
++
++      // Otimiza├º├úo de Egress:
++      // Transmite se moveu mais de 100 metros OU se passou 3 minutos (Heartbeat para quem est├í parado)
++      if (distance >= 100 || timeElapsed >= 180000) {
++        shouldBroadcast = true;
++      }
++    }
++
++    if (shouldBroadcast) {
+       lastBroadcastCoordsRef.current = { lat, lng };
++      lastBroadcastTimeRef.current = now;
+       await broadcastMyLocation(userProfile, { latitude: lat, longitude: lng }, true, isDelivering, activeOrder);
+-    } else if (!isGpsActive) {
+-      await broadcastMyLocation(userProfile, null, false, isDelivering, activeOrder);
+     }
+-  }, [userProfile, myCoords?.latitude, myCoords?.longitude, isGpsActive, isDelivering, activeOrder]);
++  }, [userProfile, myCoords, isGpsActive, isDelivering, activeOrder]);
+ 
+   // Broadcast imediato quando as coordenadas mudarem
+   useEffect(() => {
+@@ -58,21 +95,15 @@ export function useTeamLocations({
+   useEffect(() => {
+     loadLocations();
+ 
+-    const interval = setInterval(() => {
+-      syncMyLocation();
+-      loadLocations();
+-    }, 20000);
+-
+-    // Escuta em tempo real via Supabase
++  // Escuta em tempo real via Supabase para atualizar a vis├úo dos colegas no mapa
+     const unsubscribe = subscribeToTeamLocations(() => {
+       loadLocations();
+     });
+ 
+     return () => {
+-      clearInterval(interval);
+       unsubscribe();
+     };
+-  }, [loadLocations, syncMyLocation]);
++  }, [loadLocations]);
+ 
+   return {
+     teamMembers,
+diff --git a/mobile/src/services/locationService.ts b/mobile/src/services/locationService.ts
+index c2a8e54a..3beb9e14 100644
+--- a/mobile/src/services/locationService.ts
++++ b/mobile/src/services/locationService.ts
+@@ -3,6 +3,22 @@ import * as Location from 'expo-location';
+ export interface DriverCoordinates {
+   latitude: number;
+   longitude: number;
++  accuracy?: number | null;
++}
++
++/**
++ * Calcula a dist├óncia em metros entre duas coordenadas usando a f├│rmula de Haversine.
++ */
++export function calculateDistanceInMeters(lat1: number, lon1: number, lat2: number, lon2: number): number {
++  const R = 6371e3; // Raio da Terra em metros
++  const toRadians = (degrees: number) => degrees * Math.PI / 180;
++  const dLat = toRadians(lat2 - lat1);
++  const dLon = toRadians(lon2 - lon1);
++  const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
++            Math.cos(toRadians(lat1)) * Math.cos(toRadians(lat2)) *
++            Math.sin(dLon / 2) * Math.sin(dLon / 2);
++  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
++  return R * c;
+ }
+ 
+ export interface LocationResult {
+@@ -57,6 +73,7 @@ export async function getCurrentDriverLocation(): Promise<LocationResult> {
+         coords: {
+           latitude: lastKnown.coords.latitude,
+           longitude: lastKnown.coords.longitude,
++          accuracy: lastKnown.coords.accuracy,
+         },
+         permissionGranted: true,
+       };
+@@ -71,6 +88,7 @@ export async function getCurrentDriverLocation(): Promise<LocationResult> {
+       coords: {
+         latitude: position.coords.latitude,
+         longitude: position.coords.longitude,
++        accuracy: position.coords.accuracy,
+       },
+       permissionGranted: true,
+     };
+@@ -103,15 +121,16 @@ export async function watchDriverLocation(
+ 
+     const subscription = await Location.watchPositionAsync(
+       {
+-        accuracy: Location.Accuracy.High,
+-        timeInterval: 3000,
+-        distanceInterval: 2,
++        accuracy: Location.Accuracy.Balanced, // Balanceado para bateria e ERP (sem navega├º├úo curva-a-curva)
++        timeInterval: 10000, // 10 segundos
++        distanceInterval: 20, // 20 metros
+       },
+       (location) => {
+         if (location?.coords) {
+           onLocation({
+             latitude: location.coords.latitude,
+             longitude: location.coords.longitude,
++            accuracy: location.coords.accuracy,
+           });
+         }
+       }
+diff --git a/mobile/src/services/logisticsRealtimeService.ts b/mobile/src/services/logisticsRealtimeService.ts
+index 82e26a0c..b487f502 100644
+--- a/mobile/src/services/logisticsRealtimeService.ts
++++ b/mobile/src/services/logisticsRealtimeService.ts
+@@ -7,7 +7,7 @@ export const subscribeToLogisticsChanges = (onChange: ChangeHandler) => {
+   let refreshTimer: ReturnType<typeof setTimeout> | undefined;
+   const requestRefresh = () => {
+     if (refreshTimer) clearTimeout(refreshTimer);
+-    refreshTimer = setTimeout(onChange, 250);
++    refreshTimer = setTimeout(onChange, 3000);
+   };
+ 
+   const channel = supabase
+diff --git a/mobile/src/services/teamLocationService.ts b/mobile/src/services/teamLocationService.ts
+index 027e0b2b..ff403012 100644
+--- a/mobile/src/services/teamLocationService.ts
++++ b/mobile/src/services/teamLocationService.ts
+@@ -28,7 +28,8 @@ export async function fetchTeamLocations(excludeUserId?: string): Promise<TeamMe
+   try {
+     const { data, error } = await supabase
+       .from('team_locations')
+-      .select('*')
++      .select('user_id, latitude, longitude, is_delivering, active_order_code, updated_at')
++      .eq('is_delivering', true)
+       .order('updated_at', { ascending: false });
+ 
+     if (error || !data) return [];

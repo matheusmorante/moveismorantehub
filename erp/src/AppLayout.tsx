@@ -78,10 +78,17 @@ export default function AppLayout() {
   }, []);
 
   useEffect(() => {
-    // Polling de transações Rede a cada 30 segundos
+    if (!isAdmin) return;
+    const handleAnomaly = (e: any) => setAnomaly(e.detail);
+    window.addEventListener('SUPABASE_ANOMALY', handleAnomaly);
+    return () => window.removeEventListener('SUPABASE_ANOMALY', handleAnomaly);
+  }, [isAdmin]);
+
+  useEffect(() => {
+    // Polling de transações Rede a cada 5 minutos (evita consumo massivo de Egress)
     const syncInterval = setInterval(() => {
       redeConciliationService.syncPendingTransactions();
-    }, 30000);
+    }, 300000);
 
     // Primeira execução imediata
     redeConciliationService.syncPendingTransactions();
@@ -112,6 +119,27 @@ export default function AppLayout() {
         className="!z-[9999999]"
         draggable
       />
+
+      {/* Top Banner Alertas Supabase (Admin Only) */}
+      {isAdmin && anomaly && !isMobileAppView && !isTemplateEditor && (
+        <div className={`w-full ${anomaly.level === 'CRITICAL' ? 'bg-red-600' : 'bg-amber-500'} text-white px-4 py-2 flex items-center justify-between text-xs font-bold animate-slide-down z-[999999]`}>
+          <div className="flex items-center gap-3">
+            <i className={`bi ${anomaly.level === 'CRITICAL' ? 'bi-exclamation-octagon-fill' : 'bi-exclamation-triangle-fill'} text-lg`}></i>
+            <div>
+              <span className="block font-black uppercase tracking-wide">{anomaly.title}</span>
+              <span className="block opacity-90 font-medium">{anomaly.message}</span>
+            </div>
+          </div>
+          <div className="flex items-center gap-3">
+            <Link to="/settings/supabase-monitor" onClick={() => setAnomaly(null)} className="px-3 py-1 bg-white/20 hover:bg-white/30 rounded-lg transition-colors border border-white/20 backdrop-blur-sm shadow-sm whitespace-nowrap">
+              Ver Diagnóstico
+            </Link>
+            <button onClick={() => setAnomaly(null)} className="p-1 hover:bg-white/20 rounded-lg transition-colors">
+              <i className="bi bi-x-lg"></i>
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Header (Oculto no App Mobile e telas menores para evitar cabeçalho duplo) */}
       {!isMobileAppView && !isTemplateEditor && (

@@ -1,0 +1,10 @@
+diff a/erp/src/pages/App/Settings/components/AiUsageDashboardPanel.tsx b/erp/src/pages/App/Settings/components/AiUsageDashboardPanel.tsx	(rejected hunks)
+@@ -13,8 +13,6 @@ export const AiUsageDashboardPanel: React.FC = () => {
+ 
+   useEffect(() => {
+     loadUsage();
+-    const interval = setInterval(loadUsage, 10000);
+-    return () => clearInterval(interval);
+   }, []);
+ 
+   const loadUsage = async () => {

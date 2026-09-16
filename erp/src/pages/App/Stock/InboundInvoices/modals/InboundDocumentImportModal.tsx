@@ -191,8 +191,28 @@ export const InboundDocumentImportModal: React.FC<InboundDocumentImportModalProp
 
         try {
             setIsLoading(true);
-            setStatusMessage('Consultando chave de acesso na SEFAZ...');
+            setStatusMessage('Sincronizando com a SEFAZ...');
 
+            const { syncSefazDfe, fetchInboundInvoicesPage } = await import('@/pages/utils/inboundNfe/inboundInvoicesService');
+            await syncSefazDfe();
+
+            setStatusMessage('Consultando chave de acesso...');
+            const res = await fetchInboundInvoicesPage({
+                page: 1,
+                pageSize: 1,
+                searchTerm: cleanKey,
+                dateFilter: { mode: 'custom_range', startMonth: '', endMonth: '', customMonth: '' }
+            });
+            const foundInvoice = res.invoices.find((candidate) => candidate.nfeKey === cleanKey);
+
+            if (foundInvoice) {
+                toast.success('Nota Fiscal encontrada e importada com sucesso!');
+                onImportSuccess(foundInvoice);
+                onClose();
+                return;
+            }
+
+            // Fallback (se não achou na listagem)
             const result = await consultInboundInvoiceByAccessKey(cleanKey);
 
             if (result.invoice) {

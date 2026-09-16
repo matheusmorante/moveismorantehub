@@ -1,0 +1,45 @@
+diff a/erp/src/pages/utils/orderSyncQueries.ts b/erp/src/pages/utils/orderSyncQueries.ts	(rejected hunks)
+@@ -156,6 +156,7 @@ export const fetchOrdersPage = async (
+ export const subscribeToOrders = (callback: (orders: Order[]) => void) => {
+     let aborted = false;
+     let currentOrders: Order[] = [];
++    let debounceTimer: ReturnType<typeof setTimeout> | null = null;
+ 
+     const fetchAndCallback = async () => {
+         if (aborted) return;
+@@ -193,23 +194,25 @@ export const subscribeToOrders = (callback: (orders: Order[]) => void) => {
+         }
+     };
+ 
++    const requestFetch = () => {
++        if (aborted) return;
++        if (debounceTimer) clearTimeout(debounceTimer);
++        debounceTimer = setTimeout(() => {
++            fetchAndCallback();
++        }, 3000);
++    };
++
+     fetchAndCallback();
+ 
+     const channel = supabase.channel(`orders_changes_${Date.now()}`)
+-        .on('postgres_changes', { event: '*', schema: 'public', table: TABLE_NAME }, (payload: any) => {
+-            if (aborted) return;
+-            fetchAndCallback();
+-        })
+-        .on('postgres_changes', { event: '*', schema: 'public', table: 'order_items' }, () => {
+-            if (!aborted) fetchAndCallback();
+-        })
+-        .on('postgres_changes', { event: '*', schema: 'public', table: 'order_payments' }, () => {
+-            if (!aborted) fetchAndCallback();
+-        })
++        .on('postgres_changes', { event: '*', schema: 'public', table: TABLE_NAME }, () => requestFetch())
++        .on('postgres_changes', { event: '*', schema: 'public', table: 'order_items' }, () => requestFetch())
++        .on('postgres_changes', { event: '*', schema: 'public', table: 'order_payments' }, () => requestFetch())
+         .subscribe();
+ 
+     return () => {
+         aborted = true;
++        if (debounceTimer) clearTimeout(debounceTimer);
+         supabase.removeChannel(channel);
+     };
+ };

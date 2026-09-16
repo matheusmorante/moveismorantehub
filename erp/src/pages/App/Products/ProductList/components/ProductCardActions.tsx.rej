@@ -1,0 +1,71 @@
+diff a/erp/src/pages/App/Products/ProductList/components/ProductCardActions.tsx b/erp/src/pages/App/Products/ProductList/components/ProductCardActions.tsx	(rejected hunks)
+@@ -28,9 +29,69 @@ export const ProductCardActions: React.FC<ProductCardActionsProps> = ({
+     onOpenWhatsApp,
+ }) => {
+     const [isMenuOpen, setIsMenuOpen] = useState(false);
++    const [isUsed, setIsUsed] = useState<boolean | null>(null);
+     const menuAnchorRef = useRef<HTMLButtonElement>(null);
+     const isDraft = Boolean(product.isDraft) || Boolean(product.is_draft);
+ 
++    React.useEffect(() => {
++        if (isMenuOpen && !isDraft) {
++            setIsUsed(null);
++            checkProductIsUsed(product.id!).then(setIsUsed).catch(() => setIsUsed(true));
++        }
++    }, [isMenuOpen, product.id, isDraft]);
++
++    const handleDeleteClick = useCallback(async (e: React.MouseEvent) => {
++        e.stopPropagation();
++        setIsMenuOpen(false);
++
++        if (isDraft) {
++            if (product.id) onDelete(product.id);
++            return;
++        }
++
++        let timerInterval: any;
++        const result = await Swal.fire({
++            title: 'Excluir Produto?',
++            text: 'Este item n├úo est├í sendo usado por nada, ent├úo n├úo haver├í problema nenhum ao exclu├¡-lo definitivamente.',
++            icon: 'warning',
++            showCancelButton: true,
++            confirmButtonColor: '#d33',
++            cancelButtonColor: '#3085d6',
++            confirmButtonText: 'Confirmar Exclus├úo (5s)',
++            cancelButtonText: 'Cancelar',
++            didOpen: () => {
++                const confirmBtn = Swal.getConfirmButton();
++                if (confirmBtn) {
++                    confirmBtn.disabled = true;
++                    let timeLeft = 5;
++                    timerInterval = setInterval(() => {
++                        timeLeft -= 1;
++                        if (timeLeft > 0) {
++                            confirmBtn.textContent = `Confirmar Exclus├úo (${timeLeft}s)`;
++                        } else {
++                            clearInterval(timerInterval);
++                            confirmBtn.disabled = false;
++                            confirmBtn.textContent = 'Confirmar Exclus├úo';
++                        }
++                    }, 1000);
++                }
++            },
++            willClose: () => {
++                clearInterval(timerInterval);
++            }
++        });
++
++        if (result.isConfirmed) {
++            const res = await physicalDeleteProduct(product.id!);
++            if (res.success) {
++                // Call onDelete just to trigger refresh or whatever the parent does
++                onDelete(product.id!);
++            } else {
++                Swal.fire('Erro', res.message || 'N├úo foi poss├¡vel excluir.', 'error');
++            }
++        }
++    }, [product.id, isDraft, onDelete]);
++
+     const handleWhatsAppClick = useCallback((e: React.MouseEvent) => {
+         e.stopPropagation();
+         setIsMenuOpen(false);

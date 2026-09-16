@@ -35,31 +35,66 @@ export function useTeamLocations({
     setLoading(false);
   }, [myUserId]);
 
-  // Transmissão da localização do usuário atual (incluindo se está em entrega ativa)
+  // Transmissão inteligente da localização do usuário atual
   const syncMyLocation = useCallback(async () => {
     if (!userProfile?.id) return;
 
     const lat = myCoords?.latitude;
     const lng = myCoords?.longitude;
+    const accuracy = myCoords?.accuracy;
 
-    if (lat && lng && isGpsActive) {
-      lastBroadcastCoordsRef.current = { lat, lng };
-      await broadcastMyLocation(userProfile, { latitude: lat, longitude: lng }, true, isDelivering, activeOrder);
-    } else if (!isGpsActive) {
+    if (!lat || !lng || !isGpsActive) {
       await broadcastMyLocation(userProfile, null, false, isDelivering, activeOrder);
+      return;
     }
-  }, [userProfile, myCoords?.latitude, myCoords?.longitude, isGpsActive, isDelivering, activeOrder]);
+
+    // Se não está em entrega ativa, não consumimos banda atualizando a posição no mapa
+    if (!isDelivering) {
+      return;
+    }
+
+    // Ignorar coordenadas com precisão muito ruim (margem de erro > 50 metros)
+    if (accuracy && accuracy > 50) {
+      return;
+    }
+
+    const now = Date.now();
+    let shouldBroadcast = false;
+
+    if (!lastBroadcastCoordsRef.current) {
+      shouldBroadcast = true;
+    } else {
+      const distance = calculateDistanceInMeters(
+        lastBroadcastCoordsRef.current.lat,
+        lastBroadcastCoordsRef.current.lng,
+        lat,
+        lng
+      );
+      const timeElapsed = now - lastBroadcastTimeRef.current;
+
+      // Otimização de Egress:
+      // Transmite se moveu mais de 100 metros OU se passou 3 minutos (Heartbeat para quem está parado)
+      if (distance >= 100 || timeElapsed >= 180000) {
+        shouldBroadcast = true;
+      }
+    }
+
+    if (shouldBroadcast) {
+      lastBroadcastCoordsRef.current = { lat, lng };
+      lastBroadcastTimeRef.current = now;
+      await broadcastMyLocation(userProfile, { latitude: lat, longitude: lng }, true, isDelivering, activeOrder);
+    }
+  }, [userProfile, myCoords, isGpsActive, isDelivering, activeOrder]);
 
   // Broadcast imediato quando as coordenadas mudarem
   useEffect(() => {
     syncMyLocation();
   }, [syncMyLocation]);
 
-  // Intervalo periódico de sincronização e atualização de estado (a cada 20 segundos)
+  // Escuta em tempo real via Supabase para atualizar a visão dos colegas no mapa
   useEffect(() => {
     loadLocations();
 
-  // Escuta em tempo real via Supabase para atualizar a vis├úo dos colegas no mapa
     const unsubscribe = subscribeToTeamLocations(() => {
       loadLocations();
     });

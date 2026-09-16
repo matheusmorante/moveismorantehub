@@ -1,0 +1,63 @@
+diff a/mobile/src/features/logistics/hooks/useTeamLocations.ts b/mobile/src/features/logistics/hooks/useTeamLocations.ts	(rejected hunks)
+@@ -34,20 +35,56 @@ export function useTeamLocations({
+     setLoading(false);
+   }, [myUserId]);
+ 
+-  // Transmiss├úo da localiza├º├úo do usu├írio atual (incluindo se est├í em entrega ativa)
++  // Transmiss├úo inteligente da localiza├º├úo do usu├írio atual
+   const syncMyLocation = useCallback(async () => {
+     if (!userProfile?.id) return;
+ 
+     const lat = myCoords?.latitude;
+     const lng = myCoords?.longitude;
++    const accuracy = myCoords?.accuracy;
+ 
+-    if (lat && lng && isGpsActive) {
++    if (!lat || !lng || !isGpsActive) {
++      await broadcastMyLocation(userProfile, null, false, isDelivering, activeOrder);
++      return;
++    }
++
++    // Se n├úo est├í em entrega ativa, n├úo consumimos banda atualizando a posi├º├úo no mapa
++    if (!isDelivering) {
++      return;
++    }
++
++    // Ignorar coordenadas com precis├úo muito ruim (margem de erro > 50 metros)
++    if (accuracy && accuracy > 50) {
++      return;
++    }
++
++    const now = Date.now();
++    let shouldBroadcast = false;
++
++    if (!lastBroadcastCoordsRef.current) {
++      shouldBroadcast = true;
++    } else {
++      const distance = calculateDistanceInMeters(
++        lastBroadcastCoordsRef.current.lat,
++        lastBroadcastCoordsRef.current.lng,
++        lat,
++        lng
++      );
++      const timeElapsed = now - lastBroadcastTimeRef.current;
++
++      // Otimiza├º├úo de Egress:
++      // Transmite se moveu mais de 100 metros OU se passou 3 minutos (Heartbeat para quem est├í parado)
++      if (distance >= 100 || timeElapsed >= 180000) {
++        shouldBroadcast = true;
++      }
++    }
++
++    if (shouldBroadcast) {
+       lastBroadcastCoordsRef.current = { lat, lng };
++      lastBroadcastTimeRef.current = now;
+       await broadcastMyLocation(userProfile, { latitude: lat, longitude: lng }, true, isDelivering, activeOrder);
+-    } else if (!isGpsActive) {
+-      await broadcastMyLocation(userProfile, null, false, isDelivering, activeOrder);
+     }
+-  }, [userProfile, myCoords?.latitude, myCoords?.longitude, isGpsActive, isDelivering, activeOrder]);
++  }, [userProfile, myCoords, isGpsActive, isDelivering, activeOrder]);
+ 
+   // Broadcast imediato quando as coordenadas mudarem
+   useEffect(() => {

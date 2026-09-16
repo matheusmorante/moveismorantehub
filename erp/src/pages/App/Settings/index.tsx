@@ -4,6 +4,7 @@ import { getSettings, saveSettings, AppSettings, subscribeToSettings } from '@/p
 import { useTheme } from '../../../context/ThemeContext';
 import { useAuth } from '../../../context/AuthContext';
 
+import { Link } from 'react-router-dom';
 import SettingsSidebar from './components/SettingsSidebar';
 import SettingsSection from './components/SettingsSection';
 import StatusLabelsSection from './components/StatusLabelsSection';
@@ -162,6 +163,24 @@ export default function Settings(): any {
                     <div className="my-4">
                         <AiUsageDashboardPanel />
                     </div>
+
+                    <SettingsSection id="telemetria" title="Consumo Supabase & APIs" icon="bi-activity" isVisible={isVisible('telemetria')} isSearching={!!search.trim()} isAdminOnly={isAdminGroup('telemetria')}>
+                        <div className="bg-slate-50 dark:bg-slate-900 rounded-2xl p-5 border border-slate-200 dark:border-slate-800">
+                            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                                <div>
+                                    <h4 className="text-sm font-bold text-slate-800 dark:text-slate-200 flex items-center gap-2">
+                                        <i className="bi bi-database text-blue-500"></i> Monitor de Egress e Conexões
+                                    </h4>
+                                    <p className="text-xs text-slate-500 mt-1 max-w-xl">
+                                        Visualize o uso em tempo real do limite mensal gratuito do Supabase (5GB/mês Egress, Conexões, etc) e proteja o sistema contra cobranças inesperadas.
+                                    </p>
+                                </div>
+                                <Link to="/settings/supabase-monitor" className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl transition-colors whitespace-nowrap shadow-md shadow-blue-500/20">
+                                    Abrir Painel <i className="bi bi-box-arrow-up-right ml-1"></i>
+                                </Link>
+                            </div>
+                        </div>
+                    </SettingsSection>
 
                     <SettingsSection id="labels" title="Rótulos do Sistema" icon="bi-tags-fill" isVisible={isVisible('labels')} isSearching={!!search.trim()} isAdminOnly={isAdminGroup('labels')}>
                         <StatusLabelsSection settings={settings} onChange={handleChange} />

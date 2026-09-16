@@ -20,4 +20,5 @@ export const settingsCategories: SettingsCategory[] = [
     { id: 'scanner', label: 'Leitor de Barras / Scanner', icon: 'bi-qr-code-scan', group: 'system', keywords: ['scanner', 'bip', 'pibe', 'barras', 'código', 'delay', 'atraso', 'vibração'] },
     { id: 'bling', label: 'Integração Bling (API v3)', icon: 'bi-clouds-fill', group: 'system', keywords: ['bling', 'api', 'v3', 'integração', 'estoque', 'sincronização', 'token', 'key'] },
     { id: 'ai-quality', label: 'Qualidade da IA & Feedbacks', icon: 'bi-robot', group: 'system', keywords: ['ia', 'qualidade', 'feedback', 'reclamação', 'erros', 'assistente', 'gemini', 'divergência'] },
+    { id: 'telemetria', label: 'Consumo Supabase & APIs', icon: 'bi-activity', group: 'system', keywords: ['api', 'consumo', 'egress', 'supabase', 'banda', 'monitoramento', 'telemetria', 'limites'] },
 ];

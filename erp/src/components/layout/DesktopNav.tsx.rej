@@ -1,0 +1,18 @@
+diff a/erp/src/components/layout/DesktopNav.tsx b/erp/src/components/layout/DesktopNav.tsx	(rejected hunks)
+@@ -24,10 +24,12 @@ const DesktopNav = ({ activeMenu, setActiveMenu }: DesktopNavProps) => {
+ 
+     return (
+         <nav className="hidden xl:flex items-center gap-2 h-full">
+-            <Link to="/" className={navLinkClass}>
+-                <i className="bi bi-grid-fill"></i>
+-                Dashboard
+-            </Link>
++            {isAdmin && (
++                <Link to="/" className={navLinkClass}>
++                    <i className="bi bi-grid-fill"></i>
++                    Dashboard
++                </Link>
++            )}
+ 
+             {/* Produtos do Bling e Importa├º├úo */}
+             <div

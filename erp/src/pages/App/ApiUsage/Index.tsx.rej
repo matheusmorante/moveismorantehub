@@ -1,0 +1,28 @@
+diff a/erp/src/pages/App/ApiUsage/Index.tsx b/erp/src/pages/App/ApiUsage/Index.tsx	(rejected hunks)
+@@ -215,7 +233,7 @@ export default function ApiUsagePage() {
+                         <i className="bi bi-arrow-down-up text-blue-600 text-base" />
+                     </div>
+                     <div className="text-2xl font-black text-slate-900 dark:text-slate-100">
+-                        {metrics?.totalRequests.toLocaleString() || 0}
++                        {metrics?.totalRequests?.toLocaleString() || 0}
+                     </div>
+                     <p className="text-[10px] font-bold text-slate-400 mt-1">Requisi├º├Áes externas reais</p>
+                 </div>
+@@ -226,7 +244,7 @@ export default function ApiUsagePage() {
+                         <i className="bi bi-cash-stack text-emerald-600 text-base" />
+                     </div>
+                     <div className="text-2xl font-black text-emerald-600 dark:text-emerald-400">
+-                        R$ {metrics?.totalCostBrl.toFixed(2) || '0,00'}
++                        R$ {metrics?.totalCostBrl?.toFixed(2) || '0,00'}
+                     </div>
+                     <p className="text-[10px] font-bold text-slate-400 mt-1">
+                         {metrics?.totalCostUsd ? `+ US$ ${metrics.totalCostUsd.toFixed(2)}` : 'Sem cobran├ºa em USD'}
+@@ -239,7 +257,7 @@ export default function ApiUsagePage() {
+                         <i className="bi bi-lightning-charge-fill text-amber-500 text-base" />
+                     </div>
+                     <div className="text-2xl font-black text-amber-500">
+-                        {metrics?.totalCacheHits.toLocaleString() || 0}
++                        {metrics?.totalCacheHits?.toLocaleString() || 0}
+                     </div>
+                     <p className="text-[10px] font-bold text-slate-400 mt-1">Requisi├º├Áes salvas em cache</p>
+                 </div>
