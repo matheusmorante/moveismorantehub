@@ -154,7 +154,7 @@ describe('orderSnapshotResolution', () => {
     });
 
     it('buildOrderPersistencePayload sincroniza perfeitamente as colunas físicas do banco', () => {
-        const order: Order = {
+        const order = {
             id: 'order-123',
             orderIndex: 2546,
             status: 'scheduled',

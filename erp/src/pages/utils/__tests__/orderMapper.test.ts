@@ -5,7 +5,7 @@ describe('orderMapper - Normalização e Fallback Seguro', () => {
     it('deve priorizar colunas físicas normalizadas como Master quando preenchidas', () => {
         const row: OrderDatabaseRow = {
             id: 'ord-001',
-            order_number: 1050,
+            order_number: '1050',
             status: 'scheduled',
             order_type: 'sale',
             customer_name: 'Maria Silva Normalizada',

@@ -31,6 +31,7 @@ export type {
   ChatMessage,
 };
 export type FinancialInstallment = InstallmentItemDraft;
+export type { FinancialCategory } from './financial/mobileFinanceTypes';
 
 import { MobileAgentClient } from './aiAgent/mobileAgentClient';
 

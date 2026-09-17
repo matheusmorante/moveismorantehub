@@ -840,7 +840,7 @@ describe('BATERIA COMPLEMENTAR DO ASSISTENTE FINANCEIRO (GRUPOS 1 A 45)', () => 
     test('Invariante 7: Último valor explicitamente corrigido vence', () => {
       const activeDraft: ParsedFinancialIntent = { amount: 200 };
       const p1 = trySlotFillingFallback('Não, foi 250.', activeDraft, todayStr);
-      const p2 = trySlotFillingFallback('Desculpa, foi 237,89.', p1, todayStr);
+      const p2 = trySlotFillingFallback('Desculpa, foi 237,89.', p1 ?? activeDraft, todayStr);
       expect(p2?.amount).toBe(237.89);
     });
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type Order from '../types/order.type';
+import type Order from '../../types/order.type';
 import {
   canCreateSaleExitForItem,
   canMaintainSaleStock,
@@ -22,7 +22,7 @@ describe('regras de estoque de pedido de venda', () => {
   });
 
   it('não considera item temporário como produto apto a movimentar', () => {
-    const temporary = { description: 'TESTE_ERP_temporário', quantity: 1, unitPrice: 1, unitDiscount: 0, discountType: 'fixed', handlingType: '', isTemporaryProduct: true };
+    const temporary = { description: 'TESTE_ERP_temporário', quantity: 1, unitPrice: 1, unitDiscount: 0, discountType: 'fixed' as const, handlingType: '', isTemporaryProduct: true };
     const linked = { ...temporary, productId: 'produto-de-teste', isTemporaryProduct: false };
 
     expect(hasTemporarySaleItem(sale('scheduled', temporary))).toBe(true);

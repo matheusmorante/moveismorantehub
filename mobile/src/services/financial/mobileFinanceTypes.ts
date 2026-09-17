@@ -4,6 +4,7 @@ export interface FinancialCategory {
   id: string;
   name: string;
   type: 'income' | 'expense';
+  active?: boolean;
   movement_type?: 'income' | 'expense';
   result_nature?: ResultNature;
 }
