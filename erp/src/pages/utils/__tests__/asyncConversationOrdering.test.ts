@@ -28,7 +28,7 @@ vi.mock('../../../../mobile/src/services/supabaseClient', () => ({
   },
 }));
 
-import { applyTurnPatchWithDraftList } from '../../../../mobile/src/services/financialAiAssistantService';
+import { applyTurnPatchWithDraftList } from '../../../../../mobile/src/services/financialAiAssistantService';
 
 describe('Bateria E2E/Estresse — Ordem Assíncrona, Versionamento e Idempotência (asyncConversationOrdering.test.ts)', () => {
   it('Grupo 22 — Versionamento de Draft (invariante incomingVersion < currentVersion)', () => {

@@ -137,9 +137,9 @@ export function InboundNfeItemsSection({
                                                 UN: {item.unit}
                                             </span>
                                         )}
-                                        {item.code && (
+                                        {(item as any).code && (
                                             <span className="rounded-md bg-slate-100 px-1.5 py-0.5 text-[9px] font-mono font-bold text-slate-600 dark:bg-slate-800 dark:text-slate-300">
-                                                Cód. Fornecedor: {item.code}
+                                                Cód. Fornecedor: {(item as any).code}
                                             </span>
                                         )}
                                     </div>
@@ -200,7 +200,7 @@ export function InboundNfeItemsSection({
                                             onSelect={(prod, variation) => {
                                                 onChange(item.itemNumber, {
                                                     linkedProductId: prod.id,
-                                                    linkedVariationId: variation?.id || prod.variationId,
+                                                    linkedVariationId: variation?.id || (prod as any).variationId,
                                                     linkedProductName: variation?.name || prod.name || prod.title,
                                                     linkStatus: 'automatic',
                                                 });
@@ -337,7 +337,7 @@ interface CompositionManagerProps {
 
 function CompositionManager({ composition, onChangeComposition, totalItemCost }: CompositionManagerProps) {
     const handleAdd = (prod: Product, variation?: Variation) => {
-        const salePrice = variation?.salePrice || prod.salePrice || 0;
+        const salePrice = variation?.unitPrice || prod.unitPrice || 0;
         
         // Block adding duplicates
         const exists = composition.some(c => c.productId === prod.id && c.variationId === variation?.id);
@@ -348,9 +348,9 @@ function CompositionManager({ composition, onChangeComposition, totalItemCost }:
 
         const newComp: InboundReceiptItemComposition = {
             id: crypto.randomUUID(),
-            productId: prod.id,
+            productId: prod.id!,
             variationId: variation?.id,
-            productName: variation?.name || prod.name || prod.title,
+            productName: variation?.name || prod.name || prod.title || 'Produto',
             quantity: 1,
             referenceSalePrice: salePrice
         };

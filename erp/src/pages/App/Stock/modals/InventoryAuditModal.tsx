@@ -125,7 +125,7 @@ export const InventoryAuditModal: React.FC<InventoryAuditModalProps> = ({ isOpen
             const variation = product?.variations?.find((item) => String(item.id) === String(source.variationId));
             if (!variation?.id) return null;
             return {
-                id: createItemId(),
+                id: createItemId() as string,
                 key: `${source.productId}-${source.variationId || 'main'}`,
                 productId: source.productId,
                 variationId: source.variationId,
@@ -148,7 +148,7 @@ export const InventoryAuditModal: React.FC<InventoryAuditModalProps> = ({ isOpen
             const variation = product?.variations?.find((item) => String(item.id) === String(source.variationId));
             if (!variation?.id) return null;
             return {
-                id: createItemId(),
+                id: createItemId() as string,
                 key: `${source.productId}-${source.variationId || 'main'}`,
                 productId: source.productId,
                 variationId: source.variationId,

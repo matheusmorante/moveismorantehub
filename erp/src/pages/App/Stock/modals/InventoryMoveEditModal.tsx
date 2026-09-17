@@ -28,7 +28,7 @@ export const InventoryMoveEditModal: React.FC<InventoryMoveEditModalProps> = ({
 
     useEffect(() => {
         if (move && isOpen) {
-            setType(move.type === 'adjustment' ? 'balance' : move.type);
+            setType((move.type === 'adjustment' || move.type === 'balance') ? 'balance' : (move.type === 'entry' ? 'entry' : 'withdrawal'));
             setQuantity(move.quantity || 0);
             setDate(move.date ? move.date.substring(0, 10) : new Date().toISOString().substring(0, 10));
             setObservation(move.observation || move.label || '');
@@ -64,7 +64,7 @@ export const InventoryMoveEditModal: React.FC<InventoryMoveEditModalProps> = ({
 
         setIsSaving(true);
         try {
-            await updateInventoryMove(move.id, {
+            await updateInventoryMove(move.id!, {
                 type,
                 quantity,
                 date: date ? new Date(date + 'T12:00:00Z').toISOString() : new Date().toISOString(),

@@ -124,7 +124,7 @@ export const StockLaunchModal: React.FC<StockLaunchModalProps> = ({
         setIsSaving(true);
         try {
             const move: InventoryMove = {
-                productId: targetProduct.id,
+                productId: targetProduct.id!,
                 variationId: activeVariation.id,
                 productDescription: fullDisplayName,
                 type: type === 'adjustment' ? 'balance' : type === 'entry' ? 'entry' : 'withdrawal',

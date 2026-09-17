@@ -36,8 +36,8 @@ describe('regras de CMPM e CMV', () => {
     ];
     const replay = replayMovingAverageMoves(history, true);
     const lastSale = replay.moves.find((move) => move.id === 'sale-2');
-    const materialized = history.reduce(
-      (state, move) => applyMovingAverageMove(state, move, true).state,
+    const materialized = (history as any[]).reduce(
+      (state: any, move: any) => applyMovingAverageMove(state, move, true).state,
       { quantity: 0, inventoryValue: 0, unitCost: undefined as number | undefined },
     );
 

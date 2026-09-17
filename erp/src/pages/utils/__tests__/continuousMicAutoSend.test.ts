@@ -6,7 +6,7 @@ import {
   ParsedFinancialIntent,
   ChatMessage,
   FinancialCategory,
-} from '../../../../mobile/src/services/financialAiAssistantService';
+} from '../../../../../mobile/src/services/financialAiAssistantService';
 
 // Mock dependencies
 vi.mock('@react-native-async-storage/async-storage', () => ({

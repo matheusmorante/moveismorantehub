@@ -40,11 +40,11 @@ import {
   trySlotFillingFallback,
   validateParsedIntent,
   ParsedFinancialIntent,
-} from '../../../../mobile/src/services/financialAiAssistantService';
+} from '../../../../../mobile/src/services/financialAiAssistantService';
 import {
   confirmFinancialDraft,
   FinancialCategory,
-} from '../../../../mobile/src/services/mobileFinanceService';
+} from '../../../../../mobile/src/services/mobileFinanceService';
 
 const mockCategories: FinancialCategory[] = [
   { id: '1', name: 'Compra de estoque', type: 'expense' },

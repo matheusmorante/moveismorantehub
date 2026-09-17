@@ -150,7 +150,6 @@ describe('Cadastro Rápido de Produtos via NF-e (Modo A & Modo B)', () => {
             stock: 0, // Regra de Negócio: Estoque inicial 0 (o recebimento dará a entrada)
             mainSupplierId: supplierId,
             categoryIds: [catObj.id],
-            categories: [{ id: catObj.id, name: catObj.name }],
         };
 
         // 1. Sem estoque inicial preenchido

@@ -236,7 +236,7 @@ export const PurchaseReceiptCheckModal: React.FC<PurchaseReceiptCheckModalProps>
                 invStatus = 'partially_received';
             }
 
-            await updatePurchase(purchase.id, {
+            await updatePurchase(purchase.id!, {
                 items: updatedItems,
                 status: newStatus,
                 invoiceNumber,

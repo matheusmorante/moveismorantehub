@@ -568,7 +568,7 @@ function convertInboundToPurchaseItems(inboundItems: InboundReceiptItem[]): Purc
                 };
             });
         } else {
-            const rawDescription = (item as Record<string, unknown>).descricao || (item as Record<string, unknown>).xProd;
+            const rawDescription = (item as any).descricao || (item as any).xProd;
             const itemDesc = item.linkedProductName || item.productErpName || item.productDescription || (typeof rawDescription === 'string' ? rawDescription : 'Produto sem descrição');
 
             return [{

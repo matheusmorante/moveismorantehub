@@ -178,7 +178,7 @@ describe('orderSnapshotResolution', () => {
             shipping: { deliveryMethod: 'delivery', value: 0, orderType: 'Standard', scheduling: { date: '2026-09-12', time: '14:00', type: 'fixed' } }
         };
 
-        const payload = buildOrderPersistencePayload(order);
+        const payload = buildOrderPersistencePayload(order as any);
 
         expect(payload.order_number).toBe('2546');
         expect(payload.status).toBe('scheduled');

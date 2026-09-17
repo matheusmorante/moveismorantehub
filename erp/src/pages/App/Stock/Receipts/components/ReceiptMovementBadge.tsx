@@ -12,8 +12,8 @@ export const ReceiptMovementBadge: React.FC<ReceiptMovementBadgeProps> = ({ rece
     const [isOpen, setIsOpen] = useState(false);
     const [coords, setCoords] = useState<{ top: number; left: number; placement: 'top' | 'bottom' } | null>(null);
     const buttonRef = useRef<HTMLButtonElement>(null);
-    const hoverTimerRef = useRef<NodeJS.Timeout | null>(null);
-    const closeTimerRef = useRef<NodeJS.Timeout | null>(null);
+    const hoverTimerRef = useRef<number | null>(null);
+    const closeTimerRef = useRef<number | null>(null);
 
     const isDraft = receipt.isDraft || receipt.status === 'draft';
     const isReversed = receipt.status === 'estornado';
@@ -43,7 +43,7 @@ export const ReceiptMovementBadge: React.FC<ReceiptMovementBadgeProps> = ({ rece
             closeTimerRef.current = null;
         }
         if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current);
-        hoverTimerRef.current = setTimeout(() => {
+        hoverTimerRef.current = window.setTimeout(() => {
             updatePosition();
             setIsOpen(true);
         }, 500);
@@ -54,7 +54,7 @@ export const ReceiptMovementBadge: React.FC<ReceiptMovementBadgeProps> = ({ rece
             clearTimeout(hoverTimerRef.current);
             hoverTimerRef.current = null;
         }
-        closeTimerRef.current = setTimeout(() => {
+        closeTimerRef.current = window.setTimeout(() => {
             setIsOpen(false);
         }, 200);
     };
