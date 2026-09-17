@@ -134,7 +134,7 @@ export const InventoryAuditModal: React.FC<InventoryAuditModalProps> = ({ isOpen
                 systemStock: source.systemStock,
                 physicalCount: source.physicalCount,
                 unit: product?.unit || 'UN',
-            };
+            } as AuditItem;
         }).filter((item): item is AuditItem => item !== null));
         appliedEditingRef.current = editingSession.id;
     }, [isOpen, editingSession, allProducts, suppliers]);
@@ -157,7 +157,7 @@ export const InventoryAuditModal: React.FC<InventoryAuditModalProps> = ({ isOpen
                 systemStock: Number(source.variationId ? variation?.stock ?? 0 : product?.stock ?? 0),
                 physicalCount: source.physicalCount,
                 unit: product?.unit || 'UN',
-            };
+            } as AuditItem;
         }).filter((item): item is AuditItem => item !== null));
         appliedCopyRef.current = copyKey;
     }, [isOpen, copiedItems, allProducts, suppliers]);

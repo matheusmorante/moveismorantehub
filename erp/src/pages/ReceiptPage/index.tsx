@@ -61,7 +61,6 @@ const ReceiptPage = () => {
             <CustomerData 
                 customerData={order.customerData} 
                 isPickup={order.shipping?.deliveryMethod === 'pickup'} 
-                noAddress={order.shipping?.noAddress}
             />
             
             <ItemsTable items={order.items} summary={order.itemsSummary} />

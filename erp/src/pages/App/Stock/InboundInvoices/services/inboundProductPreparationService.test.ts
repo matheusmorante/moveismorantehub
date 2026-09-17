@@ -53,8 +53,6 @@ describe('SKU interno no cadastro rápido da nota', () => {
         const initial = await prepareNewParentWithVariation(balcaoItem, 'fornecedor-teste');
 
         expect(initial.categoryIds).toEqual(['cat-balcao-pia']);
-        expect(initial.categories).toEqual(['Balcões para Pia']);
-        expect(initial.category).toBe('Balcões para Pia');
     });
 
     it('garante que a variação inicial não contenha atributos automáticos (deve ser configurada manualmente)', async () => {
@@ -64,7 +62,7 @@ describe('SKU interno no cadastro rápido da nota', () => {
         const parent = {
             id: 'pai-teste', code: '000123', name: 'Mesa',
             variations: [{ id: 'anterior', sku: '000123-01', name: 'Mesa', attributes: [], stock: 0, unitPrice: 100 }],
-        } as Product;
+        } as any as Product;
         const result = await prepareExistingParentNewVariation(parent, item);
         expect(result.variations?.[1].attributes).toEqual([]);
     });

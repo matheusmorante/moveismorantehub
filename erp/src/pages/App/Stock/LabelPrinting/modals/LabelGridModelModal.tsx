@@ -10,8 +10,8 @@ import type { GridModel as BaseGridModel } from '../gridModel/LabelGridModelType
 // Este modal mantém campos adicionais de composição usados pelos modelos legados.
 // O tipo-base continua centralizado em gridModel; aqui só declaramos a extensão
 // específica do editor para preservar os modelos já salvos.
-interface GridModel extends BaseGridModel {
-    priceFormat?: string;
+export interface GridModel extends BaseGridModel {
+    priceFormat?: 'split' | 'standard';
     priceSymbolPosX?: number; priceSymbolPosY?: number;
     priceSymbolFontSize?: number; priceSymbolBold?: boolean; priceSymbolColor?: string;
     priceDecimalsPosX?: number; priceDecimalsPosY?: number;
@@ -29,6 +29,8 @@ interface GridModel extends BaseGridModel {
     promoPriceSymbolFontSize?: number; promoPriceSymbolBold?: boolean; promoPriceSymbolColor?: string;
     promoPriceDecimalsPosX?: number; promoPriceDecimalsPosY?: number;
     promoPriceDecimalsFontSize?: number; promoPriceDecimalsBold?: boolean; promoPriceDecimalsColor?: string;
+    promoPriceFontSize?: number; promoPriceBold?: boolean; promoPriceColor?: string;
+    promoPriceAlign?: 'left' | 'center' | 'right'; promoPriceVAlign?: 'top' | 'middle' | 'bottom';
     // Áreas de Segurança
     nameWidth?: number;
     nameHeight?: number;

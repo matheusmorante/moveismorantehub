@@ -4,6 +4,7 @@ import { fetchGroupsAndCategories } from '@/pages/utils/categoryService';
 import { itemCostWithAdditionalCosts } from '@/pages/utils/inboundNfe/inboundItemCosts';
 import { generateVariationSku, getNextSequentialProductCode } from '@/pages/utils/productService/productSkuService';
 import { resolveAutoCategory } from '@/pages/utils/categoryResolutionService';
+import { aiService } from '@/pages/utils/aiService';
 
 interface PrepareProductCreateParams {
     item: InboundInvoiceItem;
@@ -62,8 +63,6 @@ export async function prepareInboundProductData({
         supplierIds: supplierId ? [supplierId] : [],
         supplierRef: item.productCode || undefined,
         categoryIds: autoCategoryIds,
-        categories: autoCategories,
-        category: autoCategoryName,
         parentId: family?.id,
         costPrice: finalCost,
         unitPrice: salePrice,
@@ -149,7 +148,6 @@ export async function prepareNewParentWithVariation(
         code: parentCode,
         title: parentName,
         description: '',
-        ncm: item.ncm || '',
         fiscal: { ncm: item.ncm || undefined },
         costPrice: finalCost,
         unitPrice: undefined,
@@ -159,8 +157,6 @@ export async function prepareNewParentWithVariation(
         supplierIds: supplierId ? [supplierId] : [],
         categoryIds: autoCategoryIds,
         supplierRef: item.productCode || undefined,
-        categories: autoCategories,
-        category: autoCategoryName,
         hasVariations: true,
         variations: [initialVariation],
     };

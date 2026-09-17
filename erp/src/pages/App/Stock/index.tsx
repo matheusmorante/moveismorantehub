@@ -25,7 +25,7 @@ const StockPage = () => {
     const navigate = useNavigate();
     const [isLaunchModalOpen, setIsLaunchModalOpen] = useState(false);
     const [isAuditModalOpen, setIsAuditModalOpen] = useState(false);
-    const [copiedAuditItems, setCopiedAuditItems] = useState<InventorySnapshotItem[] | null>(null);
+    const [copiedAuditItems, setCopiedAuditItems] = useState<readonly InventorySnapshotItem[] | null>(null);
     const [selectedAudit, setSelectedAudit] = useState<InventoryAuditSession | null>(null);
     const [editingAuditSession, setEditingAuditSession] = useState<InventoryAuditSession | null>(null);
 
@@ -101,7 +101,7 @@ const StockPage = () => {
         setIsAuditModalOpen(true);
     };
 
-    const handleCopyAudit = (items: InventorySnapshotItem[]) => {
+    const handleCopyAudit = (items: readonly InventorySnapshotItem[]) => {
         setEditingAuditSession(null);
         setCopiedAuditItems(items);
         setIsAuditModalOpen(true);

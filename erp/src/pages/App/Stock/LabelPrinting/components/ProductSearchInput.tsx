@@ -50,7 +50,7 @@ export const ProductSearchInput: React.FC<ProductSearchInputProps> = ({
     const [isLoading, setIsLoading] = useState(false);
     const [dropdownMaxHeight, setDropdownMaxHeight] = useState(288);
     const containerRef = useRef<HTMLDivElement>(null);
-    const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+    const searchTimeoutRef = useRef<number | null>(null);
 
     useEffect(() => {
         if (!selectedProduct) {
@@ -102,7 +102,7 @@ export const ProductSearchInput: React.FC<ProductSearchInputProps> = ({
             clearTimeout(searchTimeoutRef.current);
         }
 
-        searchTimeoutRef.current = setTimeout(async () => {
+        searchTimeoutRef.current = window.setTimeout(async () => {
             setIsLoading(true);
             try {
                 const term = getSafeSearchTerm(filterText);
