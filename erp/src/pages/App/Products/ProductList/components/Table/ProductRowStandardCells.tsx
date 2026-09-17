@@ -3,7 +3,7 @@ import Product, { ProductVisibilitySettings } from '@/pages/types/product.type';
 import { formatCurrency } from '@/pages/utils/formatters';
 import { getCategoryBreadcrumb } from '@/pages/utils/categoryService';
 import { normalizeVariationSku } from '@/pages/utils/productVariationDefaults';
-import { ChannelStatusBadges } from './ChannelStatusBadges';
+import { ChannelStatusBadges } from '../Shared/ChannelStatusBadges';
 
 export interface CellProductLike extends Product {
     readonly category_name?: string;

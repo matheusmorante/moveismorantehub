@@ -1,4 +1,4 @@
-import Product from '../../../types/product.type';
+import Product from '../../../../types/product.type';
 import { normalizeSearchTerm } from '@/pages/utils/textUtils';
 
 export interface ProductListFilters {

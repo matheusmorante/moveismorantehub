@@ -1,15 +1,17 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate, Link, useLocation, useSearchParams } from 'react-router-dom';
-import ItemExclusionModal from './ItemExclusionModal';
-import ProductReferenceModal from './ProductReferenceModal';
+import ItemExclusionModal from '../modals/ItemExclusionModal';
+import ProductReferenceModal from '../modals/ProductReferenceModal';
 import { 
     XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, 
     Line, ComposedChart, Bar, Cell, ScatterChart, Scatter, ReferenceLine, Area
 } from 'recharts';
 import { format, parse } from 'date-fns';
-import { useSalesReport, ABCResult, SaleItem } from './useSalesReport';
+import { useSalesReport } from '../hooks/useSalesReport';
+import { ABCResult, SaleItem } from '../utils/salesReportCalculations';
+import { fetchFromERP } from '../services/salesReportApiService';
 import { supabase } from '@/pages/utils/supabaseConfig';
-import ReportConfigModal from './ReportConfigModal';
+import ReportConfigModal from '../modals/ReportConfigModal';
 import SupplierPerformanceView from './SupplierPerformanceView';
 
 const ReportView = () => {
@@ -22,7 +24,7 @@ const ReportView = () => {
         totalProfit, setTotalProfit, monthCount, setMonthCount,
         avgProfitPerItem, setAvgProfitPerItem, avgTurnoverPerItem, setAvgTurnoverPerItem,
         results, setResults, rawResults, setRawResults, applyFilters, loading, setLoading,
-        updateReport, fetchFromERP, calculateABC, reportStartDate, reportEndDate, setReportStartDate, setReportEndDate,
+        updateReport, calculateABC, reportStartDate, reportEndDate, setReportStartDate, setReportEndDate,
         allProducts, setAllProducts
     } = useSalesReport();
 
@@ -329,7 +331,7 @@ const ReportView = () => {
             };
 
             if (newConfig.source === 'erp') {
-                items = await fetchFromERP();
+                items = await loadFromERP(config, {});
             } else {
                 if (newConfig.csvData && newConfig.csvData.length > 0) {
                     items = newConfig.csvData

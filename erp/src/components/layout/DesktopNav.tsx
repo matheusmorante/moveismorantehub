@@ -71,26 +71,31 @@ const DesktopNav = ({ activeMenu, setActiveMenu }: DesktopNavProps) => {
                 </button>
                 {activeMenu === 'stock' && (
                     <div className={dropdownClass}>
+                        {/* Grupo: Operação */}
+                        <div className="px-3 pt-1 pb-0.5 text-[9px] font-black uppercase tracking-widest text-slate-400">Operação</div>
                         <Link to="/stock?tab=history" onClick={() => setActiveMenu(null)} className={dropdownItemClass}>
                             <i className="bi bi-arrow-left-right mr-1 text-emerald-500"></i> Movimentações
                         </Link>
                         <Link to="/stock?tab=audit" onClick={() => setActiveMenu(null)} className={dropdownItemClass}>
                             <i className="bi bi-journal-check mr-1 text-emerald-500"></i> Inventário
                         </Link>
+                        <Link to="/stock/receipts" onClick={() => setActiveMenu(null)} className={dropdownItemClass}>
+                            <i className="bi bi-clipboard-check mr-1 text-emerald-500"></i> Recebimentos de Mercadorias
+                        </Link>
+
+                        {/* Separador */}
+                        <div className="h-px bg-slate-100 dark:bg-slate-800 my-1 mx-2"></div>
+
+                        {/* Grupo: Compras */}
+                        <div className="px-3 pt-1 pb-0.5 text-[9px] font-black uppercase tracking-widest text-slate-400">Compras</div>
                         <Link to="/stock/purchases" onClick={() => setActiveMenu(null)} className={dropdownItemClass}>
                             <i className="bi bi-cart-fill mr-1 text-blue-500"></i> Pedidos de Compra
                         </Link>
                         <Link to="/stock/inbound-invoices" onClick={() => setActiveMenu(null)} className={dropdownItemClass}>
                             <i className="bi bi-receipt-cutoff mr-1 text-indigo-500"></i> Notas Fiscais de Entrada
                         </Link>
-                        <Link to="/stock/receipts" onClick={() => setActiveMenu(null)} className={dropdownItemClass}>
-                            <i className="bi bi-clipboard-check mr-1 text-emerald-500"></i> Recebimentos de Mercadorias
-                        </Link>
                         <Link to="/registrations/suppliers" onClick={() => setActiveMenu(null)} className={dropdownItemClass}>
                             <i className="bi bi-truck mr-1 text-amber-500"></i> Fornecedores
-                        </Link>
-                        <Link to="/stock/label-printing?category=identificacao" onClick={() => setActiveMenu(null)} className={dropdownItemClass}>
-                            <i className="bi bi-qr-code mr-1 text-blue-500"></i> Etiqueta de Identificação
                         </Link>
                     </div>
                 )}

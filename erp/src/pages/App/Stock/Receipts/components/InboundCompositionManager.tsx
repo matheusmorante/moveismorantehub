@@ -52,65 +52,58 @@ export function InboundCompositionManager({ composition, onChangeComposition, to
     return (
         <div className="space-y-3">
             {composition.length > 0 && (
-                <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 overflow-hidden">
-                    <table className="w-full text-left text-[11px]">
-                        <thead className="bg-slate-50 dark:bg-slate-800/50 text-slate-500 uppercase font-black tracking-widest border-b border-slate-200 dark:border-slate-700">
-                            <tr>
-                                <th className="px-3 py-2">Componente</th>
-                                <th className="px-3 py-2 w-20 text-center">Qtd</th>
-                                <th className="px-3 py-2 text-right">Peso/Ref.</th>
-                                <th className="px-3 py-2 text-right">Rateio</th>
-                                <th className="px-3 py-2 w-10"></th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60">
-                            {composition.map((c, idx) => {
-                                const weightValue = c.referenceSalePrice * c.quantity;
-                                const weightPercent = totalWeightBase > 0 ? (weightValue / totalWeightBase) : 0;
+                <div className="flex flex-col gap-2">
+                    {composition.map((c, idx) => {
+                        const weightValue = c.referenceSalePrice * c.quantity;
+                        const weightPercent = totalWeightBase > 0 ? (weightValue / totalWeightBase) : 0;
 
-                                // Último item absorve a diferença para evitar dízimas que somadas não fecham o total
-                                let rateio = 0;
-                                if (idx === composition.length - 1) {
-                                    const previousRateioSum = composition.slice(0, -1).reduce((sum, prevC) => {
-                                        const w = totalWeightBase > 0 ? ((prevC.referenceSalePrice * prevC.quantity) / totalWeightBase) : 0;
-                                        return sum + Number((totalItemCost * w).toFixed(2));
-                                    }, 0);
-                                    rateio = Math.max(0, totalItemCost - previousRateioSum);
-                                } else {
-                                    rateio = Number((totalItemCost * weightPercent).toFixed(2));
-                                }
+                        // Último item absorve a diferença para evitar dízimas que somadas não fecham o total
+                        let rateio = 0;
+                        if (idx === composition.length - 1) {
+                            const previousRateioSum = composition.slice(0, -1).reduce((sum, prevC) => {
+                                const w = totalWeightBase > 0 ? ((prevC.referenceSalePrice * prevC.quantity) / totalWeightBase) : 0;
+                                return sum + Number((totalItemCost * w).toFixed(2));
+                            }, 0);
+                            rateio = Math.max(0, totalItemCost - previousRateioSum);
+                        } else {
+                            rateio = Number((totalItemCost * weightPercent).toFixed(2));
+                        }
 
-                                return (
-                                    <tr key={c.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30">
-                                        <td className="px-3 py-2 font-bold text-slate-700 dark:text-slate-200">{c.productName}</td>
-                                        <td className="px-3 py-2">
-                                            <input
-                                                type="number"
-                                                min="1"
-                                                value={c.quantity}
-                                                onChange={(e) => handleUpdateQuantity(c.id, Number(e.target.value))}
-                                                className="w-full text-center bg-transparent border-b border-slate-300 dark:border-slate-600 outline-none focus:border-blue-500"
-                                            />
-                                        </td>
-                                        <td className="px-3 py-2 text-right">
-                                            <div className="flex flex-col">
-                                                <span className="text-slate-600 dark:text-slate-300">{(weightPercent * 100).toFixed(1)}%</span>
-                                                <span className="text-[9px] text-slate-400">R$ {c.referenceSalePrice.toFixed(2)} un</span>
-                                            </div>
-                                        </td>
-                                        <td className="px-3 py-2 text-right font-black text-emerald-600 dark:text-emerald-400">
-                                            R$ {rateio.toFixed(2)}
-                                        </td>
-                                        <td className="px-3 py-2 text-center">
-                                            <button type="button" onClick={() => handleRemove(c.id)} className="text-red-500 hover:text-red-700">
-                                                <i className="bi bi-trash3-fill"></i>
-                                            </button>
-                                        </td>
-                                    </tr>
-                                );
-                            })}
-                        </tbody>
-                    </table>
+                        return (
+                            <div key={c.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors">
+                                <div className="flex items-center gap-3 flex-1 overflow-hidden">
+                                    <button type="button" onClick={() => handleRemove(c.id)} className="text-slate-400 hover:text-red-500 transition-colors shrink-0 outline-none">
+                                        <i className="bi bi-trash3-fill text-sm"></i>
+                                    </button>
+
+                                    <div className="w-16 shrink-0">
+                                        <input
+                                            type="number"
+                                            min="1"
+                                            value={c.quantity}
+                                            onChange={(e) => handleUpdateQuantity(c.id, Number(e.target.value))}
+                                            className="w-full text-center bg-transparent border-b border-slate-300 dark:border-slate-600 outline-none focus:border-blue-500 font-bold"
+                                        />
+                                    </div>
+
+                                    <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 dark:bg-emerald-900/30 border border-emerald-200 dark:border-emerald-800 rounded-full px-2 py-0.5 truncate max-w-full">
+                                        {c.productName}
+                                    </span>
+                                </div>
+
+                                <div className="flex items-center gap-4 text-[10px] shrink-0 justify-end sm:justify-start">
+                                    <div className="flex flex-col text-right">
+                                        <span className="text-slate-400 uppercase tracking-widest text-[8px] font-black">Preço Ref.</span>
+                                        <span className="font-bold text-slate-600 dark:text-slate-300">R$ {c.referenceSalePrice.toFixed(2)} un</span>
+                                    </div>
+                                    <div className="flex flex-col text-right">
+                                        <span className="text-slate-400 uppercase tracking-widest text-[8px] font-black">Rateio</span>
+                                        <span className="font-black text-emerald-600 dark:text-emerald-400">R$ {rateio.toFixed(2)}</span>
+                                    </div>
+                                </div>
+                            </div>
+                        );
+                    })}
                 </div>
             )}
 

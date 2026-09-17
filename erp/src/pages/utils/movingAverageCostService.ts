@@ -66,17 +66,10 @@ export const reprocessMovingAverageCosts = async (productId: string, variationId
     const replay = replayMovingAverageMoves((data || []).map((move: any) => ({
         ...move,
         unitCost: move.unit_cost,
-    })), true);
-    for (const move of replay.moves) {
-        if ((move.type === "exit" || move.type === "withdrawal") && move.resolvedUnitCost !== undefined
-            && Math.abs((Number(move.unitCost) || 0) - move.resolvedUnitCost) > 0.000001) {
-            const { error: updateError } = await supabase
-                .from("inventory_moves")
-                .update({ unit_cost: move.resolvedUnitCost })
-                .eq("id", move.id);
-            if (updateError) throw updateError;
-        }
-    }
+    })), false); // FALSE para não recalcular custos de saída historicamente
+    
+    // O loop abaixo foi removido pois não vamos mais alterar o banco retrospectivamente.
+    // As saídas manterão o CMV (snapshot) do momento exato em que ocorreram.
 
     const finalCost = replay.state.unitCost || 0;
     try {

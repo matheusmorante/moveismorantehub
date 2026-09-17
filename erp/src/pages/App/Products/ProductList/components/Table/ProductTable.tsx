@@ -1,19 +1,19 @@
 import React from "react";
 import ProductRow from './ProductRow';
-import ProductCard from './ProductCard';
+import ProductCard from '../Card/ProductCard';
 import Product, { ProductVisibilitySettings } from '../../../../types/product.type';
-import { useAutoScroll } from '../../../../utils/useAutoScroll';
+import { useAutoScroll } from "@/pages/utils/useAutoScroll";
 import { getSettings } from '@/pages/utils/settingsService';
-import { useWindowSize } from '../../../../../hooks/useWindowSize';
+import { useWindowSize } from "@/hooks/useWindowSize";
 import {
     moveProductTableColumn,
     normalizeProductTableColumns,
     PRODUCT_TABLE_COLUMNS,
     type ProductTableColumn,
-} from '../utils/productTableColumns';
-import { ProductBulkActionsToolbar } from './ProductBulkActionsToolbar';
-import { MoveVariationFamilyModal } from '../modals/MoveVariationFamilyModal';
-import { MergeVariationModal } from '../modals/MergeVariationModal';
+} from '../../utils/productTableColumns';
+import { ProductBulkActionsToolbar } from '../Shared/ProductBulkActionsToolbar';
+import { MoveVariationFamilyModal } from '../../modals/MoveVariationFamilyModal';
+import { MergeVariationModal } from '../../modals/MergeVariationModal';
 
 interface ProductTableProps {
     readonly products: readonly Product[];

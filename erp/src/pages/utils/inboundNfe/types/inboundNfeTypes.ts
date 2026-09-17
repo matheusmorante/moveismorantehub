@@ -5,7 +5,9 @@ export interface InboundInvoiceItem {
     itemNumber: number;
     productCode: string;
     productDescription: string;
+    additionalDescription?: string;
     ean?: string;
+    eanTrib?: string;
     ncm: string;
     cest?: string;
     exTipi?: string;
@@ -17,6 +19,8 @@ export interface InboundInvoiceItem {
     tributaryUnit?: string;
     tributaryQuantity?: number;
     tributaryUnitCost?: number;
+    purchaseOrder?: string;
+    purchaseOrderItem?: string;
     freightValue?: number;
     insuranceValue?: number;
     otherExpensesValue?: number;
@@ -27,9 +31,24 @@ export interface InboundInvoiceItem {
     icmsBaseValue?: number;
     icmsValue?: number;
     icmsPercent?: number;
+    icmsCst?: string;
+    icmsOrigem?: string;
     icmsStValue?: number;
     icmsStBaseValue?: number;
     icmsStPercent?: number;
+    fcpValue?: number;
+    fcpStValue?: number;
+    pisValue?: number;
+    pisPercent?: number;
+    pisCst?: string;
+    cofinsValue?: number;
+    cofinsPercent?: number;
+    cofinsCst?: string;
+    ibsValue?: number;
+    cbsValue?: number;
+    ibsCst?: string;
+    cbsCst?: string;
+    totalTaxes?: number;
     matchedProductId?: string;
     matchedVariationId?: string;
     productErpName?: string;
@@ -91,6 +110,17 @@ export interface InboundInvoice {
     emitterIe?: string;
     emitterAddress?: Record<string, unknown>;
     supplierId?: string;
+    
+    // Transport
+    modFrete?: string;
+    carrierName?: string;
+    volumes?: number;
+    netWeight?: number;
+    grossWeight?: number;
+    
+    // Billing & Payment
+    installments?: { number: string; dueDate: string; value: number }[];
+    paymentMethod?: string;
     originalDocumentPath?: string;
     originalDocumentMime?: string;
     extractionWarnings?: string[];

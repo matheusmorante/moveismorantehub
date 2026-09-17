@@ -1,8 +1,8 @@
 import React, { useState, useRef } from 'react';
 import Product from '@/pages/types/product.type';
 import DropdownPortal from '@/components/shared/DropdownPortal';
-import { LabelPrintType } from '../../modals/LabelPrintSelectionModal';
-import { useProductAiActions } from '../../hooks/useProductAiActions';
+import { LabelPrintType } from '@/pages/App/Products/components/modals/LabelPrintSelectionModal';
+import { useProductAiActions } from '../../../hooks/useProductAiActions';
 
 export interface ParentProductActionsProps {
     readonly product: Product;

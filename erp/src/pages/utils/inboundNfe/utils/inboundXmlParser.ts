@@ -83,7 +83,9 @@ export const parseInboundNfeXml = (xmlString: string): InboundInvoice => {
 
         const productCode = extractTag(prodBlock, 'cProd');
         const productDescription = extractTag(prodBlock, 'xProd');
+        const additionalDescription = extractTag(det, 'infAdProd') || extractTag(prodBlock, 'infAdProd') || undefined;
         const ean = extractTag(prodBlock, 'cEAN');
+        const eanTrib = extractTag(prodBlock, 'cEANTrib') || undefined;
         const ncm = extractTag(prodBlock, 'NCM');
         const cest = extractTag(prodBlock, 'CEST');
         const exTipi = extractTag(prodBlock, 'EXTIPI');
@@ -92,28 +94,63 @@ export const parseInboundNfeXml = (xmlString: string): InboundInvoice => {
         const quantity = parseFloat(extractTag(prodBlock, 'qCom') || '1');
         const unitCost = parseFloat(extractTag(prodBlock, 'vUnCom') || '0');
         const totalCost = parseFloat(extractTag(prodBlock, 'vProd') || `${quantity * unitCost}`);
+        const tributaryUnit = extractTag(prodBlock, 'uTrib') || undefined;
+        const tributaryQuantity = parseFloat(extractTag(prodBlock, 'qTrib') || '0') || undefined;
+        const tributaryUnitCost = parseFloat(extractTag(prodBlock, 'vUnTrib') || '0') || undefined;
+        const purchaseOrder = extractTag(prodBlock, 'xPed') || undefined;
+        const purchaseOrderItem = extractTag(prodBlock, 'nItemPed') || undefined;
+        
         const freightValue = parseFloat(extractTag(prodBlock, 'vFrete') || '0');
         const insuranceValue = parseFloat(extractTag(prodBlock, 'vSeg') || '0');
         const otherExpensesValue = parseFloat(extractTag(prodBlock, 'vOutro') || '0');
         const discountValue = parseFloat(extractTag(prodBlock, 'vDesc') || '0');
 
-        const ipiBlock = extractTag(det, 'IPI');
+        const impostoBlock = extractTag(det, 'imposto');
+        const totalTaxes = parseFloat(extractTag(impostoBlock, 'vTotTrib') || '0');
+
+        const ipiBlock = extractTag(impostoBlock, 'IPI');
         const ipiValue = parseFloat(extractTag(ipiBlock, 'vIPI') || '0');
         const ipiPercent = parseFloat(extractTag(ipiBlock, 'pIPI') || '0');
         const ipiCst = extractTag(ipiBlock, 'CST') || extractTag(ipiBlock, 'cEnq');
-        const icmsBlock = extractTag(det, 'ICMS');
-        const icmsValue = parseFloat(extractTag(icmsBlock, 'vICMS') || '0');
-        const icmsBaseValue = parseFloat(extractTag(icmsBlock, 'vBC') || '0');
-        const icmsPercent = parseFloat(extractTag(icmsBlock, 'pICMS') || '0');
-        const icmsStValue = parseFloat(extractTag(icmsBlock, 'vICMSST') || extractTag(icmsBlock, 'vST') || '0');
-        const icmsStBaseValue = parseFloat(extractTag(icmsBlock, 'vBCST') || '0');
-        const icmsStPercent = parseFloat(extractTag(icmsBlock, 'pICMSST') || '0');
+        
+        const icmsBlock = extractTag(impostoBlock, 'ICMS');
+        const icmsInner = extractTag(icmsBlock, 'ICMS00') || extractTag(icmsBlock, 'ICMS10') || extractTag(icmsBlock, 'ICMS20') || extractTag(icmsBlock, 'ICMS30') || extractTag(icmsBlock, 'ICMS40') || extractTag(icmsBlock, 'ICMS51') || extractTag(icmsBlock, 'ICMS60') || extractTag(icmsBlock, 'ICMS70') || extractTag(icmsBlock, 'ICMS90') || extractTag(icmsBlock, 'ICMSSN101') || extractTag(icmsBlock, 'ICMSSN102') || extractTag(icmsBlock, 'ICMSSN201') || extractTag(icmsBlock, 'ICMSSN202') || extractTag(icmsBlock, 'ICMSSN500') || extractTag(icmsBlock, 'ICMSSN900') || icmsBlock;
+        
+        const icmsOrigem = extractTag(icmsInner, 'orig') || undefined;
+        const icmsCst = extractTag(icmsInner, 'CST') || extractTag(icmsInner, 'CSOSN') || undefined;
+        const icmsValue = parseFloat(extractTag(icmsInner, 'vICMS') || '0');
+        const icmsBaseValue = parseFloat(extractTag(icmsInner, 'vBC') || '0');
+        const icmsPercent = parseFloat(extractTag(icmsInner, 'pICMS') || '0');
+        const icmsStValue = parseFloat(extractTag(icmsInner, 'vICMSST') || extractTag(icmsInner, 'vST') || '0');
+        const icmsStBaseValue = parseFloat(extractTag(icmsInner, 'vBCST') || '0');
+        const icmsStPercent = parseFloat(extractTag(icmsInner, 'pICMSST') || '0');
+        const fcpValue = parseFloat(extractTag(icmsInner, 'vFCP') || '0');
+        const fcpStValue = parseFloat(extractTag(icmsInner, 'vFCPST') || '0');
+
+        const pisBlock = extractTag(impostoBlock, 'PIS');
+        const pisValue = parseFloat(extractTag(pisBlock, 'vPIS') || '0');
+        const pisPercent = parseFloat(extractTag(pisBlock, 'pPIS') || '0');
+        const pisCst = extractTag(pisBlock, 'CST') || undefined;
+
+        const cofinsBlock = extractTag(impostoBlock, 'COFINS');
+        const cofinsValue = parseFloat(extractTag(cofinsBlock, 'vCOFINS') || '0');
+        const cofinsPercent = parseFloat(extractTag(cofinsBlock, 'pCOFINS') || '0');
+        const cofinsCst = extractTag(cofinsBlock, 'CST') || undefined;
+
+        const ibsCbsBlock = extractTag(impostoBlock, 'IBSCBS');
+        const ibsCst = extractTag(ibsCbsBlock, 'CST') || undefined;
+        const ibsValue = parseFloat(extractTag(ibsCbsBlock, 'vIBS') || '0');
+        const cbsValue = parseFloat(extractTag(ibsCbsBlock, 'vCBS') || '0');
+
+        const itemTotal = parseFloat(extractTag(det, 'vItem') || `${totalCost}`);
 
         return {
             itemNumber: index + 1,
             productCode,
             productDescription,
+            additionalDescription,
             ean,
+            eanTrib,
             ncm,
             cest,
             exTipi,
@@ -122,14 +159,46 @@ export const parseInboundNfeXml = (xmlString: string): InboundInvoice => {
             quantity,
             unitCost,
             totalCost,
+            tributaryUnit,
+            tributaryQuantity,
+            tributaryUnitCost,
+            purchaseOrder,
+            purchaseOrderItem,
             freightValue,
             insuranceValue,
             otherExpensesValue,
             discountValue,
-            ipiValue, ipiPercent, ipiCst, icmsValue, icmsBaseValue, icmsPercent,
+            ipiValue, ipiPercent, ipiCst, 
+            icmsValue, icmsBaseValue, icmsPercent, icmsCst, icmsOrigem,
             icmsStValue, icmsStBaseValue, icmsStPercent,
+            fcpValue, fcpStValue,
+            pisValue, pisPercent, pisCst,
+            cofinsValue, cofinsPercent, cofinsCst,
+            ibsValue, cbsValue, ibsCst, cbsCst: ibsCst,
+            totalTaxes,
+            vItem: itemTotal,
         };
     }).filter(Boolean) as InboundInvoiceItem[];
+
+    const transpBlock = extractTag(xmlString, 'transp');
+    const modFrete = extractTag(transpBlock, 'modFrete') || undefined;
+    const transportaBlock = extractTag(transpBlock, 'transporta');
+    const carrierName = extractTag(transportaBlock, 'xNome') || undefined;
+    const volBlock = extractTag(transpBlock, 'vol');
+    const volumes = parseInt(extractTag(volBlock, 'qVol') || '0') || undefined;
+    const netWeight = parseFloat(extractTag(volBlock, 'pesoL') || '0') || undefined;
+    const grossWeight = parseFloat(extractTag(volBlock, 'pesoB') || '0') || undefined;
+    
+    const cobrBlock = extractTag(xmlString, 'cobr');
+    const dupBlocks = extractTagBlocks(cobrBlock, 'dup');
+    const installments = dupBlocks.map(dup => ({
+        number: extractTag(dup, 'nDup'),
+        dueDate: extractTag(dup, 'dVenc'),
+        value: parseFloat(extractTag(dup, 'vDup') || '0')
+    })).filter(dup => dup.number && dup.dueDate);
+    
+    const pagBlock = extractTag(xmlString, 'pag');
+    const paymentMethod = extractTag(pagBlock, 'tPag') || undefined;
 
     return {
         id: `inbound_${nfeKey}`,
@@ -164,6 +233,13 @@ export const parseInboundNfeXml = (xmlString: string): InboundInvoice => {
         itemsCount: items.length,
         items,
         rawXml: xmlString,
+        modFrete,
+        carrierName,
+        volumes,
+        netWeight,
+        grossWeight,
+        installments: installments.length > 0 ? installments : undefined,
+        paymentMethod,
         createdAt: new Date().toISOString()
     };
 };

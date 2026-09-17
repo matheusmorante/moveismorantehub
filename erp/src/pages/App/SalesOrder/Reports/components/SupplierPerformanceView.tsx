@@ -3,7 +3,7 @@ import {
     BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, 
     Cell, PieChart, Pie, Legend
 } from 'recharts';
-import { ABCResult } from './useSalesReport';
+import { ABCResult } from '../utils/salesReportCalculations';
 
 interface Props {
     results: ABCResult[];

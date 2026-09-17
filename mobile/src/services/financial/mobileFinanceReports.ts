@@ -119,6 +119,7 @@ export const fetchIncomeStatementReport = async (year: number, month: number): P
 
   let grossRevenue = 0;
   let operatingExpenses = 0;
+  let cmv = 0;
 
   (data || []).forEach((row: any) => {
     if (row.status === 'REVERSED' || row.status === 'CANCELLED' || row.status === 'PENDING') return;
@@ -129,12 +130,13 @@ export const fetchIncomeStatementReport = async (year: number, month: number): P
     const val = Number(row.amount) || 0;
     if (row.type === 'income' || nature === 'RECEITA') {
       grossRevenue += val;
+    } else if (nature === 'CUSTO' || nature === 'CMV' || (row.category_name || '').toLowerCase().includes('custo da mercadoria') || (row.category_name || '').toLowerCase().includes('cmv')) {
+      cmv += val;
     } else if (row.type === 'expense' || nature === 'DESPESA') {
       operatingExpenses += val;
     }
   });
 
-  const cmv = Math.round(grossRevenue * 0.52);
   const grossMargin = grossRevenue - cmv;
   const netResult = grossMargin - operatingExpenses;
   const marginPercent = grossRevenue > 0 ? Number(((netResult / grossRevenue) * 100).toFixed(1)) : 0;

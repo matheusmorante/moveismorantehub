@@ -1,4 +1,4 @@
-import Product from '../../../types/product.type';
+import Product from '../../../../types/product.type';
 import { parseVariationImages } from '@/pages/utils/productService';
 import { normalizeVariationSku } from '@/pages/utils/productVariationDefaults';
 

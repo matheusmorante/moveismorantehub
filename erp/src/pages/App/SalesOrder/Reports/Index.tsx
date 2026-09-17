@@ -2,13 +2,15 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { format, parse } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { useSalesReport, SaleItem } from './useSalesReport';
-import ReportConfigModal from './ReportConfigModal';
+import { useSalesReport } from './hooks/useSalesReport';
+import { SaleItem } from './utils/salesReportCalculations';
+import { fetchFromERP } from './services/salesReportApiService';
+import ReportConfigModal from './modals/ReportConfigModal';
 
 const SalesOrderReports = () => {
     const navigate = useNavigate();
     const { 
-        calculateABC, fetchFromERP, loading, setLoading, 
+        calculateABC, loading, setLoading, 
         savedReports, saveReport, listSavedReports, deleteReport
     } = useSalesReport();
     
@@ -148,7 +150,7 @@ const SalesOrderReports = () => {
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                    {savedReports.length > 0 ? savedReports.map((report) => (
+                    {savedReports.length > 0 ? savedReports.map((report: any) => (
                         <div key={report.id} className="bg-white dark:bg-slate-900 p-8 rounded-[2.5rem] shadow-premium border border-slate-100 dark:border-slate-800 flex flex-col justify-between group h-[260px] transition-all hover:-translate-y-1 hover:shadow-2xl">
                             <div>
                                 <div className="flex justify-between items-start mb-6">

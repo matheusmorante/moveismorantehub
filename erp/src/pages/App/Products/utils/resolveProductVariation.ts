@@ -1,4 +1,4 @@
-import { Variation } from '../../../types/product';
+import { Variation } from '../../../types/product.type';
 
 type ProductWithVariations = {
     id?: string;

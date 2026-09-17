@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { toast } from 'react-toastify';
+import { ChevronDown, ChevronUp } from 'lucide-react';
 import type { InboundInvoiceItem } from '@/pages/utils/inboundNfe/inboundNfeTypes';
 import type Product from '@/pages/types/product.type';
 import type { Variation } from '@/pages/types/product.type';
@@ -10,6 +11,7 @@ import { itemCostWithAdditionalCosts } from '@/pages/utils/inboundNfe/inboundIte
 import { resolveLinkedProductDetails, isGenericOrEmptyProductName } from '@/pages/utils/inboundNfe/inboundItemProductResolver';
 import ProductAutocomplete from '@/components/ProductAutocomplete';
 import { InboundInvoiceItemFiscalReview } from './InboundInvoiceItemFiscalReview';
+import { InboundInvoiceItemFinancials } from './InboundInvoiceItemFinancials';
 
 import { InboundItemLinkHeader } from './InboundItemLinkHeader';
 import { InboundItemSingleMode } from './InboundItemSingleMode';
@@ -46,6 +48,7 @@ export const InboundInvoiceItemRow: React.FC<InboundInvoiceItemRowProps> = ({
 }) => {
     const isComposition = item.linkMode === 'composition';
     const compositionLinks = item.compositionLinks || [];
+    const [isExpanded, setIsExpanded] = useState(false);
 
     const handleAddComposition = (prod: Product, variation?: Variation) => {
         const exists = compositionLinks.some(
@@ -114,19 +117,55 @@ export const InboundInvoiceItemRow: React.FC<InboundInvoiceItemRowProps> = ({
     return (
         <div className="grid grid-cols-1 gap-5 p-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
             {/* Lado Esquerdo: Dados da NF */}
-            <div className="min-w-0 space-y-2">
-                <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Dados da NF</span>
-                <h4 className="text-sm font-black text-slate-800 dark:text-slate-100">{item.itemNumber}. {itemDescription}</h4>
-                <p className="text-xs font-mono text-slate-600 dark:text-slate-300">
-                    Cód. fornecedor: {item.productCode || '—'} · {item.quantity} {item.unit}
-                </p>
-                <div className="grid grid-cols-2 gap-2 text-xs text-slate-600 dark:text-slate-300">
-                    <span>Unit.: <b>{formatCurrency(item.unitCost)}</b></span>
-                    <span>Total: <b>{formatCurrency(item.totalCost)}</b></span>
-                    <span>NCM: {item.ncm || '—'}</span>
-                    <span>CFOP: {item.cfop || '—'}</span>
+            <div className="min-w-0 flex flex-col gap-1">
+                <div>
+                    <h4 className="text-sm font-black text-slate-800 dark:text-slate-100">{item.itemNumber}. {itemDescription}</h4>
+                    {item.additionalDescription && (
+                        <p className="text-[11px] text-slate-500 italic mt-0.5">{item.additionalDescription}</p>
+                    )}
                 </div>
-                <InboundInvoiceItemFiscalReview item={item} />
+                
+                <div className="flex flex-wrap items-center gap-x-2 text-xs font-mono text-slate-600 dark:text-slate-400 mt-1">
+                    <span className="font-bold text-slate-800 dark:text-slate-200">{item.quantity} {item.unit}</span>
+                    <span className="text-slate-300 dark:text-slate-600">•</span>
+                    <span>Cód. forn.: {item.productCode || '—'}</span>
+                </div>
+                
+                <div className="flex flex-wrap items-center gap-4 mt-3">
+                    <div>
+                        <span className="block text-[10px] uppercase font-bold text-slate-400">Unitário</span>
+                        <span className="text-xs text-slate-500 dark:text-slate-400 tabular-nums">
+                            {formatCurrency(item.unitCost)}
+                            <span className="mx-1 text-slate-400">→</span>
+                            <span className="font-bold text-emerald-700 dark:text-emerald-400">{formatCurrency(totalUnit)}</span>
+                        </span>
+                    </div>
+                    <div>
+                        <span className="block text-[10px] uppercase font-bold text-slate-400">Total</span>
+                        <span className="text-xs text-slate-500 dark:text-slate-400 tabular-nums">
+                            {formatCurrency(item.totalCost)}
+                            <span className="mx-1 text-slate-400">→</span>
+                            <span className="font-black text-emerald-700 dark:text-emerald-400">{formatCurrency(totalUnit * (item.quantity || 1))}</span>
+                        </span>
+                    </div>
+                </div>
+
+                <button 
+                    type="button"
+                    onClick={() => setIsExpanded(!isExpanded)}
+                    aria-expanded={isExpanded}
+                    className="flex items-center gap-1 mt-4 text-xs font-semibold text-sky-600 hover:text-sky-700 dark:text-sky-400 dark:hover:text-sky-300 w-fit"
+                >
+                    {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                    {isExpanded ? 'Ocultar detalhes da NF' : 'Ver detalhes da NF'}
+                </button>
+                
+                {isExpanded && (
+                    <div className="mt-2 animate-in fade-in slide-in-from-top-2 duration-200">
+                        <InboundInvoiceItemFinancials item={item} />
+                        <InboundInvoiceItemFiscalReview item={item} />
+                    </div>
+                )}
             </div>
 
             {/* Lado Direito: Vínculo com Produto do ERP */}

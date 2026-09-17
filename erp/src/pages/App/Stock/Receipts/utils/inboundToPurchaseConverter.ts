@@ -1,4 +1,4 @@
-import type { InboundReceiptItem } from '../InboundNfeItemsSection';
+import type { InboundReceiptItem, InboundReceiptItemComposition } from '../InboundNfeItemsSection';
 import type { PurchaseItem } from '@/pages/types/purchase.type';
 import type Product from '@/pages/types/product.type';
 import type { InboundInvoiceItem } from '@/pages/utils/inboundNfe/inboundNfeTypes';
@@ -22,7 +22,7 @@ export function convertInboundToPurchaseItems(inboundItems: InboundReceiptItem[]
         );
         const unitDiscountFiscal = item.discountValue ? Number((item.discountValue / quantity).toFixed(4)) : 0;
 
-        if (item.linkMode === 'composition' && item.compositionLinks && item.compositionLinks.length > 0) {
+        if (item.linkMode === 'composition' && item.composition && item.composition.length > 0) {
             return convertCompositionItems(item, itemBaseTotal, quantity);
         }
 
@@ -42,7 +42,7 @@ type SingleItemParams = {
 };
 
 function convertSingleItem(item: InboundReceiptItem, params: SingleItemParams): PurchaseItem {
-    const rawDescription = (item as Record<string, unknown>).descricao || (item as Record<string, unknown>).xProd;
+    const rawDescription = (item as unknown as Record<string, unknown>).descricao || (item as unknown as Record<string, unknown>).xProd;
     const description =
         item.linkedProductName ||
         item.productErpName ||
@@ -69,15 +69,15 @@ function convertSingleItem(item: InboundReceiptItem, params: SingleItemParams): 
 }
 
 function convertCompositionItems(item: InboundReceiptItem, itemBaseTotal: number, _quantity: number): PurchaseItem[] {
-    const composition = item.compositionLinks!;
+    const composition = item.composition!;
     const totalReferenceValue = composition.reduce(
-        (sum, c) => sum + (c.sellingPrice * c.quantityMultiplier),
+        (sum, c) => sum + (c.referenceSalePrice * c.quantity),
         0
     );
 
     return composition.map((comp, idx) => {
-        const compQty = Math.max(1, comp.quantityMultiplier);
-        const weightValue = comp.sellingPrice * compQty;
+        const compQty = Math.max(1, comp.quantity);
+        const weightValue = comp.referenceSalePrice * compQty;
         const weightPercent = totalReferenceValue > 0 ? weightValue / totalReferenceValue : 0;
         const isLast = idx === composition.length - 1;
 
@@ -87,7 +87,7 @@ function convertCompositionItems(item: InboundReceiptItem, itemBaseTotal: number
         return {
             productId: comp.productId,
             variationId: comp.variationId || '',
-            description: comp.productErpName,
+            description: comp.productName,
             quantity: compQty,
             baseCost: compBaseUnit,
             unitCost: compBaseUnit,
@@ -104,7 +104,7 @@ function convertCompositionItems(item: InboundReceiptItem, itemBaseTotal: number
     });
 }
 
-type CompositionLink = NonNullable<InboundInvoiceItem['compositionLinks']>[number];
+type CompositionLink = InboundReceiptItemComposition;
 
 function buildRateio(
     item: InboundReceiptItem,
@@ -128,7 +128,7 @@ function buildRateio(
     // Último item absorve a diferença para garantir fechamento do total sem arredondamentos
     const prev = composition.slice(0, idx);
     const calcPrevWeight = (prevC: CompositionLink) =>
-        totalReferenceValue > 0 ? (prevC.sellingPrice * Math.max(1, prevC.quantityMultiplier)) / totalReferenceValue : 0;
+        totalReferenceValue > 0 ? (prevC.referenceSalePrice * prevC.quantity) / totalReferenceValue : 0;
 
     const prevBaseTotal = prev.reduce((s, c) => s + Number((itemBaseTotal * calcPrevWeight(c)).toFixed(2)), 0);
     const prevFreight = prev.reduce((s, c) => s + Number(((item.freightValue || 0) * calcPrevWeight(c)).toFixed(2)), 0);

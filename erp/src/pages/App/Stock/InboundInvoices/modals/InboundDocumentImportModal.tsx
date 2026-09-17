@@ -1,4 +1,4 @@
-import React, { useRef } from 'react';
+import React, { useRef, useState } from 'react';
 import { InboundInvoice } from '@/pages/utils/inboundNfe/inboundNfeTypes';
 import { InboundDuplicateKeyAlertModal } from './InboundDuplicateKeyAlertModal';
 import { useInboundDocumentImport } from '../hooks/useInboundDocumentImport';
@@ -19,6 +19,7 @@ export const InboundDocumentImportModal: React.FC<InboundDocumentImportModalProp
     initialFile,
 }) => {
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const [accessKey, setAccessKey] = useState('');
     const {
         isLoading,
         statusMessage,
@@ -91,19 +92,43 @@ export const InboundDocumentImportModal: React.FC<InboundDocumentImportModalProp
 
                         {/* Link de Consulta e Dropzone de Arquivo XML */}
                         <div className="space-y-2.5">
+                            <div className="flex flex-col gap-2 mb-4 p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/50">
+                                <label htmlFor="accessKey" className="text-xs font-bold text-slate-700 dark:text-slate-200 flex items-center gap-2">
+                                    <i className="bi bi-key text-blue-500" /> Consultar Chave de Acesso
+                                </label>
+                                <div className="flex items-center gap-2">
+                                    <input
+                                        id="accessKey"
+                                        type="text"
+                                        placeholder="Digite os 44 dígitos da chave de acesso..."
+                                        value={accessKey}
+                                        onChange={(e) => setAccessKey(e.target.value.replace(/\D/g, ''))}
+                                        maxLength={44}
+                                        className="flex-1 rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-medium text-slate-700 placeholder:text-slate-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:placeholder:text-slate-500"
+                                    />
+                                    <a
+                                        href={`https://www.nfe.fazenda.gov.br/portal/consultaRecaptcha.aspx?tipoConsulta=resumo&nfe=${accessKey}`}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className={`inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-xs font-bold text-white transition-colors ${
+                                            accessKey.length === 44 
+                                                ? 'bg-blue-600 hover:bg-blue-700' 
+                                                : 'bg-slate-300 dark:bg-slate-700 cursor-not-allowed text-slate-500 dark:text-slate-400'
+                                        }`}
+                                        onClick={(e) => {
+                                            if (accessKey.length !== 44) e.preventDefault();
+                                        }}
+                                    >
+                                        <i className="bi bi-box-arrow-up-right text-[11px]" aria-hidden="true" />
+                                        Consultar no SEFAZ
+                                    </a>
+                                </div>
+                            </div>
+
                             <div className="flex items-center justify-between">
                                 <span className="text-xs font-semibold text-slate-600 dark:text-slate-300">
                                     Arquivo XML da NF-e
                                 </span>
-                                <a
-                                    href="https://www.nfe.fazenda.gov.br/portal/consultaRecaptcha.aspx?tipoConsulta=resumo&tipoConteudo=7PhJ+gAVw2g="
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="inline-flex items-center gap-1.5 text-xs font-bold text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 transition-colors"
-                                >
-                                    <i className="bi bi-box-arrow-up-right text-[11px]" aria-hidden="true" />
-                                    Consultar manualmente no Portal da NF-e
-                                </a>
                             </div>
 
                             <input

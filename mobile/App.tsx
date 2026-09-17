@@ -30,6 +30,7 @@ import { NativeSettingsScreen } from './src/features/settings/screens/NativeSett
 import { NativeProductsScreen } from './src/features/products';
 import { FinanceHubScreen } from './src/features/finance/screens/FinanceHubScreen';
 import { GlobalAgentScreen } from './src/features/agent/screens/GlobalAgentScreen';
+import { NativeStockScreen } from './src/features/stock/screens/NativeStockScreen';
 
 import { NotificationsModal } from './src/components/modals/NotificationsModal';
 import { ProfileModal } from './src/components/modals/ProfileModal';
@@ -784,6 +785,8 @@ export default function App() {
               <NativeAssembliesScreen isDarkMode={isDarkMode} initialSubTab={assemblySubTab} onSelectOrder={setAppSelectedOrder} />
             ) : currentTab === 'configuracoes' ? (
               <NativeSettingsScreen isDarkMode={isDarkMode} setIsDarkMode={setIsDarkMode} isAdmin={isAdmin} onBack={() => setCurrentTab('home')} />
+            ) : currentTab === 'estoque' ? (
+              <NativeStockScreen isDarkMode={isDarkMode} userProfile={userProfile} />
             ) : canSeeReports ? (
               <NativeReportsScreen isDarkMode={isDarkMode} />
             ) : (

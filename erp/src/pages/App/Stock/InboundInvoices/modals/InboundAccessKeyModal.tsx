@@ -85,15 +85,33 @@ export function InboundAccessKeyModal({ isOpen, isLoading, onClose, onSubmit }: 
                 </header>
                 <label className="mt-6 flex flex-col gap-2 text-[10px] font-black uppercase tracking-widest text-slate-400">
                     Chave de acesso NF-e ({accessKey.length}/44)
-                    <input
-                        autoFocus
-                        inputMode="numeric"
-                        maxLength={44}
-                        value={accessKey}
-                        onChange={(event) => setAccessKey(event.target.value.replace(/\D/g, ''))}
-                        placeholder="44 dígitos numéricos"
-                        className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-3 font-mono text-sm font-bold text-slate-700 outline-none focus:border-blue-500 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 transition-colors"
-                    />
+                    <div className="flex items-center gap-2">
+                        <input
+                            autoFocus
+                            inputMode="numeric"
+                            value={accessKey}
+                            onBlur={(e) => setAccessKey(e.target.value.replace(/\D/g, '').slice(0, 44))}
+                            onChange={(event) => setAccessKey(event.target.value.replace(/[^\d\s]/g, '').replace(/\s+/g, '').slice(0, 44))}
+                            placeholder="44 dígitos numéricos"
+                            className="flex-1 rounded-xl border border-slate-200 bg-slate-50 px-3 py-3 font-mono text-sm font-bold text-slate-700 outline-none focus:border-blue-500 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 transition-colors"
+                        />
+                        <a 
+                            href={`https://www.nfe.fazenda.gov.br/portal/consultaRecaptcha.aspx?tipoConsulta=resumo&nfe=${accessKey}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className={`rounded-xl px-4 py-3 text-xs font-black uppercase transition-all flex items-center gap-2 border ${
+                                accessKey.length === 44 
+                                ? 'bg-amber-50 text-amber-600 border-amber-200 hover:bg-amber-100 dark:bg-amber-900/30 dark:text-amber-400 dark:border-amber-800/50 cursor-pointer' 
+                                : 'bg-slate-50 text-slate-400 border-slate-200 cursor-not-allowed dark:bg-slate-800 dark:border-slate-700'
+                            }`}
+                            onClick={(e) => {
+                                if (accessKey.length !== 44) e.preventDefault();
+                            }}
+                            title="Consultar nota no portal da SEFAZ"
+                        >
+                            <i className="bi bi-box-arrow-up-right"></i> Sefaz
+                        </a>
+                    </div>
                 </label>
                 <footer className="mt-6 flex justify-end gap-3">
                     <button

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import Product from '@/pages/types/product.type';
-import { useDeleteVariation } from '../hooks/useDeleteVariation';
+import { useDeleteVariation } from '../../hooks/useDeleteVariation';
 import { ProductCardVariationItem } from './ProductCardVariationItem';
 
 export interface CardVariationItem {

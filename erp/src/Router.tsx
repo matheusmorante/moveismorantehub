@@ -46,7 +46,7 @@ import AssemblyPrintPage from './pages/App/Logistics/AssemblyPrintPage';
 import MobileAppLanding from './pages/App/MobileAppLanding';
 import ApiUsagePage from './pages/App/ApiUsage/Index';
 const SalesOrderReports = lazy(() => import('./pages/App/SalesOrder/Reports/Index'));
-const SalesOrderReportView = lazy(() => import('./pages/App/SalesOrder/Reports/ReportView'));
+const SalesOrderReportView = lazy(() => import('./pages/App/SalesOrder/Reports/components/ReportView'));
 const SalesOrderReportsBling = lazy(() => import('./pages/App/SalesOrder/ReportsBling/Index'));
 const SalesOrderReportViewBling = lazy(() => import('./pages/App/SalesOrder/ReportsBling/ReportView'));
 import BlingStock from './pages/App/Stock/BlingStock';

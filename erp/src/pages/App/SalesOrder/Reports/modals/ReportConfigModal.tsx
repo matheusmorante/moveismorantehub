@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { parseCSV } from './csvUtils';
+import { parseCSV } from '../utils/csvUtils';
 
 interface ColumnMapping {
     date: string;

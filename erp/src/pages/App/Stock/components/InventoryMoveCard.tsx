@@ -58,7 +58,11 @@ export const InventoryMoveCard: React.FC<InventoryMoveCardProps> = ({
         <div className={`p-4 rounded-2xl border transition-all ${
             isReversed 
                 ? 'bg-rose-50/20 dark:bg-rose-950/10 border-rose-100 dark:border-rose-900/30' 
-                : 'bg-white dark:bg-slate-900 border-slate-100 dark:border-slate-800 shadow-2xs'
+                : isEntry
+                ? 'bg-emerald-50/50 dark:bg-emerald-900/10 border-emerald-100 dark:border-emerald-800/30 shadow-2xs'
+                : isExit
+                ? 'bg-rose-50/50 dark:bg-rose-900/10 border-rose-100 dark:border-rose-800/30 shadow-2xs'
+                : 'bg-amber-50/50 dark:bg-amber-900/10 border-amber-100 dark:border-amber-800/30 shadow-2xs'
         }`}>
             {/* Header: Data/Horário + Status + Qtd */}
             <div className="flex items-center justify-between gap-2 border-b border-slate-100 dark:border-slate-800/60 pb-3 flex-wrap">
@@ -125,82 +129,59 @@ export const InventoryMoveCard: React.FC<InventoryMoveCardProps> = ({
                     {move.productName || move.productDescription || 'Produto Desconhecido'}
                 </span>
 
-                {/* Container de Observações */}
+                {/* Container de Observações (Apenas um campo) */}
                 {(cleanObs || (isReversed && reasonText)) && (
-                    <div className="flex flex-col gap-2 mt-0.5">
-                        {/* Rótulo cinza: Observação normal */}
-                        {cleanObs && (
-                            <div className="text-xs font-medium text-slate-700 dark:text-slate-200 bg-slate-100 dark:bg-slate-800/70 border border-slate-200/80 dark:border-slate-700/60 p-2.5 rounded-xl flex items-start gap-2">
-                                <i className="bi bi-chat-left-text text-xs text-slate-400 mt-0.5 shrink-0" aria-hidden="true" />
-                                <div className="break-words flex-1">
-                                    <span className="mr-1 font-extrabold text-[10px] uppercase tracking-widest text-slate-500 dark:text-slate-400">Observação:</span>
-                                    {cleanObs.length > 90 && !isExpanded ? (
-                                        <>
-                                            <span>{cleanObs.slice(0, 90)}...</span>
-                                            <button 
-                                                type="button" 
-                                                onClick={onToggleExpand}
-                                                aria-expanded={isExpanded}
-                                                className="text-blue-500 hover:text-blue-600 font-bold text-xs ml-1.5 underline cursor-pointer"
-                                            >
-                                                Ler mais
-                                            </button>
-                                        </>
-                                    ) : (
-                                        <>
-                                            <span>{cleanObs}</span>
-                                            {cleanObs.length > 90 && (
-                                                <button 
-                                                    type="button" 
-                                                    onClick={onToggleExpand}
-                                                    aria-expanded={isExpanded}
-                                                    className="text-blue-500 hover:text-blue-600 font-bold text-xs ml-1.5 underline cursor-pointer"
-                                                >
-                                                    Ler menos
-                                                </button>
-                                            )}
-                                        </>
-                                    )}
-                                </div>
-                            </div>
-                        )}
+                    <div className="mt-0.5">
+                        {(() => {
+                            const finalObs = (isReversed && reasonText)
+                                ? (cleanObs && cleanObs !== reasonText ? `Original: ${cleanObs} | Estorno: ${reasonText}` : reasonText)
+                                : cleanObs;
 
-                        {/* Rótulo amarelo: Observação do Estorno */}
-                        {isReversed && reasonText && (
-                            <div className="text-xs font-medium text-amber-900 dark:text-amber-200 bg-amber-50 dark:bg-amber-950/40 p-2.5 rounded-xl border border-amber-200/80 dark:border-amber-800/60 flex items-start gap-2">
-                                <i className="bi bi-arrow-counterclockwise text-sm text-amber-600 dark:text-amber-400 mt-0.5 shrink-0" aria-hidden="true" />
-                                <div className="break-words flex-1">
-                                    <span className="font-extrabold uppercase text-[10px] tracking-widest text-amber-700 dark:text-amber-400 mr-1">Observação:</span>
-                                    {reasonText.length > 90 && !isExpanded ? (
-                                        <>
-                                            <span>{reasonText.slice(0, 90)}...</span>
-                                            <button 
-                                                type="button" 
-                                                onClick={onToggleExpand}
-                                                aria-expanded={isExpanded}
-                                                className="text-amber-700 hover:text-amber-800 dark:text-amber-300 font-black text-xs ml-1.5 underline cursor-pointer"
-                                            >
-                                                Ler mais
-                                            </button>
-                                        </>
-                                    ) : (
-                                        <>
-                                            <span>{reasonText}</span>
-                                            {reasonText.length > 90 && (
+                            const isAmber = isReversed && reasonText;
+                            const bgClass = isAmber 
+                                ? "bg-amber-50 dark:bg-amber-950/40 border-amber-200/80 dark:border-amber-800/60 text-amber-900 dark:text-amber-200" 
+                                : "bg-slate-100 dark:bg-slate-800/70 border-slate-200/80 dark:border-slate-700/60 text-slate-700 dark:text-slate-200";
+                            const iconClass = isAmber ? "bi-arrow-counterclockwise text-amber-600 dark:text-amber-400" : "bi-chat-left-text text-slate-400";
+                            const labelClass = isAmber ? "text-amber-700 dark:text-amber-400" : "text-slate-500 dark:text-slate-400";
+
+                            return (
+                                <div className={`text-xs font-medium border p-2.5 rounded-xl flex items-start gap-2 whitespace-normal leading-relaxed ${bgClass}`}>
+                                    <i className={`bi ${iconClass} text-xs mt-0.5 shrink-0`} aria-hidden="true" />
+                                    <div className="break-words flex-1">
+                                        <span className={`mr-1 font-extrabold text-[10px] uppercase tracking-widest ${labelClass}`}>
+                                            {isAmber ? 'Motivo/Obs:' : 'Observação:'}
+                                        </span>
+                                        {finalObs.length > 120 && !isExpanded ? (
+                                            <>
+                                                <span>{finalObs.slice(0, 120)}...</span>
                                                 <button 
                                                     type="button" 
                                                     onClick={onToggleExpand}
                                                     aria-expanded={isExpanded}
-                                                    className="text-amber-700 hover:text-amber-800 dark:text-amber-300 font-black text-xs ml-1.5 underline cursor-pointer"
+                                                    className="text-blue-500 hover:text-blue-600 font-bold text-[10px] ml-1 underline cursor-pointer"
                                                 >
-                                                    Ler menos
+                                                    Ler mais
                                                 </button>
-                                            )}
-                                        </>
-                                    )}
+                                            </>
+                                        ) : (
+                                            <>
+                                                <span>{finalObs}</span>
+                                                {finalObs.length > 120 && (
+                                                    <button 
+                                                        type="button" 
+                                                        onClick={onToggleExpand}
+                                                        aria-expanded={isExpanded}
+                                                        className="text-blue-500 hover:text-blue-600 font-bold text-[10px] ml-1 underline cursor-pointer"
+                                                    >
+                                                        Ler menos
+                                                    </button>
+                                                )}
+                                            </>
+                                        )}
+                                    </div>
                                 </div>
-                            </div>
-                        )}
+                            );
+                        })()}
                     </div>
                 )}
             </div>
@@ -245,5 +226,3 @@ export const InventoryMoveCard: React.FC<InventoryMoveCardProps> = ({
         </div>
     );
 };
-
-export default InventoryMoveCard;

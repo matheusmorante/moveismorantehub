@@ -116,6 +116,13 @@ export const NativeBottomNav: React.FC<Props> = ({
       url: `${WEB_URL}/mobile-reports`,
       visible: canSeeReports,
     },
+    {
+      key: 'estoque',
+      label: 'Estoque',
+      icon: Package,
+      url: `${WEB_URL}/stock`,
+      visible: true,
+    },
   ];
 
   // Filtra apenas abas visíveis para o perfil do usuário

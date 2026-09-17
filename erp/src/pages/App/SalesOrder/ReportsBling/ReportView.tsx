@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate, Link, useLocation, useSearchParams } from 'react-router-dom';
-import ItemExclusionModal from '../Reports/ItemExclusionModal';
-import ProductReferenceModal from '../Reports/ProductReferenceModal';
+import ItemExclusionModal from '../Reports/modals/ItemExclusionModal';
+import ProductReferenceModal from '../Reports/modals/ProductReferenceModal';
 import { 
     XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, 
     Line, ComposedChart, Bar, Cell, ScatterChart, Scatter, ReferenceLine, Area
@@ -9,8 +9,8 @@ import {
 import { format, parse } from 'date-fns';
 import { useSalesReport, ABCResult, SaleItem } from './useSalesReport';
 import { supabase } from '@/pages/utils/supabaseConfig';
-import ReportConfigModal from '../Reports/ReportConfigModal';
-import SupplierPerformanceView from '../Reports/SupplierPerformanceView';
+import ReportConfigModal from '../Reports/modals/ReportConfigModal';
+import SupplierPerformanceView from '../Reports/components/SupplierPerformanceView';
 
 const ReportViewBling = () => {
     const { id } = useParams<{ id: string }>();

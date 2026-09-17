@@ -1,7 +1,7 @@
 import React, { useState, useRef } from 'react';
 import DropdownPortal from '@/components/shared/DropdownPortal';
-import { useDeleteVariation } from '../../hooks/useDeleteVariation';
-import { ActionProductLike } from '../ProductRowActionsCell';
+import { useDeleteVariation } from '../../../hooks/useDeleteVariation';
+import { ActionProductLike } from '../Table/ProductRowActionsCell';
 
 export interface ChildVariationActionsProps {
     readonly product: ActionProductLike;

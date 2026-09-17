@@ -10,7 +10,7 @@ import Image from "next/image"
 import Link from "next/link"
 import { useParams, useSearchParams, useRouter } from "next/navigation"
 import { toast } from "sonner"
-import { useState, useRef, useEffect, useCallback, useMemo } from "react"
+import { useState, useEffect, useCallback, useMemo } from "react"
 import { Badge } from "@/components/ui/badge"
 import { DeliveryPickupInfo } from "@/features/products/components/delivery-pickup-info"
 import { AdvantagesSection } from "@/components/sections/advantages-section"
@@ -20,7 +20,9 @@ import { useAdminMode } from "@/hooks/use-admin-mode"
 import { Pencil } from "lucide-react"
 import { AdminProductModal } from "@/features/products/components/admin-product-modal"
 import { productCardStyleClasses, getOpportunityTitleColor } from "@/lib/product-card-style"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
+import { ProductGallery } from "./ProductGallery"
+import { ProductVariantSelector } from "./ProductVariantSelector"
+import { ProductSpecifications } from "../sections/ProductSpecifications"
 
 type TechnicalSpecification = { name: string; slug: string }
 
@@ -49,12 +51,7 @@ export default function ProductPageContent({
   const [product] = useState<any>(initialProduct)
   const [activeImage, setActiveImage] = useState("")
   const [activeIndex, setActiveIndex] = useState(0)
-  const [lightboxOpen, setLightboxOpen] = useState(false)
-  const [lightboxIndex, setLightboxIndex] = useState(0)
-  const [canScrollLeft, setCanScrollLeft] = useState(false)
-  const [canScrollRight, setCanScrollRight] = useState(false)
 
-  const thumbsRef = useRef<HTMLDivElement>(null)
   const { addItem } = useCart()
 
   // Rastreamento analítico do visitante real (IP, Geo e Origem)
@@ -82,25 +79,7 @@ export default function ProductPageContent({
     }).catch(err => console.error("Erro no track de visualização:", err))
   }, [product?.id])
 
-  const updateScrollBtns = useCallback(() => {
-    const el = thumbsRef.current
-    if (!el) return
-    setCanScrollLeft(el.scrollLeft > 4)
-    setCanScrollRight(el.scrollLeft + el.clientWidth < el.scrollWidth - 4)
-  }, [])
 
-  useEffect(() => {
-    const el = thumbsRef.current
-    if (!el) return
-    updateScrollBtns()
-    el.addEventListener("scroll", updateScrollBtns)
-    const ro = new ResizeObserver(updateScrollBtns)
-    ro.observe(el)
-    return () => {
-      el.removeEventListener("scroll", updateScrollBtns)
-      ro.disconnect()
-    }
-  }, [updateScrollBtns, product])
 
   const activeVarId = searchParams.get("var")
   const activeVariation = product?.variations?.find((v: any) => v.id === activeVarId && v.status !== 'hidden')
@@ -187,17 +166,7 @@ export default function ProductPageContent({
     ? technicalSpecifications.map((specification) => [specification.name, specsMap[specification.slug]]).filter(([, value]) => value)
     : []
 
-  const scrollThumbs = (dir: "left" | "right") => {
-    const el = thumbsRef.current
-    if (!el) return
-    const scrollAmount = el.clientWidth * 0.8
-    el.scrollBy({ left: dir === "left" ? -scrollAmount : scrollAmount, behavior: "smooth" })
-  }
 
-  const selectImage = (img: string, idx: number) => {
-    setActiveImage(img)
-    setActiveIndex(idx)
-  }
 
   const handleAddToCart = () => {
     addItem({ id: activeVariation ? `${product.id}-${activeVariation.id}` : product.id, name: displayTitle, price: displayPromoPrice || displayPrice, image: displayImages[0], quantity: 1 })
@@ -243,72 +212,15 @@ export default function ProductPageContent({
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-start">
           {/* ── COLUNA ESQUERDA: GALERIA (6 COLUNAS NO PC) ── */}
           <div className="lg:col-span-6 space-y-4">
-            <div className="space-y-4">
-              <button
-                className="relative w-full aspect-[4/5] sm:aspect-square lg:aspect-[4/5] max-h-[500px] md:max-h-[600px] overflow-hidden rounded-2xl border bg-gray-50 shadow-sm block cursor-zoom-in group/main"
-                onClick={() => {
-                  setLightboxIndex(activeIndex)
-                  setLightboxOpen(true)
-                }}
-                aria-label="Ampliar imagem"
-              >
-                {activeImage && (
-                  <Image
-                    src={activeImage}
-                    alt={displayTitle}
-                    fill
-                    className="object-contain p-4 md:p-8 transition-transform duration-500 group-hover/main:scale-105"
-                    priority
-                  />
-                )}
-                {product.opportunities && (
-                  <Badge className={`absolute top-4 left-4 ${product.opportunities.badge_color || 'bg-accent'} text-white font-bold px-4 py-1 text-[10px] sm:text-xs shadow-lg pointer-events-none flex items-center gap-1`}>
-                    {(product.opportunities.slug === "salvado" || product.opportunities.name?.toLowerCase()?.includes("salvado")) && (
-                      <Flame className="h-3 w-3 shrink-0" />
-                    )}
-                    {product.opportunities.name}
-                  </Badge>
-                )}
-              </button>
-
-              {totalImages > 1 && (
-                <div className="relative group/thumbs flex items-center px-1">
-                  <button
-                    onClick={() => scrollThumbs("left")}
-                    className={`absolute -left-2 z-10 flex items-center justify-center h-8 w-8 rounded-full border border-gray-100 bg-white shadow-md hover:text-primary transition-all md:-left-4 ${
-                    canScrollLeft ? "opacity-100 visible scale-100" : "opacity-0 invisible scale-90"
-                    }`}
-                  >
-                    <ChevronLeft className="h-4 w-4" />
-                  </button>
-
-                  <div ref={thumbsRef} className="flex gap-2 overflow-x-auto no-scrollbar flex-1 scroll-smooth py-1">
-                    {displayImages.map((image: string, index: number) => (
-                      <button
-                        key={index}
-                        onClick={() => selectImage(image, index)}
-                        className={`relative flex-shrink-0 w-16 sm:w-20 aspect-square overflow-hidden rounded-lg border-2 transition-all ${
-                          activeIndex === index
-                            ? "border-primary shadow-md"
-                            : "border-transparent opacity-60 hover:opacity-100 hover:scale-105"
-                        }`}
-                      >
-                        <Image src={image} alt={`${displayTitle} thumb ${index + 1}`} fill className="object-cover" />
-                      </button>
-                    ))}
-                  </div>
-
-                  <button
-                    onClick={() => scrollThumbs("right")}
-                    className={`absolute -right-2 z-10 flex items-center justify-center h-8 w-8 rounded-full border border-gray-100 bg-white shadow-md hover:text-primary transition-all md:-right-4 ${
-                      canScrollRight ? "opacity-100 visible scale-100" : "opacity-0 invisible scale-90"
-                    }`}
-                  >
-                    <ChevronRight className="h-4 w-4" />
-                  </button>
-                </div>
-              )}
-            </div>
+            <ProductGallery 
+              displayImages={displayImages} 
+              displayTitle={displayTitle} 
+              productOpportunities={product.opportunities} 
+              activeImage={activeImage} 
+              activeIndex={activeIndex} 
+              setActiveImage={setActiveImage} 
+              setActiveIndex={setActiveIndex} 
+            />
           </div>
 
           {/* ── COLUNA DIREITA: INFOS + COMPRA (6 COLUNAS NO PC) ── */}
@@ -375,60 +287,11 @@ export default function ProductPageContent({
               <PaymentInfo price={displayPromoPrice || displayPrice} originalPrice={displayPromoPrice ? displayPrice : undefined} />
               
               {/* Seletor de Opções (Variações em Grid de Imagens Quadradas) */}
-              {product?.variations && product.variations.length > 0 && (
-                <div className="pt-3 space-y-2 border-t border-gray-200/60">
-                  <div className="flex flex-col gap-0.5">
-                    <label className="text-xs font-bold text-gray-600 uppercase tracking-wide flex items-center gap-1.5">
-                      <Layers className="h-3.5 w-3.5 text-primary" />
-                      Opções Disponíveis
-                    </label>
-                    <span className="text-sm font-extrabold text-primary min-h-[20px] capitalize">
-                      {activeVariation 
-                        ? Object.entries(activeVariation.attributes || {}).map(([_, val]) => typeof val === 'object' && val !== null ? (val as any).value || (val as any).label || (val as any).name || JSON.stringify(val) : val).join(" / ")
-                        : "Padrão"
-                      }
-                    </span>
-                  </div>
-                  <div className="grid grid-cols-4 sm:grid-cols-5 gap-2">
-                    {product.variations
-                      .filter((v: any) => v.status !== "hidden")
-                      .map((v: any) => {
-                        const comboLabel = Object.entries(v.attributes || {})
-                          .map(([_, val]) => typeof val === 'object' && val !== null ? (val as any).value || (val as any).label || (val as any).name || JSON.stringify(val) : val)
-                          .join(" / ")
-                        
-                        const varImg = v.image_url ? v.image_url.split(",")[0] : (product.images?.[0] || "")
-                        const isSelected = activeVarId === v.id
-
-                        return (
-                          <button
-                            key={v.id}
-                            type="button"
-                            onClick={() => {
-                              router.push(`/produto/${product.slug}?var=${v.id}`, { scroll: false })
-                            }}
-                            className={cn(
-                              "relative aspect-square rounded-xl overflow-hidden border-2 bg-gray-50 transition-all flex flex-col group/var shadow-sm hover:scale-[1.02] active:scale-95",
-                              isSelected 
-                                ? "border-primary ring-2 ring-primary/10 opacity-100 scale-[1.02]" 
-                                : "border-gray-200 opacity-40 brightness-[0.75] hover:opacity-90 hover:brightness-100"
-                            )}
-                            title={comboLabel || v.name}
-                          >
-                            {varImg && (
-                              <Image 
-                                src={varImg} 
-                                alt={comboLabel || v.name} 
-                                fill 
-                                className="object-cover" 
-                              />
-                            )}
-                          </button>
-                        )
-                      })}
-                  </div>
-                </div>
-              )}
+              <ProductVariantSelector 
+                product={product} 
+                activeVariation={activeVariation} 
+                activeVarId={activeVarId} 
+              />
 
               {/* BOTÕES DE AÇÃO DESTACADOS (DESKTOP) */}
               <div className="hidden lg:flex flex-col xl:flex-row gap-3 pt-2">
@@ -475,71 +338,13 @@ export default function ProductPageContent({
             </div>
 
             {/* Medidas e Especificações - Lado Direito no PC */}
-            {(technicalSpecs.length > 0 || (displayWidth || displayDepth || displayHeight)) && (
-              <div className="lg:col-span-5 space-y-6">
-                {/* TABELA DE DIMENSÕES COM ÍCONES */}
-                {(displayWidth || displayDepth || displayHeight) && (
-                  <div className="space-y-3 bg-white p-4 rounded-xl border border-gray-100">
-                    <div className="flex items-center gap-2 text-gray-800 font-bold text-xs uppercase tracking-wider border-b pb-2">
-                      <svg className="h-3.5 w-3.5 text-primary" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M3 3h18M3 21h18M3 3v18M21 3v18" />
-                      </svg>
-                      <h3>Dimensões do Produto</h3>
-                    </div>
-                    <div className="grid grid-cols-3 divide-x divide-gray-100">
-                      {displayWidth && (
-                        <div className="flex flex-col items-center gap-2 px-3 py-2">
-                          <svg viewBox="0 0 40 24" className="w-10 h-6 text-primary" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-                            <line x1="2" y1="12" x2="38" y2="12" />
-                            <polyline points="8,6 2,12 8,18" />
-                            <polyline points="32,6 38,12 32,18" />
-                          </svg>
-                          <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Largura</span>
-                          <span className="text-sm font-black text-primary">{displayWidth} <span className="text-xs font-semibold text-gray-500">cm</span></span>
-                        </div>
-                      )}
-                      {displayDepth && (
-                        <div className="flex flex-col items-center gap-2 px-3 py-2">
-                          <svg viewBox="0 0 40 24" className="w-10 h-6 text-primary" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-                            <line x1="4" y1="20" x2="36" y2="4" />
-                            <polyline points="4,13 4,20 11,20" />
-                            <polyline points="29,4 36,4 36,11" />
-                          </svg>
-                          <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
-                            {(product as any)?.depth_use_length ? "Compr." : "Profund."}
-                          </span>
-                          <span className="text-sm font-black text-primary">{displayDepth} <span className="text-xs font-semibold text-gray-500">cm</span></span>
-                        </div>
-                      )}
-                      {displayHeight && (
-                        <div className="flex flex-col items-center gap-2 px-3 py-2">
-                          <svg viewBox="0 0 24 40" className="w-6 h-10 text-primary" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-                            <line x1="12" y1="2" x2="12" y2="38" />
-                            <polyline points="6,8 12,2 18,8" />
-                            <polyline points="6,32 12,38 18,32" />
-                          </svg>
-                          <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Altura</span>
-                          <span className="text-sm font-black text-primary">{displayHeight} <span className="text-xs font-semibold text-gray-500">cm</span></span>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                )}
-
-                {/* ESPECIFICAÇÕES TÉCNICAS */}
-                {technicalSpecs.length > 0 && (
-                  <div className="space-y-3 bg-white p-4 rounded-xl border border-gray-100">
-                    <div className="flex items-center gap-2 text-gray-800 font-bold text-xs uppercase tracking-wider">
-                      <Layers className="h-3.5 w-3.5 text-primary" />
-                      <h3>Especificações</h3>
-                    </div>
-                    <dl className="space-y-1.5 border-t pt-2 text-[11px] leading-relaxed">
-                      {technicalSpecs.map(([label, value]) => <div key={label} className="flex justify-between gap-3"><dt className="text-muted-foreground">{label}</dt><dd className="text-right font-medium text-gray-700">{value}</dd></div>)}
-                    </dl>
-                  </div>
-                )}
-              </div>
-            )}
+            <ProductSpecifications 
+              displayWidth={displayWidth} 
+              displayDepth={displayDepth} 
+              displayHeight={displayHeight} 
+              product={product} 
+              technicalSpecs={technicalSpecs} 
+            />
           </div>
         </div>
 
@@ -561,32 +366,7 @@ export default function ProductPageContent({
         </Button>
       </div>
 
-      {/* ── LIGHTBOX (SEM ALTERAÇÃO) ── */}
-      {lightboxOpen && (
-        <div className="fixed inset-0 z-50 bg-black/95 flex items-center justify-center" onClick={() => setLightboxOpen(false)}>
-          <button className="absolute top-6 right-6 text-white hover:text-gray-300 transition-colors z-10" onClick={() => setLightboxOpen(false)} aria-label="Fechar">
-            <X className="h-10 w-10" />
-          </button>
-          <span className="absolute top-8 left-1/2 -translate-x-1/2 text-white/70 text-sm font-medium select-none">
-            {lightboxIndex + 1} / {totalImages}
-          </span>
-          {totalImages > 1 && (
-            <button className="absolute left-6 text-white hover:text-gray-300 transition-colors p-3 z-10" onClick={e => { e.stopPropagation(); setLightboxIndex(i => (i - 1 + totalImages) % totalImages) }} aria-label="Anterior">
-              <ChevronLeft className="h-12 w-12" />
-            </button>
-          )}
-          <div className="relative w-[95vw] max-w-4xl aspect-square" onClick={e => e.stopPropagation()}>
-            {displayImages[lightboxIndex] && (
-              <Image src={displayImages[lightboxIndex]} alt={`${displayTitle} full`} fill className="object-contain" />
-            )}
-          </div>
-          {totalImages > 1 && (
-            <button className="absolute right-6 text-white hover:text-gray-300 transition-colors p-3 z-10" onClick={e => { e.stopPropagation(); setLightboxIndex(i => (i + 1) % totalImages) }} aria-label="Próxima">
-              <ChevronRight className="h-12 w-12" />
-            </button>
-          )}
-        </div>
-      )}
+
     </div>
   )
 }
