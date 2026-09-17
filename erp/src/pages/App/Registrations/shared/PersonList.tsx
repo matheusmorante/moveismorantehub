@@ -263,9 +263,9 @@ const PersonList = forwardRef<PersonListRef, PersonListProps>(({
                                 <select
                                     value={itemsPerPage}
                                     onChange={(e) => setItemsPerPage(Number(e.target.value))}
-                                    className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1 text-xs text-slate-600 dark:text-slate-400 focus:outline-none"
+                                    className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1 text-xs text-slate-600 dark:text-slate-400 focus:outline-none cursor-pointer"
                                 >
-                                    {[10, 25, 50, 100].map(size => <option key={size} value={size}>{size} por pág.</option>)}
+                                    {[10, 15, 25, 50].map(size => <option key={size} value={size}>{size} por pág.</option>)}
                                 </select>
                             </div>
                         </div>

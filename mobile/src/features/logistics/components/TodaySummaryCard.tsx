@@ -192,17 +192,23 @@ export const TodaySummaryCard: React.FC<TodaySummaryCardProps> = ({
     };
 
     void getLatestSavedSummaryRecord(scope).then(applySummaryRecord);
+    let summaryDebounceTimer: NodeJS.Timeout | null = null;
     const channel = supabase
       .channel(`delivery-summary-${periodFilter}-${Date.now()}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'delivery_summaries' }, (payload) => {
         const record = payload.new as any;
         if (record?.scope !== scope) return;
-        void applySummaryRecord(record as DeliverySummaryRecord);
+        
+        if (summaryDebounceTimer) clearTimeout(summaryDebounceTimer);
+        summaryDebounceTimer = setTimeout(() => {
+          void applySummaryRecord(record as DeliverySummaryRecord);
+        }, 2000);
       })
       .subscribe();
 
     return () => {
       alive = false;
+      if (summaryDebounceTimer) clearTimeout(summaryDebounceTimer);
       supabase.removeChannel(channel);
     };
   }, [periodFilter]);

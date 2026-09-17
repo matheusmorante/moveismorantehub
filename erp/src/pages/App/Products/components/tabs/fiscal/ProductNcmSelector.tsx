@@ -177,7 +177,11 @@ export const ProductNcmSelector: React.FC<ProductNcmSelectorProps> = ({
                         <div className="p-3 text-center text-xs text-slate-400">
                             Nenhum NCM encontrado.
                         </div>
-                    ) : null}
+                    ) : (
+                        <div className="p-3 text-center text-xs text-slate-400">
+                            Digite pelo menos 2 caracteres para buscar...
+                        </div>
+                    )}
                 </div>
             )}
 

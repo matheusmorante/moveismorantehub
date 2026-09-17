@@ -75,7 +75,7 @@ const OrderPagination: React.FC<OrderPaginationProps> = ({
                 </span>
                 <span className="hidden md:inline-block text-slate-300 dark:text-slate-700">•</span>
                 <span className="hidden md:inline-block text-[11px] text-slate-400 dark:text-slate-500 font-semibold">
-                    (30 por página)
+                    ({itemsPerPage} por página)
                 </span>
             </div>
 

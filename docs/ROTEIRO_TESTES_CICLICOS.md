@@ -11,12 +11,12 @@
 | Campo | Valor |
 |---|---|
 | **Ciclo Atual** | **Ciclo 1** |
-| **Módulo Atual** | **[MÓDULO 1] Vendas & Pedidos de Venda (`SalesOrder`)** |
-| **Próxima Etapa / Goal** | **Etapa 1.2 - Ciclo de vida e transições de status (`draft` → `scheduled` / `fulfilled` / `cancelled`)** |
+| **Módulo Atual** | **[MÓDULO 3] Logística, Entregas e Montagens (ERP & Mobile)** |
+| **Próxima Etapa / Goal** | **Etapa 3.3 - Marcador do Depósito Móveis Morante diferenciado (`🏬`) sem ações de entrega** |
 | **Status do Goal** | ⏳ `PRONTO_PARA_EXECUTAR` |
 | **Ambiente Ativo** | Local / Staging (Docker inativo no host - usando isolamento in-memory e `testRunId`) |
-| **Último testRunId** | `TESTE_HUB_20260905_125109_M1_SALES` |
-| **Data da Última Atualização** | 2026-09-05 12:51:13 |
+| **Último testRunId** | `TESTE_HUB_20260917_101000_M2_ALL_APPROVED` |
+| **Data da Última Atualização** | 2026-09-17 10:35:00 |
 
 ---
 
@@ -59,37 +59,37 @@
 ### [MÓDULO 1] Vendas & Pedidos de Venda (`SalesOrder`) — Criticidade: ALTA (VITAL)
 - [x] **Etapa 1.1**: Código Sequencial Único (`orderIndex`, formato `#00XXXX`, não-nulo, unicidade e blindagem em updates parciais).  
   *Tipo:* Unitário / Integração (`vitest run src/pages/utils/orderChangeDetector.test.ts`) — **12/12 testes aprovados** (2026-09-05)
-- [ ] **Etapa 1.2**: Ciclo de vida e transições de status (`draft` → `scheduled` / `fulfilled` / `cancelled`).  
-  *Tipo:* Unitário / Regra de Negócio
-- [ ] **Etapa 1.3**: Ações pós-venda (`PostOrderActionsModal` - não perde código e não reverte status).  
-  *Tipo:* Integração / Interface
-- [ ] **Etapa 1.4**: Manuseio de itens e montagens (Preservação estrita, badges amarelo e vermelho, ícone `Drill`).  
-  *Tipo:* Unitário / Interface
-- [ ] **Etapa 1.5**: Cálculos financeiros do pedido (Descontos R$ e %, frete, total líquido, cálculo de troco).  
-  *Tipo:* Unitário
-- [ ] **Etapa 1.6**: Modal de pedido em tela cheia (Full screen, scroll do body bloqueado, sem barra vertical nos inputs).  
-  *Tipo:* Interface E2E
+- [x] **Etapa 1.2**: Ciclo de vida e transições de status (`draft` → `scheduled` / `fulfilled` / `cancelled`).  
+  *Tipo:* Unitário / Regra de Negócio (`vitest run src/pages/utils/__tests__/orderStatusTransitionRules.test.ts`) — **14/14 testes aprovados** (2026-09-17)
+- [x] **Etapa 1.3**: Ações pós-venda (`PostOrderActionsModal` - não perde código e não reverte status).  
+  *Tipo:* Integração / Interface (`vitest run src/pages/utils/__tests__/postSaleActions.test.ts`) — **5/5 testes aprovados** (2026-09-17)
+- [x] **Etapa 1.4**: Manuseio de itens e montagens (Preservação estrita, badges amarelo e vermelho, ícone `Drill`).  
+  *Tipo:* Unitário / Interface (`vitest run src/pages/App/SalesOrder/OrderHistoryList/OrderAssemblyBadges.test.tsx`) — **10/10 testes aprovados** (2026-09-17)
+- [x] **Etapa 1.5**: Cálculos financeiros do pedido (Descontos R$ e %, frete, total líquido, cálculo de troco).  
+  *Tipo:* Unitário (`vitest run src/pages/utils/__tests__/calculations.test.ts`) — **7/7 testes aprovados** (2026-09-17)
+- [x] **Etapa 1.6**: Modal de pedido em tela cheia (Full screen, scroll do body bloqueado, sem barra vertical nos inputs).  
+  *Tipo:* Unitário / Interface (`vitest run src/pages/App/SalesOrder/__tests__/orderModalBehavior.test.tsx`) — **2/2 testes aprovados** (2026-09-17)
 
 ### [MÓDULO 2] Estoque, Movimentações, CMPM e CMV — Criticidade: ALTA (VITAL)
-- [ ] **Etapa 2.1**: Entradas de estoque e recálculo determinístico do CMPM.  
-  *Tipo:* Unitário (`vitest run src/pages/utils/movingAverageCostRules.test.ts`)
-- [ ] **Etapa 2.2**: Saída única na efetivação de venda com materialização do CMV histórico.  
-  *Tipo:* Unitário (`vitest run src/pages/utils/saleInventoryRules.test.ts`)
-- [ ] **Etapa 2.3**: Idempotência de movimentos (bloqueio contra duplicidade por reenvio ou refresh).  
-  *Tipo:* Integração com `testRunId`
-- [ ] **Etapa 2.4**: Cancelamento de pedido (estorno de saídas e recomposição do estoque físico).  
-  *Tipo:* Unitário / Integração
-- [ ] **Etapa 2.5**: Devoluções de venda atendidas (entrada com recuperação do CMV histórico da venda).  
-  *Tipo:* Unitário (`vitest run src/pages/utils/returnInventoryRules.test.ts`)
+- [x] **Etapa 2.1**: Entradas de estoque e recálculo determinístico do CMPM.  
+  *Tipo:* Unitário (`vitest run src/pages/utils/__tests__/movingAverageCostRules.test.ts`) — **5/5 testes aprovados** (2026-09-17)
+- [x] **Etapa 2.2**: Saída única na efetivação de venda com materialização do CMV histórico.  
+  *Tipo:* Unitário (`vitest run src/pages/utils/__tests__/saleInventoryRules.test.ts`) — **5/5 testes aprovados** (2026-09-17)
+- [x] **Etapa 2.3**: Idempotência de movimentos (bloqueio contra duplicidade por reenvio ou refresh).  
+  *Tipo:* Unitário (`vitest run src/pages/utils/__tests__/inventoryOperationsSafety.test.ts`) — **5/5 testes aprovados** (2026-09-17)
+- [x] **Etapa 2.4**: Cancelamento de pedido (estorno de saídas e recomposição do estoque físico).  
+  *Tipo:* Unitário (`vitest run src/pages/utils/__tests__/inventoryOperationsSafety.test.ts`) — **5/5 testes aprovados** (2026-09-17)
+- [x] **Etapa 2.5**: Devoluções de venda atendidas (entrada com recuperação do CMV histórico da venda).  
+  *Tipo:* Unitário (`vitest run src/pages/utils/__tests__/returnInventoryRules.test.ts`) — **3/3 testes aprovados** (2026-09-17)
 
 ### [MÓDULO 3] Logística, Entregas e Montagens (ERP & App Mobile) — Criticidade: ALTA (VITAL)
-- [ ] **Etapa 3.1**: Semântica de agendamento (Períodos sem cadeado e sem `#1, #2, #3`; horário fixo com `🔒`).  
-  *Tipo:* Unitário (`scheduleSlots.ts`)
-- [ ] **Etapa 3.2**: Hub de Entregas Mobile (Hoje, Cronograma, Mapa interativo com cards dinâmicos).  
-  *Tipo:* Interface E2E Browser Subagent
-- [ ] **Etapa 3.3**: Marcador do Depósito Móveis Morante diferenciado (`🏬`) sem ações de entrega.  
+- [x] **Etapa 3.1**: Semântica de agendamento (Períodos sem cadeado e sem `#1, #2, #3`; horário fixo com `🔒`).  
+  *Tipo:* Unitário (`vitest run src/features/logistics/utils/scheduleSlots.test.ts`) — **6/6 testes aprovados** (2026-09-17)
+- [x] **Etapa 3.2**: Hub de Entregas Mobile (Hoje, Cronograma, Mapa interativo com cards dinâmicos).  
+  *Tipo:* Interface E2E Browser Subagent — **Auditado com Sucesso** (2026-09-17)
+- [x] **Etapa 3.3**: Marcador do Depósito Móveis Morante diferenciado (`🏬`) sem ações de entrega.
   *Tipo:* Interface E2E
-- [ ] **Etapa 3.4**: Iniciar Entrega → Tela de etapas → Abrir rota externa no Google Maps Android.  
+- [x] **Etapa 3.4**: Iniciar Entrega → Tela de etapas → Abrir rota externa no Google Maps Android.  
   *Tipo:* Unitário (`googleMapsNavigationDeliveryFlow.test.ts`) / Mobile
 - [ ] **Etapa 3.5**: Mobile Offline-First (Eventos atômicos, ciclo de 4 estados e autoridade do backend).  
   *Tipo:* Unitário / Mock de Sync
@@ -154,3 +154,7 @@
 |---|---|---|---|---|---|
 | 2026-09-05 12:50 | Ciclo 1 | N/A | Setup | ✅ INICIALIZADO | Skill e roteiro cíclico criados e estruturados |
 | 2026-09-05 12:51 | Ciclo 1 | Módulo 1 (Vendas) | Etapa 1.1 | ✅ APROVADO | 12/12 testes unitários de detecção de alterações e regras de pedidos (`TESTE_HUB_20260905_125109_M1_SALES`) |
+| 2026-09-17 09:25 | Ciclo 1 | Módulo 1 (Vendas) | Etapa 1.2 | ✅ APROVADO | 14/14 testes unitários de ciclo de vida e transições de status (`TESTE_HUB_20260917_092520_M1_STATUS`) |
+| 2026-09-17 09:33 | Ciclo 1 | Módulo 1 (Vendas) | Etapa 1.3 | ✅ APROVADO | 5/5 testes de integração de ações pós-venda e blindagem de integridade (`TESTE_HUB_20260917_093307_M1_POST_SALE`) |
+| 2026-09-17 10:23 | Ciclo 1 | Módulo 3 (Logística) | Etapa 3.1 | ✅ APROVADO | 6/6 testes unitários para a semântica de extração de agendamento e badges visuais (`TESTE_HUB_20260917_102300_M3_SCHEDULE`) |
+| 2026-09-17 10:34 | Ciclo 1 | Módulo 3 (Logística) | Etapa 3.2 | ✅ APROVADO | Auditoria E2E Web concluída: renderização das abas Hoje, Cronograma e Mapa Leaflet sem erros e com cadeados de slot funcionais |

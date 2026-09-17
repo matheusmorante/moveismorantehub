@@ -23,7 +23,7 @@ interface ProductGridProps {
   }
 }
 
-const ITEMS_PER_PAGE = 20
+const ITEMS_PER_PAGE = 15
 
 export function ProductGrid({ filters }: ProductGridProps) {
   const [allProducts, setAllProducts] = useState<any[]>([])

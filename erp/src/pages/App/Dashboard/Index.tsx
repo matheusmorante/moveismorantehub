@@ -17,6 +17,7 @@ import LogisticsPanel from './components/LogisticsPanel';
 import AlertsPanel from './components/AlertsPanel';
 import { ChartContainer } from './components/DashboardCharts';
 import ApiUsageSummaryCard from './components/ApiUsageSummaryCard';
+import DigitalCatalogPanel from './components/DigitalCatalogPanel';
 import { runDraftCleanup } from '../../utils/draftCleanupService';
 import { isDashboardSaleOrder } from './dashboardRevenue';
 
@@ -116,6 +117,11 @@ export default function Dashboard() {
             {/* ── Central Operacional ── */}
             {loading ? <PanelSkeleton rows={2} /> : (
                 <OperationPanel data={operational} />
+            )}
+
+            {/* ── Catálogo Digital ── */}
+            {loading ? <PanelSkeleton rows={2} /> : (
+                <DigitalCatalogPanel />
             )}
 
             {/* ── Estoque + Produtos ── */}

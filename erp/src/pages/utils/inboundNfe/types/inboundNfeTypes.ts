@@ -34,6 +34,19 @@ export interface InboundInvoiceItem {
     matchedVariationId?: string;
     productErpName?: string;
     linkedProductCode?: string;
+    sellingPrice?: number;
+    apportionedCost?: number;
+    linkMode?: 'single' | 'composition';
+    compositionLinks?: {
+        id: string;
+        productId: string;
+        variationId?: string;
+        productErpName: string;
+        linkedProductCode: string;
+        sellingPrice: number;
+        apportionedCost: number;
+        quantityMultiplier: number;
+    }[];
     allocatedAdditionalCosts?: number;
     totalAdditionalCosts?: number;
     acquisitionCost?: number;

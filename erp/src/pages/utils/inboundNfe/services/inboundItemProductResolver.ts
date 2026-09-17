@@ -4,6 +4,7 @@ import { getFullProduct } from '@/pages/utils/productService';
 export interface LinkedProductDetails {
     productErpName: string;
     linkedProductCode: string;
+    sellingPrice: number;
 }
 
 const GENERIC_NAME_PATTERNS = [
@@ -50,9 +51,12 @@ export const resolveLinkedProductDetails = async (
             ''
         ).trim();
 
+        const sellingPrice = Number(variation?.unitPrice || product.unitPrice || product.variations?.[0]?.unitPrice || 0);
+
         return {
             linkedProductCode,
             productErpName,
+            sellingPrice,
         };
     } catch (error) {
         console.warn(`[inboundItemProductResolver] Não foi possível obter produto ${productId}:`, error);
@@ -93,6 +97,7 @@ export const enrichInboundItemsWithProductDetails = async (
                 ...item,
                 linkedProductCode: details.linkedProductCode || item.linkedProductCode,
                 productErpName: details.productErpName || item.productErpName,
+                sellingPrice: details.sellingPrice > 0 ? details.sellingPrice : item.sellingPrice,
             };
         })
     );

@@ -66,7 +66,7 @@ export const extractScheduleSlot = (order: any): ScheduleSlot => {
   }
 
   // 4. Comercial / Integral (08:00–18:00)
-  if (!isExplicitFixed && (rawType.includes('full') || rawType.includes('comercial') || (startTime <= '09:00' && endTime >= '17:00' && startTime !== endTime))) {
+  if (!isExplicitFixed && (rawType.includes('full') || rawType.includes('comercial') || rawType.includes('commercial') || (startTime <= '09:00' && endTime >= '17:00' && startTime !== endTime))) {
     const formatted = endTime ? `${startTime}–${endTime}` : '08:00–18:00';
     return {
       type: 'commercial',

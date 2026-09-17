@@ -8,7 +8,7 @@ import {
   saveMobileProduct,
 } from '../services/mobileProductMutationService';
 
-const ITEMS_PER_PAGE = 30;
+const ITEMS_PER_PAGE = 15;
 
 export function useMobileProducts() {
   const [products, setProducts] = useState<any[]>([]);

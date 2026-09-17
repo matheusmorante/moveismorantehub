@@ -384,7 +384,7 @@ export default function ProductPageContent({
                     </label>
                     <span className="text-sm font-extrabold text-primary min-h-[20px] capitalize">
                       {activeVariation 
-                        ? Object.entries(activeVariation.attributes || {}).map(([_, val]) => val).join(" / ")
+                        ? Object.entries(activeVariation.attributes || {}).map(([_, val]) => typeof val === 'object' && val !== null ? (val as any).value || (val as any).label || (val as any).name || JSON.stringify(val) : val).join(" / ")
                         : "Padrão"
                       }
                     </span>
@@ -394,7 +394,7 @@ export default function ProductPageContent({
                       .filter((v: any) => v.status !== "hidden")
                       .map((v: any) => {
                         const comboLabel = Object.entries(v.attributes || {})
-                          .map(([_, val]) => val)
+                          .map(([_, val]) => typeof val === 'object' && val !== null ? (val as any).value || (val as any).label || (val as any).name || JSON.stringify(val) : val)
                           .join(" / ")
                         
                         const varImg = v.image_url ? v.image_url.split(",")[0] : (product.images?.[0] || "")

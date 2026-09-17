@@ -4,6 +4,7 @@ import { useReceipts } from './hooks/useReceipts';
 import { ReceiptsHeader } from './components/ReceiptsHeader';
 import { ReceiptsTable } from './components/ReceiptsTable';
 import { ReceiptCard } from './components/ReceiptCard';
+import { ReceiptsPagination } from './components/ReceiptsPagination';
 import ReceiptFormModal from './ReceiptFormModal';
 import ReceiptDetailsModal from './ReceiptDetailsModal';
 import { ConfirmReverseModal } from './modals/ConfirmReverseModal';
@@ -99,6 +100,22 @@ export default function ReceiptsPage() {
 
     const selectedSupplier = suppliers.find((p) => p.id === selectedSupplierId);
 
+    const ITEMS_PER_PAGE = 15;
+    const [currentPage, setCurrentPage] = useState(1);
+
+    // Reinicia página ao mudar filtro de período ou fornecedor
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [period, selectedSupplierId, customStartDate, customEndDate]);
+
+    const totalItems = filteredReceipts.length;
+    const totalPages = Math.ceil(totalItems / ITEMS_PER_PAGE);
+
+    const paginatedReceipts = React.useMemo(() => {
+        const start = (currentPage - 1) * ITEMS_PER_PAGE;
+        return filteredReceipts.slice(start, start + ITEMS_PER_PAGE);
+    }, [filteredReceipts, currentPage]);
+
     return (
         <div className="flex flex-col">
             <ReceiptsHeader
@@ -146,7 +163,7 @@ export default function ReceiptsPage() {
                     <>
                         {/* Visualização em Tabela (Apenas telas XL ou maiores: >= 1280px) */}
                         <ReceiptsTable
-                            receipts={filteredReceipts}
+                            receipts={paginatedReceipts}
                             openMenuId={openMenuId}
                             setOpenMenuId={setOpenMenuId}
                             onRowClick={handleRowClick}
@@ -161,7 +178,7 @@ export default function ReceiptsPage() {
                         {/* Visualização em Cards (Telas menores que XL: < 1280px) */}
                         <div className="block xl:hidden">
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                {filteredReceipts.map((receipt) => (
+                                {paginatedReceipts.map((receipt) => (
                                     <ReceiptCard
                                         key={receipt.id}
                                         receipt={receipt}
@@ -176,6 +193,15 @@ export default function ReceiptsPage() {
                                 ))}
                             </div>
                         </div>
+
+                        {/* Controles de Paginação (Tabela e Cards, telas desktop e mobile) */}
+                        <ReceiptsPagination
+                            currentPage={currentPage}
+                            totalPages={totalPages}
+                            totalItems={totalItems}
+                            itemsPerPage={ITEMS_PER_PAGE}
+                            onPageChange={setCurrentPage}
+                        />
                     </>
                 )}
             </section>

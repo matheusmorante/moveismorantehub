@@ -150,10 +150,10 @@ export const DeliveryMarker: React.FC<Props> = ({
         tracksViewChanges={tracksViewChanges}
       >
         <View style={styles.markerContainer}>
-          <View style={styles.storePin}>
-            <Store size={15} color="#ffffff" />
+          <View style={[styles.storePin, { backgroundColor: '#f8fafc', borderColor: '#0284c7' }]}>
+            <Text style={{ fontSize: 18 }}>🏬</Text>
           </View>
-          <View style={styles.pinTipStore} />
+          <View style={[styles.pinTipStore, { borderTopColor: '#0284c7' }]} />
         </View>
       </Marker>
     );

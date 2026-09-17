@@ -26,7 +26,7 @@ const movementDelta = (move: any) => move.type === "entry" ? Number(move.quantit
 export const recalculateInventoryAuditBalance = async (productId: string): Promise<boolean> => {
     const [{ data: productRow }, { data: rawMoves, error }] = await Promise.all([
         supabase.from("products").select("*, product_variations(*)").eq("id", productId).single(),
-        supabase.from("inventory_moves").select("*").eq("product_id", productId).order("date", { ascending: true }).order("created_at", { ascending: true }),
+        supabase.from("inventory_moves").select("*").eq("product_id", productId).order("date", { ascending: true }).order("created_at", { ascending: true }).limit(500),
     ]);
     if (error) throw error;
     if (!productRow) return false;

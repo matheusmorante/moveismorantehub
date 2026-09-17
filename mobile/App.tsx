@@ -661,7 +661,7 @@ export default function App() {
 
     const pollingInterval = setInterval(() => {
       fetchNotifications();
-    }, 60000);
+    }, 300000);
 
     return () => {
       cleanTokenListeners();

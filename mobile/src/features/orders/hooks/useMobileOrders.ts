@@ -3,7 +3,7 @@ import { supabase } from '../../../services/supabaseClient';
 import { OrderRepository } from '../../../repositories/OrderRepository';
 import { fetchMobileOrdersPage, MobileOrderListItem } from '../services/mobileOrderListService';
 
-const ITEMS_PER_PAGE = 30;
+const ITEMS_PER_PAGE = 15;
 
 export function useMobileOrders() {
   const [orders, setOrders] = useState<MobileOrderListItem[]>([]);

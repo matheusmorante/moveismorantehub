@@ -55,6 +55,7 @@ export function InboundInvoiceItemsReview(props: InboundInvoiceItemsReviewProps)
                             onRemoveLink={review.removeLink}
                             onRequestQuickRegister={review.setQuickRegisterTarget}
                             onRequestEditProduct={review.editProduct}
+                            onUpdateItem={props.onChange}
                         />
                     ))}
                 </div>

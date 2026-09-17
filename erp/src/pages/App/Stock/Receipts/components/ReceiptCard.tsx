@@ -3,6 +3,7 @@ import { GoodsReceipt } from '@/pages/utils/goodsReceiptService';
 import { formatCurrency, formatToBRDate } from '@/pages/utils/formatters';
 import { formatGoodsReceiptCode } from '@/pages/utils/goodsReceiptCode';
 import { ReceiptMovementBadge } from './ReceiptMovementBadge';
+import { ReceiptsActionsMenu } from './ReceiptsActionsMenu';
 
 export interface ReceiptCardProps {
     readonly receipt: GoodsReceipt;
@@ -124,96 +125,17 @@ export const ReceiptCard: React.FC<ReceiptCardProps> = ({
                         <i className="bi bi-three-dots-vertical text-base" />
                     </button>
 
-                    {showMenu && (
-                        <div
-                            role="menu"
-                            className="absolute right-0 bottom-10 z-50 w-48 rounded-2xl border border-slate-100 bg-white p-1.5 shadow-xl dark:border-slate-800 dark:bg-slate-900 animate-in fade-in zoom-in-95"
-                            onClick={(e) => e.stopPropagation()}
-                        >
-                            <button
-                                type="button"
-                                role="menuitem"
-                                onClick={() => {
-                                    setShowMenu(false);
-                                    if (onViewDetails) onViewDetails(receipt);
-                                    else onClick(receipt);
-                                }}
-                                className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-left text-xs font-bold text-slate-700 hover:bg-slate-50 dark:text-slate-200 dark:hover:bg-slate-800 cursor-pointer"
-                            >
-                                <i className="bi bi-eye text-emerald-600" /> Ver Detalhes
-                            </button>
-
-                            {isDraft && onEdit && (
-                                <button
-                                    type="button"
-                                    role="menuitem"
-                                    onClick={() => {
-                                        setShowMenu(false);
-                                        onEdit(receipt);
-                                    }}
-                                    className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-left text-xs font-bold text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-950/30 cursor-pointer"
-                                >
-                                    <i className="bi bi-pencil-square" /> Editar Rascunho
-                                </button>
-                            )}
-
-                            {onCopyReceipt && (
-                                <button
-                                    type="button"
-                                    role="menuitem"
-                                    onClick={() => {
-                                        setShowMenu(false);
-                                        onCopyReceipt(receipt);
-                                    }}
-                                    className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-left text-xs font-bold text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950/30 cursor-pointer"
-                                >
-                                    <i className="bi bi-copy" /> Copiar recebimento
-                                </button>
-                            )}
-
-                            {!isDraft && !isEstornado && onReverse && (
-                                <button
-                                    type="button"
-                                    role="menuitem"
-                                    onClick={(e) => {
-                                        setShowMenu(false);
-                                        onReverse(e, receipt);
-                                    }}
-                                    className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-left text-xs font-bold text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30 cursor-pointer"
-                                >
-                                    <i className="bi bi-arrow-counterclockwise" /> Estornar Recebimento
-                                </button>
-                            )}
-
-                            {!isDraft && isEstornado && onUnreverse && (
-                                <button
-                                    type="button"
-                                    role="menuitem"
-                                    onClick={(e) => {
-                                        setShowMenu(false);
-                                        onUnreverse(e, receipt);
-                                    }}
-                                    className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-left text-xs font-bold text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/30 cursor-pointer"
-                                >
-                                    <i className="bi bi-arrow-clockwise" /> Desfazer Estorno
-                                </button>
-                            )}
-
-                            {isDraft && onDelete && (
-                                <button
-                                    type="button"
-                                    role="menuitem"
-                                    onClick={(e) => {
-                                        setShowMenu(false);
-                                        onDelete(e, receipt.id);
-                                    }}
-                                    className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-left text-xs font-bold text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30 cursor-pointer"
-                                >
-                                    <i className="bi bi-trash" /> Excluir Rascunho
-                                </button>
-                            )}
-                        </div>
-                    )}
+                    <ReceiptsActionsMenu
+                        receipt={receipt}
+                        isOpen={showMenu}
+                        onClose={() => setShowMenu(false)}
+                        onOpenDetails={onViewDetails || onClick}
+                        onOpenEdit={onEdit}
+                        onCopyReceipt={onCopyReceipt}
+                        onReverseRequest={onReverse}
+                        onUnreverseRequest={onUnreverse}
+                        onDelete={onDelete}
+                    />
                 </div>
             </div>
         </div>

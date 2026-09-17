@@ -174,7 +174,7 @@ export default function InboundInvoicesPage() {
                 currentPage={currentPage}
                 totalPages={totalPages}
                 totalItems={totalCount}
-                itemsPerPage={30}
+                itemsPerPage={15}
                 onPageChange={handlePageChange}
                 loading={isLoading}
             />

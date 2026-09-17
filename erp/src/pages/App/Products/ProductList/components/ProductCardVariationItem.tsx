@@ -118,10 +118,15 @@ export const ProductCardVariationItem: React.FC<ProductCardVariationItemProps> =
 
             <div className="flex items-center gap-3 shrink-0">
                 <div className="flex flex-col items-end">
+                    {hasPromo && (
+                        <span className="text-[9px] font-bold text-red-500 line-through decoration-red-500/50 -mb-0.5">
+                            {formatCurrency(v.unitPrice)}
+                        </span>
+                    )}
                     <span className="text-xs font-black text-slate-700 dark:text-slate-200">
                         {formatCurrency(displayPrice)}
                     </span>
-                    <span className="text-[9px] font-bold text-slate-400">
+                    <span className="text-[9px] font-bold text-slate-400 mt-0.5">
                         Estoque: {v.stock ?? 0}
                     </span>
                 </div>

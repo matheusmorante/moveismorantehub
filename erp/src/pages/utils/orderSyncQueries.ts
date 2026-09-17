@@ -245,7 +245,7 @@ const fetchSharedOrders = async () => {
                 .from(TABLE_NAME)
                 .select('*, order_items(*), order_payments(*)')
                 .order('created_at', { ascending: false })
-                .limit(300);
+                .limit(100);
 
             if (error) {
                 console.error('[OrdersSync] Fetch error:', error);

@@ -234,7 +234,7 @@ const OrderHistoryList = forwardRef<OrderHistoryListRef, OrderHistoryListProps>(
                     currentPage={currentPage}
                     totalPages={totalPages}
                     totalItems={totalItems}
-                    itemsPerPage={30}
+                    itemsPerPage={15}
                     onPageChange={setCurrentPage}
                     loading={loading}
                 />

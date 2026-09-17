@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import Order from "../../../types/order.type";
 import CancelSaleModal from "./CancelSaleModal";
+import { canCancelOrderDirectly } from "@/pages/utils/orderStatusTransitionRules";
 
 type Props = {
     order: Order;
@@ -13,7 +14,7 @@ const CancelScheduledSaleButton = ({ order, onStatusUpdate, onCloseMenu }: Props
 
     const orderType = order.orderType || "sale";
     if (!["sale", "showroom"].includes(orderType)) return null;
-    if (order.status !== "scheduled" || !order.id) return null;
+    if (!canCancelOrderDirectly(order) || !order.id) return null;
 
     return (
         <>

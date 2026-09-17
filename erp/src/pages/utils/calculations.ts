@@ -64,14 +64,17 @@ export const calcPaymentsSummary = (
     const totalOrderValue = itemsSummary.itemsTotalValue + shippingValue
         + totalPaymentsFee;
     const totalAmountPaid = calcPaymentsTotalValue(payments);
-    const amountRemaining = totalOrderValue - totalAmountPaid;
+    const rawRemaining = totalOrderValue - totalAmountPaid;
+    const amountRemaining = rawRemaining > 0 ? Number(rawRemaining.toFixed(2)) : 0;
+    const change = rawRemaining < 0 ? Number(Math.abs(rawRemaining).toFixed(2)) : 0;
 
     return {
         totalPaymentsFee,
         totalOrderValue,
         totalAmountPaid,
-        amountRemaining
-    }
+        amountRemaining,
+        change
+    };
 };
 
 export const calcItemsSummary = (items: Item[]): ItemsSummary => {

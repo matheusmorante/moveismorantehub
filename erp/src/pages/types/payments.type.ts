@@ -13,6 +13,7 @@ export type PaymentsSummary = {
     totalOrderValue: number;
     totalAmountPaid: number;
     amountRemaining: number;
+    change?: number;
     // Legacy support
     totalValue?: number;
     totalPaid?: number;
