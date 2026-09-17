@@ -822,7 +822,7 @@ const LabelPrinting: React.FC = () => {
             (productOpportunity?.slug) ||
             ((product as any).condition === 'salvado' ? 'salvado' : 'none');
 
-        const productImages = (product.images || product.product_images || []) as { image_url: string; is_main: boolean }[];
+        const productImages = (product.images || (product as any).product_images || []) as { image_url: string; is_main: boolean }[];
         const parentImages = ((product as any).parentImages || []) as { image_url: string; is_main: boolean }[];
         
         let initialImage = '';

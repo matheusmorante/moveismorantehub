@@ -91,7 +91,7 @@ const sampleItem: InboundInvoiceItem = {
     unit: 'UN',
     unitCost: 250,
     totalCost: 500,
-};
+} as any as InboundInvoiceItem;
 
 it('renderiza o campo de busca limpo e livre para digitação, e exibe a sugestão de IA abaixo do input', async () => {
     const onChange = vi.fn();

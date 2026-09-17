@@ -44,14 +44,14 @@ const AutoScrollSection: React.FC<Props> = ({ settings, onChange }) => {
                     <div className="space-y-4">
                         <div className="flex justify-between items-center">
                             <label className="text-xs font-bold text-slate-600 dark:text-slate-400 uppercase tracking-widest">
-                                Velocidade: <span className="text-blue-600">{settings.autoScroll.speed}</span>
+                                Velocidade: <span className="text-blue-600">{(settings.autoScroll as any).speed}</span>
                             </label>
                         </div>
                         <input 
                             type="range" 
                             min="5" 
                             max="60" 
-                            value={settings.autoScroll.speed} 
+                            value={(settings.autoScroll as any).speed} 
                             onChange={(e) => onChange('autoScroll.speed', parseInt(e.target.value))}
                             className="w-full h-2 bg-slate-100 dark:bg-slate-800 rounded-lg appearance-none cursor-pointer accent-blue-600"
                         />
@@ -59,14 +59,14 @@ const AutoScrollSection: React.FC<Props> = ({ settings, onChange }) => {
                     <div className="space-y-4">
                         <div className="flex justify-between items-center">
                             <label className="text-xs font-bold text-slate-600 dark:text-slate-400 uppercase tracking-widest">
-                                Sensibilidade: <span className="text-blue-600">{settings.autoScroll.threshold}px</span>
+                                Sensibilidade: <span className="text-blue-600">{(settings.autoScroll as any).threshold}px</span>
                             </label>
                         </div>
                         <input 
                             type="range" 
                             min="20" 
                             max="200" 
-                            value={settings.autoScroll.threshold} 
+                            value={(settings.autoScroll as any).threshold} 
                             onChange={(e) => onChange('autoScroll.threshold', parseInt(e.target.value))}
                             className="w-full h-2 bg-slate-100 dark:bg-slate-800 rounded-lg appearance-none cursor-pointer accent-blue-600"
                         />

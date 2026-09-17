@@ -108,28 +108,29 @@ export type OrderAction =
 export type PdvAction = OrderAction;
 
 export type IsButtonsClicked = {
-    printReceipt: boolean,
-    printShippingOrder: boolean,
-    printWarrantyTerm: boolean,
-    sendShippingOrder: boolean,
-    sendCustomerOrder: boolean,
-    sendCustomerReviews: boolean,
-    printShippingLabel: boolean,
-    printProductLabel: boolean,
-    generatePaymentLink: boolean,
-    printBudget: boolean,
-    sendCustomerOrderDetails: boolean,
-    sendAssistanceOS: boolean,
-    sendBudget: boolean,
-    sendGroupInvite: boolean,
-    printAssistanceOS: boolean,
-    generateReturn: boolean,
-    undoReturn: boolean,
-    printReturnOS: boolean,
-    duplicateOrder: boolean,
-    generateSaleFromBudget: boolean,
+    printReceipt?: boolean,
+    printShippingOrder?: boolean,
+    printWarrantyTerm?: boolean,
+    sendShippingOrder?: boolean,
+    sendCustomerOrder?: boolean,
+    sendCustomerReviews?: boolean,
+    printShippingLabel?: boolean,
+    printProductLabel?: boolean,
+    generatePaymentLink?: boolean,
+    printBudget?: boolean,
+    sendCustomerOrderDetails?: boolean,
+    sendAssistanceOS?: boolean,
+    sendBudget?: boolean,
+    sendGroupInvite?: boolean,
+    printAssistanceOS?: boolean,
+    generateReturn?: boolean,
+    undoReturn?: boolean,
+    printReturnOS?: boolean,
+    duplicateOrder?: boolean,
+    generateSaleFromBudget?: boolean,
     issueNfe?: boolean
 }
+
 
 export type VisibilitySettings = {
     id: boolean;

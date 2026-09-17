@@ -8,7 +8,7 @@ import type { InboundInvoice } from '@/pages/utils/inboundNfe/inboundNfeTypes';
 afterEach(cleanup);
 
 describe('InboundPostImportActionModal', () => {
-    const mockInvoice: InboundInvoice = {
+    const mockInvoice = {
         id: 'inv-123',
         nfeNumber: '000129853',
         series: '1',
@@ -24,7 +24,7 @@ describe('InboundPostImportActionModal', () => {
         ],
         status: 'pending',
         issuedAt: '2026-09-15',
-    };
+    } as any as InboundInvoice;
 
     it('não renderiza nada se isOpen for false', () => {
         const { container } = render(

@@ -47,16 +47,16 @@ const OrderActions = ({ order }: { order: Order }) => {
             order.status === 'returned' ||
             (order as any).hasReturn ||
             (order as any).returned ||
-            (order.order_data as any)?.returnOrderId ||
-            (order.order_data as any)?.returned ||
-            (order.order_data as any)?.status === 'returned'
+            ((order as any).order_data as any)?.returnOrderId ||
+            ((order as any).order_data as any)?.returned ||
+            ((order as any).order_data as any)?.status === 'returned'
         );
 
         if (btn.key === 'generateReturn' && (hasReturn || !canGenerateReturn(order))) return false;
         if (btn.key === 'undoReturn') return false;
 
         return true;
-      }).map((btn, idx) => {
+      }).map((btn: any, idx: number) => {
         const isPrintAction = btn.action === 'PRINT_RECEIPT' || btn.action === 'PRINT_SHIPPING_ORDER' || btn.action === 'PRINT_ASSISTANCE_OS';
         const isAssistance = order.orderType === 'assistance';
         const orderErrors = isPrintAction 

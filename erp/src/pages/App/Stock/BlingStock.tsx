@@ -183,7 +183,7 @@ const BlingStock: React.FC = () => {
                     <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                         {sortedProducts.length > 0 ? sortedProducts.map((product) => {
                             const isChild = !!product.idProdutoPai;
-                            const isParent = product.formato === 'V';
+                            const isParent = (product as any).formato === 'V';
                             const saldo = product.estoque?.saldoTotal || 0;
                             const estoqueMinimo = product.estoqueMinimo || 0;
                             const isLowStock = saldo <= estoqueMinimo && saldo > 0;
@@ -282,11 +282,11 @@ const BlingStock: React.FC = () => {
                                     <div className="space-y-2">
                                         <div className="flex justify-between items-center text-[11px] font-bold">
                                             <span className="text-slate-400 uppercase">Venda:</span>
-                                            <span className="text-blue-600">R$ {parseFloat(selectedProduct.preco || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                                            <span className="text-blue-600">R$ {parseFloat(String(selectedProduct.preco || 0)).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
                                         </div>
                                         <div className="flex justify-between items-center text-[11px] font-bold">
                                             <span className="text-slate-400 uppercase">Custo:</span>
-                                            <span className="text-slate-500">R$ {parseFloat(selectedProduct.precoCusto || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                                            <span className="text-slate-500">R$ {parseFloat(String(selectedProduct.precoCusto || 0)).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
                                         </div>
                                         <div className="flex justify-between items-center text-[11px] font-bold">
                                             <span className="text-slate-400 uppercase">Peso:</span>
