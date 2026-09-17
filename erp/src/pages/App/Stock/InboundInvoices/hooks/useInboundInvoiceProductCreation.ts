@@ -167,7 +167,7 @@ export function useInboundInvoiceProductCreation({
             const finalCost = itemCostWithAdditionalCosts(classifyingItem);
             const attributes: Variation['attributes'] = [];
             const variationId = crypto.randomUUID();
-            await saveVariation(family.id, {
+            await saveVariation(family.id as string, {
                 id: variationId,
                 name: classifyingItem.productDescription,
                 attributes,
@@ -182,7 +182,7 @@ export function useInboundInvoiceProductCreation({
             });
             await saveProductSupplierCode({
                 supplierId,
-                productId: family.id,
+                productId: family.id as string,
                 productVariationId: variationId,
                 supplierProductCode: classifyingItem.productCode,
                 supplierDescription: classifyingItem.productDescription,
@@ -233,7 +233,7 @@ export function useInboundInvoiceProductCreation({
 
                 await saveProductSupplierCode({
                     supplierId,
-                    productId: productToUse.id || createdProduct.id,
+                    productId: (productToUse.id || createdProduct.id) as string,
                     productVariationId: variation?.id,
                     supplierProductCode: currentItem.productCode,
                     supplierDescription: currentItem.productDescription,

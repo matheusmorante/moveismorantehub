@@ -201,7 +201,7 @@ export function useInboundInvoiceItemsReview({
                 try {
                     await saveProductSupplierCode({
                         supplierId,
-                        productId: matchedProductId,
+                        productId: matchedProductId as string,
                         productVariationId: matchedVariationId,
                         supplierProductCode: item.productCode,
                         supplierDescription: item.productDescription,

@@ -58,7 +58,7 @@ const PersonRow = ({
     const menuAnchorRef = React.useRef<HTMLButtonElement>(null);
 
     const isSupplier = person.type === 'suppliers';
-    const isCustomer = person.type === 'customers' || person.type === 'customer';
+    const isCustomer = person.type === 'customers' || (person.type as any) === 'customer';
 
     const renderCell = (key: string) => {
         if (!visibilitySettings[key as keyof PersonVisibilitySettings]) return null;

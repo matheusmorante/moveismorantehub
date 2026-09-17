@@ -85,12 +85,12 @@ export const usePersonForm = ({
         } else {
             const withoutPending = currentRoles.filter(r => r !== 'pending');
             if (withoutPending.includes(roleValue)) {
-                nextRoles = withoutPending.filter(r => r !== roleValue);
+                nextRoles = withoutPending.filter(r => r !== roleValue) as UserRole[];
                 if (nextRoles.length === 0) {
                     nextRoles = ['pending'];
                 }
             } else {
-                nextRoles = [...withoutPending, roleValue];
+                nextRoles = [...withoutPending, roleValue] as UserRole[];
             }
         }
 
@@ -137,8 +137,8 @@ export const usePersonForm = ({
                 ...current,
                 fullName: current.fullName || profile.full_name || profile.email,
                 position: current.position || profile.position || "",
-                role: current.role || profile.role || getPrimaryRole(profileRoles),
-                roles: current.roles && current.roles.length > 0 ? current.roles : profileRoles,
+                role: current.role || (profile.role as UserRole) || getPrimaryRole(profileRoles as UserRole[]),
+                roles: current.roles && current.roles.length > 0 ? current.roles : (profileRoles as UserRole[]),
             }));
             toast.info("Dados e cargos da conta vinculados ao funcionário.");
         } catch (error) {
@@ -155,7 +155,7 @@ export const usePersonForm = ({
             setFormData({
                 ...person,
                 role: person.role || getPrimaryRole(initialRoles),
-                roles: initialRoles,
+                roles: initialRoles as UserRole[],
                 personType: person.personType || "PF",
                 fullAddress: {
                     cep: person.fullAddress?.cep || "",
@@ -177,14 +177,14 @@ export const usePersonForm = ({
                     if (prof?.roles && prof.roles.length > 0) {
                         setFormData((prev) => ({
                             ...prev,
-                            roles: prof.roles || prev.roles,
+                            roles: (prof.roles || prev.roles) as UserRole[],
                             role: prof.role || getPrimaryRole(prof.roles || []) || prev.role
                         }));
                     } else if (prof?.role) {
                         setFormData((prev) => ({
                             ...prev,
                             role: prof.role || prev.role,
-                            roles: [prof.role]
+                            roles: [prof.role as UserRole].filter(Boolean)
                         }));
                     }
                 }).catch(() => {});

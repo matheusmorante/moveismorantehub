@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import Order, { OrderAction, IsButtonsClicked } from "../../../types/order.type";
 import { dateNow } from "../../../utils/formatters";
-import { buttons, actionsMap } from "./orderActionsConfig";
+import { buttons, actionsMap } from "../OrderActions/orderActionsConfig";
 import { validateOrder, validateAssistanceOrder } from "../../../utils/validations";
 import { toast } from "react-toastify";
 import { canGenerateReturn } from "../../../utils/returnPolicy";
@@ -38,7 +38,7 @@ const OrderActions = ({ order }: { order: Order }) => {
 
   return (
     <div className="flex flex-wrap items-center justify-center gap-6">
-      {buttons.filter(btn => {
+      {buttons.filter((btn: any) => {
         if (btn.orderTypes && !btn.orderTypes.includes(order.orderType || 'sale')) return false;
 
         const hasReturn = !!(

@@ -31,7 +31,7 @@ describe('SKU interno no cadastro rápido da nota', () => {
         const parent = {
             id: 'pai-teste', code: '000123', name: 'Mesa',
             variations: [{ id: 'anterior', sku: '000123-05', name: 'Mesa Verde', attributes: [], stock: 0, unitPrice: 100 }],
-        } as Product;
+        } as any as Product;
         const result = await prepareExistingParentNewVariation(parent, item);
         expect(result.variations?.[0]).toEqual(parent.variations?.[0]);
         expect(result.variations?.[1].sku).toBe('000123-06');

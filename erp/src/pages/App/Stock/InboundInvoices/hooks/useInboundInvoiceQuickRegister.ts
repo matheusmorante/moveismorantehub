@@ -62,7 +62,7 @@ export function useInboundInvoiceQuickRegister(supplierId?: string) {
     const editProduct = async (product: Product) => {
         try {
             setIsPreparingProduct(true);
-            const parentProduct = await getFullProduct(product.id);
+            const parentProduct = await getFullProduct(product.id as string);
             if (!parentProduct) {
                 toast.error('Produto não encontrado.');
                 return;

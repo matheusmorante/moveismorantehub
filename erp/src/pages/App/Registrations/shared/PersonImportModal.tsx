@@ -208,7 +208,7 @@ const PersonImportModal: React.FC<PersonImportModalProps> = ({ isOpen, onClose, 
                     observation: getVal('observation'),
                     active: true,
                     type: collectionName as any
-                }
+                } as any
             };
         }).filter(r => r.data.fullName && r.data.fullName.trim() !== '');
 

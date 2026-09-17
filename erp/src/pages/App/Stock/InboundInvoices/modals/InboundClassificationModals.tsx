@@ -1,6 +1,6 @@
 import React from 'react';
 import type { InboundInvoiceItem } from '@/pages/utils/inboundNfe/inboundNfeTypes';
-import type { AiClassification } from '../hooks/useInboundInvoiceItemsReview';
+import type { AiClassification } from '../hooks/useInboundInvoiceClassification';
 import { formatCurrency } from '@/pages/utils/formatters';
 import { itemCostWithAdditionalCosts } from '@/pages/utils/inboundNfe/inboundItemCosts';
 
@@ -75,7 +75,7 @@ export const InboundClassificationModals: React.FC<InboundClassificationModalsPr
                             <p className="text-slate-400">Confiança: {Math.round(aiClassification.confidence * 100)}%</p>
                             {aiClassification.reasons.length > 0 && (
                                 <ul className="mt-1 list-disc pl-4 text-slate-400">
-                                    {aiClassification.reasons.map((r, i) => <li key={i}>{r}</li>)}
+                                    {aiClassification.reasons.map((r: string, i: number) => <li key={i}>{r}</li>)}
                                 </ul>
                             )}
                         </div>

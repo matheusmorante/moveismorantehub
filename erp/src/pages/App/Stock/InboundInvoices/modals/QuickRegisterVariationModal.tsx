@@ -158,7 +158,7 @@ export function QuickRegisterVariationModal({
                                 value={selectedParent?.name || ''}
                                 isSelected={Boolean(selectedParent)}
                                 placeholder="Digite 2 ou mais letras para buscar o produto pai..."
-                                onSelect={(prod) => setSelectedParent({ id: prod.id, name: prod.name || prod.title || '' })}
+                                onSelect={(prod) => setSelectedParent({ id: prod.id as string, name: prod.name || prod.title || '' })}
                             />
                         </div>
                     )}

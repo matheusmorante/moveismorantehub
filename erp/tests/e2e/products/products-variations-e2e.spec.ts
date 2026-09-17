@@ -184,7 +184,7 @@ test.describe('Suíte E2E B2B - Criação de Produto, Variações e Validações
         const nameInputA = page.locator('input[placeholder*="nome interno"]').first();
         await nameInputA.fill(`${testRunId} Pai Origem`);
         await nameInputA.blur();
-        await page.locator('button:has-text("Concluir")').click();
+        await page.locator('button:has-text("Cadastrar produto"), button:has-text("Salvar alterações")').first().click();
 
         // Cria o Produto Pai B (Canônico)
         await page.goto(`/registrations/products?${AUTH_QUERY}`);
@@ -194,7 +194,7 @@ test.describe('Suíte E2E B2B - Criação de Produto, Variações e Validações
         const nameInputB = page.locator('input[placeholder*="nome interno"]').first();
         await nameInputB.fill(`${testRunId} Pai Destino`);
         await nameInputB.blur();
-        await page.locator('button:has-text("Concluir")').click();
+        await page.locator('button:has-text("Cadastrar produto"), button:has-text("Salvar alterações")').first().click();
 
         // Acessa a lista novamente para buscar as variações
         await page.goto(`/registrations/products?${AUTH_QUERY}`);
@@ -247,7 +247,7 @@ test.describe('Suíte E2E B2B - Criação de Produto, Variações e Validações
         const nameInputA = page.locator('input[placeholder*="nome interno"]').first();
         await nameInputA.fill(`${testRunId} Pai Origem Mov`);
         await nameInputA.blur();
-        await page.locator('button:has-text("Concluir")').click();
+        await page.locator('button:has-text("Cadastrar produto"), button:has-text("Salvar alterações")').first().click();
 
         // Cria o Produto Pai B (Destino)
         await page.goto(`/registrations/products?${AUTH_QUERY}`);
@@ -257,7 +257,7 @@ test.describe('Suíte E2E B2B - Criação de Produto, Variações e Validações
         const nameInputB = page.locator('input[placeholder*="nome interno"]').first();
         await nameInputB.fill(`${testRunId} Pai Destino Mov`);
         await nameInputB.blur();
-        await page.locator('button:has-text("Concluir")').click();
+        await page.locator('button:has-text("Cadastrar produto"), button:has-text("Salvar alterações")').first().click();
 
         // Acessa a lista
         await page.goto(`/registrations/products?${AUTH_QUERY}`);
@@ -295,7 +295,7 @@ test.describe('Suíte E2E B2B - Criação de Produto, Variações e Validações
         const priceInput = page.locator('input[placeholder="0,00"]').first();
         await priceInput.fill('100,00');
 
-        await page.locator('button:has-text("Concluir")').click();
+        await page.locator('button:has-text("Cadastrar produto"), button:has-text("Salvar alterações")').first().click();
 
         // Volta para a lista e abre o produto recém-criado
         await page.goto(`/registrations/products?${AUTH_QUERY}`);
@@ -345,7 +345,7 @@ test.describe('Suíte E2E B2B - Criação de Produto, Variações e Validações
         // O afterEach garante que pageErrors e consoleErrors estejam vazios.
         
         // Conclui o produto
-        await page.locator('button:has-text("Concluir")').first().click();
+        await page.locator('button:has-text("Cadastrar produto"), button:has-text("Salvar alterações"), button:has-text("Concluir")').first().click();
         
         const successToast = page.locator('text=Produto salvo com sucesso');
         await expect(successToast).toBeVisible({ timeout: 5000 });
