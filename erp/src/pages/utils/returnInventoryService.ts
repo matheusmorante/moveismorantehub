@@ -34,7 +34,7 @@ export const processReturnInventoryEntries = async (
         if (!shouldCreateReturnEntry(item, await hasReturnEntry(orderId, label))) continue;
 
         await saveInventoryMove({
-            productId: item.productId,
+            productId: item.productId as string,
             variationId: item.variationId,
             productDescription: item.description,
             type: "entry",
@@ -53,7 +53,7 @@ export const processReturnInventoryEntries = async (
         }, 0);
 
         if (options.historical) {
-            await reprocessMovingAverageCosts(item.productId, item.variationId);
+            await reprocessMovingAverageCosts(item.productId as string, item.variationId);
         }
 
         processedAnyItem = true;

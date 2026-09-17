@@ -40,7 +40,10 @@ export const ProductRowDescriptionCell: React.FC<ProductRowDescriptionCellProps>
     const isDeactivated = (product.active === false || product.deleted) && !isDraft;
 
     const count = variationsCount ?? product.allVariations?.length ?? 0;
-    const hasImage = Boolean(!imageError && product.images && product.images.length > 0 && product.images[0]);
+    const parentImages = (product as any).parentImages as string[] | undefined;
+    const fallbackImage = parentImages && parentImages.length > 0 ? parentImages[0] : null;
+    const primaryImage = product.images && product.images.length > 0 ? product.images[0] : fallbackImage;
+    const hasImage = Boolean(!imageError && primaryImage);
 
     return (
         <td key="description" className="px-3 py-3 text-left min-w-[520px]">
@@ -74,7 +77,7 @@ export const ProductRowDescriptionCell: React.FC<ProductRowDescriptionCellProps>
                         <div className="w-10 h-10 rounded-lg bg-slate-100 dark:bg-slate-800 overflow-hidden flex-shrink-0 flex items-center justify-center border border-slate-200/60 dark:border-slate-800">
                             {hasImage ? (
                                 <img 
-                                    src={product.images![0]}
+                                    src={primaryImage as string}
                                     alt={displayName} 
                                     className="w-full h-full object-cover"
                                     onError={() => setImageError(true)}
@@ -108,13 +111,13 @@ export const ProductRowDescriptionCell: React.FC<ProductRowDescriptionCellProps>
                                 )}
 
                                 {!isChildVariation && oppName && (
-                                    <span className="inline-flex items-center gap-1 bg-amber-100 dark:bg-amber-955/70 text-amber-800 dark:text-amber-300 px-1.5 py-0.5 rounded text-[9px] font-black uppercase tracking-wider border border-amber-300 dark:border-amber-700/80">
+                                    <span className="inline-flex items-center gap-1 bg-amber-100 dark:bg-amber-955/70 text-amber-800 dark:text-amber-300 px-1.5 py-0.5 rounded text-[9px] font-black tracking-wider border border-amber-300 dark:border-amber-700/80">
                                         <i className="bi bi-fire text-amber-600 dark:text-amber-400" /> {oppName}
                                     </span>
                                 )}
 
                                 {!isChildVariation && supplierNames.map((supName, sIdx) => (
-                                    <span key={sIdx} className="inline-flex items-center gap-1 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 px-1.5 py-0.5 rounded text-[9px] font-black uppercase tracking-wider border border-slate-200 dark:border-slate-700">
+                                    <span key={sIdx} className="inline-flex items-center gap-1 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 px-1.5 py-0.5 rounded text-[9px] font-black tracking-wider border border-slate-200 dark:border-slate-700">
                                         <i className="bi bi-truck text-slate-400 dark:text-slate-500" /> {supName}
                                     </span>
                                 ))}

@@ -27,14 +27,13 @@ export interface ProductListRef {
 const ProductList = forwardRef<ProductListRef, ProductListProps>(({ onEdit, onShowHistory, onLaunchStock, filters, visibilitySettings, onToggleColumn, onSort, categoryTree, title, onCloseTrash, onRefresh, onDuplicate }, ref) => {
 
     const [showDeactivated, setShowDeactivated] = React.useState(false);
-    const [showMerged, setShowMerged] = React.useState(false);
     const listFilters = React.useMemo(() => ({
         ...filters,
         // A visão exclusiva de desativados continua funcionando pelos filtros
         // existentes; na lista normal, o padrão é escondê-los.
         includeDeactivated: filters?.activeOnly === false ? true : showDeactivated,
-        includeMergedVariations: showMerged,
-    }), [filters, showDeactivated, showMerged]);
+        includeMergedVariations: true,
+    }), [filters, showDeactivated]);
 
     const {
         products,
@@ -150,15 +149,6 @@ const ProductList = forwardRef<ProductListRef, ProductListProps>(({ onEdit, onSh
                             <i className={`bi ${showDeactivated ? 'bi-check-square-fill' : 'bi-square'}`} />
                             Mostrar desativados
                         </button>
-                        <button
-                            type="button"
-                            aria-pressed={showMerged}
-                            onClick={() => setShowMerged(current => !current)}
-                            className={`flex items-center gap-2 rounded-xl border px-3 py-2 text-[10px] font-black uppercase tracking-wider transition-colors ${showMerged ? 'border-violet-300 bg-violet-50 text-violet-600 dark:border-violet-900 dark:bg-violet-950/40 dark:text-violet-300' : 'border-slate-200 bg-white text-slate-500 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-400'}`}
-                        >
-                            <i className={`bi ${showMerged ? 'bi-check-square-fill' : 'bi-square'}`} />
-                            Mostrar fundidos
-                        </button>
                     </div>
                 )}
 
@@ -209,7 +199,7 @@ const ProductList = forwardRef<ProductListRef, ProductListProps>(({ onEdit, onSh
                                 onChange={(e) => { setItemsPerPage(Number(e.target.value)); setCurrentPage(1); }}
                                 className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1 text-xs text-slate-600 dark:text-slate-400 focus:outline-none"
                             >
-                                {(isServerPagination ? [10, 20, 30, 50, 100] : [10, 25, 50, 100, 300, 500, 1000]).map(size => <option key={size} value={size}>{size} por página</option>)}
+                                {(isServerPagination ? [10, 15] : [10, 15]).map(size => <option key={size} value={size}>{size} por página</option>)}
                             </select>
                         </div>
                     </div>

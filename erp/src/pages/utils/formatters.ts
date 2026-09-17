@@ -205,7 +205,7 @@ export const capitalizeOrder = (order: Order): Order => {
     };
 
     // Se o pedido usa o endereço do cliente ou o deliveryAddress está vazio de rua, herda o fullAddress do customerData
-    const hasDeliveryStreet = Boolean(shipping.deliveryAddress?.street || (typeof shipping.deliveryAddress === 'string' && shipping.deliveryAddress.trim()));
+    const hasDeliveryStreet = Boolean(shipping.deliveryAddress?.street);
     const finalDeliveryAddress = (shipping.useCustomerAddress !== false || !hasDeliveryStreet)
         ? (hasDeliveryStreet ? shipping.deliveryAddress : (order.customerData?.fullAddress || shipping.deliveryAddress))
         : shipping.deliveryAddress;

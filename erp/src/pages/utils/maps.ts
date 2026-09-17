@@ -464,7 +464,7 @@ export const searchAddressSuggestions = async (query: string, city?: string, sta
                         supabase.from('address_cache').upsert({
                             query_key: cacheQueryKey,
                             results: placesMapped
-                        }).then().catch(() => {});
+                        }).then(() => {}, () => {});
                     }
 
                     ApiUsageTracker.record({

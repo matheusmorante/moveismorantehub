@@ -292,8 +292,8 @@ describe('Testes de Interface e Negócio: Resumo de Entregas, Contadores e Auto-
     expect(fulfilled).toBe(true);
     expect(orderStuck.status).toBe('fulfilled');
     expect(orderStuck.order_data.deliveryStatus).toBe('completed');
-    expect(orderStuck.order_data.autoFulfilledAfter12h).toBe(true);
-    expect(orderStuck.order_data.deliveryFinishedAt).toBeDefined();
+    expect((orderStuck.order_data as any).autoFulfilledAfter12h).toBe(true);
+    expect((orderStuck.order_data as any).deliveryFinishedAt).toBeDefined();
   });
 
   it('10. Pedidos já atendidos ou cancelados não disparam auto-atendimento de 12 horas', () => {

@@ -1,31 +1,3 @@
-export interface CommonNcm {
-    readonly code: string;
-    readonly description: string;
-}
-
-export interface FiscalOption {
-    readonly value: string;
-    readonly label: string;
-}
-
-export const COMMON_NCMS: readonly CommonNcm[] = [
-    { code: '94035000', description: 'Móveis de madeira para dormitórios (Guarda-roupa, Cama, Cômoda, Cabeceira, Criado-Mudo)' },
-    { code: '94036000', description: 'Outros móveis de madeira (Rack, Painel, Aparador, Mesa de Centro, Estante, Buffet)' },
-    { code: '94016100', description: 'Assentos com armação de madeira, estofados (Sofá, Poltrona, Cadeira Estofada, Banqueta)' },
-    { code: '94033000', description: 'Móveis de madeira para escritórios (Escrivaninha, Mesa de Reunião, Gaveteiro)' },
-    { code: '94034000', description: 'Móveis de madeira para cozinhas (Armário, Balcão, Paneleiro, Kit Cozinha)' },
-    { code: '94016900', description: 'Assentos com armação de madeira, não estofados (Cadeira de Madeira)' },
-    { code: '94042100', description: 'Colchões de espuma (borracha ou plástico alveolar)' },
-    { code: '94042900', description: 'Colchões de molas ou outros materiais' },
-    { code: '94032000', description: 'Outros móveis de metal (Mesa com base de aço, Escrivaninha Industrial)' },
-    { code: '94017100', description: 'Assentos com armação de metal, estofados (Banqueta Estofada, Cadeira de Metal)' },
-    { code: '94017900', description: 'Assentos com armação de metal, não estofados' },
-    { code: '94039090', description: 'Partes de móveis (Peças sobressalentes, portas, tampos)' },
-    { code: '94038900', description: 'Móveis de outras matérias (Plástico, Vime, Junco, etc.)' },
-    { code: '39249000', description: 'Utensílios de plástico para decoração ou uso doméstico' },
-    { code: '70139900', description: 'Objetos de vidro para decoração (Vasos, Pratos Decorativos)' },
-    { code: '94051090', description: 'Aparelhos de iluminação (Lustres, Luminárias de teto/parede)' },
-];
 
 export const CSOSN_OPTIONS: readonly FiscalOption[] = [
     { value: '102', label: '102 - Simples Nacional - Sem permissão de crédito (Venda padrão)' },

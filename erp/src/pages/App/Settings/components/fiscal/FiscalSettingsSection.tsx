@@ -1,5 +1,7 @@
 import React from 'react';
 import { CompanyFiscalDataSection } from '../CompanyFiscalDataSection';
+import { NcmSelect } from '../../../SalesOrder/OrderActions/nfe-modal/NcmSelect';
+import { NcmManagementPanel } from './NcmManagementPanel';
 
 interface FiscalSettingsSectionProps {
     settings: any;
@@ -73,17 +75,7 @@ export default function FiscalSettingsSection({ settings, onChange }: FiscalSett
         { value: '99', label: '99 - Outras Operações' }
     ];
 
-    // NCMs mais comuns no setor de móveis do PR
-    const ncmsComuns = [
-        { value: '94036000', label: '9403.60.00 - Outros móveis de madeira (Aparadores, Mesas, Armários)' },
-        { value: '94016100', label: '9401.61.00 - Assentos com armação de madeira, estofados (Cadeiras, Sofás)' },
-        { value: '94035000', label: '9403.50.00 - Móveis de madeira do tipo utilizado em quartos (Camas, Guarda-roupas)' },
-        { value: '94033000', label: '9403.30.00 - Móveis de madeira do tipo utilizado em escritórios (Mesas de escritório, Balcões)' },
-        { value: '94034000', label: '9403.40.00 - Móveis de madeira do tipo utilizado em cozinhas (Armários de Cozinha)' },
-        { value: '94042100', label: '9404.21.00 - Colchões de matérias celulares (Espuma, Látex)' },
-        { value: '94042900', label: '9404.29.00 - Colchões de outras matérias (Molas)' },
-        { value: '94038900', label: '9403.89.00 - Móveis de outras matérias (Rattan, Vime, Plástico)' }
-    ];
+    // NCMs agora são pesquisados dinamicamente
 
     // CESTs comuns relacionados a móveis/colchões (ST no PR se aplicável)
     const cestsComuns = [
@@ -169,25 +161,11 @@ export default function FiscalSettingsSection({ settings, onChange }: FiscalSett
                         <p className="text-xs text-slate-400 dark:text-slate-500 mt-1 leading-relaxed">Nomenclatura Comum do Mercosul sugerida para móveis.</p>
                     </div>
                     <div className="w-full md:w-96 flex flex-col gap-2">
-                        <select
+                        <NcmSelect 
                             value={fiscal.ncm || '94036000'}
-                            onChange={(e) => updateFiscal('ncm', e.target.value)}
-                            className="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl px-5 py-3 text-sm outline-none focus:ring-2 focus:ring-blue-100 dark:focus:ring-blue-900/20 focus:border-blue-500 dark:text-slate-200 w-full transition-all font-bold"
-                        >
-                            {ncmsComuns.map(n => (
-                                <option key={n.value} value={n.value}>{n.label}</option>
-                            ))}
-                        </select>
-                        <div className="relative">
-                            <input
-                                type="text"
-                                maxLength={8}
-                                placeholder="Ou digite outro NCM (8 dígitos)..."
-                                value={fiscal.ncm || ''}
-                                onChange={(e) => updateFiscal('ncm', e.target.value.replace(/\D/g, ''))}
-                                className="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl px-5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-blue-100 dark:focus:ring-blue-900/20 focus:border-blue-500 dark:text-slate-200 w-full transition-all font-mono font-bold"
-                            />
-                        </div>
+                            onChange={(ncmCode) => updateFiscal('ncm', ncmCode)}
+                            placeholder="Busque por código ou nome do NCM..."
+                        />
                     </div>
                 </div>
             </div>
@@ -246,7 +224,7 @@ export default function FiscalSettingsSection({ settings, onChange }: FiscalSett
             </div>
 
             {/* PIS/COFINS CST */}
-            <div className="p-8 hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors">
+            <div className="p-8 hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors border-b border-slate-100 dark:border-slate-800/50">
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
                     <div className="flex-1 max-w-lg">
                         <h4 className="font-bold text-slate-800 dark:text-slate-200 text-sm uppercase tracking-wider">CST de PIS/COFINS Padrão</h4>
@@ -270,6 +248,9 @@ export default function FiscalSettingsSection({ settings, onChange }: FiscalSett
                     </select>
                 </div>
             </div>
+
+            {/* Painel de Gestão NCM */}
+            <NcmManagementPanel />
         </div>
     );
 }

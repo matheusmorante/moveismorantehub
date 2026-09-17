@@ -13,7 +13,7 @@ export interface OrderStatusConfig {
     isCore?: boolean;
 }
 
-export type OrderTypeColor = 'orange' | 'purple' | 'green' | 'blue' | 'amber' | 'rose' | 'indigo' | 'emerald' | 'cyan' | 'pink' | 'red';
+export type OrderTypeColor = 'orange' | 'purple' | 'green' | 'blue' | 'amber' | 'rose' | 'indigo' | 'emerald' | 'cyan' | 'pink' | 'red' | 'slate';
 
 export interface HandlingOption {
     label: string;
@@ -173,6 +173,8 @@ export interface AppSettings {
         orderConfirmation: string;
         deliveryInfo: string;
         assistanceConfirmation: string;
+        groupInviteMessage: string;
+        groupInviteLink: string;
     };
     receiptConfig: {
         footerText: string;
@@ -566,7 +568,9 @@ RESPOSTA NO FORMATO JSON:
         autoPrintDeliveryOrder: true,
         autoSendWhatsAppDelivery: true,
         autoSendCustomerOrder: true,
-        deliveryPhone: ''
+        deliveryPhone: '',
+        groupInviteMessage: '',
+        groupInviteLink: ''
     },
     deliveryReminderAutomation: {
         enabled: false,

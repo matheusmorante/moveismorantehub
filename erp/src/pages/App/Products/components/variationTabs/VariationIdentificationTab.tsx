@@ -44,6 +44,7 @@ export const VariationIdentificationTab: React.FC<VariationIdentificationTabProp
     fetchDbAttributes
 }) => {
     const [localAttributeValues, setLocalAttributeValues] = useState<readonly DbAttributeValueItem[]>(dbAttributeValues);
+    const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
 
     useEffect(() => {
         setLocalAttributeValues(dbAttributeValues);
@@ -58,6 +59,39 @@ export const VariationIdentificationTab: React.FC<VariationIdentificationTabProp
             const autoTitle = getDefaultVariationTitle(updated);
             return { ...prev, attributes: updated, name: autoName, title: autoTitle, marketplaceTitle: autoTitle };
         });
+    };
+
+    const handleDragStart = (e: React.DragEvent, index: number) => {
+        setDraggedIndex(index);
+        e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData('text/plain', index.toString());
+    };
+
+    const handleDrop = (e: React.DragEvent, index: number) => {
+        e.preventDefault();
+        if (draggedIndex === null || draggedIndex === index) return;
+        
+        setFormData(prev => {
+            if (!prev || !prev.attributes) return null;
+            const updated = [...prev.attributes];
+            const [movedItem] = updated.splice(draggedIndex, 1);
+            updated.splice(index, 0, movedItem);
+            
+            const autoName = getDefaultVariationName(updated);
+            const autoTitle = getDefaultVariationTitle(updated);
+            return { 
+                ...prev, 
+                attributes: updated, 
+                name: autoName,
+                title: autoTitle,
+                marketplaceTitle: autoTitle
+            };
+        });
+        setDraggedIndex(null);
+    };
+
+    const handleDragOver = (e: React.DragEvent) => {
+        e.preventDefault();
     };
 
     return (
@@ -175,14 +209,38 @@ export const VariationIdentificationTab: React.FC<VariationIdentificationTabProp
                     <p className="text-xs text-slate-400 italic text-center py-2">Nenhum atributo vinculado.</p>
                 ) : (
                     <div className="space-y-3">
+                        {/* Header Row Unificado */}
+                        <div className="flex items-center gap-3 px-2 mb-1">
+                            <div className="w-5 shrink-0" title="Arrastar"></div>
+                            <div className="flex-1">
+                                <label className="text-[9px] text-slate-400 font-bold uppercase tracking-widest block">Nome</label>
+                            </div>
+                            <div className="flex-1">
+                                <label className="text-[9px] text-slate-400 font-bold uppercase tracking-widest block">Valor</label>
+                            </div>
+                            <div className="w-8 shrink-0"></div>
+                        </div>
+
                         {(formData.attributes || []).map((attr, idx) => {
                             const currentAttr = dbAttributes.find(a => a.name === attr.name);
                             const attrVals = currentAttr ? localAttributeValues.filter(val => val.attribute_id === currentAttr.id) : [];
 
                             return (
-                                <div key={idx} className="flex items-start gap-3 animate-in fade-in duration-200">
-                                    <div className="flex-1 space-y-1">
-                                        <label className="text-[9px] text-slate-400 font-bold uppercase">Atributo</label>
+                                <div 
+                                    key={`attr-${idx}-${attr.name}`}
+                                    draggable
+                                    onDragStart={(e) => handleDragStart(e, idx)}
+                                    onDrop={(e) => handleDrop(e, idx)}
+                                    onDragOver={handleDragOver}
+                                    className={`flex items-center gap-3 p-1.5 bg-white dark:bg-slate-900 rounded-xl border border-slate-100 dark:border-slate-800 shadow-sm animate-in fade-in duration-200 transition-all ${draggedIndex === idx ? 'opacity-50 scale-[0.98] border-blue-500' : 'opacity-100'}`}
+                                >
+                                    <div 
+                                        className="w-5 shrink-0 flex items-center justify-center text-slate-300 dark:text-slate-600 hover:text-blue-500 cursor-grab active:cursor-grabbing transition-colors"
+                                        title="Clique e arraste para ordenar"
+                                    >
+                                        <i className="bi bi-grip-vertical text-lg"></i>
+                                    </div>
+                                    <div className="flex-1 relative">
                                         <select
                                             value={attr.name}
                                             onChange={e => {

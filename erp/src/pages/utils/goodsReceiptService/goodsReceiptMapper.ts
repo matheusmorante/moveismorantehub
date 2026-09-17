@@ -1,5 +1,5 @@
 import { GoodsReceipt } from './goodsReceipt.types';
-import { PurchaseItem } from '../types/purchase.type';
+import { PurchaseItem } from '../../types/purchase.type';
 
 export const isValidUuid = (val?: string): boolean =>
     Boolean(val && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val));

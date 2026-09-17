@@ -153,7 +153,7 @@ export const sendDirectCustomerMessage = async (order: Order) => {
         : stringifyFullAddressWithObservation(customer.fullAddress);
 
     const cleanTotalVal = (order.paymentsSummary?.totalOrderValue || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-    const paymentsStr = stringifyPayments(order.paymentsSummary?.payments || []);
+    const paymentsStr = stringifyPayments(order.payments || []);
 
     const allParams = [
         customer.fullName || "Cliente",

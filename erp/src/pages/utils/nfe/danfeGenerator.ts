@@ -32,19 +32,19 @@ export function generateDanfeHtml(data: DanfeData): string {
     const customer = order.customerData;
     const destName = isHomologacao 
         ? 'NF-E EMITIDA EM AMBIENTE DE HOMOLOGACAO - SEM VALOR FISCAL' 
-        : (customer?.fullName || customer?.name || 'CONSUMIDOR FINAL');
-    const destDoc = customer?.cpfCnpj || customer?.document || '';
-    const destLogr = order.shipping?.address?.street || customer?.address?.street || '';
-    const destNum = order.shipping?.address?.number || customer?.address?.number || 'S/N';
-    const destBairro = order.shipping?.address?.neighborhood || customer?.address?.neighborhood || '';
-    const destCep = order.shipping?.address?.cep || customer?.address?.cep || '';
-    const destMun = order.shipping?.address?.city || customer?.address?.city || 'Colombo';
-    const destUF = order.shipping?.address?.state || customer?.address?.state || 'PR';
+        : (customer?.fullName || 'CONSUMIDOR FINAL');
+    const destDoc = customer?.cpfCnpj || '';
+    const destLogr = order.shipping?.deliveryAddress?.street || customer?.fullAddress?.street || '';
+    const destNum = order.shipping?.deliveryAddress?.number || customer?.fullAddress?.number || 'S/N';
+    const destBairro = order.shipping?.deliveryAddress?.neighborhood || customer?.fullAddress?.neighborhood || '';
+    const destCep = order.shipping?.deliveryAddress?.cep || customer?.fullAddress?.cep || '';
+    const destMun = order.shipping?.deliveryAddress?.city || customer?.fullAddress?.city || 'Colombo';
+    const destUF = order.shipping?.deliveryAddress?.state || customer?.fullAddress?.state || 'PR';
     const destPhone = customer?.phone || '';
     const destIE = (customer as any)?.rgIe || 'ISENTO';
 
     const totalOrder = Number(order.paymentsSummary?.totalOrderValue || 0);
-    const freight = Number(order.shipping?.fee || 0);
+    const freight = Number(order.shipping?.value || 0);
     const discount = Number(order.itemsSummary?.totalFixedDiscount || 0);
     const totalProd = Math.max(0, totalOrder - freight + discount);
 

@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import Product from '../../../../../types/product.type';
-import { COMMON_NCMS } from '../productFiscalOptions';
+import { ncmService, NcmSearchResult } from '@/services/fiscal/ncmService';
 
 interface ProductNcmSelectorProps {
     formData: Partial<Product>;
@@ -34,13 +34,27 @@ export const ProductNcmSelector: React.FC<ProductNcmSelectorProps> = ({
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, []);
 
-    const filteredNcms = useMemo(() => {
-        const q = searchQuery.toLowerCase().trim();
-        if (!q) return COMMON_NCMS;
-        return COMMON_NCMS.filter(item =>
-            item.code.includes(q) ||
-            item.description.toLowerCase().includes(q)
-        );
+    const [results, setResults] = useState<NcmSearchResult[]>([]);
+    const [isLoadingNcms, setIsLoadingNcms] = useState(false);
+
+    useEffect(() => {
+        const fetchNcms = async () => {
+            if (searchQuery.trim().length < 2) {
+                setResults([]);
+                return;
+            }
+            setIsLoadingNcms(true);
+            try {
+                const res = await ncmService.searchNcms(searchQuery, 10);
+                setResults(res);
+            } catch (err) {
+                console.error("Erro ao buscar NCMs:", err);
+            } finally {
+                setIsLoadingNcms(false);
+            }
+        };
+        const timer = setTimeout(fetchNcms, 300);
+        return () => clearTimeout(timer);
     }, [searchQuery]);
 
     return (
@@ -127,28 +141,43 @@ export const ProductNcmSelector: React.FC<ProductNcmSelectorProps> = ({
 
             {isDropdownOpen && (
                 <div className="absolute left-0 right-0 top-full mt-2 bg-white dark:bg-slate-900 border border-slate-150 dark:border-slate-800 rounded-2xl shadow-xl z-50 p-2 max-h-60 overflow-y-auto custom-scrollbar flex flex-col gap-0.5">
-                    {filteredNcms.map(item => (
-                        <div
-                            key={item.code}
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                setFormData(prev => ({
-                                    ...prev,
-                                    fiscal: {
-                                        ...prev.fiscal!,
-                                        ncm: item.code,
-                                        ncmDescription: item.description
-                                    }
-                                }));
-                                setSearchQuery(item.code);
-                                setIsDropdownOpen(false);
-                            }}
-                            className="px-3 py-2 hover:bg-slate-50 dark:hover:bg-slate-800/60 cursor-pointer transition-colors text-left rounded-xl"
-                        >
-                            <span className="text-xs font-mono font-bold text-slate-800 dark:text-slate-100">{item.code}</span>
-                            <p className="text-[10px] text-slate-500 line-clamp-1">{item.description}</p>
+                    {isLoadingNcms ? (
+                        <div className="p-3 text-center text-xs text-slate-400">
+                            <i className="bi bi-arrow-repeat animate-spin mr-2" /> Buscando NCMs...
                         </div>
-                    ))}
+                    ) : results.length > 0 ? (
+                        results.map(item => (
+                            <div
+                                key={item.code}
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    setFormData(prev => ({
+                                        ...prev,
+                                        fiscal: {
+                                            ...prev.fiscal!,
+                                            ncm: item.code,
+                                            ncmDescription: item.official_description
+                                        }
+                                    }));
+                                    setSearchQuery(item.code);
+                                    setIsDropdownOpen(false);
+                                }}
+                                className="px-3 py-2 hover:bg-slate-50 dark:hover:bg-slate-800/60 cursor-pointer transition-colors text-left rounded-xl group"
+                            >
+                                <span className="text-xs font-mono font-bold text-slate-800 dark:text-slate-100 group-hover:text-blue-600">{item.code}</span>
+                                <p className="text-[10px] text-slate-500 line-clamp-2">{item.official_description}</p>
+                                {item.alias_match && (
+                                    <p className="text-[9px] text-slate-400 mt-1 italic flex items-center gap-1">
+                                        <i className="bi bi-tag-fill" /> {item.alias_match}
+                                    </p>
+                                )}
+                            </div>
+                        ))
+                    ) : searchQuery.length >= 2 ? (
+                        <div className="p-3 text-center text-xs text-slate-400">
+                            Nenhum NCM encontrado.
+                        </div>
+                    ) : null}
                 </div>
             )}
 

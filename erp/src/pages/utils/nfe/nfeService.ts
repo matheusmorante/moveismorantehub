@@ -159,7 +159,7 @@ export async function emitNfeForOrder(order: Order, customEnvironment?: 1 | 2): 
     };
 
     try {
-        await updateOrder(order.id, {
+        await updateOrder(order.id as string, {
             ...order,
             nfeData: nfeRecord
         } as any);
@@ -178,7 +178,7 @@ export async function emitNfeForOrder(order: Order, customEnvironment?: 1 | 2): 
             numero_protocolo: protocolNumber,
             valor_total: order.paymentsSummary?.totalOrderValue || 0,
             destinatario_nome: order.customerData?.fullName || 'CONSUMIDOR FINAL',
-            destinatario_documento: order.customerData?.cpfCnpj || order.customerData?.document || ''
+            destinatario_documento: order.customerData?.cpfCnpj || (order.customerData as any)?.document || ''
         });
     } catch (err) {
         console.warn("Aviso ao persistir nfe_documents:", err);

@@ -86,8 +86,6 @@ export const VariationAttributeValueInput: React.FC<VariationAttributeValueInput
 
     return (
         <div ref={containerRef} className="relative flex-1 self-end space-y-1">
-            <label className="text-[9px] text-slate-400 font-bold uppercase block">Valor</label>
-
             <div className="relative flex items-center">
                 <input
                     type="text"

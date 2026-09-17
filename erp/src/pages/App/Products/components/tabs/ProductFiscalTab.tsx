@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import Product from '../../../../types/product.type';
 import { getSettings } from '@/pages/utils/settingsService';
-import { COMMON_NCMS, CEST_OPTIONS, CFOP_OPTIONS, CSOSN_OPTIONS, ORIGEM_OPTIONS, PIS_COFINS_OPTIONS } from './productFiscalOptions';
+import { CEST_OPTIONS, CFOP_OPTIONS, CSOSN_OPTIONS, ORIGEM_OPTIONS, PIS_COFINS_OPTIONS } from './productFiscalOptions';
 import { createInitialProductFiscalInfo } from './productFiscalDefaults';
 import { ProductNcmSelector } from './fiscal/ProductNcmSelector';
 
@@ -20,10 +20,7 @@ const ProductFiscalTab: React.FC<ProductFiscalTabProps> = ({
     toggleNcmAuto,
     isGeneratingNCM
 }) => {
-    const [searchQuery, setSearchQuery] = useState(formData.fiscal?.ncm || '');
-    const [isDropdownOpen, setIsDropdownOpen] = useState(false);
     const [isInfoModalOpen, setIsInfoModalOpen] = useState(false);
-    const dropdownRef = useRef<HTMLDivElement>(null);
 
     // Fechar modal com tecla Escape
     useEffect(() => {
@@ -36,9 +33,6 @@ const ProductFiscalTab: React.FC<ProductFiscalTabProps> = ({
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
     }, [isInfoModalOpen]);
-
-
-    useEffect(() => setSearchQuery(formData.fiscal?.ncm || ''), [formData.fiscal?.ncm]);
 
     // Carrega os dados padrões fiscais das configurações apenas se a estrutura fiscal ainda não foi inicializada
     useEffect(() => {
@@ -55,25 +49,6 @@ const ProductFiscalTab: React.FC<ProductFiscalTabProps> = ({
             }
         }
     }, []);
-
-    useEffect(() => {
-        const handleClickOutside = (event: MouseEvent) => {
-            if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
-                setIsDropdownOpen(false);
-            }
-        };
-        document.addEventListener('mousedown', handleClickOutside);
-        return () => document.removeEventListener('mousedown', handleClickOutside);
-    }, []);
-
-    const filteredNcms = useMemo(() => {
-        const q = searchQuery.toLowerCase().trim();
-        if (!q) return COMMON_NCMS;
-        return COMMON_NCMS.filter(item => 
-            item.code.includes(q) || 
-            item.description.toLowerCase().includes(q)
-        );
-    }, [searchQuery]);
 
     return (
         <div className="flex flex-col gap-8 animate-in fade-in slide-in-from-bottom-2 duration-300">

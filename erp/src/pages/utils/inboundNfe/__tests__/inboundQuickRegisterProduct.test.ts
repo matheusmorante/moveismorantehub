@@ -144,7 +144,6 @@ describe('Cadastro Rápido de Produtos via NF-e (Modo A & Modo B)', () => {
             name: sampleInvoiceItem.productDescription,
             title: sampleInvoiceItem.productDescription,
             description: sampleInvoiceItem.productDescription,
-            ncm: sampleInvoiceItem.ncm || '',
             fiscal: { ncm: sampleInvoiceItem.ncm || undefined },
             costPrice: finalCost,
             unitPrice: finalCost * 1.5, // 50% margem
@@ -196,7 +195,7 @@ describe('Cadastro Rápido de Produtos via NF-e (Modo A & Modo B)', () => {
                     stock: 0,
                     unitPrice: 675.00,
                     costPrice: 450.00,
-                    attributes: [],
+                    attributes: [], active: true,
                 }
             ],
             createdAt: new Date().toISOString(),
@@ -330,6 +329,7 @@ describe('Cadastro Rápido de Produtos via NF-e (Modo A & Modo B)', () => {
                     unitPrice: 675.00,
                     costPrice: 450.00,
                     attributes: [{ name: colorAttr.name, value: colorAttr.value }],
+                    active: true,
                 }
             ],
             createdAt: new Date().toISOString(),
@@ -338,7 +338,7 @@ describe('Cadastro Rápido de Produtos via NF-e (Modo A & Modo B)', () => {
 
         const savedId = await saveProduct(newProductWithAttr);
         expect(savedId).toBe(newProductId);
-        expect(newProductWithAttr.variations[0].attributes).toEqual([{ name: 'Cor', value: 'Veludo Bege' }]);
-        expect(newProductWithAttr.variations[0].stock).toBe(0);
+        expect(newProductWithAttr.variations![0].attributes).toEqual([{ name: 'Cor', value: 'Veludo Bege' }]);
+        expect(newProductWithAttr.variations![0].stock).toBe(0);
     });
 });

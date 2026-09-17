@@ -64,17 +64,17 @@ describe('Auditoria E2E e Concorrência de Mover Variação via RPC Postgres', (
         const { data: updatedX } = await supabase.from('product_variations').select('id, product_id, sku').eq('id', varXId).single();
         const { data: updatedY } = await supabase.from('product_variations').select('id, product_id, sku').eq('id', varYId).single();
 
-        expect(updatedX.product_id).toBe(parentBId);
-        expect(updatedY.product_id).toBe(parentBId);
+        expect(updatedX!.product_id).toBe(parentBId);
+        expect(updatedY!.product_id).toBe(parentBId);
 
         // Garantir que os SKUs gerados sejam distintos e sequenciais (-03 e -04)
-        const skus = [updatedX.sku, updatedY.sku].sort();
+        const skus = [updatedX!.sku, updatedY!.sku].sort();
         expect(skus).toEqual([`${testCodeB}-03`, `${testCodeB}-04`]);
-        expect(updatedX.sku).not.toBe(updatedY.sku);
+        expect(updatedX!.sku).not.toBe(updatedY!.sku);
 
         // Preservação do UUID
-        expect(updatedX.id).toBe(varXId);
-        expect(updatedY.id).toBe(varYId);
+        expect(updatedX!.id).toBe(varXId);
+        expect(updatedY!.id).toBe(varYId);
 
         // Cleanup
         await supabase.from('product_variations').delete().in('id', [varB1Id, varB2Id, varXId, varYId]);
@@ -116,8 +116,8 @@ describe('Auditoria E2E e Concorrência de Mover Variação via RPC Postgres', (
         // Apenas uma das operações deve ser o estado final consistente
         const { data: finalVar } = await supabase.from('product_variations').select('id, product_id').eq('id', varZId).single();
         expect(finalVar).not.toBeNull();
-        expect(finalVar.id).toBe(varZId); // UUID intocado
-        expect([parentBId, parentCId]).toContain(finalVar.product_id); // Pertence a um dos dois pais válidos
+        expect(finalVar!.id).toBe(varZId); // UUID intocado
+        expect([parentBId, parentCId]).toContain(finalVar!.product_id); // Pertence a um dos dois pais válidos
 
         // Cleanup
         await supabase.from('product_variations').delete().eq('id', varZId);
@@ -152,9 +152,9 @@ describe('Auditoria E2E e Concorrência de Mover Variação via RPC Postgres', (
         // Consultar banco diretamente para verificar ausência de alterações parciais
         const { data: checkVar } = await supabase.from('product_variations').select('id, product_id, sku').eq('id', varId).single();
         expect(checkVar).not.toBeNull();
-        expect(checkVar.product_id).toBe(parentAId);
-        expect(checkVar.sku).toBe(originalSku);
-        expect(checkVar.id).toBe(varId);
+        expect(checkVar!.product_id).toBe(parentAId);
+        expect(checkVar!.sku).toBe(originalSku);
+        expect(checkVar!.id).toBe(varId);
 
         // Cleanup
         await supabase.from('product_variations').delete().eq('id', varId);

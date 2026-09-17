@@ -143,7 +143,7 @@ export default function AppLayout() {
 
       {/* Header (Oculto no App Mobile e telas menores para evitar cabeçalho duplo) */}
       {!isMobileAppView && !isTemplateEditor && (
-        <div className="sticky top-0 z-50">
+        <div className="relative z-50">
           <AiQuotaHeaderNotice />
           <header className={`w-full glass-header px-4 lg:px-8 xl:px-12 h-14 xl:h-16 flex items-center justify-between ${activeMenu || isProfileMenuOpen ? 'z-[99999]' : 'z-50 hover:z-[99999] focus-within:z-[99999]'} shadow-premium transition-all duration-500`}>
           <div className="flex items-center gap-6 xl:gap-12 h-full">

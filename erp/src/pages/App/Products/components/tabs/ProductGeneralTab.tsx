@@ -8,6 +8,7 @@ import {
     searchProductCategories,
     type ProductCategoryOption,
 } from './productCategoryEnvironment';
+import { matchCategoryByRules } from '@/pages/utils/categoryResolutionService';
 
 interface ProductGeneralTabProps {
     readonly onOpenCategorySearch: () => void;
@@ -150,6 +151,24 @@ const ProductGeneralTab: React.FC<ProductGeneralTabProps> = ({
                                         name: formatted,
                                         ...(!diferenciarTitulo ? { title: formatted, marketplaceTitle: formatted } : {})
                                     }));
+                                }
+                                
+                                // Auto-select category if none is selected
+                                if (!formData.categoryIds || formData.categoryIds.length === 0) {
+                                    const matchedCategory = matchCategoryByRules(formData.name, availableCategories as any);
+                                    if (matchedCategory) {
+                                        setFormData(prev => {
+                                            if (prev.categoryIds?.includes(matchedCategory.id)) return prev;
+                                            return { ...prev, categoryIds: [matchedCategory.id] };
+                                        });
+                                        if (setValidationErrors) {
+                                            setValidationErrors(prev => {
+                                                const next = { ...prev };
+                                                delete next.categoryIds;
+                                                return next;
+                                            });
+                                        }
+                                    }
                                 }
                             }
                             if ((formData.name || '').trim() && setValidationErrors) {

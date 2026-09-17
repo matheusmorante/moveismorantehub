@@ -138,7 +138,7 @@ export const enrichOrdersWithPeopleOrigins = async (orders: Order[]): Promise<Or
 
 export const fetchOrdersPage = async (
     page: number = 1,
-    pageSize: number = 30,
+    pageSize: number = 15,
     filters?: any
 ): Promise<{ orders: Order[]; total: number }> => {
     const firstRow = Math.max(0, (page - 1) * pageSize);

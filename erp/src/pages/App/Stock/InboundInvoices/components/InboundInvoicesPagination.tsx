@@ -13,7 +13,7 @@ export const InboundInvoicesPagination: React.FC<InboundInvoicesPaginationProps>
     currentPage,
     totalPages,
     totalItems,
-    itemsPerPage = 30,
+    itemsPerPage = 15,
     onPageChange,
     loading = false,
 }) => {

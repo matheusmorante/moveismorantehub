@@ -13,7 +13,7 @@ import { useWindowSize } from "../../../../hooks/useWindowSize";
 import { filterOrder, sortOrders } from "./useOrderHistoryFilters";
 import { createOrderHistoryOperations } from "./useOrderHistoryOperations";
 
-const PAGE_SIZE = 30;
+const PAGE_SIZE = 15;
 const CARD_VIEW_BREAKPOINT = 1024;
 
 export const useOrderHistory = (filters?: any) => {

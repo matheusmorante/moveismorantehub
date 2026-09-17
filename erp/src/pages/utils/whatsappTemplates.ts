@@ -211,7 +211,7 @@ export const buildAssistanceOrderDetailsMessage = (order: Order) => {
     const itemsToUse = (order.assistanceItems && order.assistanceItems.length > 0) ? order.assistanceItems : order.items;
     if (itemsToUse && itemsToUse.length > 0) {
         itemsToUse.forEach((item) => {
-            const obs = item.observation?.trim() ? ` - ${item.observation.trim()}` : '';
+            const obs = (item as any).observation?.trim() ? ` - ${(item as any).observation.trim()}` : '';
             message += `• ${item.quantity}x ${item.description}${obs}\n`;
         });
     } else {
@@ -235,8 +235,8 @@ export const buildGroupInviteMessage = (order: Order) => {
         groupInviteLink: 'https://chat.whatsapp.com/FtqlGwW7pdI9Jzgl8VRia6?mode=gi_t'
     };
     
-    let message = settings.whatsappTemplates?.groupInviteMessage || defaults.groupInviteMessage;
-    const link = settings.whatsappTemplates?.groupInviteLink || defaults.groupInviteLink;
+    let message = (settings.whatsappTemplates as any)?.groupInviteMessage || defaults.groupInviteMessage;
+    const link = (settings.whatsappTemplates as any)?.groupInviteLink || defaults.groupInviteLink;
     
     return message
         .replace(/{{customerName}}/g, customer.fullName?.split(' ')[0] || "Cliente")
@@ -250,8 +250,8 @@ export const buildPersonGroupInviteMessage = (person: any) => {
         groupInviteLink: 'https://chat.whatsapp.com/FtqlGwW7pdI9Jzgl8VRia6?mode=gi_t'
     };
     
-    let message = settings.whatsappTemplates?.groupInviteMessage || defaults.groupInviteMessage;
-    const link = settings.whatsappTemplates?.groupInviteLink || defaults.groupInviteLink;
+    let message = (settings.whatsappTemplates as any)?.groupInviteMessage || defaults.groupInviteMessage;
+    const link = (settings.whatsappTemplates as any)?.groupInviteLink || defaults.groupInviteLink;
     
     return message
         .replace(/{{customerName}}/g, person.fullName?.split(' ')[0] || "Cliente")
@@ -298,12 +298,12 @@ export const buildAssistanceServiceOrderMessage = (order: Order) => {
 
     if (hasAssistanceItems) {
         order.assistanceItems!.forEach((item) => {
-            const obs = item.observation?.trim() ? ` - ${item.observation.trim()}` : '';
+            const obs = (item as any).observation?.trim() ? ` - ${(item as any).observation.trim()}` : '';
             message += `• ${item.quantity}x ${item.description}${obs}\n`;
         });
     } else if (hasItems) {
         order.items.forEach((item) => {
-            const obs = item.observation?.trim() ? ` - ${item.observation.trim()}` : '';
+            const obs = (item as any).observation?.trim() ? ` - ${(item as any).observation.trim()}` : '';
             message += `• ${item.quantity}x ${item.description}${obs}\n`;
         });
     } else {
@@ -347,7 +347,7 @@ export const buildBudgetWhatsappMessage = (order: Order) => {
             const totalDiscount = unitDiscount * qty;
             const finalValue = subtotal - totalDiscount;
 
-            const obs = item.observation?.trim() ? ` - ${item.observation.trim()}` : '';
+            const obs = (item as any).observation?.trim() ? ` - ${(item as any).observation.trim()}` : '';
             let itemLine = `• *${qty}x ${item.description}${obs}* | Subtotal: ${formatCurrency(subtotal)}`;
             if (totalDiscount > 0) {
                 itemLine += ` | Desconto: -${formatCurrency(totalDiscount)}`;

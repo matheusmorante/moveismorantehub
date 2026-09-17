@@ -14,6 +14,7 @@ export interface ChannelStatusBadgesProps {
     readonly isDraft?: boolean;
     readonly activeVariationsCount?: number;
     readonly totalVariationsCount?: number;
+    readonly disabledReason?: string;
 }
 
 /**
@@ -30,10 +31,13 @@ export const ChannelStatusBadges: React.FC<ChannelStatusBadgesProps> = ({
     disabled = false,
     isDraft = false,
     activeVariationsCount,
-    totalVariationsCount
+    totalVariationsCount,
+    disabledReason
 }) => {
     const [showPopover, setShowPopover] = useState(false);
+    const [showDisabledPopover, setShowDisabledPopover] = useState(false);
     const erpBadgeAnchorRef = useRef<HTMLDivElement>(null);
+    const containerRef = useRef<HTMLDivElement>(null);
 
     const isCatalogPublished = !isDraft && catalogStatus === 'published';
     const isERPActive = !isDraft && active !== false;
@@ -64,7 +68,7 @@ export const ChannelStatusBadges: React.FC<ChannelStatusBadgesProps> = ({
     };
 
     return (
-        <div className="inline-flex items-center gap-2 flex-wrap" onClick={(e) => e.stopPropagation()}>
+        <div ref={containerRef} className="inline-flex items-center gap-2 flex-wrap" onClick={(e) => e.stopPropagation()}>
             {/* Tag/Badge ERP */}
             {isParent ? (
                 /* No pai: Somente visualização com popover explicativo no hover */
@@ -94,7 +98,7 @@ export const ChannelStatusBadges: React.FC<ChannelStatusBadgesProps> = ({
                                 : 'bg-slate-100/90 dark:bg-slate-800/90 text-slate-600 dark:text-slate-400'
                         }`}>
                             <span className={`${dotSize} rounded-full shrink-0 ${isERPActive ? 'bg-emerald-500' : 'bg-slate-400'}`} />
-                            <span>{isERPActive ? 'Ativo' : 'Inativo'}</span>
+                            <span>{isERPActive ? 'Ativo' : 'Desativado'}</span>
                         </span>
                     </div>
 
@@ -135,19 +139,25 @@ export const ChannelStatusBadges: React.FC<ChannelStatusBadgesProps> = ({
                     type="button"
                     onClick={handleERPClick}
                     disabled={disabled}
-                    aria-label={`Status ERP: ${isERPActive ? 'Ativo' : 'Inativo'}`}
+                    onMouseEnter={() => disabled && setShowDisabledPopover(true)}
+                    onMouseLeave={() => disabled && setShowDisabledPopover(false)}
+                    aria-label={`Status ERP: ${isERPActive ? 'Ativo' : 'Desativado'}`}
                     title={
-                        isDraft
+                        disabled 
+                            ? undefined
+                            : isDraft
                             ? "Produto em rascunho. Termine o cadastramento para poder ativá-lo no ERP."
                             : isERPActive
                             ? "Clique para desativar esta variação no ERP"
                             : "Clique para ativar esta variação no ERP"
                     }
-                    className={`inline-flex items-stretch rounded-lg shadow-2xs border transition-all cursor-pointer select-none overflow-hidden active:scale-95 ${
-                        isERPActive
-                            ? 'border-emerald-200/80 dark:border-emerald-800/50 hover:border-emerald-300'
-                            : 'border-slate-200/80 dark:border-slate-700/60 hover:border-slate-300'
-                    } ${disabled ? 'opacity-80 cursor-default active:scale-100' : ''}`}
+                    className={`inline-flex items-stretch rounded-lg shadow-2xs border transition-all select-none overflow-hidden active:scale-95 ${
+                        disabled 
+                            ? 'border-slate-300 dark:border-slate-700 opacity-60 cursor-help bg-slate-200 dark:bg-slate-800 grayscale'
+                            : isERPActive
+                                ? 'border-emerald-200/80 dark:border-emerald-800/50 hover:border-emerald-300 cursor-pointer'
+                                : 'border-slate-200/80 dark:border-slate-700/60 hover:border-slate-300 cursor-pointer'
+                    }`}
                 >
                     {/* Tag Fixa ERP */}
                     <span className={`bg-blue-50/90 dark:bg-blue-950/40 text-blue-800 dark:text-blue-300 font-extrabold ${textSize} ${pxTag} ${py} flex items-center border-r border-blue-100 dark:border-blue-900/40`}>
@@ -156,12 +166,14 @@ export const ChannelStatusBadges: React.FC<ChannelStatusBadgesProps> = ({
 
                     {/* Status Interativo ERP */}
                     <span className={`${pxStatus} ${py} flex items-center gap-1.5 font-bold ${textSize} ${
-                        isERPActive
+                        disabled
+                            ? 'bg-slate-200/90 dark:bg-slate-800/90 text-slate-500 dark:text-slate-500'
+                            : isERPActive
                             ? 'bg-emerald-50/70 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400'
                             : 'bg-slate-100/90 dark:bg-slate-800/90 text-slate-600 dark:text-slate-400'
                     }`}>
                         <span className={`${dotSize} rounded-full shrink-0 ${isERPActive ? 'bg-emerald-500' : 'bg-slate-400'}`} />
-                        <span>{isERPActive ? 'Ativo' : 'Inativo'}</span>
+                        <span>{isERPActive ? 'Ativo' : 'Desativado'}</span>
                     </span>
                 </button>
             )}
@@ -172,9 +184,13 @@ export const ChannelStatusBadges: React.FC<ChannelStatusBadgesProps> = ({
                     type="button"
                     onClick={handleCatalogClick}
                     disabled={disabled || (!isDraft && !canManageCatalog && !onToggleCatalog)}
+                    onMouseEnter={() => disabled && setShowDisabledPopover(true)}
+                    onMouseLeave={() => disabled && setShowDisabledPopover(false)}
                     aria-label={`Status Catálogo: ${isCatalogPublished ? 'Publicado' : 'Oculto'}`}
                     title={
-                        isDraft
+                        disabled
+                            ? undefined
+                            : isDraft
                             ? "Produto em rascunho. Termine o cadastramento para poder publicá-lo no Catálogo."
                             : !canManageCatalog
                             ? "Gerenciamento de catálogo indisponível"
@@ -182,11 +198,13 @@ export const ChannelStatusBadges: React.FC<ChannelStatusBadgesProps> = ({
                             ? "Clique para ocultar do Catálogo Digital"
                             : "Clique para publicar no Catálogo Digital"
                     }
-                    className={`inline-flex items-stretch rounded-lg shadow-2xs border transition-all cursor-pointer select-none overflow-hidden active:scale-95 ${
-                        isCatalogPublished
-                            ? 'border-emerald-200/80 dark:border-emerald-800/50 hover:border-emerald-300'
-                            : 'border-slate-200/80 dark:border-slate-700/60 hover:border-slate-300'
-                    } ${disabled ? 'opacity-80 cursor-default active:scale-100' : ''}`}
+                    className={`inline-flex items-stretch rounded-lg shadow-2xs border transition-all select-none overflow-hidden active:scale-95 ${
+                        disabled 
+                            ? 'border-slate-300 dark:border-slate-700 opacity-60 cursor-help bg-slate-200 dark:bg-slate-800 grayscale'
+                            : isCatalogPublished
+                                ? 'border-emerald-200/80 dark:border-emerald-800/50 hover:border-emerald-300 cursor-pointer'
+                                : 'border-slate-200/80 dark:border-slate-700/60 hover:border-slate-300 cursor-pointer'
+                    }`}
                 >
                     {/* Tag Fixa Catálogo */}
                     <span className={`bg-purple-50/90 dark:bg-purple-950/40 text-purple-800 dark:text-purple-300 font-extrabold ${textSize} ${pxTag} ${py} flex items-center border-r border-purple-100 dark:border-purple-900/40`}>
@@ -195,7 +213,9 @@ export const ChannelStatusBadges: React.FC<ChannelStatusBadgesProps> = ({
 
                     {/* Status Interativo Catálogo */}
                     <span className={`${pxStatus} ${py} flex items-center gap-1.5 font-bold ${textSize} ${
-                        isCatalogPublished
+                        disabled
+                            ? 'bg-slate-200/90 dark:bg-slate-800/90 text-slate-500 dark:text-slate-500'
+                            : isCatalogPublished
                             ? 'bg-emerald-50/70 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400'
                             : 'bg-slate-100/90 dark:bg-slate-800/90 text-slate-600 dark:text-slate-400'
                     }`}>
@@ -203,6 +223,25 @@ export const ChannelStatusBadges: React.FC<ChannelStatusBadgesProps> = ({
                         <span>{isCatalogPublished ? 'Publicado' : 'Oculto'}</span>
                     </span>
                 </button>
+            )}
+
+            {showDisabledPopover && disabledReason && (
+                <DropdownPortal
+                    isOpen={showDisabledPopover}
+                    anchorRef={containerRef}
+                    className="min-w-[220px] max-w-[260px] pointer-events-none"
+                    onClose={() => setShowDisabledPopover(false)}
+                >
+                    <div className="p-3 bg-slate-900/95 dark:bg-slate-800/95 text-white text-[11px] rounded-xl shadow-2xl border border-slate-700 backdrop-blur-xs animate-in fade-in zoom-in-95 duration-150 select-none">
+                        <div className="flex items-center gap-1.5 font-bold text-amber-300 mb-1">
+                            <i className="bi bi-info-circle-fill text-[12px]" />
+                            <span>Ação Indisponível</span>
+                        </div>
+                        <p className="text-slate-200 leading-snug">
+                            {disabledReason}
+                        </p>
+                    </div>
+                </DropdownPortal>
             )}
         </div>
     );

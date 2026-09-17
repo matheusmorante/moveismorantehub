@@ -37,9 +37,9 @@ import {
 import { FinancialCategory } from '../../../../mobile/src/services/mobileFinanceService';
 
 const mockCategories: FinancialCategory[] = [
-  { id: '1', name: 'Compra de mercadoria', type: 'expense', active: true },
-  { id: '2', name: 'Combustível', type: 'expense', active: true },
-  { id: '3', name: 'Outras receitas', type: 'income', active: true },
+  { id: '1', name: 'Compra de mercadoria', type: 'expense',  },
+  { id: '2', name: 'Combustível', type: 'expense',  },
+  { id: '3', name: 'Outras receitas', type: 'income',  },
 ];
 
 describe('Incremental Voice Processing & Semantic Debounce Architecture', () => {
@@ -110,7 +110,6 @@ describe('Incremental Voice Processing & Semantic Debounce Architecture', () => 
     const finalResult = await consolidateFinalFinancialIntent(
       'é todos eles são para o dia 20 do próximo mês e o primeiro boleto dia 20',
       accumulatedDraft,
-      [],
       mockCategories
     );
 

@@ -5,8 +5,8 @@ import {
   applyTurnPatch,
   parseFinancialIntentWithGemini,
   ParsedFinancialIntent,
-  FinancialCategory,
 } from '../../../../mobile/src/services/financialAiAssistantService';
+import { FinancialCategory } from '../../../../mobile/src/services/financial/mobileFinanceTypes';
 import { parsePtBrWrittenNumbers } from '../../../../mobile/src/services/financial/wordToNumberPtBr';
 
 // Mocks determinísticos

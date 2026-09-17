@@ -1,7 +1,7 @@
 import Order from "@/pages/types/order.type";
 
 export function buildTotalsAndPaymentXml(order: Order, vProdTotal: number, vDescTotal: number): string {
-    const vFrete = Number(order.shipping?.fee || 0);
+    const vFrete = Number(order.shipping?.value || 0);
     const vNF = (vProdTotal - vDescTotal + vFrete).toFixed(2);
 
     // Modalidade de Frete: 0=Remetente/Entrega, 9=Sem frete/Retirada

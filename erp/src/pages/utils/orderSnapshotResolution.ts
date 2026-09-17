@@ -12,7 +12,7 @@ const isCustomerSnapshotIncomplete = (customerData?: CustomerData): boolean => {
 };
 
 const mapPersonToCustomerSnapshot = (person: Person, currentData?: CustomerData): CustomerData => {
-    const addr = person.fullAddress || {};
+    const addr: any = person.fullAddress || {};
     return {
         ...currentData,
         id: person.id,
@@ -29,11 +29,10 @@ const mapPersonToCustomerSnapshot = (person: Person, currentData?: CustomerData)
             city: addr.city || currentData?.fullAddress?.city || '',
             state: addr.state || currentData?.fullAddress?.state || 'PR',
             observation: addr.observation || currentData?.fullAddress?.observation || '',
-            housingType: (addr as any).housingType || (currentData?.fullAddress as any)?.housingType || '',
-            mapsUrl: (addr as any).mapsUrl || (currentData?.fullAddress as any)?.mapsUrl || ''
+            housingType: addr.housingType || (currentData?.fullAddress as any)?.housingType || '',
+            mapsUrl: addr.mapsUrl || (currentData?.fullAddress as any)?.mapsUrl || ''
         },
-        additionalContacts: person.additionalContacts || currentData?.additionalContacts || [],
-        marketingOrigin: person.marketingOrigin || currentData?.marketingOrigin || 'organic'
+        additionalContacts: person.additionalContacts || currentData?.additionalContacts || []
     };
 };
 
@@ -62,10 +61,10 @@ export const resolveOrderCustomerSnapshot = async (
 
     const orderWithSnapshot = {
         ...order,
-        customerData: customerData ? { ...customerData } : undefined
+        customerData: customerData ? { ...customerData } : (order.customerData as CustomerData)
     };
 
-    return withOrderAddressSnapshot(orderWithSnapshot);
+    return withOrderAddressSnapshot(orderWithSnapshot as Order);
 };
 
 /**
@@ -80,14 +79,14 @@ export const buildOrderPersistencePayload = (order: Order) => {
     const orderIndex = Number(order.orderIndex || order.orderNumber || 0) || null;
     const orderNumber = String(order.orderIndex || order.orderNumber || '');
     const status = order.status || 'draft';
-    const totalAmount = order.paymentsSummary?.totalOrderValue ?? (order.total_amount ?? 0);
+    const totalAmount = order.paymentsSummary?.totalOrderValue ?? ((order as any).total_amount ?? 0);
     const orderType = order.orderType || 'sale';
     const scheduledDate = order.shipping?.scheduling?.date || (order as any).scheduledDate || null;
     const scheduledStartTime = order.shipping?.scheduling?.startTime || null;
     const scheduledEndTime = order.shipping?.scheduling?.endTime || null;
     const deliveryMethod = order.shipping?.deliveryMethod || null;
     const deliveryStatus = (order as any).deliveryStatus || null;
-    const marketingOrigin = order.marketingOrigin || order.customerData?.marketingOrigin || null;
+    const marketingOrigin = order.marketingOrigin || (order.customerData as any)?.marketingOrigin || null;
     const itemsSubtotal = order.itemsSummary?.itemsSubtotal ?? 0;
     const totalDiscount = order.itemsSummary?.totalFixedDiscount ?? 0;
     const totalCost = order.itemsSummary?.totalItemsCost ?? 0;

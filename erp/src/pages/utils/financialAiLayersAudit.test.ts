@@ -70,14 +70,14 @@ describe('AUDITORIA POR CAMADAS DO ASSISTENTE FINANCEIRO (CAMADAS A, B, C, D)', 
       // Verificação do 1º fato (Luz)
       expect(luz.type).toBe('expense');
       expect(luz.amount).toBe(200);
-      expect(luz.description.toLowerCase()).toContain('luz');
+      expect(luz?.description?.toLowerCase()).toContain('luz');
       expect(luz.amount).not.toBeNaN();
       expect(luz.amount).toBeGreaterThan(0);
 
       // Verificação do 2º fato (Internet)
       expect(internet.type).toBe('expense');
       expect(internet.amount).toBe(100);
-      expect(internet.description.toLowerCase()).toContain('internet');
+      expect(internet?.description?.toLowerCase()).toContain('internet');
       expect(internet.amount).not.toBeNaN();
       expect(internet.amount).toBeGreaterThan(0);
     });

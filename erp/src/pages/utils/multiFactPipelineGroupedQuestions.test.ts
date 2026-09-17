@@ -47,13 +47,13 @@ describe('BATERIA DE REGRESSÃO — PIPELINE DE MÚLTIPLOS FATOS E PERGUNTAS AGR
 
     const batch = res.draft!.batchDraftsList!;
     // Luz
-    const luz = batch.find(d => d.description.toLowerCase().includes('luz'));
+    const luz = batch.find(d => d.description!.toLowerCase().includes('luz'));
     expect(luz).toBeDefined();
     expect(luz?.amount).toBe(100);
     expect(luz?.isRealized).toBe(true);
 
     // Internet
-    const internet = batch.find(d => d.description.toLowerCase().includes('internet'));
+    const internet = batch.find(d => d.description!.toLowerCase().includes('internet'));
     expect(internet).toBeDefined();
     expect(internet?.amount).toBe(300);
     expect(internet?.isRealized).toBe(true);
@@ -83,8 +83,8 @@ describe('BATERIA DE REGRESSÃO — PIPELINE DE MÚLTIPLOS FATOS E PERGUNTAS AGR
     const patchRes = applyTurnPatchWithDraftList(drafts, "a luz é da loja e a internet é pessoal", 'ANSWER_TO_QUESTION', [], '2026-09-06');
     drafts = patchRes.updatedDrafts;
 
-    const luz = drafts.find(d => d.description.toLowerCase().includes('luz'));
-    const internet = drafts.find(d => d.description.toLowerCase().includes('internet'));
+    const luz = drafts.find(d => d.description!.toLowerCase().includes('luz'));
+    const internet = drafts.find(d => d.description!.toLowerCase().includes('internet'));
 
     expect(luz?.businessPurpose).toBe('BUSINESS');
     expect(internet?.businessPurpose).toBe('PERSONAL');
@@ -120,8 +120,8 @@ describe('BATERIA DE REGRESSÃO — PIPELINE DE MÚLTIPLOS FATOS E PERGUNTAS AGR
     patchRes = applyTurnPatchWithDraftList(drafts, "a luz foi no Pix e a internet em dinheiro", 'ANSWER_TO_QUESTION', [], '2026-09-06');
     drafts = patchRes.updatedDrafts;
 
-    const luz = drafts.find(d => d.description.toLowerCase().includes('luz'));
-    const internet = drafts.find(d => d.description.toLowerCase().includes('internet'));
+    const luz = drafts.find(d => d.description!.toLowerCase().includes('luz'));
+    const internet = drafts.find(d => d.description!.toLowerCase().includes('internet'));
 
     expect(luz?.paymentMethod).toBe('Pix');
     expect(internet?.paymentMethod).toBe('Dinheiro');
@@ -146,9 +146,9 @@ describe('BATERIA DE REGRESSÃO — PIPELINE DE MÚLTIPLOS FATOS E PERGUNTAS AGR
     expect(res.draft?.batchDraftsList?.length).toBe(3);
     const batch = res.draft!.batchDraftsList!;
 
-    expect(batch.find(d => d.description.toLowerCase().includes('luz'))?.amount).toBe(100);
-    expect(batch.find(d => d.description.toLowerCase().includes('internet'))?.amount).toBe(300);
-    expect(batch.find(d => d.description.toLowerCase().includes('água'))?.amount).toBe(150);
+    expect(batch.find(d => d.description!.toLowerCase().includes('luz'))?.amount).toBe(100);
+    expect(batch.find(d => d.description!.toLowerCase().includes('internet'))?.amount).toBe(300);
+    expect(batch.find(d => d.description!.toLowerCase().includes('água'))?.amount).toBe(150);
   });
 
   it('TESTE 8 — Frase Real do Novo Print com Ruído de ASR e Elipse do Verbo ("fiz um pagamento de luz 100 internet 300")', () => {
@@ -161,8 +161,8 @@ describe('BATERIA DE REGRESSÃO — PIPELINE DE MÚLTIPLOS FATOS E PERGUNTAS AGR
     expect(res.draft?.batchDraftsList?.length).toBe(2);
 
     const batch = res.draft!.batchDraftsList!;
-    const luz = batch.find(d => d.description.toLowerCase().includes('luz'));
-    const internet = batch.find(d => d.description.toLowerCase().includes('internet'));
+    const luz = batch.find(d => d.description!.toLowerCase().includes('luz'));
+    const internet = batch.find(d => d.description!.toLowerCase().includes('internet'));
 
     expect(luz).toBeDefined();
     expect(luz?.amount).toBe(100);
@@ -179,9 +179,9 @@ describe('BATERIA DE REGRESSÃO — PIPELINE DE MÚLTIPLOS FATOS E PERGUNTAS AGR
 
     expect(res.draft?.batchDraftsList?.length).toBe(3);
     const batch = res.draft!.batchDraftsList!;
-    expect(batch.find(d => d.description.toLowerCase().includes('luz'))?.amount).toBe(100);
-    expect(batch.find(d => d.description.toLowerCase().includes('internet'))?.amount).toBe(300);
-    expect(batch.find(d => d.description.toLowerCase().includes('água'))?.amount).toBe(150);
+    expect(batch.find(d => d.description!.toLowerCase().includes('luz'))?.amount).toBe(100);
+    expect(batch.find(d => d.description!.toLowerCase().includes('internet'))?.amount).toBe(300);
+    expect(batch.find(d => d.description!.toLowerCase().includes('água'))?.amount).toBe(150);
   });
 
   it('TESTE 10 — "Fiz pagamento de luz 100, internet 300, água 150"', () => {
@@ -198,8 +198,8 @@ describe('BATERIA DE REGRESSÃO — PIPELINE DE MÚLTIPLOS FATOS E PERGUNTAS AGR
 
     expect(res.draft?.batchDraftsList?.length).toBe(2);
     const batch = res.draft!.batchDraftsList!;
-    expect(batch.find(d => d.description.toLowerCase().includes('luz'))?.amount).toBe(100);
-    expect(batch.find(d => d.description.toLowerCase().includes('internet'))?.amount).toBe(300);
+    expect(batch.find(d => d.description!.toLowerCase().includes('luz'))?.amount).toBe(100);
+    expect(batch.find(d => d.description!.toLowerCase().includes('internet'))?.amount).toBe(300);
   });
 
 });

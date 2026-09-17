@@ -11,7 +11,7 @@ import { mapGoodsReceiptRow } from './goodsReceiptMapper';
 
 export const fetchGoodsReceiptsPage = async (options?: FetchGoodsReceiptsOptions): Promise<FetchGoodsReceiptsResult> => {
     const page = options?.page ?? 1;
-    const pageSize = options?.pageSize ?? 30;
+    const pageSize = options?.pageSize ?? 15;
     const searchTerm = (options?.searchTerm || '').trim();
     const status = options?.status;
 

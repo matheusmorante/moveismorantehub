@@ -34,7 +34,7 @@ export const useProducts = (filters?: any) => {
     const [serverLoading, setServerLoading] = useState(true);
 
     const [currentPage, setCurrentPage] = useState(1);
-    const [itemsPerPage, setItemsPerPage] = useState(30);
+    const [itemsPerPage, setItemsPerPage] = useState(15);
     const [selectedProducts, setSelectedProducts] = useState<string[]>([]);
     const [refreshSignal, setRefreshSignal] = useState(0);
 
@@ -82,7 +82,15 @@ export const useProducts = (filters?: any) => {
         setSelectedProducts([]);
     }, [filters?.search, filters?.category, filters?.activeOnly, filters?.status, filters?.isDraft, filters?.includeDeactivated, filters?.showTrash]);
 
-    const serverTransformed = useMemo(() => flattenProductsForList(serverProducts).filter((product: any) => {
+    const serverTransformed = useMemo(() => flattenProductsForList(serverProducts).map(product => {
+        if (product.isParent && product.allVariations) {
+            return {
+                ...product,
+                allVariations: product.allVariations.filter((v: any) => filters?.includeMergedVariations === true || !v.mergedToVariationId)
+            };
+        }
+        return product;
+    }).filter((product: any) => {
         return filters?.includeMergedVariations === true || !product.isVariation || !product.mergedToVariationId;
     }), [serverProducts, filters?.includeMergedVariations]);
 

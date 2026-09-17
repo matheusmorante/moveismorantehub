@@ -54,7 +54,7 @@ export default function InboundInvoicesPage() {
         try {
             const res = await fetchInboundInvoicesPage({
                 page: pageToLoad,
-                pageSize: 30,
+                pageSize: 15,
                 searchTerm,
                 dateFilter,
             });

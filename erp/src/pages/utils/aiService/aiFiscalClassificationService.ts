@@ -1,6 +1,7 @@
 import { callGeminiDirect } from "./aiDirectClient";
 import { buildNcmClassificationPrompt, NCM_PRODUCT_CLASSIFICATION_RULES } from "../ncmClassificationPrompt";
 import { supabase } from "@/pages/utils/supabaseConfig";
+import { ncmService } from "@/services/fiscal/ncmService";
 
 async function findHistoricalNcm(productName: string): Promise<{ ncm: string; desc: string } | null> {
     try {
@@ -41,8 +42,26 @@ export const aiFiscalClassificationService = {
             return historical;
         }
 
-        // 2. Classificação por raciocínio estruturado (Gemini 3.8 Flash, thinking: low)
-        const prompt = buildNcmClassificationPrompt({ title: productName, material, description, category });
+        // 2. Buscar shortlist de NCMs
+        const shortlist = await ncmService.generateShortlist({
+            title: productName,
+            category: category,
+            description: description,
+            material: material
+        });
+
+        // 3. Classificação por raciocínio estruturado (Gemini 3.8 Flash, thinking: low)
+        const prompt = buildNcmClassificationPrompt({ 
+            title: productName, 
+            material, 
+            description, 
+            category,
+            shortlistCandidates: shortlist.map(c => ({
+                code: c.code,
+                official_description: c.official_description,
+                alias_match: c.alias_match
+            }))
+        });
 
         try {
             const textResponse = await callGeminiDirect(prompt, true, {
@@ -91,6 +110,17 @@ export const aiFiscalClassificationService = {
         pisCst: string;
         cofinsCst: string;
     }> {
+        const shortlist = await ncmService.generateShortlist({
+            title: productData.title,
+            category: productData.category,
+            description: productData.description,
+            material: productData.material
+        });
+
+        const candidatesStr = shortlist && shortlist.length > 0 
+            ? shortlist.map(c => `- ${c.code}: ${c.official_description} (Alias: ${c.alias_match || 'N/A'})`).join('\n')
+            : "Nenhum candidato encontrado na base local. Utilize seu conhecimento.";
+
         const prompt = `CLASSIFICADOR FISCAL DE PRODUTOS — NCM E REGIME TRIBUTÁRIO
 
 Você é um especialista em classificação fiscal de mercadorias brasileiras, especializado principalmente em móveis, colchões, estofados, utilidades e produtos relacionados ao varejo de móveis.
@@ -107,6 +137,11 @@ DADOS DO PRODUTO:
 - Material/Composição: ${productData.material || "Não informado"}
 - Descrição Completa: ${productData.description || "Não informada"}
 
+CANDIDATOS (SHORTLIST GERADA PELO BANCO OFICIAL DA EMPRESA):
+<shortlist>
+${candidatesStr}
+</shortlist>
+
 DADOS DA EMPRESA:
 - Razão Social: ${productData.companyName || "Móveis Morante"}
 - CNPJ: ${productData.companyCnpj || "Não informado"}
@@ -119,6 +154,7 @@ Retorne SOMENTE JSON válido no formato exato abaixo, sem markdown:
   "fiscalProductType": "string",
   "detectedMaterials": ["string"],
   "normalizedMaterial": "string | null",
+  "materialDetermination": "informado | presumido | nao_aplicavel",
   "catalogEnvironment": "string | null",
   "normalizedFiscalEnvironment": "string | null",
   "intendedUse": "string",

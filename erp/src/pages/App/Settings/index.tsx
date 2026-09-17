@@ -175,7 +175,7 @@ export default function Settings(): any {
                                         Visualize o uso em tempo real do limite mensal gratuito do Supabase (5GB/mês Egress, Conexões, etc) e proteja o sistema contra cobranças inesperadas.
                                     </p>
                                 </div>
-                                <Link to="/settings/supabase-monitor" className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl transition-colors whitespace-nowrap shadow-md shadow-blue-500/20">
+                                <Link to="/api-usage" className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl transition-colors whitespace-nowrap shadow-md shadow-blue-500/20">
                                     Abrir Painel <i className="bi bi-box-arrow-up-right ml-1"></i>
                                 </Link>
                             </div>

@@ -1,5 +1,5 @@
 import { supabase } from '@/pages/utils/supabaseConfig';
-import { PurchaseItem } from '../types/purchase.type';
+import { PurchaseItem } from '../../types/purchase.type';
 import { isValidUuid } from './goodsReceiptMapper';
 
 export const syncGoodsReceiptItems = async (receiptId: string, items: PurchaseItem[]): Promise<void> => {

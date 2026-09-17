@@ -143,3 +143,78 @@ export const deleteProduct = async (id: string): Promise<{ success: boolean; mes
         };
     }
 };
+
+export const checkVariationIsUsed = async (variationId: string): Promise<boolean> => {
+    try {
+        const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(variationId);
+        if (!isUUID) return false;
+
+        const [movesRes, ordersRes, receiptsRes, inboundRes] = await Promise.all([
+            supabase.from('inventory_moves').select('id').eq('variation_id', variationId).limit(1),
+            supabase.from('orders').select('id').filter('order_data', 'cs', `"{\\"items\\": [{\\"variationId\\": \\"${variationId}\\"}]}"`).limit(1),
+            supabase.from('goods_receipt_items').select('id').eq('variation_id', variationId).limit(1),
+            supabase.from('inbound_invoices').select('id').filter('items', 'cs', `[{"variationId": "${variationId}"}]`).limit(1)
+        ]);
+
+        return (
+            (movesRes.data && movesRes.data.length > 0) ||
+            (ordersRes.data && ordersRes.data.length > 0) ||
+            (receiptsRes.data && receiptsRes.data.length > 0) ||
+            (inboundRes.data && inboundRes.data.length > 0)
+        ) as boolean;
+    } catch (error) {
+        console.error("Erro ao verificar uso da variação:", error);
+        return true; 
+    }
+};
+
+export const physicalDeleteVariation = async (productId: string, variationId: string): Promise<{ success: boolean; message?: string; parentDeleted?: boolean }> => {
+    try {
+        const realProductId = String(productId).split('_')[0];
+        const isVarUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(variationId);
+        
+        if (!isVarUUID) {
+             return { success: false, message: "ID de variação inválido." };
+        }
+
+        const isUsed = await checkVariationIsUsed(variationId);
+        if (isUsed) {
+            return { success: false, message: "Esta variação possui histórico de movimentação ou pedidos e não pode ser excluída fisicamente." };
+        }
+        
+        // Count variations
+        const { data: variations, error: countError } = await supabase
+            .from('product_variations')
+            .select('id')
+            .eq('product_id', realProductId);
+
+        if (countError) throw countError;
+
+        if (variations && variations.length <= 1) {
+            // It's the last variation. Delete the parent instead.
+            return { ...(await physicalDeleteProduct(realProductId)), parentDeleted: true };
+        } else {
+            // Delete only this variation
+            const { error: delError } = await supabase.from('product_variations').delete().eq('id', variationId);
+            if (delError) throw delError;
+
+            // Update cache
+            let products = getLocalProducts();
+            const parentIdx = products.findIndex(p => String(p.id).split('_')[0] === realProductId);
+            if (parentIdx >= 0) {
+                const parent = products[parentIdx];
+                if (Array.isArray(parent.variations)) {
+                    parent.variations = parent.variations.filter(v => v.id !== variationId);
+                    products[parentIdx] = parent;
+                    saveLocalProducts(products);
+                }
+            }
+            notifySubscribers();
+
+            return { success: true, message: "Variação excluída com sucesso." };
+        }
+    } catch (error: any) {
+        console.error("Erro ao excluir variação fisicamente:", error);
+        return { success: false, message: error.message || "Erro ao excluir a variação." };
+    }
+};

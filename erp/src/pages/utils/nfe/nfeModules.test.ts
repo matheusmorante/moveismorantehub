@@ -38,27 +38,25 @@ describe('NF-e Validator', () => {
     };
 
     it('validates a complete order successfully', () => {
-        const mockOrder: Order = {
+        const mockOrder = {
             id: 'ord_123',
             items: [
                 {
-                    id: 'item_1',
                     productId: 'prod_1',
                     description: 'Guarda Roupa Casal',
                     quantity: 1,
-                    unitPrice: 1200,
-                    totalValue: 1200
+                    unitPrice: 1200
                 }
             ],
-            itemsSummary: { totalQuantity: 1, totalValue: 1200 },
-            shipping: { deliveryMethod: 'delivery', fee: 50 },
+            itemsSummary: { totalQuantity: 1, itemsSubtotal: 1200 },
+            shipping: { deliveryMethod: 'delivery', value: 50 },
             seller: 'Matheus',
             payments: [],
-            paymentsSummary: { totalOrderValue: 1250, totalPaid: 1250, balanceDue: 0 },
+            paymentsSummary: { totalOrderValue: 1250, totalPaid: 1250, remainingBalance: 0 },
             customerData: { fullName: 'Cliente Teste', cpfCnpj: '12345678909' },
             observation: '',
             date: new Date().toISOString()
-        };
+        } as unknown as Order;
 
         const result = validateOrderForNfe(mockOrder, mockSettings);
         expect(result.isValid).toBe(true);
@@ -66,18 +64,18 @@ describe('NF-e Validator', () => {
     });
 
     it('flags orders without items or with zero total', () => {
-        const invalidOrder: Order = {
+        const invalidOrder = {
             id: 'ord_invalid',
             items: [],
-            itemsSummary: { totalQuantity: 0, totalValue: 0 },
+            itemsSummary: { totalQuantity: 0, itemsSubtotal: 0 },
             shipping: { deliveryMethod: 'pickup' },
             seller: 'Matheus',
             payments: [],
-            paymentsSummary: { totalOrderValue: 0, totalPaid: 0, balanceDue: 0 },
+            paymentsSummary: { totalOrderValue: 0, totalPaid: 0, remainingBalance: 0 },
             customerData: { fullName: 'Cliente' },
             observation: '',
             date: new Date().toISOString()
-        };
+        } as unknown as Order;
 
         const result = validateOrderForNfe(invalidOrder, mockSettings);
         expect(result.isValid).toBe(false);
@@ -87,28 +85,26 @@ describe('NF-e Validator', () => {
 
 describe('NF-e XML Builder (Homologação)', () => {
     it('generates SEFAZ Layout 4.00 compliant XML with mandatory homologation header', () => {
-        const mockOrder: Order = {
+        const mockOrder = {
             id: 'ord_123',
             orderIndex: 2500,
             items: [
                 {
-                    id: 'item_1',
                     productId: 'prod_1',
                     description: 'Mesa de Jantar 6 Cadeiras',
                     quantity: 1,
-                    unitPrice: 850,
-                    totalValue: 850
+                    unitPrice: 850
                 }
             ],
-            itemsSummary: { totalQuantity: 1, totalValue: 850 },
-            shipping: { deliveryMethod: 'pickup', fee: 0 },
+            itemsSummary: { totalQuantity: 1, itemsSubtotal: 850 },
+            shipping: { deliveryMethod: 'pickup', value: 0 },
             seller: 'Matheus',
-            payments: [{ method: 'PIX', value: 850 }],
-            paymentsSummary: { totalOrderValue: 850, totalPaid: 850, balanceDue: 0 },
+            payments: [{ method: 'PIX', totalValue: 850 }],
+            paymentsSummary: { totalOrderValue: 850, totalPaid: 850, remainingBalance: 0 },
             customerData: { fullName: 'João da Silva', cpfCnpj: '12345678909' },
             observation: '',
             date: new Date().toISOString()
-        };
+        } as unknown as Order;
 
         const mockSettings: any = {
             companyName: 'Móveis Morante',

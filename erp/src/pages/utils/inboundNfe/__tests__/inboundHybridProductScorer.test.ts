@@ -61,14 +61,11 @@ describe('inboundHybridProductScorer', () => {
       productCode: 'ATHENAS-6P-BR',
       productDescription: 'ROUPEIRO ATHENAS-6P-BR 6P 2G ATHENAS BRANCO',
       quantity: 1,
-      unitPrice: 500,
-      totalPrice: 500,
+      unitCost: 500,
+      totalCost: 500,
       ncm: '94035000',
       cfop: '5102',
       unit: 'UN',
-      matchedProductId: null,
-      matchedVariationId: null,
-      status: 'pending'
     };
 
     const productsWithCode: SupplierProductSummary[] = [
@@ -93,14 +90,11 @@ describe('inboundHybridProductScorer', () => {
       productCode: 'MOV-1234',
       productDescription: 'ROUPEIRO 6P 2G ATHENAS BRANCO MOVAL',
       quantity: 1,
-      unitPrice: 500,
-      totalPrice: 500,
+      unitCost: 500,
+      totalCost: 500,
       ncm: '94035000',
       cfop: '5102',
       unit: 'UN',
-      matchedProductId: null,
-      matchedVariationId: null,
-      status: 'pending'
     };
 
     const result = await rankAndScoreCandidates(item, sampleProducts);

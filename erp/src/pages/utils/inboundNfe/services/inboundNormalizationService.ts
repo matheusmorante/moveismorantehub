@@ -1,4 +1,5 @@
 import { InboundInvoice, InboundInvoiceItem } from '../types/inboundNfeTypes';
+import { AdditionalCostCalculationType } from '../utils/additionalCosts';
 
 export const toInboundInvoiceStatus = (value: string | null | undefined): InboundInvoice['status'] => {
     if (value === 'recebida' || value === 'received') return 'received';
@@ -7,7 +8,7 @@ export const toInboundInvoiceStatus = (value: string | null | undefined): Inboun
 };
 
 export const normalizeAdditionalCost = (value: any) => {
-    const calculationType = value?.calculationType === 'fixed' ? 'fixed' : 'percentage';
+    const calculationType: AdditionalCostCalculationType = value?.calculationType === 'fixed' ? 'fixed' : 'percentage';
     const inputValue = value?.inputValue ?? (calculationType === 'percentage' ? value?.percentage : value?.fixedAmount);
     return {
         id: String(value?.id || `additional-cost-${Math.random().toString(36).slice(2)}`),

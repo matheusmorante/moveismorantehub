@@ -119,12 +119,9 @@ export const syncProductToSupabase = async (product: Product): Promise<void> => 
                 const usedSkus = new Set((existingVariations || []).map((variation: any) => String(variation.sku || '')).filter(Boolean));
 
                 const recordsToSave = variationsWithUuid.map(({ variation: v, originalIndex: index }) => {
-                    const attributesObj: Record<string, string> = {};
-                    (v.attributes || []).forEach((attr: any) => {
-                        if (attr.name && attr.value) {
-                            attributesObj[attr.name] = attr.value;
-                        }
-                    });
+                    const attributesToSave = (v.attributes || [])
+                        .filter((attr: any) => attr.name && attr.value)
+                        .map((attr: any) => ({ name: attr.name, value: attr.value, showName: attr.showName ?? true }));
 
                     const parentCode = product.code && product.code !== '000000' ? product.code : generateUniqueCode(product.id);
                     const suffix = String(index + 1).padStart(2, '0');
@@ -159,7 +156,7 @@ export const syncProductToSupabase = async (product: Product): Promise<void> => 
                         price: v.syncUnitPrice ? (product.unitPrice ? Number(product.unitPrice) : 0) : (v.unitPrice !== undefined && v.unitPrice !== null ? Number(v.unitPrice) : 0),
                         stock: v.stock ? parseInt(String(v.stock), 10) : 0,
                         image_url: effectiveImages.length > 0 ? effectiveImages.join(",") : null,
-                        attributes: attributesObj,
+                        attributes: attributesToSave,
                         promo_price: v.syncPromoPrice !== false ? (product.promoPrice ? Number(product.promoPrice) : null) : (v.promoPrice !== undefined && v.promoPrice !== null ? Number(v.promoPrice) : null),
                         description: v.syncDescription ? null : (v.description || null),
                         width: v.width ? String(v.width) : null,

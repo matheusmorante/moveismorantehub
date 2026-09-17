@@ -113,20 +113,14 @@ export function useProductFormSync({ formData, setFormData }: UseProductFormSync
         if (!formData.hasVariations || !formData.variations?.length) return;
 
         const totalStock = formData.variations.reduce((acc, v) => acc + (v.stock || 0), 0);
-        const varsWithCost = formData.variations.filter(v => (v.costPrice || 0) > 0);
-        const avgCost = varsWithCost.length > 0
-            ? varsWithCost.reduce((acc, v) => acc + (v.costPrice || 0), 0) / varsWithCost.length
-            : 0;
 
         const shouldUpdateStock = formData.stock !== totalStock;
-        const shouldUpdateCost = Math.abs((formData.costPrice || 0) - avgCost) > 0.01;
 
-        if (shouldUpdateStock || shouldUpdateCost) {
+        if (shouldUpdateStock) {
             setFormData(prev => ({ 
                 ...prev, 
-                stock: totalStock,
-                costPrice: avgCost 
+                stock: totalStock
             }));
         }
-    }, [formData.variations, formData.hasVariations, formData.stock, formData.costPrice, setFormData]);
+    }, [formData.variations, formData.hasVariations, formData.stock, setFormData]);
 }

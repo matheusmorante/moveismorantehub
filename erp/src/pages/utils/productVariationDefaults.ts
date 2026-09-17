@@ -152,7 +152,6 @@ export const hasDuplicateVariationAttributeCombination = (variation: Variation |
 };
 
 export const getVariationAttributeValuesInNameOrder = (attributes: Variation['attributes'] | Record<string, any> | string = []) => getVariationAttributePairs({ attributes })
-    .sort((first, second) => first.name.localeCompare(second.name, 'pt-BR', { sensitivity: 'base' }))
     .map(({ value }) => String(value).trim());
 
 export const computeVariationName = (parentName: string, attributes: Array<{ name?: string; value?: string }> | Record<string, any> | string): string => {

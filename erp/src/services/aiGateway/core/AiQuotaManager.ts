@@ -157,7 +157,7 @@ export class AiQuotaManager {
         return {
           allowed: false,
           errorCode: 'AI_DAILY_LIMIT_REACHED',
-          errorMessage: `Limite Diário de ${categoryConfig.name} Atingido: ${categoryTodayCount}/${categoryConfig.perDay} requisições utilizadas hoje.`,
+          errorMessage: `Limite Diário de ${category} Atingido: ${categoryTodayCount}/${categoryConfig.perDay} requisições utilizadas hoje.`,
           usedToday: categoryTodayCount,
           limitToday: categoryConfig.perDay
         };

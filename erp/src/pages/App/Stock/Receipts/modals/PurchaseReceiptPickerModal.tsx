@@ -12,7 +12,7 @@ export interface PurchaseReceiptPickerModalProps {
     readonly onSelect: (purchase: Purchase) => void;
 }
 
-const ITEMS_PER_PAGE = 10;
+const ITEMS_PER_PAGE = 15;
 
 /**
  * Modal para vincular e importar itens a partir de um Pedido de Compra existente.

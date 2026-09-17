@@ -191,7 +191,7 @@ const LabelPrinting: React.FC = () => {
     const [isSelectMode, setIsSelectMode] = useState(false);
     const [selectedModelIds, setSelectedModelIds] = useState<string[]>([]);
     const [hasMoreProducts, setHasMoreProducts] = useState(true);
-    const ITEMS_PER_PAGE = 50;
+    const ITEMS_PER_PAGE = 15;
 
 
     const [config, setConfig] = useState<LabelConfig>({

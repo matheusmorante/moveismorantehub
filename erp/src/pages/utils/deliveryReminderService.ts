@@ -76,7 +76,7 @@ export const buildDeliveryReminderMessageContent = (order: Order) => {
     const furnitureNames = outsideAssemblyItems.map(i => i.description).join(', ');
 
     // 1. Regra da Mesma Data (Criado hoje para entrega hoje)
-    const createdDate = normalizeDateStr(order.createdAt || (order as any).created_at);
+    const createdDate = normalizeDateStr(order.date || (order as any).created_at);
     const scheduledDate = normalizeDateStr(sched?.date);
     const isSameDay = !!(createdDate && scheduledDate && createdDate === scheduledDate);
 

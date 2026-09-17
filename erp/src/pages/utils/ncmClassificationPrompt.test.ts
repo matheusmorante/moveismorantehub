@@ -24,12 +24,25 @@ describe('prompt de classificação NCM', () => {
         expect(prompt).toContain('94014100');
     });
 
-    it('obriga a análise do núcleo do colchão e separa a base box', () => {
+    it('obriga a análise do núcleo do colchão e detalha a classificação de base box e baú', () => {
         const prompt = buildNcmClassificationPrompt({ title: 'Colchão casal' });
 
         expect(prompt).toContain('núcleo determinante');
         expect(prompt).toContain('94042100');
         expect(prompt).toContain('94042900');
-        expect(prompt).toContain('94041000');
+    });
+
+    it('diferencia base box baú (móvel de madeira) de suporte para cama (somiê)', () => {
+        const prompt = buildNcmClassificationPrompt({ 
+            title: 'Base Bau Damulti Premium 1,38 M' 
+        });
+
+        expect(prompt).toContain('base baú');
+        expect(prompt).toContain('NÃO classifique automaticamente produtos que contenham "box" ou "base" no nome como NCM 94041000');
+        expect(prompt).toContain('Bases rígidas e bases baú (com compartimento) de madeira/MDF/MDP devem ser consideradas prioritariamente como móveis de madeira para quarto');
+        expect(prompt).toContain('avaliar 94035000');
+        expect(prompt).toContain('Apenas classifique como suporte para camas/somiê (94041000) quando as características efetivas se enquadrarem');
+        expect(prompt).toContain('material estrutural');
+        expect(prompt).toContain('evidência fraca');
     });
 });

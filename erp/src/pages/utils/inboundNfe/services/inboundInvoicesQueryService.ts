@@ -24,7 +24,7 @@ export interface FetchInboundInvoicesResult {
 
 export const fetchInboundInvoicesPage = async (options?: FetchInboundInvoicesOptions): Promise<FetchInboundInvoicesResult> => {
     const page = options?.page ?? 1;
-    const pageSize = options?.pageSize ?? 30;
+    const pageSize = options?.pageSize ?? 15;
     const searchTerm = (options?.searchTerm || '').trim();
     const dateFilter = options?.dateFilter;
 

@@ -56,6 +56,7 @@ export const ProductRow: React.FC<ProductRowProps> = ({
     variationsCount,
     onMoveToAnotherFamily,
     onMergeWithAnotherVariation,
+    onRefresh,
 }) => {
     const [labelModal, setLabelModal] = React.useState<{ open: boolean; type: LabelPrintType }>({
         open: false,
@@ -133,6 +134,7 @@ export const ProductRow: React.FC<ProductRowProps> = ({
                     onOpenLabelModal={(type) => setLabelModal({ open: true, type })}
                     onMoveToAnotherFamily={onMoveToAnotherFamily}
                     onMergeWithAnotherVariation={onMergeWithAnotherVariation}
+                    onRefresh={onRefresh}
                 />
             );
         }

@@ -80,14 +80,14 @@ export function useProductFormModal({
     useProductFormSync({ formData, setFormData });
 
     // Fetch variations usage
+    const variationIdsStr = JSON.stringify(formData.variations?.map(v => v.id).filter(Boolean) || []);
+
     useEffect(() => {
-        if (!isOpen || !formData.variations || formData.variations.length === 0) {
+        const variationIds = JSON.parse(variationIdsStr);
+        if (!isOpen || variationIds.length === 0) {
             setVariationsInUse(new Set());
             return;
         }
-
-        const variationIds = formData.variations.map(v => v.id).filter(Boolean);
-        if (variationIds.length === 0) return;
 
         let isMounted = true;
         const checkUsage = async () => {
@@ -112,7 +112,7 @@ export function useProductFormModal({
         checkUsage();
 
         return () => { isMounted = false; };
-    }, [isOpen, formData.variations]);
+    }, [isOpen, variationIdsStr]);
 
     const navigateToRequirementField = useCallback((fieldKey: string) => {
         scrollToRequirementField(fieldKey, setActiveTab, () => setSaveResult(null));

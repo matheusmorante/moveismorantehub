@@ -1,4 +1,4 @@
-import { PurchaseItem } from '../types/purchase.type';
+import { PurchaseItem } from '../../types/purchase.type';
 
 export type GoodsReceiptStatus = 'draft' | 'received' | 'estornado';
 

@@ -52,6 +52,7 @@ export interface ParsedFinancialIntent {
   // Conta a Pagar (Boleto/Agendamento)
   dueDate?: string | null;
   supplier?: string | null;
+  accountName?: string | null;
 
   // Parcelamento detalhado
   installmentsCount?: number | null;
@@ -65,11 +66,11 @@ export interface ParsedFinancialIntent {
   fieldToUpdate?: 'amount' | 'dueDate' | 'paymentMethod' | 'description' | null;
   newValue?: string | number | null;
 
-  missingFields: string[];
+  missingFields?: string[];
   unknownByUser?: string[];
   questionToUser?: string | null;
   confidence?: number;
-  isReadyForConfirmation: boolean;
+  isReadyForConfirmation?: boolean;
   validationStatus?: 'needs_input' | 'ready';
 }
 

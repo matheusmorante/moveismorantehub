@@ -117,6 +117,28 @@ export const moveVariationToFamily = async (
         throw new Error(`Falha ao mover variação no banco: ${error.message}`);
     }
 
+    if (variationImages.length > 0) {
+        const { data: existingImages, error: fetchImagesError } = await supabase
+            .from('product_images')
+            .select('image_url')
+            .eq('product_id', targetFamilyId);
+            
+        if (!fetchImagesError) {
+            const existingUrls = new Set(existingImages?.map(img => img.image_url) || []);
+            const newImages = variationImages.filter(url => !existingUrls.has(url));
+            if (newImages.length > 0) {
+                const imageRecords = newImages.map(url => ({
+                    product_id: targetFamilyId,
+                    image_url: url,
+                    is_main: false
+                }));
+                await supabase.from('product_images').insert(imageRecords);
+            }
+        } else {
+            console.warn('Falha ao buscar imagens existentes do novo produto pai:', fetchImagesError);
+        }
+    }
+
     // Invalidar o cache local por completo
     localStorage.removeItem(LOCAL_STORAGE_KEY);
     notifySubscribers();
@@ -138,6 +160,16 @@ export const mergeVariationIntoCanonical = async (
 
     if (error) {
         throw new Error(`Falha ao fundir variações no banco: ${error.message}`);
+    }
+
+    // Desativa imediatamente a variação no ERP e oculta no catálogo (removendo do Feed CSV)
+    const { error: updateError } = await supabase
+        .from('product_variations')
+        .update({ active: false, status: 'hidden' })
+        .eq('id', nonCanonicalVariationId);
+
+    if (updateError) {
+        console.error('Falha ao desativar variação mesclada:', updateError);
     }
 
     localStorage.removeItem(LOCAL_STORAGE_KEY);

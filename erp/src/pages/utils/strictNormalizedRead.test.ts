@@ -236,6 +236,6 @@ describe('Auditoria de Leitura Normalizada Estrita (Zero Dependência de order_d
         expect(mapped.payments).toHaveLength(1);
         expect(mapped.payments[0].method).toBe('Cartão de Crédito');
         expect(mapped.payments[0].amount).toBe(2500.00);
-        expect(mapped.payments[0].installments).toBe(10);
+        expect((mapped.payments[0] as any).installments).toBe(10);
     });
 });

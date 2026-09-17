@@ -22,6 +22,7 @@ describe('orderSnapshotResolution', () => {
             neighborhood: 'Roça Grande',
             city: 'Colombo',
             state: 'PR',
+            complement: '',
             observation: 'Portão Marrom'
         },
         additionalContacts: [{ name: 'Thaís', phone: '(41) 99983-6173' }],
@@ -41,7 +42,7 @@ describe('orderSnapshotResolution', () => {
                 phone: '',
                 noPhone: false,
                 noAddress: false,
-                fullAddress: { cep: '', street: '', number: '', neighborhood: '', city: '' }
+                fullAddress: { cep: '', street: '', number: '', neighborhood: '', city: '', state: '', complement: '', observation: '' }
             },
             shipping: {
                 deliveryMethod: 'delivery',
@@ -52,7 +53,7 @@ describe('orderSnapshotResolution', () => {
             },
             items: [],
             payments: []
-        };
+        } as any;
 
         const mockFetch = vi.fn().mockResolvedValue(mockDbPerson);
         const resolvedOrder = await resolveOrderCustomerSnapshot(orderIncompleto, mockFetch);
@@ -82,9 +83,17 @@ describe('orderSnapshotResolution', () => {
                     number: '500',
                     neighborhood: 'Roça Grande',
                     city: 'Colombo',
-                    state: 'PR'
+                    state: 'PR',
+                    complement: '',
+                    observation: ''
                 }
             },
+            paymentsSummary: {
+                totalOrderValue: 200,
+                totalPaid: 0,
+                remainingBalance: 200,
+                payments: []
+            } as any,
             shipping: {
                 deliveryMethod: 'delivery',
                 value: 50,
@@ -94,7 +103,7 @@ describe('orderSnapshotResolution', () => {
             },
             items: [],
             payments: []
-        };
+        } as any;
 
         const mockFetch = vi.fn();
         const resolved = await resolveOrderCustomerSnapshot(orderAlterado, mockFetch);
@@ -117,22 +126,23 @@ describe('orderSnapshotResolution', () => {
                 phone: '(41) 99999-0000',
                 noPhone: false,
                 noAddress: false,
-                fullAddress: { cep: '80000-000', street: 'Rua Antiga', number: '1', neighborhood: 'Centro', city: 'Curitiba' }
+                fullAddress: { cep: '80000-000', street: 'Rua Antiga', number: '1', neighborhood: 'Centro', city: 'Curitiba', state: 'PR', complement: '', observation: '' }
             },
             shipping: {
                 deliveryMethod: 'delivery',
-                value: 0,
-                orderType: 'Standard',
-                deliveryAddress: { cep: '80000-000', street: 'Rua Antiga', number: '1', neighborhood: 'Centro', city: 'Curitiba' }
+                value: 20,
+                orderType: 'sale',
+                deliveryAddress: { cep: '80000-000', street: 'Rua Antiga', number: '1', neighborhood: 'Centro', city: 'Curitiba', state: 'PR', complement: '', observation: '' },
+                scheduling: { date: '2025-01-01', startTime: '10:00', endTime: '12:00', time: '10:00', type: 'fixed' }
             },
             items: []
-        };
+        } as any;
 
         // Simulação: A pessoa no CRM mudou de telefone e endereço
         const updatedDbPerson: Person = {
             ...mockDbPerson,
             phone: '(41) 11111-2222',
-            fullAddress: { cep: '99999-999', street: 'Rua Nova do CRM', number: '999', neighborhood: 'Novo', city: 'Pinhais' }
+            fullAddress: { cep: '99999-999', street: 'Rua Nova do CRM', number: '999', neighborhood: 'Novo', city: 'Pinhais', state: 'PR', complement: '', observation: '' }
         };
 
         // O pedido histórico preserva exatamente seu snapshot
@@ -156,20 +166,16 @@ describe('orderSnapshotResolution', () => {
                 phone: '(41) 99864-6446',
                 noPhone: false,
                 noAddress: false,
-                fullAddress: { cep: '83402-644', street: 'Rua Rio Guaíba', number: '135', neighborhood: 'Roça Grande', city: 'Colombo' }
+                fullAddress: { cep: '83402-644', street: 'Rua Rio Guaíba', number: '135', neighborhood: 'Roça Grande', city: 'Colombo', state: 'PR', complement: '', observation: '' }
             },
             paymentsSummary: {
                 totalOrderValue: 2999,
-                totalItemsCost: 1500,
-                itemsSubtotal: 3599,
-                totalFixedDiscount: 600,
-                itemsTotalValue: 2999,
                 totalAmountPaid: 2999,
                 amountRemaining: 0,
                 totalPaymentsFee: 0
             },
             items: [],
-            shipping: { deliveryMethod: 'delivery', value: 0, orderType: 'Standard' }
+            shipping: { deliveryMethod: 'delivery', value: 0, orderType: 'Standard', scheduling: { date: '2026-09-12', time: '14:00', type: 'fixed' } }
         };
 
         const payload = buildOrderPersistencePayload(order);

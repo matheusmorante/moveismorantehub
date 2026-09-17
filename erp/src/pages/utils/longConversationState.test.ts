@@ -61,7 +61,7 @@ describe('Bateria E2E/Estresse — Estado de Conversa Longa (longConversationSta
 
     for (let i = 0; i < turns.length; i++) {
       const text = turns[i];
-      const intent = classifyMultiTurnIntent(text, drafts);
+      const intent = classifyMultiTurnIntent(text, drafts as any);
       const isNew = intent === 'NEW_TRANSACTION' || i === 0 || /\b(paguei|recebi|comprei|abasteci|também\s+paguei)\b/i.test(text);
       if (isNew) {
         const res = processFinancialInput(text);
@@ -99,7 +99,7 @@ describe('Bateria E2E/Estresse — Estado de Conversa Longa (longConversationSta
           }
         }
       } else {
-        const patchResult = applyTurnPatchWithDraftList(drafts, text, 'CORRECTION', [], '2026-09-06');
+        const patchResult = applyTurnPatchWithDraftList(drafts as any, text, 'CORRECTION', [], '2026-09-06');
         drafts = patchResult.updatedDrafts;
       }
     }
@@ -162,7 +162,7 @@ describe('Bateria E2E/Estresse — Estado de Conversa Longa (longConversationSta
     expect(drafts[0].amount).toBe(200);
     expect(drafts[0].paymentMethod).toBe('Pix');
 
-    const patchResult = applyTurnPatchWithDraftList(drafts, 'Não, foi 230.', 'CORRECTION', [], '2026-09-06');
+    const patchResult = applyTurnPatchWithDraftList(drafts as any, 'Não, foi 230.', 'CORRECTION', [], '2026-09-06');
     drafts = patchResult.updatedDrafts;
 
     expect(drafts[0].amount).toBe(230);
@@ -184,7 +184,7 @@ describe('Bateria E2E/Estresse — Estado de Conversa Longa (longConversationSta
     expect(drafts[1].paymentMethod).toBe('UNKNOWN'); // NÃO herda PIX
 
     // Turn 3
-    const patchResult = applyTurnPatchWithDraftList(drafts, 'Foi em dinheiro.', 'CORRECTION', [], '2026-09-06');
+    const patchResult = applyTurnPatchWithDraftList(drafts as any, 'Foi em dinheiro.', 'CORRECTION', [], '2026-09-06');
     drafts = patchResult.updatedDrafts;
 
     expect(drafts[0].paymentMethod).toBe('PIX');
@@ -241,12 +241,12 @@ describe('Bateria E2E/Estresse — Estado de Conversa Longa (longConversationSta
     ];
 
     // Pergunta ativa era sobre TV
-    let patchRes = applyTurnPatchWithDraftList(drafts, 'É para a loja.', 'ANSWER_TO_QUESTION', [], '2026-09-06');
+    let patchRes = applyTurnPatchWithDraftList(drafts as any, 'É para a loja.', 'ANSWER_TO_QUESTION', [], '2026-09-06');
     drafts = patchRes.updatedDrafts;
     expect(drafts[0].businessPurpose).toBe('BUSINESS');
 
     // Pergunta seguinte sobre Internet
-    patchRes = applyTurnPatchWithDraftList(drafts, 'É da loja.', 'ANSWER_TO_QUESTION', [], '2026-09-06');
+    patchRes = applyTurnPatchWithDraftList(drafts as any, 'É da loja.', 'ANSWER_TO_QUESTION', [], '2026-09-06');
     drafts = patchRes.updatedDrafts;
     expect(drafts[1].businessPurpose).toBe('BUSINESS');
   });
@@ -275,7 +275,7 @@ describe('Bateria E2E/Estresse — Estado de Conversa Longa (longConversationSta
     ];
 
     // Fala: "Na Bechara foi 550."
-    const patchRes = applyTurnPatchWithDraftList(drafts, 'Na Bechara foi 550.', 'CORRECTION', [], '2026-09-06');
+    const patchRes = applyTurnPatchWithDraftList(drafts as any, 'Na Bechara foi 550.', 'CORRECTION', [], '2026-09-06');
     drafts = patchRes.updatedDrafts;
 
     expect(drafts[0].amount).toBe(550);
@@ -300,15 +300,15 @@ describe('Bateria E2E/Estresse — Estado de Conversa Longa (longConversationSta
     });
 
     // Turn 2: Não, foi 220.
-    drafts = applyTurnPatchWithDraftList(drafts, 'Não, foi 220.', 'CORRECTION', [], '2026-09-06').updatedDrafts;
+    drafts = applyTurnPatchWithDraftList(drafts as any, 'Não, foi 220.', 'CORRECTION', [], '2026-09-06').updatedDrafts;
     expect(drafts[0].amount).toBe(220);
 
     // Turn 3: Na verdade foi 230.
-    drafts = applyTurnPatchWithDraftList(drafts, 'Na verdade foi 230.', 'CORRECTION', [], '2026-09-06').updatedDrafts;
+    drafts = applyTurnPatchWithDraftList(drafts as any, 'Na verdade foi 230.', 'CORRECTION', [], '2026-09-06').updatedDrafts;
     expect(drafts[0].amount).toBe(230);
 
     // Turn 4: E foi no débito, não no Pix.
-    drafts = applyTurnPatchWithDraftList(drafts, 'E foi no débito, não no Pix.', 'CORRECTION', [], '2026-09-06').updatedDrafts;
+    drafts = applyTurnPatchWithDraftList(drafts as any, 'E foi no débito, não no Pix.', 'CORRECTION', [], '2026-09-06').updatedDrafts;
     expect(drafts[0].paymentMethod).toBe('Cartão de Débito');
     expect(drafts[0].amount).toBe(230);
     expect(drafts.length).toBe(1);
@@ -335,7 +335,7 @@ describe('Bateria E2E/Estresse — Estado de Conversa Longa (longConversationSta
     expect(res.draft?.batchDraftsList?.[1].amount).toBe(300);
 
     // Aplica correção na gasolina
-    const patchRes = applyTurnPatchWithDraftList(drafts, input, 'CORRECTION', [], '2026-09-06');
+    const patchRes = applyTurnPatchWithDraftList(drafts as any, input, 'CORRECTION', [], '2026-09-06');
     expect(patchRes.updatedDrafts[0].amount).toBe(250);
   });
 
@@ -352,7 +352,7 @@ describe('Bateria E2E/Estresse — Estado de Conversa Longa (longConversationSta
       }
     ];
 
-    const patchRes = applyTurnPatchWithDraftList(drafts, 'Foi 250.', 'CORRECTION' as any, [], '2026-09-06');
+    const patchRes = applyTurnPatchWithDraftList(drafts as any, 'Foi 250.', 'CORRECTION' as any, [], '2026-09-06');
     expect(patchRes.updatedDrafts[0].amount).toBe(250);
   });
 });

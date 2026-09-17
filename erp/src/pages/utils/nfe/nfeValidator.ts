@@ -65,8 +65,8 @@ export function validateOrderForNfe(order: Order, settings: AppSettings): NfeVal
             errors.push("Para entregas (NF-e Modelo 55), os dados do cliente destinatário são obrigatórios.");
         }
         
-        const address = order.shipping?.address;
-        if (!address?.street && !customer?.address?.street && !isHomologacao) {
+        const address = order.shipping?.deliveryAddress;
+        if (!address?.street && !customer?.fullAddress?.street && !isHomologacao) {
             warnings.push("Endereço de entrega do cliente não preenchido completamente.");
         }
     }

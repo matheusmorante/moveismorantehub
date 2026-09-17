@@ -79,7 +79,7 @@ const ProductTechnicalTab: React.FC<ProductTechnicalTabProps> = ({
             <div id="field-product-dimensions" className="flex flex-col gap-4 bg-white dark:bg-slate-900/40 p-6 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm transition-all">
                 <div className="flex items-center justify-between">
                     <h4 className="text-xs font-black uppercase tracking-widest text-slate-800 dark:text-slate-200 flex items-center gap-2">
-                        <i className="bi bi-ruler text-blue-600" aria-hidden="true"></i> Medidas
+                        <i className="bi bi-ruler text-blue-600" aria-hidden="true"></i> Medidas e Peso
                     </h4>
                 </div>
 

@@ -1,7 +1,7 @@
 import { describe, test, expect, beforeEach } from 'vitest';
 import { AiPreAnalysisManager } from '../../services/aiGateway/core/AiPreAnalysisManager';
 import { AiHybridDispatcher } from '../../services/aiGateway/core/AiHybridDispatcher';
-import { processFinancialInput } from '../../../../../mobile/src/services/financial/financialIntentValidator';
+
 
 describe('FLUXO DE VOZ: DEBOUNCE DE PRÉ-ANÁLISE (3 SEGUNDOS) E ENVIO EXPLÍCITO', () => {
   beforeEach(() => {

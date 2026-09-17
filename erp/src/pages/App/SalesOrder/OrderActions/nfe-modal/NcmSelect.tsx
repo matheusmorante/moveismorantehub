@@ -1,28 +1,5 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
-
-export interface NcmOption {
-    code: string;
-    description: string;
-}
-
-export const COMMON_NCMS: NcmOption[] = [
-    { code: "94035000", description: "Móveis de madeira para dormitórios (Guarda-roupa, Cama, Cômoda, Cabeceira, Criado-Mudo)" },
-    { code: "94036000", description: "Outros móveis de madeira (Rack, Painel, Aparador, Mesa de Centro, Estante, Buffet)" },
-    { code: "94016100", description: "Assentos com armação de madeira, estofados (Sofá, Poltrona, Cadeira Estofada, Banqueta)" },
-    { code: "94033000", description: "Móveis de madeira para escritórios (Escrivaninha, Mesa de Reunião, Gaveteiro)" },
-    { code: "94034000", description: "Móveis de madeira para cozinhas (Armário, Balcão, Paneleiro, Kit Cozinha)" },
-    { code: "94016900", description: "Assentos com armação de madeira, não estofados (Cadeira de Madeira)" },
-    { code: "94042100", description: "Colchões de espuma (borracha ou plástico alveolar)" },
-    { code: "94042900", description: "Colchões de molas ou outros materiais" },
-    { code: "94032000", description: "Outros móveis de metal (Mesa com base de aço, Escrivaninha Industrial)" },
-    { code: "94017100", description: "Assentos com armação de metal, estofados (Banqueta Estofada, Cadeira de Metal)" },
-    { code: "94017900", description: "Assentos com armação de metal, não estofados" },
-    { code: "94039090", description: "Partes de móveis (Peças sobressalentes, portas, tampos)" },
-    { code: "94038900", description: "Móveis de outras matérias (Plástico, Vime, Junco, etc.)" },
-    { code: "39249000", description: "Utensílios de plástico para decoração ou uso doméstico" },
-    { code: "70139900", description: "Objetos de vidro para decoração (Vasos, Pratos Decorativos)" },
-    { code: "94051090", description: "Aparelhos de iluminação (Lustres, Luminárias de teto/parede)" }
-];
+import React, { useState, useEffect, useRef } from 'react';
+import { ncmService, NcmSearchResult } from '@/services/fiscal/ncmService';
 
 interface NcmSelectProps {
     value: string;
@@ -37,6 +14,8 @@ export const NcmSelect: React.FC<NcmSelectProps> = ({
 }) => {
     const [searchQuery, setSearchQuery] = useState(value || '');
     const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+    const [results, setResults] = useState<NcmSearchResult[]>([]);
+    const [isLoading, setIsLoading] = useState(false);
     const dropdownRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
@@ -53,13 +32,25 @@ export const NcmSelect: React.FC<NcmSelectProps> = ({
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, []);
 
-    const filteredNcms = useMemo(() => {
-        const q = searchQuery.toLowerCase().trim();
-        if (!q) return COMMON_NCMS;
-        return COMMON_NCMS.filter(item =>
-            item.code.includes(q) ||
-            item.description.toLowerCase().includes(q)
-        );
+    useEffect(() => {
+        const fetchNcms = async () => {
+            if (searchQuery.trim().length < 2) {
+                setResults([]);
+                return;
+            }
+            setIsLoading(true);
+            try {
+                const res = await ncmService.searchNcms(searchQuery, 10);
+                setResults(res);
+            } catch (err) {
+                console.error("Erro ao buscar NCMs:", err);
+            } finally {
+                setIsLoading(false);
+            }
+        };
+
+        const timer = setTimeout(fetchNcms, 300);
+        return () => clearTimeout(timer);
     }, [searchQuery]);
 
     const cleanVal = (searchQuery || '').replace(/\D/g, '');
@@ -74,7 +65,10 @@ export const NcmSelect: React.FC<NcmSelectProps> = ({
                     onChange={(e) => {
                         const val = e.target.value;
                         setSearchQuery(val);
-                        onChange(val.replace(/\D/g, '').slice(0, 8));
+                        // Atualiza o NCM no pai se forem 8 digitos
+                        if (val.replace(/\D/g, '').length === 8) {
+                            onChange(val.replace(/\D/g, '').slice(0, 8));
+                        }
                         setIsDropdownOpen(true);
                     }}
                     onFocus={() => setIsDropdownOpen(true)}
@@ -97,37 +91,47 @@ export const NcmSelect: React.FC<NcmSelectProps> = ({
                 </button>
             </div>
 
-            {isDropdownOpen && (
+            {isDropdownOpen && (searchQuery.length >= 2 || results.length > 0) && (
                 <div className="absolute right-0 top-full mt-1.5 w-72 sm:w-80 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-xl z-50 p-1.5 max-h-56 overflow-y-auto custom-scrollbar flex flex-col gap-0.5">
-                    {filteredNcms.map(item => (
-                        <div
-                            key={item.code}
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                onChange(item.code);
-                                setSearchQuery(item.code);
-                                setIsDropdownOpen(false);
-                            }}
-                            className="px-2.5 py-2 hover:bg-slate-50 dark:hover:bg-slate-800/70 cursor-pointer transition-colors text-left rounded-xl"
-                        >
-                            <div className="flex items-center justify-between gap-2">
-                                <span className="text-[11px] font-black text-blue-600 dark:text-blue-400 tracking-wider font-mono shrink-0">
-                                    {item.code}
-                                </span>
-                                {item.code === cleanVal && (
-                                    <span className="text-[9px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 px-1.5 py-0.5 rounded">
-                                        Selecionado
+                    {isLoading ? (
+                        <div className="p-3 text-center text-xs text-slate-400">
+                            <i className="bi bi-arrow-repeat animate-spin mr-2" /> Buscando...
+                        </div>
+                    ) : results.length > 0 ? (
+                        results.map(item => (
+                            <div
+                                key={item.code}
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    onChange(item.code);
+                                    setSearchQuery(item.code);
+                                    setIsDropdownOpen(false);
+                                }}
+                                className="px-2.5 py-2 hover:bg-slate-50 dark:hover:bg-slate-800/70 cursor-pointer transition-colors text-left rounded-xl group"
+                            >
+                                <div className="flex items-center justify-between gap-2">
+                                    <span className="text-[11px] font-black text-blue-600 dark:text-blue-400 tracking-wider font-mono shrink-0 group-hover:text-blue-700">
+                                        {item.code}
                                     </span>
+                                    {item.code === cleanVal && (
+                                        <span className="text-[9px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 px-1.5 py-0.5 rounded">
+                                            Selecionado
+                                        </span>
+                                    )}
+                                </div>
+                                <p className="text-[10px] text-slate-600 dark:text-slate-300 font-semibold leading-tight mt-0.5 line-clamp-2">
+                                    {item.official_description}
+                                </p>
+                                {item.alias_match && (
+                                    <p className="text-[9px] text-slate-400 dark:text-slate-500 mt-1 italic flex items-center gap-1">
+                                        <i className="bi bi-tag-fill" /> {item.alias_match}
+                                    </p>
                                 )}
                             </div>
-                            <p className="text-[10px] text-slate-600 dark:text-slate-300 font-semibold leading-tight mt-0.5">
-                                {item.description}
-                            </p>
-                        </div>
-                    ))}
-                    {filteredNcms.length === 0 && (
+                        ))
+                    ) : (
                         <div className="p-3 text-center text-xs text-slate-400">
-                            Nenhum NCM sugerido encontrado. Você pode digitar os 8 dígitos diretamente acima.
+                            Nenhum NCM encontrado para "{searchQuery}".
                         </div>
                     )}
                 </div>

@@ -87,7 +87,7 @@ export const VariationTechnicalTab: React.FC<VariationTechnicalTabProps> = ({
                 </div>
                 {formData.syncDescription ? (
                     <div className="w-full mt-2 p-4 bg-slate-100 dark:bg-slate-900/50 rounded-2xl border border-slate-200/50 dark:border-slate-800 text-xs font-semibold text-slate-500 flex items-start justify-between min-h-[80px]">
-                        <span>{parentProduct?.description || ''}</span>
+                        <span className="whitespace-pre-wrap">{parentProduct?.description || ''}</span>
                         <span className="text-[8px] font-black uppercase tracking-wider text-emerald-700 dark:text-emerald-400 bg-emerald-100 dark:bg-emerald-955/60 px-2 py-0.5 rounded-md shrink-0 ml-2">Herdado</span>
                     </div>
                 ) : (

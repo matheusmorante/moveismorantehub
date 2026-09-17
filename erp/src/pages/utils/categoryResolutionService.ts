@@ -142,8 +142,8 @@ export function matchCategoryByRules(title: string, categories: readonly Categor
         if (matched) return matched;
     }
 
-    if (normTitle.includes('cama') || normTitle.includes('box')) {
-        const matched = findByName('Camas/Bases Box') || findByName('Camas');
+    if (normTitle.includes('cama') || normTitle.includes('box') || normTitle.includes('base bau') || normTitle.includes('base box')) {
+        const matched = findByName('Camas/Base Box') || findByName('Camas/Bases Box') || findByName('Base Box') || findByName('Camas');
         if (matched) return matched;
     }
 
@@ -183,7 +183,7 @@ export function matchCategoryByRules(title: string, categories: readonly Categor
         if (matched) return matched;
     }
 
-    if (normTitle.includes('sofa')) {
+    if (normTitle.includes('sofa') || normTitle.includes('estof')) {
         const matched = findByName('Sofás') || findByName('Sofa');
         if (matched) return matched;
     }

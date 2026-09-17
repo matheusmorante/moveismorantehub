@@ -37,24 +37,7 @@ export function InboundInvoiceItemsReview(props: InboundInvoiceItemsReviewProps)
                             {review.linkedCount} vinculados · {items.length - review.linkedCount} não vinculados
                         </p>
                     </div>
-                    {suggestionsEnabled && (
-                        <button
-                            type="button"
-                            onClick={review.retrySuggestions}
-                            disabled={
-                                !supplierId?.trim() ||
-                                !suggestionsEnabled ||
-                                review.isProcessingSuggestions ||
-                                !review.unlinkedItems.length ||
-                                review.acceptingSuggestion !== null ||
-                                review.removingLink !== null
-                            }
-                            className="inline-flex items-center gap-1.5 rounded-xl border border-amber-300 bg-amber-100 px-3 py-2 text-xs font-bold text-amber-900 hover:bg-amber-200 dark:border-amber-700 dark:bg-amber-950/50 dark:text-amber-300 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                        >
-                            <i className="bi bi-stars" aria-hidden="true" />
-                            Sugestão de vínculos
-                        </button>
-                    )}
+
                 </header>
 
                 <div className="divide-y divide-slate-100 dark:divide-slate-800">

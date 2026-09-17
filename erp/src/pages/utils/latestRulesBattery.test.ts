@@ -44,7 +44,7 @@ import { validateParsedIntent } from '../../../../mobile/src/services/financial/
 import { trySlotFillingFallback } from '../../../../mobile/src/services/financial/financialSlotFilling';
 import { buildDraftAnalysisChips } from './draftAnalysisChips';
 
-const mockCategories = [
+const mockCategories: Array<{ id: string; name: string; type: 'income' | 'expense' }> = [
   { id: 'cat-1', name: 'Combustível', type: 'expense' },
   { id: 'cat-2', name: 'Manutenção de Veículos', type: 'expense' },
   { id: 'cat-3', name: 'Contas de Consumo', type: 'expense' },

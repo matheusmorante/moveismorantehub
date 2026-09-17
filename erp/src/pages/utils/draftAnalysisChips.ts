@@ -182,11 +182,11 @@ export const buildDraftAnalysisChips = (
   }
 
   // 7. Conta Financeira
-  if (draft.accountName) {
+  if ((draft as any).accountName) {
     chips.push({
       id: 'account',
       key: 'account',
-      label: `Conta: ${draft.accountName}`,
+      label: `Conta: ${(draft as any).accountName}`,
       type: 'neutral',
       priority: 7,
     });

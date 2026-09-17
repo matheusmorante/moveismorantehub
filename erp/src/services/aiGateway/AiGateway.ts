@@ -176,7 +176,7 @@ export class AiGateway {
         const modelUsed = options.model || categoryConfig.model;
         return {
           success: false,
-          errorCode: isQuotaOrRateLimit ? 'AI_RATE_LIMIT_EXCEEDED' : 'AI_SERVICE_ERROR',
+          errorCode: isQuotaOrRateLimit ? 'AI_RATE_LIMIT_REACHED' : 'AI_SERVICE_ERROR',
           errorMessage: err.message || 'Erro na comunicação com a API Gemini',
           userFriendlyMessage: isQuotaOrRateLimit
             ? `Cota do modelo ${modelUsed} atingida (HTTP 429).`
@@ -238,7 +238,6 @@ export class AiGateway {
         status: 'SUCCESS',
         http_status: 200,
         module_source: resolvedModule,
-        cost_estimated: Number((textLen * 0.0001).toFixed(4)),
         response_time_ms: 10,
       });
       return { speechContent: payload?.text } as any;
@@ -296,7 +295,6 @@ export class AiGateway {
           status: res.status === 429 ? 'RATE_LIMITED' : 'ERROR',
           http_status: res.status,
           module_source: resolvedModule,
-          cost_estimated: 0,
           error_message: `HTTP ${res.status}: ${errText}`,
           response_time_ms: durationMs,
         });
@@ -342,7 +340,6 @@ export class AiGateway {
         status: 'SUCCESS',
         http_status: res.status,
         module_source: resolvedModule,
-        cost_estimated: costEstimated,
         response_time_ms: durationMs,
       });
 
@@ -359,7 +356,6 @@ export class AiGateway {
           status: 'ERROR',
           http_status: 500,
           module_source: resolvedModule,
-          cost_estimated: 0,
           error_message: fetchErr?.message || 'Network fetch failure',
           response_time_ms: durationMs,
         });

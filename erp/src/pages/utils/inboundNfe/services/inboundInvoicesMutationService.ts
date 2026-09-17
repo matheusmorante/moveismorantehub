@@ -17,7 +17,7 @@ export const deleteInboundInvoice = async (invoiceIdOrKey: string): Promise<void
                 .delete()
                 .eq('id', invoiceIdOrKey));
         } else {
-            const cleanKey = invoiceIdOrKey.replace(/^inbound_/, '').replace(/\D/g, '');
+            const cleanKey = String(invoiceIdOrKey).replace(/^inbound_/, '').replace(/\D/g, '');
             if (cleanKey.length === 44) {
                 ({ error } = await supabase
                     .from('inbound_invoices')

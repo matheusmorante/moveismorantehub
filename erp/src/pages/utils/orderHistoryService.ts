@@ -142,7 +142,7 @@ export const saveOrder = async (order: Order): Promise<string> => {
 
             if (error) throw error;
             rowId = (data as any)?.id;
-            persistedIndex = getOrderIndex((data as any)?.order_data);
+            persistedIndex = getOrderIndex((data as any)?.order_data) ?? undefined;
         }
 
         if (!rowId || persistedIndex !== orderToSave.orderIndex) {
@@ -193,7 +193,7 @@ export const saveOrder = async (order: Order): Promise<string> => {
             void (async () => {
                 try {
                     const { updatePerson } = await import("./personService");
-                    await updatePerson('customers', orderToSave.customerData.id, {
+                    await updatePerson('customers', orderToSave.customerData.id as string, {
                         phone: orderToSave.customerData.phone,
                         marketingOrigin: orderToSave.marketingOrigin as any
                     });
@@ -382,7 +382,7 @@ export const updateOrder = async (
             });
 
             const eligibleItems = (merged.items || []).filter(isStockEligibleSaleItem);
-            const missingExitItems = eligibleItems.filter(item => !effectiveMovedSet.has(String(item.productId)));
+            const missingExitItems = eligibleItems.filter((item: any) => !effectiveMovedSet.has(String(item.productId)));
 
             if (missingExitItems.length > 0) {
                 await handleStockAndBusinessRules(id, {
@@ -392,7 +392,7 @@ export const updateOrder = async (
                     inventoryMovementNote: 'Baixa de estoque gerada ao salvar a edição do pedido.',
                 }, true, true);
 
-                missingExitItems.forEach(item => {
+                missingExitItems.forEach((item: any) => {
                     effectiveMovedSet.add(String(item.productId));
                 });
             }

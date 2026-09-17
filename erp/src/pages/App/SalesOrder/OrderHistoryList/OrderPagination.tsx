@@ -13,7 +13,7 @@ const OrderPagination: React.FC<OrderPaginationProps> = ({
     currentPage,
     totalPages,
     totalItems,
-    itemsPerPage = 30,
+    itemsPerPage = 15,
     onPageChange,
     loading = false
 }) => {
