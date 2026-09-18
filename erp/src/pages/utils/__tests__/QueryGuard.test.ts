@@ -1,6 +1,6 @@
 /** @vitest-environment jsdom */
 import { expect, test, describe, beforeEach, afterEach, vi, Mock } from 'vitest';
-import { supabaseMonitor, CircuitBreakerError } from '../SupabaseMonitorService';
+import { supabaseMonitor, CircuitBreakerError } from '../../../services/monitoring';
 
 describe('QueryGuard (SupabaseMonitorService)', () => {
     let mockFetch: Mock;

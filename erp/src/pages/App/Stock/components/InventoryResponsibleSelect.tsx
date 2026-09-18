@@ -34,11 +34,13 @@ export const InventoryResponsibleSelect: React.FC<InventoryResponsibleSelectProp
         aria-label="Responsável pelo inventário"
     >
         <option value="">Selecione um responsável</option>
-        {employees.map((employee) => (
-            <option key={employee.id} value={employee.id}>
-                {getEmployeeDisplayName(employee)}
-            </option>
-        ))}
+        {employees
+            .filter((employee) => !!employee.position || (employee.role && employee.role !== 'pending'))
+            .map((employee) => (
+                <option key={employee.id} value={employee.id}>
+                    {getEmployeeDisplayName(employee)}
+                </option>
+            ))}
     </select>
 );
 

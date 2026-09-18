@@ -1,25 +1,10 @@
-import React, { useState, useEffect, useRef } from "react";
-import type Product from "@/pages/types/product.type";
-import type { Variation } from "@/pages/types/product.type";
-import type Person from "@/pages/types/person.type";
-import { subscribeToProducts } from '@/pages/utils/productService';
-import { fetchPersons } from '@/pages/utils/personService';
-import { getNextInventoryCode, saveInventoryMove, updateInventoryMove } from '@/pages/utils/inventoryService';
-import ProductAutocomplete from "@/components/ProductAutocomplete";
-import SupplierAutocomplete from "@/components/SupplierAutocomplete";
-import InventoryAuditCards from "../components/InventoryAuditCards";
-import InventoryResponsibleSelect, { getEmployeeDisplayName } from "../components/InventoryResponsibleSelect";
-import { toast } from "react-toastify";
-import type InventoryMove from "@/pages/types/inventoryMove.type";
-import { getVariationDisplayName } from "@/components/productAutocompleteUtils";
+import React from "react";
 import type { InventorySnapshotItem, InventoryAuditSession } from "../components/InventoryAudit";
 
-interface InventoryAuditModalProps {
-    readonly isOpen: boolean;
-    readonly onClose: () => void;
-    readonly copiedItems?: readonly InventorySnapshotItem[] | null;
-    readonly editingSession?: InventoryAuditSession | null;
-}
+import InventoryScopeModal from "./InventoryScopeModal";
+import InventoryOperationScreen from "../components/InventoryOperationScreen";
+import InventoryReviewModal from "../components/InventoryReviewModal";
+import { useInventoryAuditWorkflow } from "../hooks/useInventoryAuditWorkflow";
 
 export interface AuditItem {
     id: string;
@@ -29,390 +14,37 @@ export interface AuditItem {
     name: string;
     supplierNames: string;
     systemStock: number;
-    physicalCount: number;
+    physicalCount: number | null;
     unit: string;
 }
 
-export const InventoryAuditModal: React.FC<InventoryAuditModalProps> = ({ isOpen, onClose, copiedItems, editingSession }) => {
-    const [allProducts, setAllProducts] = useState<Product[]>([]);
-    const [suppliers, setSuppliers] = useState<Person[]>([]);
-    const [employees, setEmployees] = useState<Person[]>([]);
-    const [selectedSupplierId, setSelectedSupplierId] = useState("");
-    const [selectedResponsibleId, setSelectedResponsibleId] = useState("");
-    const [responsibleError, setResponsibleError] = useState(false);
-    const [productSearch, setProductSearch] = useState("");
-    const [selectedPendingProduct, setSelectedPendingProduct] = useState<{ product: Product, variation?: Variation } | null>(null);
-    const [items, setItems] = useState<AuditItem[]>([]);
-    const [isSaving, setIsSaving] = useState(false);
-    const createItemId = () => crypto.randomUUID();
-    const appliedCopyRef = useRef<string | null>(null);
-    const appliedEditingRef = useRef<string | null>(null);
-    const draftRef = useRef<{ id?: string; code?: string; markerMoveId?: string }>({});
-    const lastSavedSignatureRef = useRef<string | null>(null);
+interface InventoryAuditModalProps {
+    readonly isOpen: boolean;
+    readonly onClose: () => void;
+    readonly copiedItems?: readonly InventorySnapshotItem[] | null;
+    readonly editingSession?: InventoryAuditSession | null;
+}
 
-    useEffect(() => {
-        if (!isOpen) return;
-        const handleKeyDown = (e: KeyboardEvent) => {
-            if (e.key === 'Escape') {
-                void handleClose();
-            }
-        };
-        window.addEventListener('keydown', handleKeyDown);
-        return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [isOpen]);
-
-    useEffect(() => {
-        if (!isOpen) return;
-        const unsubscribe = subscribeToProducts((data) => {
-            setAllProducts(data.filter((product) => product.itemType === 'product' && !product.deleted));
-        }, true);
-        Promise.all([fetchPersons('suppliers'), fetchPersons('employees')])
-            .then(([supplierList, employeeList]) => {
-                setSuppliers(supplierList);
-                setEmployees(employeeList);
-            })
-            .catch((err: unknown) => {
-                console.error("Erro ao carregar pessoas para inventário:", err);
-            });
-        return () => unsubscribe();
-    }, [isOpen]);
-
-    useEffect(() => {
-        if (isOpen) {
-            if (!editingSession && !copiedItems) {
-                setItems([]);
-            }
-            appliedCopyRef.current = null;
-            appliedEditingRef.current = null;
-            draftRef.current = {
-                id: editingSession?.id,
-                code: editingSession?.inventoryCode,
-                markerMoveId: editingSession?.markerMoveId,
-            };
-            lastSavedSignatureRef.current = null;
-            setSelectedSupplierId("");
-            setSelectedResponsibleId(editingSession?.responsibleId || "");
-            setResponsibleError(false);
-            setProductSearch("");
-            setSelectedPendingProduct(null);
-        }
-    }, [isOpen, editingSession]);
-
-    const getProductName = (prod: Product, variation?: Variation) => {
-        return getVariationDisplayName(prod, variation) || prod.description || "Produto";
-    };
-
-    const getSupplierNames = (product: Product) => {
-        const supplierIds = [
-            product.mainSupplierId,
-            product.supplierId,
-            ...(product.supplierIds || []),
-        ].filter(Boolean).map(String);
-        const names = supplierIds.map((supplierId) => {
-            const supplier = suppliers.find((person) => String(person.id) === supplierId);
-            return supplier?.tradeName || supplier?.fullName || supplier?.nickname;
-        }).filter(Boolean) as string[];
-
-        return [...new Set(names)].join(' / ') || 'Fábrica não informada';
-    };
-
-    useEffect(() => {
-        if (!isOpen || !editingSession?.items?.length || !allProducts.length) return;
-        if (appliedEditingRef.current === editingSession.id) return;
-
-        setItems(editingSession.items.map((source) => {
-            const product = allProducts.find((item) => String(item.id) === String(source.productId));
-            const variation = product?.variations?.find((item) => String(item.id) === String(source.variationId));
-            if (!variation?.id) return null;
-            return {
-                id: createItemId() as string,
-                key: `${source.productId}-${source.variationId || 'main'}`,
-                productId: source.productId,
-                variationId: source.variationId,
-                name: product ? getProductName(product, variation) : source.name,
-                supplierNames: product ? getSupplierNames(product) : 'Fábrica não informada',
-                systemStock: source.systemStock,
-                physicalCount: source.physicalCount,
-                unit: product?.unit || 'UN',
-            } as AuditItem;
-        }).filter((item): item is AuditItem => item !== null));
-        appliedEditingRef.current = editingSession.id;
-    }, [isOpen, editingSession, allProducts, suppliers]);
-
-    useEffect(() => {
-        if (!isOpen || !copiedItems?.length || !allProducts.length) return;
-        const copyKey = copiedItems.map((item) => `${item.productId}-${item.variationId || 'main'}`).join('|');
-        if (appliedCopyRef.current === copyKey) return;
-        setItems(copiedItems.map((source) => {
-            const product = allProducts.find((item) => String(item.id) === String(source.productId));
-            const variation = product?.variations?.find((item) => String(item.id) === String(source.variationId));
-            if (!variation?.id) return null;
-            return {
-                id: createItemId() as string,
-                key: `${source.productId}-${source.variationId || 'main'}`,
-                productId: source.productId,
-                variationId: source.variationId,
-                name: product ? getProductName(product, variation) : source.name,
-                supplierNames: product ? getSupplierNames(product) : 'Fábrica não informada',
-                systemStock: Number(source.variationId ? variation?.stock ?? 0 : product?.stock ?? 0),
-                physicalCount: source.physicalCount,
-                unit: product?.unit || 'UN',
-            } as AuditItem;
-        }).filter((item): item is AuditItem => item !== null));
-        appliedCopyRef.current = copyKey;
-    }, [isOpen, copiedItems, allProducts, suppliers]);
-
-    const handleAddIndividualProduct = () => {
-        if (!selectedPendingProduct) return;
-        const { product, variation } = selectedPendingProduct;
-        if (!variation?.id) {
-            toast.warn("Selecione uma variação do produto.");
-            return;
-        }
-        const key = `${product.id}-${variation?.id || 'main'}`;
-        const existingIndex = items.findIndex((item) => item.key === key);
-
-        if (existingIndex !== -1) {
-            setItems((prev) => prev.map((item, index) => index === existingIndex ? { ...item, physicalCount: item.physicalCount + 1 } : item));
-            toast.info(`Quantidade de "${getProductName(product, variation)}" incrementada.`);
-        } else {
-            setItems((prev) => [
-                {
-                    id: createItemId(),
-                    key,
-                    productId: String(product.id),
-                    variationId: variation?.id ? String(variation.id) : undefined,
-                    name: getProductName(product, variation),
-                    supplierNames: getSupplierNames(product),
-                    systemStock: Number(variation ? variation.stock ?? 0 : product.stock ?? 0),
-                    physicalCount: 0,
-                    unit: product.unit || 'UN',
-                },
-                ...prev,
-            ]);
-            toast.success(`"${getProductName(product, variation)}" adicionado à lista do inventário.`);
-        }
-
-        setSelectedPendingProduct(null);
-        setProductSearch("");
-    };
-
-    const handleAddSupplierProducts = (supplierId: string) => {
-        if (!supplierId) return;
-        const supplierProducts = allProducts.filter((product) => {
-            const supplierIds = [
-                product.mainSupplierId,
-                product.supplierId,
-                ...(product.supplierIds || []),
-            ].filter(Boolean).map(String);
-            return supplierIds.includes(String(supplierId));
-        });
-
-        if (supplierProducts.length === 0) {
-            toast.warn("Nenhum produto vinculado a este fornecedor.");
-            return;
-        }
-
-        const newItemsToAdd: AuditItem[] = [];
-        for (const product of supplierProducts) {
-            if (product.variations && product.variations.length > 0) {
-                for (const variation of product.variations) {
-                    const key = `${product.id}-${variation.id}`;
-                    if (!items.some((item) => item.key === key)) {
-                        newItemsToAdd.push({
-                            id: createItemId(),
-                            key,
-                            productId: String(product.id),
-                            variationId: String(variation.id),
-                            name: getProductName(product, variation),
-                            supplierNames: getSupplierNames(product),
-                            systemStock: Number(variation.stock ?? 0),
-                            physicalCount: 0,
-                            unit: product.unit || 'UN',
-                        });
-                    }
-                }
-            }
-        }
-
-        if (newItemsToAdd.length > 0) {
-            setItems((prev) => [...newItemsToAdd, ...prev]);
-            toast.success(`${newItemsToAdd.length} produto(s) do fornecedor adicionados! ✨`);
-        }
-
-        setSelectedSupplierId("");
-    };
-
-    const handleUpdateCount = (id: string, newCount: number) => {
-        const validCount = Number.isNaN(newCount) ? 0 : Math.max(0, newCount);
-        setItems((prev) => prev.map((item) => item.id === id ? { ...item, physicalCount: validCount } : item));
-    };
-
-    const handleIncrement = (id: string) => {
-        setItems((prev) => prev.map((item) => item.id === id ? { ...item, physicalCount: item.physicalCount + 1 } : item));
-    };
-
-    const handleDecrement = (id: string) => {
-        setItems((prev) => prev.map((item) => item.id === id ? { ...item, physicalCount: Math.max(0, item.physicalCount - 1) } : item));
-    };
-
-    const handleRemoveItem = (id: string) => {
-        setItems((prev) => prev.filter((item) => item.id !== id));
-    };
-
-    const requireResponsible = () => {
-        if (selectedResponsibleId) return true;
-        setResponsibleError(true);
-        toast.error("Selecione o responsável para finalizar a contagem.");
-        return false;
-    };
-
-    const saveDraft = async (closeAfterSave = false) => {
-        const draft = draftRef.current;
-        if (!items.length && !draft.markerMoveId) {
-            if (closeAfterSave) onClose();
-            return true;
-        }
-        if (!selectedResponsibleId) {
-            if (closeAfterSave) requireResponsible();
-            return false;
-        }
-
-        setIsSaving(true);
-        try {
-            const auditId = draft.id || crypto.randomUUID();
-            const code = draft.code || await getNextInventoryCode();
-            const auditDate = editingSession?.date || new Date().toISOString();
-            const responsible = employees.find((employee) => String(employee.id) === selectedResponsibleId);
-            const auditObservation = JSON.stringify({
-                inventoryAudit: true,
-                inventoryCode: code,
-                status: 'in_progress',
-                responsibleId: selectedResponsibleId,
-                responsibleName: getEmployeeDisplayName(responsible) || editingSession?.responsibleName,
-                items: items.map(({ productId, variationId, name, systemStock, physicalCount }) => ({ productId, variationId, name, systemStock, physicalCount })),
-            });
-
-            if (draft.markerMoveId) {
-                await updateInventoryMove(draft.markerMoveId, { date: auditDate, observation: auditObservation, label: `Inventário #${code}` });
-            } else {
-                const auditMarker = items[0];
-                const savedMarker = await saveInventoryMove({
-                    productId: auditMarker.productId,
-                    variationId: auditMarker.variationId,
-                    productDescription: 'Sessão de inventário',
-                    type: 'adjustment',
-                    quantity: 0,
-                    date: auditDate,
-                    label: `Inventário #${code}`,
-                    observation: auditObservation,
-                    relatedEntityId: auditId,
-                }, auditMarker.systemStock);
-                draft.markerMoveId = savedMarker?.id;
-            }
-            draft.id = auditId;
-            draft.code = code;
-            lastSavedSignatureRef.current = JSON.stringify({ selectedResponsibleId, items });
-            if (closeAfterSave) onClose();
-            return true;
-        } catch (error: unknown) {
-            console.error("Erro ao salvar rascunho da contagem:", error);
-            toast.error("Não foi possível salvar a contagem automaticamente.");
-            return false;
-        } finally {
-            setIsSaving(false);
-        }
-    };
-
-    const handleClose = () => {
-        void saveDraft(true);
-    };
-
-    useEffect(() => {
-        const signature = JSON.stringify({ selectedResponsibleId, items });
-        if (!isOpen || isSaving || !items.length || !selectedResponsibleId || signature === lastSavedSignatureRef.current) return;
-        const timeoutId = window.setTimeout(() => { void saveDraft(); }, 500);
-        return () => window.clearTimeout(timeoutId);
-    }, [isOpen, isSaving, items, selectedResponsibleId]);
-
-    const handleFinalize = async () => {
-        if (items.length === 0) {
-            toast.warn("Adicione pelo menos um produto para realizar o inventário.");
-            return;
-        }
-        if (!requireResponsible()) return;
-
-        const itemsWithAdjustment = items.filter((item) => item.physicalCount !== item.systemStock);
-
-        const confirmed = window.confirm(
-            `Finalizar contagem? ${items.length} item(ns) desta lista serão registrados; ${itemsWithAdjustment.length} terão ajuste de estoque alterado no saldo real.`
-        );
-        if (!confirmed) return;
-
-        setIsSaving(true);
-        try {
-            const auditId = draftRef.current.id || crypto.randomUUID();
-            const code = draftRef.current.code || await getNextInventoryCode();
-            const auditDate = new Date().toISOString();
-            const responsible = employees.find((employee) => String(employee.id) === selectedResponsibleId);
-            const auditObservation = JSON.stringify({
-                inventoryAudit: true,
-                inventoryCode: code,
-                status: 'completed',
-                responsibleId: selectedResponsibleId,
-                responsibleName: getEmployeeDisplayName(responsible) || editingSession?.responsibleName,
-                items: items.map(({ productId, variationId, name, systemStock, physicalCount }) => ({ productId, variationId, name, systemStock, physicalCount })),
-            });
-            const auditMarker = items[0];
-
-            if (draftRef.current.markerMoveId) {
-                await updateInventoryMove(draftRef.current.markerMoveId, {
-                    date: auditDate,
-                    observation: auditObservation,
-                    label: `Inventário #${code}`
-                });
-            } else {
-                const savedMarker = await saveInventoryMove({
-                    productId: auditMarker.productId,
-                    variationId: auditMarker.variationId,
-                    productDescription: 'Sessão de inventário',
-                    type: 'adjustment',
-                    quantity: 0,
-                    date: auditDate,
-                    label: `Inventário #${code}`,
-                    observation: auditObservation,
-                    relatedEntityId: auditId,
-                }, auditMarker.systemStock);
-                draftRef.current.markerMoveId = savedMarker?.id;
-            }
-            draftRef.current.id = auditId;
-            draftRef.current.code = code;
-
-            for (const item of itemsWithAdjustment) {
-                const move: InventoryMove = {
-                    productId: item.productId,
-                    variationId: item.variationId,
-                    productDescription: item.name,
-                    type: 'adjustment',
-                    quantity: 0,
-                    date: auditDate,
-                    label: `Ajuste lançado pelo inventário #${code}`,
-                    observation: JSON.stringify({ note: `Saldo definido pelo inventário #${code}`, targetStock: item.physicalCount, source: 'inventory_audit' }),
-                    relatedEntityId: auditId,
-                };
-
-                await saveInventoryMove(move, item.systemStock);
-            }
-
-            toast.success(`Contagem #${code} finalizada! ${items.length} produto(s) registrados e ${itemsWithAdjustment.length} ajuste(s) lançados no estoque. ✨`);
-            onClose();
-        } catch (error: unknown) {
-            console.error("Erro ao salvar inventário:", error);
-            toast.error("Erro ao processar as movimentações de inventário.");
-        } finally {
-            setIsSaving(false);
-        }
-    };
+export const InventoryAuditModal: React.FC<InventoryAuditModalProps> = ({ 
+    isOpen, 
+    onClose, 
+    copiedItems, 
+    editingSession 
+}) => {
+    const {
+        allProducts,
+        suppliers,
+        employees,
+        view,
+        setView,
+        items,
+        setItems,
+        scopeConfig,
+        draftRef,
+        handleConfirmScope,
+        handleFinalize,
+        saveDraft,
+    } = useInventoryAuditWorkflow(isOpen, onClose, editingSession, copiedItems);
 
     if (!isOpen) return null;
 
@@ -421,260 +53,54 @@ export const InventoryAuditModal: React.FC<InventoryAuditModalProps> = ({ isOpen
             className="fixed inset-0 z-[999999] flex"
             role="dialog"
             aria-modal="true"
-            aria-labelledby="inventory-audit-modal-title"
         >
-            <button
-                type="button"
-                aria-label="Fechar contagem"
-                className="absolute inset-0 bg-slate-950/60 backdrop-blur-sm animate-fade-in cursor-default"
-                onClick={handleClose}
-            />
+            <div className="absolute inset-0 bg-slate-950/60 backdrop-blur-sm animate-fade-in" />
 
-            <div className="relative h-full w-full flex flex-col bg-white dark:bg-slate-900 overflow-hidden animate-slide-up">
-                {/* Header Enxuto de Altura Mínima */}
-                <header className="flex shrink-0 items-center justify-between gap-4 px-6 py-3.5 bg-emerald-600 text-white shadow-sm">
-                    <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-lg bg-white/20 flex items-center justify-center">
-                            <i className="bi bi-clipboard-check text-lg" aria-hidden="true" />
-                        </div>
-                        <h2 id="inventory-audit-modal-title" className="text-base font-black tracking-tight">
-                            {editingSession ? `Editar Inventário #${editingSession.inventoryCode}` : 'Contagem'}
-                        </h2>
-                    </div>
-                    <div className="flex items-center gap-3">
-                        <InventoryResponsibleSelect
-                            employees={employees}
-                            value={selectedResponsibleId}
-                            hasError={responsibleError}
-                            onChange={(value) => {
-                                setSelectedResponsibleId(value);
-                                setResponsibleError(false);
+            <div className="relative h-full w-full bg-white dark:bg-slate-900 overflow-hidden animate-slide-up flex flex-col">
+                {view === 'scope' && (
+                    <InventoryScopeModal
+                        allProducts={allProducts}
+                        suppliers={suppliers}
+                        employees={employees}
+                        onCancel={() => {
+                            if (items.length > 0) setView('operation');
+                            else onClose();
+                        }}
+                        onConfirm={handleConfirmScope}
+                    />
+                )}
+
+                {view === 'operation' && scopeConfig && (
+                    <>
+                        <InventoryOperationScreen
+                            items={items}
+                            blindCount={scopeConfig.blindCount}
+                            inventoryName={scopeConfig.name || `Inventário #${draftRef.current.code}`}
+                            onUpdateCount={(id, count) => {
+                                setItems(prev => prev.map(item => item.id === id ? { ...item, physicalCount: count } : item));
                             }}
+                            onAddManualItem={() => setView('scope')}
+                            onReview={() => setView('review')}
                         />
                         <button
                             type="button"
-                            onClick={handleClose}
-                            className="w-8 h-8 rounded-lg bg-white/10 hover:bg-white/20 flex items-center justify-center transition-colors text-white"
-                            title="Fechar contagem (salvamento automático)"
-                            aria-label="Fechar contagem"
+                            onClick={() => void saveDraft(true)}
+                            className="absolute top-4 right-4 w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 text-slate-800 dark:text-white flex items-center justify-center transition-colors shadow-sm border border-slate-200 dark:border-slate-700 z-50"
+                            title="Salvar e sair"
                         >
-                            <i className="bi bi-x-lg text-sm" aria-hidden="true" />
+                            <i className="bi bi-x-lg text-lg"></i>
                         </button>
-                    </div>
-                </header>
+                    </>
+                )}
 
-                <div className="flex-1 flex flex-col p-4 md:p-6 overflow-hidden max-w-7xl mx-auto w-full gap-4">
-                    {/* Filtros e Adição de Produtos */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 shrink-0 bg-slate-50 dark:bg-slate-955/50 p-4 rounded-2xl border border-slate-100 dark:border-slate-800">
-                        {/* 1. Selecionar por Fornecedor */}
-                        <div className="flex flex-col gap-1.5">
-                            <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">
-                                1. Adicionar todos os produtos de um fornecedor
-                            </label>
-                            <div className="flex items-end gap-2">
-                                <div className="flex-1">
-                                    <SupplierAutocomplete
-                                        suppliers={suppliers}
-                                        selectedSupplierId={selectedSupplierId}
-                                        onSelect={setSelectedSupplierId}
-                                        placeholder="Buscar fornecedor..."
-                                    />
-                                </div>
-                                <button
-                                    type="button"
-                                    onClick={() => handleAddSupplierProducts(selectedSupplierId)}
-                                    disabled={!selectedSupplierId}
-                                    className="h-10 w-10 shrink-0 rounded-xl bg-blue-600 text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-300 dark:disabled:bg-slate-800 flex items-center justify-center"
-                                    title="Adicionar produtos do fornecedor"
-                                    aria-label="Adicionar produtos do fornecedor"
-                                >
-                                    <i className="bi bi-plus-lg" aria-hidden="true" />
-                                </button>
-                            </div>
-                        </div>
-
-                        {/* 2. Selecionar por Produto Individual */}
-                        <div className="flex flex-col gap-1.5">
-                            <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">
-                                2. Adicionar produto individual
-                            </label>
-                            <div className="mt-5 flex items-end gap-2">
-                                <div className="flex-1">
-                                    <ProductAutocomplete
-                                        value={productSearch}
-                                        onChange={(val) => setProductSearch(val)}
-                                        onSelect={(product, variation) => {
-                                            setSelectedPendingProduct({ product, variation });
-                                            setProductSearch(getVariationDisplayName(product, variation));
-                                        }}
-                                        placeholder="Buscar por nome, SKU ou código..."
-                                        variationsOnly
-                                        inputClassName="w-full border-0 border-b border-slate-200 bg-transparent p-2 text-sm font-bold text-slate-700 outline-none transition-all focus:border-blue-600 focus:ring-0 focus:shadow-sm dark:border-slate-800 dark:text-slate-300 dark:focus:border-blue-500"
-                                    />
-                                </div>
-                                <button
-                                    type="button"
-                                    onClick={handleAddIndividualProduct}
-                                    disabled={!selectedPendingProduct}
-                                    className="h-10 w-10 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-300 dark:disabled:bg-slate-800 text-white text-xs font-bold rounded-xl transition-colors shrink-0 cursor-pointer disabled:cursor-not-allowed flex items-center justify-center"
-                                    title="Adicionar produto"
-                                    aria-label="Adicionar produto"
-                                >
-                                    <i className="bi bi-plus-lg" aria-hidden="true" />
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* Lista de Itens do Inventário */}
-                    <div className="flex-1 flex flex-col bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl overflow-hidden shadow-sm">
-                        <div className="p-4 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950/30 flex items-center justify-between">
-                            <h3 className="text-xs font-black uppercase tracking-widest text-slate-700 dark:text-slate-200 flex items-center gap-2">
-                                <i className="bi bi-list-check text-blue-600" aria-hidden="true" />
-                                Lista de Contagem Física ({items.length})
-                            </h3>
-                            {items.length > 0 && (
-                                <button
-                                    type="button"
-                                    onClick={() => setItems([])}
-                                    className="text-[10px] font-bold text-rose-500 hover:text-rose-600 cursor-pointer transition-colors"
-                                >
-                                    Limpar lista
-                                </button>
-                            )}
-                        </div>
-
-                        <div className="flex-1 overflow-y-auto">
-                            {items.length === 0 ? (
-                                <div className="h-full flex flex-col items-center justify-center p-8 text-center text-slate-400">
-                                    <i className="bi bi-box-seam text-4xl mb-2 text-slate-300 dark:text-slate-700" aria-hidden="true" />
-                                    <p className="text-xs font-bold">Nenhum produto adicionado à lista de inventário.</p>
-                                    <p className="text-[10px] mt-1">Utilize os campos acima para adicionar produtos por fornecedor ou individualmente.</p>
-                                </div>
-                            ) : (
-                                <>
-                                    {/* Exibição em Cards no Mobile */}
-                                    <InventoryAuditCards
-                                        items={items}
-                                        onUpdateCount={handleUpdateCount}
-                                        onIncrement={handleIncrement}
-                                        onDecrement={handleDecrement}
-                                        onRemove={handleRemoveItem}
-                                    />
-
-                                    {/* Exibição em Tabela em Telas Maiores */}
-                                    <table className="hidden md:table w-full text-left border-collapse">
-                                        <thead>
-                                            <tr className="bg-slate-50/80 dark:bg-slate-950/50 text-[10px] font-black uppercase tracking-widest text-slate-400 border-b border-slate-100 dark:border-slate-800">
-                                                <th scope="col" className="px-4 py-3">Produto / Variação</th>
-                                                <th scope="col" className="px-4 py-3">Fornecedor</th>
-                                                <th scope="col" className="px-4 py-3 text-center">Saldo Atual</th>
-                                                <th scope="col" className="px-4 py-3 text-center w-48">Contagem Física</th>
-                                                <th scope="col" className="px-4 py-3 text-center">Ajuste</th>
-                                                <th scope="col" className="px-4 py-3 text-right">Ações</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-xs">
-                                            {items.map((item) => {
-                                                const diff = item.physicalCount - item.systemStock;
-                                                return (
-                                                    <tr key={item.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors">
-                                                        <td className="px-4 py-3 font-bold text-slate-800 dark:text-slate-200">
-                                                            {item.name}
-                                                        </td>
-                                                        <td className="px-4 py-3 text-slate-500 font-medium truncate max-w-[200px]" title={item.supplierNames}>
-                                                            {item.supplierNames}
-                                                        </td>
-                                                        <td className="px-4 py-3 text-center font-mono text-slate-600 dark:text-slate-400">
-                                                            {item.systemStock} {item.unit}
-                                                        </td>
-                                                        <td className="px-4 py-3 text-center">
-                                                            <div className="flex items-center justify-center gap-1.5">
-                                                                <button
-                                                                    type="button"
-                                                                    onClick={() => handleDecrement(item.id)}
-                                                                    aria-label="Diminuir contagem"
-                                                                    className="w-7 h-7 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 text-slate-600 dark:text-slate-300 font-bold flex items-center justify-center cursor-pointer transition-colors"
-                                                                >
-                                                                    -
-                                                                </button>
-                                                                <input
-                                                                    type="number"
-                                                                    min="0"
-                                                                    value={item.physicalCount}
-                                                                    onChange={(e) => {
-                                                                        const parsed = parseInt(e.target.value, 10);
-                                                                        handleUpdateCount(item.id, Number.isNaN(parsed) ? 0 : parsed);
-                                                                    }}
-                                                                    className="w-16 text-center font-bold font-mono py-1 border border-slate-200 dark:border-slate-700 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100"
-                                                                />
-                                                                <button
-                                                                    type="button"
-                                                                    onClick={() => handleIncrement(item.id)}
-                                                                    aria-label="Aumentar contagem"
-                                                                    className="w-7 h-7 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 text-slate-600 dark:text-slate-300 font-bold flex items-center justify-center cursor-pointer transition-colors"
-                                                                >
-                                                                    +
-                                                                </button>
-                                                            </div>
-                                                        </td>
-                                                        <td className="px-4 py-3 text-center">
-                                                            <span className={`inline-block px-2 py-0.5 rounded-md font-mono font-bold text-[11px] ${
-                                                                diff > 0 
-                                                                    ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300' 
-                                                                    : diff < 0 
-                                                                    ? 'bg-rose-100 text-rose-700 dark:bg-rose-950/40 dark:text-rose-300' 
-                                                                    : 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400'
-                                                            }`}>
-                                                                {diff > 0 ? `+${diff}` : diff} {item.unit}
-                                                            </span>
-                                                        </td>
-                                                        <td className="px-4 py-3 text-right">
-                                                            <button
-                                                                type="button"
-                                                                onClick={() => handleRemoveItem(item.id)}
-                                                                className="p-1.5 rounded-lg text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-colors cursor-pointer"
-                                                                title="Remover da lista"
-                                                                aria-label="Remover da lista"
-                                                            >
-                                                                <i className="bi bi-trash text-xs" aria-hidden="true" />
-                                                            </button>
-                                                        </td>
-                                                    </tr>
-                                                );
-                                            })}
-                                        </tbody>
-                                    </table>
-                                </>
-                            )}
-                        </div>
-                    </div>
-
-                    {/* Rodapé com Contador e Botões */}
-                    <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-2 shrink-0">
-                        <div className="text-xs text-slate-500 font-medium">
-                            Total de itens na lista: <strong className="font-black text-slate-700 dark:text-slate-200">{items.length}</strong>
-                        </div>
-                        <div className="flex items-center gap-2 w-full sm:w-auto">
-                            <button
-                                type="button"
-                                onClick={handleFinalize}
-                                disabled={isSaving || items.length === 0}
-                                className="flex-1 sm:flex-none px-6 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-xs font-black uppercase tracking-wider text-white shadow-lg shadow-emerald-200/50 dark:shadow-none transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer flex items-center justify-center gap-1.5"
-                                title="Finaliza a contagem e lança as movimentações de ajuste no estoque real"
-                            >
-                                {isSaving ? (
-                                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                                ) : (
-                                    <>
-                                        <i className="bi bi-check2 text-sm" aria-hidden="true" />
-                                        <span>Finalizar contagem</span>
-                                    </>
-                                )}
-                            </button>
-                        </div>
-                    </div>
-                </div>
+                {view === 'review' && (
+                    <InventoryReviewModal
+                        items={items}
+                        startDate={draftRef.current.date!}
+                        onCancel={() => setView('operation')}
+                        onConfirm={handleFinalize}
+                    />
+                )}
             </div>
         </div>
     );

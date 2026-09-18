@@ -1,4 +1,4 @@
-const fs = require('fs');
+econst fs = require('fs');
 let content = fs.readFileSync('tests/e2e/products/products-variations-e2e.spec.ts', 'utf8');
 
 const oldL = `await expect(tableRows).toHaveCount(1);`;

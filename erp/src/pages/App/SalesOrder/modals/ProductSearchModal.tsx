@@ -1,9 +1,8 @@
-import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import React, { useState } from "react";
 import Product, { Variation } from '@/pages/types/product.type';
-import { subscribeToProducts } from '@/pages/utils/productService';
-import { formatCurrency } from '@/pages/utils/formatters';
 import ProductFormModal from '@/pages/App/Products/ProductFormModal';
-import { normalizeSearchTerm } from "@/pages/utils/textUtils";
+import { useProductSearch } from '../hooks/useProductSearch';
+import { ProductSearchItem } from '../components/ProductSearchItem';
 
 interface Props {
     onSelect: (product: Product, variation?: Variation) => void;
@@ -12,63 +11,8 @@ interface Props {
 }
 
 const ProductSearchModal = ({ onSelect, onClose, priceType = 'unit' }: Props) => {
-    const [search, setSearch] = useState("");
-    const [products, setProducts] = useState<Product[]>([]);
-    const [loading, setLoading] = useState(true);
     const [isProductFormOpen, setIsProductFormOpen] = useState(false);
-
-    useEffect(() => {
-        const unsub = subscribeToProducts((data) => {
-            setProducts(data.filter(p => p.active && !p.deleted && !p.isDraft));
-            setLoading(false);
-        });
-
-        return () => { if (unsub) unsub(); };
-    }, []);
-
-    const flatSelectableItems = useMemo(() => {
-        const items: { p: Product; v?: Variation; key: string }[] = [];
-        
-        products.forEach((p, pIdx) => {
-            if (p.variations && p.variations.length > 0) {
-                p.variations.forEach((v, vIdx) => {
-                    if (v.active !== false) {
-                        items.push({ 
-                            p, 
-                            v, 
-                            key: `v-${v.id || vIdx}-${p.id || pIdx}` 
-                        });
-                    }
-                });
-            } else {
-                items.push({
-                    p,
-                    key: `p-${p.id || pIdx}`
-                });
-            }
-        });
-        
-        return items;
-    }, [products]);
-
-    const filtered = useMemo(() => {
-        if (!search.trim()) return flatSelectableItems;
-        const s = normalizeSearchTerm(search);
-        
-        return flatSelectableItems.filter(item => {
-            const p = item.p;
-            const v = item.v;
-            const searchableText = normalizeSearchTerm([
-                p.description,
-                p.code,
-                p.category,
-                v?.name,
-                v?.sku
-            ].filter(Boolean).join(' '));
-            
-            return searchableText.includes(s);
-        });
-    }, [flatSelectableItems, search]);
+    const { search, setSearch, loading, filtered } = useProductSearch(priceType);
 
     return (
         <div
@@ -149,42 +93,18 @@ const ProductSearchModal = ({ onSelect, onClose, priceType = 'unit' }: Props) =>
                             <p className="text-xs font-bold">Nenhum item encontrado</p>
                         </div>
                     ) : (
-                        filtered.map(item => {
-                            const p = item.p;
-                            const v = item.v;
-                            const price = v ? (priceType === 'cost' ? (v.costPrice || p.costPrice || 0) : (v.unitPrice || p.unitPrice || 0)) : (priceType === 'cost' ? (p.costPrice || 0) : (p.unitPrice || 0));
-                            const title = v ? `${p.description} - ${v.name}` : p.description;
-
-                            return (
-                                <div
-                                    key={item.key}
-                                    onClick={() => {
-                                        onSelect(p, v);
-                                        onClose();
-                                    }}
-                                    className="flex items-center justify-between p-4 rounded-2xl border border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 hover:bg-blue-50/50 dark:hover:bg-blue-900/20 hover:border-blue-200 dark:hover:border-blue-800 transition-all cursor-pointer group"
-                                >
-                                    <div className="flex items-center gap-3">
-                                        <div className="w-10 h-10 rounded-xl bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 flex items-center justify-center text-slate-500 font-bold text-xs shrink-0 shadow-sm">
-                                            {p.code || 'N/A'}
-                                        </div>
-                                        <div>
-                                            <h4 className="text-xs sm:text-sm font-bold text-slate-800 dark:text-slate-100 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
-                                                {title}
-                                            </h4>
-                                            <p className="text-[10px] font-bold text-slate-400 mt-0.5">
-                                                {p.category || 'Sem Categoria'} {v?.sku ? `• SKU: ${v.sku}` : ''}
-                                            </p>
-                                        </div>
-                                    </div>
-                                    <div className="text-right">
-                                        <span className="text-xs sm:text-sm font-black text-emerald-600 dark:text-emerald-400">
-                                            {formatCurrency(price)}
-                                        </span>
-                                    </div>
-                                </div>
-                            );
-                        })
+                        filtered.map(item => (
+                            <ProductSearchItem
+                                key={item.key}
+                                product={item.p}
+                                variation={item.v}
+                                priceType={priceType}
+                                onClick={() => {
+                                    onSelect(item.p, item.v);
+                                    onClose();
+                                }}
+                            />
+                        ))
                     )}
                 </div>
             </div>

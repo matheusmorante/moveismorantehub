@@ -33,7 +33,8 @@ export const InventoryAuditTable: React.FC<InventoryAuditTableProps> = ({
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-xs">
                 {items.map((item) => {
-                    const diff = item.physicalCount - item.systemStock;
+                    const isCounted = item.physicalCount !== null;
+                    const diff = isCounted ? item.physicalCount! - item.systemStock : 0;
                     return (
                         <tr key={item.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors">
                             <td className="px-4 py-3 font-bold text-slate-800 dark:text-slate-200">
@@ -61,7 +62,7 @@ export const InventoryAuditTable: React.FC<InventoryAuditTableProps> = ({
                                     <input
                                         type="number"
                                         min="0"
-                                        value={item.physicalCount}
+                                        value={item.physicalCount ?? ''}
                                         onChange={(e) => {
                                             const parsed = parseInt(e.target.value, 10);
                                             onUpdateCount(item.id, Number.isNaN(parsed) ? 0 : parsed);
@@ -82,14 +83,16 @@ export const InventoryAuditTable: React.FC<InventoryAuditTableProps> = ({
                             <td className="px-4 py-3 text-center">
                                 <span
                                     className={`inline-block px-2 py-0.5 rounded-md font-mono font-bold text-[11px] ${
-                                        diff > 0
+                                        !isCounted
+                                            ? 'bg-slate-100 text-slate-400 dark:bg-slate-800'
+                                            : diff > 0
                                             ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300'
                                             : diff < 0
                                             ? 'bg-rose-100 text-rose-700 dark:bg-rose-950/40 dark:text-rose-300'
                                             : 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400'
                                     }`}
                                 >
-                                    {diff > 0 ? `+${diff}` : diff} {item.unit}
+                                    {!isCounted ? '-' : diff > 0 ? `+${diff}` : diff} {isCounted ? item.unit : ''}
                                 </span>
                             </td>
                             <td className="px-4 py-3 text-right">

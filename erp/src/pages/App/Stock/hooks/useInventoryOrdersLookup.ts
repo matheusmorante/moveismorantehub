@@ -1,4 +1,14 @@
 import { useState, useEffect, useCallback } from 'react';
+
+function capitalizeName(name: string): string {
+    if (!name) return '';
+    const lowercaseWords = ['de', 'da', 'do', 'das', 'dos', 'e', 'com', 'para'];
+    return name
+        .toLowerCase()
+        .split(' ')
+        .map(word => lowercaseWords.includes(word) ? word : word.charAt(0).toUpperCase() + word.slice(1))
+        .join(' ');
+}
 import Order from '../../../types/order.type';
 import { subscribeToOrders } from '@/pages/utils/orderHistoryService';
 import { formatOrderCode } from '@/pages/utils/orderCode';
@@ -45,7 +55,7 @@ export const useInventoryOrdersLookup = (): InventoryOrdersLookupResult => {
             if (order) {
                 const code = formatOrderCode(order);
                 const orderWithCustomer = order as OrderCustomerLike;
-                const customerName = order.customerData?.fullName || orderWithCustomer.customerName || '';
+                const customerName = capitalizeName(order.customerData?.fullName || orderWithCustomer.customerName || '');
                 return customerName ? `Pedido de venda #${code} - ${customerName}` : `Pedido de venda #${code}`;
             }
             return null;
@@ -70,7 +80,7 @@ export const useInventoryOrdersLookup = (): InventoryOrdersLookupResult => {
                 if (order) {
                     const code = formatOrderCode(order);
                     const orderWithCustomer = order as OrderCustomerLike;
-                    const customerName = order.customerData?.fullName || orderWithCustomer.customerName || '';
+                    const customerName = capitalizeName(order.customerData?.fullName || orderWithCustomer.customerName || '');
                     return customerName
                         ? `Cancelamento da venda #${code} - ${customerName}`
                         : `Cancelamento da venda #${code}`;

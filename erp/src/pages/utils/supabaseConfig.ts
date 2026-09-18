@@ -1,5 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
-import { supabaseMonitor } from "./SupabaseMonitorService";
+import { supabaseMonitor } from "../../services/monitoring";
 
 // Base de Dados Centralizada do Supabase - MoranteHub (Compartilhada entre ERP e Catálogo Digital)
 const DEFAULT_SUPABASE_URL = 'https://hkoxhourxwlddgsfdgws.supabase.co';

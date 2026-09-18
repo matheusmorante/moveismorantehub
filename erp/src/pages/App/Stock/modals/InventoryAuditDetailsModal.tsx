@@ -29,7 +29,7 @@ export const InventoryAuditDetailsModal: React.FC<InventoryAuditDetailsModalProp
     if (!session) return null;
 
     const differencesCount = session.items.filter(
-        (item) => item.physicalCount !== item.systemStock
+        (item) => item.physicalCount !== null && item.physicalCount !== item.systemStock
     ).length;
 
     return (
@@ -100,24 +100,29 @@ export const InventoryAuditDetailsModal: React.FC<InventoryAuditDetailsModalProp
                         </thead>
                         <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                             {session.items.map((item, index) => {
-                                const adjustment = item.physicalCount - item.systemStock;
+                                const isCounted = item.physicalCount !== null;
+                                const adjustment = isCounted ? item.physicalCount! - item.systemStock : 0;
                                 return (
                                     <tr key={`${item.productId}-${item.variationId || index}`}>
                                         <td className="px-5 py-4 font-bold text-slate-700 dark:text-slate-200">
                                             {item.name}
                                         </td>
                                         <td className="px-5 py-4 text-center">{item.systemStock}</td>
-                                        <td className="px-5 py-4 text-center font-black">{item.physicalCount}</td>
+                                        <td className="px-5 py-4 text-center font-black">
+                                            {isCounted ? item.physicalCount : <span className="text-slate-400 font-normal italic">Não contado</span>}
+                                        </td>
                                         <td
                                             className={`px-5 py-4 text-center font-black ${
-                                                adjustment > 0
+                                                !isCounted
+                                                    ? 'text-slate-300 dark:text-slate-700'
+                                                    : adjustment > 0
                                                     ? 'text-emerald-600'
                                                     : adjustment < 0
                                                     ? 'text-rose-600'
                                                     : 'text-slate-400'
                                             }`}
                                         >
-                                            {adjustment > 0 ? `+${adjustment}` : adjustment}
+                                            {!isCounted ? '-' : adjustment > 0 ? `+${adjustment}` : adjustment}
                                         </td>
                                     </tr>
                                 );

@@ -7,6 +7,7 @@ export interface ReceiptsPaginationProps {
     readonly itemsPerPage?: number;
     readonly onPageChange: (page: number) => void;
     readonly loading?: boolean;
+    readonly itemName?: string;
 }
 
 export const ReceiptsPagination: React.FC<ReceiptsPaginationProps> = ({
@@ -15,7 +16,8 @@ export const ReceiptsPagination: React.FC<ReceiptsPaginationProps> = ({
     totalItems,
     itemsPerPage = 15,
     onPageChange,
-    loading = false
+    loading = false,
+    itemName = 'recebimentos'
 }) => {
     if (totalItems === 0) return null;
 
@@ -52,7 +54,7 @@ export const ReceiptsPagination: React.FC<ReceiptsPaginationProps> = ({
                     <span className="w-3.5 h-3.5 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin shrink-0" aria-hidden="true" />
                 )}
                 <span>
-                    Exibindo <span className="text-slate-800 dark:text-slate-200 font-extrabold">{startIndex}-{endIndex}</span> de <span className="text-slate-800 dark:text-slate-200 font-extrabold">{totalItems}</span> recebimentos
+                    Exibindo <span className="text-slate-800 dark:text-slate-200 font-extrabold">{startIndex}-{endIndex}</span> de <span className="text-slate-800 dark:text-slate-200 font-extrabold">{totalItems}</span> {itemName}
                 </span>
                 <span className="hidden md:inline-block text-slate-300 dark:text-slate-700" aria-hidden="true">•</span>
                 <span className="hidden md:inline-block text-[11px] text-slate-400 dark:text-slate-500 font-semibold">

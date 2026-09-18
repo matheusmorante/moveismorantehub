@@ -158,3 +158,4 @@
 | 2026-09-17 09:33 | Ciclo 1 | Módulo 1 (Vendas) | Etapa 1.3 | ✅ APROVADO | 5/5 testes de integração de ações pós-venda e blindagem de integridade (`TESTE_HUB_20260917_093307_M1_POST_SALE`) |
 | 2026-09-17 10:23 | Ciclo 1 | Módulo 3 (Logística) | Etapa 3.1 | ✅ APROVADO | 6/6 testes unitários para a semântica de extração de agendamento e badges visuais (`TESTE_HUB_20260917_102300_M3_SCHEDULE`) |
 | 2026-09-17 10:34 | Ciclo 1 | Módulo 3 (Logística) | Etapa 3.2 | ✅ APROVADO | Auditoria E2E Web concluída: renderização das abas Hoje, Cronograma e Mapa Leaflet sem erros e com cadeados de slot funcionais |
+| 2026-09-17 23:24 | Ciclo 1 | Módulo 2 (Estoque) | Mobile E2E | ✅ APROVADO | Auditoria E2E Playwright concluída: renderização NFs de Entrada, Recebimentos e Fluxo da Tela de Contagem de Inventário sem erros |

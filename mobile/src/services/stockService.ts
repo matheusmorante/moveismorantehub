@@ -5,19 +5,25 @@ export const ITEMS_PER_PAGE = 15;
 /**
  * Movimentações de Estoque
  */
-export const fetchStockMoves = async (page: number) => {
+export const fetchStockMoves = async (page: number, productId?: string) => {
     const from = page * ITEMS_PER_PAGE;
     const to = from + ITEMS_PER_PAGE - 1;
     
     // In MoranteHub, inventory_moves usually has product details embedded or linked via productId
-    const { data, error } = await supabase
+    let query = supabase
         .from('inventory_moves')
-        .select('*')
+        .select('*', { count: 'exact' })
         .order('created_at', { ascending: false })
         .range(from, to);
         
+    if (productId) {
+        query = query.eq('product_id', productId);
+    }
+        
+    const { data, error, count } = await query;
+        
     if (error) throw error;
-    return data;
+    return { data, totalCount: count || 0 };
 };
 
 /**
@@ -29,18 +35,25 @@ export const fetchSuppliers = async (page: number, searchQuery: string = '') => 
     
     let query = supabase
         .from('people')
-        .select('*')
-        .contains('roles', ['supplier'])
-        .order('name', { ascending: true })
+        .select('id, full_name, cpf_cnpj, full_address')
+        .eq('person_type', 'suppliers')
+        .order('full_name', { ascending: true })
         .range(from, to);
         
     if (searchQuery) {
-        query = query.or(`name.ilike.%${searchQuery}%,cnpj_cpf.ilike.%${searchQuery}%`);
+        query = query.or(`full_name.ilike.%${searchQuery}%,cpf_cnpj.ilike.%${searchQuery}%`);
     }
     
     const { data, error } = await query;
     if (error) throw error;
-    return data;
+    return (data || []).map(s => ({
+        ...s,
+        // Aliases para compatibilidade com o mapper do useSuppliers
+        name: s.full_name || '',
+        document_number: s.cpf_cnpj || '',
+        city: s.full_address?.city || s.full_address?.cidade || '',
+        state: s.full_address?.state || s.full_address?.estado || '',
+    }));
 };
 
 /**
@@ -52,15 +65,19 @@ export const fetchPurchases = async (page: number) => {
     
     const { data, error } = await supabase
         .from('purchases')
-        .select(`
-            *,
-            people ( name )
-        `)
+        .select('*')
         .order('created_at', { ascending: false })
         .range(from, to);
         
     if (error) throw error;
-    return data;
+    
+    // Map to camelCase for the UI
+    return (data || []).map(p => ({
+        ...p,
+        supplierName: p.supplier_name,
+        totalValue: p.total_value,
+        purchaseNumber: p.purchase_number
+    }));
 };
 
 /**
@@ -72,12 +89,11 @@ export const fetchInboundInvoices = async (page: number) => {
     
     const { data, error } = await supabase
         .from('inbound_invoices')
-        .select('*')
-        .order('created_at', { ascending: false })
+        .select('*, inbound_invoice_items(*)')
+        .order('data_emissao', { ascending: false })
         .range(from, to);
         
     if (error) {
-        // Fallback or ignore if table doesn't exist yet, just return empty to not crash
         console.warn('Erro ao buscar NFs:', error);
         return [];
     }
@@ -91,16 +107,23 @@ export const fetchReceipts = async (page: number) => {
     const from = page * ITEMS_PER_PAGE;
     const to = from + ITEMS_PER_PAGE - 1;
     
-    // Supondo que exista uma tabela 'receipts' ou usamos purchases com status específico
     const { data, error } = await supabase
-        .from('purchases') // Usando purchases como fallback para recebimentos
-        .select('*, people(name)')
-        .in('status', ['sent', 'partially_received'])
-        .order('created_at', { ascending: false })
+        .from('goods_receipts')
+        .select('*, goods_receipt_items(*)')
+        .order('received_at', { ascending: false })
         .range(from, to);
         
-    if (error) throw error;
-    return data;
+    if (error) {
+        console.warn('Erro ao buscar recebimentos:', error);
+        return [];
+    }
+    
+    return (data || []).map(r => ({
+        ...r,
+        supplierName: r.supplier_name || 'Fornecedor',
+        totalValue: r.total_value || 0,
+        items: Array.isArray(r.goods_receipt_items) ? r.goods_receipt_items : [],
+    }));
 };
 
 /**
@@ -111,16 +134,26 @@ export const fetchInventorySessions = async (page: number) => {
     const to = from + ITEMS_PER_PAGE - 1;
     
     const { data, error } = await supabase
-        .from('inventory_sessions')
+        .from('inventory_moves')
         .select('*')
+        .ilike('label', 'Inventário #%')
         .order('created_at', { ascending: false })
         .range(from, to);
         
     if (error) {
-        console.warn('Erro ao buscar sessões de inventário:', error);
+        console.warn('Erro ao buscar auditorias de inventário:', error);
         return [];
     }
-    return data;
+    
+    // Convert moves into "sessions" for the UI
+    return (data || []).map(m => ({
+        id: m.id,
+        name: `Inventário #${m.id.split('-')[0]}`,
+        status: 'completed',
+        created_at: m.created_at,
+        updated_at: m.updated_at,
+        items_count: Math.abs(m.quantity)
+    }));
 };
 
 /**
@@ -133,7 +166,7 @@ export const fetchInventoryItems = async (sessionId: string, page: number, searc
     // Aqui seria idealmente a tabela products, para podermos contar todos
     let query = supabase
         .from('products')
-        .select('id, name, stock_quantity')
+        .select('id, name, stock')
         .order('name', { ascending: true })
         .range(from, to);
         
@@ -142,6 +175,26 @@ export const fetchInventoryItems = async (sessionId: string, page: number, searc
     }
 
     const { data, error } = await query;
+    if (error) throw error;
+    
+    return (data || []).map(p => ({
+        ...p,
+        stock_quantity: p.stock || 0
+    }));
+};
+
+/**
+ * Buscar produtos (para suggestions/search input)
+ */
+export const searchProducts = async (query: string) => {
+    if (!query || query.length < 2) return [];
+    
+    const { data, error } = await supabase
+        .from('products')
+        .select('id, name, sku')
+        .or(`name.ilike.%${query}%,sku.ilike.%${query}%`)
+        .limit(10);
+        
     if (error) throw error;
     return data;
 };

@@ -1,5 +1,5 @@
 import React from "react";
-import { Check, PackageMinus, PackagePlus, Scale } from "lucide-react";
+import { Check, PackageMinus, PackagePlus, RotateCcw, Scale } from "lucide-react";
 import type InventoryMove from "@/pages/types/inventoryMove.type";
 import { formatDateTime } from "@/pages/utils/formatters";
 
@@ -83,8 +83,12 @@ export const InventoryMoveCard: React.FC<InventoryMoveCardProps> = ({
                             <>
                                 <span className="relative inline-flex items-center">
                                     <PackagePlus className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-                                    {!isReversed && (
-                                        <span className="absolute -top-1 -right-1 flex h-2 w-2 items-center justify-center rounded-full bg-emerald-700 text-white ring-1 ring-white dark:ring-slate-900 pointer-events-none">
+                                    {isReversed ? (
+                                        <span className="absolute -top-1 -right-1 flex h-2.5 w-2.5 items-center justify-center rounded-full bg-rose-500 text-white ring-1 ring-white dark:ring-slate-900 pointer-events-none">
+                                            <RotateCcw className="h-1.5 w-1.5 stroke-[3]" />
+                                        </span>
+                                    ) : (
+                                        <span className="absolute -top-1 -right-1 flex h-2.5 w-2.5 items-center justify-center rounded-full bg-emerald-700 text-white ring-1 ring-white dark:ring-slate-900 pointer-events-none">
                                             <Check className="h-1.5 w-1.5 stroke-[3]" />
                                         </span>
                                     )}
@@ -95,8 +99,12 @@ export const InventoryMoveCard: React.FC<InventoryMoveCardProps> = ({
                             <>
                                 <span className="relative inline-flex items-center">
                                     <PackageMinus className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-                                    {!isReversed && (
-                                        <span className="absolute -top-1 -right-1 flex h-2 w-2 items-center justify-center rounded-full bg-emerald-700 text-white ring-1 ring-white dark:ring-slate-900 pointer-events-none">
+                                    {isReversed ? (
+                                        <span className="absolute -top-1 -right-1 flex h-2.5 w-2.5 items-center justify-center rounded-full bg-rose-500 text-white ring-1 ring-white dark:ring-slate-900 pointer-events-none">
+                                            <RotateCcw className="h-1.5 w-1.5 stroke-[3]" />
+                                        </span>
+                                    ) : (
+                                        <span className="absolute -top-1 -right-1 flex h-2.5 w-2.5 items-center justify-center rounded-full bg-emerald-700 text-white ring-1 ring-white dark:ring-slate-900 pointer-events-none">
                                             <Check className="h-1.5 w-1.5 stroke-[3]" />
                                         </span>
                                     )}
@@ -104,7 +112,20 @@ export const InventoryMoveCard: React.FC<InventoryMoveCardProps> = ({
                                 Saída
                             </>
                         ) : (
-                            <><Scale className="h-3 w-3 shrink-0" aria-hidden="true" /> Ajuste</>
+                            <>
+                                <span className="relative inline-flex items-center">
+                                    <Scale className="h-3 w-3 shrink-0" aria-hidden="true" />
+                                    {isReversed ? (
+                                        <span className="absolute -top-1 -right-1 flex h-2.5 w-2.5 items-center justify-center rounded-full bg-rose-500 text-white ring-1 ring-white dark:ring-slate-900 pointer-events-none">
+                                            <RotateCcw className="h-1.5 w-1.5 stroke-[3]" />
+                                        </span>
+                                    ) : (
+                                        <span className="absolute -top-1 -right-1 flex h-2.5 w-2.5 items-center justify-center rounded-full bg-emerald-700 text-white ring-1 ring-white dark:ring-slate-900 pointer-events-none">
+                                            <Check className="h-1.5 w-1.5 stroke-[3]" />
+                                        </span>
+                                    )}
+                                </span> Ajuste
+                            </>
                         )}
                     </span>
 
@@ -192,10 +213,6 @@ export const InventoryMoveCard: React.FC<InventoryMoveCardProps> = ({
                     {isReversed ? (
                         <span className="text-[10px] font-black text-rose-500 dark:text-rose-400 uppercase tracking-widest flex items-center gap-1">
                             <i className="bi bi-x-circle" aria-hidden="true" /> Sem Efeito
-                        </span>
-                    ) : isOrderLinked ? (
-                        <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 flex items-center gap-1" title="O estorno é realizado pelo status do pedido">
-                            <i className="bi bi-lock-fill text-xs" aria-hidden="true" /> Vinculado ao Pedido
                         </span>
                     ) : null}
                 </div>

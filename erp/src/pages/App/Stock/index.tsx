@@ -135,24 +135,14 @@ const StockPage = () => {
 
                         {canManageStock && (
                             <div className="flex items-center gap-2 shrink-0">
-                                {activeTab === 'audit' ? (
+                                {activeTab === 'audit' && (
                                     <button
                                         onClick={handleOpenNewAudit}
                                         className="flex items-center justify-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 sm:px-4 sm:py-1.5 rounded-lg font-black uppercase tracking-wider text-[11px] sm:text-xs shadow-sm transition-all active:scale-95 cursor-pointer"
-                                        title="Iniciar contagem"
+                                        title="Novo inventário"
                                     >
                                         <i className="bi bi-plus-lg text-xs" />
-                                        <span>Iniciar contagem</span>
-                                    </button>
-                                ) : (
-                                    <button
-                                        type="button"
-                                        disabled
-                                        className="flex items-center justify-center gap-1.5 bg-slate-200 dark:bg-slate-800 text-slate-400 dark:text-slate-500 px-3 py-1.5 sm:px-4 sm:py-1.5 rounded-lg font-black uppercase tracking-wider text-[11px] sm:text-xs shadow-none cursor-not-allowed opacity-70"
-                                        title="Lançamento manual de movimentação desabilitado"
-                                    >
-                                        <i className="bi bi-plus-lg text-xs" />
-                                        <span>Lançar Movimentação</span>
+                                        <span>Novo inventário</span>
                                     </button>
                                 )}
                             </div>

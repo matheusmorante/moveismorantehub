@@ -28,7 +28,8 @@ export const InventoryAuditCards: React.FC<InventoryAuditCardsProps> = ({
     <div className="h-full overflow-x-auto overflow-y-hidden px-4 py-4 custom-scrollbar">
         <div className="flex h-full min-w-max snap-x snap-mandatory gap-4">
             {items.map((item, index) => {
-                const difference = item.physicalCount - item.systemStock;
+                const isCounted = item.physicalCount !== null;
+                const difference = isCounted ? item.physicalCount! - item.systemStock : 0;
                 return (
                     <article
                         key={item.id}
@@ -69,11 +70,11 @@ export const InventoryAuditCards: React.FC<InventoryAuditCardsProps> = ({
                                     Ajuste
                                 </span>
                                 <strong
-                                    className={`mt-1 inline-flex rounded-lg px-2 py-0.5 text-lg ${adjustmentClass(
-                                        difference
-                                    )}`}
+                                    className={`mt-1 inline-flex rounded-lg px-2 py-0.5 text-lg ${
+                                        !isCounted ? 'bg-slate-100 text-slate-400 dark:bg-slate-800' : adjustmentClass(difference)
+                                    }`}
                                 >
-                                    {difference > 0 ? `+${difference}` : difference} {item.unit}
+                                    {!isCounted ? '-' : difference > 0 ? `+${difference}` : difference} {item.unit}
                                 </strong>
                             </div>
                         </div>
@@ -95,7 +96,7 @@ export const InventoryAuditCards: React.FC<InventoryAuditCardsProps> = ({
                                     type="number"
                                     min="0"
                                     inputMode="numeric"
-                                    value={item.physicalCount}
+                                    value={item.physicalCount ?? ''}
                                     onFocus={(event) => event.currentTarget.select()}
                                     onChange={(event) => {
                                         const parsed = parseInt(event.target.value, 10);

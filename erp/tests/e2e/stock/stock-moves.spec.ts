@@ -69,7 +69,7 @@ test.describe('Módulo de Estoque - Movimentações, Histórico e Inventário', 
         await expect(productSearch).toBeVisible();
     });
 
-    test('2. Alternância de abas para Inventários (/stock?tab=audit) e exibição do botão Iniciar contagem', async ({ page }) => {
+    test('2. Alternância de abas para Inventários (/stock?tab=audit) e exibição do botão Novo inventário', async ({ page }) => {
         await page.goto(`/stock?tab=audit&${AUTH_QUERY}`, { waitUntil: 'domcontentloaded' });
         await page.waitForLoadState('networkidle').catch(() => {});
 
@@ -77,11 +77,11 @@ test.describe('Módulo de Estoque - Movimentações, Histórico e Inventário', 
         const auditTitle = page.locator('h1:has-text("Inventários")');
         await expect(auditTitle).toBeVisible({ timeout: 15000 });
 
-        // Validar presença do botão "Iniciar contagem"
-        const startAuditBtn = page.locator('button:has-text("Iniciar contagem")');
+        // Validar presença do botão "Novo inventário"
+        const startAuditBtn = page.locator('button:has-text("Novo inventário")');
         await expect(startAuditBtn).toBeVisible();
 
-        // Clicar em "Iniciar contagem" e validar abertura do modal
+        // Clicar em "Novo inventário" e validar abertura do modal
         await startAuditBtn.click();
         await page.waitForTimeout(400);
 
@@ -89,8 +89,8 @@ test.describe('Módulo de Estoque - Movimentações, Histórico e Inventário', 
         const modal = page.locator('div[role="dialog"], .fixed.inset-0').first();
         await expect(modal).toBeVisible();
 
-        // Fechar modal via botão Cancelar ou Fechar
-        const closeBtn = page.locator('button:has-text("Cancelar"), button:has-text("Fechar"), button[aria-label="Fechar"]').first();
+        // Fechar modal via botão de fechar (x) no header do ScopeModal
+        const closeBtn = page.locator('button i.bi-x-lg').first();
         if (await closeBtn.isVisible()) {
             await closeBtn.click();
         }

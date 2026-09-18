@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
+import type { ReceiptPeriod } from "@/pages/App/Stock/Receipts/types/receiptPeriodFilter.types";
 import type InventoryMove from "@/pages/types/inventoryMove.type";
 import type Product from "@/pages/types/product.type";
 import type { Variation } from "@/pages/types/product.type";
@@ -27,6 +28,15 @@ export function useInventoryMovesHistory({
     const [editingMove, setEditingMove] = useState<InventoryMove | null>(null);
     const [isDeleting, setIsDeleting] = useState(false);
     const [expandedMoveIds, setExpandedMoveIds] = useState<Record<string, boolean>>({});
+    
+    // Period filter
+    const [period, setPeriod] = useState<ReceiptPeriod>('this_month');
+    const [customStartDate, setCustomStartDate] = useState('');
+    const [customEndDate, setCustomEndDate] = useState('');
+    
+    // Pagination
+    const [page, setPage] = useState(1);
+    const ITEMS_PER_PAGE = 15;
 
     const { formatOrderLabel, formatReversalReason } = useInventoryOrdersLookup();
 
@@ -105,17 +115,51 @@ export function useInventoryMovesHistory({
     }, [selectedProduct, selectedVariation, moves]);
 
     const filtered = useMemo(() => {
-        if (!selectedProduct) return [];
+        let result = moves.filter((m) => !isInventoryAuditMarker(m));
 
-        return moves.filter((m) => {
-            if (isInventoryAuditMarker(m)) return false;
-            if (m.productId !== selectedProduct.id) return false;
+        if (selectedProduct) {
+            result = result.filter(m => m.productId === selectedProduct.id);
             if (selectedVariation && m.variationId) {
-                return String(m.variationId) === String(selectedVariation.id);
+                result = result.filter(m => String(m.variationId) === String(selectedVariation.id));
             }
-            return true;
-        });
-    }, [moves, selectedProduct, selectedVariation]);
+        }
+
+        // Apply period filter
+        if (period !== 'all') {
+            const now = new Date();
+            let start = new Date(0);
+            let end = new Date();
+            
+            if (period === 'this_month') {
+                start = new Date(now.getFullYear(), now.getMonth(), 1);
+                end = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
+            } else if (period === 'last_month') {
+                start = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+                end = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59);
+            } else if (period === 'this_year') {
+                start = new Date(now.getFullYear(), 0, 1);
+                end = new Date(now.getFullYear(), 11, 31, 23, 59, 59);
+            } else if (period === 'custom' && customStartDate && customEndDate) {
+                start = new Date(`${customStartDate}T00:00:00`);
+                end = new Date(`${customEndDate}T23:59:59`);
+            }
+            
+            result = result.filter(m => {
+                if (!m.date) return false;
+                const mDate = new Date(m.date);
+                return mDate >= start && mDate <= end;
+            });
+        }
+
+        return result;
+    }, [moves, selectedProduct, selectedVariation, period, customStartDate, customEndDate]);
+
+    const paginatedFiltered = useMemo(() => {
+        const startIndex = (page - 1) * ITEMS_PER_PAGE;
+        return filtered.slice(startIndex, startIndex + ITEMS_PER_PAGE);
+    }, [filtered, page]);
+
+    const totalPages = Math.ceil(filtered.length / ITEMS_PER_PAGE);
 
     const isPurchaseEntry = (move: InventoryMove) => move.relatedEntityType === 'purchase_order' || /^(Entrada (a partir )?do Pedido|Entrada NF-)/i.test(move.label || '');
     const isOrderLinked = (move: InventoryMove) => move.relatedEntityType === 'sales_order' || isPurchaseEntry(move);
@@ -203,6 +247,18 @@ export function useInventoryMovesHistory({
         handleDelete,
         confirmDelete,
         isPurchaseEntry,
-        formatReversalReason
+        formatReversalReason,
+        period,
+        setPeriod,
+        customStartDate,
+        setCustomStartDate,
+        customEndDate,
+        setCustomEndDate,
+        page,
+        setPage,
+        totalPages,
+        paginatedFiltered,
+        ITEMS_PER_PAGE,
+        totalItems: filtered.length
     };
 }

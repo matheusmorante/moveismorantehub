@@ -5,6 +5,8 @@ import InventoryMoveDeleteModal from "./InventoryMoveDeleteModal";
 import InventoryMoveEditModal from "./InventoryMoveEditModal";
 import { InventoryMoveCard } from "./InventoryMoveCard";
 import { InventoryMovesTable } from "./InventoryMovesTable";
+import { ReceiptPeriodSelector } from "../Receipts/components/ReceiptPeriodSelector";
+import { ReceiptsPagination } from "../Receipts/components/ReceiptsPagination";
 import { useAuth } from "@/context/AuthContext";
 import { canPerform } from "@/pages/utils/permissionService";
 import { useInventoryMovesHistory } from "../hooks/useInventoryMovesHistory";
@@ -45,7 +47,19 @@ export const InventoryMovesHistory = ({
         isOrderLinked,
         confirmDelete,
         isPurchaseEntry,
-        formatReversalReason
+        formatReversalReason,
+        period,
+        setPeriod,
+        customStartDate,
+        setCustomStartDate,
+        customEndDate,
+        setCustomEndDate,
+        page,
+        setPage,
+        totalPages,
+        paginatedFiltered,
+        ITEMS_PER_PAGE,
+        totalItems
     } = useInventoryMovesHistory({
         externalSelectedProduct,
         externalSelectedVariation,
@@ -103,22 +117,31 @@ export const InventoryMovesHistory = ({
                     )}
                 </div>
 
-                {selectedProduct && (
-                    <div className="flex items-center gap-2 self-start md:self-center flex-wrap shrink-0">
+                <div className="flex items-center gap-2 self-start md:self-center flex-wrap shrink-0">
+                    <ReceiptPeriodSelector
+                        period={period}
+                        onPeriodChange={setPeriod}
+                        customStartDate={customStartDate}
+                        onCustomStartDateChange={setCustomStartDate}
+                        customEndDate={customEndDate}
+                        onCustomEndDateChange={setCustomEndDate}
+                    />
+
+                    {selectedProduct && (
                         <div className="flex items-center gap-2 px-3.5 py-2 bg-emerald-600 text-white rounded-xl text-xs font-bold shadow-sm shadow-emerald-200/50 dark:shadow-none">
                             <i className="bi bi-stack text-emerald-200 text-sm" aria-hidden="true" />
                             <span>Saldo em Estoque: <strong className="font-black text-sm text-white">{currentStock} un</strong></span>
                         </div>
-                    </div>
-                )}
+                    )}
+                </div>
             </div>
 
             {/* Listagem de Movimentações: Cards em < XL e Tabela em >= XL */}
-            {filtered.length > 0 ? (
+            {paginatedFiltered.length > 0 ? (
                 <div className="w-full min-w-0">
                     {/* Visualização em Cards para Telas menores que XL (< 1280px) */}
                     <div className="block xl:hidden space-y-3 w-full min-w-0">
-                        {filtered.map((move) => {
+                        {paginatedFiltered.map((move) => {
                             const isReversed = move.status === 'reversed' || move.status === 'cancelled';
                             const cleanObs = getCleanObservation(move);
                             const isExpanded = Boolean(move.id && expandedMoveIds[move.id]);
@@ -144,26 +167,33 @@ export const InventoryMovesHistory = ({
                     {/* Visualização em Tabela para Desktop XL ou superior (>= 1280px) */}
                     <div className="hidden xl:block w-full">
                         <InventoryMovesTable
-                            moves={filtered.map((m) => ({ ...m, reversalReason: formatReversalReason(m.reversalReason || '', m.relatedEntityId) }))}
+                            moves={paginatedFiltered.map((m) => ({ ...m, reversalReason: formatReversalReason(m.reversalReason || '', m.relatedEntityId) }))}
                             expandedMoveIds={expandedMoveIds}
                             toggleExpand={toggleExpand}
                             getCleanObservation={getCleanObservation}
                             isOrderLinked={isOrderLinked}
                         />
                     </div>
+                    
+                    <ReceiptsPagination
+                        currentPage={page}
+                        totalPages={totalPages}
+                        totalItems={totalItems}
+                        itemsPerPage={ITEMS_PER_PAGE}
+                        onPageChange={setPage}
+                        itemName="movimentações"
+                    />
                 </div>
             ) : (
                 <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm p-12 flex flex-col items-center justify-center text-center">
                     <div className="w-16 h-16 bg-slate-50 dark:bg-slate-800 rounded-2xl flex items-center justify-center text-slate-300 dark:text-slate-600 mb-4">
-                        <i className={`bi ${selectedProduct ? 'bi-inboxes-fill' : 'bi-search'} text-2xl`} aria-hidden="true" />
+                        <i className="bi bi-inboxes-fill text-2xl" aria-hidden="true" />
                     </div>
                     <h3 className="text-sm font-bold text-slate-700 dark:text-slate-300 mb-1">
-                        {selectedProduct ? "Nenhuma movimentação para este produto" : "Selecione um produto"}
+                        Nenhuma movimentação encontrada
                     </h3>
                     <p className="text-xs text-slate-400 max-w-sm">
-                        {selectedProduct 
-                            ? "Não foram localizadas entradas, saídas ou ajustes para este produto."
-                            : "Busque um produto no campo acima para visualizar seu histórico de movimentações."}
+                        Não foram localizadas movimentações para os filtros selecionados.
                     </p>
                 </div>
             )}
