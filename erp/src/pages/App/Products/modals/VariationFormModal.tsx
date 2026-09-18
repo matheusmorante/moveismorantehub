@@ -7,6 +7,7 @@ import { useVariationForm } from '../hooks/useVariationForm';
 import { VariationIdentificationTab } from '../components/variationTabs/VariationIdentificationTab';
 import { VariationPricingTab } from '../components/variationTabs/VariationPricingTab';
 import { VariationTechnicalTab } from '../components/variationTabs/VariationTechnicalTab';
+import { VariationCompositionItemsTab } from '../components/variationTabs/VariationCompositionItemsTab';
 import { checkERPLegibility, checkEcomLegibility } from '../productLegibilityRules';
 
 interface VariationFormModalProps {
@@ -19,7 +20,7 @@ interface VariationFormModalProps {
     readonly onSave?: (updatedVariation: Variation) => void;
 }
 
-type VariationTabId = 'identificacao' | 'fotos' | 'estoque' | 'tecnico';
+type VariationTabId = 'identificacao' | 'fotos' | 'estoque' | 'tecnico' | 'compostos';
 
 interface TabDefinition {
     readonly id: VariationTabId;
@@ -27,12 +28,21 @@ interface TabDefinition {
     readonly icon: string;
 }
 
-const formTabs: readonly TabDefinition[] = [
-    { id: 'identificacao', label: 'Identificação e Atributos', icon: 'bi-info-circle' },
-    { id: 'fotos', label: 'Fotos da Variação', icon: 'bi-images' },
-    { id: 'estoque', label: 'Estoque e Precificação', icon: 'bi-box-seam' },
-    { id: 'tecnico', label: 'Informações Técnicas', icon: 'bi-gear' },
-];
+const getFormTabs = (isComposition: boolean): readonly TabDefinition[] => {
+    const tabs: TabDefinition[] = [
+        { id: 'identificacao', label: 'Identificação e Atributos', icon: 'bi-info-circle' },
+        { id: 'fotos', label: 'Fotos da Variação', icon: 'bi-images' },
+    ];
+    
+    if (isComposition) {
+        tabs.push({ id: 'compostos', label: 'Produtos Compostos', icon: 'bi-diagram-3' });
+    }
+    
+    tabs.push({ id: 'estoque', label: 'Estoque e Precificação', icon: 'bi-box-seam' });
+    tabs.push({ id: 'tecnico', label: 'Informações Técnicas', icon: 'bi-gear' });
+    
+    return tabs;
+};
 
 export const VariationFormModal: React.FC<VariationFormModalProps> = (props) => {
     const { isOpen, onClose, parentProduct, variation } = props;
@@ -182,7 +192,7 @@ export const VariationFormModal: React.FC<VariationFormModalProps> = (props) => 
                 {/* Sub-Header Navegação de Abas */}
                 <div className="px-6 border-b border-slate-50 dark:border-slate-800/50 bg-white dark:bg-slate-900 shrink-0 sticky top-0 z-10 overflow-x-auto scrollbar-none">
                     <div className="flex items-center gap-6" role="tablist" aria-label="Abas da variação">
-                        {formTabs.map((tab) => (
+                        {getFormTabs(parentProduct.itemType === 'composition' || (parentProduct as any).item_type === 'composition').map((tab) => (
                             <button
                                 key={tab.id}
                                 type="button"

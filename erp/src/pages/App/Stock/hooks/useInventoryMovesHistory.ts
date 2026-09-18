@@ -119,8 +119,8 @@ export function useInventoryMovesHistory({
 
         if (selectedProduct) {
             result = result.filter(m => m.productId === selectedProduct.id);
-            if (selectedVariation && m.variationId) {
-                result = result.filter(m => String(m.variationId) === String(selectedVariation.id));
+            if (selectedVariation) {
+                result = result.filter(m => m.variationId && String(m.variationId) === String(selectedVariation.id));
             }
         }
 

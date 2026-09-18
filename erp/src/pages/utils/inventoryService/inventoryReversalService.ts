@@ -2,7 +2,7 @@ import { supabase } from '@/pages/utils/supabaseConfig';
 import { INVENTORY_TABLE_NAME } from './inventoryTypeRules';
 import { mapInventoryMoveFromDB } from './inventoryMapper';
 import { updateMoveInState } from './inventorySubscriptionState';
-import { recalculateInventoryAuditBalance } from '../inventoryAuditBalance';
+import { recalculateInventoryAuditBalance } from "@/pages/utils/inventoryAuditBalance";
 import { revertProductStockFromMove, reapplyProductStockFromMove } from './inventoryStockCalculator';
 
 export const reverseInventoryMove = async (

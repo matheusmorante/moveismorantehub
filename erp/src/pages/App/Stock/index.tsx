@@ -1,12 +1,11 @@
 import React, { useState, useEffect } from "react";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import StockLaunchModal from "./components/StockLaunchModal";
-import InventoryAuditModal from "./components/InventoryAuditModal";
+import InventoryAuditModal from "./Inventory/modals/InventoryAuditModal";
 import InventoryMovesHistory from "./components/InventoryMovesHistory";
-import InventoryAudit from "./components/InventoryAudit";
-import type { InventorySnapshotItem } from "./components/InventoryAudit";
-import type { InventoryAuditSession } from "./components/InventoryAudit";
-import InventoryAuditDetailsModal from "./components/InventoryAuditDetailsModal";
+import { InventoryAudit } from "./Inventory/InventoryAudit";
+import type { InventorySnapshotItem, InventoryAuditSession } from "./Inventory/types/inventoryAudit.types";
+import InventoryAuditDetailsModal from "./Inventory/modals/InventoryAuditDetailsModal";
 import PurchasesIndex from "./Purchases/Index";
 import Product, { Variation } from "../../types/product.type";
 import Purchase from '../../types/purchase.type';
@@ -56,6 +55,9 @@ const StockPage = () => {
     });
 
     const [activeTab, setActiveTab] = useState<'history' | 'audit' | 'purchases'>(() => {
+        const path = window.location.pathname;
+        if (path.includes('/estoque/inventarios')) return 'audit';
+        if (path.includes('/estoque/movimentacoes')) return 'history';
         const tabParam = searchParams.get('tab');
         if (tabParam === 'audit' || tabParam === 'purchases') {
             return tabParam;
@@ -79,13 +81,19 @@ const StockPage = () => {
     };
 
     useEffect(() => {
-        const tab = searchParams.get('tab');
-        if (tab && ['history', 'audit', 'purchases'].includes(tab)) {
-            setActiveTab(tab as any);
-        } else if (!tab || tab === 'balance') {
+        if (location.pathname.includes('/estoque/inventarios')) {
+            setActiveTab('audit');
+        } else if (location.pathname.includes('/estoque/movimentacoes')) {
             setActiveTab('history');
+        } else {
+            const tab = searchParams.get('tab');
+            if (tab && ['history', 'audit', 'purchases'].includes(tab)) {
+                setActiveTab(tab as any);
+            } else if (!tab || tab === 'balance') {
+                setActiveTab('history');
+            }
         }
-    }, [searchParams]);
+    }, [location.pathname, searchParams]);
 
     useEffect(() => {
         const purchase = location.state?.purchaseForStockEntry as Purchase | undefined;

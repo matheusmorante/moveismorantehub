@@ -11,6 +11,8 @@ import DeliverySchedule from './pages/App/DeliverySchedule';
 import OrderPage from './pages/OrderPage';
 import Products from './pages/App/Products/Index';
 import Categories from './pages/App/Products/Categories/Index';
+import SupplierReconciliation from './pages/App/Products/Reconciliation/SupplierReconciliation';
+import ProductCompositions from './pages/App/Products/Compositions/Index';
 import Settings from './pages/App/Settings';
 import SupabaseMonitorDashboard from './pages/App/Settings/SupabaseMonitor/Index';
 import ProductTypes from './pages/App/Products/ProductTypes/Index';
@@ -173,16 +175,21 @@ function Router() {
             {/* Registrations */}
             <Route path='/products' element={<Navigate to="/registrations/products" replace />} />
             <Route path='/registrations/products' element={<Products />} />
+            <Route path='/products/compositions' element={<ProductCompositions />} />
+            <Route path='/products/reconciliation/suppliers' element={<SupplierReconciliation />} />
             <Route path='/registrations/meta-catalog' element={<MetaCatalog />} />
             <Route path='/registrations/whatsapp-marketplace' element={<WhatsAppMarketplace />} />
             <Route path='/registrations/product-categories' element={<Categories />} />
             <Route path='/registrations/product-types' element={<ProductTypes />} />
-            <Route path='/stock' element={<Stock />} />
-            <Route path='/stock/purchases' element={<PurchasesPage />} />
-            <Route path='/stock/inbound-invoices' element={<InboundInvoicesPage />} />
-            <Route path='/stock/receipts' element={<ReceiptsPage />} />
-            <Route path='/stock/bling' element={<BlingStock />} />
-            <Route path='/stock/label-printing' element={<LabelPrinting />} />
+            {/* Estoque */}
+            <Route path='/estoque' element={<Navigate to="/estoque/movimentacoes" replace />} />
+            <Route path='/estoque/movimentacoes' element={<Stock />} />
+            <Route path='/estoque/inventarios' element={<Stock />} />
+            <Route path='/estoque/pedidos-compra' element={<PurchasesPage />} />
+            <Route path='/estoque/notas-fiscais-entrada' element={<InboundInvoicesPage />} />
+            <Route path='/estoque/recebimentos' element={<ReceiptsPage />} />
+            <Route path='/estoque/bling' element={<BlingStock />} />
+            <Route path='/estoque/etiquetas' element={<LabelPrinting />} />
             <Route path='/design/labels' element={<LabelPrinting />} />
             <Route path='/templates/price-label' element={<LabelPrinting />} />
             <Route path='/marketing' element={<MarketingPosts />} />
@@ -194,7 +201,7 @@ function Router() {
             <Route path='/registrations/variations' element={<Variations />} />
             <Route path='/registrations/customers' element={<Customers />} />
             <Route path='/customers/desires' element={<CustomerDesiresPage />} />
-            <Route path='/registrations/suppliers' element={<Suppliers />} />
+            <Route path='/estoque/fornecedores' element={<Suppliers />} />
             <Route path='/registrations/employees' element={<Employees />} />
             <Route path='/acessos-e-usuarios' element={<AdminRoute><AccessAndUsersPage /></AdminRoute>} />
             <Route path='/access-and-users' element={<AdminRoute><AccessAndUsersPage /></AdminRoute>} />

@@ -100,10 +100,12 @@ export function useProductAutocomplete({
                         });
                     } else if (!variationsOnly) {
                         const baseName = (p.name || p.title || '').trim();
-                        const matchesAll = searchNormWords.every(
-                            (word) => normalizeProductSearch(baseName).includes(word) || normalizeProductSearch(p.code || '').includes(word)
-                        );
-                        if (matchesAll) items.push({ product: p });
+                        if (includeDeactivated || p.active !== false) {
+                            const matchesAll = searchNormWords.every(
+                                (word) => normalizeProductSearch(baseName).includes(word) || normalizeProductSearch(p.code || '').includes(word)
+                            );
+                            if (matchesAll) items.push({ product: p });
+                        }
                     }
                 });
 

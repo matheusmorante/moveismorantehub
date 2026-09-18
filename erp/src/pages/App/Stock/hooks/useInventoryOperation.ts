@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import type { AuditItem } from '../modals/InventoryAuditModal';
+import type { AuditItem } from '../Inventory/modals/InventoryAuditModal';
 
 export type InventoryFilter = 'all' | 'uncounted' | 'counted' | 'divergent';
 

@@ -16,6 +16,7 @@ interface CategoryAutocompleteProps {
     onSearch?: () => void;
     placeholder?: string;
     className?: string;
+    inputClassName?: string;
     filter?: 'environments' | 'categories' | 'all';
 }
 
@@ -26,6 +27,7 @@ const CategoryAutocomplete: React.FC<CategoryAutocompleteProps> = ({
     onSearch,
     placeholder = "Digite para buscar...",
     className = "",
+    inputClassName = "w-full pl-11 pr-4 py-4 bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-2xl text-sm font-bold focus:ring-2 focus:ring-blue-500 outline-none transition-all placeholder:text-slate-400/60",
     filter = "all"
 }) => {
     const [query, setQuery] = useState("");
@@ -138,7 +140,7 @@ const CategoryAutocomplete: React.FC<CategoryAutocompleteProps> = ({
                         }}
                         onFocus={() => setShowSuggestions(true)}
                         placeholder={placeholder}
-                        className="w-full pl-11 pr-4 py-4 bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-2xl text-sm font-bold focus:ring-2 focus:ring-blue-500 outline-none transition-all placeholder:text-slate-400/60"
+                        className={inputClassName}
                     />
                     {isLoading && (
                         <div className="absolute right-4 top-1/2 -translate-y-1/2">

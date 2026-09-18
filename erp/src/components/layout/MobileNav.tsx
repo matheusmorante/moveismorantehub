@@ -21,7 +21,9 @@ const menuItems = [
             { to: '/registrations/products', icon: 'bi-list-ul', iconColor: 'text-indigo-500', label: 'Lista de Produtos' },
             { to: '/registrations/variations', icon: 'bi-ui-radios', iconColor: 'text-blue-500', label: 'Atributos e Variações' },
             { to: '/registrations/product-categories', icon: 'bi-tag-fill', iconColor: 'text-teal-500', label: 'Ambientes e Categorias' },
-            { to: '/stock/label-printing?category=precos', icon: 'bi-tag-fill', iconColor: 'text-emerald-500', label: 'Etiqueta de Preço' },
+            { to: '/products/compositions', icon: 'bi-diagram-3-fill', iconColor: 'text-amber-500', label: 'Composições' },
+            { to: '/products/reconciliation/suppliers', icon: 'bi-magic', iconColor: 'text-purple-500', label: 'Conciliação' },
+            { to: '/estoque/etiquetas?category=precos', icon: 'bi-tag-fill', iconColor: 'text-emerald-500', label: 'Etiqueta de Preço' },
         ]
     },
     {
@@ -31,12 +33,12 @@ const menuItems = [
         color: 'text-emerald-500',
         bg: 'bg-emerald-50 dark:bg-emerald-900/20',
         links: [
-            { to: '/stock?tab=history', icon: 'bi-arrow-left-right', iconColor: 'text-emerald-500', label: 'Movimentações' },
-            { to: '/stock?tab=audit', icon: 'bi-journal-check', iconColor: 'text-emerald-600', label: 'Inventário' },
-            { to: '/stock/receipts', icon: 'bi-clipboard-check', iconColor: 'text-emerald-500', label: 'Recebimentos de Mercadorias' },
-            { to: '/stock/purchases', icon: 'bi-cart-fill', iconColor: 'text-blue-500', label: 'Pedidos de Compra' },
-            { to: '/stock/inbound-invoices', icon: 'bi-receipt-cutoff', iconColor: 'text-indigo-500', label: 'Notas Fiscais de Entrada' },
-            { to: '/registrations/suppliers', icon: 'bi-truck', iconColor: 'text-amber-500', label: 'Fornecedores' },
+            { to: '/estoque/movimentacoes', icon: 'bi-arrow-left-right', iconColor: 'text-emerald-500', label: 'Movimentações' },
+            { to: '/estoque/inventarios', icon: 'bi-journal-check', iconColor: 'text-emerald-600', label: 'Inventário' },
+            { to: '/estoque/recebimentos', icon: 'bi-clipboard-check', iconColor: 'text-emerald-500', label: 'Recebimentos de Mercadorias' },
+            { to: '/estoque/pedidos-compra', icon: 'bi-cart-fill', iconColor: 'text-blue-500', label: 'Pedidos de Compra' },
+            { to: '/estoque/notas-fiscais-entrada', icon: 'bi-receipt-cutoff', iconColor: 'text-indigo-500', label: 'Notas Fiscais de Entrada' },
+            { to: '/estoque/fornecedores', icon: 'bi-truck', iconColor: 'text-amber-500', label: 'Fornecedores' },
         ]
     },
     {
@@ -96,7 +98,7 @@ const menuItems = [
         links: [
             { to: '/marketing/posts', icon: 'bi-instagram', iconColor: 'text-pink-500', label: 'Gerador de Prompt para Posts' },
             { to: '/registrations/meta-catalog', icon: 'bi-meta', iconColor: 'text-blue-600', label: 'Catálogo Meta' },
-            { to: '/stock/label-printing?category=logos', icon: 'bi-printer-fill', iconColor: 'text-purple-500', label: 'Impressão de Logotipos e Artes' },
+            { to: '/estoque/etiquetas?category=logos', icon: 'bi-printer-fill', iconColor: 'text-purple-500', label: 'Impressão de Logotipos e Artes' },
         ]
     },
 ];

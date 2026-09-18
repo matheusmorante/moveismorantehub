@@ -4,7 +4,7 @@ import { INVENTORY_TABLE_NAME, isEntryType, isExitType, isAdjustmentType } from 
 import { mapInventoryMoveToDB, mapInventoryMoveFromDB } from './inventoryMapper';
 import { prependMoveToState, removeMoveFromState, updateMoveInState } from './inventorySubscriptionState';
 import { recalculateProductStockOnMove, revertProductStockFromMove } from './inventoryStockCalculator';
-import { recalculateInventoryAuditBalance } from '../inventoryAuditBalance';
+import { recalculateInventoryAuditBalance } from "@/pages/utils/inventoryAuditBalance";
 import { mapFromDB as mapProductFromDB, updateProduct } from '@/pages/utils/productService';
 
 export const saveInventoryMove = async (

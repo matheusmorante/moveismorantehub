@@ -62,7 +62,7 @@ const OperationPanel: React.FC<OperationPanelProps> = ({ data }) => (
             <OpCard id="op-assembly" label="Montagens" count={data.pendingAssemblies.length} icon="bi-tools"
                 color="text-amber-600" iconBg="bg-amber-50 dark:bg-amber-950/40" href="/logistics/assembly-list" />
             <OpCard id="op-receipts" label="Recebimentos" count={data.pendingReceiptsCount} icon="bi-box-arrow-in-down"
-                color="text-emerald-600" iconBg="bg-emerald-50 dark:bg-emerald-950/40" href="/stock/receipts" />
+                color="text-emerald-600" iconBg="bg-emerald-50 dark:bg-emerald-950/40" href="/estoque/recebimentos" />
         </div>
     </div>
 );

@@ -125,11 +125,28 @@ export const saveMobileProduct = async (productData: any) => {
     }
   }
 
-  // Persistir variações filhas se fornecidas
-  if (savedProductId && Array.isArray(productData.variations) && productData.variations.length > 0) {
+  // Persistir variações filhas se fornecidas ou se for uma composição
+  let variationsToSave = Array.isArray(productData.variations) ? [...productData.variations] : [];
+
+  // Se for composição e tiver comboItems, precisamos garantir que existe uma variação para armazená-los
+  if (payload.item_type === 'composition' && Array.isArray(productData.comboItems) && productData.comboItems.length > 0) {
+    if (variationsToSave.length === 0) {
+      variationsToSave.push({
+        name: 'Padrão',
+        attributes: { 'Padrão': 'Padrão' },
+        price: payload.unit_price,
+        costPrice: payload.cost_price,
+        stock: payload.stock,
+      });
+    }
+    // Salvar comboItems na primeira variação (a variação padrão da composição)
+    variationsToSave[0].comboItems = productData.comboItems;
+  }
+
+  if (savedProductId && variationsToSave.length > 0) {
     const parentCode = (payload.code || '000000').trim();
-    for (let vIdx = 0; vIdx < productData.variations.length; vIdx++) {
-      const v = productData.variations[vIdx];
+    for (let vIdx = 0; vIdx < variationsToSave.length; vIdx++) {
+      const v = variationsToSave[vIdx];
       // Garante SKU com sufixo sequencial gerado automaticamente na lógica do ERP
       const resolvedSku = generateVariationSku(parentCode, vIdx);
       const varPayload: any = {
@@ -148,6 +165,8 @@ export const saveMobileProduct = async (productData: any) => {
         attributes: v.attributes || {},
         images: Array.isArray(v.images) ? v.images : (v.imageUrl ? [v.imageUrl] : []),
         updated_at: new Date().toISOString(),
+        combo_items: v.comboItems && v.comboItems.length > 0 ? JSON.stringify(v.comboItems) : null,
+        item_type: payload.item_type
       };
       if (v.id) {
         const { error } = await supabase.from('product_variations').update(varPayload).eq('id', v.id);

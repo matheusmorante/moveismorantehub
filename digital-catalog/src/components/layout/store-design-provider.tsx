@@ -3,6 +3,8 @@
 import { useEffect } from "react"
 import { supabase } from "@/lib/supabase/client"
 
+import { getCachedStoreStyleSettings } from "@/lib/store-settings-cache"
+
 const fallback = {
   primary_color: "#173f7a",
   accent_color: "#f4c430",
@@ -13,11 +15,7 @@ const fallback = {
 export function StoreDesignProvider() {
   useEffect(() => {
     async function applyStoreDesign() {
-      const { data } = await supabase
-        .from("store_style_settings")
-        .select("primary_color, accent_color, background_color, hero_overlay")
-        .eq("id", true)
-        .maybeSingle()
+      const { data } = await getCachedStoreStyleSettings()
 
       const design = { ...fallback, ...data }
       const root = document.documentElement

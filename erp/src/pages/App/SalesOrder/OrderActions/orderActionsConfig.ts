@@ -65,8 +65,8 @@ export const actionsMap: Record<OrderAction, (order: Order) => void> = {
     'PRINT_PRODUCT_LABEL': (order) => {
         const item = order.items?.[0];
         const url = item?.productId 
-            ? `/stock/label-printing?preset=qr_product&productId=${item.productId}` 
-            : `/stock/label-printing?preset=qr_product`;
+            ? `/estoque/etiquetas?preset=qr_product&productId=${item.productId}` 
+            : `/estoque/etiquetas?preset=qr_product`;
         window.open(url, "_blank");
     },
     'GENERATE_PAYMENT_LINK': (order) => {

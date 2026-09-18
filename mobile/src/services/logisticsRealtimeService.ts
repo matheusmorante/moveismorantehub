@@ -11,7 +11,7 @@ export const subscribeToLogisticsChanges = (onChange: ChangeHandler) => {
   };
 
   const channel = supabase
-    .channel(`mobile-logistics-${Date.now()}`)
+    .channel('mobile-logistics-sync')
     .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, requestRefresh)
     .on('postgres_changes', { event: '*', schema: 'public', table: 'settings' }, requestRefresh)
     .subscribe();

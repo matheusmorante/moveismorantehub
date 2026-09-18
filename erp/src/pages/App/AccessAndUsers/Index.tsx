@@ -39,9 +39,9 @@ export default function AccessAndUsersPage() {
   }
 
   return (
-    <div className="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8 space-y-6 animate-fade-in">
+    <div className="max-w-7xl mx-auto pt-0 px-2 sm:px-4 lg:px-4 pb-6 space-y-6 animate-fade-in">
       {/* Cabeçalho */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 dark:border-slate-800 pb-5">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 dark:border-slate-800 pb-3">
         <div>
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-2xl bg-blue-600 text-white flex items-center justify-center shadow-lg shadow-blue-600/20">
@@ -51,9 +51,6 @@ export default function AccessAndUsersPage() {
               <h1 className="text-xl sm:text-2xl font-black text-slate-800 dark:text-slate-100 tracking-tight">
                 Controle de Acesso
               </h1>
-              <p className="text-xs sm:text-sm text-slate-400 dark:text-slate-500 font-medium mt-0.5">
-                Gerencie colaboradores, atribuição de perfis de acesso e permissões por área do sistema
-              </p>
             </div>
           </div>
         </div>
@@ -70,7 +67,7 @@ export default function AccessAndUsersPage() {
             }`}
           >
             <i className="bi bi-people-fill" />
-            <span>Colaboradores & Usuários</span>
+            <span>Usuários</span>
           </button>
           <button
             type="button"

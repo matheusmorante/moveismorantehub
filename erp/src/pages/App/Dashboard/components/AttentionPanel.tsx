@@ -50,8 +50,8 @@ const AttentionPanel: React.FC<AttentionPanelProps> = ({ stockData }) => {
                                 <p className="text-[10px] text-rose-400 dark:text-rose-600">{zeroStockCount} produto{zeroStockCount !== 1 ? 's' : ''} zerado{zeroStockCount !== 1 ? 's' : ''}</p>
                             </div>
                         </div>
-                        <Link to="/stock" className="text-[10px] font-black text-rose-500 hover:text-rose-700 uppercase tracking-wider shrink-0">
-                            Ver →
+                        <Link to="/estoque/inventarios" className="text-[10px] font-black text-rose-500 hover:text-rose-700 uppercase tracking-wider shrink-0">
+                            Ver Estoque <i className="bi bi-arrow-right"></i>
                         </Link>
                     </div>
                     <div className="space-y-1.5">
@@ -75,8 +75,8 @@ const AttentionPanel: React.FC<AttentionPanelProps> = ({ stockData }) => {
                                 <p className="text-[10px] text-amber-400 dark:text-amber-600">{lowStockCount} produto{lowStockCount !== 1 ? 's' : ''} no limite</p>
                             </div>
                         </div>
-                        <Link to="/stock" className="text-[10px] font-black text-amber-500 hover:text-amber-700 uppercase tracking-wider shrink-0">
-                            Ver →
+                        <Link to="/estoque/inventarios" className="text-[10px] font-black text-amber-500 hover:text-amber-700 uppercase tracking-wider shrink-0">
+                            Ver Estoque <i className="bi bi-arrow-right"></i>
                         </Link>
                     </div>
                     <div className="space-y-1.5">
@@ -103,8 +103,8 @@ const AttentionPanel: React.FC<AttentionPanelProps> = ({ stockData }) => {
                             </p>
                         </div>
                     </div>
-                    <Link to="/stock" className="text-[10px] font-black text-blue-500 hover:text-blue-700 uppercase tracking-wider shrink-0">
-                        Continuar →
+                    <Link to="/estoque/inventarios" className="text-[10px] font-black text-blue-500 hover:text-blue-700 uppercase tracking-wider shrink-0">
+                        Ir para Estoque <i className="bi bi-arrow-right"></i>
                     </Link>
                 </div>
             )}

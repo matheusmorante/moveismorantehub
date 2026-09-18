@@ -10,8 +10,10 @@ interface Props {
   inventoryName: string;
   blindCount: boolean;
   items: AuditItem[];
+  scopeType?: string | null;
   onUpdateCount: (id: string, count: number | null) => void;
   onAddManualItem: () => void;
+  onOpenProductSearch?: (itemId: string) => void;
   onReview: () => void;
 }
 
@@ -20,10 +22,13 @@ export const InventoryOperationScreen: React.FC<Props> = ({
   inventoryName,
   blindCount,
   items,
+  scopeType,
   onUpdateCount,
   onAddManualItem,
+  onOpenProductSearch,
   onReview,
 }) => {
+
   const [showScanner, setShowScanner] = useState(false);
   const { filter, setFilter, search, setSearch, filteredItems } = useInventoryOperation(items);
 
@@ -60,13 +65,23 @@ export const InventoryOperationScreen: React.FC<Props> = ({
       return (
           <View style={[styles.itemCard, { backgroundColor: surface, borderColor: isCounted ? 'rgba(16,185,129,0.3)' : border }]}>
               <View style={styles.itemHeader}>
-                  <View style={{ flex: 1 }}>
-                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                          <Text style={[styles.itemName, { color: textPrimary }]} numberOfLines={2}>{item.name}</Text>
-                          {isCounted && <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: '#10b981' }} />}
+                  {item.productId === '' ? (
+                      <TouchableOpacity
+                          style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 8, borderBottomWidth: 2, borderBottomColor: '#10b981' }}
+                          onPress={() => onOpenProductSearch?.(item.id)}
+                      >
+                          <Text style={{ color: muted, fontSize: 16, fontWeight: '700' }}>Pesquisar produto...</Text>
+                          <Search size={18} color={muted} />
+                      </TouchableOpacity>
+                  ) : (
+                      <View style={{ flex: 1 }}>
+                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                              <Text style={[styles.itemName, { color: scopeType === 'custom' ? '#10b981' : textPrimary, flex: 1 }]} numberOfLines={2}>{item.name}</Text>
+                              {scopeType === 'custom' && <View style={{ width: 14, height: 14, borderRadius: 7, backgroundColor: '#10b981', alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: '#fff', fontSize: 8, fontWeight: '900' }}>✓</Text></View>}
+                              {isCounted && scopeType !== 'custom' && <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: '#10b981' }} />}
+                          </View>
                       </View>
-                      <Text style={[styles.itemSupplier, { color: muted }]} numberOfLines={1}>{item.supplierNames}</Text>
-                  </View>
+                  )}
               </View>
 
               <View style={styles.itemBody}>
@@ -146,16 +161,18 @@ export const InventoryOperationScreen: React.FC<Props> = ({
 
       {/* Manual Mode List */}
       <View style={[styles.filterBar, { backgroundColor: surface, borderBottomColor: border }]}>
-          <View style={[styles.searchBox, { backgroundColor: bg, borderColor: border }]}>
-              <Search size={18} color={muted} />
-              <TextInput
-                  style={[styles.searchInput, { color: textPrimary }]}
-                  placeholder="Buscar produto..."
-                  placeholderTextColor={muted}
-                  value={search}
-                  onChangeText={setSearch}
-              />
-          </View>
+          {scopeType !== 'custom' && (
+              <View style={[styles.searchBox, { backgroundColor: bg, borderColor: border }]}>
+                  <Search size={18} color={muted} />
+                  <TextInput
+                      style={[styles.searchInput, { color: textPrimary }]}
+                      placeholder="Buscar produto..."
+                      placeholderTextColor={muted}
+                      value={search}
+                      onChangeText={setSearch}
+                  />
+              </View>
+          )}
           <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: 12 }}>
               {(['all', 'uncounted', 'counted', 'divergent'] as const).map(f => (
                   <TouchableOpacity
@@ -174,6 +191,18 @@ export const InventoryOperationScreen: React.FC<Props> = ({
           </ScrollView>
       </View>
 
+      {/* Lista de itens com botão Adicionar acima para inventário custom */}
+      {scopeType === 'custom' && (
+          <View style={[styles.addItemBar, { backgroundColor: surface, borderBottomColor: border }]}>
+              <TouchableOpacity
+                  style={styles.addItemBtn}
+                  onPress={onAddManualItem}
+              >
+                  <Text style={styles.addItemBtnText}>+ Adicionar Item</Text>
+              </TouchableOpacity>
+          </View>
+      )}
+
       <FlatList
           data={filteredItems}
           keyExtractor={i => i.id}
@@ -187,9 +216,7 @@ export const InventoryOperationScreen: React.FC<Props> = ({
       />
 
       <View style={[styles.footer, { backgroundColor: surface, borderTopColor: border }]}>
-          <TouchableOpacity onPress={onAddManualItem} style={{ paddingVertical: 12 }}>
-              <Text style={{ color: muted, fontWeight: '700' }}>+ Novo Item</Text>
-          </TouchableOpacity>
+          <View style={{ flex: 1 }} />
           <TouchableOpacity style={styles.reviewBtn} onPress={onReview}>
               <Text style={styles.reviewBtnText}>Revisar</Text>
               <ArrowRight size={18} color="#ffffff" />
@@ -247,4 +274,8 @@ const styles = StyleSheet.create({
   footer: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 16, borderTopWidth: 1, paddingBottom: 32 },
   reviewBtn: { backgroundColor: '#0f172a', paddingHorizontal: 24, paddingVertical: 14, borderRadius: 12, flexDirection: 'row', alignItems: 'center', gap: 8 },
   reviewBtnText: { color: '#ffffff', fontWeight: '800', fontSize: 16 },
+  addItemBar: { paddingHorizontal: 16, paddingVertical: 10, borderBottomWidth: 1, alignItems: 'flex-end' },
+  addItemBtn: { backgroundColor: '#7c3aed', paddingHorizontal: 16, paddingVertical: 10, borderRadius: 12, flexDirection: 'row', alignItems: 'center', gap: 6 },
+  addItemBtnText: { color: '#ffffff', fontWeight: '800', fontSize: 14 },
 });
+

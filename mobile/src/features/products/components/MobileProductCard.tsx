@@ -132,6 +132,18 @@ export const MobileProductCard: React.FC<Props> = ({
         </Text>
 
         <View style={styles.tagsRow}>
+          {product.itemType === 'composition' && (
+            <View style={[styles.oppBadge, { backgroundColor: '#f3e8ff', borderColor: '#d8b4fe' }]}>
+              <Text style={[styles.oppText, { color: '#7e22ce' }]}>Composição</Text>
+            </View>
+          )}
+
+          {product.itemType === 'service' && (
+            <View style={[styles.oppBadge, { backgroundColor: '#fef3c7', borderColor: '#fde68a' }]}>
+              <Text style={[styles.oppText, { color: '#b45309' }]}>Serviço</Text>
+            </View>
+          )}
+
           {oppName && (
             <View style={styles.oppBadge}>
               <Flame size={10} color="#d97706" />
@@ -167,9 +179,11 @@ export const MobileProductCard: React.FC<Props> = ({
               <Text style={[styles.price, dark && styles.priceDark]}>
                 R$ {(product.promoPrice > 0 ? product.promoPrice : product.unitPrice).toFixed(2).replace('.', ',')}
               </Text>
-              <Text style={styles.stockText}>
-                Estoque: <Text style={styles.stockVal}>{product.stock ?? 0}</Text>
-              </Text>
+              {product.itemType !== 'service' && (
+                <Text style={styles.stockText}>
+                  Estoque: <Text style={styles.stockVal}>{product.stock ?? 0} {product.unit || 'UN'}</Text>
+                </Text>
+              )}
             </>
           )}
         </View>

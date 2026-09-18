@@ -86,6 +86,8 @@ export const mapDbVariations = (variationRecords: any[], data: any, parentCode: 
                 depth: v.depth ? Number(v.depth) : undefined,
                 height: v.height ? Number(v.height) : undefined,
                 weight: v.weight ? Number(v.weight) : undefined,
+                comboItems: typeof v.combo_items === 'string' ? JSON.parse(v.combo_items) : (v.combo_items || undefined),
+                itemType: v.item_type || data.item_type || 'product'
             };
         }
         return {

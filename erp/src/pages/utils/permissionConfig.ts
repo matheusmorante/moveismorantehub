@@ -13,6 +13,7 @@ export const ROLES: RoleOption[] = [
     { value: 'stockist', label: 'Estoquista', description: 'Controle, contagens e movimentações de estoque', icon: 'bi-boxes' },
     { value: 'seller', label: 'Vendedor', description: 'Atendimento, orçamentos, vendas e cadastros', icon: 'bi-tag-fill' },
     { value: 'deliverer', label: 'Entregador / Montador', description: 'Rotas de entrega, status e montagens', icon: 'bi-truck' },
+    { value: 'accountant', label: 'Contador', description: 'Acesso financeiro, relatórios fiscais e DRE', icon: 'bi-calculator' },
 ];
 
 export interface PermissionActionDef {
@@ -79,7 +80,7 @@ export const PERMISSION_AREAS: PermissionAreaDef[] = [
                 label: 'Visualizar Catálogo e Estoque',
                 description: 'Permite consultar lista de produtos, preços e saldos em estoque.',
                 icon: 'bi-box-seam-fill',
-                defaultRoles: ['manager', 'seller', 'deliverer']
+                defaultRoles: ['manager', 'seller', 'deliverer', 'stockist']
             },
             {
                 id: 'productConfig',
@@ -115,14 +116,14 @@ export const PERMISSION_AREAS: PermissionAreaDef[] = [
                 label: 'Visualizar Financeiro e Métricas',
                 description: 'Permite consultar faturamento, margens, ticket médio e números.',
                 icon: 'bi-graph-up-arrow',
-                defaultRoles: ['manager']
+                defaultRoles: ['manager', 'accountant']
             },
             {
                 id: 'exportReports',
                 label: 'Exportar Relatórios e Métricas',
                 description: 'Permite baixar relatórios analíticos em PDF, Excel ou CSV.',
                 icon: 'bi-file-earmark-spreadsheet-fill',
-                defaultRoles: ['manager']
+                defaultRoles: ['manager', 'accountant']
             }
         ]
     },

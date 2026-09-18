@@ -168,7 +168,9 @@ export const syncProductToSupabase = async (product: Product): Promise<void> => 
                         use_parent_description: v.syncDescription !== false,
                         use_parent_name: true,
                         status: v.status || product.status || 'hidden',
-                        active: v.active !== undefined ? Boolean(v.active) : (product.active !== false)
+                        active: v.active !== undefined ? Boolean(v.active) : (product.active !== false),
+                        combo_items: v.comboItems && v.comboItems.length > 0 ? JSON.stringify(v.comboItems) : null,
+                        item_type: product.itemType || product.item_type || 'product'
                     };
                 });
 

@@ -120,7 +120,7 @@ export const StockList: React.FC<StockListProps> = ({ onLaunch }) => {
                                         {!product.hasVariations && (
                                             <>
                                                 <Link
-                                                    to="/stock/label-printing"
+                                                    to="/estoque/etiquetas"
                                                     state={{ product }}
                                                     className="inline-flex items-center gap-2 px-4 py-2 bg-slate-50 dark:bg-slate-800 text-slate-500 hover:text-blue-600 rounded-xl transition-all font-black uppercase text-[10px] tracking-widest border border-slate-100 dark:border-slate-700"
                                                     title="Imprimir Etiquetas deste Produto"
@@ -166,7 +166,7 @@ export const StockList: React.FC<StockListProps> = ({ onLaunch }) => {
                                         </td>
                                         <td className="px-4 md:px-8 py-3 md:py-4 text-right flex items-center justify-end gap-2">
                                             <Link
-                                                to="/stock/label-printing"
+                                                to="/estoque/etiquetas"
                                                 state={{ product: { ...product, description: `${product.description} - ${v.name}`, unitPrice: v.unitPrice || product.unitPrice } }}
                                                 className="inline-flex items-center gap-2 px-3 py-1.5 bg-slate-50 dark:bg-slate-800 text-slate-400 hover:text-blue-600 rounded-lg transition-all font-black uppercase text-[9px] tracking-widest"
                                                 title="Imprimir Etiquetas desta Variação"

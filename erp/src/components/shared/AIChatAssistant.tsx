@@ -55,7 +55,7 @@ export default function AIChatAssistant({
     const path = location.pathname;
     let currentModule = 'Geral';
     if (path.startsWith('/finance')) currentModule = 'Financeiro';
-    else if (path.startsWith('/stock') || path.startsWith('/inventory')) currentModule = 'Estoque';
+    else if (path.startsWith('/estoque') || path.startsWith('/inventory')) currentModule = 'Estoque';
     else if (path.startsWith('/orders') || path.startsWith('/pedidos')) currentModule = 'Vendas & Pedidos';
     else if (path.startsWith('/purchases') || path.startsWith('/compras')) currentModule = 'Compras';
     else if (path.startsWith('/customers') || path.startsWith('/clientes')) currentModule = 'Clientes';

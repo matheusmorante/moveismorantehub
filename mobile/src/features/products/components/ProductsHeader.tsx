@@ -21,6 +21,7 @@ interface Props {
   totalCount: number;
   onSearch: (value: string) => void;
   onNewProduct: () => void;
+  onNewComposition?: () => void;
   onOpenConfigs: () => void;
   showDeactivated: boolean;
   showMerged: boolean;
@@ -34,6 +35,7 @@ export function ProductsHeader({
   totalCount,
   onSearch,
   onNewProduct,
+  onNewComposition,
   onOpenConfigs,
   showDeactivated,
   showMerged,
@@ -137,6 +139,16 @@ export function ProductsHeader({
                 <PlusCircle size={18} color="#2563eb" />
                 <Text style={[styles.menuItemText, dark && styles.light]}>Novo Produto</Text>
               </TouchableOpacity>
+
+              {onNewComposition && (
+                <TouchableOpacity
+                  style={styles.menuItem}
+                  onPress={() => { setShowMenu(false); onNewComposition(); }}
+                >
+                  <PlusCircle size={18} color="#10b981" />
+                  <Text style={[styles.menuItemText, dark && styles.light]}>Nova Composição</Text>
+                </TouchableOpacity>
+              )}
 
               <View style={styles.menuDivider} />
 

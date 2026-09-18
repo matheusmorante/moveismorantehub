@@ -22,7 +22,7 @@ export const useInventoryAuditWorkflow = (
     const [view, setView] = useState<'scope' | 'operation' | 'review'>('scope');
     const [items, setItems] = useState<AuditItem[]>([]);
     const [isSaving, setIsSaving] = useState(false);
-    const [scopeConfig, setScopeConfig] = useState<{ name: string, blindCount: boolean, responsibleId: string } | null>(null);
+    const [scopeConfig, setScopeConfig] = useState<{ name: string, blindCount: boolean, responsibleId: string, scopeType?: string } | null>(null);
     
     const draftRef = useRef<{ id?: string; code?: string; markerMoveId?: string; date?: string }>({});
 
@@ -46,7 +46,9 @@ export const useInventoryAuditWorkflow = (
             name: config.name,
             blindCount: config.blindCount,
             responsibleId: config.responsibleId,
+            scopeType: config.type,
         });
+
         
         draftRef.current.code = `${Date.now()}`;
         draftRef.current.date = new Date().toISOString();

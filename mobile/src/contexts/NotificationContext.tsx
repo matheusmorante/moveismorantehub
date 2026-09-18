@@ -83,14 +83,9 @@ export const NotificationProvider: React.FC<{ children: ReactNode }> = ({ childr
       })
       .subscribe();
 
-    const pollingInterval = setInterval(() => {
-      fetchNotifications();
-    }, 300000);
-
     return () => {
       cleanTokenListeners();
       notifChannel.unsubscribe();
-      clearInterval(pollingInterval);
     };
   }, []);
 

@@ -20,14 +20,16 @@ import { ProductFormTechnicalTab } from '../modals/tabs/ProductFormTechnicalTab'
 import { ProductFormVariationsTab } from '../modals/tabs/ProductFormVariationsTab';
 import { ProductFormPhotosTab } from '../modals/tabs/ProductFormPhotosTab';
 import { ProductFormFiscalTab } from '../modals/tabs/ProductFormFiscalTab';
+import { ProductFormCompositionTab } from '../modals/tabs/ProductFormCompositionTab';
 import { getNextSequentialProductCode } from '../services/mobileProductHelpers';
 
 // ─── Tabs ────────────────────────────────────────────────────────────────────
-type TabId = 'geral' | 'fotos' | 'technical' | 'estoque' | 'variacoes' | 'fiscal';
+type TabId = 'geral' | 'fotos' | 'technical' | 'estoque' | 'compostos' | 'variacoes' | 'fiscal';
 
 interface Tab {
   id: TabId;
   label: string;
+  condition?: (formData: any) => boolean;
 }
 
 const TABS: Tab[] = [
@@ -35,6 +37,7 @@ const TABS: Tab[] = [
   { id: 'fotos',     label: 'Fotos' },
   { id: 'technical', label: 'Informações Técnicas' },
   { id: 'estoque',   label: 'Estoque e Precificação' },
+  { id: 'compostos', label: 'Produtos Compostos', condition: (formData) => formData.itemType === 'composition' },
   { id: 'variacoes', label: 'Variações' },
   { id: 'fiscal',    label: 'Tributário / NF' },
 ];
@@ -137,6 +140,11 @@ export const ProductFormScreen: React.FC<Props> = ({
         weight: product.weight ?? '',
         images: Array.isArray(product.images) ? product.images : [],
         variations: Array.isArray(product.allVariations) ? product.allVariations : [],
+        comboItems: product.allVariations && product.allVariations.length > 0 
+          ? (typeof product.allVariations[0].combo_items === 'string' 
+              ? JSON.parse(product.allVariations[0].combo_items) 
+              : product.allVariations[0].combo_items || product.allVariations[0].comboItems || [])
+          : [],
         hasVariations: Boolean(product.has_variations || product.hasVariations || (product.allVariations?.length > 0)),
         active: product.active ?? true,
         isDraft: Boolean(product.is_draft || product.isDraft),
@@ -254,6 +262,8 @@ export const ProductFormScreen: React.FC<Props> = ({
         return <ProductFormPhotosTab formData={formData} setFormData={setFormData} dark={dark} />;
       case 'technical':
         return <ProductFormTechnicalTab formData={formData} setFormData={setFormData} dark={dark} />;
+      case 'compostos':
+        return <ProductFormCompositionTab formData={formData} setFormData={setFormData} dark={dark} />;
       case 'estoque':
         return <ProductFormPricesTab formData={formData} setFormData={setFormData} dark={dark} />;
       case 'variacoes':
@@ -303,7 +313,7 @@ export const ProductFormScreen: React.FC<Props> = ({
               showsHorizontalScrollIndicator={false}
               contentContainerStyle={styles.tabsContent}
             >
-              {TABS.map(tab => {
+              {TABS.filter(t => !t.condition || t.condition(formData)).map(tab => {
                 const isActive = activeTab === tab.id;
                 const badge =
                   tab.id === 'variacoes' && varCount > 0 ? varCount :

@@ -1,9 +1,9 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import type Product from "@/pages/types/product.type";
 import type { Variation } from "@/pages/types/product.type";
 import type Person from "@/pages/types/person.type";
 import { getVariationDisplayName } from "@/components/productAutocompleteUtils";
-import type { InventoryScopeType, ScopeConfiguration } from '../modals/InventoryScopeModal';
+import type { InventoryScopeType, ScopeConfiguration } from '../Inventory/modals/InventoryScopeModal';
 
 export const useInventoryScopeBuilder = (
     allProducts: readonly Product[],
@@ -20,7 +20,20 @@ export const useInventoryScopeBuilder = (
     const [responsibleError, setResponsibleError] = useState(false);
     const [customProducts, setCustomProducts] = useState<Array<{ product: Product, variation?: Variation }>>([]);
 
-    const getSupplierNames = (product: Product) => {
+    const getAssignedSupplierName = useCallback((product: Product) => {
+        const supplierId = [
+            product.mainSupplierId,
+            product.supplierId,
+            ...(product.supplierIds || []),
+        ].filter(Boolean).map(String)[0];
+
+        if (!supplierId) return 'Sem fornecedor';
+        
+        const supplier = suppliers.find((person) => String(person.id) === supplierId);
+        return supplier?.tradeName || supplier?.fullName || supplier?.nickname || 'Sem fornecedor';
+    }, [suppliers]);
+
+    const getSupplierNames = useCallback((product: Product) => {
         const supplierIds = [
             product.mainSupplierId,
             product.supplierId,
@@ -33,18 +46,23 @@ export const useInventoryScopeBuilder = (
         }).filter(Boolean) as string[];
 
         return [...new Set(names)].join(' / ') || 'Fábrica não informada';
-    };
+    }, [suppliers]);
+
 
     const matchingItems = useMemo(() => {
         const items: ScopeConfiguration['itemsSnapshot'] = [];
         
         const addProductVariations = (product: Product, specificVariation?: Variation) => {
+            const assignedSupplier = getAssignedSupplierName(product);
+            const supplierNames = getSupplierNames(product);
+
             if (specificVariation) {
                 items.push({
                     productId: String(product.id),
                     variationId: String(specificVariation.id),
                     name: getVariationDisplayName(product, specificVariation) || product.description || 'Produto',
-                    supplierNames: getSupplierNames(product),
+                    supplierNames,
+                    assignedSupplier,
                     systemStock: Number(specificVariation.stock ?? 0),
                     unit: product.unit || 'UN',
                 });
@@ -54,7 +72,8 @@ export const useInventoryScopeBuilder = (
                         productId: String(product.id),
                         variationId: String(variation.id),
                         name: getVariationDisplayName(product, variation) || product.description || 'Produto',
-                        supplierNames: getSupplierNames(product),
+                        supplierNames,
+                        assignedSupplier,
                         systemStock: Number(variation.stock ?? 0),
                         unit: product.unit || 'UN',
                     });
@@ -63,7 +82,8 @@ export const useInventoryScopeBuilder = (
                 items.push({
                     productId: String(product.id),
                     name: product.description || product.name || 'Produto',
-                    supplierNames: getSupplierNames(product),
+                    supplierNames,
+                    assignedSupplier,
                     systemStock: Number(product.stock ?? 0),
                     unit: product.unit || 'UN',
                 });

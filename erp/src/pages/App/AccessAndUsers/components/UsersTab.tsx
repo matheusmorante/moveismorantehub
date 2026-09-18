@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Person from '../../../types/person.type';
 import { UserRole } from '@/context/AuthContext';
 import { roleLabel } from '@/pages/utils/accessRoles';
@@ -28,6 +28,17 @@ export const UsersTab: React.FC<Props> = ({ people, loading, onRefresh }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingPerson, setEditingPerson] = useState<Person | null>(null);
 
+  // Pagination states
+  const [pageWithRole, setPageWithRole] = useState(1);
+  const [pageWithoutRole, setPageWithoutRole] = useState(1);
+  const ITEMS_PER_PAGE = 10;
+
+  // Reset pagination on filter change
+  useEffect(() => {
+    setPageWithRole(1);
+    setPageWithoutRole(1);
+  }, [search, selectedRole]);
+
   const filteredPeople = people.filter((p) => {
     const term = search.toLowerCase().trim();
     const matchesSearch = !term ||
@@ -40,6 +51,14 @@ export const UsersTab: React.FC<Props> = ({ people, loading, onRefresh }) => {
 
     return matchesSearch && matchesRole;
   });
+
+  const isSemAcesso = (p: Person) => {
+      const rolesList = p.roles && p.roles.length > 0 ? p.roles : (p.role ? [p.role] : ['pending']);
+      return rolesList.includes('pending') || rolesList.includes('sem acesso' as any);
+  };
+
+  const usersWithRole = filteredPeople.filter(p => !isSemAcesso(p));
+  const usersWithoutRole = filteredPeople.filter(p => isSemAcesso(p));
 
   const handleOpenAdd = () => {
     setEditingPerson(null);
@@ -61,16 +80,137 @@ export const UsersTab: React.FC<Props> = ({ people, loading, onRefresh }) => {
     }
   };
 
-  const handleConfirmDelete = async () => {
-    if (!confirmDeletePerson) return;
-    try {
-      await moveToTrash('employees', String(confirmDeletePerson.id));
-      toast.info('Colaborador movido para a lixeira.');
-      setConfirmDeletePerson(null);
-      onRefresh();
-    } catch (err) {
-      toast.error('Erro ao excluir colaborador.');
-    }
+  // Helper render method for tables
+  const renderTable = (data: Person[], title: string, page: number, setPage: (p: number) => void) => {
+    if (data.length === 0) return null;
+
+    const totalPages = Math.ceil(data.length / ITEMS_PER_PAGE);
+    const paginatedData = data.slice((page - 1) * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE);
+
+    return (
+      <div className="mb-6 overflow-hidden rounded-2xl bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 shadow-sm">
+        <div className="px-4 py-3 border-b border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-950">
+          <h3 className="text-sm font-black text-slate-800 dark:text-slate-100 uppercase tracking-wide">{title} <span className="text-slate-400 font-medium normal-case text-xs ml-2">({data.length})</span></h3>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-xs border-collapse">
+            <thead>
+              <tr className="border-b border-slate-100 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-950/40 text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">
+                <th className="py-3.5 px-4">Usuário / Colaborador</th>
+                <th className="py-3.5 px-4">Perfis de Acesso</th>
+                <th className="py-3.5 px-4 hidden md:table-cell">Telefone</th>
+                <th className="py-3.5 px-4 hidden lg:table-cell">Endereço</th>
+                <th className="py-3.5 px-4 text-right">Ações</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60">
+              {paginatedData.map((person) => {
+                const rolesList = person.roles && person.roles.length > 0 ? person.roles : (person.role ? [person.role] : ['pending']);
+                const initials = (person.fullName || person.email || 'U').substring(0, 2).toUpperCase();
+
+                return (
+                  <tr key={person.id} className="hover:bg-slate-50/70 dark:hover:bg-slate-800/40 transition-colors">
+                    {/* Usuário e Email */}
+                    <td className="py-3 px-4">
+                      <div className="flex items-center gap-3">
+                        <div className="w-9 h-9 rounded-xl bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 flex items-center justify-center font-black text-xs shrink-0 shadow-xs">
+                          {initials}
+                        </div>
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <p className="font-bold text-slate-800 dark:text-slate-100 truncate">{person.fullName || 'Sem nome'}</p>
+                            {person.position && (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200/60 dark:border-slate-700/60">
+                                <i className="bi bi-briefcase text-[9px] text-slate-400" />
+                                {person.position}
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-[11px] text-slate-400 dark:text-slate-500 truncate">{person.email}</p>
+                        </div>
+                      </div>
+                    </td>
+
+                    {/* Cargos */}
+                    <td className="py-3 px-4">
+                      <div className="flex flex-wrap gap-1.5">
+                        {rolesList.map((r) => {
+                          const badge = ROLE_BADGE_STYLES[r as UserRole] || ROLE_BADGE_STYLES.pending;
+                          return (
+                            <span
+                              key={r}
+                              className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider border ${badge.bg} ${badge.text}`}
+                            >
+                              <i className={`bi ${badge.icon} text-[10px]`} />
+                              {roleLabel(r as UserRole)}
+                            </span>
+                          );
+                        })}
+                      </div>
+                    </td>
+
+                    {/* Telefone */}
+                    <td className="py-3 px-4 hidden md:table-cell text-slate-600 dark:text-slate-300 font-medium">
+                      {person.phone || '-'}
+                    </td>
+
+                    {/* Endereço */}
+                    <td className="py-3 px-4 hidden lg:table-cell text-slate-500 dark:text-slate-400 text-[11px]">
+                      {person.fullAddress?.street ? (
+                        <span className="truncate block max-w-xs">{person.fullAddress.street}, {person.fullAddress.number} - {person.fullAddress.city}</span>
+                      ) : (
+                        <span className="text-slate-300 dark:text-slate-600 italic">Não informado</span>
+                      )}
+                    </td>
+
+
+
+                    {/* Ações */}
+                    <td className="py-3 px-4 text-right">
+                      <div className="flex items-center justify-end gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => handleOpenEdit(person)}
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold text-blue-600 bg-blue-50 dark:bg-blue-900/30 hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-all cursor-pointer"
+                          title="Editar dados e perfis de acesso do usuário"
+                        >
+                          <i className="bi bi-person-gear text-sm" />
+                          <span>Definir Perfis / Editar</span>
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+        {/* Paginação */}
+        {totalPages > 1 && (
+          <div className="px-4 py-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50/50 dark:bg-slate-950/50">
+            <span className="text-xs text-slate-500 font-medium">Página {page} de {totalPages}</span>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setPage(Math.max(1, page - 1))}
+                disabled={page === 1}
+                className="px-3 py-1.5 rounded-lg text-xs font-bold border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 disabled:opacity-50 transition-colors hover:bg-slate-50 dark:hover:bg-slate-700"
+              >
+                Anterior
+              </button>
+              <button
+                type="button"
+                onClick={() => setPage(Math.min(totalPages, page + 1))}
+                disabled={page === totalPages}
+                className="px-3 py-1.5 rounded-lg text-xs font-bold border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 disabled:opacity-50 transition-colors hover:bg-slate-50 dark:hover:bg-slate-700"
+              >
+                Próxima
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+    );
   };
 
   return (
@@ -119,129 +259,23 @@ export const UsersTab: React.FC<Props> = ({ people, loading, onRefresh }) => {
         </div>
       </div>
 
-      {/* Tabela de Usuários */}
-      <div className="overflow-hidden rounded-2xl bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 shadow-sm">
-        {loading ? (
-          <div className="py-16 text-center">
-            <div className="mx-auto h-8 w-8 animate-spin rounded-full border-2 border-blue-600/30 border-t-blue-600" />
-            <p className="text-xs text-slate-400 mt-3 font-bold">Carregando usuários...</p>
-          </div>
-        ) : filteredPeople.length === 0 ? (
-          <div className="py-16 text-center space-y-2">
-            <i className="bi bi-people text-4xl text-slate-300 dark:text-slate-600" />
-            <p className="text-sm font-bold text-slate-600 dark:text-slate-300">Nenhum usuário ou colaborador encontrado</p>
-            <p className="text-xs text-slate-400">Tente ajustar os termos de busca ou filtros.</p>
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs border-collapse">
-              <thead>
-                <tr className="border-b border-slate-100 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-950/40 text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">
-                  <th className="py-3.5 px-4">Usuário / Colaborador</th>
-                  <th className="py-3.5 px-4">Perfis de Acesso</th>
-                  <th className="py-3.5 px-4 hidden md:table-cell">Telefone</th>
-                  <th className="py-3.5 px-4 hidden lg:table-cell">Endereço</th>
-                  <th className="py-3.5 px-4 text-center">Status</th>
-                  <th className="py-3.5 px-4 text-right">Ações</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60">
-                {filteredPeople.map((person) => {
-                  const rolesList = person.roles && person.roles.length > 0 ? person.roles : (person.role ? [person.role] : ['pending']);
-                  const initials = (person.fullName || person.email || 'U').substring(0, 2).toUpperCase();
-
-                  return (
-                    <tr key={person.id} className="hover:bg-slate-50/70 dark:hover:bg-slate-800/40 transition-colors">
-                      {/* Usuário e Email */}
-                      <td className="py-3 px-4">
-                        <div className="flex items-center gap-3">
-                          <div className="w-9 h-9 rounded-xl bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 flex items-center justify-center font-black text-xs shrink-0 shadow-xs">
-                            {initials}
-                          </div>
-                          <div className="min-w-0">
-                            <div className="flex items-center gap-2 flex-wrap">
-                              <p className="font-bold text-slate-800 dark:text-slate-100 truncate">{person.fullName || 'Sem nome'}</p>
-                              {person.position && (
-                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200/60 dark:border-slate-700/60">
-                                  <i className="bi bi-briefcase text-[9px] text-slate-400" />
-                                  {person.position}
-                                </span>
-                              )}
-                            </div>
-                            <p className="text-[11px] text-slate-400 dark:text-slate-500 truncate">{person.email}</p>
-                          </div>
-                        </div>
-                      </td>
-
-                      {/* Cargos */}
-                      <td className="py-3 px-4">
-                        <div className="flex flex-wrap gap-1.5">
-                          {rolesList.map((r) => {
-                            const badge = ROLE_BADGE_STYLES[r as UserRole] || ROLE_BADGE_STYLES.pending;
-                            return (
-                              <span
-                                key={r}
-                                className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider border ${badge.bg} ${badge.text}`}
-                              >
-                                <i className={`bi ${badge.icon} text-[10px]`} />
-                                {roleLabel(r as UserRole)}
-                              </span>
-                            );
-                          })}
-                        </div>
-                      </td>
-
-                      {/* Telefone */}
-                      <td className="py-3 px-4 hidden md:table-cell text-slate-600 dark:text-slate-300 font-medium">
-                        {person.phone || '-'}
-                      </td>
-
-                      {/* Endereço */}
-                      <td className="py-3 px-4 hidden lg:table-cell text-slate-500 dark:text-slate-400 text-[11px]">
-                        {person.fullAddress?.street ? (
-                          <span className="truncate block max-w-xs">{person.fullAddress.street}, {person.fullAddress.number} - {person.fullAddress.city}</span>
-                        ) : (
-                          <span className="text-slate-300 dark:text-slate-600 italic">Não informado</span>
-                        )}
-                      </td>
-
-                      {/* Status */}
-                      <td className="py-3 px-4 text-center">
-                        <button
-                          type="button"
-                          onClick={() => handleToggleActive(person)}
-                          className={`inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-bold cursor-pointer transition-all ${
-                            person.active !== false
-                              ? 'bg-emerald-50 dark:bg-emerald-950/30 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800'
-                              : 'bg-slate-100 dark:bg-slate-800 text-slate-400 border border-slate-200 dark:border-slate-700'
-                          }`}
-                        >
-                          {person.active !== false ? 'Ativo' : 'Inativo'}
-                        </button>
-                      </td>
-
-                      {/* Ações */}
-                      <td className="py-3 px-4 text-right">
-                        <div className="flex items-center justify-end gap-1.5">
-                          <button
-                            type="button"
-                            onClick={() => handleOpenEdit(person)}
-                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold text-blue-600 bg-blue-50 dark:bg-blue-900/30 hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-all cursor-pointer"
-                            title="Editar dados e perfis de acesso do usuário"
-                          >
-                            <i className="bi bi-person-gear text-sm" />
-                            <span>Definir Perfis / Editar</span>
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
+      {loading ? (
+        <div className="overflow-hidden rounded-2xl bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 shadow-sm py-16 text-center">
+          <div className="mx-auto h-8 w-8 animate-spin rounded-full border-2 border-blue-600/30 border-t-blue-600" />
+          <p className="text-xs text-slate-400 mt-3 font-bold">Carregando usuários...</p>
+        </div>
+      ) : filteredPeople.length === 0 ? (
+        <div className="overflow-hidden rounded-2xl bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 shadow-sm py-16 text-center space-y-2">
+          <i className="bi bi-people text-4xl text-slate-300 dark:text-slate-600" />
+          <p className="text-sm font-bold text-slate-600 dark:text-slate-300">Nenhum usuário ou colaborador encontrado</p>
+          <p className="text-xs text-slate-400">Tente ajustar os termos de busca ou filtros.</p>
+        </div>
+      ) : (
+        <>
+          {renderTable(usersWithRole, "Usuários com Cargo", pageWithRole, setPageWithRole)}
+          {renderTable(usersWithoutRole, "Sem Cargo", pageWithoutRole, setPageWithoutRole)}
+        </>
+      )}
 
       {/* Modal de Edição com Atribuição de Perfis */}
       {isModalOpen && (

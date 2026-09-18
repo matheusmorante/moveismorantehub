@@ -113,7 +113,7 @@ export const LabelPrintSelectionModal: React.FC<LabelPrintSelectionModalProps> =
             ...s.product,
             labelQty: s.qty,
         }));
-        navigate('/stock/label-printing', {
+        navigate('/estoque/etiquetas', {
             state: {
                 batchProducts: products,
                 labelType,

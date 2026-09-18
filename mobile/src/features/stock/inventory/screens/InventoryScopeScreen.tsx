@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput, ActivityIndicator, Alert } from 'react-native';
-import { X, Search, Package, Users, Filter, CheckCircle2 } from 'lucide-react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator, Alert } from 'react-native';
+import { X, Package, Users, Filter } from 'lucide-react-native';
 import { supabase } from '../../../../services/supabaseClient';
 import { useAuth } from '../../../../contexts/AuthContext';
 import { useInventoryScopeBuilder } from '../hooks/useInventoryScopeBuilder';
@@ -18,10 +18,6 @@ export const InventoryScopeScreen: React.FC<Props> = ({ isDarkMode, onCancel, on
   const [suppliers, setSuppliers] = useState<ScopeSupplier[]>([]);
   const [loadingData, setLoadingData] = useState(true);
 
-  // Custom Selection States
-  const [productSearch, setProductSearch] = useState('');
-  const [productResults, setProductResults] = useState<ScopeProduct[]>([]);
-
   const {
     step,
     scopeType,
@@ -33,36 +29,28 @@ export const InventoryScopeScreen: React.FC<Props> = ({ isDarkMode, onCancel, on
     setSelectedSupplierId,
     selectedResponsibleId,
     setSelectedResponsibleId,
-    customProducts,
-    setCustomProducts,
     matchingItems,
     handleNextStep,
   } = useInventoryScopeBuilder(allProducts, suppliers);
 
+  const [employees, setEmployees] = useState<{id: string, full_name: string}[]>([]);
+
   // Load Initial Data
   useEffect(() => {
     Promise.all([
-      supabase.from('products').select('id, name, description, stock, unit, main_supplier_id'),
-      supabase.from('people').select('id, full_name').eq('person_type', 'suppliers')
-    ]).then(([prodRes, supRes]) => {
+      supabase.from('products').select('id, name, description, stock, unit, main_supplier_id').eq('deleted', false).eq('active', true),
+      supabase.from('people').select('id, full_name').eq('person_type', 'suppliers'),
+      supabase.from('people').select('id, full_name').eq('is_employee', true)
+    ]).then(([prodRes, supRes, empRes]) => {
       if (prodRes.data) setAllProducts(prodRes.data as ScopeProduct[]);
       if (supRes.data) setSuppliers(supRes.data as ScopeSupplier[]);
+      if (empRes.data) setEmployees(empRes.data as {id: string, full_name: string}[]);
       setLoadingData(false);
       if (userProfile?.id) {
           setSelectedResponsibleId(userProfile.id);
       }
     });
   }, [userProfile, setSelectedResponsibleId]);
-
-  // Product Search
-  useEffect(() => {
-    if (productSearch.length < 2) {
-      setProductResults([]);
-      return;
-    }
-    const q = productSearch.toLowerCase();
-    setProductResults(allProducts.filter(p => (p.name || p.description || '').toLowerCase().includes(q)).slice(0, 10));
-  }, [productSearch, allProducts]);
 
   const bg = isDarkMode ? '#0f172a' : '#f8fafc';
   const surface = isDarkMode ? '#1e293b' : '#ffffff';
@@ -71,16 +59,8 @@ export const InventoryScopeScreen: React.FC<Props> = ({ isDarkMode, onCancel, on
   const muted = isDarkMode ? '#94a3b8' : '#64748b';
 
   const handleConfirm = () => {
-    if (!inventoryName.trim()) {
-        Alert.alert("Atenção", "Informe um nome para o inventário.");
-        return;
-    }
     if (scopeType === 'supplier' && !selectedSupplierId) {
         Alert.alert("Atenção", "Selecione um fornecedor.");
-        return;
-    }
-    if (scopeType === 'custom' && customProducts.length === 0) {
-        Alert.alert("Atenção", "Adicione produtos ao escopo.");
         return;
     }
     
@@ -89,7 +69,8 @@ export const InventoryScopeScreen: React.FC<Props> = ({ isDarkMode, onCancel, on
         name: inventoryName.trim(),
         blindCount,
         responsibleId: selectedResponsibleId,
-        itemsSnapshot: matchingItems
+        // Para inventário personalizado, começa sem itens (adicionados durante a contagem)
+        itemsSnapshot: scopeType === 'custom' ? [] : matchingItems,
     });
   };
 
@@ -149,23 +130,13 @@ export const InventoryScopeScreen: React.FC<Props> = ({ isDarkMode, onCancel, on
                 <Filter size={24} color="#a855f7" />
               </View>
               <Text style={[styles.typeTitle, { color: textPrimary }]}>Seleção Personalizada</Text>
-              <Text style={[styles.typeDesc, { color: muted }]}>Adicione manualmente produtos ou variações específicas ao escopo.</Text>
+              <Text style={[styles.typeDesc, { color: muted }]}>Adicione produtos durante a contagem conforme necessário.</Text>
             </TouchableOpacity>
           </View>
         )}
 
         {step === 2 && (
           <View style={styles.formContainer}>
-            <View style={[styles.card, { backgroundColor: surface, borderColor: border }]}>
-              <Text style={[styles.label, { color: textPrimary }]}>Nome do Inventário</Text>
-              <TextInput
-                style={[styles.input, { backgroundColor: bg, borderColor: border, color: textPrimary }]}
-                value={inventoryName}
-                onChangeText={setInventoryName}
-                placeholder="Ex: Inventário Mensal"
-                placeholderTextColor={muted}
-              />
-            </View>
 
             {scopeType === 'supplier' && (
                <View style={[styles.card, { backgroundColor: surface, borderColor: border }]}>
@@ -190,62 +161,46 @@ export const InventoryScopeScreen: React.FC<Props> = ({ isDarkMode, onCancel, on
             )}
 
             {scopeType === 'custom' && (
-              <View style={[styles.card, { backgroundColor: surface, borderColor: border }]}>
-                 <Text style={[styles.label, { color: textPrimary }]}>Adicionar Produtos</Text>
-                 <View style={styles.searchRow}>
-                    <Search size={20} color={muted} />
-                    <TextInput
-                        style={[styles.searchInput, { color: textPrimary }]}
-                        value={productSearch}
-                        onChangeText={setProductSearch}
-                        placeholder="Buscar por nome..."
-                        placeholderTextColor={muted}
-                    />
-                 </View>
-                 {productResults.length > 0 && (
-                     <View style={{ marginTop: 8, gap: 4 }}>
-                         {productResults.map(p => (
-                             <TouchableOpacity
-                                key={p.id}
-                                style={[styles.searchResultItem, { borderBottomColor: border }]}
-                                onPress={() => {
-                                    if (!customProducts.some(cp => cp.product.id === p.id)) {
-                                        setCustomProducts(prev => [...prev, { product: p }]);
-                                    }
-                                    setProductSearch('');
-                                }}
-                             >
-                                 <Text style={{ color: textPrimary }} numberOfLines={1}>{p.name}</Text>
-                             </TouchableOpacity>
-                         ))}
-                     </View>
-                 )}
-
-                 {customProducts.length > 0 && (
-                     <View style={{ marginTop: 16 }}>
-                        <Text style={[styles.label, { color: textPrimary, fontSize: 12 }]}>Produtos Selecionados ({customProducts.length})</Text>
-                        {customProducts.map((cp, idx) => (
-                            <View key={idx} style={[styles.selectedItem, { backgroundColor: bg, borderColor: border }]}>
-                                <Text style={{ color: textPrimary, flex: 1 }} numberOfLines={1}>{cp.product.name}</Text>
-                                <TouchableOpacity onPress={() => setCustomProducts(prev => prev.filter((_, i) => i !== idx))}>
-                                    <X size={16} color="#ef4444" />
-                                </TouchableOpacity>
-                            </View>
-                        ))}
-                     </View>
-                 )}
+              <View style={[styles.card, { backgroundColor: 'rgba(168,85,247,0.08)', borderColor: '#a855f7' }]}>
+                <Filter size={20} color="#a855f7" />
+                <Text style={[styles.label, { color: '#a855f7', marginTop: 8 }]}>Inventário Personalizado</Text>
+                <Text style={{ color: muted, fontSize: 13, lineHeight: 18 }}>
+                  Produtos serão adicionados durante a contagem usando o botão "Adicionar Item" na tela de contagem.
+                </Text>
               </View>
             )}
 
+            <View style={[styles.card, { backgroundColor: surface, borderColor: border, marginTop: 16 }]}>
+                <Text style={[styles.label, { color: textPrimary }]}>Responsável pelo Inventário</Text>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: 8 }}>
+                    {employees.map(e => (
+                        <TouchableOpacity
+                            key={e.id}
+                            style={[
+                                styles.chip, 
+                                { borderColor: selectedResponsibleId === e.id ? '#10b981' : border, backgroundColor: selectedResponsibleId === e.id ? 'rgba(16,185,129,0.1)' : bg }
+                            ]}
+                            onPress={() => setSelectedResponsibleId(e.id)}
+                        >
+                            <Text style={{ color: selectedResponsibleId === e.id ? '#10b981' : textPrimary, fontWeight: selectedResponsibleId === e.id ? '700' : '500' }}>
+                                {e.full_name}
+                            </Text>
+                        </TouchableOpacity>
+                    ))}
+                </ScrollView>
+            </View>
+
             <TouchableOpacity 
-                style={[styles.card, { backgroundColor: surface, borderColor: border, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }]}
+                style={[styles.card, { backgroundColor: surface, borderColor: border, marginTop: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }]}
                 onPress={() => setBlindCount(!blindCount)}
             >
                 <View style={{ flex: 1 }}>
-                    <Text style={[styles.label, { color: textPrimary, marginBottom: 2 }]}>Contagem Cega</Text>
-                    <Text style={{ color: muted, fontSize: 12 }}>Ocultar o estoque atual na hora da contagem.</Text>
+                    <Text style={[styles.label, { color: textPrimary, marginBottom: 4 }]}>Contagem Cega</Text>
+                    <Text style={{ color: muted, fontSize: 13 }}>Ocultar a quantidade em sistema durante a contagem.</Text>
                 </View>
-                {blindCount ? <CheckCircle2 size={24} color="#10b981" /> : <View style={[styles.circleEmpty, { borderColor: border }]} />}
+                <View style={{ width: 44, height: 24, borderRadius: 12, backgroundColor: blindCount ? '#10b981' : border, padding: 2 }}>
+                    <View style={{ width: 20, height: 20, borderRadius: 10, backgroundColor: '#ffffff', transform: [{ translateX: blindCount ? 20 : 0 }] }} />
+                </View>
             </TouchableOpacity>
 
             <TouchableOpacity style={styles.confirmBtn} onPress={handleConfirm}>
@@ -266,7 +221,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 16,
     borderBottomWidth: 1,
-    paddingTop: 50, // StatusBar compensation
+    paddingTop: 50,
   },
   headerTitle: { fontSize: 20, fontWeight: '800' },
   headerSubtitle: { fontSize: 13, marginTop: 2 },
@@ -294,13 +249,6 @@ const styles = StyleSheet.create({
     borderRadius: 16,
   },
   label: { fontSize: 14, fontWeight: '700', marginBottom: 8 },
-  input: {
-    borderWidth: 1,
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    fontSize: 15,
-  },
   chip: {
     paddingHorizontal: 16,
     paddingVertical: 8,
@@ -308,20 +256,6 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     marginRight: 8,
   },
-  searchRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderBottomWidth: 1,
-    borderBottomColor: '#e2e8f0',
-    paddingBottom: 8,
-  },
-  searchInput: { flex: 1, marginLeft: 8, fontSize: 15 },
-  searchResultItem: { paddingVertical: 12, borderBottomWidth: 1 },
-  selectedItem: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    padding: 10, borderWidth: 1, borderRadius: 8, marginTop: 8
-  },
-  circleEmpty: { width: 24, height: 24, borderRadius: 12, borderWidth: 2 },
   confirmBtn: {
     backgroundColor: '#10b981',
     paddingVertical: 14,

@@ -51,7 +51,13 @@ const DesktopNav = ({ activeMenu, setActiveMenu }: DesktopNavProps) => {
                         <Link to="/registrations/product-categories" onClick={() => setActiveMenu(null)} className={dropdownItemClass}>
                             <i className="bi bi-tag-fill mr-1 text-teal-500"></i> Ambientes e Categorias
                         </Link>
-                        <Link to="/stock/label-printing?category=precos" onClick={() => setActiveMenu(null)} className={dropdownItemClass}>
+                        <Link to="/products/compositions" onClick={() => setActiveMenu(null)} className={dropdownItemClass}>
+                            <i className="bi bi-diagram-3-fill mr-1 text-amber-500"></i> Composições
+                        </Link>
+                        <Link to="/products/reconciliation/suppliers" onClick={() => setActiveMenu(null)} className={dropdownItemClass}>
+                            <i className="bi bi-magic mr-1 text-purple-500"></i> Conciliação
+                        </Link>
+                        <Link to="/estoque/etiquetas?category=precos" onClick={() => setActiveMenu(null)} className={dropdownItemClass}>
                             <i className="bi bi-tag-fill mr-1 text-emerald-500"></i> Etiqueta de Preço
                         </Link>
                     </div>
@@ -73,13 +79,13 @@ const DesktopNav = ({ activeMenu, setActiveMenu }: DesktopNavProps) => {
                     <div className={dropdownClass}>
                         {/* Grupo: Operação */}
                         <div className="px-3 pt-1 pb-0.5 text-[9px] font-black uppercase tracking-widest text-slate-400">Operação</div>
-                        <Link to="/stock?tab=history" onClick={() => setActiveMenu(null)} className={dropdownItemClass}>
+                        <Link to="/estoque/movimentacoes" onClick={() => setActiveMenu(null)} className={dropdownItemClass}>
                             <i className="bi bi-arrow-left-right mr-1 text-emerald-500"></i> Movimentações
                         </Link>
-                        <Link to="/stock?tab=audit" onClick={() => setActiveMenu(null)} className={dropdownItemClass}>
+                        <Link to="/estoque/inventarios" onClick={() => setActiveMenu(null)} className={dropdownItemClass}>
                             <i className="bi bi-journal-check mr-1 text-emerald-500"></i> Inventário
                         </Link>
-                        <Link to="/stock/receipts" onClick={() => setActiveMenu(null)} className={dropdownItemClass}>
+                        <Link to="/estoque/recebimentos" onClick={() => setActiveMenu(null)} className={dropdownItemClass}>
                             <i className="bi bi-clipboard-check mr-1 text-emerald-500"></i> Recebimentos de Mercadorias
                         </Link>
 
@@ -88,13 +94,13 @@ const DesktopNav = ({ activeMenu, setActiveMenu }: DesktopNavProps) => {
 
                         {/* Grupo: Compras */}
                         <div className="px-3 pt-1 pb-0.5 text-[9px] font-black uppercase tracking-widest text-slate-400">Compras</div>
-                        <Link to="/stock/purchases" onClick={() => setActiveMenu(null)} className={dropdownItemClass}>
+                        <Link to="/estoque/pedidos-compra" onClick={() => setActiveMenu(null)} className={dropdownItemClass}>
                             <i className="bi bi-cart-fill mr-1 text-blue-500"></i> Pedidos de Compra
                         </Link>
-                        <Link to="/stock/inbound-invoices" onClick={() => setActiveMenu(null)} className={dropdownItemClass}>
+                        <Link to="/estoque/notas-fiscais-entrada" onClick={() => setActiveMenu(null)} className={dropdownItemClass}>
                             <i className="bi bi-receipt-cutoff mr-1 text-indigo-500"></i> Notas Fiscais de Entrada
                         </Link>
-                        <Link to="/registrations/suppliers" onClick={() => setActiveMenu(null)} className={dropdownItemClass}>
+                        <Link to="/estoque/fornecedores" onClick={() => setActiveMenu(null)} className={dropdownItemClass}>
                             <i className="bi bi-truck mr-1 text-amber-500"></i> Fornecedores
                         </Link>
                     </div>
@@ -201,7 +207,7 @@ const DesktopNav = ({ activeMenu, setActiveMenu }: DesktopNavProps) => {
                         <Link to="/registrations/meta-catalog" onClick={() => setActiveMenu(null)} className={dropdownItemClass}>
                             <i className="bi bi-meta mr-1 text-blue-600"></i> Catálogo Meta
                         </Link>
-                        <Link to="/stock/label-printing?category=logos" onClick={() => setActiveMenu(null)} className={dropdownItemClass}>
+                        <Link to="/estoque/etiquetas?category=logos" onClick={() => setActiveMenu(null)} className={dropdownItemClass}>
                             <i className="bi bi-printer-fill mr-1 text-purple-500"></i> Impressão de Logotipos e Artes
                         </Link>
                     </div>

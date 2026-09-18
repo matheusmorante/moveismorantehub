@@ -291,8 +291,6 @@ const ensureSharedOrdersChannel = () => {
     if (sharedOrdersChannel) return;
     sharedOrdersChannel = supabase.channel('orders_changes_shared')
         .on('postgres_changes', { event: '*', schema: 'public', table: TABLE_NAME }, notifyOrderChange)
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'order_items' }, notifyOrderChange)
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'order_payments' }, notifyOrderChange)
         .subscribe();
 };
 

@@ -37,10 +37,7 @@ async function getProductData(slug: string) {
     return null
   }
 
-  const { data: specifications } = await supabase
-    .from("technical_specifications")
-    .select("name, slug")
-    .order("name")
+  // technical_specifications foi removido
 
   const data = prodRes.data
   const sortedImages = (data.product_images || [])
@@ -56,7 +53,7 @@ async function getProductData(slug: string) {
       images: imageUrls,
       variations: data.product_variations || []
     },
-    technicalSpecifications: specifications || [],
+    technicalSpecifications: [],
     buttonStyle: (styleRes.data?.button_style || "standard") as "standard" | "rounded"
   }
 }

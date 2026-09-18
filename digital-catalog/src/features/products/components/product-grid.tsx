@@ -10,6 +10,7 @@ import { cn } from "@/lib/utils"
 
 import { slugifyText } from "@/lib/slug-utils"
 import { hasPublicCatalogItem, isPublicCatalogVariation } from "../product-visibility"
+import { getCachedStoreStyleSettings } from "@/lib/store-settings-cache"
 
 interface ProductGridProps {
   filters?: {
@@ -129,7 +130,7 @@ export function ProductGrid({ filters }: ProductGridProps) {
           return q.limit(5000)
         }
 
-        const stylePromise = supabase.from("store_style_settings").select("border_width, border_radius, shadow, opportunity_emphasis, button_style, product_image_fit, product_grid_columns, product_grid_gap").eq("id", true).maybeSingle()
+        const stylePromise = getCachedStoreStyleSettings()
         
         let hasDeletedAt = true
         let hasOpportunities = true

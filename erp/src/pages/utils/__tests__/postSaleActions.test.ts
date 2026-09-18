@@ -26,6 +26,15 @@ describe('[MÓDULO 1 - Etapa 1.3] Ações Pós-Venda (PostOrderActionsModal & Re
       expect(canOpenPostSaleActions(order)).toBe(true);
     });
 
+    it('autoriza abertura de ações pós-venda para vendas atendidas (fulfilled)', () => {
+      const order: Partial<Order> = {
+        orderType: 'sale',
+        status: 'fulfilled',
+        orderIndex: 1003,
+      };
+      expect(canOpenPostSaleActions(order)).toBe(true);
+    });
+
     it('bloqueia abertura para rascunhos (draft)', () => {
       const draftOrder: Partial<Order> = {
         orderType: 'sale',

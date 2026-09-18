@@ -41,7 +41,7 @@ export const PurchasesPage: React.FC = () => {
         if (!purchase) return;
         setSelectedPurchase(purchase);
         setIsDetailsModalOpen(true);
-        navigate('/stock?tab=purchases', { replace: true, state: null });
+        navigate('/estoque/inventarios?tab=purchases', { replace: true, state: null });
     }, [location.state, navigate, purchases]);
 
     const filteredPurchases = useMemo(

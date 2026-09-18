@@ -95,6 +95,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                     const { data: existingEmps } = await supabase
                         .from('people')
                         .select('id,email,full_name')
+                        .eq('person_type', 'employees')
+                        .eq('deleted', false)
                         .ilike('email', userEmail);
 
                     const empName = googleName || data?.full_name || userEmail.split('@')[0] || (isMasterEmail ? 'Matheus Morante' : 'Colaborador');

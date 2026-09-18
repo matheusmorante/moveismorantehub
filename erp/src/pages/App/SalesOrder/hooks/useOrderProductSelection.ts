@@ -8,7 +8,63 @@ export function useOrderProductSelection(
     items: Item[],
     setItems: React.Dispatch<React.SetStateAction<Item[]>>
 ) {
-    const handleSelectProduct = useCallback((index: number, product: Product, variation?: Variation) => {
+    const handleSelectProduct = useCallback((index: number, product: any, variation?: any) => {
+        if (product.isComposition) {
+            // EXPLOSÃO DO KIT (COMPOSIÇÃO)
+            const compositionItems = variation ? variation.items : product.variations?.[0]?.items;
+            
+            if (!compositionItems || compositionItems.length === 0) {
+                console.warn("Composição sem itens reais vinculados.");
+                return;
+            }
+
+            setItems(currentItems => {
+                const newItems = [...currentItems];
+                const explodedItems = compositionItems.map((compItem: any) => {
+                    const realProduct = compItem.product;
+                    const realVariation = compItem.variation;
+                    
+                    const pricing = getSelectedProductPricing(realProduct, realVariation);
+                    const selectedCost = realVariation
+                        ? (realVariation.costPrice ?? realProduct.costPrice ?? 0)
+                        : (realProduct.costPrice ?? 0);
+                        
+                    let resolvedCode = realVariation ? realVariation.sku : realProduct.code;
+                    if (!resolvedCode || resolvedCode === '000000') resolvedCode = realProduct.sku || "";
+
+                    // Aqui definimos o unitPrice usando uma regra de 3 ou apenas 0 se a composição tiver preço fixo manual?
+                    // Para rastreabilidade contábil, é melhor usar o preço real da peça.
+                    // O cliente disse "expandiremos a composição em suas partes componentes originais para que o pedido deduza os estoques perfeitamente das peças individuais sem violar a rastreabilidade fiscal e contábil."
+                    // Como não pediram rateio de preço agora, vamos usar o preço real. Se a composição era mais barata, o usuário aplica desconto no pedido.
+
+                    return {
+                        id: crypto.randomUUID(), // fake id para novo item
+                        productId: realProduct.id,
+                        variationId: realVariation?.id,
+                        isTemporaryProduct: false,
+                        code: resolvedCode || "",
+                        description: getSelectedProductDisplayName(realProduct, realVariation),
+                        unitPrice: pricing.unitPrice,
+                        unitDiscount: pricing.unitDiscount,
+                        discountType: pricing.discountType,
+                        quantity: compItem.quantity,
+                        total: Math.max(0, (pricing.unitPrice - (pricing.unitDiscount || 0)) * compItem.quantity),
+                        costPrice: Number(selectedCost) || 0,
+                        handlingType: "",
+                        condition: realVariation?.condition || realProduct.condition || "novo"
+                    };
+                });
+
+                // Substitui a linha vazia (index) pelos itens explodidos
+                newItems.splice(index, 1, ...explodedItems);
+                
+                return newItems;
+            });
+
+            return;
+        }
+
+        // Fluxo normal para produto simples
         const pricing = getSelectedProductPricing(product, variation);
 
         const selectedCost = variation
@@ -40,8 +96,6 @@ export function useOrderProductSelection(
                     unitDiscount: pricing.unitDiscount,
                     discountType: pricing.discountType,
                     costPrice: Number(selectedCost) || 0,
-                    // Manuseio é uma decisão operacional do pedido. A seleção do
-                    // produto não pode herdar nem sugerir uma opção automaticamente.
                     handlingType: "",
                     condition: variation?.condition || product.condition || "novo"
                 };

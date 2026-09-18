@@ -12,7 +12,7 @@ export const blingService = {
     const clientId = settings.blingConfig?.clientId || 'abc06068586195ac65f1df01e26de945712caca7';
     
     // URL de redirecionamento configurada no Bling
-    const redirectUri = `${window.location.origin}/stock/bling`;
+    const redirectUri = `${window.location.origin}/estoque/bling`;
     const state = '6099f541b5a859c57350390be4b6130a'; // Valor atualizado conforme solicitação
     
     return `https://www.bling.com.br/Api/v3/oauth/authorize?response_type=code&client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&state=${state}`;
@@ -30,7 +30,7 @@ export const blingService = {
             code,
             clientId: settings.blingConfig?.clientId || 'abc06068586195ac65f1df01e26de945712caca7',
             clientSecret: settings.blingConfig?.clientSecret || '3b9500fc5343b4308765eed271c01eb8fbd771152c97928d3d2015270759',
-            redirectUri: `${window.location.origin}/stock/bling`
+            redirectUri: `${window.location.origin}/estoque/bling`
         }
       });
 
