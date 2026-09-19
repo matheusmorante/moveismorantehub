@@ -213,19 +213,14 @@ export const ProductSearchInput: React.FC<ProductSearchInputProps> = ({
 
     return (
         <div ref={containerRef} className={`relative flex-1 ${className}`}>
-            <div className="flex items-center gap-3 w-full px-4 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-500/20 transition-all cursor-text min-w-[240px]">
-                <span className="w-7 h-7 rounded-xl bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0">
-                    {isLoading ? (
+            <div className="flex items-center gap-3 w-full px-2 py-2 bg-transparent border-b-2 border-slate-200 dark:border-slate-800 focus-within:border-blue-500 transition-colors cursor-text min-w-[240px]">
+                {isLoading && (
+                    <span className="w-6 h-6 rounded-xl flex items-center justify-center shrink-0">
                         <i className="bi bi-arrow-repeat text-xs animate-spin text-blue-500" />
-                    ) : (
-                        <i className="bi bi-search text-xs" />
-                    )}
-                </span>
+                    </span>
+                )}
 
                 <div className="flex flex-col min-w-0 flex-1">
-                    <span className="text-[8px] font-black uppercase tracking-widest text-slate-400">
-                        Buscar Produto
-                    </span>
                     <input
                         type="text"
                         value={filterText}
@@ -235,11 +230,11 @@ export const ProductSearchInput: React.FC<ProductSearchInputProps> = ({
                         }}
                         onFocus={() => setIsOpen(true)}
                         placeholder={placeholder}
-                        className="bg-transparent border-0 p-0 focus:ring-0 text-xs font-black uppercase text-slate-800 dark:text-slate-100 placeholder:text-slate-400 placeholder:font-normal outline-none w-full truncate"
+                        className="bg-transparent border-0 p-0 focus:ring-0 text-xs font-black uppercase text-slate-800 dark:text-slate-100 placeholder:text-slate-400 outline-none w-full truncate"
                     />
                 </div>
 
-                {filterText ? (
+                {filterText && (
                     <button
                         type="button"
                         onClick={(e) => {
@@ -253,8 +248,6 @@ export const ProductSearchInput: React.FC<ProductSearchInputProps> = ({
                     >
                         <i className="bi bi-x-circle-fill text-sm" />
                     </button>
-                ) : (
-                    <i className="bi bi-chevron-down text-xs text-slate-400" />
                 )}
             </div>
 

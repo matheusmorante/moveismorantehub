@@ -6,27 +6,26 @@ import { toast } from 'react-toastify';
 import Product from '../../../types/product.type';
 import { saveInventoryMove } from '../../../../pages/utils/inventoryService';
 import { supabase } from '@/pages/utils/supabaseConfig';
-import LabelGrid, { LabelItemConfig, LogoItemConfig } from './LabelGrid';
-import LabelGridModelModal, { GridModel } from './LabelGridModelModal';
+import LabelGrid, { LabelItemConfig, LogoItemConfig } from './components/LabelGrid';
+import LabelGridModelModal, { GridModel } from './modals/LabelGridModelModal';
 import { formatCurrency } from '../../../utils/formatters';
 import labelMdf from '../../../../assets/label_mdf.png';
 import logoMorante from '../../../../assets/logo.jpeg';
-import LabelQueue from './LabelQueue';
+import LabelQueue from './components/LabelQueue';
 import ProductSearchInput from './components/ProductSearchInput';
-import LabelImageModal from './LabelImageModal';
-import PriceLabelArtEditorModal from './PriceLabelArtEditorModal';
+import LabelImageModal from './modals/LabelImageModal';
+import PriceLabelArtEditorModal from './modals/PriceLabelArtEditorModal';
 import { 
     LabelType, LabelPreset, LabelLayout, LabelConfig, CustomLabel, DEFAULT_LAYOUT_MODELS 
-} from './LabelConstants';
+} from './utils/LabelConstants';
 import { 
     calculateLabelDimensions, processProductData, mapModelToDb, mapDbToModel 
-} from './LabelUtils';
+} from './utils/LabelUtils';
 import {
     publishPriceLabelTemplateUpdate,
     subscribeToPriceLabelTemplateUpdates,
-} from './priceLabelTemplateSync';
-import { useLabelPrintMode } from './useLabelPrintMode';
-import { LabelPrintingHeader } from './components/LabelPrintingHeader';
+} from './services/priceLabelTemplateSync';
+import { useLabelPrintMode } from './hooks/useLabelPrintMode';
 import { LabelPrintingCategoryTabs, CategoryType } from './components/LabelPrintingCategoryTabs';
 
 const LabelPrinting: React.FC = () => {
@@ -1143,18 +1142,10 @@ const LabelPrinting: React.FC = () => {
 
     return (
         <>
-            <div className={`flex flex-col gap-4 max-w-[1600px] mx-auto py-3 px-6 min-h-screen no-print transition-all`}>
-                <header className="mb-3 animate-slide-in">
-                    <div className="flex flex-wrap items-center justify-between gap-4">
-                        <div className="flex items-center gap-4">
-                            {selectedCategory && (
-                                <button 
-                                    onClick={() => setSelectedCategory(null)}
-                                    className="w-10 h-10 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl flex items-center justify-center hover:bg-slate-50 transition-all text-slate-400 cursor-pointer"
-                                >
-                                    <i className="bi bi-chevron-left text-lg" />
-                                </button>
-                            )}
+            <div className={`flex flex-col gap-2 max-w-[1600px] mx-auto pt-2 pb-4 px-6 min-h-screen no-print transition-all`}>
+                <header className="mb-2 animate-slide-in">
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                        <div className="flex items-center gap-3">
                             <div className={`w-10 h-10 rounded-2xl flex items-center justify-center shadow-lg transition-all ${
                                 selectedCategory === 'identificacao' ? 'bg-slate-900 shadow-slate-900/20' : 
                                 selectedCategory === 'precos' ? 'bg-amber-500 shadow-amber-500/20' :
@@ -1300,38 +1291,18 @@ const LabelPrinting: React.FC = () => {
                         {/* SEÇÃO DA FILA (PRODUTOS OU LOGOS) */}
                                     <section className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-[2.5rem] p-8 shadow-xl shadow-slate-200/50 dark:shadow-none flex flex-col transition-all xl:basis-[34%] xl:shrink-0">
                                          <div className="flex flex-col 2xl:flex-row 2xl:items-center justify-between shrink-0 gap-4 mb-6 pb-4 border-b border-slate-100 dark:border-slate-800">
-                                             {/* ESQUERDA: TÍTULO DA SEÇÃO */}
-                                             <div className="flex flex-col gap-1 shrink-0">
-                                                 <h3 className="text-xs md:text-sm font-black uppercase tracking-widest text-slate-700 dark:text-slate-200">
-                                                     {selectedCategory === 'logos' ? 'Gerenciar Etiquetas' : 'Etiquetas a Imprimir'}
-                                                 </h3>
-                                                 {selectedCategory === 'logos' && (
-                                                     <p className="text-[8px] font-bold text-slate-400 uppercase">Organize e configure seus ativos para impressão</p>
-                                                 )}
-                                             </div>
-
-                                             {/* CENTRO / MEIO: FORMULÁRIO DE BUSCA E ADIÇÃO DE PRODUTOS */}
-                                             {((selectedCategory === 'precos' && printingMode === 'advanced') || selectedCategory === 'identificacao') && (
-                                                 <div className="flex w-full flex-1 items-center gap-2 2xl:mx-4">
-                                                     <ProductSearchInput 
-                                                         products={products}
-                                                         selectedProduct={selectedProductToAdd}
-                                                         onSelectProduct={(p) => setSelectedProductToAdd(p)}
-                                                         placeholder="Digite para buscar produto (nome, código, SKU)..."
-                                                     />
-
-                                                     <div className="flex items-center bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl px-3 py-1.5 shrink-0">
-                                                         <span className="text-[9px] font-black uppercase text-slate-400 mr-2">Qtd:</span>
-                                                         <input 
-                                                             type="number"
-                                                             min="1"
-                                                             max="500"
-                                                             value={productAddQty}
-                                                             onChange={e => setProductAddQty(Math.max(1, parseInt(e.target.value) || 1))}
-                                                             className="w-12 bg-transparent text-xs font-black text-slate-800 dark:text-slate-100 outline-none text-center"
-                                                         />
-                                                     </div>
-
+                                             {/* ESQUERDA: TÍTULO DA SEÇÃO E BOTAO ADICIONAR */}
+                                             <div className="flex items-center gap-4 shrink-0">
+                                                 <div className="flex flex-col gap-1">
+                                                     <h3 className="text-xs md:text-sm font-black uppercase tracking-widest text-slate-700 dark:text-slate-200">
+                                                         {selectedCategory === 'logos' ? 'Gerenciar Etiquetas' : 'Etiquetas a Imprimir'}
+                                                     </h3>
+                                                     {selectedCategory === 'logos' && (
+                                                         <p className="text-[8px] font-bold text-slate-400 uppercase">Organize e configure seus ativos para impressão</p>
+                                                     )}
+                                                 </div>
+                                                 
+                                                 {((selectedCategory === 'precos' && printingMode === 'advanced') || selectedCategory === 'identificacao') && (
                                                      <button 
                                                          type="button"
                                                          onClick={() => {
@@ -1344,11 +1315,74 @@ const LabelPrinting: React.FC = () => {
                                                              setSelectedProductToAdd(null);
                                                              setProductAddQty(1);
                                                          }}
-                                                         className="px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl text-[10px] font-black uppercase tracking-wider transition-all shadow-md shadow-blue-500/20 active:scale-95 flex items-center gap-1.5 shrink-0 cursor-pointer"
+                                                         className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-[10px] font-black uppercase tracking-wider transition-all shadow-md shadow-blue-500/20 active:scale-95 flex items-center gap-1.5 shrink-0 cursor-pointer"
                                                      >
                                                          <i className="bi bi-plus-lg text-sm" />
                                                          <span>Adicionar</span>
                                                      </button>
+                                                 )}
+                                             </div>
+
+                                             {/* CENTRO / MEIO: FORMULÁRIO DE BUSCA */}
+                                             {((selectedCategory === 'precos' && printingMode === 'advanced') || selectedCategory === 'identificacao') && (
+                                                 <div className="w-full mt-2">
+                                                     {/* DESKTOP VIEW (xl e maior) - Tabela */}
+                                                     <div className="hidden xl:flex flex-col w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl overflow-visible">
+                                                         <div className="flex items-center bg-slate-50 dark:bg-slate-950 border-b border-slate-200 dark:border-slate-800 px-4 py-2 rounded-t-2xl">
+                                                             <div className="flex-[3] text-[9px] font-black uppercase text-slate-400 tracking-widest">Produto</div>
+                                                             <div className="flex-1 text-[9px] font-black uppercase text-slate-400 tracking-widest text-center">Quantidade</div>
+                                                         </div>
+                                                         <div className="flex items-stretch divide-x divide-slate-100 dark:divide-slate-800">
+                                                             <div className="flex-[3] px-4 py-2 flex items-center">
+                                                                 <ProductSearchInput 
+                                                                     products={products}
+                                                                     selectedProduct={selectedProductToAdd}
+                                                                     onSelectProduct={(p) => setSelectedProductToAdd(p)}
+                                                                     placeholder="Digite para buscar produto (nome, código, SKU)..."
+                                                                     className="!min-w-0"
+                                                                 />
+                                                             </div>
+                                                             <div className="flex-1 px-4 py-2 flex items-center justify-center">
+                                                                 <div className="flex items-center w-24">
+                                                                     <input 
+                                                                         type="number"
+                                                                         min="1"
+                                                                         max="500"
+                                                                         value={productAddQty}
+                                                                         onChange={e => setProductAddQty(Math.max(1, parseInt(e.target.value) || 1))}
+                                                                         className="w-full bg-transparent text-sm font-black text-slate-800 dark:text-slate-100 outline-none text-center border-b-2 border-slate-200 dark:border-slate-800 focus:border-blue-500 transition-colors py-1"
+                                                                     />
+                                                                 </div>
+                                                             </div>
+                                                         </div>
+                                                     </div>
+
+                                                     {/* MOBILE VIEW (< xl) - Card com labels em cima */}
+                                                     <div className="flex xl:hidden flex-col gap-4 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 w-full overflow-visible">
+                                                         <div className="flex flex-col gap-1 w-full">
+                                                             <label className="text-[10px] font-black uppercase text-slate-500 tracking-wider">Produto</label>
+                                                             <ProductSearchInput 
+                                                                 products={products}
+                                                                 selectedProduct={selectedProductToAdd}
+                                                                 onSelectProduct={(p) => setSelectedProductToAdd(p)}
+                                                                 placeholder="Buscar produto..."
+                                                                 className="w-full"
+                                                             />
+                                                         </div>
+                                                         <div className="flex flex-col gap-1 w-full">
+                                                             <label className="text-[10px] font-black uppercase text-slate-500 tracking-wider">Quantidade</label>
+                                                             <div className="flex items-center w-32">
+                                                                 <input 
+                                                                     type="number"
+                                                                     min="1"
+                                                                     max="500"
+                                                                     value={productAddQty}
+                                                                     onChange={e => setProductAddQty(Math.max(1, parseInt(e.target.value) || 1))}
+                                                                     className="w-full bg-transparent text-sm font-black text-slate-800 dark:text-slate-100 outline-none text-center border-b-2 border-slate-200 dark:border-slate-800 focus:border-blue-500 transition-colors py-1"
+                                                                 />
+                                                             </div>
+                                                         </div>
+                                                     </div>
                                                  </div>
                                              )}
 
@@ -1363,13 +1397,6 @@ const LabelPrinting: React.FC = () => {
                                                          >
                                                              <i className="bi bi-cloud-arrow-up-fill text-sm" /> Carregar Imagem da Etiqueta
                                                          </button>
-                                                         <button
-                                                             type="button"
-                                                             onClick={() => handleAddBlankLabel(1)}
-                                                             className="px-4 py-2 bg-white dark:bg-slate-950 hover:bg-slate-50 text-slate-600 dark:text-slate-300 rounded-xl transition-all font-black text-[10px] uppercase tracking-widest flex items-center gap-2 border border-slate-100 dark:border-slate-700 shadow-sm cursor-pointer"
-                                                         >
-                                                             <i className="bi bi-file-earmark-plus text-slate-400" /> Adicionar Etiqueta em Branco
-                                                         </button>
                                                          <input
                                                              type="file"
                                                              ref={cellInputRef}
@@ -1381,12 +1408,6 @@ const LabelPrinting: React.FC = () => {
                                                  )}
                                                  {selectedCategory === 'logos' && (
                                                      <>
-                                                         <button 
-                                                             onClick={() => handleAddBlankLabel(1)}
-                                                             className="px-4 py-2 bg-white dark:bg-slate-950 hover:bg-slate-50 text-slate-600 dark:text-slate-300 rounded-xl transition-all font-black text-[10px] uppercase tracking-widest flex items-center gap-2 border border-slate-100 dark:border-slate-700 shadow-sm cursor-pointer"
-                                                         >
-                                                             <i className="bi bi-file-earmark-plus text-slate-400" /> Branco
-                                                         </button>
                                                          <button 
                                                              onClick={() => setIsAssetManagerModalOpen(true)}
                                                              className="px-4 py-2 bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-xl hover:bg-slate-100 transition-all font-black text-[10px] uppercase tracking-widest flex items-center gap-2 border border-slate-100 dark:border-slate-700 shadow-sm cursor-pointer"
