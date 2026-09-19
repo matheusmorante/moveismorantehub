@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import Product from '@/pages/types/product.type';
 import { supabase } from '@/pages/utils/supabaseConfig';
-import { processProductData } from '../LabelUtils';
+import { processProductData } from '../utils/LabelUtils';
 import { getSelectedProductDisplayName } from '@/pages/utils/productVariationDefaults';
 
 const LABEL_PRODUCT_COLUMNS = 'id, title, name, description, code, sku, unit_price, cost_price, price, promo_price, stock, active, deleted_at, has_variations, variations, category_ids, category, unit, images';

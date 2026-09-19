@@ -1,4 +1,4 @@
-import { LabelConfig } from '../LabelConstants';
+import { LabelConfig } from '../utils/LabelConstants';
 
 export interface Opportunity {
   id: string;

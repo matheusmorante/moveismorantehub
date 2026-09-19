@@ -2233,7 +2233,7 @@ const LabelPrinting: React.FC = () => {
                     ...config,
                     artConfig: savedArtConfigs[String(config.layoutId || 'preco_2x5_restored')] || savedArtConfigs['preco_2x5_restored'] || config.artConfig
                 }}
-                onArtConfigLoaded={(loadedArtConfig) => {
+                onArtConfigLoaded={(loadedArtConfig: any) => {
                     const layoutId = String(config.layoutId || 'preco_2x5_restored');
                     setSavedArtConfigs(prev => ({
                         ...prev,
@@ -2243,7 +2243,7 @@ const LabelPrinting: React.FC = () => {
                     setConfig(prev => ({ ...prev, artConfig: loadedArtConfig }));
                     setArtVersion(prev => prev + 1);
                 }}
-                onSaveConfig={async (updated) => {
+                onSaveConfig={async (updated: any) => {
                     const layoutId = String(config.layoutId || 'preco_2x5_restored');
                     const groupPos = updated.dePricePorGroupPos;
                     if (layoutId && updated.artConfig) {

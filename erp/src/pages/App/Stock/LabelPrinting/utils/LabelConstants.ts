@@ -1,4 +1,4 @@
-import type { GridModel } from './modals/LabelGridModelModal';
+import type { GridModel } from '../modals/LabelGridModelModal';
 
 export interface CustomLabel {
     readonly id: string;

@@ -3,16 +3,16 @@ import html2canvas from 'html2canvas';
 import { toast } from 'react-toastify';
 import { supabase } from '@/pages/utils/supabaseConfig';
 import { normalizeSearchTerm, buildAccentInsensitiveRegex } from '@/pages/utils/textUtils';
-import { LabelConfig } from './LabelConstants';
-import { PriceLabelArtRenderer } from './PriceLabelArtRenderer';
-import { calculateLabelPhysicalSize } from './LabelPhysicalGeometry';
-import { getFixedLabelTextSize } from './fixedLabelTextSize';
+import { LabelConfig } from '../utils/LabelConstants';
+import { PriceLabelArtRenderer } from '../components/PriceLabelArtRenderer';
+import { calculateLabelPhysicalSize } from '../utils/LabelPhysicalGeometry';
+import { getFixedLabelTextSize } from '../utils/fixedLabelTextSize';
 import {
   Opportunity,
   PriceLabelArtEditorModalProps,
   PriceLabelLayerKey,
   FONT_OPTIONS,
-} from './editor/PriceLabelArtEditorTypes';
+} from '../types/PriceLabelArtEditorTypes';
 
 export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> = ({
     isOpen,

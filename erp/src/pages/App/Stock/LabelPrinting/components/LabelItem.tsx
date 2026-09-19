@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { LabelConfig } from '../LabelConstants';
+import { LabelConfig } from '../utils/LabelConstants';
 import bwipjs from 'bwip-js';
-import { PriceLabelArtRenderer, PriceLabelArtData } from '../PriceLabelArtRenderer';
+import { PriceLabelArtRenderer, PriceLabelArtData } from './PriceLabelArtRenderer';
 
 export interface LabelItemProps {
     readonly config: LabelConfig;

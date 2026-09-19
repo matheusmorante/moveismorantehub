@@ -1,7 +1,7 @@
 import React, { useEffect } from 'react';
-import { LabelConfig } from '../LabelConstants';
+import { LabelConfig } from '../utils/LabelConstants';
 import LabelItem from './LabelItem';
-import { calculateLabelPhysicalSize } from '../LabelPhysicalGeometry';
+import { calculateLabelPhysicalSize } from '../utils/LabelPhysicalGeometry';
 
 
 export interface LabelItemConfig {

@@ -1,6 +1,6 @@
 import React, { useRef, useEffect, useState } from 'react';
 import { flushSync } from 'react-dom';
-import { usePriceLabelFonts } from './usePriceLabelFonts';
+import { usePriceLabelFonts } from '../hooks/usePriceLabelFonts';
 
 export interface PriceLabelArtData {
     artWidthMm?: number;

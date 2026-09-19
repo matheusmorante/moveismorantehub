@@ -1,6 +1,6 @@
-import { GridModel } from './LabelGridModelModal';
-import { formatCurrency } from '../../../utils/formatters';
-import { LabelItemConfig } from './LabelGrid';
+import { GridModel } from '../modals/LabelGridModelModal';
+import { formatCurrency } from '../../../../utils/formatters';
+import { LabelItemConfig } from '../components/LabelGrid';
 
 export const calculateLabelDimensions = (m: any) => {
     const paperW = m.paperSize === 'A4' ? 210 : m.paperSize === 'A3' ? 297 : m.paperSize === 'A5' ? 148 : m.paperWidth || 210;
