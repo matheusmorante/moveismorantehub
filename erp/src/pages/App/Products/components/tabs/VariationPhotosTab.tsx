@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import VariationParentImagesSelectModal from "../modals/VariationParentImagesSelectModal";
 import { MAX_VARIATION_IMAGES } from '@/pages/utils/productImageLimits';
+import ProductImage from '@/components/ProductImage';
 
 interface VariationPhotosTabProps {
     readonly images: readonly string[];
@@ -87,10 +88,11 @@ export const VariationPhotosTab: React.FC<VariationPhotosTabProps> = ({
                             } ${draggedIndex === index ? "opacity-50 scale-95" : "opacity-100"}`}
                             title="Arraste para reordenar as fotos"
                         >
-                            <img
+                            <ProductImage
                                 src={url}
                                 alt={`Foto ${index + 1}`}
                                 className="object-cover w-full h-full pointer-events-none"
+                                size="thumbnail"
                             />
 
                             {/* Badge Capa */}

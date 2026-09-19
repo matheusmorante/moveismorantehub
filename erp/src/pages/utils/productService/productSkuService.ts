@@ -9,7 +9,8 @@ export const TABLE_NAME = "products";
  * por nenhum outro produto no cache local.
  * Estratégia: pega o maior valor numérico existente e incrementa.
  */
-export const generateUniqueCode = (excludeProductId?: string): string => {
+export const generateUniqueCode = (excludeProductId?: string, itemType?: string): string => {
+    const isComp = itemType === 'composition';
     const products = getLocalProducts().filter(p => !p.deleted);
     let maxNum = 0;
     const usedCodes = new Set<string>();
@@ -18,24 +19,39 @@ export const generateUniqueCode = (excludeProductId?: string): string => {
         if (excludeProductId && String(p.id) === String(excludeProductId)) return;
         if (p.code) {
             usedCodes.add(p.code);
-            const num = parseInt(p.code, 10);
-            if (!isNaN(num) && num > maxNum) maxNum = num;
+            if (isComp) {
+                if (p.code.endsWith('-COMP')) {
+                    const num = parseInt(p.code.replace('-COMP', ''), 10);
+                    if (!isNaN(num) && num > maxNum) maxNum = num;
+                }
+            } else {
+                const num = parseInt(p.code, 10);
+                if (!isNaN(num) && num > maxNum) maxNum = num;
+            }
         }
         (p.variations || []).forEach((v: any) => {
             if (v.sku) {
                 usedCodes.add(v.sku);
-                const num = parseInt(v.sku, 10);
-                if (!isNaN(num) && num > maxNum) maxNum = num;
+                if (isComp) {
+                    // Variations for compositions might be like 000001-COMP-01, we want the base number
+                    if (v.sku.includes('-COMP')) {
+                        const num = parseInt(v.sku.split('-COMP')[0], 10);
+                        if (!isNaN(num) && num > maxNum) maxNum = num;
+                    }
+                } else {
+                    const num = parseInt(v.sku, 10);
+                    if (!isNaN(num) && num > maxNum) maxNum = num;
+                }
             }
         });
     });
 
     let candidate = maxNum + 1;
-    let candidateStr = String(candidate).padStart(6, '0');
+    let candidateStr = String(candidate).padStart(6, '0') + (isComp ? '-COMP' : '');
     // Garante que não há colisão (por SKUs não-numéricos já presentes)
     while (usedCodes.has(candidateStr)) {
         candidate++;
-        candidateStr = String(candidate).padStart(6, '0');
+        candidateStr = String(candidate).padStart(6, '0') + (isComp ? '-COMP' : '');
     }
     return candidateStr;
 };

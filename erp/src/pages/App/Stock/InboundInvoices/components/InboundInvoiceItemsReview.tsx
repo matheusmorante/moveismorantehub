@@ -1,7 +1,7 @@
 import React from 'react';
 import type { InboundInvoiceItem } from '@/pages/utils/inboundNfe/inboundNfeTypes';
 import type Person from '@/pages/types/person.type';
-import ProductFormModal from '@/pages/App/Products/ProductFormModal';
+import ProductFormModal from '@/pages/App/Products/modals/ProductFormModal';
 import { useInboundInvoiceItemsReview } from '../hooks/useInboundInvoiceItemsReview';
 import { InboundInvoiceItemRow } from './InboundInvoiceItemRow';
 import { InboundClassificationModals } from '../modals/InboundClassificationModals';

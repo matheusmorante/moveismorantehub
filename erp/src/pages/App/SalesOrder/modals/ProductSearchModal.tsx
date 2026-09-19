@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import Product, { Variation } from '@/pages/types/product.type';
-import ProductFormModal from '@/pages/App/Products/ProductFormModal';
+import ProductFormModal from '@/pages/App/Products/modals/ProductFormModal';
 import { useProductSearch } from '../hooks/useProductSearch';
 import { ProductSearchItem } from '../components/ProductSearchItem';
 

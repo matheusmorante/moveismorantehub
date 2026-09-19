@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { checkERPLegibility } from '@/pages/App/Products/productLegibilityRules';
+import { checkERPLegibility } from '@/pages/App/Products/utils/productLegibilityRules';
 import { InboundInvoiceItem } from '../inboundNfeTypes';
 import { saveProductSupplierCode, findProductSupplierCodes, ProductSupplierCode } from '../../productSupplierCodesService';
 import { saveProduct, saveVariation } from '../../productService';

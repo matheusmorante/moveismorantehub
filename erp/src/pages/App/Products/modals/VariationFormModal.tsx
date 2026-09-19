@@ -8,7 +8,7 @@ import { VariationIdentificationTab } from '../components/variationTabs/Variatio
 import { VariationPricingTab } from '../components/variationTabs/VariationPricingTab';
 import { VariationTechnicalTab } from '../components/variationTabs/VariationTechnicalTab';
 import { VariationCompositionItemsTab } from '../components/variationTabs/VariationCompositionItemsTab';
-import { checkERPLegibility, checkEcomLegibility } from '../productLegibilityRules';
+import { checkERPLegibility, checkEcomLegibility } from '../utils/productLegibilityRules';
 
 interface VariationFormModalProps {
     readonly isOpen: boolean;
@@ -35,7 +35,7 @@ const getFormTabs = (isComposition: boolean): readonly TabDefinition[] => {
     ];
     
     if (isComposition) {
-        tabs.push({ id: 'compostos', label: 'Produtos Compostos', icon: 'bi-diagram-3' });
+        tabs.push({ id: 'compostos', label: 'Produtos Componentes', icon: 'bi-diagram-3' });
     }
     
     tabs.push({ id: 'estoque', label: 'Estoque e Precificação', icon: 'bi-box-seam' });
@@ -257,6 +257,14 @@ export const VariationFormModal: React.FC<VariationFormModalProps> = (props) => 
                             setFormData={setFormData}
                             parentProduct={parentProduct}
                             handleChange={handleChange}
+                        />
+                    )}
+
+                    {activeTab === 'compostos' && (
+                        <VariationCompositionItemsTab
+                            formData={formData}
+                            setFormData={setFormData}
+                            parentProduct={parentProduct}
                         />
                     )}
 

@@ -2,7 +2,7 @@ import Product from '../../../types/product.type';
 
 export type ProductFormTab = 'geral' | 'ambientes' | 'estoque' | 'variacoes' | 'ecommerce' | 'technical' | 'fiscal';
 
-export const getProductFormTabs = (isService: boolean): Array<{ id: ProductFormTab; label: string }> => [
+export const getProductFormTabs = (isService: boolean, isComposition?: boolean): Array<{ id: ProductFormTab; label: string }> => [
     { id: 'geral', label: 'Cadastro Geral' },
     ...(!isService ? [
         { id: 'ecommerce' as const, label: 'Fotos' },
@@ -10,7 +10,7 @@ export const getProductFormTabs = (isService: boolean): Array<{ id: ProductFormT
         { id: 'estoque' as const, label: 'Estoque e Precificação' },
         { id: 'variacoes' as const, label: 'Variações' },
     ] : []),
-    { id: 'fiscal', label: 'Tributário / NF' },
+    ...(!isComposition ? [{ id: 'fiscal' as const, label: 'Tributário / NF' }] : []),
 ];
 
 export const isExistingRegisteredProduct = (product?: Product | null) => {

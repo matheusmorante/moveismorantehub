@@ -8,8 +8,8 @@ import { searchHistoricalItems, getProductSalesStats } from './productAnalyticsQ
 
 export { searchHistoricalItems, getProductSalesStats };
 
-export const LIGHT_COLUMNS = "id, name, code, description, brand, category_id, category, condition, opportunity_id, width, height, depth, unit_price, cost_price, freight_type, freight_cost, ipi_percent, final_purchase_price, promo_price, initial_stock, stock, min_stock, unit, active, is_draft, status, deleted, supplier_id, supplier_ids, images, has_variations, item_type, created_at, updated_at, slug, featured";
-export const LIGHT_COLUMNS_WITH_CATS = LIGHT_COLUMNS + ", product_categories(*, categories(*)), product_variations(*), product_images(*)";
+export const LIGHT_COLUMNS = "id, name, code, description, brand, category_id, category, condition, opportunity_id, width, height, depth, unit_price, cost_price, freight_type, freight_cost, ipi_percent, final_purchase_price, promo_price, initial_stock, stock, min_stock, unit, active, is_draft, status, deleted, supplier_id, supplier_ids, images, has_variations, item_type, created_at, updated_at, slug, featured, is_combo, combo_items";
+export const LIGHT_COLUMNS_WITH_CATS = LIGHT_COLUMNS + ", product_categories(*, categories(*)), product_variations(*), product_images(*), category_details:category_id(id, name)";
 
 // Helper to initialize products from Supabase
 export const initializeProductsIfEmpty = async (): Promise<Product[]> => {

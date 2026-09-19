@@ -2,7 +2,7 @@ import { useState } from 'react';
 import type { InboundInvoiceItem } from '@/pages/utils/inboundNfe/inboundNfeTypes';
 import type { PurchaseItem } from '@/pages/types/purchase.type';
 import { QuickRegisterVariationModal, type QuickRegisterItem, type QuickRegisterSelection } from '../../InboundInvoices/modals/QuickRegisterVariationModal';
-import ProductFormModal from '@/pages/App/Products/ProductFormModal';
+import ProductFormModal from '@/pages/App/Products/modals/ProductFormModal';
 import { getFullProduct } from '@/pages/utils/productService';
 import { toast } from 'react-toastify';
 import { prepareNewParentWithVariation, prepareExistingParentNewVariation } from '../../InboundInvoices/services/inboundProductPreparationService';

@@ -10,6 +10,7 @@ export interface AuditItem {
     variationId?: string;
     name: string;
     supplierNames: string;
+    assignedSupplier: string;
     systemStock: number;
     physicalCount: number | null;
     unit: string;
@@ -22,7 +23,7 @@ export const useInventoryAuditWorkflow = (
     const [view, setView] = useState<'scope' | 'operation' | 'review'>('scope');
     const [items, setItems] = useState<AuditItem[]>([]);
     const [isSaving, setIsSaving] = useState(false);
-    const [scopeConfig, setScopeConfig] = useState<{ name: string, blindCount: boolean, responsibleId: string, scopeType?: string } | null>(null);
+    const [scopeConfig, setScopeConfig] = useState<{ name: string, blindCount: boolean, hasStages: boolean, responsibleId: string, scopeType?: string } | null>(null);
     
     const draftRef = useRef<{ id?: string; code?: string; markerMoveId?: string; date?: string }>({});
 
@@ -36,6 +37,7 @@ export const useInventoryAuditWorkflow = (
             variationId: snapshot.variationId,
             name: snapshot.name,
             supplierNames: snapshot.supplierNames,
+            assignedSupplier: snapshot.supplierNames.split(' / ')[0] || 'Sem fornecedor',
             systemStock: snapshot.systemStock,
             physicalCount: null,
             unit: snapshot.unit,
@@ -45,6 +47,7 @@ export const useInventoryAuditWorkflow = (
         setScopeConfig({
             name: config.name,
             blindCount: config.blindCount,
+            hasStages: config.hasStages ?? false,
             responsibleId: config.responsibleId,
             scopeType: config.type,
         });
@@ -74,9 +77,10 @@ export const useInventoryAuditWorkflow = (
                 status: 'completed',
                 name: scopeConfig.name,
                 blindCount: scopeConfig.blindCount,
+                hasStages: scopeConfig.hasStages,
                 responsibleId: scopeConfig.responsibleId,
                 responsibleName: userProfile.full_name || 'Usuário Logado',
-                items: items.map(({ productId, variationId, name, systemStock, physicalCount }) => ({ productId, variationId, name, systemStock, physicalCount })),
+                items: items.map(({ productId, variationId, name, systemStock, physicalCount, assignedSupplier }) => ({ productId, variationId, name, systemStock, physicalCount, assignedSupplier })),
             });
 
             // Insere o Marker inicial que representa a conclusão

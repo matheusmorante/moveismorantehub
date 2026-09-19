@@ -6,6 +6,7 @@ import Product, { ProductVisibilitySettings } from "../../../types/product.type"
 import { toast } from "react-toastify";
 
 interface ProductListProps {
+    mode?: 'standard' | 'composition';
     onEdit: (product: Product) => void;
     onShowHistory?: (product: Product) => void;
     onLaunchStock?: (product: any) => void;
@@ -24,7 +25,7 @@ export interface ProductListRef {
     refresh: () => void;
 }
 
-const ProductList = forwardRef<ProductListRef, ProductListProps>(({ onEdit, onShowHistory, onLaunchStock, filters, visibilitySettings, onToggleColumn, onSort, categoryTree, title, onCloseTrash, onRefresh, onDuplicate }, ref) => {
+const ProductList = forwardRef<ProductListRef, ProductListProps>(({ mode = 'standard', onEdit, onShowHistory, onLaunchStock, filters, visibilitySettings, onToggleColumn, onSort, categoryTree, title, onCloseTrash, onRefresh, onDuplicate }, ref) => {
 
     const [showDeactivated, setShowDeactivated] = React.useState(false);
     const listFilters = React.useMemo(() => ({
@@ -33,7 +34,9 @@ const ProductList = forwardRef<ProductListRef, ProductListProps>(({ onEdit, onSh
         // existentes; na lista normal, o padrão é escondê-los.
         includeDeactivated: filters?.activeOnly === false ? true : showDeactivated,
         includeMergedVariations: true,
-    }), [filters, showDeactivated]);
+        itemType: mode === 'composition' ? 'composition' : filters?.itemType,
+        excludeItemType: mode === 'standard' && !filters?.itemType ? 'composition' : undefined,
+    }), [filters, showDeactivated, mode]);
 
     const {
         products,

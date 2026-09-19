@@ -72,6 +72,7 @@ const ProductVariationsTab: React.FC<ProductVariationsTabProps> = ({
     const parentPrice = formData?.unitPrice;
     const parentPromoPrice = formData?.promoPrice;
     const parentSku = formData?.code;
+    const parentImage = formData?.images && formData.images.length > 0 ? formData.images[0] : null;
 
     return (
         <div className="flex flex-col gap-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
@@ -112,18 +113,18 @@ const ProductVariationsTab: React.FC<ProductVariationsTabProps> = ({
                     </span>
                 </div>
 
-                <div className="overflow-x-auto rounded-[2.5rem] border border-slate-100 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-950/20">
-                    <table className="w-full min-w-[1000px] border-collapse text-left">
-                        <thead>
-                            <tr className="bg-slate-50 dark:bg-slate-900/50">
-                                <th scope="col" className="w-[80px] px-6 py-5 text-[9px] font-black uppercase tracking-widest text-slate-400">Foto</th>
-                                <th scope="col" className="px-6 py-5 text-[9px] font-black uppercase tracking-widest text-slate-400">SKU / Código</th>
-                                <th scope="col" className="px-6 py-5 text-[9px] font-black uppercase tracking-widest text-slate-400">Variação</th>
-                                <th scope="col" className="px-6 py-5 text-[9px] font-black uppercase tracking-widest text-slate-400">Preço venda (R$)</th>
-                                <th scope="col" className="px-6 py-5 text-right text-[9px] font-black uppercase tracking-widest text-slate-400">Ações</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                <div className="overflow-x-auto rounded-[2.5rem] xl:border xl:border-slate-100 xl:bg-white xl:shadow-sm dark:xl:border-slate-800 dark:xl:bg-slate-950/20">
+                    <div className="flex flex-col gap-4 xl:table w-full xl:min-w-[1000px] xl:border-collapse xl:text-left">
+                        <div className="hidden xl:table-header-group">
+                            <div className="xl:table-row bg-slate-50 dark:bg-slate-900/50">
+                                <div className="xl:table-cell w-[80px] px-6 py-5 text-[9px] font-black uppercase tracking-widest text-slate-400">Foto</div>
+                                <div className="xl:table-cell px-6 py-5 text-[9px] font-black uppercase tracking-widest text-slate-400">SKU / Código</div>
+                                <div className="xl:table-cell px-6 py-5 text-[9px] font-black uppercase tracking-widest text-slate-400">Atributos</div>
+                                <div className="xl:table-cell px-6 py-5 text-[9px] font-black uppercase tracking-widest text-slate-400">Preço venda (R$)</div>
+                                <div className="xl:table-cell px-6 py-5 text-right text-[9px] font-black uppercase tracking-widest text-slate-400">Ações</div>
+                            </div>
+                        </div>
+                        <div className="flex flex-col gap-4 xl:table-row-group xl:divide-y xl:divide-slate-100 dark:xl:divide-slate-800">
                             {list.map((variation, index) => (
                                 <VariationRow
                                     key={variation.id}
@@ -137,11 +138,12 @@ const ProductVariationsTab: React.FC<ProductVariationsTabProps> = ({
                                     parentPrice={parentPrice}
                                     parentPromoPrice={parentPromoPrice}
                                     parentSku={parentSku}
+                                    parentImage={parentImage}
                                     inUse={variationsInUse?.has(variation.id)}
                                 />
                             ))}
-                        </tbody>
-                    </table>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>

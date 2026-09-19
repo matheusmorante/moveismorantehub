@@ -46,7 +46,7 @@ test.describe('Módulo de Composições (Kit de Produtos)', () => {
         const skuInput = page.locator('input[placeholder*="Ex: CMP-COZ-PARIS"]');
         await skuInput.fill(`CMP-E2E-${Date.now()}`);
 
-        await page.getByRole('tab', { name: /Produtos Compostos/i }).click();
+        await page.getByRole('tab', { name: /Produtos Componentes/i }).click();
         await page.getByRole('button', { name: /Adicionar Produto/i }).click();
 
         const searchInput = page.getByPlaceholder(/Buscar por nome, SKU/i);
@@ -91,7 +91,7 @@ test.describe('Módulo de Composições (Kit de Produtos)', () => {
         await page.goto('/products/compositions?auth_email=matheusmorante002@gmail.com&user_id=mock-e2e-master&auth_role=administrator');
         await page.getByRole('button', { name: /Nova Composição|\+ Composição/i }).click();
 
-        await page.getByRole('tab', { name: /Produtos Compostos/i }).click();
+        await page.getByRole('tab', { name: /Produtos Componentes/i }).click();
 
         // O estado vazio deve estar visível
         await expect(page.locator('text=Composição vazia')).toBeVisible();
@@ -102,7 +102,7 @@ test.describe('Módulo de Composições (Kit de Produtos)', () => {
         await page.goto('/products/compositions?auth_email=matheusmorante002@gmail.com&user_id=mock-e2e-master&auth_role=administrator');
         await page.getByRole('button', { name: /Nova Composição|\+ Composição/i }).click();
 
-        await page.getByRole('tab', { name: /Produtos Compostos/i }).click();
+        await page.getByRole('tab', { name: /Produtos Componentes/i }).click();
         await page.getByRole('button', { name: /Adicionar Produto/i }).click();
 
         const searchInput = page.getByPlaceholder(/Buscar por nome, SKU/i);

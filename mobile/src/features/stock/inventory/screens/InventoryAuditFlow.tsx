@@ -116,6 +116,7 @@ export const InventoryAuditFlow: React.FC<Props> = ({ isDarkMode, userProfile, o
                         setIsProductSearchOpen(true);
                     }}
                     onReview={() => setView('review')}
+                    onCancel={() => setView('scope')}
                 />
             )}
 

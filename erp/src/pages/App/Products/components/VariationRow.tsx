@@ -2,6 +2,7 @@ import React from 'react';
 import type { Variation } from '../../../types/product.type';
 import { formatCurrency } from '@/pages/utils/formatters';
 import { normalizeVariationSku } from '@/pages/utils/productVariationDefaults';
+import ProductImage from '@/components/ProductImage';
 
 export interface VariationRowProps {
     readonly v: Variation;
@@ -14,6 +15,7 @@ export interface VariationRowProps {
     readonly parentPrice?: number;
     readonly parentPromoPrice?: number;
     readonly parentSku?: string;
+    readonly parentImage?: string | null;
     readonly inUse?: boolean;
 }
 
@@ -32,8 +34,7 @@ export const VariationRow: React.FC<VariationRowProps> = React.memo(({
     parentSku,
     inUse,
 }) => {
-    const [imageError, setImageError] = React.useState(false);
-    const varImage = v.images && v.images.length > 0 && !imageError ? v.images[0] : null;
+    const varImage = v.images && v.images.length > 0 ? v.images[0] : null;
 
     const regularPrice = Number(v.syncUnitPrice ? parentPrice : v.unitPrice) || 0;
     const promoPrice = Number(v.syncPromoPrice !== false ? parentPromoPrice : v.promoPrice) || 0;
@@ -44,57 +45,77 @@ export const VariationRow: React.FC<VariationRowProps> = React.memo(({
     const displaySku = normalizeVariationSku(v.sku) || (parentSku ? `${parentSku}-${fallbackSuffix}` : '-');
 
     return (
-        <tr key={v.id} className="hover:bg-slate-50 dark:hover:bg-slate-900/50 transition-colors group">
-            <td className="px-6 py-4 cursor-pointer" onClick={() => onEdit?.(v.id)}>
+        <div 
+            key={v.id} 
+            className="flex flex-col gap-3 rounded-[2rem] border border-slate-100 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900/50 xl:table-row xl:rounded-none xl:border-0 xl:bg-transparent xl:p-0 xl:shadow-none hover:bg-slate-50 dark:hover:bg-slate-900/50 transition-colors group relative"
+        >
+            <div className="flex xl:table-cell xl:px-6 xl:py-4 items-center gap-3">
                 <div
-                    className="relative h-10 w-10 rounded-xl border border-slate-200 dark:border-slate-800 overflow-hidden flex items-center justify-center shrink-0 shadow-sm transition-all hover:scale-105 bg-slate-50 dark:bg-slate-800/50 text-slate-400"
+                    className="relative h-14 w-14 xl:h-10 xl:w-10 rounded-2xl xl:rounded-xl border border-slate-200 dark:border-slate-800 overflow-hidden flex items-center justify-center shrink-0 shadow-sm transition-all hover:scale-105 bg-slate-50 dark:bg-slate-800/50 text-slate-400 cursor-pointer"
                     title="Clique para editar detalhes da variação"
+                    onClick={() => onEdit?.(v.id)}
                 >
                     {varImage ? (
-                        <img
+                        <ProductImage
                             src={varImage}
                             alt={`Variação ${v.name || displaySku}`}
                             className="object-cover h-full w-full"
-                            onError={() => setImageError(true)}
+                            size="thumbnail"
                         />
                     ) : (
                         <i className="bi bi-camera text-sm" aria-hidden="true" />
                     )}
                 </div>
-            </td>
-            <td className="px-6 py-4">
+
+                {/* SKU exibido apenas no Mobile ao lado da imagem */}
+                <div className="xl:hidden flex flex-col items-start justify-center">
+                    <span className="rounded-lg bg-slate-100 px-2.5 py-1 font-mono text-[11px] font-black text-slate-700 dark:bg-slate-800 dark:text-slate-200">
+                        {displaySku}
+                    </span>
+                </div>
+            </div>
+
+            {/* SKU na tabela (Oculto no Mobile) */}
+            <div className="hidden xl:table-cell px-6 py-4">
                 <span className="rounded-lg bg-slate-100 px-2.5 py-1 font-mono text-[11px] font-black text-slate-700 dark:bg-slate-800 dark:text-slate-200">
                     {displaySku}
                 </span>
-            </td>
-            <td className="px-6 py-4 cursor-pointer" onClick={() => onEdit?.(v.id)}>
-                <div className="flex flex-col">
-                    <div className="flex items-center gap-2">
-                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                            Título
+            </div>
+
+            <div className="flex flex-row flex-wrap items-center justify-between gap-4 xl:contents">
+                <div className="flex-1 min-w-[120px] xl:table-cell xl:px-6 xl:py-4 cursor-pointer" onClick={() => onEdit?.(v.id)}>
+                    <div className="flex flex-col">
+                        <div className="flex items-center gap-2">
+                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                                Atributos
+                            </span>
+                        </div>
+                        <input
+                            value={v.attributes?.map(a => a.value).filter(Boolean).join(' ') || 'Variação principal'}
+                            readOnly
+                            className="w-full bg-transparent border-none outline-none text-sm font-bold text-slate-700 dark:text-slate-200 cursor-default font-sans truncate"
+                            placeholder="SEM ATRIBUTOS"
+                        />
+                    </div>
+                </div>
+
+                <div className="flex flex-col xl:table-cell xl:px-6 xl:py-4 items-end xl:items-start justify-center">
+                    {/* Rótulo de preço apenas no mobile */}
+                    <span className="xl:hidden text-[10px] font-black uppercase tracking-widest text-slate-400 mb-0.5">Preço Venda</span>
+                    <div className="flex flex-col xl:gap-0.5 items-end xl:items-start">
+                        {hasDiscount && (
+                            <span className="text-xs font-bold text-red-500 line-through decoration-red-500">
+                                {formatCurrency(regularPrice)}
+                            </span>
+                        )}
+                        <span className="text-sm font-black text-emerald-600 dark:text-emerald-400">
+                            {formatCurrency(finalPrice)}
                         </span>
                     </div>
-                    <input
-                        value={v.name || ''}
-                        readOnly
-                        className="w-full bg-transparent border-none outline-none text-sm font-bold text-slate-700 dark:text-slate-200 cursor-default font-sans"
-                        placeholder="VARIAÇÃO GERADA"
-                    />
                 </div>
-            </td>
-            <td className="px-6 py-4">
-                <div className="flex flex-col gap-0.5">
-                    {hasDiscount && (
-                        <span className="text-xs font-bold text-red-500 line-through decoration-red-500">
-                            {formatCurrency(regularPrice)}
-                        </span>
-                    )}
-                    <span className="text-sm font-black text-emerald-600 dark:text-emerald-400">
-                        {formatCurrency(finalPrice)}
-                    </span>
-                </div>
-            </td>
-            <td className="px-6 py-4 text-right flex items-center justify-end gap-2">
+            </div>
+
+            <div className="absolute right-4 top-4 flex items-center gap-1.5 xl:static xl:table-cell xl:px-6 xl:py-4 xl:text-right">
                 {isCombo && (
                     <button
                         type="button"
@@ -107,7 +128,7 @@ export const VariationRow: React.FC<VariationRowProps> = React.memo(({
                         title="Configurar itens deste kit/combo"
                         aria-label="Configurar itens do combo"
                     >
-                        <i className="bi bi-layers-fill text-lg" aria-hidden="true" />
+                        <i className="bi bi-layers-fill text-base" aria-hidden="true" />
                     </button>
                 )}
                 <button
@@ -117,29 +138,10 @@ export const VariationRow: React.FC<VariationRowProps> = React.memo(({
                     title="Editar detalhes da variação"
                     aria-label="Editar detalhes da variação"
                 >
-                    <i className="bi bi-pencil-square text-lg" aria-hidden="true" />
+                    <i className="bi bi-pencil-square text-base" aria-hidden="true" />
                 </button>
-                {variationIndex !== 0 && (
-                    <span
-                        title={inUse ? "Não é possível excluir: Variação já está sendo utilizada em operações do sistema (venda, recebimento, etc)." : "Excluir variação"}
-                    >
-                        <button
-                            type="button"
-                            disabled={inUse}
-                            onClick={() => removeVariation?.(v.id)}
-                            className={`p-1.5 rounded-lg transition-colors ${
-                                inUse 
-                                    ? 'text-slate-300 bg-slate-50 cursor-not-allowed dark:bg-slate-800/30 dark:text-slate-600' 
-                                    : 'text-slate-300 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 cursor-pointer'
-                            }`}
-                            aria-label="Excluir variação"
-                        >
-                            <i className="bi bi-trash" aria-hidden="true" />
-                        </button>
-                    </span>
-                )}
-            </td>
-        </tr>
+            </div>
+        </div>
     );
 });
 

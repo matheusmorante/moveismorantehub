@@ -1,10 +1,10 @@
 import { toast } from 'react-toastify';
 import { supabase } from '@/pages/utils/supabaseConfig';
-import Product from '../../../../../types/product.type';
+import Product from '../../../../types/product.type';
 import { normalizeVariationSku } from '@/pages/utils/productVariationDefaults';
 import { updateProduct } from '@/pages/utils/productService';
 import { updateProductCatalogState } from '../utils/productCatalogState';
-import { checkEcomLegibility } from '../../productLegibilityRules';
+import { checkEcomLegibility } from '../../utils/productLegibilityRules';
 
 /**
  * Resolve os objetos de variação e produto pai para ações de catálogo

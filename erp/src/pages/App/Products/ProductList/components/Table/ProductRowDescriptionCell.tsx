@@ -1,5 +1,8 @@
 import React, { useState } from 'react';
 import Product from '@/pages/types/product.type';
+import Tooltip from '@/components/Tooltip';
+import ProductImage from '@/components/ProductImage';
+import { getProductImageFallback } from '../../../utils/productUtils';
 
 export interface ProductRowDescriptionCellProps {
     readonly product: Product & {
@@ -76,10 +79,11 @@ export const ProductRowDescriptionCell: React.FC<ProductRowDescriptionCellProps>
                     {!product.isParent && (
                         <div className="w-10 h-10 rounded-lg bg-slate-100 dark:bg-slate-800 overflow-hidden flex-shrink-0 flex items-center justify-center border border-slate-200/60 dark:border-slate-800">
                             {hasImage ? (
-                                <img 
+                                <ProductImage 
                                     src={primaryImage as string}
                                     alt={displayName} 
                                     className="w-full h-full object-cover"
+                                    size="thumbnail"
                                     onError={() => setImageError(true)}
                                 />
                             ) : (
@@ -99,6 +103,20 @@ export const ProductRowDescriptionCell: React.FC<ProductRowDescriptionCellProps>
                         }`}>
                             {displayName}
                         </span>
+
+                        {/* Subtítulo da Composição/Combo */}
+                        {(product.itemType === 'composition' || product.isCombo) && product.comboItems && product.comboItems.length > 0 && (
+                            <div className="flex items-center flex-wrap gap-1 mt-0.5">
+                                {product.comboItems.map((item, idx) => (
+                                    <React.Fragment key={idx}>
+                                        {idx > 0 && <span className="text-slate-300 dark:text-slate-600 text-[10px]">•</span>}
+                                        <span className="text-[10px] font-medium text-slate-500 dark:text-slate-400 truncate max-w-[150px]" title={item.description}>
+                                            {item.description ? item.description.split(' - ')[0] : 'Item sem nome'}
+                                        </span>
+                                    </React.Fragment>
+                                ))}
+                            </div>
+                        )}
 
                         {/* Linha 2 (abaixo do título): contagem de variações + oportunidade + fornecedores */}
                         {(product.isParent || oppName || supplierNames.length > 0) && (

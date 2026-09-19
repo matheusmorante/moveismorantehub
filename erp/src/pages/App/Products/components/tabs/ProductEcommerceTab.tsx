@@ -40,12 +40,27 @@ const ProductEcommerceTab: React.FC<ProductEcommerceTabProps> = ({
     const handleReplacePhoto = async (index: number, file: File) => {
         setReplacingIndex(index);
         try {
-            const compressed = await compressImageToFile(file, { maxMB: 0.1, maxWidth: 1200 });
             const fileExt = file.name.split('.').pop() || 'jpg';
             const randomId = typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}_${Math.random().toString(36).substring(2)}`;
-            const fileName = `${randomId}.${fileExt}`;
-            const path = `products/${fileName}`;
-            const newUrl = await uploadFile(compressed, path);
+            const baseName = `${randomId}`;
+            
+            // Original
+            const originalPath = `products/${baseName}.${fileExt}`;
+            
+            // Medium
+            const mediumFile = await compressImageToFile(file, { maxMB: 0.5, maxWidth: 1000, fileType: 'image/webp', initialQuality: 0.85 });
+            const mediumPath = `products/${baseName}_medium.webp`;
+
+            // Thumb
+            const thumbFile = await compressImageToFile(file, { maxMB: 0.05, maxWidth: 200, fileType: 'image/webp', initialQuality: 0.75 });
+            const thumbPath = `products/${baseName}_thumb.webp`;
+
+            const [originalUrl] = await Promise.all([
+                uploadFile(file, originalPath),
+                uploadFile(mediumFile, mediumPath),
+                uploadFile(thumbFile, thumbPath)
+            ]);
+            const newUrl = originalUrl;
 
             const updatedImages = replaceProductImage(formData.images || [], index, newUrl);
             setFormData(prev => ({ ...prev, images: updatedImages }));
@@ -81,14 +96,6 @@ const ProductEcommerceTab: React.FC<ProductEcommerceTabProps> = ({
 
                 <div className="transition-colors rounded-[2rem] border-2 border-dashed border-slate-150 dark:border-slate-800 p-4 sm:p-6 bg-slate-50/50 dark:bg-slate-955/10">
                     <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 sm:gap-4 select-none min-w-0 w-full">
-                        {Array.from({ length: isDraggingPhoto }, (_, index) => <div key={`uploading-${index}`} className="aspect-square w-full rounded-none border-2 border-purple-200 bg-purple-50 dark:border-purple-800 dark:bg-purple-950/30 flex flex-col items-center justify-center gap-2 animate-pulse"><i className="bi bi-arrow-repeat animate-spin text-2xl text-purple-600" /><span className="text-[9px] font-black uppercase tracking-wider text-purple-600">Enviando...</span></div>)}
-                        {currentCount < maxPhotos && (
-                            <label className="aspect-square w-full bg-white dark:bg-slate-900 border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-none flex flex-col items-center justify-center gap-2 cursor-pointer hover:border-purple-500 hover:bg-purple-50/20 dark:hover:bg-purple-955/20 transition-all group shadow-sm">
-                                <i className="bi bi-plus text-2xl text-purple-600 dark:text-purple-400 group-hover:scale-125 transition-transform"></i>
-                                <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">Adicionar</span>
-                                <input type="file" className="hidden" accept="image/*" multiple onChange={handleFileChange} />
-                            </label>
-                        )}
                         {(formData.images || []).map((url, index) => {
                             const borderClass = "border-slate-200 dark:border-slate-800";
                             return (
@@ -187,6 +194,14 @@ const ProductEcommerceTab: React.FC<ProductEcommerceTabProps> = ({
                                 </div>
                             );
                         })}
+                        {Array.from({ length: isDraggingPhoto }, (_, index) => <div key={`uploading-${index}`} className="aspect-square w-full rounded-none border-2 border-purple-200 bg-purple-50 dark:border-purple-800 dark:bg-purple-950/30 flex flex-col items-center justify-center gap-2 animate-pulse"><i className="bi bi-arrow-repeat animate-spin text-2xl text-purple-600" /><span className="text-[9px] font-black uppercase tracking-wider text-purple-600">Enviando...</span></div>)}
+                        {currentCount < maxPhotos && (
+                            <label className="aspect-square w-full bg-white dark:bg-slate-900 border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-none flex flex-col items-center justify-center gap-2 cursor-pointer hover:border-purple-500 hover:bg-purple-50/20 dark:hover:bg-purple-955/20 transition-all group shadow-sm">
+                                <i className="bi bi-plus text-2xl text-purple-600 dark:text-purple-400 group-hover:scale-125 transition-transform"></i>
+                                <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">Adicionar</span>
+                                <input type="file" className="hidden" accept="image/*" multiple onChange={handleFileChange} />
+                            </label>
+                        )}
                     </div>
                 </div>
             </div>

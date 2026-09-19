@@ -20,6 +20,7 @@ export interface ScopeConfiguration {
     type: InventoryScopeType;
     name: string;
     blindCount: boolean;
+    hasStages?: boolean;
     supplierId?: string;
     responsibleId: string;
     itemsSnapshot: Array<{
@@ -27,6 +28,7 @@ export interface ScopeConfiguration {
         variationId?: string;
         name: string;
         supplierNames: string;
+        assignedSupplier: string;
         systemStock: number;
         unit: string;
     }>;
@@ -57,10 +59,12 @@ export const useInventoryScopeBuilder = (
         const items: ScopeConfiguration['itemsSnapshot'] = [];
         
         const addProduct = (product: ScopeProduct) => {
+            const supplierName = getSupplierNames(product);
             items.push({
                 productId: String(product.id),
                 name: product.name || product.description || 'Produto',
-                supplierNames: getSupplierNames(product),
+                supplierNames: supplierName,
+                assignedSupplier: supplierName.split(' / ')[0] || 'Sem fornecedor',
                 systemStock: Number(product.stock ?? 0),
                 unit: product.unit || 'UN',
             });

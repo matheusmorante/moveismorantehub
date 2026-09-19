@@ -68,6 +68,12 @@ export const validateErpActivationRequirements = (
                 if (!parent.mainSupplierId && !parent.supplierId) {
                     missingFields.push('fornecedor no pai');
                 }
+                if (parent.itemType === 'composition' || parent.isCombo) {
+                    const comboItems = (v as any).comboItems || [];
+                    if (!comboItems || comboItems.length < 2) {
+                        missingFields.push('pelo menos 2 produtos componentes vinculados');
+                    }
+                }
 
                 if (missingFields.length > 0) {
                     return {
@@ -95,6 +101,12 @@ export const validateErpActivationRequirements = (
             }
             if (!productToActivate.mainSupplierId && !productToActivate.supplierId) {
                 missingFields.push('fornecedor');
+            }
+            if (!isParent && (productToActivate.itemType === 'composition' || productToActivate.isCombo)) {
+                const comboItems = productToActivate.comboItems || [];
+                if (!comboItems || comboItems.length < 2) {
+                    missingFields.push('pelo menos 2 produtos componentes vinculados');
+                }
             }
 
             if (missingFields.length > 0) {

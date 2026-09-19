@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import Product from '../pages/types/product.type';
+import Product from '../../pages/types/product.type';
 import { fetchAllProductSearchResults, getVariationDisplayName, normalizeProductSearch, SuggestionItem } from '../productAutocompleteUtils';
 
 interface UseProductAutocompleteProps {
@@ -10,6 +10,7 @@ interface UseProductAutocompleteProps {
     includeDeactivated?: boolean;
     localProducts?: Product[];
     onChange?: (value: string) => void;
+    excludeCombos?: boolean;
 }
 
 export function useProductAutocomplete({
@@ -20,6 +21,7 @@ export function useProductAutocomplete({
     includeDeactivated = false,
     localProducts,
     onChange,
+    excludeCombos = false,
 }: UseProductAutocompleteProps) {
     const [query, setQuery] = useState(value);
     const [suggestions, setSuggestions] = useState<SuggestionItem[]>([]);
@@ -69,6 +71,10 @@ export function useProductAutocomplete({
                 const searchNormWords = words.map(normalizeProductSearch);
 
                 (productsData || []).forEach((p: Product) => {
+                    if (excludeCombos && (p.isCombo || p.itemType === 'combo' || (p as any).item_type === 'combo')) {
+                        return;
+                    }
+
                     const supplierIds = p.supplierIds || (p as any).supplier_ids || [];
                     const prodSupplierId = p.mainSupplierId || p.supplierId || (p as any).main_supplier_id || (p as any).supplier_id;
                     if (supplierId && !supplierIds.includes(supplierId) && prodSupplierId !== supplierId) {

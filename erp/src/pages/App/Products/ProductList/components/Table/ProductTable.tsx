@@ -1,7 +1,7 @@
 import React from "react";
 import ProductRow from './ProductRow';
 import ProductCard from '../Card/ProductCard';
-import Product, { ProductVisibilitySettings } from '../../../../types/product.type';
+import Product, { ProductVisibilitySettings } from '../../../../../types/product.type';
 import { useAutoScroll } from "@/pages/utils/useAutoScroll";
 import { getSettings } from '@/pages/utils/settingsService';
 import { useWindowSize } from "@/hooks/useWindowSize";

@@ -3,7 +3,7 @@ import { toast } from "react-toastify";
 /**
  * Utility for image compression using browser-image-compression
  */
-export const compressImage = async (file: File, options?: { maxMB?: number, maxWidth?: number }): Promise<string> => {
+export const compressImage = async (file: File, options?: { maxMB?: number, maxWidth?: number, fileType?: string, initialQuality?: number }): Promise<string> => {
     try {
         const imageCompression = (await import('browser-image-compression')).default;
         
@@ -11,7 +11,8 @@ export const compressImage = async (file: File, options?: { maxMB?: number, maxW
             maxSizeMB: options?.maxMB || 0.1,
             maxWidthOrHeight: options?.maxWidth || 1200,
             useWebWorker: true,
-            initialQuality: 0.75,
+            initialQuality: options?.initialQuality || 0.75,
+            fileType: options?.fileType,
         };
 
         const compressedFile = await imageCompression(file, compressionOptions);
@@ -32,7 +33,7 @@ export const compressImage = async (file: File, options?: { maxMB?: number, maxW
 /**
  * Returns the compressed file directly as a File object (ideal for uploads)
  */
-export const compressImageToFile = async (file: File, options?: { maxMB?: number, maxWidth?: number }): Promise<File> => {
+export const compressImageToFile = async (file: File, options?: { maxMB?: number, maxWidth?: number, fileType?: string, initialQuality?: number }): Promise<File> => {
     try {
         const imageCompression = (await import('browser-image-compression')).default;
         
@@ -40,12 +41,17 @@ export const compressImageToFile = async (file: File, options?: { maxMB?: number
             maxSizeMB: options?.maxMB || 0.1,
             maxWidthOrHeight: options?.maxWidth || 1200,
             useWebWorker: true,
-            initialQuality: 0.75,
+            initialQuality: options?.initialQuality || 0.75,
+            fileType: options?.fileType,
         };
 
         const compressedFile = await imageCompression(file, compressionOptions);
-        // Ensure its a File object with original name and type but compressed content
-        return new File([compressedFile], file.name, { type: compressedFile.type });
+        // Ensure its a File object. If we forced a fileType like image/webp, change the extension if needed.
+        let newName = file.name;
+        if (options?.fileType === 'image/webp' && !newName.toLowerCase().endsWith('.webp')) {
+            newName = newName.replace(/\.[^/.]+$/, "") + ".webp";
+        }
+        return new File([compressedFile], newName, { type: compressedFile.type });
     } catch (err) {
         console.error("Erro ao comprimir imagem para arquivo:", err);
         toast.error("Falha ao processar imagem.");

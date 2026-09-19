@@ -4,6 +4,7 @@ import Product from '@/pages/types/product.type';
 import { formatCurrency } from '@/pages/utils/formatters';
 import { normalizeVariationSku } from '@/pages/utils/productVariationDefaults';
 import DropdownPortal from '@/components/shared/DropdownPortal';
+import ProductImage from '@/components/ProductImage';
 import { ChannelStatusBadges } from '../Shared/ChannelStatusBadges';
 import { getVariationDisplayName } from '../../utils/getVariationDisplayName';
 import type { CardVariationItem } from './ProductCardVariationList';
@@ -70,7 +71,7 @@ export const ProductCardVariationItem: React.FC<ProductCardVariationItemProps> =
             <div className="flex items-center gap-2.5 min-w-0">
                 <div className="w-8 h-8 rounded-lg bg-slate-100 dark:bg-slate-800 overflow-hidden flex-shrink-0 flex items-center justify-center border border-slate-200/40">
                     {primaryImage ? (
-                        <img src={primaryImage as string} alt={varName} className="w-full h-full object-cover" />
+                        <ProductImage src={primaryImage as string} alt={varName} className="w-full h-full object-cover" size="thumbnail" />
                     ) : (
                         <i className="bi bi-image text-slate-400 text-xs" />
                     )}

@@ -22,7 +22,7 @@ export const InventoryCard = ({ session, isDarkMode }: { session: InventorySessi
                     </Text>
                 </View>
             </View>
-            <View style={styles.footer}>
+            <View style={[styles.footer, isDarkMode && styles.footerDark]}>
                 <Text style={styles.itemsCount}>{session.items_count || 0} itens contados</Text>
             </View>
         </View>
@@ -39,5 +39,6 @@ const styles = StyleSheet.create({
     badge: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 12 },
     badgeText: { fontSize: 11, fontWeight: '700', textTransform: 'uppercase' },
     footer: { marginTop: 12, paddingTop: 12, borderTopWidth: 1, borderTopColor: '#f1f5f9' },
+    footerDark: { borderTopColor: '#334155' },
     itemsCount: { fontSize: 13, color: '#64748b' },
 });

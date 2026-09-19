@@ -1,8 +1,8 @@
 import React from 'react';
-import Product from '../../../../types/product.type';
-import { formatCurrency } from '../../../../utils/formatters';
+import Product from '../../../../../types/product.type';
+import { formatCurrency } from '../../../../../utils/formatters';
 import { getCategoryBreadcrumb } from '@/pages/utils/categoryService';
-import ProductSalesModal from '../../../components/ProductSalesModal';
+import ProductSalesModal from '../../../components/modals/ProductSalesModal';
 import { SendWhatsAppModal } from '@/components/shared/SendWhatsAppModal';
 import { ChannelStatusBadges } from '../Shared/ChannelStatusBadges';
 import { useProductMetadata } from '../../hooks/useProductMetadata';
@@ -137,6 +137,21 @@ const ProductCard: React.FC<ProductCardProps> = ({
                     }`}>
                         {displayTitle}
                     </h3>
+                    
+                    {/* Subtítulo da Composição/Combo */}
+                    {(product.itemType === 'composition' || product.isCombo) && product.comboItems && product.comboItems.length > 0 && (
+                        <div className="flex items-center flex-wrap gap-1 mt-1">
+                            {product.comboItems.map((item, idx) => (
+                                <React.Fragment key={idx}>
+                                    {idx > 0 && <span className="text-slate-300 dark:text-slate-600 text-[9px]">•</span>}
+                                    <span className="text-[10px] font-medium text-slate-500 dark:text-slate-400 truncate max-w-[150px]" title={item.description}>
+                                        {item.description ? item.description.split(' - ')[0] : 'Item sem nome'}
+                                    </span>
+                                </React.Fragment>
+                            ))}
+                        </div>
+                    )}
+
                     {!isVariation && (
                         <div className="flex items-center flex-wrap gap-x-2 gap-y-1 mt-1 leading-relaxed">
                             <span className="text-[10px] text-slate-400 dark:text-slate-500 font-bold tracking-wide">

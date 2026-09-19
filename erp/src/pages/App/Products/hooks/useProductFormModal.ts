@@ -6,10 +6,11 @@ import { fetchGroupsAndCategories } from '@/pages/utils/categoryService';
 import { toast } from "react-toastify";
 
 // Initial Data & Rules
-import { INITIAL_PRODUCT_FORM_DATA } from '../productFormInitialData';
-import { checkEcomLegibility } from '../productLegibilityRules';
+import { INITIAL_PRODUCT_FORM_DATA } from '../utils/productFormInitialData';
+import { checkEcomLegibility } from '../utils/productLegibilityRules';
 import { scrollToRequirementField, ProductFormTabKey } from '../utils/productRequirementNavigation';
 import { getProductFormTabs, isExistingRegisteredProduct } from '../modals/productFormTabs';
+import { isDraftSaveEligible } from './productDraftRules';
 
 // Sub-hooks
 import { useProductFormPricing } from './useProductFormPricing';
@@ -167,12 +168,15 @@ export function useProductFormModal({
     });
 
     const handleCloseWithAutoSave = useCallback(() => {
-        if (hasChanged.current) {
+        const canSaveDraft = isDraftSaveEligible(formData);
+        const isBasicallyEmpty = isProductCreation && !canSaveDraft;
+        
+        if (hasChanged.current && !isBasicallyEmpty) {
             if (window.confirm("Você tem alterações não salvas. Deseja realmente sair e descartar?")) onClose();
         } else {
             onClose();
         }
-    }, [onClose]);
+    }, [hasChanged, onClose, isProductCreation, formData]);
 
     useEffect(() => {
         if (!isOpen) return;
@@ -250,7 +254,8 @@ export function useProductFormModal({
         toast.success("Produto convertido! O código e estoque agora estão na primeira variação.");
     }, [setFormData, setActiveTab]);
 
-    const formTabs = getProductFormTabs(isService);
+    const isComposition = formData.itemType === 'composition' || (formData as any).item_type === 'composition';
+    const formTabs = getProductFormTabs(isService, isComposition);
     const currentTabIndex = formTabs.findIndex((t) => t.id === activeTab);
     const isLastStep = currentTabIndex === formTabs.length - 1;
     const handleNextStep = useCallback(() => {

@@ -9,7 +9,7 @@ import {
   Alert
 } from 'react-native';
 import { Plus, Trash2, Search, Info } from 'lucide-react-native';
-import { supabase } from '../../../../lib/supabase';
+import { supabase } from '../../../../services/supabaseClient';
 
 interface Props {
   formData: any;
@@ -37,7 +37,8 @@ export const ProductFormCompositionTab: React.FC<Props> = ({ formData, setFormDa
         const { data, error } = await supabase
           .from('products')
           .select('id, name, code, price, unit_price, status')
-          .neq('item_type', 'composition')
+          .neq('item_type', 'combo')
+          .is('is_combo', false)
           .or(`name.ilike.${term},code.ilike.${term}`)
           .limit(10);
 

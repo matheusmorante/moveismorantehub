@@ -2,9 +2,9 @@ import React from 'react';
 import { ProductFilters as ProductFiltersType, ProductVisibilitySettings, Variation } from '../../types/product';
 import ProductList from './ProductList';
 import ProductFilters from './ProductFilters';
-import ProductFormModal from './ProductFormModal';
-import VariationFormModal from './VariationFormModal';
-import PriceHistoryModal from './PriceHistoryModal';
+import ProductFormModal from './modals/ProductFormModal';
+import VariationFormModal from './modals/VariationFormModal';
+import PriceHistoryModal from './modals/PriceHistoryModal';
 import StockLaunchModal from '../Stock/components/StockLaunchModal';
 import { supabase } from '../../utils/supabaseConfig';
 import { calculateVariationCatalogStats } from './ProductList/utils/registeredVariationCount';
@@ -22,7 +22,11 @@ const defaultVisibility: ProductVisibilitySettings = {
     actions: true,
 };
 
-const Products: React.FC = () => {
+interface ProductsProps {
+    mode?: 'standard' | 'composition';
+}
+
+const Products: React.FC<ProductsProps> = ({ mode = 'standard' }) => {
     const [filters, setFilters] = React.useState<ProductFiltersType>({});
     const [visibilitySettings, setVisibilitySettings] = React.useState<ProductVisibilitySettings>(defaultVisibility);
     const [isFormModalOpen, setIsFormModalOpen] = React.useState(false);
@@ -40,6 +44,18 @@ const Products: React.FC = () => {
     const [stockLaunchTarget, setStockLaunchTarget] = React.useState<{ product?: any; variation?: Variation } | null>(null);
 
     const [isSidebarOpen, setIsSidebarOpen] = React.useState(false);
+    const [isActionsMenuOpen, setIsActionsMenuOpen] = React.useState(false);
+    const menuRef = React.useRef<HTMLDivElement>(null);
+
+    React.useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+                setIsActionsMenuOpen(false);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
 
     const [accordionOpen, setAccordionOpen] = React.useState<{
         summary: boolean;
@@ -102,7 +118,7 @@ const Products: React.FC = () => {
         activeOnly: filters.activeOnly,
         isDraft: filters.isDraft
     }), [filters]);
-    const currentTitle = filters.isDraft ? "Rascunhos de Produtos" : undefined;
+    const currentTitle = filters.isDraft ? (mode === 'composition' ? "Rascunhos de Composições" : "Rascunhos de Produtos") : undefined;
     const handleCloseSpecialView = filters.isDraft ? () => setFilters(prev => ({ ...prev, isDraft: undefined })) : undefined;
 
     return (
@@ -116,38 +132,70 @@ const Products: React.FC = () => {
                                 <i className="bi bi-search absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-600"></i>
                                 <input
                                     type="text"
-                                    placeholder="Pesquisar produtos..."
+                                    placeholder={mode === 'composition' ? "Pesquisar composições..." : "Pesquisar produtos..."}
                                     value={filters.search || ""}
                                     onChange={(e) => setFilters(prev => ({ ...prev, search: e.target.value }))}
                                     className="w-full pl-12 pr-4 py-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none transition-all text-sm font-medium dark:text-slate-200 shadow-sm placeholder:text-slate-400 dark:placeholder:text-slate-600"
                                 />
                             </div>
 
-                            {/* Botão de Filtros - Oculto em Telas Maiores (>= xl) já que os filtros ficam na Sidebar Direita Sanfonada */}
-                            <button
-                                onClick={() => setIsSidebarOpen(true)}
-                                className={`xl:hidden flex items-center gap-2 px-4 py-3 rounded-2xl transition-all shadow-sm font-bold text-[10px] uppercase tracking-widest border shrink-0 ${isSidebarOpen
-                                    ? 'bg-blue-600 text-white border-blue-500 shadow-lg shadow-blue-500/20'
-                                    : 'bg-white text-slate-600 border-slate-200 dark:bg-slate-900 dark:border-slate-800 hover:border-blue-300 dark:hover:border-blue-700 hover:text-blue-600'
-                                    }`}
-                                title="Filtros Avançados"
-                            >
-                                <i className={`bi ${isSidebarOpen ? 'bi-funnel-fill' : 'bi-funnel'}`}></i>
-                                <span>Filtros</span>
-                            </button>
+                            <div className="flex gap-2 ml-auto shrink-0 items-center" ref={menuRef}>
+                                <div className="relative">
+                                    <button
+                                        onClick={() => setIsActionsMenuOpen(!isActionsMenuOpen)}
+                                        className="w-10 h-10 flex items-center justify-center bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-2xl transition-all shadow-sm active:scale-95"
+                                        title="Opções"
+                                    >
+                                        <i className="bi bi-three-dots-vertical text-lg" />
+                                    </button>
 
-                            <div className="flex gap-2 ml-auto shrink-0 items-center">
-                                <button
-                                    onClick={() => {
-                                        setEditingProduct(null);
-                                        setInitialFormData(null);
-                                        setIsFormModalOpen(true);
-                                    }}
-                                    className="flex items-center gap-2.5 px-5 py-2.5 bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-white rounded-2xl transition-all shadow-lg shadow-emerald-500/30 font-black text-xs tracking-wide whitespace-nowrap active:scale-95 border border-emerald-400/30"
-                                >
-                                    <i className="bi bi-plus-lg text-sm font-black" />
-                                    <span>Novo Produto</span>
-                                </button>
+                                    {isActionsMenuOpen && (
+                                        <div className="absolute right-0 top-full mt-2 w-56 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-xl shadow-slate-200/50 dark:shadow-slate-900/50 py-2 z-50 overflow-hidden animate-in fade-in zoom-in-95 duration-100">
+                                            <button
+                                                onClick={() => {
+                                                    setEditingProduct(null);
+                                                    setInitialFormData(mode === 'composition' ? { itemType: 'composition' } : null);
+                                                    setIsFormModalOpen(true);
+                                                    setIsActionsMenuOpen(false);
+                                                }}
+                                                className="w-full text-left px-4 py-2.5 text-sm font-bold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center gap-3 transition-colors group"
+                                            >
+                                                <div className="w-8 h-8 rounded-xl bg-emerald-50 text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-400 flex items-center justify-center group-hover:scale-110 transition-transform">
+                                                    <i className="bi bi-plus-lg" />
+                                                </div>
+                                                {mode === 'composition' ? 'Nova Composição' : 'Novo Produto'}
+                                            </button>
+
+                                            <button
+                                                onClick={() => {
+                                                    setIsSidebarOpen(true);
+                                                    setIsActionsMenuOpen(false);
+                                                }}
+                                                className="w-full text-left px-4 py-2.5 text-sm font-bold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center gap-3 transition-colors group"
+                                            >
+                                                <div className="w-8 h-8 rounded-xl bg-blue-50 text-blue-600 dark:bg-blue-500/10 dark:text-blue-400 flex items-center justify-center group-hover:scale-110 transition-transform">
+                                                    <i className="bi bi-funnel" />
+                                                </div>
+                                                Filtros
+                                            </button>
+
+                                            <div className="h-px bg-slate-100 dark:bg-slate-800 my-1 mx-4"></div>
+
+                                            <button
+                                                onClick={() => {
+                                                    setFilters(prev => ({ ...prev, activeOnly: prev.activeOnly === false ? true : false }));
+                                                    setIsActionsMenuOpen(false);
+                                                }}
+                                                className="w-full text-left px-4 py-2.5 text-sm font-bold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center gap-3 transition-colors group"
+                                            >
+                                                <div className={`w-8 h-8 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform ${filters.activeOnly === false ? 'bg-amber-50 text-amber-600 dark:bg-amber-500/10 dark:text-amber-400' : 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400'}`}>
+                                                    <i className={`bi ${filters.activeOnly === false ? 'bi-eye' : 'bi-eye-slash'}`} />
+                                                </div>
+                                                {filters.activeOnly === false ? 'Ocultar Inativos' : 'Mostrar Inativos'}
+                                            </button>
+                                        </div>
+                                    )}
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -157,6 +205,7 @@ const Products: React.FC = () => {
                         {/* Conteúdo Principal: Tabela de Produtos (Esquerda/Centro) */}
                         <div className="flex-1 min-w-0">
                             <ProductList
+                                mode={mode}
                                 filters={currentFilters}
                                 title={currentTitle}
                                 onCloseTrash={handleCloseSpecialView}
@@ -205,7 +254,7 @@ const Products: React.FC = () => {
                                             <i className="bi bi-pie-chart-fill" />
                                         </div>
                                         <h4 className="text-xs font-black uppercase tracking-wider text-slate-800 dark:text-slate-100">
-                                            Resumo dos Produtos
+                                            {mode === 'composition' ? 'Resumo das Composições' : 'Resumo dos Produtos'}
                                         </h4>
                                     </div>
                                     <i className={`bi bi-chevron-down text-slate-400 text-xs transition-transform duration-200 ${accordionOpen.summary ? 'rotate-180' : ''}`} />

@@ -10,6 +10,8 @@ export interface ProductQueryFilterOptions {
     isDraft?: boolean;
     includeDeactivated?: boolean;
     supplierId?: string;
+    itemType?: string;
+    excludeItemType?: string;
     sortBy?: string;
     sortOrder?: 'asc' | 'desc';
 }
@@ -30,6 +32,14 @@ export const applyProductFiltersAndSort = async (
     pagination?: ProductPaginationOptions
 ): Promise<any> => {
     let q = query.eq('deleted', false);
+    
+    if (options?.itemType) {
+        q = q.eq('item_type', options.itemType);
+    }
+    
+    if (options?.excludeItemType) {
+        q = q.neq('item_type', options.excludeItemType);
+    }
 
     // Filtro de rascunhos do ERP
     if (options?.isDraft === true) {

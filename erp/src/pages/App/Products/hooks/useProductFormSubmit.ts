@@ -1,7 +1,7 @@
 import { useCallback } from 'react';
 import Product from '@/pages/types/product.type';
 import { saveProduct } from '@/pages/utils/productService';
-import { checkERPLegibility, checkEcomLegibility } from '../productLegibilityRules';
+import { checkERPLegibility, checkEcomLegibility } from '../utils/productLegibilityRules';
 import { hasMissingRequiredAttributes, hasVariationAttribute, getIncompleteVariationAttributes } from '@/pages/utils/productVariationDefaults';
 import { toast } from 'react-toastify';
 

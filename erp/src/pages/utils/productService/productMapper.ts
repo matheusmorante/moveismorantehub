@@ -23,7 +23,7 @@ export const mapFromDB = (data: any, index?: number): Product => {
             .map((pc: any) => pc.categories?.name || pc.category_name || pc.name)
             .filter(Boolean);
     }
-    const primaryCategory = data.category || (categoryNames.length > 0 ? categoryNames.join(' | ') : '');
+    const primaryCategory = data.category || (categoryNames.length > 0 ? categoryNames.join(' | ') : '') || data.category_details?.name || '';
 
     const fallbackCode = index !== undefined ? String(index + 1).padStart(6, '0') : '';
     const parentCode = data.code || data.sku || fallbackCode;

@@ -37,7 +37,7 @@ const TABS: Tab[] = [
   { id: 'fotos',     label: 'Fotos' },
   { id: 'technical', label: 'Informações Técnicas' },
   { id: 'estoque',   label: 'Estoque e Precificação' },
-  { id: 'compostos', label: 'Produtos Compostos', condition: (formData) => formData.itemType === 'composition' },
+  { id: 'compostos', label: 'Produtos Componentes', condition: (formData) => formData.itemType === 'composition' },
   { id: 'variacoes', label: 'Variações' },
   { id: 'fiscal',    label: 'Tributário / NF' },
 ];

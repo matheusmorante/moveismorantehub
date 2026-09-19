@@ -47,11 +47,39 @@ export function useProductFormImages(
         setIsDraggingPhoto(filesToProcess.length);
         try {
             const uploadPromises = filesToProcess.map(async (file) => {
-                const compressed = await compressImageToFile(file, { maxMB: 0.1, maxWidth: 1200 });
                 const fileExt = file.name.split('.').pop() || 'jpg';
-                const fileName = `${crypto.randomUUID()}_${Date.now()}.${fileExt}`;
-                const path = `products/${fileName}`;
-                return uploadFile(compressed, path);
+                const baseName = `${crypto.randomUUID()}_${Date.now()}`;
+                
+                // Original file - sem perda de qualidade, só usa o nome ajustado
+                const originalPath = `products/${baseName}.${fileExt}`;
+                
+                // Medium - compressão em WEBP, max 1000px, 85 de qualidade
+                const mediumFile = await compressImageToFile(file, { 
+                    maxMB: 0.5, 
+                    maxWidth: 1000, 
+                    fileType: 'image/webp', 
+                    initialQuality: 0.85 
+                });
+                const mediumPath = `products/${baseName}_medium.webp`;
+
+                // Thumbnail - compressão em WEBP, max 200px, 75 de qualidade
+                const thumbFile = await compressImageToFile(file, { 
+                    maxMB: 0.05, 
+                    maxWidth: 200, 
+                    fileType: 'image/webp', 
+                    initialQuality: 0.75 
+                });
+                const thumbPath = `products/${baseName}_thumb.webp`;
+
+                // Upload paralelo das 3 variações da imagem
+                const [originalUrl] = await Promise.all([
+                    uploadFile(file, originalPath),
+                    uploadFile(mediumFile, mediumPath),
+                    uploadFile(thumbFile, thumbPath)
+                ]);
+
+                // Retorna apenas a URL original. As outras URLs serão derivadas pelo ProductImage
+                return originalUrl;
             });
 
             const urls = await Promise.all(uploadPromises);

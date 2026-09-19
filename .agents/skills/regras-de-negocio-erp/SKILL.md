@@ -114,5 +114,12 @@ Use esta skill antes de alterar comportamentos de domínio referentes a vendas, 
 - **Sem Exposição Operacional**: Não disponibilizar em telas, fluxos, APIs de módulo ou lógicas comuns qualquer operação de troca de `id`/UUID. Nenhuma funcionalidade regular deve ter permissão para fazê-lo.
 - **Exceção Externa e Extraordinária**: Uma eventual alteração global de IDs só pode ocorrer diretamente no Supabase, como manutenção excepcional e fora do sistema operacional. Exige planejamento de migração de todas as referências, execução atômica, cópia de segurança e auditoria; não é uma operação de negócio nem deve ser implementada nas interfaces ou módulos.
 
+---
+
+## 11. Responsável pelo Inventário no Mobile
+
+- **Seleção Automática e Oculta**: No aplicativo móvel, **NÃO EXISTE** tela ou campo para selecionar qual o funcionário responsável pelo inventário.
+- **Usuário Logado**: A autoria (o responsável) é sempre preenchida automaticamente em *background* com o UUID do usuário que está logado e realizando a operação no aparelho (`userProfile.id`).
+
 > Para o detalhamento completo de 50 tópicos e fórmulas matemáticas da arquitetura, consulte a referência em [references/estoque-cmpm-cmv.md](file:///c:/Users/mathe/OneDrive/%C3%81rea%20de%20Trabalho/projetos/morantehub/.agents/skills/regras-de-negocio-erp/references/estoque-cmpm-cmv.md).
 

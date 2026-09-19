@@ -61,6 +61,8 @@ export const useProducts = (filters?: any) => {
                 status: filters?.status,
                 isDraft: filters?.isDraft,
                 includeDeactivated: filters?.includeDeactivated,
+                itemType: filters?.itemType,
+                excludeItemType: filters?.excludeItemType,
                 sortBy: filters?.sortBy,
                 sortOrder: filters?.sortOrder,
             });
@@ -69,7 +71,7 @@ export const useProducts = (filters?: any) => {
         } finally {
             setServerLoading(false);
         }
-    }, [filters?.showTrash, filters?.search, filters?.category, filters?.activeOnly, filters?.status, filters?.isDraft, filters?.includeDeactivated, filters?.sortBy, filters?.sortOrder]);
+    }, [filters?.showTrash, filters?.search, filters?.category, filters?.activeOnly, filters?.status, filters?.isDraft, filters?.includeDeactivated, filters?.itemType, filters?.excludeItemType, filters?.sortBy, filters?.sortOrder]);
 
     // Fetch on page/perPage/filters/refresh change
     useEffect(() => {
@@ -80,7 +82,7 @@ export const useProducts = (filters?: any) => {
     useEffect(() => {
         setCurrentPage(1);
         setSelectedProducts([]);
-    }, [filters?.search, filters?.category, filters?.activeOnly, filters?.status, filters?.isDraft, filters?.includeDeactivated, filters?.showTrash]);
+    }, [filters?.search, filters?.category, filters?.activeOnly, filters?.status, filters?.isDraft, filters?.includeDeactivated, filters?.itemType, filters?.excludeItemType, filters?.showTrash]);
 
     const serverTransformed = useMemo(() => flattenProductsForList(serverProducts).map(product => {
         if (product.isParent && product.allVariations) {

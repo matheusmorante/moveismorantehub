@@ -1,9 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator, Alert } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator } from 'react-native';
 import { X, Package, Users, Filter } from 'lucide-react-native';
 import { supabase } from '../../../../services/supabaseClient';
 import { useAuth } from '../../../../contexts/AuthContext';
-import { useInventoryScopeBuilder } from '../hooks/useInventoryScopeBuilder';
 import type { ScopeConfiguration, ScopeProduct, ScopeSupplier, InventoryScopeType } from '../hooks/useInventoryScopeBuilder';
 
 interface Props {
@@ -17,40 +16,19 @@ export const InventoryScopeScreen: React.FC<Props> = ({ isDarkMode, onCancel, on
   const [allProducts, setAllProducts] = useState<ScopeProduct[]>([]);
   const [suppliers, setSuppliers] = useState<ScopeSupplier[]>([]);
   const [loadingData, setLoadingData] = useState(true);
-
-  const {
-    step,
-    scopeType,
-    inventoryName,
-    setInventoryName,
-    blindCount,
-    setBlindCount,
-    selectedSupplierId,
-    setSelectedSupplierId,
-    selectedResponsibleId,
-    setSelectedResponsibleId,
-    matchingItems,
-    handleNextStep,
-  } = useInventoryScopeBuilder(allProducts, suppliers);
-
-  const [employees, setEmployees] = useState<{id: string, full_name: string}[]>([]);
+  const [expandedType, setExpandedType] = useState<InventoryScopeType | null>(null);
 
   // Load Initial Data
   useEffect(() => {
     Promise.all([
       supabase.from('products').select('id, name, description, stock, unit, main_supplier_id').eq('deleted', false).eq('active', true),
-      supabase.from('people').select('id, full_name').eq('person_type', 'suppliers'),
-      supabase.from('people').select('id, full_name').eq('is_employee', true)
-    ]).then(([prodRes, supRes, empRes]) => {
+      supabase.from('people').select('id, full_name').eq('person_type', 'suppliers')
+    ]).then(([prodRes, supRes]) => {
       if (prodRes.data) setAllProducts(prodRes.data as ScopeProduct[]);
       if (supRes.data) setSuppliers(supRes.data as ScopeSupplier[]);
-      if (empRes.data) setEmployees(empRes.data as {id: string, full_name: string}[]);
       setLoadingData(false);
-      if (userProfile?.id) {
-          setSelectedResponsibleId(userProfile.id);
-      }
     });
-  }, [userProfile, setSelectedResponsibleId]);
+  }, []);
 
   const bg = isDarkMode ? '#0f172a' : '#f8fafc';
   const surface = isDarkMode ? '#1e293b' : '#ffffff';
@@ -58,19 +36,48 @@ export const InventoryScopeScreen: React.FC<Props> = ({ isDarkMode, onCancel, on
   const textPrimary = isDarkMode ? '#f1f5f9' : '#0f172a';
   const muted = isDarkMode ? '#94a3b8' : '#64748b';
 
-  const handleConfirm = () => {
-    if (scopeType === 'supplier' && !selectedSupplierId) {
-        Alert.alert("Atenção", "Selecione um fornecedor.");
-        return;
-    }
+  const confirmDirectly = (type: InventoryScopeType, supplierId?: string) => {
+    const dateStr = new Date().toLocaleDateString('pt-BR', { month: 'long' });
+    let name = '';
+    if (type === 'full') name = `Inventário Geral - ${dateStr}`;
+    else if (type === 'supplier') name = `Inventário por Fornecedor`;
+    else name = `Inventário Personalizado`;
+
+    const items: ScopeConfiguration['itemsSnapshot'] = [];
     
+    const getSupplierNames = (product: ScopeProduct) => {
+        if (!product.main_supplier_id) return 'Fábrica não informada';
+        const supplier = suppliers.find(s => s.id === product.main_supplier_id);
+        return supplier ? supplier.full_name : 'Fábrica não informada';
+    };
+
+    const addProduct = (product: ScopeProduct) => {
+        const supplierName = getSupplierNames(product);
+        items.push({
+            productId: String(product.id),
+            name: product.name || product.description || 'Produto',
+            supplierNames: supplierName,
+            assignedSupplier: supplierName.split(' / ')[0] || 'Sem fornecedor',
+            systemStock: Number(product.stock ?? 0),
+            unit: product.unit || 'UN',
+        });
+    };
+
+    if (type === 'full') {
+        for (const product of allProducts) addProduct(product);
+    } else if (type === 'supplier' && supplierId) {
+        const supplierProducts = allProducts.filter(p => p.main_supplier_id === supplierId);
+        for (const product of supplierProducts) addProduct(product);
+    }
+
     onConfirm({
-        type: scopeType as InventoryScopeType,
-        name: inventoryName.trim(),
-        blindCount,
-        responsibleId: selectedResponsibleId,
-        // Para inventário personalizado, começa sem itens (adicionados durante a contagem)
-        itemsSnapshot: scopeType === 'custom' ? [] : matchingItems,
+        type,
+        name,
+        blindCount: false, // Padrão no mobile para ser mais ágil
+        hasStages: type === 'full',
+        responsibleId: userProfile?.id || '',
+        supplierId,
+        itemsSnapshot: type === 'custom' ? [] : items,
     });
   };
 
@@ -89,7 +96,7 @@ export const InventoryScopeScreen: React.FC<Props> = ({ isDarkMode, onCancel, on
         <View style={{ flex: 1 }}>
           <Text style={[styles.headerTitle, { color: textPrimary }]}>Novo Inventário</Text>
           <Text style={[styles.headerSubtitle, { color: muted }]}>
-            {step === 1 ? 'O que você deseja inventariar?' : 'Configuração do Escopo'}
+            O que você deseja inventariar?
           </Text>
         </View>
         <TouchableOpacity onPress={onCancel} style={styles.closeBtn}>
@@ -98,116 +105,75 @@ export const InventoryScopeScreen: React.FC<Props> = ({ isDarkMode, onCancel, on
       </View>
 
       <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 16 }}>
-        {step === 1 && (
           <View style={styles.optionsContainer}>
             <TouchableOpacity 
               style={[styles.typeOption, { backgroundColor: surface, borderColor: border }]} 
-              onPress={() => handleNextStep('full')}
+              onPress={() => confirmDirectly('full')}
             >
-              <View style={[styles.typeIcon, { backgroundColor: 'rgba(16, 185, 129, 0.15)' }]}>
-                <Package size={24} color="#10b981" />
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16 }}>
+                  <View style={[styles.typeIcon, { backgroundColor: 'rgba(16, 185, 129, 0.15)', marginBottom: 0 }]}>
+                    <Package size={24} color="#10b981" />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                      <Text style={[styles.typeTitle, { color: textPrimary }]}>Estoque Completo</Text>
+                      <Text style={[styles.typeDesc, { color: muted }]}>Todas as variações ativas cadastradas no sistema.</Text>
+                  </View>
               </View>
-              <Text style={[styles.typeTitle, { color: textPrimary }]}>Estoque Completo</Text>
-              <Text style={[styles.typeDesc, { color: muted }]}>Todas as variações ativas cadastradas no sistema.</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity 
-              style={[styles.typeOption, { backgroundColor: surface, borderColor: border }]} 
-              onPress={() => handleNextStep('supplier')}
-            >
-              <View style={[styles.typeIcon, { backgroundColor: 'rgba(59, 130, 246, 0.15)' }]}>
-                <Users size={24} color="#3b82f6" />
-              </View>
-              <Text style={[styles.typeTitle, { color: textPrimary }]}>Por Fornecedor</Text>
-              <Text style={[styles.typeDesc, { color: muted }]}>Selecione um fornecedor e conte as variações relacionadas.</Text>
-            </TouchableOpacity>
+            <View style={{ marginBottom: expandedType === 'supplier' ? 12 : 0 }}>
+                <TouchableOpacity 
+                  style={[
+                      styles.typeOption, 
+                      { backgroundColor: surface, borderColor: border },
+                      expandedType === 'supplier' ? { borderBottomLeftRadius: 0, borderBottomRightRadius: 0, borderBottomWidth: 0 } : {}
+                  ]} 
+                  onPress={() => setExpandedType(expandedType === 'supplier' ? null : 'supplier')}
+                >
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16 }}>
+                      <View style={[styles.typeIcon, { backgroundColor: 'rgba(59, 130, 246, 0.15)', marginBottom: 0 }]}>
+                        <Users size={24} color="#3b82f6" />
+                      </View>
+                      <View style={{ flex: 1 }}>
+                          <Text style={[styles.typeTitle, { color: textPrimary }]}>Por Fornecedor</Text>
+                          <Text style={[styles.typeDesc, { color: muted }]}>Selecione um fornecedor e conte as variações relacionadas.</Text>
+                      </View>
+                  </View>
+                </TouchableOpacity>
 
-            <TouchableOpacity 
-              style={[styles.typeOption, { backgroundColor: surface, borderColor: border }]} 
-              onPress={() => handleNextStep('custom')}
-            >
-              <View style={[styles.typeIcon, { backgroundColor: 'rgba(168, 85, 247, 0.15)' }]}>
-                <Filter size={24} color="#a855f7" />
-              </View>
-              <Text style={[styles.typeTitle, { color: textPrimary }]}>Seleção Personalizada</Text>
-              <Text style={[styles.typeDesc, { color: muted }]}>Adicione produtos durante a contagem conforme necessário.</Text>
-            </TouchableOpacity>
-          </View>
-        )}
-
-        {step === 2 && (
-          <View style={styles.formContainer}>
-
-            {scopeType === 'supplier' && (
-               <View style={[styles.card, { backgroundColor: surface, borderColor: border }]}>
-                 <Text style={[styles.label, { color: textPrimary }]}>Selecione o Fornecedor</Text>
-                 <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: 8 }}>
-                    {suppliers.map(s => (
-                        <TouchableOpacity
-                            key={s.id}
-                            style={[
-                                styles.chip, 
-                                { borderColor: selectedSupplierId === s.id ? '#10b981' : border, backgroundColor: selectedSupplierId === s.id ? 'rgba(16,185,129,0.1)' : bg }
-                            ]}
-                            onPress={() => setSelectedSupplierId(s.id)}
-                        >
-                            <Text style={{ color: selectedSupplierId === s.id ? '#10b981' : textPrimary, fontWeight: selectedSupplierId === s.id ? '700' : '500' }}>
-                                {s.full_name}
-                            </Text>
-                        </TouchableOpacity>
-                    ))}
-                 </ScrollView>
-               </View>
-            )}
-
-            {scopeType === 'custom' && (
-              <View style={[styles.card, { backgroundColor: 'rgba(168,85,247,0.08)', borderColor: '#a855f7' }]}>
-                <Filter size={20} color="#a855f7" />
-                <Text style={[styles.label, { color: '#a855f7', marginTop: 8 }]}>Inventário Personalizado</Text>
-                <Text style={{ color: muted, fontSize: 13, lineHeight: 18 }}>
-                  Produtos serão adicionados durante a contagem usando o botão "Adicionar Item" na tela de contagem.
-                </Text>
-              </View>
-            )}
-
-            <View style={[styles.card, { backgroundColor: surface, borderColor: border, marginTop: 16 }]}>
-                <Text style={[styles.label, { color: textPrimary }]}>Responsável pelo Inventário</Text>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: 8 }}>
-                    {employees.map(e => (
-                        <TouchableOpacity
-                            key={e.id}
-                            style={[
-                                styles.chip, 
-                                { borderColor: selectedResponsibleId === e.id ? '#10b981' : border, backgroundColor: selectedResponsibleId === e.id ? 'rgba(16,185,129,0.1)' : bg }
-                            ]}
-                            onPress={() => setSelectedResponsibleId(e.id)}
-                        >
-                            <Text style={{ color: selectedResponsibleId === e.id ? '#10b981' : textPrimary, fontWeight: selectedResponsibleId === e.id ? '700' : '500' }}>
-                                {e.full_name}
-                            </Text>
-                        </TouchableOpacity>
-                    ))}
-                </ScrollView>
+                {expandedType === 'supplier' && (
+                    <View style={{ backgroundColor: surface, borderColor: border, borderWidth: 1, borderTopWidth: 0, borderBottomLeftRadius: 16, borderBottomRightRadius: 16, padding: 16, paddingTop: 0 }}>
+                        <Text style={{ color: textPrimary, fontSize: 13, marginBottom: 12, fontWeight: '700' }}>Selecione o fornecedor para iniciar:</Text>
+                        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+                            {suppliers.map(s => (
+                                <TouchableOpacity
+                                    key={s.id}
+                                    style={[ styles.chip, { borderColor: border, backgroundColor: bg } ]}
+                                    onPress={() => confirmDirectly('supplier', s.id)}
+                                >
+                                    <Text style={{ color: textPrimary, fontWeight: '500' }}>{s.full_name}</Text>
+                                </TouchableOpacity>
+                            ))}
+                        </View>
+                    </View>
+                )}
             </View>
 
             <TouchableOpacity 
-                style={[styles.card, { backgroundColor: surface, borderColor: border, marginTop: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }]}
-                onPress={() => setBlindCount(!blindCount)}
+              style={[styles.typeOption, { backgroundColor: surface, borderColor: border }]} 
+              onPress={() => confirmDirectly('custom')}
             >
-                <View style={{ flex: 1 }}>
-                    <Text style={[styles.label, { color: textPrimary, marginBottom: 4 }]}>Contagem Cega</Text>
-                    <Text style={{ color: muted, fontSize: 13 }}>Ocultar a quantidade em sistema durante a contagem.</Text>
-                </View>
-                <View style={{ width: 44, height: 24, borderRadius: 12, backgroundColor: blindCount ? '#10b981' : border, padding: 2 }}>
-                    <View style={{ width: 20, height: 20, borderRadius: 10, backgroundColor: '#ffffff', transform: [{ translateX: blindCount ? 20 : 0 }] }} />
-                </View>
-            </TouchableOpacity>
-
-            <TouchableOpacity style={styles.confirmBtn} onPress={handleConfirm}>
-                <Text style={styles.confirmBtnText}>Confirmar e Iniciar</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16 }}>
+                  <View style={[styles.typeIcon, { backgroundColor: 'rgba(168, 85, 247, 0.15)', marginBottom: 0 }]}>
+                    <Filter size={24} color="#a855f7" />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                      <Text style={[styles.typeTitle, { color: textPrimary }]}>Seleção Personalizada</Text>
+                      <Text style={[styles.typeDesc, { color: muted }]}>Adicione produtos durante a contagem conforme necessário.</Text>
+                  </View>
+              </View>
             </TouchableOpacity>
           </View>
-        )}
       </ScrollView>
     </View>
   );
@@ -238,30 +204,14 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 12,
   },
   typeTitle: { fontSize: 16, fontWeight: '700', marginBottom: 4 },
   typeDesc: { fontSize: 13, lineHeight: 18 },
-  formContainer: { gap: 16 },
-  card: {
-    padding: 16,
-    borderWidth: 1,
-    borderRadius: 16,
-  },
-  label: { fontSize: 14, fontWeight: '700', marginBottom: 8 },
   chip: {
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderWidth: 1,
     borderRadius: 20,
-    marginRight: 8,
   },
-  confirmBtn: {
-    backgroundColor: '#10b981',
-    paddingVertical: 14,
-    borderRadius: 12,
-    alignItems: 'center',
-    marginTop: 16,
-  },
-  confirmBtnText: { color: '#ffffff', fontWeight: '800', fontSize: 16 },
 });
+

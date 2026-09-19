@@ -1,4 +1,4 @@
-import { ChannelCatalogVariationRow } from '../../channelCatalogRows';
+import { ChannelCatalogVariationRow } from './channelCatalogRows';
 
 export interface VariationRow extends ChannelCatalogVariationRow {
     varId: string;

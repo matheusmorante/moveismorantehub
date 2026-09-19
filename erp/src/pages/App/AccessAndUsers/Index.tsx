@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/context/AuthContext';
-import Person from '../../../types/person.type';
+import Person from '../../types/person.type';
 import { subscribeToPeople } from '@/pages/utils/personService';
 import { AccessStatsCards } from './components/AccessStatsCards';
 import { UsersTab } from './components/UsersTab';

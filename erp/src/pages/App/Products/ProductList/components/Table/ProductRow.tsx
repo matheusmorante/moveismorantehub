@@ -1,6 +1,6 @@
 import React from 'react';
 import Product, { ProductVisibilitySettings } from '@/pages/types/product.type';
-import { LabelPrintType } from '../../components/modals/LabelPrintSelectionModal';
+import { LabelPrintType } from '../../../../components/modals/LabelPrintSelectionModal';
 import { useProductMetadata } from '../../hooks/useProductMetadata';
 import { getVariationDisplayName } from '../../utils/getVariationDisplayName';
 import { ProductRowDescriptionCell } from './ProductRowDescriptionCell';

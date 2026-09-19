@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { toast } from "react-toastify";
 import { fetchGroupsAndCategories, createCategory, updateCategory, deleteCategory, updateCategoryChildren, generateSlug } from '@/pages/utils/categoryService';
 import { ecommerceSupabase as supabase } from '@/pages/utils/supabaseConfig';
-import { PRODUCT_ENVIRONMENT_OPTIONS } from '../productEnvironmentOptions';
+import { PRODUCT_ENVIRONMENT_OPTIONS } from '../utils/productEnvironmentOptions';
 
 const FIXED_ENVIRONMENTS: readonly string[] = PRODUCT_ENVIRONMENT_OPTIONS;
 

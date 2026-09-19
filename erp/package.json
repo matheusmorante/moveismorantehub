@@ -14,6 +14,7 @@
     "browser-image-compression": "^2.0.2",
     "bwip-js": "^4.8.0",
     "date-fns": "^4.1.0",
+    "dotenv": "^18.0.1",
     "fabric": "^5.5.2",
     "firebase": "^12.10.0",
     "html2canvas": "^1.4.1",
@@ -25,6 +26,7 @@
     "maplibre-gl": "^4.7.1",
     "mathjs": "^14.6.0",
     "morante-hub-root": "file:..",
+    "p-limit": "^7.3.3",
     "react": "18.3.1",
     "react-dom": "18.3.1",
     "react-input-mask": "^2.0.4",
@@ -33,6 +35,7 @@
     "react-router-dom": "^6.22.3",
     "react-toastify": "^11.0.5",
     "recharts": "^2.15.0",
+    "sharp": "^0.35.4",
     "sweetalert2": "^11.26.25",
     "web-vitals": "^2.1.4"
   },

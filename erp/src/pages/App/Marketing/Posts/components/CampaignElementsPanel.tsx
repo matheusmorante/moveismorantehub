@@ -3,7 +3,7 @@ import { ElementModel, ElementType, elementLabel } from '../types/postCreator';
 import {
   PostProductImagesSpec,
   PostProductImagesValidation,
-} from '../../types/postSpecification';
+} from '../../types/postSpecification.type';
 import { PromptImagesStrip } from './PromptPreview/PromptImagesStrip';
 
 type Opportunity = { id: string; name: string };

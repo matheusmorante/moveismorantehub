@@ -1,5 +1,5 @@
 import { normalizeSearchTerm } from '@/pages/utils/textUtils';
-import { PRODUCT_ENVIRONMENT_OPTIONS } from '../../productEnvironmentOptions';
+import { PRODUCT_ENVIRONMENT_OPTIONS } from '../../utils/productEnvironmentOptions';
 
 export interface ProductCategoryOption {
     id: string;

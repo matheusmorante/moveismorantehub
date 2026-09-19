@@ -27,7 +27,7 @@ export const useDeleteVariation = (productId: string, onRefresh?: () => void) =>
                 return;
             }
 
-            // Exibir modal de confirmação de 5 segundos
+            // Exibir modal de confirmação de 3 segundos
             let timerInterval: any;
             const result = await Swal.fire({
                 title: 'Excluir Variação?',
@@ -36,13 +36,13 @@ export const useDeleteVariation = (productId: string, onRefresh?: () => void) =>
                 showCancelButton: true,
                 confirmButtonColor: '#d33',
                 cancelButtonColor: '#3085d6',
-                confirmButtonText: 'Confirmar Exclusão (5s)',
+                confirmButtonText: 'Confirmar Exclusão (3s)',
                 cancelButtonText: 'Cancelar',
                 didOpen: () => {
                     const confirmBtn = Swal.getConfirmButton();
                     if (confirmBtn) {
                         confirmBtn.disabled = true;
-                        let timeLeft = 5;
+                        let timeLeft = 3;
                         timerInterval = setInterval(() => {
                             timeLeft -= 1;
                             if (timeLeft > 0) {

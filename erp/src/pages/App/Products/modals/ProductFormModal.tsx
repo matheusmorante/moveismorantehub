@@ -4,7 +4,7 @@ import Product from "../../../types/product.type";
 
 // Modular UI Components
 import VariationFormModal from "./VariationFormModal";
-import CategorySearchModal from "../CategorySearchModal";
+import CategorySearchModal from "../components/modals/CategorySearchModal";
 import ProductConversionModal from "../components/modals/ProductConversionModal";
 import { ProductFormHeader } from '../components/ProductFormHeader';
 import { ProductFormFooter } from '../components/ProductFormFooter';

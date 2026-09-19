@@ -123,7 +123,7 @@ export const syncProductToSupabase = async (product: Product): Promise<void> => 
                         .filter((attr: any) => attr.name && attr.value)
                         .map((attr: any) => ({ name: attr.name, value: attr.value, showName: attr.showName ?? true }));
 
-                    const parentCode = product.code && product.code !== '000000' ? product.code : generateUniqueCode(product.id);
+                    const parentCode = product.code && product.code !== '000000' ? product.code : generateUniqueCode(product.id, product.item_type);
                     const suffix = String(index + 1).padStart(2, '0');
                     const defaultSku = `${parentCode}-${suffix}`;
                     const rawSku = v.sku && typeof v.sku === 'string' ? normalizeVariationSku(v.sku.trim()) : '';
@@ -168,9 +168,7 @@ export const syncProductToSupabase = async (product: Product): Promise<void> => 
                         use_parent_description: v.syncDescription !== false,
                         use_parent_name: true,
                         status: v.status || product.status || 'hidden',
-                        active: v.active !== undefined ? Boolean(v.active) : (product.active !== false),
-                        combo_items: v.comboItems && v.comboItems.length > 0 ? JSON.stringify(v.comboItems) : null,
-                        item_type: product.itemType || product.item_type || 'product'
+                        active: v.active !== undefined ? Boolean(v.active) : (product.active !== false)
                     };
                 });
 

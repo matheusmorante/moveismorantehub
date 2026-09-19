@@ -1,6 +1,6 @@
 import React from 'react';
 import Product from '../../../types/product.type';
-import { checkERPLegibility } from '../productLegibilityRules';
+import { checkERPLegibility } from '../utils/productLegibilityRules';
 
 export type ProductFormTabId = 'geral' | 'ecommerce' | 'technical' | 'estoque' | 'variacoes' | 'fiscal' | 'ambientes';
 
@@ -36,6 +36,7 @@ export const ProductFormHeader: React.FC<ProductFormHeaderProps> = ({
     validationErrors = {}
 }) => {
     const erpStatus = checkERPLegibility(formData);
+    const isComposition = formData.itemType === 'composition' || (formData as any).item_type === 'composition';
 
     const formTabs: readonly ProductTabItem[] = [
         { id: 'geral', label: 'Cadastro Geral', icon: '' },
@@ -45,7 +46,7 @@ export const ProductFormHeader: React.FC<ProductFormHeaderProps> = ({
             { id: 'estoque' as const, label: 'Estoque e Precificação', icon: 'bi-box-seam' },
             { id: 'variacoes' as const, label: 'Variações', icon: 'bi-grid-3x3-gap' },
         ] : []),
-        { id: 'fiscal', label: 'Tributário / NF', icon: 'bi-file-earmark-text' },
+        ...(!isComposition ? [{ id: 'fiscal' as const, label: 'Tributário / NF', icon: 'bi-file-earmark-text' }] : []),
     ];
 
     return (

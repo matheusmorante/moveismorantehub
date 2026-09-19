@@ -1,5 +1,5 @@
 import React from 'react';
-import Product from '../../../../types/product.type';
+import Product from '../../../../../types/product.type';
 import { ChannelStatusBadges } from '../Shared/ChannelStatusBadges';
 import { ProductCardActions } from './ProductCardActions';
 

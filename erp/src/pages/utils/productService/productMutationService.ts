@@ -30,7 +30,7 @@ export const saveProduct = async (product: Product, forceInsert = false): Promis
     const resolvedId = ensureUuidFormat(product);
 
     if (!product.code || product.code === '000000') {
-        product.code = generateUniqueCode(resolvedId);
+        product.code = generateUniqueCode(resolvedId, product.item_type);
     }
 
     const skusToValidate: string[] = [];
@@ -45,13 +45,13 @@ export const saveProduct = async (product: Product, forceInsert = false): Promis
         if (duplicateSkus.length > 0) {
             // Auto-corrige: gera um código único para substituir o SKU duplicado
             if (product.code && duplicateSkus.includes(product.code)) {
-                product.code = generateUniqueCode(resolvedId);
+                product.code = generateUniqueCode(resolvedId, product.item_type);
                 console.warn(`[ProductService] SKU duplicado detectado. Novo código gerado automaticamente: ${product.code}`);
             }
             if (product.variations?.length) {
                 product.variations.forEach(v => {
                     if (v.sku && duplicateSkus.includes(v.sku)) {
-                        v.sku = generateUniqueCode(resolvedId);
+                        v.sku = generateUniqueCode(resolvedId, product.item_type);
                         console.warn(`[ProductService] SKU de variação duplicado. Novo SKU gerado: ${v.sku}`);
                     }
                 });

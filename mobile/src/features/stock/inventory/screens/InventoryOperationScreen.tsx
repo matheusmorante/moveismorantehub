@@ -1,9 +1,12 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, FlatList, TextInput, KeyboardAvoidingView, Platform, Modal, ScrollView } from 'react-native';
-import { X, Minus, Plus, Search, ScanLine, ArrowRight } from 'lucide-react-native';
+import { View, Text, StyleSheet, TouchableOpacity, FlatList, TextInput, KeyboardAvoidingView, Platform, Modal, ScrollView, Alert } from 'react-native';
+import { X, Minus, Plus, Search, ScanLine, ArrowRight, ArrowLeft } from 'lucide-react-native';
 import { useInventoryOperation } from '../hooks/useInventoryOperation';
 import type { AuditItem } from '../hooks/useInventoryAuditWorkflow';
 import { InventoryScannerScreen } from './InventoryScannerScreen';
+import { InventoryStagesView } from '../components/InventoryStagesView';
+import { InventoryFocusMode } from '../components/InventoryFocusMode';
+import { Maximize2 } from 'lucide-react-native';
 
 interface Props {
   isDarkMode: boolean;
@@ -15,6 +18,7 @@ interface Props {
   onAddManualItem: () => void;
   onOpenProductSearch?: (itemId: string) => void;
   onReview: () => void;
+  onCancel?: () => void;
 }
 
 export const InventoryOperationScreen: React.FC<Props> = ({
@@ -27,10 +31,20 @@ export const InventoryOperationScreen: React.FC<Props> = ({
   onAddManualItem,
   onOpenProductSearch,
   onReview,
+  onCancel,
 }) => {
 
   const [showScanner, setShowScanner] = useState(false);
-  const { filter, setFilter, search, setSearch, filteredItems } = useInventoryOperation(items);
+  const [activeStage, setActiveStage] = useState<string | null>(null);
+  const [focusIndex, setFocusIndex] = useState<number | null>(null);
+
+  const activeItems = React.useMemo(() => {
+      if (scopeType !== 'full') return items;
+      if (!activeStage) return [];
+      return items.filter(item => (item.assignedSupplier || 'Sem fornecedor') === activeStage);
+  }, [items, scopeType, activeStage]);
+
+  const { filter, setFilter, search, setSearch, filteredItems } = useInventoryOperation(activeItems);
 
   const bg = isDarkMode ? '#0f172a' : '#f8fafc';
   const surface = isDarkMode ? '#1e293b' : '#ffffff';
@@ -38,8 +52,9 @@ export const InventoryOperationScreen: React.FC<Props> = ({
   const textPrimary = isDarkMode ? '#f1f5f9' : '#0f172a';
   const muted = isDarkMode ? '#94a3b8' : '#64748b';
 
-  const countedItems = items.filter(i => i.physicalCount !== null);
-  const progressPercent = items.length > 0 ? Math.round((countedItems.length / items.length) * 100) : 0;
+  const countedItems = activeItems.filter(i => i.physicalCount !== null);
+  const progressPercent = activeItems.length > 0 ? Math.round((countedItems.length / activeItems.length) * 100) : 0;
+  const isShowingStages = scopeType === 'full' && !activeStage;
 
   const handleScan = (data: string) => {
       const item = items.find(i => 
@@ -51,6 +66,9 @@ export const InventoryOperationScreen: React.FC<Props> = ({
       if (item) {
           const currentCount = item.physicalCount === null ? 0 : item.physicalCount;
           onUpdateCount(item.id, currentCount + 1);
+          Alert.alert("Sucesso", `Produto ${item.name} computado com sucesso!`);
+      } else {
+          Alert.alert("Não encontrado", "O código lido não corresponde a nenhum produto nesta lista.");
       }
       setShowScanner(false);
   };
@@ -79,6 +97,12 @@ export const InventoryOperationScreen: React.FC<Props> = ({
                               <Text style={[styles.itemName, { color: scopeType === 'custom' ? '#10b981' : textPrimary, flex: 1 }]} numberOfLines={2}>{item.name}</Text>
                               {scopeType === 'custom' && <View style={{ width: 14, height: 14, borderRadius: 7, backgroundColor: '#10b981', alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: '#fff', fontSize: 8, fontWeight: '900' }}>✓</Text></View>}
                               {isCounted && scopeType !== 'custom' && <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: '#10b981' }} />}
+                              <TouchableOpacity onPress={() => {
+                                  const idx = activeItems.findIndex(i => i.id === item.id);
+                                  if (idx >= 0) setFocusIndex(idx);
+                              }} style={{ padding: 4 }}>
+                                  <Maximize2 size={20} color={muted} />
+                              </TouchableOpacity>
                           </View>
                       </View>
                   )}
@@ -108,10 +132,10 @@ export const InventoryOperationScreen: React.FC<Props> = ({
                         onPress={() => onUpdateCount(item.id, Math.max(0, (item.physicalCount || 0) - 1))}
                         disabled={item.physicalCount === 0}
                       >
-                          <Minus size={18} color={textPrimary} opacity={item.physicalCount === 0 ? 0.3 : 1} />
+                          <Minus size={24} color={textPrimary} opacity={item.physicalCount === 0 ? 0.3 : 1} />
                       </TouchableOpacity>
                       
-                      <View style={{ alignItems: 'center', width: 60 }}>
+                      <View style={{ alignItems: 'center', width: 70 }}>
                           <TextInput
                               style={[styles.countInput, { color: textPrimary }]}
                               keyboardType="numeric"
@@ -123,14 +147,14 @@ export const InventoryOperationScreen: React.FC<Props> = ({
                               placeholder="-"
                               placeholderTextColor={muted}
                           />
-                          <Text style={{ fontSize: 9, color: muted, fontWeight: '800', marginTop: -4 }}>CONTADO</Text>
+                          <Text style={{ fontSize: 9, color: muted, fontWeight: '800', marginTop: -2 }}>CONTADO</Text>
                       </View>
 
                       <TouchableOpacity 
                         style={[styles.counterBtn, { backgroundColor: surface, borderColor: border }]} 
                         onPress={() => onUpdateCount(item.id, (item.physicalCount || 0) + 1)}
                       >
-                          <Plus size={18} color={textPrimary} />
+                          <Plus size={24} color={textPrimary} />
                       </TouchableOpacity>
                   </View>
               </View>
@@ -142,11 +166,16 @@ export const InventoryOperationScreen: React.FC<Props> = ({
     <KeyboardAvoidingView style={[styles.container, { backgroundColor: bg }]} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       {/* Sticky Header Progress */}
       <View style={[styles.header, { backgroundColor: surface, borderBottomColor: border }]}>
+          <TouchableOpacity onPress={onCancel} style={{ marginRight: 12, padding: 4 }}>
+              <ArrowLeft size={24} color={textPrimary} />
+          </TouchableOpacity>
           <View style={{ flex: 1, paddingRight: 16 }}>
-              <Text style={[styles.headerTitle, { color: textPrimary }]} numberOfLines={1}>{inventoryName}</Text>
+              <Text style={[styles.headerTitle, { color: textPrimary }]} numberOfLines={1}>
+                  {activeStage ? `${inventoryName} - ${activeStage}` : inventoryName}
+              </Text>
               <View style={styles.progressRow}>
                   <Text style={[styles.progressText, { color: muted }]}>
-                      <Text style={{ color: '#10b981', fontWeight: '800' }}>{countedItems.length}</Text> / {items.length}
+                      <Text style={{ color: '#10b981', fontWeight: '800' }}>{countedItems.length}</Text> / {activeItems.length}
                   </Text>
                   <View style={[styles.progressBarBg, { backgroundColor: isDarkMode ? '#334155' : '#e2e8f0' }]}>
                       <View style={[styles.progressBarFill, { width: `${progressPercent}%` }]} />
@@ -159,7 +188,17 @@ export const InventoryOperationScreen: React.FC<Props> = ({
           </TouchableOpacity>
       </View>
 
-      {/* Manual Mode List */}
+      {isShowingStages ? (
+          <View style={{ flex: 1 }}>
+              <InventoryStagesView 
+                  items={items} 
+                  isDarkMode={isDarkMode} 
+                  onSelectStage={setActiveStage} 
+              />
+          </View>
+      ) : (
+        <>
+          {/* Manual Mode List */}
       <View style={[styles.filterBar, { backgroundColor: surface, borderBottomColor: border }]}>
           {scopeType !== 'custom' && (
               <View style={[styles.searchBox, { backgroundColor: bg, borderColor: border }]}>
@@ -215,8 +254,19 @@ export const InventoryOperationScreen: React.FC<Props> = ({
           }
       />
 
+      </>
+      )}
+
       <View style={[styles.footer, { backgroundColor: surface, borderTopColor: border }]}>
-          <View style={{ flex: 1 }} />
+          {activeStage ? (
+              <TouchableOpacity style={styles.backBtn} onPress={() => setActiveStage(null)}>
+                  <ArrowLeft size={18} color={textPrimary} />
+                  <Text style={[styles.backBtnText, { color: textPrimary }]}>Voltar Etapa</Text>
+              </TouchableOpacity>
+          ) : (
+              <View style={{ flex: 1 }} />
+          )}
+          
           <TouchableOpacity style={styles.reviewBtn} onPress={onReview}>
               <Text style={styles.reviewBtnText}>Revisar</Text>
               <ArrowRight size={18} color="#ffffff" />
@@ -230,6 +280,17 @@ export const InventoryOperationScreen: React.FC<Props> = ({
               onScan={handleScan}
           />
       </Modal>
+
+      <InventoryFocusMode 
+          visible={focusIndex !== null}
+          items={activeItems}
+          initialItemIndex={focusIndex || 0}
+          totalItemsCount={activeItems.length}
+          countedItemsCount={countedItems.length}
+          isDarkMode={isDarkMode}
+          onClose={() => setFocusIndex(null)}
+          onUpdateCount={onUpdateCount}
+      />
     </KeyboardAvoidingView>
   );
 };
@@ -242,7 +303,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 16,
     borderBottomWidth: 1,
-    paddingTop: 50,
+    paddingTop: 16,
   },
   headerTitle: { fontSize: 18, fontWeight: '800' },
   progressRow: { flexDirection: 'row', alignItems: 'center', marginTop: 6, gap: 8 },
@@ -269,11 +330,13 @@ const styles = StyleSheet.create({
   statLabel: { fontSize: 10, fontWeight: '800', textTransform: 'uppercase', marginBottom: 2 },
   statVal: { fontSize: 14, fontWeight: '700' },
   counter: { flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderRadius: 12, padding: 4 },
-  counterBtn: { width: 36, height: 36, borderRadius: 8, alignItems: 'center', justifyContent: 'center', borderWidth: 1 },
-  countInput: { textAlign: 'center', fontSize: 20, fontWeight: '800', padding: 0, height: 28 },
+  counterBtn: { width: 48, height: 48, borderRadius: 12, alignItems: 'center', justifyContent: 'center', borderWidth: 1 },
+  countInput: { textAlign: 'center', fontSize: 24, fontWeight: '800', padding: 0, height: 32 },
   footer: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 16, borderTopWidth: 1, paddingBottom: 32 },
   reviewBtn: { backgroundColor: '#0f172a', paddingHorizontal: 24, paddingVertical: 14, borderRadius: 12, flexDirection: 'row', alignItems: 'center', gap: 8 },
   reviewBtnText: { color: '#ffffff', fontWeight: '800', fontSize: 16 },
+  backBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 14, paddingHorizontal: 12 },
+  backBtnText: { fontWeight: '700', fontSize: 16 },
   addItemBar: { paddingHorizontal: 16, paddingVertical: 10, borderBottomWidth: 1, alignItems: 'flex-end' },
   addItemBtn: { backgroundColor: '#7c3aed', paddingHorizontal: 16, paddingVertical: 10, borderRadius: 12, flexDirection: 'row', alignItems: 'center', gap: 6 },
   addItemBtnText: { color: '#ffffff', fontWeight: '800', fontSize: 14 },

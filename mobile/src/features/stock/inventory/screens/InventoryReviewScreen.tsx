@@ -43,6 +43,7 @@ export const InventoryReviewScreen: React.FC<Props> = ({
     const adjustmentsCount = itemsWithDifferences.length;
 
     const handleConfirm = () => {
+        if (countedItems.length === 0) return;
         onConfirm(reconciledItems);
     };
 
@@ -104,7 +105,16 @@ export const InventoryReviewScreen: React.FC<Props> = ({
             </ScrollView>
 
             <View style={[styles.footer, { backgroundColor: surface, borderTopColor: border }]}>
-                <TouchableOpacity style={styles.confirmBtn} onPress={handleConfirm}>
+                {countedItems.length === 0 && (
+                    <Text style={{ color: '#ef4444', textAlign: 'center', marginBottom: 12, fontWeight: '600' }}>
+                        Você precisa contar pelo menos 1 item para finalizar o inventário.
+                    </Text>
+                )}
+                <TouchableOpacity 
+                    style={[styles.confirmBtn, countedItems.length === 0 && { backgroundColor: muted }]} 
+                    onPress={handleConfirm}
+                    disabled={countedItems.length === 0}
+                >
                     <Text style={styles.confirmBtnText}>Confirmar e Atualizar Estoque</Text>
                 </TouchableOpacity>
             </View>

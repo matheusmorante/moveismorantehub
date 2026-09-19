@@ -1,6 +1,6 @@
 import React from 'react';
 import Product from '@/pages/types/product.type';
-import { LabelPrintType } from '../../components/modals/LabelPrintSelectionModal';
+import { LabelPrintType } from '../../../../components/modals/LabelPrintSelectionModal';
 import { ChildVariationActions } from './ProductRowActions/ChildVariationActions';
 import { ParentProductActions } from './ProductRowActions/ParentProductActions';
 

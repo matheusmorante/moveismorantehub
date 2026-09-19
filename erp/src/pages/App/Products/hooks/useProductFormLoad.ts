@@ -2,7 +2,7 @@ import { useEffect } from 'react';
 import Product from '@/pages/types/product.type';
 import { getFullProduct, getNextSequentialProductCode } from '@/pages/utils/productService';
 import { ensureDefaultVariation, hasVariationAttribute } from '@/pages/utils/productVariationDefaults';
-import { INITIAL_PRODUCT_FORM_DATA } from '../productFormInitialData';
+import { INITIAL_PRODUCT_FORM_DATA } from '../utils/productFormInitialData';
 
 interface LoadProps {
   isOpen: boolean;
