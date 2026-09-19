@@ -28,7 +28,12 @@ export const useInventory = () => {
                 status: session.status || 'in_progress',
                 created_at: session.created_at,
                 updated_at: session.updated_at,
-                items_count: session.items_count || 0
+                items_count: session.items_count || 0,
+                productsCount: session.productsCount || 0,
+                adjustmentsCount: session.adjustmentsCount || 0,
+                reversedCount: session.reversedCount || 0,
+                inventoryCode: session.inventoryCode,
+                responsibleName: session.responsibleName,
             }));
 
             if (isRefresh || pageNum === 0) {

@@ -12,6 +12,7 @@ export interface LabelItemProps {
     readonly hideBleedBorder?: boolean;
     readonly hideContent?: boolean;
     readonly hidePhysicalBorder?: boolean;
+    readonly uuid?: string;
 }
 
 const Barcode: React.FC<{ text: string; height?: number }> = ({ text, height = 15 }) => {
@@ -95,6 +96,31 @@ const getCentsStr = (priceStr: string, tplCentsText: string): string => {
     const parts = s.split(',');
     if (parts.length < 2) return ',00';
     return `,${parts[1].padEnd(2, '0').slice(0, 2)}`;
+};
+
+const QRCodeCanvas: React.FC<{ text: string }> = ({ text }) => {
+    const canvasRef = useRef<HTMLCanvasElement>(null);
+    const [error, setError] = useState(false);
+
+    useEffect(() => {
+        if (canvasRef.current && text) {
+            try {
+                bwipjs.toCanvas(canvasRef.current, {
+                    bcid: 'qrcode',
+                    text: text.trim(),
+                    scale: 3,
+                    backgroundcolor: 'ffffff'
+                });
+                setError(false);
+            } catch (e: unknown) {
+                console.error('QRCode error:', e);
+                setError(true);
+            }
+        }
+    }, [text]);
+
+    if (error) return <div className="text-[10px] font-black text-rose-500 uppercase px-2 py-1 bg-rose-50 rounded italic">Formato Inválido</div>;
+    return <canvas ref={canvasRef} style={{ maxWidth: '100%', height: 'auto', maxHeight: '100%', display: 'block' }} />;
 };
 
 export const PriceLabelArtItem: React.FC<{ config: any }> = ({ config }) => {
@@ -350,10 +376,10 @@ export const LabelItem: React.FC<LabelItemProps> = ({ config, image, index, scal
 
     const elements = [
         { id: 'productName', pos: { x: hasPromo ? (config.promoNamePosX ?? 50) : (config.namePosX ?? 50), y: hasPromo ? (config.promoNamePosY ?? 15) : (config.namePosY ?? 15) }, width: hasPromo ? (config.promoNameWidth ?? 80) : (config.nameWidth ?? 80), font: hasPromo ? (config.promoNameFontSize || 9) : (config.nameFontSize || 10), color: hasPromo ? config.promoNameColor : config.nameColor, bold: hasPromo ? config.promoNameBold : config.nameBold, align: hasPromo ? config.promoNameAlign : config.nameAlign, valign: hasPromo ? config.promoNameVAlign : config.nameVAlign, text: config.text || '', bgColor: hasPromo ? config.promoNameBgColor : config.nameBgColor, hidden: !config.text && !config.id?.includes('preview') },
-        { id: 'mainPrice', pos: { x: hasPromo ? (config.promoPosX ?? 50) : (config.pricePosX ?? 50), y: hasPromo ? (config.promoPosY ?? 70) : (config.pricePosY ?? 70) }, width: hasPromo ? (config.promoWidth ?? 80) : (config.priceWidth ?? 80), font: dynamicFontSize, color: hasPromo ? config.promoPriceColor : config.priceColor, bold: hasPromo ? config.promoPriceBold : config.priceBold, align: hasPromo ? config.promoPriceAlign : config.priceAlign, valign: hasPromo ? config.promoPriceVAlign : config.priceVAlign, text: formatLabelPrice(hasPromo ? (config.promoPrice || '') : (config.price || ''), isSplit), bgColor: hasPromo ? config.promoBgColor : config.priceBgColor, hidden: (!config.price && !config.promoPrice) && !config.id?.includes('preview') },
-        { id: 'oldPrice', pos: { x: config.oldPricePosX ?? 50, y: config.oldPricePosY ?? 45 }, width: config.oldPriceWidth ?? 50, font: config.oldPriceFontSize || 8, color: config.oldPriceColor || '#94a3b8', bold: config.oldPriceBold, align: config.oldPriceAlign || 'center', valign: config.oldPriceVAlign || 'middle', text: formatPrice(config.price || ''), bgColor: 'transparent', hidden: !hasPromo || !config.price },
-        { id: 'priceSymbol', pos: { x: hasPromo ? (config.promoPriceSymbolPosX ?? 20) : (config.priceSymbolPosX ?? 20), y: hasPromo ? (config.promoPriceSymbolPosY ?? 70) : (config.priceSymbolPosY ?? 70) }, font: hasPromo ? (config.promoPriceSymbolFontSize || 8) : (config.priceSymbolFontSize || 8), color: hasPromo ? (config.promoPriceSymbolColor || config.promoPriceColor) : (config.priceSymbolColor || config.priceColor), bold: hasPromo ? config.promoPriceSymbolBold : config.priceSymbolBold, text: 'R$', hidden: !isSplit, bgColor: 'transparent' },
-        { id: 'priceDecimals', pos: { x: hasPromo ? (config.promoPriceDecimalsPosX ?? 80) : (config.priceDecimalsPosX ?? 80), y: hasPromo ? (config.promoPriceDecimalsPosY ?? 70) : (config.priceDecimalsPosY ?? 70) }, font: hasPromo ? (config.promoPriceDecimalsFontSize || 8) : (config.priceDecimalsFontSize || 8), color: hasPromo ? (config.promoPriceDecimalsColor || config.promoPriceColor) : (config.priceDecimalsColor || config.priceColor), bold: hasPromo ? config.promoPriceDecimalsBold : config.priceDecimalsBold, text: ',00', hidden: !isSplit, bgColor: 'transparent' },
+        { id: 'mainPrice', pos: { x: hasPromo ? (config.promoPosX ?? 50) : (config.pricePosX ?? 50), y: hasPromo ? (config.promoPosY ?? 70) : (config.pricePosY ?? 70) }, width: hasPromo ? (config.promoWidth ?? 80) : (config.priceWidth ?? 80), font: dynamicFontSize, color: hasPromo ? config.promoPriceColor : config.priceColor, bold: hasPromo ? config.promoPriceBold : config.priceBold, align: hasPromo ? config.promoPriceAlign : config.priceAlign, valign: hasPromo ? config.promoPriceVAlign : config.priceVAlign, text: formatLabelPrice(hasPromo ? (config.promoPrice || '') : (config.price || ''), isSplit), bgColor: hasPromo ? config.promoBgColor : config.priceBgColor, hidden: config.category === 'identificacao' || ((!config.price && !config.promoPrice) && !config.id?.includes('preview')) },
+        { id: 'oldPrice', pos: { x: config.oldPricePosX ?? 50, y: config.oldPricePosY ?? 45 }, width: config.oldPriceWidth ?? 50, font: config.oldPriceFontSize || 8, color: config.oldPriceColor || '#94a3b8', bold: config.oldPriceBold, align: config.oldPriceAlign || 'center', valign: config.oldPriceVAlign || 'middle', text: formatPrice(config.price || ''), bgColor: 'transparent', hidden: config.category === 'identificacao' || !hasPromo || !config.price },
+        { id: 'priceSymbol', pos: { x: hasPromo ? (config.promoPriceSymbolPosX ?? 20) : (config.priceSymbolPosX ?? 20), y: hasPromo ? (config.promoPriceSymbolPosY ?? 70) : (config.priceSymbolPosY ?? 70) }, font: hasPromo ? (config.promoPriceSymbolFontSize || 8) : (config.priceSymbolFontSize || 8), color: hasPromo ? (config.promoPriceSymbolColor || config.promoPriceColor) : (config.priceSymbolColor || config.priceColor), bold: hasPromo ? config.promoPriceSymbolBold : config.priceSymbolBold, text: 'R$', hidden: config.category === 'identificacao' || !isSplit, bgColor: 'transparent' },
+        { id: 'priceDecimals', pos: { x: hasPromo ? (config.promoPriceDecimalsPosX ?? 80) : (config.priceDecimalsPosX ?? 80), y: hasPromo ? (config.promoPriceDecimalsPosY ?? 70) : (config.priceDecimalsPosY ?? 70) }, font: hasPromo ? (config.promoPriceDecimalsFontSize || 8) : (config.priceDecimalsFontSize || 8), color: hasPromo ? (config.promoPriceDecimalsColor || config.promoPriceColor) : (config.priceDecimalsColor || config.priceColor), bold: hasPromo ? config.promoPriceDecimalsBold : config.priceDecimalsBold, text: ',00', hidden: config.category === 'identificacao' || !isSplit, bgColor: 'transparent' },
         { id: 'barcode', pos: { x: (hasPromo ? config.promoBarcodePosX : config.barcodePosX) ?? 50, y: (hasPromo ? config.promoBarcodePosY : config.barcodePosY) ?? 85 }, isBarcode: true, hidden: config.category === 'precos' },
         ...safeExtraFields.map((f: any) => ({ ...f, pos: { x: f.x, y: f.y }, font: f.size, align: f.align || 'center', valign: 'middle', hidden: false }))
     ].filter(el => !el.hidden);
@@ -368,6 +394,15 @@ export const LabelItem: React.FC<LabelItemProps> = ({ config, image, index, scal
         if (el.isBarcode) {
             const barcodeText = config.barcode || config.sku || config.code || '';
             if (!barcodeText) return null;
+            
+            if (config.category === 'identificacao') {
+                return (
+                    <div key={el.id} style={{ position: 'absolute', left: `${el.pos?.x ?? 50}%`, top: `${el.pos?.y ?? 60}%`, transform: 'translate(-50%, -50%)', width: 'auto', height: '60%', zIndex: 5, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <QRCodeCanvas text={uuid ? `${barcodeText}|${uuid}` : barcodeText} />
+                    </div>
+                );
+            }
+            
             return (
                 <div key={el.id} style={{ position: 'absolute', left: `${el.pos?.x ?? 50}%`, top: `${el.pos?.y ?? 85}%`, transform: 'translate(-50%, -50%)', width: '80%', zIndex: 5 }}>
                     <Barcode text={barcodeText} />
@@ -375,7 +410,7 @@ export const LabelItem: React.FC<LabelItemProps> = ({ config, image, index, scal
             );
         }
         return (
-            <div key={el.id} style={{ position: 'absolute', left: `${el.pos?.x ?? 50}%`, top: `${el.pos?.y ?? 50}%`, transform: 'translate(-50%, -50%)', width: `${el.width ?? 80}%`, fontSize: `${el.font ?? 10}px`, color: el.color || '#000000', fontWeight: el.bold ? 'bold' : 'normal', textAlign: (el.align as any) || 'center', backgroundColor: el.bgColor || 'transparent', display: 'flex', alignItems: getVAlignment(el.valign), justifyContent: getAlignment(el.align), lineHeight: 1.2, zIndex: 5, padding: '1px 2px', wordBreak: 'break-word', whiteSpace: 'pre-wrap', textDecoration: el.id === 'oldPrice' ? 'line-through' : 'none' }}>{el.text}</div>
+            <div key={el.id} style={{ position: 'absolute', left: `${el.pos?.x ?? 50}%`, top: `${el.pos?.y ?? 20}%`, transform: 'translate(-50%, -50%)', width: `${el.width ?? 90}%`, fontSize: `${el.font ?? 10}px`, color: el.color || '#000000', fontWeight: el.bold ? 'bold' : 'normal', textAlign: (el.align as any) || 'center', backgroundColor: el.bgColor || 'transparent', display: 'flex', alignItems: getVAlignment(el.valign), justifyContent: getAlignment(el.align), lineHeight: 1.2, zIndex: 5, padding: '1px 2px', wordBreak: 'break-word', whiteSpace: 'pre-wrap', textDecoration: el.id === 'oldPrice' ? 'line-through' : 'none' }}>{el.text}</div>
         );
     };
 
@@ -402,6 +437,23 @@ export const LabelItem: React.FC<LabelItemProps> = ({ config, image, index, scal
             <div className="label-item-container" style={labelStyle}>
                 {isAdvancedPriceMode && !isBlank && !hideContent ? (
                     <PriceLabelArtItem config={config} />
+                ) : config.category === 'identificacao' && !isBlank && !hideContent ? (
+                    <div style={{ display: 'flex', width: '100%', height: '100%', padding: '4mm', boxSizing: 'border-box', backgroundColor: 'white', alignItems: 'center' }}>
+                        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', paddingRight: '4mm', overflow: 'hidden' }}>
+                            <div style={{ fontSize: '12px', fontWeight: 'bold', color: 'black', lineHeight: 1.2, maxHeight: '3.6em', overflow: 'hidden', textOverflow: 'ellipsis', display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical' }}>
+                                {config.text || config.name || ''}
+                            </div>
+                            <div style={{ fontSize: '10px', color: '#64748b', fontWeight: 'bold', marginTop: '6px' }}>SKU</div>
+                            <div style={{ fontSize: '12px', color: 'black', fontWeight: 'bold' }}>
+                                {config.sku || config.barcode || config.code || ''}
+                            </div>
+                        </div>
+                        <div style={{ width: '36mm', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                            <div style={{ width: '30mm', height: '30mm', backgroundColor: 'white', padding: '2mm', boxSizing: 'border-box', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                <QRCodeCanvas text={uuid ? `${config.sku || config.barcode || config.code || ''}|${uuid}` : (config.sku || config.barcode || config.code || '')} />
+                            </div>
+                        </div>
+                    </div>
                 ) : (
                     !hasImage && !isLogoOnly && !hideContent && !isBlank && elements.map(renderModularElement)
                 )}

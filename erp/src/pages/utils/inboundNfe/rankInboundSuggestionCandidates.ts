@@ -1,1 +1,1 @@
-﻿export * from './services/rankInboundSuggestionCandidates';
+export * from './services/rankInboundSuggestionCandidates';

@@ -43,6 +43,7 @@ export const InventoryReviewScreen: React.FC<Props> = ({
     const adjustmentsCount = itemsWithDifferences.length;
 
     const handleConfirm = () => {
+        console.log('UI LOG: handleConfirm called! countedItems:', countedItems.length);
         if (countedItems.length === 0) return;
         onConfirm(reconciledItems);
     };

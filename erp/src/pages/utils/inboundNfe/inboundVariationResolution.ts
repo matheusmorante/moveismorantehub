@@ -1,1 +1,1 @@
-﻿export * from './services/inboundVariationResolution';
+export * from './services/inboundVariationResolution';

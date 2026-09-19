@@ -3,15 +3,22 @@ import * as stockService from '../../../services/stockService';
 
 export const useSuppliers = () => {
     const [suppliers, setSuppliers] = useState<any[]>([]);
+    const [productCounts, setProductCounts] = useState<Record<string, number>>({});
     const [loading, setLoading] = useState(false);
     const [loadingMore, setLoadingMore] = useState(false);
     const [page, setPage] = useState(0);
     const [hasMore, setHasMore] = useState(true);
 
+    const loadProductCounts = async () => {
+        const counts = await stockService.fetchSupplierProductCounts();
+        setProductCounts(counts);
+    };
+
     const loadSuppliers = useCallback(async (isRefresh = false, pageNum = 0) => {
         if (isRefresh) {
             setPage(0);
             setHasMore(true);
+            void loadProductCounts();
         } else if (pageNum > 0) {
             setLoadingMore(true);
         } else {
@@ -22,11 +29,14 @@ export const useSuppliers = () => {
             const data = await stockService.fetchSuppliers(pageNum);
             
             const formattedData = (data || []).map((supplier: any) => ({
+                ...supplier,
                 id: supplier.id,
-                name: supplier.name || 'Fornecedor Desconhecido',
-                documentNumber: supplier.document_number || supplier.cnpj_cpf || '',
-                city: supplier.city || '',
-                state: supplier.state || '',
+                name: supplier.full_name || supplier.name || 'Fornecedor Desconhecido',
+                documentNumber: supplier.cpf_cnpj || supplier.document_number || '',
+                city: supplier.full_address?.city || supplier.city || '',
+                state: supplier.full_address?.state || supplier.state || '',
+                phone: supplier.phone || '',
+                email: supplier.email || '',
             }));
 
             if (isRefresh || pageNum === 0) {
@@ -59,5 +69,11 @@ export const useSuppliers = () => {
         void loadSuppliers(true, 0);
     }, [loadSuppliers]);
 
-    return { suppliers, loading, loadingMore, loadMore, reload: () => loadSuppliers(true, 0) };
+    const saveSupplier = async (supplierData: any) => {
+        const saved = await stockService.saveSupplier(supplierData);
+        void loadSuppliers(true, 0);
+        return saved;
+    };
+
+    return { suppliers, productCounts, loading, loadingMore, loadMore, reload: () => loadSuppliers(true, 0), saveSupplier };
 };

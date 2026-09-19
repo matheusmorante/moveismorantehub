@@ -10,7 +10,7 @@ interface MobileNavProps {
     setActiveMenu: (menu: MenuKey) => void;
 }
 
-const menuItems = [
+const menuItems: any[] = [
     {
         key: 'products' as MenuKey,
         label: 'Produtos',
@@ -23,7 +23,6 @@ const menuItems = [
             { to: '/registrations/product-categories', icon: 'bi-tag-fill', iconColor: 'text-teal-500', label: 'Ambientes e Categorias' },
             { to: '/products/compositions', icon: 'bi-diagram-3-fill', iconColor: 'text-amber-500', label: 'Composições' },
             { to: '/products/reconciliation/suppliers', icon: 'bi-magic', iconColor: 'text-purple-500', label: 'Conciliação' },
-            { to: '/estoque/etiquetas?category=precos', icon: 'bi-tag-fill', iconColor: 'text-emerald-500', label: 'Etiqueta de Preço' },
         ]
     },
     {
@@ -33,12 +32,17 @@ const menuItems = [
         color: 'text-emerald-500',
         bg: 'bg-emerald-50 dark:bg-emerald-900/20',
         links: [
-            { to: '/estoque/movimentacoes', icon: 'bi-arrow-left-right', iconColor: 'text-emerald-500', label: 'Movimentações' },
-            { to: '/estoque/inventarios', icon: 'bi-journal-check', iconColor: 'text-emerald-600', label: 'Inventário' },
-            { to: '/estoque/recebimentos', icon: 'bi-clipboard-check', iconColor: 'text-emerald-500', label: 'Recebimentos de Mercadorias' },
-            { to: '/estoque/pedidos-compra', icon: 'bi-cart-fill', iconColor: 'text-blue-500', label: 'Pedidos de Compra' },
-            { to: '/estoque/notas-fiscais-entrada', icon: 'bi-receipt-cutoff', iconColor: 'text-indigo-500', label: 'Notas Fiscais de Entrada' },
-            { to: '/estoque/fornecedores', icon: 'bi-truck', iconColor: 'text-amber-500', label: 'Fornecedores' },
+            { type: 'header', label: 'OPERAÇÃO' },
+            { type: 'link', to: '/estoque/movimentacoes', icon: 'bi-arrow-left-right', iconColor: 'text-emerald-500', label: 'Movimentações' },
+            { type: 'link', to: '/estoque/inventarios', icon: 'bi-journal-check', iconColor: 'text-emerald-600', label: 'Inventário' },
+            { type: 'link', to: '/estoque/recebimentos', icon: 'bi-clipboard-check', iconColor: 'text-emerald-500', label: 'Recebimentos de Mercadorias', shortLabel: 'Recebimentos' },
+            { type: 'header', label: 'COMPRAS' },
+            { type: 'link', to: '/estoque/pedidos-compra', icon: 'bi-cart-fill', iconColor: 'text-blue-500', label: 'Pedidos de Compra' },
+            { type: 'link', to: '/estoque/notas-fiscais-entrada', icon: 'bi-receipt-cutoff', iconColor: 'text-indigo-500', label: 'Notas Fiscais de Entrada', shortLabel: 'Notas Fiscais' },
+            { type: 'link', to: '/estoque/fornecedores', icon: 'bi-truck', iconColor: 'text-amber-500', label: 'Fornecedores' },
+            { type: 'header', label: 'IMPRESSÃO DE ETIQUETAS' },
+            { type: 'link', to: '/estoque/etiquetas?category=identificacao', icon: 'bi-upc-scan', iconColor: 'text-purple-500', label: 'Etiquetas de Identificação', shortLabel: 'Identificação' },
+            { type: 'link', to: '/estoque/etiquetas?category=precos', icon: 'bi-tag-fill', iconColor: 'text-emerald-500', label: 'Etiquetas de Preço', shortLabel: 'Preço' },
         ]
     },
     {
@@ -164,7 +168,7 @@ const MobileNav = ({ isOpen, onClose, activeMenu, setActiveMenu }: MobileNavProp
                     {menuItems.map((item) => {
                         const isActive = activeMenu === item.key;
                         return (
-                            <div key={item.key} className="overflow-hidden">
+                            <div key={item.key} className="overflow-hidden border-b border-slate-100 dark:border-slate-800/50 last:border-b-0">
                                 {/* Cabeçalho da Seção */}
                                 <button
                                     onClick={() => toggle(item.key)}
@@ -190,17 +194,24 @@ const MobileNav = ({ isOpen, onClose, activeMenu, setActiveMenu }: MobileNavProp
 
                                 {/* Sub-links expandíveis */}
                                 {isActive && (
-                                    <div className="flex flex-col gap-0.5 pt-1 pb-2 px-2">
-                                        {item.links.map((link) => (
-                                            <button
-                                                key={link.to}
-                                                onClick={() => handleLink(link.to)}
-                                                className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800/50 hover:text-slate-900 dark:hover:text-slate-100 transition-all text-sm font-semibold text-left"
-                                            >
-                                                <i className={`bi ${link.icon} text-base ${link.iconColor}`}></i>
-                                                {link.label}
-                                                <i className="bi bi-arrow-right-short ml-auto text-slate-300 dark:text-slate-600 text-lg"></i>
-                                            </button>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-1 pt-2 pb-4 px-2">
+                                        {item.links.map((link: any, idx: number) => (
+                                            link.type === 'header' ? (
+                                                <div key={`header-${idx}`} className="md:col-span-2 px-4 pt-4 pb-1 text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">
+                                                    {link.label}
+                                                </div>
+                                            ) : (
+                                                <button
+                                                    key={link.to}
+                                                    onClick={() => handleLink(link.to as string)}
+                                                    className="w-full flex items-center gap-3 px-4 py-2.5 max-[480px]:px-3 max-[480px]:py-2 rounded-xl text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800/50 hover:text-slate-900 dark:hover:text-slate-100 transition-all text-sm font-semibold text-left"
+                                                >
+                                                    <i className={`bi ${link.icon} text-base ${link.iconColor}`}></i>
+                                                    <span className={link.shortLabel ? 'max-[480px]:hidden' : ''}>{link.label}</span>
+                                                    {link.shortLabel && <span className="hidden max-[480px]:inline">{link.shortLabel}</span>}
+                                                    <i className="bi bi-chevron-right ml-auto text-slate-300 dark:text-slate-600 text-[10px] opacity-50"></i>
+                                                </button>
+                                            )
                                         ))}
                                     </div>
                                 )}

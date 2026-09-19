@@ -16,10 +16,15 @@ export interface Invoice {
 export interface InventorySession {
     id: string;
     name?: string;
+    inventoryCode?: string;
+    responsibleName?: string;
     status: 'in_progress' | 'completed' | 'pending';
     created_at: string;
     updated_at: string;
-    items_count?: number;
+    items_count?: number; // Keep for backward compatibility if needed, but we prefer productsCount
+    productsCount?: number;
+    adjustmentsCount?: number;
+    reversedCount?: number;
 }
 
 export interface StockMove {

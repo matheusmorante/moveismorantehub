@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import type { Product } from '@/pages/types/product.type';
 import type { Person } from '../../../../types/person.type';
 import DropdownPortal from '@/components/shared/DropdownPortal';
-import PersonFormModal from '../../../Registrations/shared/PersonFormModal';
+import PersonFormModal from '../../../Registrations/shared/modals/PersonFormModal';
 
 interface ProductSupplierFieldProps {
     readonly formData: Partial<Product>;

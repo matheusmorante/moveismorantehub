@@ -1,1 +1,1 @@
-﻿export * from './utils/fastNfeKeyExtractor';
+export * from './utils/fastNfeKeyExtractor';

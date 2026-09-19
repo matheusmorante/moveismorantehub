@@ -1,1 +1,1 @@
-﻿export * from './services/productResolutionFeedbackService';
+export * from './services/productResolutionFeedbackService';

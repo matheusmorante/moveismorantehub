@@ -153,6 +153,7 @@ export const DEFAULT_LAYOUT_MODELS: GridModel[] = [
     { id: '2x2_std', name: '4 Etiquetas (2x2)', columns: 2, rows: 2, marginT: 10, marginB: 10, marginL: 10, marginR: 10, gapH: 10, gapV: 10, icon: 'bi-grid-fill', paperSize: 'A4', category: 'identificacao', type: 'rect' },
     { id: '2x3_std', name: '6 Etiquetas (2x3)', columns: 2, rows: 3, marginT: 10, marginB: 10, marginL: 10, marginR: 10, gapH: 5, gapV: 5, icon: 'bi-grid-1x2', paperSize: 'A4', category: 'identificacao', type: 'rect' },
     { id: '3x3_std', name: '9 Etiquetas (3x3)', columns: 3, rows: 3, marginT: 10, marginB: 10, marginL: 10, marginR: 10, gapH: 5, gapV: 5, icon: 'bi-grid-3x3', paperSize: 'A4', category: 'identificacao', type: 'rect' },
+    { id: 'ident_2x5', name: '10 Etiquetas (2x5)', columns: 2, rows: 5, marginT: 8.5, marginB: 8.5, marginL: 4, marginR: 4, gapH: 2.5, gapV: 0, icon: 'bi-grid-1x2-fill', paperSize: 'A4', category: 'identificacao', type: 'rect' },
     
     // Preços (Gôndola) - Modelo Padrão 2x5
     { 

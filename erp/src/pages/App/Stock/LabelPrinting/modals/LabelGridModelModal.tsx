@@ -4,7 +4,7 @@ import { toast } from 'react-toastify';
 const BOOTSTRAP_ICONS_URL = "https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css";
 const GOOGLE_FONTS_URL = "https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&family=Montserrat:wght@400;700;900&family=Oswald:wght@400;700&family=Roboto:wght@400;700;900&family=Playfair+Display:wght@400;700;900&family=Bebas+Neue&family=Libre+Barcode+128&display=swap";
 
-import type { GridModel as BaseGridModel } from '../gridModel/LabelGridModelTypes';
+import type { GridModel as BaseGridModel } from '../types/LabelGridModelTypes';
 
 
 // Este modal mantém campos adicionais de composição usados pelos modelos legados.

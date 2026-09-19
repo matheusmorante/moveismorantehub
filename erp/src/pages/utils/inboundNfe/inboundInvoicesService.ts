@@ -1,1 +1,1 @@
-﻿export * from './services/inboundInvoicesService';
+export * from './services/inboundInvoicesService';

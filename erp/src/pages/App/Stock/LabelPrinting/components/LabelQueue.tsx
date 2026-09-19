@@ -72,12 +72,14 @@ const LabelQueue: React.FC<LabelQueueProps> = ({
 
     if (labelItems.length === 0) {
         return (
-            <div className="py-12 flex flex-col items-center justify-center text-slate-300">
-                <i className="bi bi-arrow-up-circle text-4xl mb-4 opacity-10" />
-                <p className="text-[10px] font-black uppercase tracking-widest opacity-40">
-                    Sua fila está vazia
+            <div className="py-8 flex flex-col items-center justify-center text-slate-400 dark:text-slate-500">
+                <i className="bi bi-tags text-4xl mb-4 opacity-50" />
+                <p className="text-xs font-black uppercase tracking-widest text-center">
+                    Nenhuma etiqueta adicionada
                 </p>
-                <p className="text-[8px] font-bold uppercase tracking-tighter opacity-30 mt-1">Adicione itens para começar a imprimir</p>
+                <p className="text-[10px] font-bold text-center mt-2 max-w-[200px] leading-relaxed opacity-80">
+                    Busque um produto acima para começar a montar a impressão.
+                </p>
             </div>
         );
     }
@@ -108,7 +110,7 @@ const LabelQueue: React.FC<LabelQueueProps> = ({
                     )}
                     
                     {/* Miniatura Interativa */}
-                    {(selectedCategory !== 'precos' || printingMode === 'simple') && (
+                    {selectedCategory !== 'identificacao' && (selectedCategory !== 'precos' || printingMode === 'simple') && (
                         <div className="flex flex-col gap-2 items-center">
                             <div className="relative w-16 h-16 shrink-0 rounded-[1.25rem] bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 flex items-center justify-center overflow-hidden p-1.5 group/thumb shadow-inner">
                                 {item.isBlank ? (
@@ -181,189 +183,117 @@ const LabelQueue: React.FC<LabelQueueProps> = ({
                         </div>
                     )}
 
-                    <div className="flex-1 flex flex-col gap-4 min-w-0">
-                        {/* Layout compacto para etiquetas de preço no modo avançado */}
-                        {selectedCategory === 'precos' && printingMode === 'advanced' && !item.isBlank && (
-                            <div className="flex items-center gap-3">
-                                {/* Título editável */}
-                                <div className="flex-1 min-w-0">
-                                    <input 
-                                        type="text"
-                                        value={item.name || ''}
-                                        onChange={e => updateItem(idx, { name: e.target.value })}
-                                        placeholder="Título na etiqueta..."
-                                        className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-2 text-[11px] font-black uppercase outline-none focus:border-blue-500 transition-all text-slate-800 dark:text-slate-100"
-                                    />
-                                </div>
-
-                                {/* Visibilidade do título somente desta etiqueta */}
-                                <button
-                                    type="button"
-                                    onClick={() => updateItem(idx, { showName: item.showName === false })}
-                                    aria-pressed={item.showName !== false}
-                                    title={item.showName === false ? 'Mostrar título na etiqueta' : 'Ocultar título na etiqueta'}
-                                    className={`h-8 px-2 rounded-lg border text-[9px] font-black uppercase transition-all shrink-0 ${
-                                        item.showName === false
-                                            ? 'bg-slate-100 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-500'
-                                            : 'bg-blue-50 dark:bg-blue-950/40 border-blue-200 dark:border-blue-800 text-blue-600 dark:text-blue-300'
-                                    }`}
-                                >
-                                    <i className={`bi ${item.showName === false ? 'bi-eye-slash' : 'bi-eye'} mr-1`} />
-                                    {item.showName === false ? 'Título oculto' : 'Ocultar título'}
-                                </button>
-
-                                {/* Quantidade compacta */}
-                                <div className="flex items-center gap-1 bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-xl px-2 py-1.5 shrink-0">
-                                    <button onClick={() => updateItem(idx, { quantity: Math.max(1, (item.quantity || 1) - 1) })} className="text-slate-400 hover:text-blue-500"><i className="bi bi-dash" /></button>
+                    <div className="flex-1 flex flex-col gap-3 min-w-0">
+                        {/* CABEÇALHO DO ITEM (Produto / SKU) e AÇÕES (Qtd / Lixeira) */}
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                            {/* Nome e SKU */}
+                            <div className="min-w-0 flex-1">
+                                {item.isBlank ? (
+                                    <>
+                                        <label className="text-[8px] font-black uppercase text-slate-400 mb-0.5 block tracking-widest">
+                                            Espaçador
+                                        </label>
+                                        <h4 className="text-[11px] font-black text-slate-800 dark:text-white uppercase truncate tracking-tighter">
+                                            Etiqueta Em Branco
+                                        </h4>
+                                    </>
+                                ) : (
+                                    <>
+                                        <h4 className="text-xs font-black text-slate-800 dark:text-slate-100 uppercase truncate" title={item.name || 'Produto sem nome'}>
+                                            {item.name || 'Produto sem nome'}
+                                        </h4>
+                                        <div className="flex items-center gap-2 mt-1">
+                                            {(item.sku || item.code) && (
+                                                <div className="flex items-center gap-1.5">
+                                                    <span className="text-[8px] font-black uppercase tracking-widest text-slate-400">SKU</span>
+                                                    <span className="text-[10px] text-slate-600 dark:text-slate-300 font-bold truncate uppercase tracking-wide bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded">
+                                                        {item.sku || item.code}
+                                                    </span>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </>
+                                )}
+                            </div>
+                            
+                            {/* Quantidade e Lixeira */}
+                            <div className="flex items-center gap-2 shrink-0 self-end sm:self-auto">
+                                <div className="flex items-center gap-1 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg px-1.5 py-1 shrink-0">
+                                    <span className="text-[9px] font-black text-slate-400 mr-1 uppercase hidden md:inline">Qtd</span>
+                                    <button onClick={() => updateItem(idx, { quantity: Math.max(1, (item.quantity || 1) - 1) })} className="text-slate-500 hover:text-blue-500 w-5 h-5 flex items-center justify-center bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded shadow-sm"><i className="bi bi-dash" /></button>
                                     <input 
                                         type="number" 
                                         value={item.quantity || 1}
                                         onChange={e => updateItem(idx, { quantity: Math.max(1, parseInt(e.target.value) || 1) })}
-                                        className="w-10 bg-transparent text-center text-[10px] font-black outline-none"
+                                        className="w-8 bg-transparent text-center text-xs font-black outline-none text-slate-700 dark:text-slate-200"
                                     />
-                                    <button onClick={() => updateItem(idx, { quantity: (item.quantity || 1) + 1 })} className="text-slate-400 hover:text-blue-500"><i className="bi bi-plus" /></button>
+                                    <button onClick={() => updateItem(idx, { quantity: (item.quantity || 1) + 1 })} className="text-slate-500 hover:text-blue-500 w-5 h-5 flex items-center justify-center bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded shadow-sm"><i className="bi bi-plus" /></button>
                                 </div>
 
-                                {/* Botão excluir */}
                                 <button 
                                     onClick={() => removeItem(idx)}
-                                    className="w-8 h-8 rounded-full bg-slate-50 dark:bg-slate-800 text-slate-400 hover:bg-red-500 hover:text-white transition-all flex items-center justify-center border border-slate-100 dark:border-slate-700 shrink-0"
+                                    className="w-8 h-8 rounded-lg bg-white dark:bg-slate-900 text-slate-400 hover:bg-red-50 hover:text-red-500 hover:border-red-200 transition-all flex items-center justify-center border border-slate-200 dark:border-slate-800 shrink-0 shadow-sm"
+                                    title="Remover item"
                                 >
-                                    <i className="bi bi-trash3" />
+                                    <i className="bi bi-trash3-fill text-sm" />
                                 </button>
                             </div>
-                        )}
+                        </div>
 
-                        {/* Layout para modo por imagem ou outras categorias */}
-                        {(selectedCategory !== 'precos' || printingMode === 'simple' || item.isBlank) && (
-                            <>
-                                {/* Header do Item */}
-                                <div className="flex items-center justify-between">
-                                    <div className="min-w-0">
-                                        <label className="text-[8px] font-black uppercase text-blue-500 mb-0.5 block tracking-widest">
-                                            {item.isBlank ? 'Espaçador em Branco' : `Item #${idx + 1}`}
-                                        </label>
-                                        <h4 className="text-[11px] font-black text-slate-800 dark:text-white uppercase truncate tracking-tighter">
-                                            {item.isBlank ? 'Etiqueta Em Branco (Vazia)' : (item.name || 'Etiqueta Personalizada')}
-                                        </h4>
-                                    </div>
-                                    <button 
-                                        onClick={() => removeItem(idx)}
-                                        className="w-8 h-8 rounded-full bg-slate-50 dark:bg-slate-800 text-slate-400 hover:bg-red-500 hover:text-white transition-all flex items-center justify-center border border-slate-100 dark:border-slate-700"
-                                    >
-                                        <i className="bi bi-trash3" />
-                                    </button>
-                                </div>
-
-                                {/* Grade de Controles */}
-                                <div className={`grid grid-cols-1 ${item.isBlank ? 'sm:grid-cols-1' : 'sm:grid-cols-2'} gap-2 max-w-[380px]`}>
-                                    {/* Quantidade */}
-                                    <div>
-                                        <label className="text-[8px] font-black uppercase tracking-widest text-slate-400 mb-1 block px-1">QTD</label>
-                                        <div className="flex items-center gap-1.5 bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-xl px-1.5 py-1 group-focus-within:border-blue-500/30 transition-all">
-                                            <button onClick={() => updateItem(idx, { quantity: Math.max(1, (item.quantity || 1) - 1) })} className="text-slate-400 hover:text-blue-500"><i className="bi bi-dash" /></button>
-                                            <input 
-                                                type="number" 
-                                                value={item.quantity || 1}
-                                                onChange={e => updateItem(idx, { quantity: Math.max(1, parseInt(e.target.value) || 1) })}
-                                                className="w-full bg-transparent text-center text-[10px] font-black outline-none"
-                                            />
-                                            <button onClick={() => updateItem(idx, { quantity: (item.quantity || 1) + 1 })} className="text-slate-400 hover:text-blue-500"><i className="bi bi-plus" /></button>
-                                        </div>
-                                    </div>
-
-                                    {!item.isBlank && (
-                                        <div>
-                                            <label className="text-[8px] font-black uppercase tracking-widest text-slate-400 mb-1 block px-1">Escala (%)</label>
-                                            <div className="flex items-center gap-1.5 bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-xl px-1.5 py-1">
-                                                <button 
-                                                    onClick={() => updateItem(idx, { scale: Math.max(0.1, parseFloat(((item.scale || 1) - 0.05).toFixed(2))) })}
-                                                    className="w-5 h-5 rounded-md bg-white dark:bg-slate-900 shadow-sm flex items-center justify-center text-slate-400 hover:text-blue-500 transition-all"
-                                                >
-                                                    <i className="bi bi-dash text-xs" />
-                                                </button>
-                                                <input 
-                                                    type="number" step="5" min="10" max="2000"
-                                                    value={Math.round((item.scale || 1) * 100)}
-                                                    onChange={e => updateItem(idx, { scale: Math.max(0.1, Math.min(20, (parseFloat(e.target.value) || 100) / 100)) })}
-                                                    className="w-full bg-transparent text-[10px] font-black outline-none text-center"
-                                                />
-                                                <span className="text-[9px] font-black text-slate-400">%</span>
-                                                <button 
-                                                    onClick={() => updateItem(idx, { scale: Math.min(20, parseFloat(((item.scale || 1) + 0.05).toFixed(2))) })}
-                                                    className="w-5 h-5 rounded-md bg-white dark:bg-slate-900 shadow-sm flex items-center justify-center text-slate-400 hover:text-blue-500 transition-all"
-                                                >
-                                                    <i className="bi bi-plus text-xs" />
-                                                </button>
-                                            </div>
-                                        </div>
-                                    )}
-                                </div>
-
-                                {/* Opções de Design Avançado (Título, Preço e Preço Promocional) */}
-                                {printingMode === 'advanced' && !item.isBlank && (
-                                    <div className="space-y-3 pt-3 border-t border-slate-100 dark:border-slate-800">
-                                        <div>
-                                            <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1 block">
-                                                Título na Etiqueta
-                                            </label>
-                                            <input 
-                                                type="text"
-                                                value={item.name || ''}
-                                                onChange={e => updateItem(idx, { name: e.target.value })}
-                                                placeholder="Ex: Guarda-Roupa Casal..."
-                                                className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-1.5 text-[11px] font-black uppercase outline-none focus:border-blue-500 transition-all text-slate-800 dark:text-slate-100"
-                                            />
-                                        </div>
-
-                                        {selectedCategory !== 'precos' && (
-                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                                <div>
-                                                    <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1 block">
-                                                        Preço de Venda
-                                                    </label>
-                                                    <input 
-                                                        type="text"
-                                                        value={item.price || ''}
-                                                        onChange={e => updateItem(idx, { price: e.target.value })}
-                                                        placeholder="R$ 0,00"
-                                                        className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-1.5 text-[11px] font-black outline-none focus:border-blue-500 transition-all text-emerald-600 dark:text-emerald-400"
-                                                    />
-                                                </div>
-
-                                                <div>
-                                                    <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1 block">
-                                                        Preço Promocional
-                                                    </label>
-                                                    <input 
-                                                        type="text"
-                                                        value={item.promoPrice || ''}
-                                                        onChange={e => updateItem(idx, { promoPrice: e.target.value })}
-                                                        placeholder="R$ 0,00 (opcional)"
-                                                        className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-1.5 text-[11px] font-black outline-none focus:border-blue-500 transition-all text-blue-600 dark:text-blue-400"
-                                                    />
-                                                </div>
-                                            </div>
-                                        )}
-                                    </div>
-                                )}
-                            </>
-                        )}
-
-                        {/* Campos Dinâmicos (SKU, Lote, etc) */}
-                        {!item.isBlank && item.extraFields && item.extraFields.length > 0 && (
-                            <div className="flex flex-wrap gap-2 pt-2">
-                                {item.extraFields?.map((f: any) => (
-                                    <div key={f.id} className="min-w-[100px] flex-1">
+                        {/* CONFIGURAÇÕES AVANÇADAS (Se ativo) */}
+                        {printingMode === 'advanced' && selectedCategory === 'precos' && !item.isBlank && (
+                            <div className="space-y-3 pt-3 border-t border-slate-100 dark:border-slate-800 mt-1">
+                                <div className="flex items-center gap-2">
+                                    <div className="flex-1">
                                         <input 
-                                            type="text" 
-                                            value={f.text || ''} 
-                                            placeholder={f.id.toUpperCase()}
-                                            onChange={e => updateExtraField(idx, f.id, e.target.value)}
-                                            className="w-full bg-slate-50/50 dark:bg-slate-950/30 border border-slate-100 dark:border-slate-800 rounded-lg px-3 py-1.5 text-[9px] font-black text-slate-600 dark:text-slate-400 outline-none focus:border-blue-500/30 transition-all placeholder:font-bold placeholder:opacity-30" 
+                                            type="text"
+                                            value={item.name || ''}
+                                            onChange={e => updateItem(idx, { name: e.target.value })}
+                                            placeholder="Título na etiqueta..."
+                                            className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg px-2.5 py-1.5 text-[10px] font-black uppercase outline-none focus:border-blue-500 transition-all text-slate-800 dark:text-slate-100"
                                         />
                                     </div>
-                                ))}
+                                    <button
+                                        type="button"
+                                        onClick={() => updateItem(idx, { showName: item.showName === false })}
+                                        className={`h-7 px-2 rounded-lg border text-[9px] font-black uppercase transition-all shrink-0 flex items-center ${
+                                            item.showName === false
+                                                ? 'bg-slate-100 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-500'
+                                                : 'bg-blue-50 dark:bg-blue-950/40 border-blue-200 dark:border-blue-800 text-blue-600 dark:text-blue-300'
+                                        }`}
+                                    >
+                                        <i className={`bi ${item.showName === false ? 'bi-eye-slash' : 'bi-eye'} mr-1`} />
+                                        {item.showName === false ? 'Oculto' : 'Visível'}
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+                        
+                        {/* OPÇÕES DE LOGO / IMAGEM LIVRE (Zoom) */}
+                        {(selectedCategory === 'logos' || (selectedCategory === 'precos' && printingMode === 'simple')) && !item.isBlank && (
+                            <div className="pt-2 border-t border-slate-100 dark:border-slate-800 mt-1">
+                                <div className="flex items-center gap-2 w-max bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-lg px-1.5 py-1">
+                                    <span className="text-[8px] font-black uppercase tracking-widest text-slate-400 mr-1 hidden md:inline">Escala</span>
+                                    <button 
+                                        onClick={() => updateItem(idx, { scale: Math.max(0.1, parseFloat(((item.scale || 1) - 0.05).toFixed(2))) })}
+                                        className="w-5 h-5 rounded bg-white dark:bg-slate-900 border border-slate-200 shadow-sm flex items-center justify-center text-slate-500 hover:text-blue-500"
+                                    >
+                                        <i className="bi bi-dash text-xs" />
+                                    </button>
+                                    <input 
+                                        type="number" step="5" min="10" max="2000"
+                                        value={Math.round((item.scale || 1) * 100)}
+                                        onChange={e => updateItem(idx, { scale: Math.max(0.1, Math.min(20, (parseFloat(e.target.value) || 100) / 100)) })}
+                                        className="w-10 bg-transparent text-[10px] font-black outline-none text-center"
+                                    />
+                                    <span className="text-[9px] font-black text-slate-400">%</span>
+                                    <button 
+                                        onClick={() => updateItem(idx, { scale: Math.min(20, parseFloat(((item.scale || 1) + 0.05).toFixed(2))) })}
+                                        className="w-5 h-5 rounded bg-white dark:bg-slate-900 border border-slate-200 shadow-sm flex items-center justify-center text-slate-500 hover:text-blue-500"
+                                    >
+                                        <i className="bi bi-plus text-xs" />
+                                    </button>
+                                </div>
                             </div>
                         )}
                     </div>

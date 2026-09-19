@@ -1,1 +1,1 @@
-﻿export * from './services/inboundItemProductResolver';
+export * from './services/inboundItemProductResolver';

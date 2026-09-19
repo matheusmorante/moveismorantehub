@@ -5,7 +5,7 @@ import SalesOrderFormSection from '../SalesOrderFormSection';
 import OrderStepper from '../OrderStepper';
 import { toast } from "react-toastify";
 import SellerSearchModal from '../SellerSearchModal';
-import PersonFormModal from '@/pages/App/Registrations/shared/PersonFormModal';
+import PersonFormModal from '@/pages/App/Registrations/shared/modals/PersonFormModal';
 import { useSearchParams } from "react-router-dom";
 
 type NewSaleOrderProps = {

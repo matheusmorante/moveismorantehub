@@ -1,1 +1,1 @@
-﻿export * from './utils/inboundXmlParser';
+export * from './utils/inboundXmlParser';

@@ -72,6 +72,7 @@ Use esta skill antes de alterar comportamentos de domínio referentes a vendas, 
 - **Produtos Simples**: Um produto cadastrado sem atributos específicos (produto simples) é conceitualmente e operacionalmente a sua própria variação principal única (1 produto = 1 variação).
 - **Produtos com Atributos**: Produtos com atributos (ex: cor, tecido, tamanho) possuem múltiplas variações filhas registradas na tabela `product_variations`.
 - **Invariante de Domínio**: Não existe o conceito de produto sem variação no sistema. Todo cadastro de produto representa pelo menos uma variação vendável.
+- **Nomeação de Variações na Etiquetação e UI**: A variação já é formada começando com o nome do pai nela. Portanto, o nome da variação já contém o nome do produto pai por definição. Ao exibir o nome da variação em etiquetas de identificação, preços ou interfaces, **nunca** concatene ou adicione o nome do pai como prefixo (ex: evitar `Nome do Pai - Nome da Variação`), pois isso gera redundância. Utilize apenas o nome da variação.
 
 ---
 

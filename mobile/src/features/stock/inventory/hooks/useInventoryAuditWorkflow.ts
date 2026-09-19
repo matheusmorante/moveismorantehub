@@ -1,6 +1,7 @@
 import { useState, useCallback, useRef } from 'react';
+import { getNextInventoryCode, saveInventoryMove, updateInventoryMove } from '../../../../services/stockService';
 import { supabase } from '../../../../services/supabaseClient';
-import { Alert } from 'react-native';
+import { Alert, Platform } from 'react-native';
 import type { ScopeConfiguration } from './useInventoryScopeBuilder';
 
 export interface AuditItem {
@@ -17,7 +18,7 @@ export interface AuditItem {
 }
 
 export const useInventoryAuditWorkflow = (
-    userProfile: { id: string; full_name?: string } | null,
+    userProfile: { id: string; full_name?: string; fullName?: string } | null,
     onClose: () => void
 ) => {
     const [view, setView] = useState<'scope' | 'operation' | 'review'>('scope');
@@ -53,22 +54,24 @@ export const useInventoryAuditWorkflow = (
         });
 
         
-        draftRef.current.code = `${Date.now()}`;
+        const code = await getNextInventoryCode();
+        draftRef.current.code = code;
         draftRef.current.date = new Date().toISOString();
         
         setView('operation');
     };
 
     const handleFinalize = async (itemsWithAdjustment: Array<AuditItem & { reconciledExpected: number, difference: number }>) => {
+        console.log('UI LOG: handleFinalize called!');
         if (!scopeConfig || !userProfile) {
-            Alert.alert('Atenção', 'Sessão ou usuário inválidos.');
+            Alert.alert('Atenção', 'Sessão ou usuário inválidos.', [{ text: 'OK', onPress: onClose }]);
             return;
         }
 
         setIsSaving(true);
         try {
             const auditId = draftRef.current.id || Math.random().toString(36).slice(2);
-            const code = draftRef.current.code || `${Date.now()}`;
+            const code = draftRef.current.code || await getNextInventoryCode();
             const completionDate = new Date().toISOString();
             
             const auditObservation = JSON.stringify({
@@ -79,20 +82,21 @@ export const useInventoryAuditWorkflow = (
                 blindCount: scopeConfig.blindCount,
                 hasStages: scopeConfig.hasStages,
                 responsibleId: scopeConfig.responsibleId,
-                responsibleName: userProfile.full_name || 'Usuário Logado',
+                responsibleName: userProfile.fullName || userProfile.full_name || userProfile.name || (userProfile.email ? userProfile.email.split('@')[0] : 'Usuário Desconhecido'),
                 items: items.map(({ productId, variationId, name, systemStock, physicalCount, assignedSupplier }) => ({ productId, variationId, name, systemStock, physicalCount, assignedSupplier })),
             });
 
             // Insere o Marker inicial que representa a conclusão
-            await supabase.from('inventory_moves').insert({
+            console.log('UI LOG: Inserting marker...');
+            const markerRes = await supabase.from('inventory_moves').insert({
                 product_id: items[0]?.productId,
                 type: 'adjustment',
                 quantity: 0,
                 date: completionDate,
                 label: `Inventário #${code}`,
                 observation: auditObservation,
-                related_entity_id: auditId,
             });
+            if (markerRes.error) throw markerRes.error;
 
             // Lança os ajustes individuais
             const movesToInsert = itemsWithAdjustment.map(item => ({
@@ -107,21 +111,32 @@ export const useInventoryAuditWorkflow = (
                     targetStock: item.physicalCount, 
                     source: 'inventory_audit' 
                 }),
-                related_entity_id: auditId,
             }));
 
             if (movesToInsert.length > 0) {
+                console.log('UI LOG: Inserting moves...', movesToInsert.length);
                 const { error } = await supabase.from('inventory_moves').insert(movesToInsert);
                 if (error) throw error;
             }
 
-            Alert.alert('Sucesso', `Inventário #${code} finalizado! ${items.length} produto(s) contados e ${itemsWithAdjustment.length} ajuste(s) lançados no estoque. ✨`, [
-                { text: 'OK', onPress: onClose }
-            ]);
+            console.log('UI LOG: Calling Alert.alert Success');
+            if (Platform.OS === 'web') {
+                // Em ambiente Web/E2E, o Alert.alert não possui suporte nativo confiável para disparar callbacks em todas as versões do react-native-web.
+                // Forçamos o fechamento.
+                Alert.alert('Sucesso', `Inventário #${code} finalizado!`);
+                onClose();
+            } else {
+                Alert.alert('Sucesso', `Inventário #${code} finalizado! ${items.length} produto(s) contados e ${itemsWithAdjustment.length} ajuste(s) lançados no estoque. ✨`, [
+                    { text: 'OK', onPress: onClose }
+                ]);
+            }
+            console.log('UI LOG: Alert.alert called');
         } catch (error: any) {
             console.error("Erro ao salvar inventário:", error);
-            Alert.alert('Erro', 'Não foi possível processar o inventário. Tente novamente.');
+            console.log('UI LOG: Calling Alert.alert Error');
+            Alert.alert('Erro', 'Não foi possível processar o inventário. Tente novamente.', [{ text: 'OK', onPress: onClose }]);
         } finally {
+            console.log('UI LOG: finally block');
             setIsSaving(false);
         }
     };

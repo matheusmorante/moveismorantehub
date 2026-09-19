@@ -24,6 +24,9 @@ export interface LabelItemConfig {
     productImages?: { image_url: string; is_main: boolean }[];
     parentImages?: { image_url: string; is_main: boolean }[];
     currentImageIndex?: number;
+    instances?: string[];
+    productId?: string;
+    variationId?: string;
 }
 
 export interface LogoItemConfig {
@@ -87,7 +90,8 @@ const LabelGrid: React.FC<Props> = ({
                 itemsToRender.push({ 
                     type: isLogos ? 'logo' : 'product', 
                     ...item, 
-                    originalIdx: itemIdx 
+                    originalIdx: itemIdx,
+                    uuid: item.instances && item.instances[i] ? item.instances[i] : '000XXX'
                 });
             }
         });
@@ -280,6 +284,7 @@ const LabelGrid: React.FC<Props> = ({
                                             scale={item.scale ?? config.imageScale}
                                             rotation={item.rotation || 0}
                                             hideBleedBorder={!previewMode}
+                                            uuid={item.uuid}
                                         />
                                     );
                                 })()

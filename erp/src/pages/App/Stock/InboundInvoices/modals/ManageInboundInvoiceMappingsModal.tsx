@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { toast } from 'react-toastify';
-import PersonFormModal from '@/pages/App/Registrations/shared/PersonFormModal';
+import PersonFormModal from '@/pages/App/Registrations/shared/modals/PersonFormModal';
 import { saveInboundInvoice } from '@/pages/utils/inboundNfe/inboundInvoicesService';
 import { parseInboundNfeXml } from '@/pages/utils/inboundNfe/inboundXmlParser';
 import { InboundInvoice, InboundInvoiceItem } from '@/pages/utils/inboundNfe/inboundNfeTypes';

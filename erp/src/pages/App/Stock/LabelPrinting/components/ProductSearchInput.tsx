@@ -4,8 +4,8 @@ import { supabase } from '@/pages/utils/supabaseConfig';
 import { processProductData } from '../utils/LabelUtils';
 import { getSelectedProductDisplayName } from '@/pages/utils/productVariationDefaults';
 
-const LABEL_PRODUCT_COLUMNS = 'id, title, name, description, code, sku, unit_price, cost_price, price, promo_price, stock, active, deleted_at, has_variations, variations, category_ids, category, unit, images';
-const LABEL_VARIATION_COLUMNS = `id, product_id, name, description, sku, price, unit_price, promo_price, stock, images, image_url, active,
+const LABEL_PRODUCT_COLUMNS = 'id, name, description, code, unit_price, cost_price, price, promo_price, stock, active, deleted_at, has_variations, category, unit, images, is_combo';
+const LABEL_VARIATION_COLUMNS = `id, product_id, name, description, sku, price, promo_price, stock, image_url, active,
     products(${LABEL_PRODUCT_COLUMNS})`;
 
 interface ProductSearchInputProps {
@@ -33,7 +33,7 @@ export const ProductSearchInput: React.FC<ProductSearchInputProps> = ({
     const getSafeSearchTerm = (value: string) => value.trim().replace(/[(),]/g, ' ').replace(/[%_]/g, '');
 
     const buildProductSearchFilter = (term: string) =>
-        `title.ilike.%${term}%,name.ilike.%${term}%,description.ilike.%${term}%,code.ilike.%${term}%,sku.ilike.%${term}%`;
+        `name.ilike.%${term}%,description.ilike.%${term}%,code.ilike.%${term}%`;
 
     const buildVariationSearchFilter = (term: string) =>
         `name.ilike.%${term}%,description.ilike.%${term}%,sku.ilike.%${term}%`;
@@ -119,12 +119,14 @@ export const ProductSearchInput: React.FC<ProductSearchInputProps> = ({
                     .from('products')
                     .select(LABEL_PRODUCT_COLUMNS)
                     .is('deleted_at', null)
+                    .or('is_combo.eq.false,is_combo.is.null')
                     .or(buildProductSearchFilter(term))
                     .limit(50);
 
                 const variationsQuery = supabase
                     .from('product_variations')
                     .select(LABEL_VARIATION_COLUMNS)
+                    .is('merged_to_variation_id', null)
                     .or(buildVariationSearchFilter(term))
                     .limit(50);
 
@@ -137,7 +139,9 @@ export const ProductSearchInput: React.FC<ProductSearchInputProps> = ({
                     console.error('Erro no Supabase ao buscar variações:', variationsResponse.error);
                 }
 
-                const productResults = processProductData(productsResponse.data || []);
+                // Extrai as variações filhas do produto pai e descarta o próprio pai caso ele tenha variações
+                const productResults = processProductData(productsResponse.data || [])
+                    .filter((p: any) => !p.isParent);
                 const variationResults = (variationsResponse.data || []).flatMap((variation: any) => {
                     const parent = variation.products;
                     if (!parent) return [];
@@ -185,9 +189,12 @@ export const ProductSearchInput: React.FC<ProductSearchInputProps> = ({
     const combinedProducts = React.useMemo(() => {
         const term = normalizeSearchText(filterText.trim());
         
+        if (term.length < 2) {
+            return [];
+        }
+
         // 1. Filtrar lista local por título, nome, código ou SKU
         const localFiltered = (products || []).filter(p => {
-            if (!term) return true;
             const pTitle = normalizeSearchText(getProductTitle(p));
             const pCode = normalizeSearchText(p.code);
             const pSku = normalizeSearchText(p.sku);
@@ -214,11 +221,13 @@ export const ProductSearchInput: React.FC<ProductSearchInputProps> = ({
     return (
         <div ref={containerRef} className={`relative flex-1 ${className}`}>
             <div className="flex items-center gap-3 w-full px-2 py-2 bg-transparent border-b-2 border-slate-200 dark:border-slate-800 focus-within:border-blue-500 transition-colors cursor-text min-w-[240px]">
-                {isLoading && (
-                    <span className="w-6 h-6 rounded-xl flex items-center justify-center shrink-0">
+                <span className="w-6 h-6 rounded-xl flex items-center justify-center shrink-0">
+                    {isLoading ? (
                         <i className="bi bi-arrow-repeat text-xs animate-spin text-blue-500" />
-                    </span>
-                )}
+                    ) : (
+                        <i className="bi bi-search text-xs text-slate-400" />
+                    )}
+                </span>
 
                 <div className="flex flex-col min-w-0 flex-1">
                     <input
@@ -230,7 +239,7 @@ export const ProductSearchInput: React.FC<ProductSearchInputProps> = ({
                         }}
                         onFocus={() => setIsOpen(true)}
                         placeholder={placeholder}
-                        className="bg-transparent border-0 p-0 focus:ring-0 text-xs font-black uppercase text-slate-800 dark:text-slate-100 placeholder:text-slate-400 outline-none w-full truncate"
+                        className="bg-transparent border-0 p-0 focus:ring-0 text-sm font-medium text-slate-800 dark:text-slate-100 placeholder:text-slate-400 outline-none w-full truncate"
                     />
                 </div>
 
@@ -257,7 +266,11 @@ export const ProductSearchInput: React.FC<ProductSearchInputProps> = ({
                     className="absolute top-[calc(100%+6px)] left-0 right-0 z-[1000] bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl overflow-y-auto custom-scrollbar p-1.5 animate-slide-up"
                     style={{ maxHeight: dropdownMaxHeight }}
                 >
-                    {isLoading && combinedProducts.length === 0 ? (
+                    {filterText.trim().length > 0 && filterText.trim().length < 2 ? (
+                        <div className="p-4 text-center">
+                            <span className="text-xs font-medium text-slate-400 block">Digite pelo menos 2 caracteres para buscar...</span>
+                        </div>
+                    ) : isLoading && combinedProducts.length === 0 ? (
                         <div className="p-4 text-center text-slate-400 text-xs font-bold flex items-center justify-center gap-2">
                             <i className="bi bi-arrow-repeat animate-spin text-sm text-blue-500" />
                             <span>Buscando produtos no banco de dados...</span>
@@ -285,24 +298,6 @@ export const ProductSearchInput: React.FC<ProductSearchInputProps> = ({
                                         }`}
                                     >
                                         <div className="flex items-center gap-3 min-w-0">
-                                            <div className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 overflow-hidden ${isSelected ? 'bg-blue-600 text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-500'}`}>
-                                                {(() => {
-                                                    // Tenta múltiplos campos de imagem - Supabase pode retornar images como array ou string JSON
-                                                    let imgArr = p.images;
-                                                    if (typeof imgArr === 'string') {
-                                                        try { imgArr = JSON.parse(imgArr); } catch { imgArr = undefined; }
-                                                    }
-                                                    const imgSrc = (Array.isArray(imgArr) && imgArr[0])
-                                                        || (p as any).image_url
-                                                        || (p as any).photo
-                                                        || (p as any).thumbnail;
-                                                    return imgSrc ? (
-                                                        <img src={imgSrc} alt="" className="w-full h-full object-cover rounded-xl" />
-                                                    ) : (
-                                                        <i className="bi bi-box-seam-fill text-xs" />
-                                                    );
-                                                })()}
-                                            </div>
                                             <div className="flex flex-col min-w-0">
                                                 <span className="text-xs font-black uppercase truncate">{title}</span>
                                                 <div className="flex items-center gap-2 text-[9px] font-bold text-slate-400 uppercase tracking-tight">

@@ -35,8 +35,9 @@ export const fetchSuppliers = async (page: number, searchQuery: string = '') => 
     
     let query = supabase
         .from('people')
-        .select('id, full_name, cpf_cnpj, full_address')
+        .select('*')
         .eq('person_type', 'suppliers')
+        .eq('deleted', false)
         .order('full_name', { ascending: true })
         .range(from, to);
         
@@ -54,6 +55,51 @@ export const fetchSuppliers = async (page: number, searchQuery: string = '') => 
         city: s.full_address?.city || s.full_address?.cidade || '',
         state: s.full_address?.state || s.full_address?.estado || '',
     }));
+};
+
+export const saveSupplier = async (supplier: any) => {
+    const { id, ...dataToSave } = supplier;
+    dataToSave.person_type = 'suppliers';
+    dataToSave.active = dataToSave.active !== undefined ? dataToSave.active : true;
+    
+    if (id) {
+        const { data, error } = await supabase
+            .from('people')
+            .update(dataToSave)
+            .eq('id', id)
+            .select()
+            .single();
+        if (error) throw error;
+        return data;
+    } else {
+        const { data, error } = await supabase
+            .from('people')
+            .insert(dataToSave)
+            .select()
+            .single();
+        if (error) throw error;
+        return data;
+    }
+};
+
+export const fetchSupplierProductCounts = async () => {
+    const { data, error } = await supabase
+        .from('products')
+        .select('id, supplier_id, main_supplier_id, supplier_ids')
+        .eq('deleted', false)
+        .eq('item_type', 'product');
+    
+    if (error) {
+        console.error('Não foi possível carregar os produtos dos fornecedores:', error);
+        return {};
+    }
+    
+    const counts: Record<string, number> = {};
+    (data || []).forEach((product) => {
+        const supplierIds = new Set([...(product.supplier_ids || []), product.main_supplier_id, product.supplier_id].filter(Boolean));
+        supplierIds.forEach((supplierId) => { counts[String(supplierId)] = (counts[String(supplierId)] || 0) + 1; });
+    });
+    return counts;
 };
 
 /**
@@ -133,7 +179,7 @@ export const fetchInventorySessions = async (page: number) => {
     const from = page * ITEMS_PER_PAGE;
     const to = from + ITEMS_PER_PAGE - 1;
     
-    const { data, error } = await supabase
+    const { data: markerMoves, error } = await supabase
         .from('inventory_moves')
         .select('*')
         .ilike('label', 'Inventário #%')
@@ -144,16 +190,111 @@ export const fetchInventorySessions = async (page: number) => {
         console.warn('Erro ao buscar auditorias de inventário:', error);
         return [];
     }
+
+    if (!markerMoves || markerMoves.length === 0) return [];
+
+    // Collect session codes from labels to fetch their adjustments
+    const sessionCodes = markerMoves
+        .map(m => {
+            try {
+                const data = JSON.parse(m.observation || '{}') as any;
+                if (data.inventoryCode) return data.inventoryCode;
+            } catch {}
+            return m.label?.replace('Inventário #', '') || '';
+        })
+        .filter(Boolean);
+
+    // Fetch adjustment moves to calculate adjustmentsCount and reversedCount
+    // We cannot use IN on a like pattern easily, so we just fetch all adjustments and filter in memory since it's paginated on the marker side anyway, OR we construct an OR query
+    let adjustmentsData: any[] = [];
+    if (sessionCodes.length > 0) {
+        const expectedLabels = sessionCodes.map(code => `Ajuste lançado pelo inventário #${code}`);
+        console.log('UI LOG: stockService expectedLabels', expectedLabels);
+        const { data, error: adjustmentsError } = await supabase
+            .from('inventory_moves')
+            .select('label')
+            .in('label', expectedLabels);
+            
+        if (adjustmentsError) {
+            console.warn('Erro ao buscar ajustes dos inventários:', adjustmentsError);
+        } else {
+            adjustmentsData = data || [];
+            console.log('UI LOG: stockService adjustmentsData', adjustmentsData);
+        }
+    }
+
+    const adjustmentsBySession = adjustmentsData.reduce((acc: Record<string, { total: number, reversed: number }>, move) => {
+        const match = move.label?.match(/Ajuste lançado pelo inventário #(.+)/);
+        if (match && match[1]) {
+            const code = match[1].trim();
+            if (!acc[code]) acc[code] = { total: 0, reversed: 0 };
+            acc[code].total += 1;
+            // Removed move.status check since status column doesn't exist
+        }
+        return acc;
+    }, {});
+    console.log('UI LOG: stockService adjustmentsBySession', adjustmentsBySession);
     
-    // Convert moves into "sessions" for the UI
-    return (data || []).map(m => ({
-        id: m.id,
-        name: `Inventário #${m.id.split('-')[0]}`,
-        status: 'completed',
-        created_at: m.created_at,
-        updated_at: m.updated_at,
-        items_count: Math.abs(m.quantity)
-    }));
+    // Convert moves into "sessions" for the UI by parsing observation
+    return markerMoves.map(m => {
+        let productsCount = 0;
+        let status = 'in_progress';
+        let inventoryCode = m.id.split('-')[0];
+        let responsibleName = 'Não informado';
+        
+        try {
+            const data = JSON.parse(m.observation || '{}') as any;
+            
+            // Extracted from observation if possible, falling back to label
+            inventoryCode = data.inventoryCode || m.label?.replace('Inventário #', '') || inventoryCode;
+            responsibleName = data.responsibleName || 'Não informado';
+
+            if (data.inventoryAudit && Array.isArray(data.items)) {
+                productsCount = data.items.length;
+                status = data.status || 'completed';
+            } else {
+                productsCount = Math.abs(m.quantity || 0); // fallback
+            }
+        } catch {
+            productsCount = Math.abs(m.quantity || 0);
+            inventoryCode = m.label?.replace('Inventário #', '') || inventoryCode;
+        }
+
+        const sessionAdjustments = adjustmentsBySession[inventoryCode] || { total: 0, reversed: 0 };
+
+        return {
+            id: m.id,
+            name: `Inventário #${inventoryCode}`,
+            inventoryCode,
+            responsibleName,
+            status: status as 'in_progress' | 'completed' | 'pending',
+            created_at: m.created_at || m.date,
+            updated_at: m.updated_at || m.date,
+            items_count: productsCount, // Keep for fallback
+            productsCount,
+            adjustmentsCount: sessionAdjustments.total,
+            reversedCount: sessionAdjustments.reversed
+        };
+    }).sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+};
+
+export const getNextInventoryCode = async (): Promise<string> => {
+    const { data, error } = await supabase
+        .from('inventory_moves')
+        .select('observation')
+        .ilike('label', 'Inventário #%');
+
+    if (error) throw error;
+    const lastCode = (data || []).reduce((highest, move: any) => {
+        try {
+            const obs = JSON.parse(move.observation || '{}');
+            const codeNum = Number(obs.inventoryCode);
+            return !isNaN(codeNum) ? Math.max(highest, codeNum) : highest;
+        } catch {
+            return highest;
+        }
+    }, 0);
+    return String(lastCode + 1).padStart(6, '0');
 };
 
 /**
@@ -197,4 +338,18 @@ export const searchProducts = async (query: string) => {
         
     if (error) throw error;
     return data;
+};
+
+export const fetchInventorySessionDetails = async (sessionId: string) => {
+    const { data, error } = await supabase
+        .from('inventory_moves')
+        .select('*')
+        .eq('id', sessionId)
+        .single();
+    if (error) throw error;
+    try {
+        return JSON.parse(data.observation || '{}');
+    } catch {
+        return {};
+    }
 };

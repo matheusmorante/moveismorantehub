@@ -46,4 +46,4 @@ const Seller = ({ seller, setSeller, errors }: Props) => {
     );
 };
 
-export default Seller;
+export default Seller;

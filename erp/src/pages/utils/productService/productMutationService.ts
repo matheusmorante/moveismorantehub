@@ -59,6 +59,15 @@ export const saveProduct = async (product: Product, forceInsert = false): Promis
         }
     }
 
+    const isUuid = (val?: string) => Boolean(val && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val));
+    if (product.variations?.length) {
+        product.variations.forEach(v => {
+            if (!isUuid(v.id)) {
+                v.id = crypto.randomUUID();
+            }
+        });
+    }
+
     const products = getLocalProducts();
 
     if (resolvedId && !forceInsert && products.some(item => String(item.id) === String(resolvedId))) {

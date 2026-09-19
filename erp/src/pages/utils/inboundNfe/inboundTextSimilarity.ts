@@ -1,1 +1,1 @@
-﻿export * from './utils/inboundTextSimilarity';
+export * from './utils/inboundTextSimilarity';

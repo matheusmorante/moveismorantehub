@@ -151,6 +151,7 @@ export const InventoryOperationScreen: React.FC<Props> = ({
                       </View>
 
                       <TouchableOpacity 
+                        testID="increment-btn"
                         style={[styles.counterBtn, { backgroundColor: surface, borderColor: border }]} 
                         onPress={() => onUpdateCount(item.id, (item.physicalCount || 0) + 1)}
                       >

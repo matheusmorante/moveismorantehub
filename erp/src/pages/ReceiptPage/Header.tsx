@@ -42,4 +42,4 @@ const Header = ({ seller }: Props) => {
     )
 }
 
-export default Header;
+export default Header;

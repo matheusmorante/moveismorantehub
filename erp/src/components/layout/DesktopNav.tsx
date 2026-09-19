@@ -8,8 +8,7 @@ interface DesktopNavProps {
     setActiveMenu: (menu: MenuKey) => void;
 }
 
-const dropdownClass = "absolute top-[calc(100%-8px)] left-0 w-60 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-3xl shadow-premium-lg p-2 flex flex-col gap-1 animate-reveal z-[99999]";
-const dropdownItemClass = "p-3 text-slate-500 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50/50 dark:hover:bg-blue-900/20 rounded-2xl transition-all duration-300 font-bold text-[10px] uppercase tracking-widest flex items-center gap-3";
+const dropdownClass = "absolute top-[calc(100%-8px)] left-0 w-[280px] bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-3xl shadow-premium-lg p-2 flex flex-col gap-0.5 animate-reveal z-[99999]";
 const navLinkClass = "flex items-center gap-2 px-4 py-2 text-slate-500 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-white dark:hover:bg-slate-900 hover:shadow-premium-sm rounded-2xl transition-all duration-300 font-bold text-[11px] whitespace-nowrap active:scale-95";
 
 const menuBtnClass = (isActive: boolean, isBeta?: boolean) =>
@@ -17,6 +16,50 @@ const menuBtnClass = (isActive: boolean, isBeta?: boolean) =>
 
 const chevronClass = (isActive: boolean) =>
     `bi bi-chevron-down transition-transform text-[10px] ${isActive ? 'rotate-180' : ''}`;
+
+const DropdownGroup = ({ title }: { title: string }) => (
+    <div className="px-3 pt-3 pb-1.5 text-[9px] font-black uppercase tracking-widest text-slate-400 select-none">
+        {title}
+    </div>
+);
+
+const DropdownSeparator = () => (
+    <div className="h-px bg-slate-100 dark:bg-slate-800 my-1 mx-2"></div>
+);
+
+const DropdownItem = ({ to, href, icon, title, description, beta, onClick }: { to?: string; href?: string; icon: string; title: string; description?: string; beta?: boolean; onClick?: () => void }) => {
+    const content = (
+        <div className="flex items-center justify-between w-full group">
+            <div className="flex items-center gap-3">
+                <div className="w-6 h-6 flex items-center justify-center shrink-0">
+                    <i className={`${icon} text-[15px] text-blue-500 dark:text-blue-400 transition-colors group-hover:text-blue-600 dark:group-hover:text-blue-300`}></i>
+                </div>
+                <div className="flex flex-col text-left">
+                    <span className="text-[11px] font-bold text-slate-600 dark:text-slate-300 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors flex items-center gap-2">
+                        {title}
+                        {beta && <span className="text-[7px] font-black bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 px-1 py-0.5 rounded tracking-tighter uppercase">BETA</span>}
+                    </span>
+                    {description && (
+                        <span className="text-[9.5px] text-slate-400 dark:text-slate-500 font-medium leading-tight mt-0.5">{description}</span>
+                    )}
+                </div>
+            </div>
+            <i className="bi bi-chevron-right text-[10px] text-slate-300 dark:text-slate-600 group-hover:text-blue-500 dark:group-hover:text-blue-400 transition-colors shrink-0"></i>
+        </div>
+    );
+
+    const className = "p-2 hover:bg-blue-50/50 dark:hover:bg-blue-900/20 rounded-2xl transition-all duration-300 min-h-[44px] cursor-pointer flex items-center select-none";
+
+    if (href) {
+        return <a href={href} target="_blank" rel="noopener noreferrer" className={className} onClick={onClick}>{content}</a>;
+    }
+
+    return (
+        <Link to={to!} onClick={onClick} className={className}>
+            {content}
+        </Link>
+    );
+};
 
 const DesktopNav = ({ activeMenu, setActiveMenu }: DesktopNavProps) => {
     const { isAdmin } = useAuth();
@@ -42,24 +85,15 @@ const DesktopNav = ({ activeMenu, setActiveMenu }: DesktopNavProps) => {
                 </button>
                 {activeMenu === 'products' && (
                     <div className={dropdownClass}>
-                        <Link to="/registrations/products" onClick={() => setActiveMenu(null)} className={dropdownItemClass}>
-                            <i className="bi bi-list-ul mr-1 text-indigo-500"></i> Lista
-                        </Link>
-                        <Link to="/registrations/variations" onClick={() => setActiveMenu(null)} className={dropdownItemClass}>
-                            <i className="bi bi-ui-radios mr-1 text-blue-500"></i> Atributos
-                        </Link>
-                        <Link to="/registrations/product-categories" onClick={() => setActiveMenu(null)} className={dropdownItemClass}>
-                            <i className="bi bi-tag-fill mr-1 text-teal-500"></i> Ambientes e Categorias
-                        </Link>
-                        <Link to="/products/compositions" onClick={() => setActiveMenu(null)} className={dropdownItemClass}>
-                            <i className="bi bi-diagram-3-fill mr-1 text-amber-500"></i> Composições
-                        </Link>
-                        <Link to="/products/reconciliation/suppliers" onClick={() => setActiveMenu(null)} className={dropdownItemClass}>
-                            <i className="bi bi-magic mr-1 text-purple-500"></i> Conciliação
-                        </Link>
-                        <Link to="/estoque/etiquetas?category=precos" onClick={() => setActiveMenu(null)} className={dropdownItemClass}>
-                            <i className="bi bi-tag-fill mr-1 text-emerald-500"></i> Etiqueta de Preço
-                        </Link>
+                        <DropdownGroup title="Catálogo" />
+                        <DropdownItem to="/registrations/products" icon="bi-list-ul" title="Lista de produtos" description="Gerenciar produtos" onClick={() => setActiveMenu(null)} />
+                        <DropdownItem to="/registrations/variations" icon="bi-ui-radios" title="Atributos e variações" description="Cores, tamanhos, modelos" onClick={() => setActiveMenu(null)} />
+                        <DropdownItem to="/registrations/product-categories" icon="bi-tag-fill" title="Ambientes e categorias" description="Agrupamentos de catálogo" onClick={() => setActiveMenu(null)} />
+                        <DropdownItem to="/products/compositions" icon="bi-diagram-3-fill" title="Composições" description="Kits e montagens" onClick={() => setActiveMenu(null)} />
+                        
+                        <DropdownSeparator />
+                        <DropdownGroup title="Integração" />
+                        <DropdownItem to="/products/reconciliation/suppliers" icon="bi-magic" title="Conciliação de fornecedores" description="Sincronizar base externa" onClick={() => setActiveMenu(null)} />
                     </div>
                 )}
             </div>
@@ -77,32 +111,23 @@ const DesktopNav = ({ activeMenu, setActiveMenu }: DesktopNavProps) => {
                 </button>
                 {activeMenu === 'stock' && (
                     <div className={dropdownClass}>
-                        {/* Grupo: Operação */}
-                        <div className="px-3 pt-1 pb-0.5 text-[9px] font-black uppercase tracking-widest text-slate-400">Operação</div>
-                        <Link to="/estoque/movimentacoes" onClick={() => setActiveMenu(null)} className={dropdownItemClass}>
-                            <i className="bi bi-arrow-left-right mr-1 text-emerald-500"></i> Movimentações
-                        </Link>
-                        <Link to="/estoque/inventarios" onClick={() => setActiveMenu(null)} className={dropdownItemClass}>
-                            <i className="bi bi-journal-check mr-1 text-emerald-500"></i> Inventário
-                        </Link>
-                        <Link to="/estoque/recebimentos" onClick={() => setActiveMenu(null)} className={dropdownItemClass}>
-                            <i className="bi bi-clipboard-check mr-1 text-emerald-500"></i> Recebimentos de Mercadorias
-                        </Link>
+                        <DropdownGroup title="Operação" />
+                        <DropdownItem to="/estoque/movimentacoes" icon="bi-arrow-left-right" title="Movimentações" description="Entradas e saídas manuais" onClick={() => setActiveMenu(null)} />
+                        <DropdownItem to="/estoque/inventarios" icon="bi-journal-check" title="Inventário" description="Contagem e ajustes" onClick={() => setActiveMenu(null)} />
+                        <DropdownItem to="/estoque/recebimentos" icon="bi-clipboard-check" title="Recebimentos" description="Conferência de mercadorias" onClick={() => setActiveMenu(null)} />
 
-                        {/* Separador */}
-                        <div className="h-px bg-slate-100 dark:bg-slate-800 my-1 mx-2"></div>
+                        <DropdownSeparator />
 
-                        {/* Grupo: Compras */}
-                        <div className="px-3 pt-1 pb-0.5 text-[9px] font-black uppercase tracking-widest text-slate-400">Compras</div>
-                        <Link to="/estoque/pedidos-compra" onClick={() => setActiveMenu(null)} className={dropdownItemClass}>
-                            <i className="bi bi-cart-fill mr-1 text-blue-500"></i> Pedidos de Compra
-                        </Link>
-                        <Link to="/estoque/notas-fiscais-entrada" onClick={() => setActiveMenu(null)} className={dropdownItemClass}>
-                            <i className="bi bi-receipt-cutoff mr-1 text-indigo-500"></i> Notas Fiscais de Entrada
-                        </Link>
-                        <Link to="/estoque/fornecedores" onClick={() => setActiveMenu(null)} className={dropdownItemClass}>
-                            <i className="bi bi-truck mr-1 text-amber-500"></i> Fornecedores
-                        </Link>
+                        <DropdownGroup title="Compras" />
+                        <DropdownItem to="/estoque/pedidos-compra" icon="bi-cart-fill" title="Pedidos de compra" description="Gestão de pedidos" onClick={() => setActiveMenu(null)} />
+                        <DropdownItem to="/estoque/notas-fiscais-entrada" icon="bi-receipt-cutoff" title="Notas fiscais de entrada" description="Manifestação e importação XML" onClick={() => setActiveMenu(null)} />
+                        <DropdownItem to="/estoque/fornecedores" icon="bi-truck" title="Fornecedores" description="Cadastro e gestão" onClick={() => setActiveMenu(null)} />
+
+                        <DropdownSeparator />
+
+                        <DropdownGroup title="Etiquetas" />
+                        <DropdownItem to="/estoque/etiquetas?category=identificacao" icon="bi-upc-scan" title="Identificação" description="Códigos de barras e caixas" onClick={() => setActiveMenu(null)} />
+                        <DropdownItem to="/estoque/etiquetas?category=precos" icon="bi-tag-fill" title="Preços" description="Gôndolas e mostruários" onClick={() => setActiveMenu(null)} />
                     </div>
                 )}
             </div>
@@ -120,8 +145,9 @@ const DesktopNav = ({ activeMenu, setActiveMenu }: DesktopNavProps) => {
                 </button>
                 {activeMenu === 'registrations' && (
                     <div className={dropdownClass}>
-                        <Link to="/registrations/customers" onClick={() => setActiveMenu(null)} className={dropdownItemClass}>Clientes</Link>
-                        <Link to="/registrations/employees" onClick={() => setActiveMenu(null)} className={dropdownItemClass}>Colaboradores</Link>
+                        <DropdownGroup title="Cadastros" />
+                        <DropdownItem to="/registrations/customers" icon="bi-person-fill" title="Clientes" description="Gestão de carteira" onClick={() => setActiveMenu(null)} />
+                        <DropdownItem to="/registrations/employees" icon="bi-person-badge" title="Colaboradores" description="Equipe e vendedores" onClick={() => setActiveMenu(null)} />
                     </div>
                 )}
             </div>
@@ -139,21 +165,22 @@ const DesktopNav = ({ activeMenu, setActiveMenu }: DesktopNavProps) => {
                 </button>
                 {activeMenu === 'salesOrder' && (
                     <div className={dropdownClass}>
-                        <Link to="/sales-order" onClick={() => setActiveMenu(null)} className={dropdownItemClass}>Pedidos de Venda</Link>
-                        <Link to="/fiscal-documents" onClick={() => setActiveMenu(null)} className={dropdownItemClass}>
-                            <i className="bi bi-file-earmark-spreadsheet-fill mr-1 text-emerald-500"></i> Notas Fiscais (NFC/NF)
-                        </Link>
-                        <Link to="/budgets" onClick={() => setActiveMenu(null)} className={dropdownItemClass}>Orçamentos</Link>
-                        <Link to="/assistance-orders" onClick={() => setActiveMenu(null)} className={dropdownItemClass}>Assistências</Link>
-                        <Link to="/returns" onClick={() => setActiveMenu(null)} className={dropdownItemClass}>Devoluções</Link>
-                        <div className="h-px bg-slate-100 dark:bg-slate-800 my-1 mx-2"></div>
-                        <Link to="/sales-order/reports" onClick={() => setActiveMenu(null)} className={dropdownItemClass}>
-                            <i className="bi bi-bar-chart-fill mr-2"></i> Relatório de Vendas CSV
-                        </Link>
-                        <Link to="/sales-order/reports-bling" onClick={() => setActiveMenu(null)} className={dropdownItemClass}>
-                            <i className="bi bi-clouds-fill mr-2 text-indigo-500"></i> Relatórios de Vendas (Bling)
-                            <span className="text-[7px] font-black bg-slate-100 dark:bg-slate-800 text-indigo-500 px-1 py-0.5 rounded ml-1 tracking-tighter uppercase">BETA</span>
-                        </Link>
+                        <DropdownGroup title="Operação" />
+                        <DropdownItem to="/sales-order" icon="bi-cart-fill" title="Pedidos de venda" description="Gerenciar pedidos" onClick={() => setActiveMenu(null)} />
+                        <DropdownItem to="/budgets" icon="bi-file-text" title="Orçamentos" description="Propostas e negociações" onClick={() => setActiveMenu(null)} />
+                        <DropdownItem to="/assistance-orders" icon="bi-tools" title="Assistências" description="Garantias e reparos" onClick={() => setActiveMenu(null)} />
+                        <DropdownItem to="/returns" icon="bi-arrow-return-left" title="Devoluções" description="Trocas e devoluções" onClick={() => setActiveMenu(null)} />
+
+                        <DropdownSeparator />
+
+                        <DropdownGroup title="Documentos Fiscais" />
+                        <DropdownItem to="/fiscal-documents" icon="bi-receipt" title="Notas fiscais de venda" description="NF-e / NFC-e" onClick={() => setActiveMenu(null)} />
+
+                        <DropdownSeparator />
+
+                        <DropdownGroup title="Relatórios" />
+                        <DropdownItem to="/sales-order/reports" icon="bi-bar-chart-fill" title="Relatório de vendas" description="Exportação CSV" onClick={() => setActiveMenu(null)} />
+                        <DropdownItem to="/sales-order/reports-bling" icon="bi-clouds-fill" title="Relatórios Bling" description="Integração externa" beta={true} onClick={() => setActiveMenu(null)} />
                     </div>
                 )}
             </div>
@@ -171,19 +198,15 @@ const DesktopNav = ({ activeMenu, setActiveMenu }: DesktopNavProps) => {
                 </button>
                 {activeMenu === 'logistics' && (
                     <div className={dropdownClass}>
-                        <Link to="/delivery-schedule" onClick={() => setActiveMenu(null)} className={dropdownItemClass}>Agenda</Link>
-                        <Link to="/logistics/assembly-list" onClick={() => setActiveMenu(null)} className={dropdownItemClass}>Lista de Montagem</Link>
-                        <Link to="/sales-order/freight-calculation" onClick={() => setActiveMenu(null)} className={dropdownItemClass}>Cálculo de Frete</Link>
-                        <div className="h-px bg-slate-100 dark:bg-slate-800 my-1 mx-2"></div>
-                        <a 
-                            href="https://expo.dev/artifacts/eas/c6GuI7KSgOnw0kSY-zI9S_5dxaFMuc9lCT37XL-ynYE.apk"
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="flex items-center gap-3 px-3 py-2 text-xs font-bold text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-all"
-                        >
-                            <i className="bi bi-android2 text-blue-500"></i>
-                            <span>Baixar App Android</span>
-                        </a>
+                        <DropdownGroup title="Operação" />
+                        <DropdownItem to="/delivery-schedule" icon="bi-calendar-event" title="Agenda" description="Cronograma de entregas" onClick={() => setActiveMenu(null)} />
+                        <DropdownItem to="/logistics/assembly-list" icon="bi-list-check" title="Lista de montagem" description="Roteiro de montadores" onClick={() => setActiveMenu(null)} />
+                        <DropdownItem to="/sales-order/freight-calculation" icon="bi-calculator" title="Cálculo de frete" description="Simulação de custos" onClick={() => setActiveMenu(null)} />
+
+                        <DropdownSeparator />
+
+                        <DropdownGroup title="Mobile" />
+                        <DropdownItem href="https://expo.dev/artifacts/eas/c6GuI7KSgOnw0kSY-zI9S_5dxaFMuc9lCT37XL-ynYE.apk" icon="bi-android2" title="Baixar App Android" description="Instalação via APK" />
                     </div>
                 )}
             </div>
@@ -201,15 +224,10 @@ const DesktopNav = ({ activeMenu, setActiveMenu }: DesktopNavProps) => {
                 </button>
                 {activeMenu === 'marketing' && (
                     <div className={dropdownClass}>
-                        <Link to="/marketing/posts" onClick={() => setActiveMenu(null)} className={dropdownItemClass}>
-                            <i className="bi bi-instagram mr-1 text-pink-500"></i> Gerador de Prompt para Posts
-                        </Link>
-                        <Link to="/registrations/meta-catalog" onClick={() => setActiveMenu(null)} className={dropdownItemClass}>
-                            <i className="bi bi-meta mr-1 text-blue-600"></i> Catálogo Meta
-                        </Link>
-                        <Link to="/estoque/etiquetas?category=logos" onClick={() => setActiveMenu(null)} className={dropdownItemClass}>
-                            <i className="bi bi-printer-fill mr-1 text-purple-500"></i> Impressão de Logotipos e Artes
-                        </Link>
+                        <DropdownGroup title="Criação" />
+                        <DropdownItem to="/marketing/posts" icon="bi-instagram" title="Gerador de prompt" description="Criar ideias de posts" onClick={() => setActiveMenu(null)} />
+                        <DropdownItem to="/registrations/meta-catalog" icon="bi-meta" title="Catálogo Meta" description="Integração de feed" onClick={() => setActiveMenu(null)} />
+                        <DropdownItem to="/estoque/etiquetas?category=logos" icon="bi-printer-fill" title="Impressão de logotipos" description="Artes e promoções" onClick={() => setActiveMenu(null)} />
                     </div>
                 )}
             </div>
@@ -227,9 +245,8 @@ const DesktopNav = ({ activeMenu, setActiveMenu }: DesktopNavProps) => {
                 </button>
                 {activeMenu === 'finance' && (
                     <div className={dropdownClass}>
-                        <Link to="/finance/transactions" onClick={() => setActiveMenu(null)} className={dropdownItemClass}>
-                            <i className="bi bi-arrow-left-right mr-1 text-amber-500"></i> Movimentações
-                        </Link>
+                        <DropdownGroup title="Operação" />
+                        <DropdownItem to="/finance/transactions" icon="bi-arrow-left-right" title="Movimentações" description="Contas a pagar e receber" onClick={() => setActiveMenu(null)} />
                     </div>
                 )}
             </div>

@@ -47,7 +47,7 @@ export const processProductData = (data: any[]) => {
                     id: v.id,
                     variationId: v.id,
                     sku: v.sku || product.sku || product.code,
-                    description: v.syncDescription ? `${description} - ${varName}` : (varName || description),
+                    description: varName || description,
                     variationName: varName,
                     unitPrice: varPrice,
                     costPrice: varCost,

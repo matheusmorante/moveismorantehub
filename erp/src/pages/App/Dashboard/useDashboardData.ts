@@ -1,4 +1,4 @@
-﻿import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { subscribeToOrders } from '../../utils/orderHistoryService';
 import Order from '../../types/order.type';
 import { isSameDay, subDays, differenceInCalendarDays, startOfDay, endOfDay, subMonths, isWithinInterval } from 'date-fns';
@@ -21,11 +21,11 @@ export interface DashboardStats {
     totalProfit: number;
     /** Margem bruta em % */
     grossMargin: number;
-    /** CMV total do período */
+    /** CMV total do per�odo */
     totalCmv: number;
-    /** true se algum item não teve unitCost calculável */
+    /** true se algum item n�o teve unitCost calcul�vel */
     cmvPartial: boolean;
-    /** Qtd de itens sem custo calculável */
+    /** Qtd de itens sem custo calcul�vel */
     itemsWithoutCost: number;
     avgTicket: number;
     pendingOrders: number;
@@ -69,7 +69,7 @@ const STATUS_LABELS: Record<string, string> = {
 const startOfLocalDay = (dateStr: string) => new Date(dateStr + "T00:00:00");
 const endOfLocalDay = (dateStr: string) => new Date(dateStr + "T23:59:59");
 
-/** Calcula o CMV real de um pedido usando unitCost dos itens (CMPM histórico) */
+/** Calcula o CMV real de um pedido usando unitCost dos itens (CMPM hist�rico) */
 export const calcOrderCmv = (order: Order): { cmv: number; partial: boolean; itemsWithout: number } => {
     let cmv = 0;
     let itemsWithout = 0;
@@ -204,7 +204,7 @@ export const useDashboardData = (period: Period, customStartDate?: string, custo
             for (const origin of origins) {
                 if (origin && typeof origin === 'string') {
                     const mo = origin.toLowerCase().trim();
-                    if (mo === 'paid' || mo.includes('trafego') || mo.includes('tráfego') || mo.includes('ads') || mo.includes('facebook') || mo.includes('instagram') || mo.includes('google')) return true;
+                    if (mo === 'paid' || mo.includes('trafego') || mo.includes('tr�fego') || mo.includes('ads') || mo.includes('facebook') || mo.includes('instagram') || mo.includes('google')) return true;
                 }
             }
             return false;

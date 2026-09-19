@@ -1,1 +1,1 @@
-﻿export * from './types/inboundNfeTypes';
+export * from './types/inboundNfeTypes';

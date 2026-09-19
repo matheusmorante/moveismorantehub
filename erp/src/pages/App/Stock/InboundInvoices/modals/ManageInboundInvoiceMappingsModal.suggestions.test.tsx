@@ -6,7 +6,7 @@ import { ManageInboundInvoiceMappingsModal } from './ManageInboundInvoiceMapping
 import { findProductSupplierCodes } from '@/pages/utils/productSupplierCodesService';
 import type { InboundInvoice } from '@/pages/utils/inboundNfe/inboundNfeTypes';
 
-vi.mock('@/pages/App/Registrations/shared/PersonFormModal', () => ({ default: () => null }));
+vi.mock('@/pages/App/Registrations/shared/modals/PersonFormModal', () => ({ default: () => null }));
 vi.mock('@/components/SupplierAutocomplete', () => ({ default: () => null }));
 vi.mock('@/pages/utils/personService', () => ({ fetchPersons: async () => [] }));
 vi.mock('@/pages/utils/productSupplierCodesService', () => ({ findProductSupplierCodes: vi.fn(), saveProductSupplierCode: vi.fn() }));

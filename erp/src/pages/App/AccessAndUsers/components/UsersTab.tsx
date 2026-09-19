@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import Person from '../../../types/person.type';
 import { UserRole } from '@/context/AuthContext';
 import { roleLabel } from '@/pages/utils/accessRoles';
-import PersonFormModal from '../../Registrations/shared/PersonFormModal';
+import PersonFormModal from '../../Registrations/shared/modals/PersonFormModal';
 import { updatePerson } from '@/pages/utils/personService';
 import { toast } from 'react-toastify';
 

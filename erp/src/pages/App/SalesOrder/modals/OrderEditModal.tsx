@@ -8,7 +8,7 @@ import { toast } from "react-toastify";
 import OrderStatusTimeline from '../OrderStatusTimeline';
 import OrderStepper from '../OrderStepper';
 import SellerSearchModal from './SellerSearchModal';
-import PersonFormModal from '@/pages/App/Registrations/shared/PersonFormModal';
+import PersonFormModal from '@/pages/App/Registrations/shared/modals/PersonFormModal';
 import { migrateOrderHandlings } from '@/pages/utils/handlingMigration';
 import ItemMovementChangeConfirmModal, { getInventorySensitiveItemChanges } from './ItemMovementChangeConfirmModal';
 import ProductReconciliationItems from '../ProductReconciliationItems';

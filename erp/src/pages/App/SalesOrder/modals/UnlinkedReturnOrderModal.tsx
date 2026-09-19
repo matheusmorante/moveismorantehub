@@ -9,7 +9,7 @@ import { calcItemsSummary } from '@/pages/utils/calculations';
 import { saveOrder } from '@/pages/utils/orderHistoryService';
 import CustomerSearchModal from './CustomerSearchModal';
 import ReturnCollectionSection from '../OrderActions/ReturnCollectionSection';
-import PersonFormModal from '@/pages/App/Registrations/shared/PersonFormModal';
+import PersonFormModal from '@/pages/App/Registrations/shared/modals/PersonFormModal';
 import ReturnItemsTable from '../ReturnItemsTable';
 import ReturnFormTabs, { ReturnFormTab } from '../ReturnFormTabs';
 import { canSearchCustomers } from '@/pages/utils/customerSearch';

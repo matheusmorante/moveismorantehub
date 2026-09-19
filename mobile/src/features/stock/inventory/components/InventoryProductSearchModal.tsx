@@ -66,7 +66,7 @@ export const InventoryProductSearchModal: React.FC<Props> = ({ isDarkMode, visib
                         <Text style={styles.headerTitle}>Buscar Produto</Text>
                         <Text style={styles.headerSubtitle}>Selecione para adicionar à contagem</Text>
                     </View>
-                    <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
+                    <TouchableOpacity testID="close-modal-btn" onPress={onClose} style={styles.closeBtn}>
                         <X size={24} color="#ffffff" />
                     </TouchableOpacity>
                 </View>

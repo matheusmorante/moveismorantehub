@@ -1,1 +1,1 @@
-﻿export * from './services/inboundProductClassification';
+export * from './services/inboundProductClassification';

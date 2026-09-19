@@ -99,12 +99,25 @@ export function useProductFormImages(
 
     const removePhoto = (url: string) => {
         setRemovingPhoto(url);
-        setFormData((prev: Partial<Product>) => ({
-            ...prev,
-            images: prev.images?.filter((i: string) => i !== url)
-        }));
+        setFormData((prev: Partial<Product>) => {
+            const updatedImages = prev.images?.filter((i: string) => i !== url);
+            const updatedVariations = prev.variations?.map(variation => {
+                if (variation.images?.includes(url)) {
+                    return {
+                        ...variation,
+                        images: variation.images.filter((i: string) => i !== url)
+                    };
+                }
+                return variation;
+            });
+
+            return {
+                ...prev,
+                images: updatedImages,
+                ...(updatedVariations ? { variations: updatedVariations } : {})
+            };
+        });
         setRemovingPhoto(null);
-        toast.info('Foto removida localmente');
     };
 
     const handlePaste = async (e: React.ClipboardEvent) => {

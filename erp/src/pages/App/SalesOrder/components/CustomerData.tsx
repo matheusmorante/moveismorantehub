@@ -6,7 +6,7 @@ import Person from '@/pages/types/person.type';
 import { ValidationErrors } from '@/pages/utils/validations';
 import { toTitleCase } from '@/pages/utils/formatters';
 import { canSearchCustomers, getCustomerSearchQuery, matchesCustomerSearch } from '@/pages/utils/customerSearch';
-import PersonFormModal from '@/pages/App/Registrations/shared/PersonFormModal';
+import PersonFormModal from '@/pages/App/Registrations/shared/modals/PersonFormModal';
 
 interface Props {
     customerData: CustomerData;
