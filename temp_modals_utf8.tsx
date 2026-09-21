@@ -1,3 +1,4 @@
+﻿
 import { supabase } from '@/pages/utils/supabaseConfig';
 import { GridModel } from '../modals/LabelGridModelModal';
 import { DEFAULT_LAYOUT_MODELS } from '../utils/LabelConstants';
@@ -8,6 +9,7 @@ import { ModalsSectionProps } from '../types/LabelPrintingSections.types';
 import LabelGridModelModal from '../modals/LabelGridModelModal';
 import LabelImageModal from '../modals/LabelImageModal';
 import PriceLabelArtEditorModal from '../modals/PriceLabelArtEditorModal';
+import LabelModelCreationModal from '../modals/LabelModelCreationModal';
 
 export const ModalsSection: React.FC<ModalsSectionProps> = (props) => {
     const { 
@@ -21,252 +23,14 @@ export const ModalsSection: React.FC<ModalsSectionProps> = (props) => {
         artVersion, setArtVersion, isAssetManagerModalOpen, 
         setIsAssetManagerModalOpen, selectedCategory, logoItems, setLogoItems, 
         isNewLogoModalOpen, setIsNewLogoModalOpen, newLogoName, setNewLogoName, 
-        newLogoImage, setNewLogoImage, handleSaveNewLogo,
-        editingGridModel, setEditingGridModel, selectedImage, setCustomLayouts, 
-        selectLayout, isCopyModalOpen, setIsCopyModalOpen, modelToCopy, 
-        handleCopyToCategory, modelToDelete, setModelToDelete, confirmDeleteLayout, 
-        logoInputRef, handleLogoUpload, handleConfirmNewLogo, availableLogos, 
-        handleAddLogoToQueue, handleDeleteAvailableLogo, isLabelModalOpen, 
-        setIsLabelModalOpen, handleDeleteLayout, setSelectedImage, 
-        publishPriceLabelTemplateUpdate, selectedProductToAdd
-    } = props;
+        newLogoImage, setNewLogoImage, handleSaveNewLogo 
+    ,
+  editingGridModel, setEditingGridModel, selectedImage, setCustomLayouts, selectLayout, isCopyModalOpen, setIsCopyModalOpen, modelToCopy, handleCopyToCategory, modelToDelete, setModelToDelete, confirmDeleteLayout, logoInputRef,
+  handleLogoUpload, handleConfirmNewLogo, availableLogos, handleAddLogoToQueue, handleDeleteAvailableLogo, isLabelModalOpen, setIsLabelModalOpen, handleDeleteLayout, setSelectedImage, publishPriceLabelTemplateUpdate, selectedProductToAdd
+} = props;
 
     return (
         <>
-            <LabelGridModelModal 
-                isOpen={gridModalOpen} 
-                onClose={() => { setGridModalOpen(false); setEditingGridModel(null); }} 
-                editingModel={editingGridModel}
-                currentCategory={selectedCategory}
-                existingModels={[...DEFAULT_LAYOUT_MODELS, ...customLayouts]}
-                previewImage={selectedImage}
-                onSave={async (newModel) => {
-                    // 1. Determinar quem ├® o alvo da atualiza├º├úo (targetId)
-                    const isSystemDefault = editingGridModel ? DEFAULT_LAYOUT_MODELS.some(m => m.id === editingGridModel.id) : false;
-                    const existingOverride = isSystemDefault 
-                        ? customLayouts.find(c => c.baseModelId === editingGridModel!.id)
-                        : null;
-
-                    const targetId = existingOverride?.id || (isSystemDefault ? null : editingGridModel?.id);
-                    const isUpdateAction = !!targetId;
-
-                    // 2. Verificar se j├í existe um modelo ID├èNTICO (mesmas dimens├Áes) que n├úo seja este mesmo que estou editando
-                    const isIdentical = (m1: GridModel, m2: GridModel) => {
-                        const fieldsToCompare: (keyof GridModel)[] = [
-                            'columns', 'rows', 'marginT', 'marginB', 'marginL', 'marginR', 
-                            'gapH', 'gapV', 'paperSize', 'type', 'category'
-                        ];
-                        return fieldsToCompare.every(field => m1[field] === m2[field]);
-                    };
-
-                    const identicalLayout = customLayouts.find(m => 
-                        m.id !== targetId && // N├úo ser o override atual
-                        m.id !== (editingGridModel?.id || '') && // N├úo ser o padr├úo original
-                        isIdentical(m, newModel)
-                    );
-
-                    if (identicalLayout) {
-                        toast.info(`Este modelo de etiqueta j├í existe (como "${identicalLayout.name}").`);
-                        setGridModalOpen(false);
-                        setEditingGridModel(null);
-                        return;
-                    }
-
-                    // 3. Preparar e Salvar
-                    const isDbWriteable = isUpdateAction && !String(targetId).startsWith('custom_');
-                    const modelToSave = { 
-                        ...newModel, 
-                        category: selectedCategory as any,
-                        baseModelId: (isSystemDefault ? editingGridModel!.id : (editingGridModel?.baseModelId || undefined)) as string | undefined
-                    };
-                    const dbModel = mapModelToDb(modelToSave);
-
-                    let finalModel: GridModel | null = null;
-                    let savedToDb = false;
-                    let resultError: any = null;
-
-                    try {
-                        if (isDbWriteable) {
-                            const { data, error } = await supabase.from('label_layouts').update(dbModel).eq('id', targetId).select().single();
-                            if (data && !error) { finalModel = mapDbToModel(data); savedToDb = true; } else { resultError = error; }
-                        } else if (!isUpdateAction) {
-                            const { data, error } = await supabase.from('label_layouts').insert([dbModel]).select().single();
-                            if (data && !error) { finalModel = mapDbToModel(data); savedToDb = true; } else { resultError = error; }
-                        }
-                    } catch (e) {
-                        console.error('Erro no Supabase:', e);
-                        resultError = e;
-                    }
-
-                    // 4. Conting├¬ncia Local
-                    if (!finalModel) {
-                        const localId = targetId || `custom_${Date.now()}`;
-                        finalModel = { ...modelToSave, id: localId as any } as GridModel;
-                    }
-
-                    // 5. Atualizar Estado (Substitui├º├úo por Origem e ID)
-                    setCustomLayouts(prev => {
-                        const targetBaseId = finalModel!.baseModelId;
-                        const targetId = finalModel!.id;
-
-                        const filtered = prev.filter(m => {
-                            const isOldId = String(m.id) === String(targetId);
-                            const isOldOverride = targetBaseId && m.baseModelId === targetBaseId;
-                            
-                            // Se for o mesmo ID ou for um override da mesma etiqueta base, removemos o antigo
-                            return !isOldId && !isOldOverride;
-                        });
-
-                        const newList = [...filtered, finalModel!];
-                        localStorage.setItem('custom_label_layouts', JSON.stringify(newList));
-                        return newList;
-                    });
-                        
-                    if (finalModel && (editingGridModel?.id === config.layoutId || config.layoutId === finalModel.id)) {
-                        selectLayout(finalModel);
-                    }
-
-                    // Notificar usu├írio
-                    if (savedToDb) {
-                        toast.success('Modelo atualizado no banco!');
-                    } else {
-                        const quota = resultError?.message?.includes('quota') || resultError?.status === 402;
-                        toast.warning(
-                            <div className="flex flex-col gap-1">
-                                <p className="font-bold text-[10px] uppercase tracking-widest text-slate-800">Salvo Localmente</p>
-                                <p className="text-[9px] opacity-70">
-                                    {quota ? 'Limite de dados (Quota) atingido. ' : 'Falha na rede. '}
-                                    As altera├º├Áes foram salvas neste computador.
-                                </p>
-                            </div>, { autoClose: 9000 }
-                        );
-                    }
-                    setGridModalOpen(false);
-                    setEditingGridModel(null);
-                }}
-            />
-
-            {/* Modal de C├│pia de Layout para outra Categoria */}
-            {isCopyModalOpen && modelToCopy && (
-                <div className="fixed inset-0 z-[2000] flex items-center justify-center p-4">
-                    <div className="absolute inset-0 bg-slate-950/80 backdrop-blur-md transition-all duration-300" onClick={() => setIsCopyModalOpen(false)} />
-                    <div className="relative bg-white dark:bg-slate-900 w-full max-w-sm rounded-[3rem] shadow-[0_40px_100px_-20px_rgba(0,0,0,0.5)] border border-slate-100 dark:border-slate-800 flex flex-col overflow-hidden animate-in zoom-in fade-in duration-300">
-                        <div className="px-10 py-8 border-b border-slate-50 dark:border-slate-800 text-center">
-                            <div className="w-16 h-16 rounded-3xl bg-indigo-50 dark:bg-indigo-900/20 flex items-center justify-center text-indigo-600 mx-auto mb-4">
-                                <i className="bi bi-files-alternate text-2xl" />
-                            </div>
-                            <h3 className="text-xl font-black text-slate-800 dark:text-white uppercase tracking-tighter leading-none mb-2">Enviar C├│pia</h3>
-                            <p className="text-[10px] text-slate-400 uppercase tracking-[0.2em] font-black">Selecione a categoria de destino</p>
-                        </div>
-                        
-                        <div className="p-10 space-y-3">
-                            {(['identificacao', 'precos', 'logos', 'posts'] as const)
-                                .filter(c => c !== selectedCategory)
-                                .filter(c => {
-                                    // Etiquetas redondas s├│ s├úo compat├¡veis com a categoria 'logos'
-                                    if (modelToCopy.type === 'round') {
-                                        return c === 'logos';
-                                    }
-                                    return true;
-                                })
-                                .map(cat => (
-                                <button 
-                                    key={cat}
-                                    onClick={() => {
-                                        handleCopyToCategory(modelToCopy!, cat);
-                                        setIsCopyModalOpen(false);
-                                    }}
-                                    className="w-full p-6 bg-slate-50 dark:bg-slate-800 hover:bg-blue-600 text-slate-600 dark:text-slate-300 hover:text-white rounded-[1.5rem] text-[10px] font-black uppercase tracking-widest transition-all flex items-center justify-between group active:scale-95 shadow-sm hover:shadow-xl hover:shadow-blue-500/20"
-                                >
-                                    <div className="flex items-center gap-4">
-                                        <div className="w-8 h-8 rounded-xl bg-white/50 dark:bg-slate-700/50 flex items-center justify-center group-hover:bg-blue-500 transition-colors">
-                                            <i className={`bi bi-${cat === 'identificacao' ? 'qr-code-scan' : cat === 'precos' ? 'tag-fill' : cat === 'logos' ? 'palette-fill' : 'instagram'}`} />
-                                        </div>
-                                        <span>
-                                            {cat === 'identificacao' ? 'Identifica├º├úo / ID' : 
-                                             cat === 'precos' ? 'Pre├ºos de Venda' : 
-                                             cat === 'logos' ? 'Logos e R├│tulos' : 'Marketing / Posts'}
-                                        </span>
-                                    </div>
-                                    <i className="bi bi-chevron-right text-xs group-hover:translate-x-1 transition-transform" />
-                                </button>
-                            ))}
-                        </div>
-
-                        <button 
-                            onClick={() => setIsCopyModalOpen(false)}
-                            className="bg-slate-100 dark:bg-slate-800 p-6 text-center text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors"
-                        >
-                            Cancelar
-                        </button>
-                    </div>
-                </div>
-            )}
-            {/* Modal de Confirma├º├úo de Exclus├úo */}
-            {modelToDelete && (
-                <div className="fixed inset-0 z-[3000] flex items-center justify-center p-4">
-                    <div className="absolute inset-0 bg-slate-950/80 backdrop-blur-md animate-in fade-in duration-300" onClick={() => setModelToDelete(null)} />
-                    <div className="relative bg-white dark:bg-slate-900 w-full max-w-sm rounded-[2.5rem] shadow-2xl border border-slate-100 dark:border-slate-800 flex flex-col overflow-hidden animate-in zoom-in slide-in-from-bottom-4 duration-300">
-                        <div className="px-10 py-10 text-center">
-                            <div className="w-20 h-20 rounded-full bg-red-50 dark:bg-red-900/20 flex items-center justify-center text-red-500 mx-auto mb-6">
-                                <i className="bi bi-trash3-fill text-3xl" />
-                            </div>
-                            <h3 className="text-xl font-black text-slate-800 dark:text-white uppercase tracking-tighter leading-tight mb-3">Excluir Modelo?</h3>
-                            <p className="text-[10px] text-slate-400 uppercase tracking-widest font-bold leading-relaxed px-4">
-                                {DEFAULT_LAYOUT_MODELS.some(m => m.id === modelToDelete) 
-                                    ? 'Este modelo ├® padr├úo. Deseja apenas ocult├í-lo da sua lista?' 
-                                    : 'Esta a├º├úo n├úo pode ser desfeita. O layout ser├í removido permanentemente.'}
-                            </p>
-                        </div>
-                        
-                        <div className="flex border-t border-slate-50 dark:border-slate-800">
-                            <button 
-                                onClick={() => setModelToDelete(null)}
-                                className="flex-1 p-6 text-[10px] font-black uppercase tracking-widest text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
-                            >
-                                Cancelar
-                            </button>
-                            <button 
-                                onClick={confirmDeleteLayout}
-                                className="flex-1 p-6 text-[10px] font-black uppercase tracking-widest text-red-500 hover:bg-red-50 dark:hover:bg-red-900/10 transition-colors border-l border-slate-50 dark:border-slate-800"
-                            >
-                                Sim, Excluir
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
-             {/* Input Global oculto para upload de imagens de marca e r├│tulos */}
-            <input 
-                type="file" 
-                ref={logoInputRef} 
-                className="hidden" 
-                accept="image/*" 
-                onChange={handleLogoUpload} 
-            />
-
-            {/* Modal de Novo Asset (Upload de Imagem) - Z-INDEX 400 para ficar sobre a biblioteca */}
-            {isNewLogoModalOpen && (
-                <div className="fixed inset-0 z-[400] flex items-center justify-center p-4">
-                    <div 
-                        className="absolute inset-0 bg-slate-950/80 backdrop-blur-md animate-fade-in"
-                        onClick={() => setIsNewLogoModalOpen(false)}
-                    />
-                    <div className="relative w-full max-w-md bg-white dark:bg-slate-900 rounded-[3rem] shadow-2xl border border-slate-100 dark:border-slate-800 p-8 animate-in zoom-in-95 duration-300">
-                        <div className="flex items-center gap-4 mb-8">
-                            <div className="w-12 h-12 rounded-2xl bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 flex items-center justify-center">
-                                <i className="bi bi-image text-xl" />
-                            </div>
-                            <div>
-                                <h3 className="text-sm font-black uppercase tracking-widest text-slate-800 dark:text-white">Confirmar Novo Ativo</h3>
-                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">D├¬ um nome para este logotipo / r├│tulo</p>
-                            </div>
-                        </div>
-
-                        <div className="space-y-6">
-                            <div className="aspect-square w-full rounded-[2rem] bg-slate-50 dark:bg-slate-800 border-2 border-dashed border-slate-200 dark:border-slate-700 overflow-hidden p-4 group">
-                                <img 
-                                    src={newLogoImage} 
                                     alt="Preview" 
                                     className="w-full h-full object-contain transition-transform group-hover:scale-110" 
                                 />
@@ -428,65 +192,152 @@ export const ModalsSection: React.FC<ModalsSectionProps> = (props) => {
                                             {labelFormImage ? (
                                                 <img src={labelFormImage} alt="" className="max-w-full max-h-full object-contain transition-transform group-hover:scale-110" />
                                             ) : (
-                                                <div className="text-center">
-                                                    <i className="bi bi-image text-4xl text-slate-200 mb-2 block" />
-                                                    <span className="text-[8px] font-black text-slate-300 uppercase tracking-widest">Nenhuma imagem selecionada</span>
-                                                </div>
-                                            )}
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <div className="space-y-4">
-                                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1 block px-2">Selecione uma Imagem da Biblioteca</label>
-                                    <div className="grid grid-cols-3 gap-3">
-                                        {availableLogos.length === 0 ? (
-                                            <div className="col-span-3 py-10 text-center bg-slate-50 dark:bg-slate-950/20 rounded-2xl border border-slate-100 dark:border-slate-800">
-                                                <p className="text-[8px] font-bold text-slate-400 uppercase leading-relaxed">Sua biblioteca de imagens est├í vazia.<br/>Suba imagens primeiro.</p>
-                                            </div>
-                                        ) : (
-                                            availableLogos.map(logo => (
-                                                <button 
-                                                    key={logo.id}
-                                                    onClick={() => {
-                                                        setLabelFormImage(logo.image);
-                                                        if (!labelFormName) setLabelFormName(logo.name);
-                                                    }}
-                                                    className={`aspect-square rounded-2xl border-2 p-2 relative overflow-hidden transition-all ${labelFormImage === logo.image ? 'border-blue-500 bg-blue-50' : 'border-slate-50 dark:border-slate-800 hover:border-slate-200'}`}
-                                                >
-                                                    <img src={logo.image} alt="" className="w-full h-full object-contain" />
-                                                    {labelFormImage === logo.image && (
-                                                        <div className="absolute top-1 right-1 bg-blue-500 text-white w-4 h-4 rounded-full flex items-center justify-center">
-                                                            <i className="bi bi-check text-[10px]" />
-                                                        </div>
-                                                    )}
-                                                </button>
-                                            ))
-                                        )}
-                                    </div>
-                                </div>
+                            </div>
+                            <h3 className="text-lg font-bold text-slate-800 dark:text-white mb-1">Confirmar Exclus├úo</h3>
+                            <p className="text-sm text-slate-500 dark:text-slate-400 mb-6">
+                                Tem certeza que deseja remover este modelo de etiqueta? Esta a├º├úo n├úo pode ser desfeita.
+                            </p>
+                            <div className="flex gap-3 w-full">
+                                <button 
+                                    onClick={() => setModelToDelete(null)}
+                                    className="flex-1 py-2 px-4 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-600 dark:text-slate-300 font-bold text-sm hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
+                                >
+                                    Cancelar
+                                </button>
+                                <button 
+                                    onClick={confirmDeleteLayout}
+                                    className="flex-1 py-2 px-4 bg-red-600 text-white rounded-xl font-bold text-sm hover:bg-red-700 transition-colors shadow-lg shadow-red-500/20"
+                                >
+                                    Sim, Excluir
+                                </button>
                             </div>
                         </div>
-
-                        <div className="flex gap-4 pt-8 shrink-0">
+                    </div>
+                </div>
+            )}
+            
+            {/* Modal de Cria├º├úo de Logotipo Oportunista */}
+            {isNewLogoModalOpen && (
+                <div className="fixed inset-0 z-[10000] flex items-center justify-center p-4 bg-slate-900/70 backdrop-blur-sm animate-fade-in">
+                    <div className="bg-white dark:bg-slate-900 w-full max-w-md rounded-2xl shadow-2xl overflow-hidden animate-scale-up border border-slate-200 dark:border-slate-800">
+                        <div className="px-5 py-4 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50 dark:bg-slate-800/50">
+                            <h3 className="font-bold text-slate-800 dark:text-white">Criar Nova Arte/Logo</h3>
+                            <button onClick={() => setIsNewLogoModalOpen(false)} className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-500">
+                                <i className="bi bi-x-lg"></i>
+                            </button>
+                        </div>
+                        <div className="p-5 space-y-4">
+                            <div>
+                                <label className="block text-xs font-bold text-slate-500 mb-1.5">Nome de Identifica├º├úo</label>
+                                <input 
+                                    type="text" 
+                                    value={newLogoName} 
+                                    onChange={e => setNewLogoName(e.target.value)} 
+                                    className="w-full h-10 px-3 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" 
+                                    placeholder="Ex: Cart├úo de Visita, Selo Promocional..."
+                                    autoFocus
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-xs font-bold text-slate-500 mb-1.5">Imagem da Arte (Fundo Transparente Recomendado)</label>
+                                {newLogoImage ? (
+                                    <div className="relative group rounded-xl overflow-hidden border border-slate-200 dark:border-slate-700 aspect-video flex items-center justify-center bg-slate-100 dark:bg-slate-900">
+                                        <img src={newLogoImage} alt="Preview" className="max-w-full max-h-full object-contain p-2" />
+                                        <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                            <button 
+                                                onClick={() => setNewLogoImage(null)}
+                                                className="px-4 py-2 bg-red-500 text-white font-bold text-xs rounded-lg shadow-lg hover:bg-red-600"
+                                            >
+                                                Remover
+                                            </button>
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <div 
+                                        onClick={() => logoInputRef.current?.click()}
+                                        className="h-32 border-2 border-dashed border-slate-300 dark:border-slate-700 rounded-xl flex flex-col items-center justify-center text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800/50 hover:border-blue-500 dark:hover:border-blue-500 transition-all cursor-pointer group"
+                                    >
+                                        <div className="w-10 h-10 rounded-full bg-blue-50 dark:bg-blue-900/30 text-blue-500 flex items-center justify-center mb-2 group-hover:scale-110 transition-transform">
+                                            <i className="bi bi-cloud-arrow-up-fill text-xl"></i>
+                                        </div>
+                                        <span className="text-sm font-medium">Clique para fazer upload</span>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                        <div className="px-5 py-4 border-t border-slate-100 dark:border-slate-800 flex justify-end gap-2 bg-slate-50 dark:bg-slate-800/50">
                             <button 
-                                onClick={() => setIsLabelModalOpen(false)}
-                                className="flex-1 px-8 py-5 border border-slate-100 dark:border-slate-800 rounded-[1.5rem] text-[10px] font-black uppercase tracking-widest text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all"
+                                onClick={() => setIsNewLogoModalOpen(false)}
+                                className="px-4 py-2 rounded-lg text-sm font-bold text-slate-600 hover:bg-slate-200 dark:text-slate-300 dark:hover:bg-slate-700"
                             >
                                 Cancelar
                             </button>
                             <button 
-                                onClick={handleSaveCustomLabel}
-                                className="flex-[1.5] px-8 py-5 bg-blue-600 text-white rounded-[1.5rem] text-[10px] font-black uppercase tracking-widest shadow-xl shadow-blue-500/20 hover:scale-[1.02] active:scale-95 transition-all text-center"
+                                onClick={handleConfirmNewLogo}
+                                disabled={!newLogoName.trim() || !newLogoImage}
+                                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 disabled:cursor-not-allowed text-white rounded-lg text-sm font-bold shadow-lg shadow-blue-500/20"
                             >
-                                {editingLabel ? 'Salvar Altera├º├Áes' : 'Criar R├│tulo Definido'}
+                                Salvar e Utilizar
                             </button>
                         </div>
                     </div>
                 </div>
             )}
+
+            {/* Modal de C├│pia entre Categorias */}
+            {isCopyModalOpen && modelToCopy && (
+                <div className="fixed inset-0 z-[10000] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in">
+                    <div className="bg-white dark:bg-slate-900 w-full max-w-sm rounded-2xl shadow-xl overflow-hidden animate-scale-up">
+                        <div className="p-5 flex flex-col items-center text-center">
+                            <div className="w-12 h-12 rounded-full bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center mb-4 text-purple-600 dark:text-purple-400">
+                                <i className="bi bi-files text-xl" />
+                            </div>
+                            <h3 className="text-lg font-bold text-slate-800 dark:text-white mb-1">Copiar Modelo</h3>
+                            <p className="text-sm text-slate-500 dark:text-slate-400 mb-6">
+                                Para qual categoria deseja copiar o modelo <br/><strong className="text-slate-700 dark:text-slate-200">{modelToCopy.name}</strong>?
+                            </p>
+                            <div className="flex flex-col gap-2 w-full mb-6">
+                                {selectedCategory !== 'precos' && (
+                                    <button 
+                                        onClick={() => handleCopyToCategory('precos')}
+                                        className="w-full py-2.5 px-4 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-700 dark:text-slate-300 font-bold text-sm hover:bg-purple-50 hover:border-purple-200 dark:hover:bg-purple-900/20 dark:hover:border-purple-800 transition-all flex items-center justify-center gap-2"
+                                    >
+                                        <i className="bi bi-tag-fill text-purple-500" /> Etiquetas de Pre├ºo
+                                    </button>
+                                )}
+                                {selectedCategory !== 'identificacao' && (
+                                    <button 
+                                        onClick={() => handleCopyToCategory('identificacao')}
+                                        className="w-full py-2.5 px-4 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-700 dark:text-slate-300 font-bold text-sm hover:bg-purple-50 hover:border-purple-200 dark:hover:bg-purple-900/20 dark:hover:border-purple-800 transition-all flex items-center justify-center gap-2"
+                                    >
+                                        <i className="bi bi-box-seam-fill text-purple-500" /> Etiquetas de Identifica├º├úo
+                                    </button>
+                                )}
+                                {selectedCategory !== 'logos' && (
+                                    <button 
+                                        onClick={() => handleCopyToCategory('logos')}
+                                        className="w-full py-2.5 px-4 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-700 dark:text-slate-300 font-bold text-sm hover:bg-purple-50 hover:border-purple-200 dark:hover:bg-purple-900/20 dark:hover:border-purple-800 transition-all flex items-center justify-center gap-2"
+                                    >
+                                        <i className="bi bi-images text-purple-500" /> Logotipos e Artes
+                                    </button>
+                                )}
+                            </div>
+                            <div className="flex gap-3 w-full">
+                                <button 
+                                    onClick={() => { setIsCopyModalOpen(false); }}
+                                    className="flex-1 py-2 px-4 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-600 dark:text-slate-300 font-bold text-sm hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
+                                >
+                                    Cancelar
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+
             {isModelManagerModalOpen && (
-                <div className="fixed inset-0 z-[100] flex items-center justify-center p-0 md:p-6 bg-slate-950/70 backdrop-blur-md animate-fade-in">
+                <div className="fixed inset-0 z-[9999] flex items-center justify-center p-0 md:p-6 bg-slate-950/70 backdrop-blur-md animate-fade-in">
                     <div className="bg-white dark:bg-slate-950 w-full h-full md:w-[95vw] md:h-[92vh] rounded-none md:rounded-3xl shadow-2xl flex flex-col overflow-hidden animate-slide-up border-0 md:border border-white/20 dark:border-slate-800/50">
                         {/* Header do Modal */}
                         <div className="px-6 py-5 bg-slate-50/90 dark:bg-slate-900/90 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 flex items-center justify-between gap-4 shrink-0">
@@ -497,7 +348,7 @@ export const ModalsSection: React.FC<ModalsSectionProps> = (props) => {
                                 <div>
                                     <div className="flex items-center gap-2">
                                         <h2 className="text-base md:text-lg font-black uppercase tracking-tight text-slate-800 dark:text-white">
-                                            Gerenciador de Modelos de Etiqueta
+                                            Gerenciar Modelos de Etiqueta
                                         </h2>
                                         <span className="px-2.5 py-0.5 bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300 text-[10px] font-black uppercase rounded-full">
                                             {selectedCategory === 'precos' ? 'Etiquetas de Pre├ºo' : selectedCategory === 'identificacao' ? 'Etiquetas de Identifica├º├úo' : 'Logotipos e Artes'}
@@ -647,7 +498,7 @@ export const ModalsSection: React.FC<ModalsSectionProps> = (props) => {
                 currentCategory={selectedCategory}
                 onSelect={(image) => {
                     if (selectedCategory === 'logos') {
-                        setLogoItems(prev => [...prev, { image, quantity: 1, imageFit: config.imageFit || 'contain', name: 'DA BIBLIOTECA' }]);
+                        setLogoItems((prev: any) => [...prev, { image, quantity: 1, imageFit: config.imageFit || 'contain', name: 'DA BIBLIOTECA' }]);
                     } else {
                         setSelectedImage(image);
                     }
@@ -660,7 +511,7 @@ export const ModalsSection: React.FC<ModalsSectionProps> = (props) => {
                 isOpen={isPriceLabelArtEditorOpen}
                 onClose={() => {
                     setIsPriceLabelArtEditorOpen(false);
-                    setArtVersion(prev => prev + 1);
+                    setArtVersion((prev: any) => prev + 1);
                     if (location.pathname === '/templates/price-label' && window.opener) window.close();
                 }}
                 config={{
@@ -669,13 +520,13 @@ export const ModalsSection: React.FC<ModalsSectionProps> = (props) => {
                 }}
                 onArtConfigLoaded={(loadedArtConfig: any) => {
                     const layoutId = String(config.layoutId || 'preco_2x5_restored');
-                    setSavedArtConfigs(prev => ({
+                    setSavedArtConfigs((prev: any) => ({
                         ...prev,
                         [layoutId]: loadedArtConfig,
                         'preco_2x5_restored': loadedArtConfig,
                     }));
-                    setConfig(prev => ({ ...prev, artConfig: loadedArtConfig }));
-                    setArtVersion(prev => prev + 1);
+                    setConfig((prev: any) => ({ ...prev, artConfig: loadedArtConfig }));
+                    setArtVersion((prev: any) => prev + 1);
                 }}
                 onSaveConfig={async (updated: any) => {
                     const layoutId = String(config.layoutId || 'preco_2x5_restored');
@@ -706,7 +557,7 @@ export const ModalsSection: React.FC<ModalsSectionProps> = (props) => {
                     }
 
                     if (updated.artConfig) {
-                        setSavedArtConfigs(prev => ({
+                        setSavedArtConfigs((prev: any) => ({
                             ...prev,
                             [layoutId]: updated.artConfig,
                             'preco_2x5_restored': updated.artConfig,
@@ -716,12 +567,12 @@ export const ModalsSection: React.FC<ModalsSectionProps> = (props) => {
                             artConfig: updated.artConfig,
                         });
                     }
-                    setConfig(prev => ({
+                    setConfig((prev: any) => ({
                         ...prev,
                         ...updated,
                         artConfig: updated.artConfig || prev.artConfig,
                     }));
-                    setArtVersion(prev => prev + 1);
+                    setArtVersion((prev: any) => prev + 1);
                 }}
                 initialProduct={selectedProductToAdd ? {
                     name: selectedProductToAdd.description,
@@ -730,6 +581,7 @@ export const ModalsSection: React.FC<ModalsSectionProps> = (props) => {
                     sku: selectedProductToAdd.sku || selectedProductToAdd.code || ''
                 } : undefined}
              />
+
         </>
     );
 };
