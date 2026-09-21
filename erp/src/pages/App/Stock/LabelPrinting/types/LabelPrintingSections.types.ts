@@ -74,11 +74,11 @@ export interface PrintPortalSectionProps {
 export interface ModalsSectionProps {
     editingGridModel: any;
     setEditingGridModel: (m: any) => void;
-    selectLayout: (layoutId: string, artConfig: any) => void;
+    selectLayout: (model: any, artConfig?: any) => void;
     isCopyModalOpen: boolean;
     setIsCopyModalOpen: (b: boolean) => void;
     modelToCopy: any;
-    handleCopyToCategory: () => void;
+    handleCopyToCategory: (model: any, cat: any) => void;
     modelToDelete: any;
     setModelToDelete: (m: any) => void;
     confirmDeleteLayout: () => void;
@@ -92,7 +92,7 @@ export interface ModalsSectionProps {
     setIsLabelModalOpen: (b: boolean) => void;
     handleDeleteLayout: (id: string) => void;
     setSelectedImage: (img: string | null) => void;
-    publishPriceLabelTemplateUpdate: () => void;
+    publishPriceLabelTemplateUpdate: (payload?: any) => void;
     selectedProductToAdd: any;
     setCustomLayouts: (updater: any) => void;
     selectedImage: string | null;
