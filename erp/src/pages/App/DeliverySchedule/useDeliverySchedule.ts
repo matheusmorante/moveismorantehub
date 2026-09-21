@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import Order from "../../types/order.type";
-import { subscribeToOrders, updateOrder } from "../../utils/orderHistoryService";
+import { subscribeToOrderChanges, updateOrder, fetchScheduledAndDraftOrders } from "../../utils/orderHistoryService";
 import { DropResult } from "@hello-pangea/dnd";
 import { toast } from "react-toastify";
 import { getLocalISODate } from "../../utils/formatters";
@@ -220,16 +220,30 @@ export const useDeliverySchedule = () => {
     }, []);
 
     useEffect(() => {
-        const unsubscribe = subscribeToOrders((orders) => {
+        let isMounted = true;
+
+        const loadOrders = async () => {
+            setLoading(true);
+            const orders = await fetchScheduledAndDraftOrders();
+            if (!isMounted) return;
             setAllOrders(orders);
             const showroomOrders = showroomAssemblies.map(mapShowroomToOrder) as Order[];
             const { scheduled, pending } = processOrders([...orders, ...showroomOrders], filter, typeFilter, scheduleType, settings, { start: startDate, end: endDate });
             setSchedule(scheduled);
             setPendingOrders(pending);
             setLoading(false);
+        };
+
+        loadOrders();
+
+        const unsubscribe = subscribeToOrderChanges(() => {
+            loadOrders();
         });
 
-        return () => unsubscribe();
+        return () => {
+            isMounted = false;
+            unsubscribe();
+        };
     }, [filter, typeFilter, scheduleType, showroomAssemblies, startDate, endDate, settings]);
 
     // Fetch Showroom Assemblies

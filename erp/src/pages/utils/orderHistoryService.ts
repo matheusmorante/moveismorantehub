@@ -12,7 +12,8 @@ import {
     fetchOrdersPage, 
     subscribeToOrders, 
     subscribeToOrderChanges,
-    enrichOrdersWithPeopleOrigins 
+    enrichOrdersWithPeopleOrigins,
+    fetchScheduledAndDraftOrders
 } from './orderSyncQueries';
 import { 
     moveToTrash as moveToTrashOp, 
@@ -36,6 +37,7 @@ export {
     fetchOrdersPage,
     subscribeToOrders,
     subscribeToOrderChanges,
+    fetchScheduledAndDraftOrders,
     permanentDeleteDraftOrder,
     saveOrder,
     updateOrder

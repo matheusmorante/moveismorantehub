@@ -39,9 +39,9 @@ export const AgendaScreen: React.FC<Props> = ({
         supabase
           .from('orders')
           .select('id, status, scheduled_date, scheduled_start_time, scheduled_end_time, delivery_method, customer_name, order_number, order_index, created_at, order_data')
-          .or('deleted.is.null,deleted.eq.false,order_data->>deleted.is.null,order_data->>deleted.eq.false')
-          .order('created_at', { ascending: false })
-          .limit(500),
+          .or('deleted.is.null,deleted.eq.false')
+          .in('status', ['scheduled', 'draft'])
+          .order('created_at', { ascending: false }),
         fetchCalendarEvents(),
       ]);
 

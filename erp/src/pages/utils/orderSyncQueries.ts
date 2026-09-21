@@ -230,6 +230,36 @@ export const fetchOrdersPage = async (
     return { orders: enrichedOrders, total: count || 0 };
 };
 
+export const fetchScheduledAndDraftOrders = async (): Promise<Order[]> => {
+    try {
+        const { data, error } = await supabase
+            .from(TABLE_NAME)
+            .select('*, order_items(*), order_payments(*)')
+            .or('deleted.is.null,deleted.eq.false')
+            .in('status', ['scheduled', 'draft'])
+            .order('created_at', { ascending: false });
+
+        if (error) {
+            console.error('[OrdersSync] Erro ao buscar pedidos agendados:', error);
+            return [];
+        }
+
+        const rows = Array.isArray(data) ? data : [];
+        const mappedOrders = rows.filter(isValidOrderRow).map((row: any) => {
+            try {
+                return mapOrderFromDatabase(row);
+            } catch (_e) {
+                return capitalizeOrder({ ...(row.order_data || {}), id: String(row.id) } as Order);
+            }
+        });
+
+        return await enrichOrdersWithPeopleOrigins(mappedOrders);
+    } catch (error) {
+        console.error('[OrdersSync] Exception fetching scheduled orders:', error);
+        return [];
+    }
+};
+
 const notifyOrdersSubscribers = () => {
     if (!sharedOrdersSnapshot) return;
     ordersSubscribers.forEach(callback => callback(sharedOrdersSnapshot!));
