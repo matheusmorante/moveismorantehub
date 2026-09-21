@@ -12,13 +12,19 @@ interface VariationFormModalProps {
 }
 
 const DATA_TYPES: Array<{ value: AttributeDataType; label: string }> = [
-    { value: 'list', label: 'Seleção Única / Lista de Opções' },
-    { value: 'text', label: 'Texto Livre' },
+    { value: 'text_short', label: 'Texto' },
     { value: 'integer', label: 'Número Inteiro' },
-    { value: 'decimal', label: 'Número Decimal' },
-    { value: 'boolean', label: 'Booleano (Sim / Não)' },
-    { value: 'measure', label: 'Medida com Unidade' }
+    { value: 'measure', label: 'Número Decimal' },
+    { value: 'radio', label: 'Escolha única' },
+    { value: 'multi_select', label: 'Escolha múltipla' }
 ];
+
+const normalizeDataType = (value?: AttributeDataType): AttributeDataType => {
+    if (value === 'text' || value === 'text_long') return 'text_short';
+    if (value === 'number') return 'integer';
+    if (value === 'list') return 'radio';
+    return value || 'text_short';
+};
 
 const VariationFormModal = ({ isOpen, onClose, onSuccess, variation }: VariationFormModalProps) => {
     const [loading, setLoading] = useState(false);
@@ -27,9 +33,9 @@ const VariationFormModal = ({ isOpen, onClose, onSuccess, variation }: Variation
         name: "",
         options: [],
         active: true,
-        dataType: 'list',
-        unit: '',
+        dataType: 'text_short',
         isGloballyRequired: false,
+        unit: '',
         categoryAttributes: []
     };
 
@@ -40,9 +46,9 @@ const VariationFormModal = ({ isOpen, onClose, onSuccess, variation }: Variation
         if (variation) {
             setFormData({
                 ...variation,
-                dataType: variation.dataType || 'list',
-                unit: variation.unit || '',
+                dataType: normalizeDataType(variation.dataType),
                 isGloballyRequired: variation.isGloballyRequired ?? false,
+                unit: variation.unit || '',
                 categoryAttributes: []
             });
         } else {
@@ -90,12 +96,12 @@ const VariationFormModal = ({ isOpen, onClose, onSuccess, variation }: Variation
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!formData.name?.trim()) {
-            toast.error("O nome da Especificação Técnica é obrigatório (Ex: Cor, Quantidade de portas).");
+            toast.error("O nome da característica é obrigatório (Ex: Cor, Quantidade de portas).");
             return;
         }
 
-        const effectiveDataType = formData.dataType || 'list';
-        if (effectiveDataType === 'list' && (!formData.options || formData.options.length === 0)) {
+        const effectiveDataType = normalizeDataType(formData.dataType);
+        if (['list', 'radio', 'multi_select'].includes(effectiveDataType) && (!formData.options || formData.options.length === 0)) {
             toast.error("Para campos do tipo Seleção Única / Lista, cadastre pelo menos uma opção possível.");
             return;
         }
@@ -105,7 +111,7 @@ const VariationFormModal = ({ isOpen, onClose, onSuccess, variation }: Variation
             if (variation?.active && !formData.active) {
                 const isInUse = await checkVariationUsage(formData.name);
                 if (isInUse) {
-                    toast.warning(`A Especificação Técnica "${formData.name}" não pode ser inativada pois está vinculada a produtos.`);
+                    toast.warning(`A característica "${formData.name}" não pode ser inativada pois está vinculada a produtos.`);
                     setFormData(prev => ({ ...prev, active: true }));
                     setLoading(false);
                     return;
@@ -115,20 +121,21 @@ const VariationFormModal = ({ isOpen, onClose, onSuccess, variation }: Variation
             const payload: VariationType = {
                 id: variation?.id,
                 name: formData.name.trim(),
-                options: effectiveDataType === 'list' ? (formData.options || []) : [],
+                options: ['list', 'radio', 'multi_select'].includes(effectiveDataType) ? (formData.options || []) : [],
                 active: formData.active ?? true,
                 dataType: effectiveDataType,
-                unit: formData.unit?.trim() || undefined,
                 isGloballyRequired: formData.isGloballyRequired ?? false,
+                isCustom: variation?.isCustom ?? true,
+                unit: formData.unit?.trim() || undefined,
                 categoryAttributes: []
             };
 
             await saveVariation(payload);
-            toast.success(variation ? "Especificação Técnica atualizada!" : "Especificação Técnica criada com sucesso!");
+            toast.success(variation ? "Característica atualizada!" : "Característica criada com sucesso!");
             onSuccess?.();
             onClose();
         } catch (error) {
-            toast.error("Erro ao salvar Especificação Técnica.");
+            toast.error("Erro ao salvar característica.");
             console.error(error);
         } finally {
             setLoading(false);
@@ -137,7 +144,7 @@ const VariationFormModal = ({ isOpen, onClose, onSuccess, variation }: Variation
 
     if (!isOpen) return null;
 
-    const isListType = (formData.dataType || 'list') === 'list';
+    const isListType = ['radio', 'multi_select'].includes(normalizeDataType(formData.dataType));
     const isMeasureType = formData.dataType === 'measure' || formData.dataType === 'integer' || formData.dataType === 'decimal';
 
     return (
@@ -147,7 +154,7 @@ const VariationFormModal = ({ isOpen, onClose, onSuccess, variation }: Variation
                 {/* Header */}
                 <div className="px-6 py-4 sm:px-8 sm:py-5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between shrink-0">
                     <h2 className="text-xl sm:text-2xl font-black text-slate-800 dark:text-slate-100 tracking-tight">
-                        {variation ? "Editar Especificação Técnica" : "Nova Especificação Técnica"}
+                        {variation ? "Editar característica" : "Nova característica"}
                     </h2>
                     <button onClick={onClose} className="p-2 text-slate-400 hover:text-red-500 transition-colors cursor-pointer">
                         <i className="bi bi-x-lg text-lg"></i>
@@ -156,10 +163,10 @@ const VariationFormModal = ({ isOpen, onClose, onSuccess, variation }: Variation
 
                 <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto min-h-0 custom-scrollbar p-6 sm:p-8">
                     <div className="flex flex-col gap-6">
-                        {/* Nome da Especificação Técnica */}
+                        {/* Nome da característica */}
                         <div className="flex flex-col gap-2">
                             <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">
-                                Nome da Especificação Técnica
+                                Nome da característica
                             </label>
                             <input
                                 type="text"
@@ -171,16 +178,29 @@ const VariationFormModal = ({ isOpen, onClose, onSuccess, variation }: Variation
                             />
                         </div>
 
-                        <label className="flex items-start gap-3 p-4 rounded-2xl border border-amber-200 bg-amber-50/60 dark:border-amber-500/30 dark:bg-amber-500/10 cursor-pointer">
-                            <input
-                                type="checkbox"
-                                checked={Boolean(formData.isGloballyRequired)}
-                                onChange={(event) => setFormData(prev => ({ ...prev, isGloballyRequired: event.target.checked }))}
-                                className="mt-0.5 h-4 w-4 rounded border-amber-400 text-amber-600 focus:ring-amber-500"
-                            />
-                            <span>
-                                <span className="block text-xs font-black text-amber-900 dark:text-amber-200">Obrigatória em todos os produtos</span>
-                                <span className="block mt-0.5 text-[11px] font-medium leading-relaxed text-amber-800/80 dark:text-amber-100/70">Exibe esta especificação em todas as categorias e exige um valor ao salvar o produto.</span>
+                        <div className="flex flex-col gap-2">
+                            <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">Tipo de preenchimento</label>
+                            <select
+                                value={formData.dataType || 'list'}
+                                onChange={(event) => setFormData(prev => ({ ...prev, dataType: event.target.value as AttributeDataType }))}
+                                className="w-full px-4 py-3.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none text-sm font-bold dark:text-slate-100"
+                            >
+                                {DATA_TYPES.map(type => <option key={type.value} value={type.value}>{type.label}</option>)}
+                            </select>
+                        </div>
+
+                        <label className="flex items-center justify-between gap-3 cursor-pointer">
+                            <span className="text-xs font-bold text-slate-700 dark:text-slate-200">Obrigatória no cadastro/edição de produto</span>
+                            <span className="flex items-center gap-2">
+                                <input
+                                    type="checkbox"
+                                    checked={Boolean(formData.isGloballyRequired)}
+                                    onChange={(event) => setFormData(prev => ({ ...prev, isGloballyRequired: event.target.checked }))}
+                                    className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                                />
+                                <span title="Quando ativada, exige um valor para esta característica ao salvar o produto.">
+                                    <i className="bi bi-info-circle text-slate-400" aria-label="Informação sobre obrigatoriedade" />
+                                </span>
                             </span>
                         </label>
 
@@ -261,7 +281,7 @@ const VariationFormModal = ({ isOpen, onClose, onSuccess, variation }: Variation
                         ) : (
                             <i className="bi bi-check-lg" />
                         )}
-                        {variation ? "Salvar Alterações" : "Criar Campo"}
+                        {variation ? "Salvar alterações" : "Criar característica"}
                     </button>
                 </div>
             </div>
