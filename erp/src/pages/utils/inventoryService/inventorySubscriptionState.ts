@@ -45,6 +45,7 @@ export const subscribeToInventoryMoves = (callback: (moves: InventoryMove[]) => 
         supabase.from(INVENTORY_TABLE_NAME)
             .select('*')
             .order('date', { ascending: false })
+            .limit(30)
             .then(({ data, error }: { data: any, error: any }) => {
                 if (data && !error) {
                     currentMoves = data.map(mapInventoryMoveFromDB);

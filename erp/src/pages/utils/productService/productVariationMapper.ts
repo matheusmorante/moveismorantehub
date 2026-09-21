@@ -24,13 +24,7 @@ export const parseVariationAttributes = (rawAttrs: any): { name: string; value: 
     
     if (typeof rawAttrs === 'string') {
         try {
-            const parsed = JSON.parse(rawAttrs);
-            if (Array.isArray(parsed)) {
-                return parsed.map((a: any) => ({ name: a.name || '', value: String(a.value || ''), showName: true }));
-            }
-            if (parsed && typeof parsed === 'object') {
-                return Object.entries(parsed).map(([name, value]) => ({ name, value: String(value), showName: true }));
-            }
+            return parseVariationAttributes(JSON.parse(rawAttrs));
         } catch (e) {
             // Se não for JSON válido, ignora
         }

@@ -1,5 +1,4 @@
 import { normalizeSearchTerm } from '@/pages/utils/textUtils';
-import { PRODUCT_ENVIRONMENT_OPTIONS } from '../../utils/productEnvironmentOptions';
 
 export interface ProductCategoryOption {
     id: string;
@@ -9,13 +8,14 @@ export interface ProductCategoryOption {
 
 export function filterProductSelectableCategories(categories: ProductCategoryOption[]): ProductCategoryOption[] {
     return categories.filter(category => {
-        const name = category.name.trim().toUpperCase();
-        const isFixedEnvironment = PRODUCT_ENVIRONMENT_OPTIONS.includes(name);
+        // Agora, um "Ambiente" é simplesmente qualquer categoria raiz na listagem unificada de retrocompatibilidade
+        // que possua filhos (outras categorias apontando para ele).
+        // Se a categoria não tiver pais e tiver filhos, ela é um Ambiente e não pode ser selecionada diretamente no produto.
         const hasChildren = categories.some(other => other.parents?.includes(category.id));
         const isRootCategory = !category.parents || category.parents.length === 0;
-        const isEnvironment = isFixedEnvironment || (hasChildren && isRootCategory) || isRootCategory;
+        const isEnvironment = isRootCategory; // Todos os nós sem pai (raízes) na listagem atual vinda de fetchGroupsAndCategories são Ambientes!
 
-        return !isEnvironment;
+        return !isEnvironment; // Retorna apenas as categorias selecionáveis (que têm pai(s))
     });
 }
 
@@ -65,4 +65,3 @@ export function getProductCategoryRootNames(
     categoryIds.forEach(findRoot);
     return Array.from(roots);
 }
-

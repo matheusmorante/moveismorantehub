@@ -11,6 +11,9 @@ erDiagram
     products ||--|{ product_variations : "possui"
     products ||--o{ product_categories : "pertence"
     categories ||--o{ product_categories : "agrupa"
+    categories ||--o{ category_attributes : "define obrigatoriedade"
+    attributes ||--o{ category_attributes : "é exigido por"
+    attributes ||--o{ attribute_values : "oferece valores"
     products ||--o{ product_images : "contém"
     
     people ||--o{ orders : "solicita (cliente)"
@@ -57,6 +60,29 @@ erDiagram
         jsonb attributes
         string image_url
         uuid merged_to_variation_id
+    }
+
+    attributes {
+        uuid id PK
+        string name
+        string data_type
+        string unit
+        boolean active
+    }
+
+    category_attributes {
+        uuid id PK
+        uuid category_id FK
+        uuid attribute_id FK
+        boolean is_required
+        timestamp created_at
+    }
+
+    attribute_values {
+        uuid id PK
+        uuid attribute_id FK
+        string value
+        timestamp created_at
     }
 
     inventory_moves {

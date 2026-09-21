@@ -104,6 +104,7 @@ export const InventoryAuditFlow: React.FC<Props> = ({ isDarkMode, userProfile, o
                 <InventoryOperationScreen
                     isDarkMode={isDarkMode}
                     inventoryName={scopeConfig.name || `Inventário #${draftRef.current.code}`}
+                    inventoryId={draftRef.current.id!}
                     blindCount={scopeConfig.blindCount}
                     items={items}
                     scopeType={scopeConfig.scopeType}

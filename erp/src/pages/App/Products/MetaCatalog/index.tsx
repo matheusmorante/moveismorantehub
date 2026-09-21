@@ -153,11 +153,11 @@ export default function MetaCatalog() {
             const { whatsappGraphService } = await import('@/pages/utils/whatsappGraphService');
 
             // 1. Buscar todos os produtos cadastrados no Supabase (ativos e inativos para sync completo)
-            const { data: products, error: prodErr } = await supabase.from('products').select('*');
+            const { data: products, error: prodErr } = await supabase.from('products').select('id, name, title, description, whatsapp_description, status, active, deleted, deleted_at, opportunity_id, sales_price, unit_price, price, stock, images, brand, group_name, sku, code');
             if (prodErr) throw prodErr;
 
             // 2. Buscar variações e oportunidades
-            const { data: variations, error: varErr } = await supabase.from('product_variations').select('*');
+            const { data: variations, error: varErr } = await supabase.from('product_variations').select('id, product_id, status, active, name, color, size, sku, code, image_url, sales_price, price, stock');
             if (varErr) throw varErr;
 
             const { data: opps } = await supabase.from('opportunities').select('id, name, observations');

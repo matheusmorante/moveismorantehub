@@ -21,6 +21,8 @@ export const ManageAttributesModal: React.FC<ManageAttributesModalProps> = ({ is
 
     const [searchTerm, setSearchTerm] = useState('');
     const [newAttrName, setNewAttrName] = useState('');
+    const [newDataType, setNewDataType] = useState<VariationType['dataType']>('list');
+    const [newUnit, setNewUnit] = useState('');
     const [tempValues, setTempValues] = useState<string[]>([]);
     const [currentValInput, setCurrentValInput] = useState('');
     const [isSaving, setIsSaving] = useState(false);
@@ -28,6 +30,7 @@ export const ManageAttributesModal: React.FC<ManageAttributesModalProps> = ({ is
 
     useEffect(() => {
         if (!isOpen) return;
+
         const handleKeyDown = (event: KeyboardEvent) => {
             if (event.key === 'Escape' && !isSaving) {
                 onClose();
@@ -65,7 +68,7 @@ export const ManageAttributesModal: React.FC<ManageAttributesModalProps> = ({ is
 
         const finalValues = finalizeAttributeDraftValues(tempValues, currentValInput);
 
-        if (finalValues.length === 0) {
+        if (newDataType === 'list' && finalValues.length === 0) {
             toast.error('Adicione pelo menos um valor/rótulo!');
             return;
         }
@@ -75,11 +78,15 @@ export const ManageAttributesModal: React.FC<ManageAttributesModalProps> = ({ is
             await saveVariation({
                 name: newAttrName.trim(),
                 active: true,
-                options: finalValues.map((val) => ({ id: '', value: val }))
+                dataType: newDataType,
+                unit: newDataType === 'measure' ? newUnit.trim() : '',
+                options: newDataType === 'list' ? finalValues.map((val) => ({ id: '', value: val })) : []
             });
 
             toast.success('Atributo criado com sucesso!');
             setNewAttrName('');
+            setNewDataType('list');
+            setNewUnit('');
             setTempValues([]);
             setCurrentValInput('');
             refresh();
@@ -220,37 +227,71 @@ export const ManageAttributesModal: React.FC<ManageAttributesModalProps> = ({ is
                                 </div>
 
                                 <div className="space-y-1.5">
-                                    <label htmlFor="new-attr-tags-input" className="text-[10px] font-black uppercase tracking-widest text-slate-400">
-                                        Valores (Enter ou Vírgula)
+                                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+                                        Tipo de Dado
                                     </label>
-                                    <div className="min-h-[4.5rem] flex flex-wrap gap-1.5 p-2.5 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl items-center">
-                                        {tempValues.map((val, idx) => (
-                                            <span
-                                                key={idx}
-                                                className="h-7 bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 font-bold text-[11px] gap-1 px-2.5 rounded-lg border border-blue-100 dark:border-blue-900/30 flex items-center shrink-0"
-                                            >
-                                                {val}
-                                                <button
-                                                    type="button"
-                                                    onClick={() => setTempValues((prev) => prev.filter((_, i) => i !== idx))}
-                                                    aria-label={`Remover valor ${val}`}
-                                                    className="text-blue-400 hover:text-red-500 transition-colors cursor-pointer"
-                                                >
-                                                    <i className="bi bi-x text-xs" aria-hidden="true" />
-                                                </button>
-                                            </span>
-                                        ))}
+                                    <select
+                                        value={newDataType}
+                                        onChange={(e) => setNewDataType(e.target.value as VariationType['dataType'])}
+                                        className="w-full px-3.5 py-2.5 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-blue-500/20 font-bold dark:text-slate-300"
+                                    >
+                                        <option value="list">Lista de Valores</option>
+                                        <option value="text">Texto Livre</option>
+                                        <option value="integer">Número Inteiro</option>
+                                        <option value="decimal">Número Decimal</option>
+                                        <option value="boolean">Booleano (Sim/Não)</option>
+                                        <option value="measure">Medida (com unidade)</option>
+                                    </select>
+                                </div>
+
+                                {newDataType === 'measure' && (
+                                    <div className="space-y-1.5 animate-in fade-in zoom-in-95 duration-200">
+                                        <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+                                            Unidade (Ex: cm, kg, L)
+                                        </label>
                                         <input
-                                            id="new-attr-tags-input"
-                                            type="text"
-                                            placeholder={tempValues.length === 0 ? 'Ex: Azul, Preto...' : ''}
-                                            value={currentValInput}
-                                            onChange={(e) => setCurrentValInput(e.target.value)}
-                                            onKeyDown={handleKeyDownTagInput}
-                                            className="flex-1 min-w-[80px] bg-transparent outline-none border-none text-xs p-1 font-bold dark:text-slate-300"
+                                            placeholder="Unidade..."
+                                            value={newUnit}
+                                            onChange={(e) => setNewUnit(e.target.value)}
+                                            className="w-full px-3.5 py-2.5 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-blue-500/20 font-bold dark:text-slate-300"
                                         />
                                     </div>
-                                </div>
+                                )}
+
+                                {newDataType === 'list' && (
+                                    <div className="space-y-1.5 animate-in fade-in zoom-in-95 duration-200">
+                                        <label htmlFor="new-attr-tags-input" className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+                                            Valores (Enter ou Vírgula)
+                                        </label>
+                                        <div className="min-h-[4.5rem] flex flex-wrap gap-1.5 p-2.5 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl items-center">
+                                            {tempValues.map((val, idx) => (
+                                                <span
+                                                    key={idx}
+                                                    className="h-7 bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 font-bold text-[11px] gap-1 px-2.5 rounded-lg border border-blue-100 dark:border-blue-900/30 flex items-center shrink-0"
+                                                >
+                                                    {val}
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setTempValues((prev) => prev.filter((_, i) => i !== idx))}
+                                                        aria-label={`Remover valor ${val}`}
+                                                        className="text-blue-400 hover:text-red-500 transition-colors cursor-pointer"
+                                                    >
+                                                        <i className="bi bi-x text-xs" aria-hidden="true" />
+                                                    </button>
+                                                </span>
+                                            ))}
+                                            <input
+                                                id="new-attr-tags-input"
+                                                type="text"
+                                                placeholder={tempValues.length === 0 ? 'Ex: Azul, Preto...' : ''}
+                                                value={currentValInput}
+                                                onChange={(e) => setCurrentValInput(e.target.value)}
+                                                onKeyDown={handleKeyDownTagInput}
+                                                className="flex-1 min-w-[80px] bg-transparent outline-none border-none text-xs p-1 font-bold dark:text-slate-300"
+                                            />
+                                        </div>
+                                    </div>
+                                )}
 
                                 <button
                                     type="submit"

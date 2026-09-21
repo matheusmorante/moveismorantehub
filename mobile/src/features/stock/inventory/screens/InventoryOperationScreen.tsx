@@ -10,6 +10,7 @@ import { Maximize2 } from 'lucide-react-native';
 
 interface Props {
   isDarkMode: boolean;
+  inventoryId: string;
   inventoryName: string;
   blindCount: boolean;
   items: AuditItem[];
@@ -23,6 +24,7 @@ interface Props {
 
 export const InventoryOperationScreen: React.FC<Props> = ({
   isDarkMode,
+  inventoryId,
   inventoryName,
   blindCount,
   items,
@@ -56,21 +58,69 @@ export const InventoryOperationScreen: React.FC<Props> = ({
   const progressPercent = activeItems.length > 0 ? Math.round((countedItems.length / activeItems.length) * 100) : 0;
   const isShowingStages = scopeType === 'full' && !activeStage;
 
-  const handleScan = (data: string) => {
+  const handleScan = async (data: string) => {
+      let scanId = data;
+      let targetProductId = data;
+
+      try {
+          const parsed = JSON.parse(data);
+          if (parsed.scanId) scanId = parsed.scanId;
+          if (parsed.productId) targetProductId = String(parsed.productId);
+          else if (parsed.sku) targetProductId = String(parsed.sku);
+      } catch (e) {
+          // data is not JSON, use raw string
+      }
+
       const item = items.find(i => 
-          i.productId === data || 
-          i.variationId === data || 
-          i.name.toLowerCase().includes(data.toLowerCase())
+          i.productId === targetProductId || 
+          i.variationId === targetProductId || 
+          i.name.toLowerCase().includes(targetProductId.toLowerCase())
       );
 
       if (item) {
-          const currentCount = item.physicalCount === null ? 0 : item.physicalCount;
-          onUpdateCount(item.id, currentCount + 1);
-          Alert.alert("Sucesso", `Produto ${item.name} computado com sucesso!`);
+          const { addInventoryScan } = require('../../../../services/sqlite/inventoryScans');
+          const result = await addInventoryScan(inventoryId, item.productId, item.variationId || null, scanId);
+          if (result.success) {
+              const currentCount = item.physicalCount === null ? 0 : item.physicalCount;
+              onUpdateCount(item.id, currentCount + 1);
+              Alert.alert("Sucesso", `Produto ${item.name} computado com sucesso!`);
+          } else if (result.error === 'duplicate') {
+              Alert.alert("Atenção", "Esta caixa/volume já foi escaneada neste inventário.");
+          } else {
+              Alert.alert("Erro", "Falha ao gravar no banco local offline.");
+          }
       } else {
           Alert.alert("Não encontrado", "O código lido não corresponde a nenhum produto nesta lista.");
       }
       setShowScanner(false);
+  };
+
+  const handleManualCountUpdate = async (item: AuditItem, newCount: number | null) => {
+      const current = item.physicalCount || 0;
+      const target = newCount || 0;
+      
+      if (newCount === null && item.physicalCount === null) return;
+      
+      const diff = target - current;
+      if (diff === 0) {
+          onUpdateCount(item.id, newCount);
+          return;
+      }
+      
+      const { addInventoryScan, removeLatestScanForProduct } = require('../../../../services/sqlite/inventoryScans');
+      const { v4: uuidv4 } = require('uuid');
+
+      if (diff > 0) {
+          for (let i = 0; i < diff; i++) {
+              await addInventoryScan(inventoryId, item.productId, item.variationId || null, uuidv4());
+          }
+      } else if (diff < 0) {
+          const absDiff = Math.abs(diff);
+          for (let i = 0; i < absDiff; i++) {
+              await removeLatestScanForProduct(inventoryId, item.productId);
+          }
+      }
+      onUpdateCount(item.id, newCount);
   };
 
   const renderItem = ({ item }: { item: AuditItem }) => {
@@ -129,7 +179,7 @@ export const InventoryOperationScreen: React.FC<Props> = ({
                   <View style={[styles.counter, { backgroundColor: isDarkMode ? 'rgba(15,23,42,0.5)' : '#f8fafc', borderColor: border }]}>
                       <TouchableOpacity 
                         style={[styles.counterBtn, { backgroundColor: surface, borderColor: border }]} 
-                        onPress={() => onUpdateCount(item.id, Math.max(0, (item.physicalCount || 0) - 1))}
+                        onPress={() => handleManualCountUpdate(item, Math.max(0, (item.physicalCount || 0) - 1))}
                         disabled={item.physicalCount === 0}
                       >
                           <Minus size={24} color={textPrimary} opacity={item.physicalCount === 0 ? 0.3 : 1} />
@@ -141,8 +191,8 @@ export const InventoryOperationScreen: React.FC<Props> = ({
                               keyboardType="numeric"
                               value={item.physicalCount === null ? '' : String(item.physicalCount)}
                               onChangeText={val => {
-                                  if (val === '') onUpdateCount(item.id, null);
-                                  else onUpdateCount(item.id, Math.max(0, parseInt(val, 10) || 0));
+                                  if (val === '') handleManualCountUpdate(item, null);
+                                  else handleManualCountUpdate(item, Math.max(0, parseInt(val, 10) || 0));
                               }}
                               placeholder="-"
                               placeholderTextColor={muted}
@@ -153,7 +203,7 @@ export const InventoryOperationScreen: React.FC<Props> = ({
                       <TouchableOpacity 
                         testID="increment-btn"
                         style={[styles.counterBtn, { backgroundColor: surface, borderColor: border }]} 
-                        onPress={() => onUpdateCount(item.id, (item.physicalCount || 0) + 1)}
+                        onPress={() => handleManualCountUpdate(item, (item.physicalCount || 0) + 1)}
                       >
                           <Plus size={24} color={textPrimary} />
                       </TouchableOpacity>

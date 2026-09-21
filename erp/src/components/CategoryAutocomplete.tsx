@@ -3,14 +3,15 @@ import { supabase } from '../pages/utils/supabaseConfig';
 import { normalizeSearchTerm } from '../pages/utils/textUtils';
 import DropdownPortal from './shared/DropdownPortal';
 
-interface Category {
+interface CategoryNode {
     id: string;
     name: string;
-    parents?: string[];
+    parents?: string[]; // IDs of environments (if it's a category)
+    isEnvironment?: boolean;
 }
 
 interface CategoryAutocompleteProps {
-    onSelect: (category: Category) => void;
+    onSelect: (category: CategoryNode) => void;
     onRemove: (categoryId: string) => void;
     selectedIds: string[];
     onSearch?: () => void;
@@ -31,8 +32,8 @@ const CategoryAutocomplete: React.FC<CategoryAutocompleteProps> = ({
     filter = "all"
 }) => {
     const [query, setQuery] = useState("");
-    const [suggestions, setSuggestions] = useState<Category[]>([]);
-    const [allCategories, setAllCategories] = useState<Category[]>([]);
+    const [suggestions, setSuggestions] = useState<CategoryNode[]>([]);
+    const [allNodes, setAllNodes] = useState<CategoryNode[]>([]);
     const [isLoading, setIsLoading] = useState(false);
     const [showSuggestions, setShowSuggestions] = useState(false);
     const wrapperRef = useRef<HTMLDivElement>(null);
@@ -40,22 +41,36 @@ const CategoryAutocomplete: React.FC<CategoryAutocompleteProps> = ({
     useEffect(() => {
         const fetchAll = async () => {
             setIsLoading(true);
+            const { data: envs } = await supabase.from('environments').select('id, name').order('name');
             const { data: cats } = await supabase.from('categories').select('id, name').order('name');
-            const { data: rels } = await supabase.from('category_relationships').select('child_id, parent_id');
+            const { data: rels } = await supabase.from('environment_categories').select('environment_id, category_id');
             
-            if (cats) {
-                const mapped: Category[] = cats.map((c: any) => ({
-                    ...c,
-                    parents: rels?.filter((r: any) => r.child_id === c.id).map((r: any) => r.parent_id) || []
-                }));
-                setAllCategories(mapped);
+            const nodes: CategoryNode[] = [];
+
+            if (envs) {
+                nodes.push(...envs.map((e: any) => ({
+                    id: e.id,
+                    name: e.name,
+                    isEnvironment: true,
+                    parents: []
+                })));
             }
+
+            if (cats) {
+                nodes.push(...cats.map((c: any) => ({
+                    id: c.id,
+                    name: c.name,
+                    isEnvironment: false,
+                    parents: rels?.filter((r: any) => r.category_id === c.id).map((r: any) => r.environment_id) || []
+                })));
+            }
+
+            setAllNodes(nodes);
             setIsLoading(false);
         };
         
         fetchAll();
 
-        // Recarregar sempre que a janela recuperar o foco (ex: o usuário volta da aba de gerenciar categorias)
         window.addEventListener('focus', fetchAll);
         return () => {
             window.removeEventListener('focus', fetchAll);
@@ -73,23 +88,14 @@ const CategoryAutocomplete: React.FC<CategoryAutocompleteProps> = ({
     }, []);
 
     useEffect(() => {
-        const FIXED_ENVIRONMENTS = ["SALA DE JANTAR", "SALA DE ESTAR", "COZINHA", "QUARTO", "LAVANDERIA", "BANHEIRO", "LAVANDEIRA", "ESCRITORIO", "ESCRITÓRIO", "VARANDA", "ÁREA GOURMET", "GARAGEM"];
-
-        const filteredList = allCategories.filter(c => {
+        const filteredList = allNodes.filter(c => {
             if (filter === 'all') return true;
-            
-            const name = c.name?.trim().toUpperCase();
-            const isFixed = FIXED_ENVIRONMENTS.includes(name);
-            const hasChildren = allCategories.some(other => other.parents?.includes(c.id));
-            const isEnvironment = isFixed || (hasChildren && (!c.parents || c.parents.length === 0)) || (!c.parents || c.parents.length === 0);
-            
-            if (filter === 'environments') return isEnvironment;
-            if (filter === 'categories') return !isEnvironment;
+            if (filter === 'environments') return c.isEnvironment;
+            if (filter === 'categories') return !c.isEnvironment;
             return true;
         });
 
         if (query.trim() === "") {
-            // Show subcategories if no query
             setSuggestions(filteredList.slice(0, 30));
             return;
         }
@@ -100,21 +106,19 @@ const CategoryAutocomplete: React.FC<CategoryAutocompleteProps> = ({
         ).slice(0, 50);
         
         setSuggestions(filtered);
-    }, [query, allCategories, filter]);
+    }, [query, allNodes, filter]);
 
-    const handleSelect = (category: Category) => {
+    const handleSelect = (category: CategoryNode) => {
         onSelect(category);
         setQuery("");
-        // Dropdown stays open for more selections
     };
 
     return (
         <div ref={wrapperRef} className={`relative flex flex-col gap-3 ${className}`}>
-            {/* selected tags */}
             {selectedIds.length > 0 && (
                 <div className="flex flex-wrap gap-2 mb-1">
                     {selectedIds.map(id => {
-                        const cat = allCategories.find(c => c.id === id);
+                        const cat = allNodes.find(c => c.id === id);
                         if (!cat) return null;
                         return (
                             <div key={id} className="flex items-center gap-2 px-3 py-1.5 bg-blue-600 text-white text-[10px] font-black uppercase tracking-widest rounded-xl animate-in zoom-in-95 duration-200">
@@ -176,9 +180,14 @@ const CategoryAutocomplete: React.FC<CategoryAutocompleteProps> = ({
                                 >
                                     <div className="flex flex-col">
                                         <span className="text-sm font-bold text-slate-700 dark:text-slate-200">{cat.name}</span>
-                                        {cat.parents && cat.parents.length > 0 && (
+                                        {!cat.isEnvironment && cat.parents && cat.parents.length > 0 && (
                                             <span className="text-[9px] uppercase font-black text-slate-400">
-                                                {allCategories.find(c => c.id === cat.parents![0])?.name || 'Outro'} &gt; Subcategoria
+                                                {allNodes.find(c => c.id === cat.parents![0])?.name || 'Ambiente'} &gt; Categoria
+                                            </span>
+                                        )}
+                                        {cat.isEnvironment && (
+                                            <span className="text-[9px] uppercase font-black text-blue-500">
+                                                Ambiente
                                             </span>
                                         )}
                                     </div>
@@ -189,7 +198,7 @@ const CategoryAutocomplete: React.FC<CategoryAutocompleteProps> = ({
                     ) : (
                         <div className="p-8 text-center">
                             <i className="bi bi-search text-2xl text-slate-200 mb-2 block"></i>
-                            <p className="text-[10px] uppercase font-black text-slate-400 tracking-widest">Nenhuma categoria encontrada</p>
+                            <p className="text-[10px] uppercase font-black text-slate-400 tracking-widest">Nenhum resultado encontrado</p>
                         </div>
                     )}
                 </div>
@@ -199,3 +208,4 @@ const CategoryAutocomplete: React.FC<CategoryAutocompleteProps> = ({
 };
 
 export default CategoryAutocomplete;
+

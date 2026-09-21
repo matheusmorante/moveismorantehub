@@ -95,6 +95,21 @@ export const runMigrations = async (db?: DatabaseDriver): Promise<void> => {
     );
   `);
 
+  // 7. Inventário Físico: Scans locais (inventory_scans_local)
+  await driver.execAsync(`
+    CREATE TABLE IF NOT EXISTS inventory_scans_local (
+      id TEXT PRIMARY KEY,
+      inventory_id TEXT NOT NULL,
+      product_id TEXT NOT NULL,
+      variation_id TEXT,
+      scan_id TEXT NOT NULL,
+      scanned_at TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'pending'
+    );
+  `);
+  await driver.execAsync(`CREATE INDEX IF NOT EXISTS idx_inventory_scans_local_inventory ON inventory_scans_local(inventory_id);`);
+  await driver.execAsync(`CREATE UNIQUE INDEX IF NOT EXISTS idx_inventory_scans_local_scan_id ON inventory_scans_local(inventory_id, scan_id);`);
+
   await driver.execAsync(`
     CREATE TABLE IF NOT EXISTS sync_metadata_local (
       key TEXT PRIMARY KEY,

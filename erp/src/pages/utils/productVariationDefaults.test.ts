@@ -1,10 +1,40 @@
 import { describe, expect, it } from 'vitest';
 import { 
+    computeVariationName,
     getSelectedProductDisplayName, 
     hasVariationAttribute, 
     getIncompleteVariationAttributes, 
     hasMissingRequiredAttributes 
 } from './productVariationDefaults';
+
+describe('computeVariationName', () => {
+    it('compõe o título com quantidades de portas e gavetas na ordem escolhida', () => {
+        expect(computeVariationName('Guarda-roupa', [
+            { name: 'Quantidade de portas', value: '6 portas' },
+            { name: 'Quantidade de gavetas', value: '2 gavetas' }
+        ])).toBe('Guarda-Roupa 6 Portas 2 Gavetas');
+    });
+
+    it('omite somente atributos marcados como ocultos no nome', () => {
+        expect(computeVariationName('Guarda-roupa', [
+            { name: 'Cor', value: 'Branco' },
+            { name: 'Quantidade de portas', value: '6 portas', showName: false },
+            { name: 'Quantidade de gavetas', value: '2 gavetas', showName: true }
+        ])).toBe('Guarda-Roupa Branco 2 Gavetas');
+    });
+
+    it('mantém atributos legados visíveis quando showName não existe', () => {
+        expect(computeVariationName('Cômoda', [
+            { name: 'Cor', value: 'Branco' }
+        ])).toBe('Cômoda Branco');
+    });
+
+    it('não inclui JSON serializado no nome quando todos os atributos estão ocultos', () => {
+        expect(computeVariationName('Armário', JSON.stringify([
+            { name: 'Quantidade de portas', value: '6 portas', showName: false }
+        ]))).toBe('Armário');
+    });
+});
 
 describe('getSelectedProductDisplayName', () => {
     it('usa somente o nome da variação, mesmo quando ela já contém o nome do pai', () => {

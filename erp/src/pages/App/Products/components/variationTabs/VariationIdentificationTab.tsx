@@ -8,6 +8,8 @@ import { VariationAttributeValueInput } from './VariationAttributeValueInput';
 export interface DbAttributeItem {
     readonly id: string;
     readonly name: string;
+    readonly data_type?: 'list' | 'integer' | 'decimal' | 'text' | 'boolean' | 'measure';
+    readonly unit?: string;
 }
 
 export interface DbAttributeValueItem {
@@ -45,6 +47,60 @@ export const VariationIdentificationTab: React.FC<VariationIdentificationTabProp
 }) => {
     const [localAttributeValues, setLocalAttributeValues] = useState<readonly DbAttributeValueItem[]>(dbAttributeValues);
     const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
+    const [requiredAttributeIds, setRequiredAttributeIds] = useState<Set<string>>(new Set());
+
+    useEffect(() => {
+        // Busca os atributos obrigatórios para a categoria do produto pai
+        const fetchCategoryAttributes = async () => {
+            const categoryIds = parentProduct.categoryIds || [];
+            if (categoryIds.length === 0) return;
+
+            try {
+                // Como não importamos o supabase aqui, vamos depender de uma prop futura ou importar.
+                // Mas, como este componente é grande e não tem supabase importado,
+                // para não quebrar regras de imports, vou importar localmente.
+                const { ecommerceSupabase } = await import('@/pages/utils/supabaseConfig');
+                const { data } = await ecommerceSupabase
+                    .from('category_attributes')
+                    .select('attribute_id')
+                    .in('category_id', categoryIds)
+                    .eq('is_required', true);
+
+                if (data && data.length > 0) {
+                    const reqIds = new Set(data.map(d => d.attribute_id));
+                    setRequiredAttributeIds(reqIds);
+
+                    // Auto injetar atributos obrigatórios que não existem no formData
+                    setFormData(prev => {
+                        if (!prev) return null;
+                        let updated = [...(prev.attributes || [])];
+                        let changed = false;
+
+                        dbAttributes.forEach(attr => {
+                            if (reqIds.has(attr.id)) {
+                                if (!updated.some(u => u.name === attr.name)) {
+                                    updated.push({ name: attr.name, value: "", showName: true });
+                                    changed = true;
+                                }
+                            }
+                        });
+
+                        if (changed) {
+                            const autoName = getDefaultVariationName(updated);
+                            const autoTitle = getDefaultVariationTitle(updated);
+                            return { ...prev, attributes: updated, name: autoName, title: autoTitle, marketplaceTitle: autoTitle };
+                        }
+                        return prev;
+                    });
+                } else {
+                    setRequiredAttributeIds(new Set());
+                }
+            } catch (err) {
+                console.error("Erro ao buscar category_attributes:", err);
+            }
+        };
+        fetchCategoryAttributes();
+    }, [parentProduct.categoryIds, dbAttributes]);
 
     useEffect(() => {
         setLocalAttributeValues(dbAttributeValues);
@@ -58,6 +114,26 @@ export const VariationIdentificationTab: React.FC<VariationIdentificationTabProp
             const autoName = getDefaultVariationName(updated);
             const autoTitle = getDefaultVariationTitle(updated);
             return { ...prev, attributes: updated, name: autoName, title: autoTitle, marketplaceTitle: autoTitle };
+        });
+    };
+
+    const toggleAttributeNameVisibility = (index: number) => {
+        setFormData(prev => {
+            if (!prev) return null;
+            const updated = [...prev.attributes];
+            updated[index] = {
+                ...updated[index],
+                showName: updated[index].showName === false
+            };
+            const autoName = getDefaultVariationName(updated);
+            const autoTitle = getDefaultVariationTitle(updated);
+            return {
+                ...prev,
+                attributes: updated,
+                name: autoName,
+                title: autoTitle,
+                marketplaceTitle: autoTitle
+            };
         });
     };
 
@@ -218,12 +294,13 @@ export const VariationIdentificationTab: React.FC<VariationIdentificationTabProp
                             <div className="flex-1">
                                 <label className="text-[9px] text-slate-400 font-bold uppercase tracking-widest block">Valor</label>
                             </div>
-                            <div className="w-8 shrink-0"></div>
+                            <div className="w-[72px] shrink-0"></div>
                         </div>
 
                         {(formData.attributes || []).map((attr, idx) => {
                             const currentAttr = dbAttributes.find(a => a.name === attr.name);
                             const attrVals = currentAttr ? localAttributeValues.filter(val => val.attribute_id === currentAttr.id) : [];
+                            const isShownInName = attr.showName !== false;
 
                             return (
                                 <div 
@@ -260,12 +337,14 @@ export const VariationIdentificationTab: React.FC<VariationIdentificationTabProp
                                                     };
                                                 });
                                             }}
-                                            className="w-full bg-transparent border-b-2 border-t-0 border-x-0 border-slate-200 dark:border-slate-800 outline-none px-1 py-2 text-xs font-bold text-slate-800 dark:text-slate-200 focus:border-blue-600 dark:focus:border-blue-400 transition-all"
+                                            className="w-full bg-transparent border-b-2 border-t-0 border-x-0 border-slate-200 dark:border-slate-800 outline-none px-1 py-2 text-xs font-bold text-slate-800 dark:text-slate-200 focus:border-blue-600 dark:focus:border-blue-400 transition-all disabled:opacity-50"
+                                            disabled={currentAttr ? requiredAttributeIds.has(currentAttr.id) : false}
                                         >
                                             <option value="">Selecione um atributo...</option>
-                                            {dbAttributes.map(a => (
-                                                <option key={a.id} value={a.name}>{a.name}</option>
-                                            ))}
+                                            {dbAttributes.map(a => {
+                                                const isReq = requiredAttributeIds.has(a.id);
+                                                return <option key={a.id} value={a.name}>{a.name} {isReq ? '*' : ''}</option>;
+                                            })}
                                         </select>
                                     </div>
 
@@ -274,6 +353,8 @@ export const VariationIdentificationTab: React.FC<VariationIdentificationTabProp
                                         attributeName={currentAttr?.name || attr.name}
                                         value={attr.value}
                                         registeredValues={attrVals}
+                                        dataType={currentAttr?.data_type || 'list'}
+                                        unit={currentAttr?.unit}
                                         onChange={(newVal) => updateAttributeValue(idx, newVal)}
                                         onValueRegistered={(newVal) => {
                                             setLocalAttributeValues((prev) => [...prev, newVal]);
@@ -281,28 +362,44 @@ export const VariationIdentificationTab: React.FC<VariationIdentificationTabProp
                                         }}
                                     />
 
-                                    <button
-                                        type="button"
-                                        onClick={() => {
-                                            setFormData(prev => {
-                                                if (!prev) return null;
-                                                const updated = prev.attributes.filter((_, i) => i !== idx);
-                                                const autoName = getDefaultVariationName(updated);
-                                                const autoTitle = getDefaultVariationTitle(updated);
-                                                return { 
-                                                    ...prev, 
-                                                    attributes: updated, 
-                                                    name: autoName,
-                                                    title: autoTitle,
-                                                    marketplaceTitle: autoTitle
-                                                };
-                                            });
-                                        }}
-                                        className="p-2 text-slate-400 hover:text-red-500 transition-colors"
-                                        title="Remover atributo"
-                                    >
-                                        <i className="bi bi-trash text-sm"></i>
-                                    </button>
+                                    <div className="flex w-[72px] shrink-0 items-center justify-end">
+                                        <button
+                                            type="button"
+                                            onClick={() => toggleAttributeNameVisibility(idx)}
+                                            aria-label={`${isShownInName ? 'Ocultar' : 'Mostrar'} valor de ${attr.name} no nome da variação`}
+                                            aria-pressed={isShownInName}
+                                            data-testid={`toggle-attribute-name-${idx}`}
+                                            className={`p-2 transition-colors ${isShownInName ? 'text-blue-600 dark:text-blue-400' : 'text-slate-400 hover:text-blue-500'}`}
+                                            title={isShownInName ? 'Ocultar valor do nome da variação' : 'Mostrar valor no nome da variação'}
+                                        >
+                                            <i className={`bi ${isShownInName ? 'bi-eye' : 'bi-eye-slash'} text-sm`} aria-hidden="true" />
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                if (currentAttr && requiredAttributeIds.has(currentAttr.id)) return;
+                                                setFormData(prev => {
+                                                    if (!prev) return null;
+                                                    const updated = prev.attributes.filter((_, i) => i !== idx);
+                                                    const autoName = getDefaultVariationName(updated);
+                                                    const autoTitle = getDefaultVariationTitle(updated);
+                                                    return {
+                                                        ...prev,
+                                                        attributes: updated,
+                                                        name: autoName,
+                                                        title: autoTitle,
+                                                        marketplaceTitle: autoTitle
+                                                    };
+                                                });
+                                            }}
+                                            className={`p-2 transition-colors ${currentAttr && requiredAttributeIds.has(currentAttr.id) ? 'text-slate-200 dark:text-slate-700 cursor-not-allowed' : 'text-slate-400 hover:text-red-500'}`}
+                                            title={currentAttr && requiredAttributeIds.has(currentAttr.id) ? "Atributo obrigatório para a categoria deste produto" : "Remover atributo"}
+                                            aria-label={`Remover atributo ${attr.name}`}
+                                            disabled={currentAttr ? requiredAttributeIds.has(currentAttr.id) : false}
+                                        >
+                                            <i className="bi bi-trash text-sm" aria-hidden="true" />
+                                        </button>
+                                    </div>
                                 </div>
                             );
                         })}

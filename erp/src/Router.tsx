@@ -176,6 +176,7 @@ function Router() {
             <Route path='/products' element={<Navigate to="/registrations/products" replace />} />
             <Route path='/registrations/products' element={<Products />} />
             <Route path='/products/compositions' element={<ProductCompositions />} />
+            <Route path='/products/reconciliation' element={<SupplierReconciliation />} />
             <Route path='/products/reconciliation/suppliers' element={<SupplierReconciliation />} />
             <Route path='/registrations/meta-catalog' element={<MetaCatalog />} />
             <Route path='/registrations/whatsapp-marketplace' element={<WhatsAppMarketplace />} />

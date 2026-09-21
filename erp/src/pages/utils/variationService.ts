@@ -1,6 +1,7 @@
 import { ecommerceSupabase as supabase } from '@/pages/utils/supabaseConfig';
 import VariationType, { VariationOption } from "../types/variation.type";
 import { toTitleCase } from './textUtils';
+import { sortAttributeValuesNaturally } from './attributeValueSorting';
 
 const capitalize = (str: string): string => {
     return toTitleCase(str);
@@ -100,16 +101,36 @@ export const subscribeToVariations = (callback: (variations: VariationType[]) =>
                 .select("*");
             if (valErr) throw valErr;
 
+            // 2.5 Enriquecer com vínculos de categoria quando a migration já estiver disponível.
+            // A ausência dessa tabela não pode ocultar os atributos globais existentes.
+            const { data: catAttrData, error: catAttrErr } = await supabase
+                .from("category_attributes")
+                .select("attribute_id, category_id, is_required");
+            if (catAttrErr) {
+                console.warn(
+                    "Aviso ao buscar vínculos de categorias dos atributos:",
+                    catAttrErr
+                );
+            }
+
             // 3. Mapear para a estrutura VariationType usada no ERP
             const mapped: VariationType[] = (attrData || []).map((attr: any) => ({
                 id: String(attr.id),
                 name: attr.name,
                 active: attr.active ?? true,
-                options: (valData || [])
+                dataType: attr.data_type || 'list',
+                unit: attr.unit || '',
+                options: sortAttributeValuesNaturally((valData || [])
                     .filter((val: any) => val.attribute_id === attr.id)
                     .map((val: any) => ({
                         id: String(val.id),
                         value: val.value
+                    }))),
+                categoryAttributes: (catAttrErr ? [] : (catAttrData || []))
+                    .filter((ca: any) => ca.attribute_id === attr.id)
+                    .map((ca: any) => ({
+                        categoryId: ca.category_id,
+                        isRequired: ca.is_required
                     })),
                 deleted: false // Como deletamos fisicamente agora, sempre é falso
             }));
@@ -140,7 +161,9 @@ export const saveVariation = async (variation: VariationType): Promise<void> => 
             .from("attributes")
             .insert([{
                 name: capitalize(variation.name),
-                active: variation.active ?? true
+                active: variation.active ?? true,
+                data_type: variation.dataType || 'list',
+                unit: variation.unit || null
             }])
             .select()
             .single();
@@ -170,6 +193,21 @@ export const saveVariation = async (variation: VariationType): Promise<void> => 
 
             if (valErr) throw valErr;
         }
+
+        // 3. Inserir category_attributes
+        if (variation.categoryAttributes && variation.categoryAttributes.length > 0) {
+            const catAttrRecords = variation.categoryAttributes.map(ca => ({
+                attribute_id: attr.id,
+                category_id: ca.categoryId,
+                is_required: ca.isRequired
+            }));
+
+            const { error: catAttrErr } = await supabase
+                .from("category_attributes")
+                .insert(catAttrRecords);
+
+            if (catAttrErr) throw catAttrErr;
+        }
     } catch (error) {
         console.error("Erro ao salvar a variação: ", error);
         throw error;
@@ -182,6 +220,8 @@ export const updateVariation = async (id: string, variationToUpdate: Partial<Var
         const attrUpdates: any = {};
         if (variationToUpdate.name !== undefined) attrUpdates.name = capitalize(variationToUpdate.name);
         if (variationToUpdate.active !== undefined) attrUpdates.active = variationToUpdate.active;
+        if (variationToUpdate.dataType !== undefined) attrUpdates.data_type = variationToUpdate.dataType;
+        if (variationToUpdate.unit !== undefined) attrUpdates.unit = variationToUpdate.unit;
 
         if (Object.keys(attrUpdates).length > 0) {
             let { error: attrErr } = await supabase
@@ -252,6 +292,30 @@ export const updateVariation = async (id: string, variationToUpdate: Partial<Var
                     .from("attribute_values")
                     .insert(recordsToInsert);
                 if (insErr) throw insErr;
+            }
+        }
+
+        // 3. Sincronizar category_attributes
+        if (variationToUpdate.categoryAttributes !== undefined) {
+            // Deletar associações existentes
+            const { error: delCatErr } = await supabase
+                .from("category_attributes")
+                .delete()
+                .eq("attribute_id", id);
+            if (delCatErr) throw delCatErr;
+
+            // Inserir as novas associações
+            if (variationToUpdate.categoryAttributes.length > 0) {
+                const catAttrRecords = variationToUpdate.categoryAttributes.map(ca => ({
+                    attribute_id: id,
+                    category_id: ca.categoryId,
+                    is_required: ca.isRequired
+                }));
+
+                const { error: insCatErr } = await supabase
+                    .from("category_attributes")
+                    .insert(catAttrRecords);
+                if (insCatErr) throw insCatErr;
             }
         }
     } catch (error) {

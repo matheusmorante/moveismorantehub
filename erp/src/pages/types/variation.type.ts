@@ -1,3 +1,10 @@
+export type AttributeDataType = 'list' | 'integer' | 'decimal' | 'text' | 'boolean' | 'measure';
+
+export type CategoryAttribute = {
+    categoryId: string;
+    isRequired: boolean;
+};
+
 export type VariationOption = {
     id: string;
     value: string; // Ex: "Azul"
@@ -8,6 +15,9 @@ export type VariationType = {
     name: string; // Ex: "Cor"
     options: VariationOption[];
     active: boolean;
+    dataType?: AttributeDataType;
+    unit?: string;
+    categoryAttributes?: CategoryAttribute[];
     deleted?: boolean;
     createdAt?: string;
     updatedAt?: string;

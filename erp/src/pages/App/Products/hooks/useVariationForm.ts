@@ -12,6 +12,7 @@ import {
 import { toast } from "react-toastify";
 import { ecommerceSupabase as supabase } from '@/pages/utils/supabaseConfig';
 import { toTitleCase } from '@/pages/utils/textUtils';
+import { sortAttributeValuesNaturally } from '@/pages/utils/attributeValueSorting';
 
 interface UseVariationFormOptions {
     isOpen: boolean;
@@ -142,7 +143,9 @@ export function useVariationForm({
                 supabase.from("attribute_values").select("*").order("value")
             ]);
             setDbAttributes((attrRes.data || []) as { id: string; name: string }[]);
-            setDbAttributeValues((valRes.data || []) as { id: string; attribute_id: string; value: string }[]);
+            setDbAttributeValues(sortAttributeValuesNaturally(
+                (valRes.data || []) as { id: string; attribute_id: string; value: string }[]
+            ));
         } catch (err) {
             console.error("Erro ao buscar atributos globais:", err);
         }

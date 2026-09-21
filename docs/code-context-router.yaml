@@ -1,0 +1,466 @@
+# Code Context Router — Morante Hub
+# Índice determinístico de arquivos-chave por domínio para economia de tokens.
+# Regra: Abra SOMENTE os arquivos listados no domínio antes de pesquisar o projeto.
+
+version: 1.0
+
+# ==========================================
+# 1. ESTOQUE (STOCK)
+# ==========================================
+estoque:
+  movimentacoes:
+    service:
+      - erp/src/pages/utils/inventoryService/index.ts
+      - erp/src/pages/utils/movingAverageCostService.ts
+      - erp/src/pages/utils/movingAverageCostRules.ts
+    ui:
+      - erp/src/pages/App/Stock/Inventory/Index.tsx
+      - erp/src/pages/App/Stock/hooks/useInventoryMovesHistory.ts
+    database:
+      - supabase/migrations/20260320000000_inventory_moves_table.sql
+      - supabase/migrations/20260408000000_recreate_inventory_moves_schema.sql
+    tests:
+      - erp/src/pages/utils/moveVariationConcurrency.test.ts
+
+  recebimentos:
+    service:
+      - erp/src/pages/utils/goodsReceiptService/index.ts
+      - erp/src/pages/utils/goodsReceiptCostCalculation.ts
+      - erp/src/pages/utils/goodsReceiptCode.ts
+    ui:
+      - erp/src/pages/App/Stock/Receipts/index.tsx
+      - erp/src/pages/App/Stock/Receipts/components/ReceiptsTable.tsx
+      - erp/src/pages/App/Stock/Receipts/modals/GoodsReceiptModal.tsx
+    tests:
+      - erp/src/pages/utils/goodsReceiptCode.test.ts
+
+  notas_entrada_nfe:
+    service:
+      - erp/src/pages/utils/inboundNfe/inboundInvoicesService.ts
+      - erp/src/pages/utils/inboundNfe/inboundDocumentImportService.ts
+      - erp/src/pages/utils/inboundNfe/inboundXmlParser.ts
+      - erp/src/pages/utils/inboundNfe/additionalCosts.ts
+      - erp/src/pages/utils/inboundNfe/fastNfeKeyExtractor.ts
+    reconciliacao_produtos_ia:
+      - erp/src/pages/utils/inboundNfe/inboundItemProductResolver.ts
+      - erp/src/pages/utils/inboundNfe/inboundDeterministicScorer.ts
+      - erp/src/pages/utils/inboundNfe/inboundHybridProductScorer.ts
+      - erp/src/pages/utils/inboundNfe/productResolutionFeedbackService.ts
+    ui:
+      - erp/src/pages/App/Stock/InboundInvoices/Index.tsx
+    edge_functions:
+      - supabase/functions/analyze-inbound-invoice/index.ts
+      - supabase/functions/sefaz-inbound-sync/index.ts
+
+  compras:
+    service:
+      - erp/src/pages/utils/purchaseService.ts
+    ui:
+      - erp/src/pages/App/Stock/Purchases/Index.tsx
+
+  bling_estoque:
+    ui:
+      - erp/src/pages/App/Stock/BlingStock.tsx
+      - erp/src/pages/App/SalesOrder/ReportsBling/
+
+  impressao_etiquetas:
+    ui:
+      - erp/src/pages/App/Stock/LabelPrinting/Index.tsx
+      - erp/src/pages/App/Stock/LabelPrinting/PriceLabelArtEditorModal.tsx
+      - erp/src/pages/App/Stock/LabelPrinting/PriceLabelArtRenderer.tsx
+    service:
+      - erp/src/pages/App/Stock/LabelPrinting/FabricLabelEngine.ts
+      - erp/src/pages/App/Stock/LabelPrinting/LabelUtils.ts
+      - erp/src/pages/App/Stock/LabelPrinting/LabelConstants.ts
+
+# ==========================================
+# 2. PRODUTOS E VARIAÇÕES (PRODUCTS)
+# ==========================================
+produtos:
+  cadastro:
+    service:
+      - erp/src/pages/utils/productService.ts
+      - erp/src/pages/utils/productVariationDefaults.ts
+      - erp/src/pages/utils/productPricing.ts
+    ui:
+      - erp/src/pages/App/Products/Index.tsx
+      - erp/src/pages/App/Products/components/ProductFormModal.tsx
+      - erp/src/pages/App/Products/components/tabs/ProductGeneralTab.tsx
+      - erp/src/pages/App/Products/components/tabs/ProductTechnicalTab.tsx
+      - erp/src/pages/App/Products/components/tabs/productFiscalDefaults.ts
+
+  composicoes_kits:
+    service:
+      - erp/src/pages/utils/compositionService.ts
+      - erp/src/pages/utils/compositionMath.ts
+      - erp/src/pages/utils/showcaseAssemblyService.ts
+    mobile_features:
+      - mobile/src/features/compositions/
+
+  categorias_ambientes:
+    service:
+      - erp/src/pages/utils/categoryService.ts
+      - erp/src/pages/utils/categoryResolutionService.ts
+    ui:
+      - erp/src/pages/App/Products/Categories/Index.tsx
+      - erp/src/pages/App/Products/Categories/modals/CategoryEnvironmentModal.tsx
+      - erp/src/pages/App/Products/Categories/hooks/useCategoriesAndEnvironments.ts
+      - erp/src/components/AttributeAutocomplete.tsx
+    tests:
+      - erp/tests/e2e/products/categories-deletion-safety.spec.ts
+
+  variacoes_atributos:
+    service:
+      - erp/src/pages/utils/variationService.ts
+      - erp/src/pages/utils/variationCanonicalService.ts
+      - erp/src/pages/utils/attributeValueSorting.ts
+    ui:
+      - erp/src/pages/App/Variations/Index.tsx
+      - erp/src/pages/App/Variations/AttributeCard.tsx
+      - erp/src/pages/App/Variations/attributeValueBatch.ts
+    tests:
+      - erp/src/pages/App/Variations/attributeValueBatch.test.ts
+      - erp/src/pages/utils/variationService.test.ts
+
+# ==========================================
+# 3. VENDAS E PEDIDOS (SALES ORDERS)
+# ==========================================
+vendas:
+  pedidos:
+    service:
+      - erp/src/pages/utils/orderMutationService.ts
+      - erp/src/pages/utils/orderLifecycleOperations.ts
+      - erp/src/pages/utils/orderStockOperations.ts
+      - erp/src/pages/utils/orderMapper.ts
+      - erp/src/pages/utils/orderStatusTransitionRules.ts
+      - erp/src/pages/utils/saleItemInventorySync.ts
+    ui:
+      - erp/src/pages/App/SalesOrder/index.tsx
+      - erp/src/pages/App/SalesOrder/useSalesOrderForm.ts
+      - erp/src/pages/App/SalesOrder/OrderEditModal.tsx
+    tests:
+      - erp/src/pages/utils/orderLifecycleOperations.undoReturn.test.ts
+      - erp/src/pages/utils/orderSnapshotResolution.test.ts
+
+  devolucoes:
+    service:
+      - erp/src/pages/utils/returnInventoryService.ts
+      - erp/src/pages/utils/returnInventoryRules.ts
+      - erp/src/pages/utils/returnCancellation.ts
+    ui:
+      - erp/src/pages/App/SalesOrder/UnlinkedReturnOrderModal.tsx
+      - erp/src/pages/App/SalesOrder/ReturnFormTabs.tsx
+
+  fiscal_nfe_nfce:
+    service:
+      - erp/src/pages/utils/nfe/nfeEmissionService.ts
+      - erp/src/pages/utils/nfeAccessKey.ts
+      - erp/src/pages/utils/fiscalDocumentRule.ts
+    ui:
+      - erp/src/pages/App/SalesOrder/FiscalDocumentsPage.tsx
+
+# ==========================================
+# 4. LOGÍSTICA E ENTREGAS (DELIVERY & LOGISTICS)
+# ==========================================
+logistica:
+  agenda_entregas:
+    service:
+      - erp/src/pages/utils/deliveryReminderService.ts
+      - erp/src/pages/utils/operationalSchedule.ts
+      - erp/src/pages/utils/maps.ts
+    ui:
+      - erp/src/pages/App/DeliverySchedule/index.tsx
+      - erp/src/pages/App/DeliverySchedule/useDeliverySchedule.ts
+      - erp/src/pages/App/DeliverySchedule/DeliveryMap.tsx
+      - erp/src/pages/App/DeliverySchedule/ScheduleCardView/Index.tsx
+    edge_functions:
+      - supabase/functions/refresh-delivery-summaries/index.ts
+      - supabase/functions/generate-delivery-summary-audio/index.ts
+    tests:
+      - erp/src/pages/utils/deliverySummaryMetrics.test.ts
+      - erp/src/pages/utils/googleMapsNavigationDeliveryFlow.test.ts
+
+  app_mobile_entregas:
+    screens:
+      - mobile/src/features/schedule/
+      - mobile/src/features/logistics/
+      - mobile/src/features/stock/
+    services:
+      - mobile/src/services/teamLocationService.ts
+      - mobile/src/services/logisticsRealtimeService.ts
+      - mobile/src/services/offlineSyncService.ts
+
+# ==========================================
+# 5. FINANCEIRO (FINANCE)
+# ==========================================
+financeiro:
+  contas_pagar_receber:
+    ui:
+      - erp/src/pages/App/Finance/Payables/Index.tsx
+      - erp/src/pages/App/Finance/Receivables/Index.tsx
+      - erp/src/pages/App/Finance/Transactions/Index.tsx
+    database:
+      - supabase/migrations/20260906140000_add_idempotency_key_to_financial_transactions.sql
+
+  assistente_ia_financeiro:
+    service:
+      - erp/src/pages/utils/aiService.ts
+      - erp/src/pages/utils/geminiQuotaService.ts
+    tests:
+      - erp/src/pages/utils/financialAiAssistantRules.test.ts
+      - erp/src/pages/utils/financialInvariants.test.ts
+      - erp/src/pages/utils/financialAiLayersAudit.test.ts
+      - erp/src/pages/utils/complementaryFinancialAssistant.test.ts
+
+# ==========================================
+# 6. PESSOAS E ACESSO (USERS & PERMISSIONS)
+# ==========================================
+cadastros:
+  clientes_fornecedores:
+    service:
+      - erp/src/pages/utils/customerSearch.ts
+      - erp/src/pages/utils/customerShippingValidation.ts
+    ui:
+      - erp/src/pages/App/Customers/Index.tsx
+      - erp/src/pages/App/Suppliers/Index.tsx
+
+  autenticacao_permissoes:
+    context:
+      - erp/src/context/AuthContext.tsx
+    service:
+      - erp/src/pages/utils/permissionService.ts
+      - erp/src/pages/utils/permissionConfig.ts
+      - erp/src/pages/utils/accessRoles.ts
+    ui:
+      - erp/src/pages/App/AccessAndUsers/Index.tsx
+
+# ==========================================
+# 7. MARKETING E CATÁLOGO DIGITAL (MARKETING)
+# ==========================================
+marketing:
+  criador_de_posts:
+    ui:
+      - erp/src/pages/App/Marketing/Posts/index.tsx
+      - erp/src/pages/App/Marketing/Posts/FixedAspectImageCropper.tsx
+      - erp/src/pages/App/Marketing/Posts/OpportunitySealLibrary.tsx
+    service:
+      - erp/src/pages/App/Marketing/Posts/services/postExportService.ts
+      - erp/src/pages/App/Marketing/Posts/postImageGrid.ts
+      - erp/src/pages/App/Marketing/Posts/installmentBadgeImage.ts
+    tests:
+      - erp/src/pages/App/Marketing/Posts/services/imageClipboardUtils.test.ts
+
+  catalogo_canais:
+    service:
+      - erp/src/pages/App/Marketing/channelCatalogRows.ts
+    ui:
+      - erp/src/pages/App/Marketing/ChannelCatalog.tsx
+      - erp/src/pages/App/Marketing/ChannelCatalog/Index.tsx
+    tests:
+      - erp/src/pages/App/Marketing/channelCatalogRows.test.ts
+
+# ==========================================
+# 8. ATENDIMENTO E WHATSAPP (ATTENDANCE)
+# ==========================================
+atendimento:
+  painel_atendimento:
+    ui:
+      - erp/src/pages/App/Attendance/Dashboard.tsx
+    service:
+      - erp/src/pages/utils/attendanceService.ts
+
+  whatsapp_integracao:
+    service:
+      - erp/src/pages/utils/whatsapp.ts
+      - erp/src/pages/utils/whatsappGraphService.ts
+      - erp/src/pages/utils/whatsappTemplates.ts
+      - erp/src/pages/utils/whatsappHttpClient.ts
+    edge_functions:
+      - supabase/functions/whatsapp-webhook/index.ts
+
+# ==========================================
+# 9. COLABORADORES E RH (EMPLOYEES & PEOPLE)
+# ==========================================
+colaboradores:
+  gestao_colaboradores:
+    ui:
+      - erp/src/pages/App/Employees/Index.tsx
+    service:
+      - erp/src/pages/utils/employeeProfileService.ts
+      - erp/src/pages/utils/personService.ts
+    database:
+      - supabase/migrations/20260401000000_profiles_and_roles.sql
+
+# ==========================================
+# 10. APP MOBILE OFFLINE-FIRST (MOBILE ARCHITECTURE)
+# ==========================================
+mobile_offline_first:
+  armazenamento_local_sqlite:
+    repositories:
+      - mobile/src/repositories/OrderRepository.ts
+      - mobile/src/repositories/SyncQueueRepository.ts
+    services:
+      - mobile/src/services/offlineSyncService.ts
+      - mobile/src/services/sqliteStorage.ts
+
+  operacao_campo_entregas_montagens:
+    screens:
+      - mobile/src/features/schedule/screens/ScheduleScreen.tsx
+      - mobile/src/features/assemblies/screens/NativeAssembliesScreen.tsx
+      - mobile/src/features/logistics/screens/NativeLogisticsScreen.tsx
+      - mobile/src/features/logistics/screens/DeliveriesHubScreen.tsx
+      - mobile/src/features/compositions/screens/CompositionsScreen.tsx
+    services:
+      - mobile/src/services/teamLocationService.ts
+      - mobile/src/services/logisticsRealtimeService.ts
+
+  gestao_pedidos_e_financeiro_mobile:
+    screens:
+      - mobile/src/features/orders/screens/NativeOrdersScreen.tsx
+      - mobile/src/features/finance/screens/FinanceHubScreen.tsx
+      - mobile/src/features/reports/screens/NativeReportsScreen.tsx
+      - mobile/src/features/agent/screens/GlobalAgentScreen.tsx
+    navigation:
+      - mobile/src/navigation/MainNavigator.tsx
+
+  conferencia_estoque_mobile:
+    screens:
+      - mobile/src/features/stock/overview/NativeStockScreen.tsx
+      - mobile/src/features/stock/invoices/screens/InvoicesScreen.tsx
+      - mobile/src/features/stock/moves/screens/StockMovesScreen.tsx
+    components:
+      - mobile/src/features/stock/moves/components/StockMoveCard.tsx
+      - mobile/src/features/stock/invoices/components/InvoiceCard.tsx
+
+  landing_erp_download_mobile:
+    ui:
+      - erp/src/pages/App/MobileAppLanding.tsx
+
+# ==========================================
+# 11. INFRAESTRUTURA, TELEMETRIA E CONFIGURAÇÕES
+# ==========================================
+infraestrutura:
+  configuracoes_globais:
+    ui:
+      - erp/src/pages/App/Settings/Index.tsx
+      - erp/src/pages/App/ApiUsage/Index.tsx
+    service:
+      - erp/src/pages/utils/settingsService.ts
+      - erp/src/pages/utils/userSettingsService.ts
+      - erp/src/pages/utils/supabaseConfig.ts
+
+  telemetria_e_banco:
+    database:
+      - erp/scripts/migration/018_create_supabase_telemetry.sql
+      - supabase/config.toml
+
+  edge_functions_suporte:
+    sync_ncms:
+      - supabase/functions/sync-ncms/index.ts
+    pagamentos_rede:
+      - supabase/functions/rede-gateway/index.ts
+
+# ==========================================
+# 12. SERVIÇOS (SERVICES)
+# ==========================================
+servicos:
+  cadastro_servicos:
+    ui:
+      - erp/src/pages/App/Services/Index.tsx
+      - erp/src/pages/App/Services/ServiceFormModal.tsx
+      - erp/src/pages/App/Services/ServiceTable.tsx
+    service:
+      - erp/src/pages/utils/serviceService.ts
+      - erp/src/pages/App/Services/useServices.ts
+
+# ==========================================
+# 13. DASHBOARD E MÉTRICAS (DASHBOARD & ANALYTICS)
+# ==========================================
+dashboard:
+  metricas_financeiras_vendas:
+    ui:
+      - erp/src/pages/App/Dashboard/Index.tsx
+    service:
+      - erp/src/pages/App/Dashboard/useDashboardData.ts
+      - erp/src/pages/App/Dashboard/dashboardRevenue.ts
+    tests:
+      - erp/src/pages/App/Dashboard/dashboardRevenue.test.ts
+
+# ==========================================
+# 14. CATÁLOGO DIGITAL PÚBLICO (DIGITAL CATALOG NEXT.JS)
+# ==========================================
+catalogo_digital_publico:
+  app_nextjs:
+    app_routes:
+      - digital-catalog/src/app/
+    features_components:
+      - digital-catalog/src/features/
+      - digital-catalog/src/components/
+    services:
+      - digital-catalog/src/services/
+      - digital-catalog/src/lib/
+    database_prisma:
+      - digital-catalog/prisma/schema.prisma
+
+# ==========================================
+# 15. MONITORAMENTO SUPABASE E EGRESS (DATABASE HEALTH)
+# ==========================================
+monitoramento_supabase:
+  painel_monitor:
+    ui:
+      - erp/src/pages/App/Settings/SupabaseMonitor/Index.tsx
+    database:
+      - erp/scripts/migration/018_create_supabase_telemetry.sql
+
+# ==========================================
+# 16. COMPONENTES BASE E UI COMPARTILHADA (SHARED UI)
+# ==========================================
+componentes_base:
+  autocompletes_e_inputs:
+    components:
+      - erp/src/components/ProductAutocomplete.tsx
+      - erp/src/components/CategoryAutocomplete.tsx
+      - erp/src/components/AttributeAutocomplete.tsx
+      - erp/src/components/SupplierAutocomplete.tsx
+      - erp/src/components/CurrencyInput.tsx
+      - erp/src/components/NoticeInput.tsx
+    tests:
+      - erp/src/components/ProductAutocomplete.ai.test.tsx
+      - erp/src/components/TruncatedProductTitle.test.tsx
+
+# ==========================================
+# 17. NOTIFICAÇÕES E ALERTAS (NOTIFICATIONS & SOUNDS)
+# ==========================================
+notificacoes:
+  erp_e_mobile:
+    services:
+      - erp/src/pages/utils/notificationService.ts
+      - erp/src/pages/utils/pushNotificationService.ts
+      - erp/src/pages/utils/notificationSoundRouting.ts
+      - erp/src/pages/utils/orderEventNotificationService.ts
+    mobile_context:
+      - mobile/src/contexts/NotificationContext.tsx
+    tests:
+      - erp/src/pages/utils/notificationSoundRouting.test.ts
+
+# ==========================================
+# 18. DOCUMENTAÇÃO VIVA DO SISTEMA (SYSTEM DOCS)
+# ==========================================
+documentacao_sistema:
+  painel_docs:
+    ui:
+      - erp/src/pages/App/SystemDocs/Index.tsx
+      - erp/src/pages/App/SystemDocs/ArchitectureDocsSection.tsx
+      - erp/src/pages/App/SystemDocs/EngineeringImpactMap.tsx
+    service:
+      - erp/src/pages/App/SystemDocs/systemDocumentation.ts
+      - erp/src/pages/App/SystemDocs/userDocumentation.ts
+      - erp/src/pages/App/SystemDocs/engineeringImpactMaps.ts
+
+# ==========================================
+# 19. PERFIL DO USUÁRIO (USER PROFILE)
+# ==========================================
+perfil:
+  edicao_perfil:
+    ui:
+      - erp/src/pages/App/Profile/Index.tsx

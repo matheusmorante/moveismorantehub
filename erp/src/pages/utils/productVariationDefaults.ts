@@ -102,7 +102,7 @@ export const hasVariationAttribute = (variation?: Variation | any): boolean => {
     return false;
 };
 
-type AttributePair = { name: string; value: string };
+type AttributePair = { name: string; value: string; showName: boolean };
 
 const normalizeAttributePart = (value: unknown) => String(value || '')
     .trim()
@@ -123,13 +123,26 @@ export const getVariationAttributePairs = (variation?: Variation | any): Attribu
 
     if (Array.isArray(attributes)) {
         return attributes
-            .map((attr: any) => ({ name: attr?.name || attr?.attribute || attr?.key, value: attr?.value || attr?.val }))
+            .map((attr: any) => ({
+                name: attr?.name || attr?.attribute || attr?.key,
+                value: attr?.value || attr?.val,
+                showName: attr?.showName !== false
+            }))
             .filter(({ name, value }) => normalizeAttributePart(name) && normalizeAttributePart(value));
     }
 
     if (attributes && typeof attributes === 'object') {
         return Object.entries(attributes)
-            .map(([name, value]) => ({ name, value: String(value || '') }))
+            .map(([name, rawValue]) => {
+                const structuredValue = rawValue && typeof rawValue === 'object'
+                    ? rawValue as { value?: unknown; val?: unknown; showName?: boolean }
+                    : null;
+                return {
+                    name,
+                    value: String(structuredValue?.value ?? structuredValue?.val ?? rawValue ?? ''),
+                    showName: structuredValue?.showName !== false
+                };
+            })
             .filter(({ name, value }) => normalizeAttributePart(name) && normalizeAttributePart(value));
     }
 
@@ -152,14 +165,25 @@ export const hasDuplicateVariationAttributeCombination = (variation: Variation |
 };
 
 export const getVariationAttributeValuesInNameOrder = (attributes: Variation['attributes'] | Record<string, any> | string = []) => getVariationAttributePairs({ attributes })
+    .filter(({ showName }) => showName)
     .map(({ value }) => String(value).trim());
 
-export const computeVariationName = (parentName: string, attributes: Array<{ name?: string; value?: string }> | Record<string, any> | string): string => {
+const getLegacyUnstructuredAttributeText = (attributes: unknown): string => {
+    if (typeof attributes !== 'string' || !attributes.trim()) return '';
+    try {
+        JSON.parse(attributes);
+        return '';
+    } catch {
+        return toTitleCase(attributes.trim());
+    }
+};
+
+export const computeVariationName = (parentName: string, attributes: Array<{ name?: string; value?: string; showName?: boolean }> | Record<string, any> | string): string => {
     const cleanParent = parentName ? toTitleCase(parentName.trim()) : '';
     const orderedValues = getVariationAttributeValuesInNameOrder(attributes).map(v => toTitleCase(v));
     const attrValuesStr = orderedValues.length > 0
         ? orderedValues.join(' ')
-        : typeof attributes === 'string' ? toTitleCase(attributes.trim()) : '';
+        : getLegacyUnstructuredAttributeText(attributes);
 
     const fullName = [cleanParent, attrValuesStr].filter(Boolean).join(' ');
     return toTitleCase(fullName);
