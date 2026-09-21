@@ -142,6 +142,7 @@ export interface LabelConfig {
     opportunityId?: string | null;
     opportunity_id?: string | null;
     isBlank?: boolean;
+    name?: string;
     artConfig?: {
         opportunities?: Record<string, any>;
     };

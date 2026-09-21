@@ -6,7 +6,7 @@ interface LabelQueueProps {
     labelItems: any[];
     setLabelItems: React.Dispatch<React.SetStateAction<any[]>>;
     printingMode: 'simple' | 'advanced';
-    selectedCategory?: string;
+    selectedCategory?: string | null;
 }
 
 const LabelQueue: React.FC<LabelQueueProps> = ({ 

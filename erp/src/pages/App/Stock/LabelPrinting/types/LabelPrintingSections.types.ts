@@ -46,9 +46,10 @@ export interface PreviewSectionProps {
     labelItems: LabelItemConfig[];
     logoItems: LogoItemConfig[];
     currentPage: number;
-    setCurrentPage: (page: number) => void;
+    setCurrentPage: Dispatch<SetStateAction<number>> | ((page: number | ((prev: number) => number)) => void);
     handleDownloadImage: () => void;
     printLabels: () => void;
+    isPrinting?: boolean;
     isDownloading: boolean;
     selectedCategory: string | null;
     previewContainerRef: React.RefObject<HTMLDivElement>;
@@ -124,8 +125,10 @@ export interface ModalsSectionProps {
     setArtVersion: Dispatch<SetStateAction<number>>;
     isAssetManagerModalOpen: boolean;
     setIsAssetManagerModalOpen: (open: boolean) => void;
-    selectedCategory: string | null;
+    selectedCategory: 'identificacao' | 'precos' | 'logos' | 'posts' | null | any;
     logoItems: LogoItemConfig[];
+    isPrinting?: boolean;
+    isDownloading?: boolean;
     setLogoItems: Dispatch<SetStateAction<LogoItemConfig[]>>;
     isNewLogoModalOpen: boolean;
     setIsNewLogoModalOpen: (open: boolean) => void;

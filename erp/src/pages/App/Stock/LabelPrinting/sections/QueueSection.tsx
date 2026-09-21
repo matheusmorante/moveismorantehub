@@ -93,7 +93,7 @@ export const QueueSection: React.FC<QueueSectionProps> = (props) => {
                         <ProductSearchInput 
                             products={products}
                             selectedProduct={null}
-                            onSelectProduct={(p) => handleProductSelect(p, 1)}
+                            onSelectProduct={(p) => { if (p) handleProductSelect(p, 1); }}
                             placeholder="Buscar produto, variação ou SKU para adicionar..."
                         />
                     </div>

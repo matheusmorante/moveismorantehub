@@ -41,12 +41,13 @@ export interface LogoItemConfig {
     sku?: string;
     extraFields?: any[];
     isBlank?: boolean;
+    instances?: string[];
 }
 
 interface Props {
     config: LabelConfig;
     image: string | null;
-    cellImages?: Record<number, string>;
+    cellImages?: Record<number, string | null>;
     onCellClick?: (index: number) => void;
     labelItems?: LabelItemConfig[];
     logoItems?: LogoItemConfig[];
@@ -91,7 +92,7 @@ const LabelGrid: React.FC<Props> = ({
                     type: isLogos ? 'logo' : 'product', 
                     ...item, 
                     originalIdx: itemIdx,
-                    uuid: item.instances && item.instances[i] ? item.instances[i] : '000XXX'
+                    uuid: ('instances' in item && Array.isArray((item as any).instances) && (item as any).instances[i]) ? (item as any).instances[i] : '000XXX'
                 });
             }
         });

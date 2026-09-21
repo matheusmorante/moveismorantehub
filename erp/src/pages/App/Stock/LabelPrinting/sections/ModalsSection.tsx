@@ -105,11 +105,11 @@ export const ModalsSection: React.FC<ModalsSectionProps> = (props) => {
                     }
 
                     // 5. Atualizar Estado (Substitui├º├úo por Origem e ID)
-                    setCustomLayouts(prev => {
+                    setCustomLayouts((prev: any) => {
                         const targetBaseId = finalModel!.baseModelId;
                         const targetId = finalModel!.id;
 
-                        const filtered = prev.filter(m => {
+                        const filtered = prev.filter((m: any) => {
                             const isOldId = String(m.id) === String(targetId);
                             const isOldOverride = targetBaseId && m.baseModelId === targetBaseId;
                             
@@ -266,7 +266,7 @@ export const ModalsSection: React.FC<ModalsSectionProps> = (props) => {
                         <div className="space-y-6">
                             <div className="aspect-square w-full rounded-[2rem] bg-slate-50 dark:bg-slate-800 border-2 border-dashed border-slate-200 dark:border-slate-700 overflow-hidden p-4 group">
                                 <img 
-                                    src={newLogoImage} 
+                                    src={newLogoImage || ""} 
                                     alt="Preview" 
                                     className="w-full h-full object-contain transition-transform group-hover:scale-110" 
                                 />

@@ -310,7 +310,7 @@ export const PriceLabelArtItem: React.FC<{ config: any }> = ({ config }) => {
     return <PriceLabelArtRenderer data={artData} mode="view" />;
 };
 
-export const LabelItem: React.FC<LabelItemProps> = ({ config, image, index, scale, rotation, hideBleedBorder, hideContent, hidePhysicalBorder }) => {
+export const LabelItem: React.FC<LabelItemProps> = ({ config, image, index, scale, rotation, hideBleedBorder, hideContent, hidePhysicalBorder, uuid }) => {
     const activeScale = scale ?? config.imageScale ?? 1;
     const isRound = config.type === 'round';
     const formatPrice = (price?: string | number) => {
