@@ -28,11 +28,13 @@ const ITEMS_PER_PAGE = 15
 
 export function ProductGrid({ filters }: ProductGridProps) {
   const [allProducts, setAllProducts] = useState<any[]>([])
+  const [rawDbProducts, setRawDbProducts] = useState<any[]>([])
   const [currentPage, setCurrentPage] = useState(1)
   const [loading, setLoading] = useState(true)
   const [cardStyle, setCardStyle] = useState<StoreDesignSettings>(defaultStoreDesignSettings)
   const { isAdminMode } = useAdminMode()
   const [refreshTrigger, setRefreshTrigger] = useState(0)
+  const [dbCategoriesList, setDbCategoriesList] = useState<any[]>([])
   const gridRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -82,50 +84,19 @@ export function ProductGrid({ filters }: ProductGridProps) {
         function buildProductsQuery(hasDeletedAt: boolean, hasOpportunities: boolean) {
           let q = supabase.from("products")
           
-          if (hasOpportunities) {
-            q = q.select(`
-              *,
-              product_images(*),
-              product_variations(*),
-              product_categories(*, categories(name)),
-              opportunities(*)
-            `)
-          } else {
-            q = q.select(`
-              *,
-              product_images(*),
-              product_variations(*),
-              product_categories(*, categories(name))
-            `)
-          }
-
+          const selColumns = `
+            id, name, slug, price, promo_price, description, sku, code, category_id, opportunity_id, is_salvado, status,
+            product_images(image_url, is_main),
+            product_variations(id, name, sku, price, promo_price, image_url, attributes, use_parent_price, use_parent_promo_price, use_parent_name, status, active),
+            product_categories(category_id, categories(name))
+          ` + (hasOpportunities ? `, opportunities(name, slug, badge_color, border_color, border_style, badge_animation, title_color)` : ``);
+          
+          q = q.select(selColumns)
           q = q.eq("status", "published")
 
           if (hasDeletedAt) {
             q = q.is("deleted_at", null)
           }
-
-          if (filters?.minPrice !== undefined) {
-            q = q.gte("price", filters.minPrice)
-          }
-          if (filters?.maxPrice !== undefined) {
-            q = q.lte("price", filters.maxPrice)
-          }
-          const SALVADOS_OPP_ID = "9d8bedae-b366-4f8c-ac49-74b85b882bde"
-
-          if (filters?.type === "salvados" || resolvedOppId === SALVADOS_OPP_ID) {
-            q = q.eq("opportunity_id", SALVADOS_OPP_ID)
-          } else if (filters?.type === "promotion" || resolvedOppId === "promotion" || resolvedOppId === "promocao") {
-            q = q.not("promo_price", "is", null)
-          } else if (resolvedOppId && resolvedOppId !== "all") {
-            q = q.eq("opportunity_id", resolvedOppId)
-          }
-
-          const sort = filters?.sortBy || "newest"
-          if (sort === "newest") q = q.order("created_at", { ascending: false })
-          if (sort === "price-asc") q = q.order("price", { ascending: true })
-          if (sort === "price-desc") q = q.order("price", { ascending: false })
-          if (sort === "title-asc") q = q.order("name", { ascending: true })
 
           return q.limit(5000)
         }
@@ -222,21 +193,61 @@ export function ProductGrid({ filters }: ProductGridProps) {
         const { data: styleData, error: styleError } = await stylePromise
         if (!styleError && styleData) setCardStyle({ ...defaultStoreDesignSettings, ...styleData } as StoreDesignSettings)
 
-        // Carrega a lista completa de categorias do banco para resolução de nomes em filtros por ID
-        const { data: dbCategoriesList } = await supabase.from("categories").select("id, name, slug, type")
+        const { data: catsList } = await supabase.from("categories").select("id, name, slug, type")
+        setDbCategoriesList(catsList || [])
+        setRawDbProducts(results)
 
-        const normalizeSearch = (str: string) => {
-          if (!str) return ""
-          return str
-            .normalize("NFD")
-            .replace(/[\u0300-\u036f]/g, "")
-            .toLowerCase()
-            .replace(/[-_/]/g, " ")
-            .replace(/\s+/g, " ")
-            .trim()
-        }
+      } catch (error) {
+        console.error("Erro ao carregar produtos:", error)
+      } finally {
+        setLoading(false)
+      }
+    }
 
-        const getSynonyms = (token: string): string[] => {
+    fetchProducts()
+  }, [refreshTrigger]) // Não depende mais de filters! Fetching principal só roda 1 vez.
+
+  useEffect(() => {
+    if (rawDbProducts.length === 0) return;
+
+    let filtered = [...rawDbProducts];
+
+    // Refazer os filtros locais que antes estavam misturados no fetch
+    if (filters?.minPrice !== undefined) {
+      filtered = filtered.filter(p => (p.promo_price || p.price) >= filters.minPrice!)
+    }
+    if (filters?.maxPrice !== undefined) {
+      filtered = filtered.filter(p => (p.promo_price || p.price) <= filters.maxPrice!)
+    }
+
+    const SALVADOS_OPP_ID = "9d8bedae-b366-4f8c-ac49-74b85b882bde"
+    let typeFilter = filters?.type || "all"
+
+    if (typeFilter === "salvados" || typeFilter === SALVADOS_OPP_ID) {
+      filtered = filtered.filter(p => p.opportunity_id === SALVADOS_OPP_ID || p.opportunities?.name === "Salvados")
+    } else if (typeFilter === "promotion" || typeFilter === "promocao") {
+      filtered = filtered.filter(p => p.promo_price != null)
+    } else if (typeFilter && typeFilter !== "all") {
+      filtered = filtered.filter(p => p.opportunity_id === typeFilter || p.opportunities?.slug === typeFilter || (p.opportunities && slugifyText(p.opportunities.name) === slugifyText(typeFilter)))
+    }
+
+    const sort = filters?.sortBy || "newest"
+    if (sort === "price-asc") filtered.sort((a, b) => (a.promo_price || a.price || 0) - (b.promo_price || b.price || 0))
+    if (sort === "price-desc") filtered.sort((a, b) => (b.promo_price || b.price || 0) - (a.promo_price || a.price || 0))
+    if (sort === "title-asc") filtered.sort((a, b) => (a.name || "").localeCompare(b.name || ""))
+
+    const normalizeSearch = (str: string) => {
+      if (!str) return ""
+      return str
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .toLowerCase()
+        .replace(/[-_/]/g, " ")
+        .replace(/\s+/g, " ")
+        .trim()
+    }
+
+    const getSynonyms = (token: string): string[] => {
           const norm = token.toLowerCase().trim().replace(/s$/, "")
           if (norm === "roupa" || norm === "guarda" || norm === "roupeiro" || norm === "guardaroupa") {
             return ["roupa", "roupas", "guarda", "roupeiro", "roupeiros", "guarda-roupa", "guarda roupa"]
@@ -379,7 +390,7 @@ export function ProductGrid({ filters }: ProductGridProps) {
           const rawSearch = normalizeSearch(filters.search)
           const searchTokens = rawSearch.split(" ").filter(token => token.length >= 2)
 
-          results = results.filter(p => {
+          filtered = filtered.filter(p => {
             const cleanName = normalizeSearch(p.name || "")
             const cleanDesc = normalizeSearch(p.description || "")
             const cleanCats = (p.product_categories || [])
@@ -396,17 +407,10 @@ export function ProductGrid({ filters }: ProductGridProps) {
           })
         }
 
-        setAllProducts(results)
+        setAllProducts(filtered)
         setCurrentPage(1)
-      } catch (error) {
-        console.error("Erro ao carregar produtos:", error)
-      } finally {
-        setLoading(false)
-      }
-    }
 
-    fetchProducts()
-  }, [filters, refreshTrigger])
+  }, [filters, rawDbProducts, dbCategoriesList])
 
   if (loading) {
     return (

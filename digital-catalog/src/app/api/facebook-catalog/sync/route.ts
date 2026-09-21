@@ -43,11 +43,11 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Access Token ou Catalog ID do Meta não configurados no painel." }, { status: 400 })
     }
 
-    // 2. Busca todos os itens próprios para também remover do Meta aqueles
-    // que foram ocultados, apagados ou ficaram sem variação publicada.
+    // 2. Busca todos os itens próprios
+    // Otimizado: Traz apenas os campos essenciais para o Meta, reduzindo o Egress massivamente.
     const { data: allProducts, error: productsError } = await supabase
       .from("products")
-      .select("*, product_categories(categories(name, type)), product_images(*), product_variations(*), opportunities(*)")
+      .select("id, name, description, price, promo_price, status, deleted_at, deleted, is_draft, code, sku, category_id, product_categories(categories(name, type)), product_images(image_url, is_main), product_variations(id, name, sku, price, promo_price, image_url, attributes, status, active, use_parent_price, use_parent_promo_price, use_parent_name), opportunities(name)")
 
     if (productsError || !allProducts) {
       return NextResponse.json({ error: productsError?.message || "Não foi possível carregar os produtos para sincronização." }, { status: 400 })
