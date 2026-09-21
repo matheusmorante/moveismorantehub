@@ -31,11 +31,11 @@ const Variations = () => {
     };
 
     const handleDeleteValue = async (attribute: VariationType, option: VariationOption) => {
-        if (!window.confirm(`Tem certeza que deseja remover o valor "${option.value}" do atributo "${attribute.name}"?`)) return;
+        if (!window.confirm(`Tem certeza que deseja remover o valor "${option.value}" da Especificação Técnica "${attribute.name}"?`)) return;
 
         try {
             if (await checkVariationUsage(attribute.name, option.value)) {
-                toast.warning(`O valor "${option.value}" não pode ser excluído porque está vinculado a variações de produtos.`);
+                toast.warning(`O valor "${option.value}" não pode ser excluído porque está vinculado a produtos.`);
                 return;
             }
             await updateVariation(attribute.id!, {
@@ -52,7 +52,7 @@ const Variations = () => {
     const handleAddValues = async (attribute: VariationType, input: string): Promise<boolean> => {
         const newValues = parseAttributeValueBatch(input, attribute.options.map((option) => option.value));
         if (newValues.length === 0) {
-            toast.info('Todos os valores informados já existem nesse atributo.');
+            toast.info('Todos os valores informados já existem nessa Especificação Técnica.');
             return false;
         }
 
@@ -82,7 +82,7 @@ const Variations = () => {
             try {
                 const rows = text.split(/\r?\n/).map((row) => row.trim()).filter(Boolean);
                 const imported = new Map<string, Set<string>>();
-                const firstRowIsHeader = rows[0] && /atributo|valor/i.test(rows[0]);
+                const firstRowIsHeader = rows[0] && /informacao|campo|atributo|valor/i.test(rows[0]);
 
                 rows.slice(firstRowIsHeader ? 1 : 0).forEach((row) => {
                     const [rawName, ...rawValues] = row.split(',');
@@ -109,7 +109,7 @@ const Variations = () => {
                     changed += 1;
                 }
 
-                toast.success(`Importação concluída: ${changed} ${changed === 1 ? 'atributo alterado' : 'atributos alterados'}.`);
+                toast.success(`Importação concluída: ${changed} ${changed === 1 ? 'campo alterado' : 'campos alterados'}.`);
                 refresh();
             } catch (error: unknown) {
                 const message = error instanceof Error ? error.message : 'Erro desconhecido';
@@ -122,50 +122,76 @@ const Variations = () => {
 
     return (
         <div className="flex-1 flex flex-col h-full bg-slate-50/50 dark:bg-slate-900 overflow-hidden relative">
-            <header className="shrink-0 bg-white dark:bg-slate-950 border-b border-slate-100 dark:border-slate-800 px-5 py-6 md:px-8 shadow-sm relative z-20">
-                <div className="max-w-7xl mx-auto flex flex-col lg:flex-row lg:items-end justify-between gap-5">
-                    <div>
-                        <div className="flex items-center gap-3 mb-2">
-                            <i className="bi bi-stars text-2xl text-blue-600" aria-hidden="true" />
-                            <h1 className="text-3xl font-black text-slate-800 dark:text-slate-100 tracking-tight">Atributos</h1>
-                        </div>
-                        <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">
-                            Gerencie propriedades utilizadas nas variações de produtos
-                        </p>
+            <header className="shrink-0 bg-white dark:bg-slate-950 border-b border-slate-100 dark:border-slate-800 px-4 py-3 sm:px-6 md:px-8 shadow-sm relative z-20">
+                <div className="max-w-7xl mx-auto flex flex-col md:flex-row md:items-center justify-between gap-3 sm:gap-4">
+                    <div className="flex items-center gap-2.5 sm:gap-3">
+                        <i className="bi bi-gear-wide-connected text-xl sm:text-2xl text-blue-600 shrink-0" aria-hidden="true" />
+                        <h1 className="text-xl sm:text-2xl font-black text-slate-800 dark:text-slate-100 tracking-tight truncate">Especificações Técnicas</h1>
                     </div>
 
-                    <div className="flex flex-col sm:flex-row gap-3">
-                        <div className="relative min-w-0 sm:w-72">
-                            <i className="bi bi-search absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" aria-hidden="true" />
-                            <input value={searchTerm} onChange={(event) => setSearchTerm(event.target.value)} placeholder="Buscar atributos..." className="w-full pl-11 pr-4 py-3 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl text-sm font-bold outline-none focus:ring-2 focus:ring-blue-500/20 dark:text-slate-200" />
+                    <div className="flex items-center gap-2 sm:gap-3 w-full md:w-auto">
+                        <div className="relative flex-1 md:w-64 lg:w-72 min-w-0">
+                            <i className="bi bi-search absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-xs" aria-hidden="true" />
+                            <input
+                                value={searchTerm}
+                                onChange={(event) => setSearchTerm(event.target.value)}
+                                placeholder="Buscar campos..."
+                                className="w-full pl-9 pr-3 py-2 sm:py-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl sm:rounded-2xl text-xs sm:text-sm font-bold outline-none focus:ring-2 focus:ring-blue-500/20 dark:text-slate-200"
+                            />
                         </div>
                         <input ref={importInputRef} type="file" accept=".csv,text/csv" onChange={handleImportCSV} className="hidden" />
-                        <button type="button" onClick={() => importInputRef.current?.click()} className="px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-800 text-xs font-black text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 cursor-pointer">
-                            <i className="bi bi-upload mr-2" aria-hidden="true" />Importar CSV
+                        <button
+                            type="button"
+                            onClick={() => importInputRef.current?.click()}
+                            title="Importar CSV"
+                            className="px-3 py-2 sm:py-2.5 rounded-xl sm:rounded-2xl border border-slate-200 dark:border-slate-800 text-xs font-black text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 cursor-pointer flex items-center justify-center shrink-0"
+                        >
+                            <i className="bi bi-upload sm:mr-2" aria-hidden="true" />
+                            <span className="hidden sm:inline">Importar CSV</span>
                         </button>
-                        <button type="button" onClick={() => openForm(null)} className="px-5 py-3 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-black shadow-lg shadow-blue-500/20 cursor-pointer">
-                            <i className="bi bi-plus-lg mr-2" aria-hidden="true" />Novo atributo
+                        <button
+                            type="button"
+                            onClick={() => openForm(null)}
+                            className="px-3.5 sm:px-4 py-2 sm:py-2.5 rounded-xl sm:rounded-2xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-black shadow-md shadow-blue-500/20 cursor-pointer flex items-center justify-center gap-1.5 sm:gap-2 shrink-0"
+                        >
+                            <i className="bi bi-plus-lg" aria-hidden="true" />
+                            <span>Novo Campo</span>
                         </button>
                     </div>
                 </div>
             </header>
 
-            <main className="flex-1 overflow-y-auto p-4 md:p-8 custom-scrollbar">
+            <main className="flex-1 overflow-y-auto p-3 sm:p-5 md:p-8 custom-scrollbar">
                 <div className="max-w-7xl mx-auto space-y-4">
                     {loading ? (
                         <div className="bg-white dark:bg-slate-950 rounded-3xl border border-slate-100 dark:border-slate-800 p-12 text-center shadow-sm">
                             <i className="bi bi-arrow-clockwise animate-spin text-3xl text-blue-600" aria-hidden="true" />
-                            <p className="text-xs font-black uppercase tracking-widest text-slate-400 mt-3">Carregando atributos...</p>
+                            <p className="text-xs font-black uppercase tracking-widest text-slate-400 mt-3">Carregando especificações técnicas...</p>
                         </div>
                     ) : filteredVariations.length === 0 ? (
-                        <div className="bg-white dark:bg-slate-950 rounded-3xl border border-slate-100 dark:border-slate-800 p-12 text-center shadow-sm text-slate-400 font-bold">Nenhum atributo encontrado.</div>
+                        <div className="bg-white dark:bg-slate-950 rounded-3xl border border-slate-100 dark:border-slate-800 p-12 text-center shadow-sm text-slate-400 font-bold">
+                            Nenhuma Especificação Técnica encontrada.
+                        </div>
                     ) : filteredVariations.map((attribute) => (
-                        <AttributeCard key={attribute.id} attribute={attribute} onAddValues={handleAddValues} onDeleteAttribute={handleDelete} onDeleteValue={handleDeleteValue} onEdit={openForm} />
+                        <AttributeCard
+                            key={attribute.id}
+                            attribute={attribute}
+                            onAddValues={handleAddValues}
+                            onDeleteAttribute={handleDelete}
+                            onDeleteValue={handleDeleteValue}
+                            onEdit={openForm}
+                        />
                     ))}
                 </div>
             </main>
 
-            <VariationFormModal isOpen={formOpen} onClose={() => setFormOpen(false)} onSuccess={refresh} variation={editingAttribute} allVariations={variations} />
+            <VariationFormModal
+                isOpen={formOpen}
+                onClose={() => setFormOpen(false)}
+                onSuccess={refresh}
+                variation={editingAttribute}
+                allVariations={variations}
+            />
         </div>
     );
 };

@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import React, { useState } from 'react';
-import { fireEvent, render, screen } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { fireEvent, render, screen, cleanup } from '@testing-library/react';
+import { describe, expect, it, vi, beforeEach } from 'vitest';
 import Product, { Variation } from '../../../../types/product.type';
 import { computeVariationName } from '@/pages/utils/productVariationDefaults';
 import { VariationIdentificationTab } from './VariationIdentificationTab';
@@ -60,26 +60,22 @@ const Harness = () => {
     );
 };
 
-describe('VariationIdentificationTab - visibilidade no nome', () => {
-    it('considera atributos legados visíveis e alterna ocultar/mostrar pelo botão de olho', () => {
+describe('VariationIdentificationTab - nome da variação com prefixo imutável e sufixo manual', () => {
+    beforeEach(() => {
+        cleanup();
+    });
+    it('exibe o prefixo do pai bloqueado e permite alterar o sufixo manual do nome da variação', () => {
         render(<Harness />);
 
-        const hideButton = screen.getByRole('button', {
-            name: 'Ocultar valor de Quantidade de portas no nome da variação'
-        });
-        expect(hideButton.getAttribute('aria-pressed')).toBe('true');
-        expect(screen.getByDisplayValue('Guarda-Roupa Branco 6 Portas')).toBeDefined();
+        // O prefixo do pai está presente e fixo
+        expect(screen.getByText('Guarda-Roupa')).toBeDefined();
 
-        fireEvent.click(hideButton);
+        // O input de sufixo reflete o complemento da variação
+        const suffixInput = screen.getByLabelText('Sufixo do nome da variação') as HTMLInputElement;
+        expect(suffixInput.value).toBe('Branco 6 Portas');
 
-        expect(screen.getByDisplayValue('Guarda-Roupa Branco')).toBeDefined();
-        expect(screen.getByTestId('attribute-state').textContent).toContain('"showName":false');
-
-        fireEvent.click(screen.getByRole('button', {
-            name: 'Mostrar valor de Quantidade de portas no nome da variação'
-        }));
-
-        expect(screen.getByDisplayValue('Guarda-Roupa Branco 6 Portas')).toBeDefined();
-        expect(screen.getByTestId('attribute-state').textContent).toContain('"showName":true');
+        // Alteração manual do sufixo atualiza o nome da variação
+        fireEvent.change(suffixInput, { target: { value: 'Preto 4 Portas' } });
+        expect(suffixInput.value).toBe('Preto 4 Portas');
     });
 });

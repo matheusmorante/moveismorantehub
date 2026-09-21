@@ -30,7 +30,8 @@ interface TabDefinition {
 
 const getFormTabs = (isComposition: boolean): readonly TabDefinition[] => {
     const tabs: TabDefinition[] = [
-        { id: 'identificacao', label: 'Identificação e Atributos', icon: 'bi-info-circle' },
+        { id: 'identificacao', label: 'Identificação', icon: 'bi-info-circle' },
+        { id: 'tecnico', label: 'Especificações Técnicas', icon: 'bi-gear' },
         { id: 'fotos', label: 'Fotos da Variação', icon: 'bi-images' },
     ];
     
@@ -39,7 +40,6 @@ const getFormTabs = (isComposition: boolean): readonly TabDefinition[] => {
     }
     
     tabs.push({ id: 'estoque', label: 'Estoque e Precificação', icon: 'bi-box-seam' });
-    tabs.push({ id: 'tecnico', label: 'Informações Técnicas', icon: 'bi-gear' });
     
     return tabs;
 };
@@ -100,7 +100,7 @@ export const VariationFormModal: React.FC<VariationFormModalProps> = (props) => 
     const ecomStatus = checkEcomLegibility(effectiveProductForValidation);
 
     return createPortal(
-        <div className="fixed inset-0 z-[1000020] flex items-center justify-center p-2 sm:p-4 animate-in fade-in duration-200">
+        <div className="fixed inset-0 z-[1000020] flex items-end sm:items-center justify-center sm:p-4 animate-in fade-in duration-200">
             <button 
                 type="button" 
                 aria-label="Fechar modal" 
@@ -112,23 +112,32 @@ export const VariationFormModal: React.FC<VariationFormModalProps> = (props) => 
                 role="dialog"
                 aria-modal="true"
                 aria-labelledby="variation-form-modal-title"
-                className="relative bg-white dark:bg-slate-900 w-full max-w-5xl h-[92vh] rounded-3xl shadow-2xl flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200 border border-slate-100 dark:border-slate-800 z-10"
+                className="relative bg-white dark:bg-slate-900 w-full max-w-5xl h-[100dvh] sm:h-auto sm:max-h-[calc(100dvh-2rem)] rounded-none sm:rounded-3xl shadow-2xl flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200 border-0 sm:border border-slate-100 dark:border-slate-800 z-10"
             >
                 {/* Header */}
-                <div className="px-6 py-4 border-b border-slate-50 dark:border-slate-800/50 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shrink-0 bg-white dark:bg-slate-900">
-                    <div className="flex items-center gap-4 flex-wrap">
-                        <div>
-                            <h2 id="variation-form-modal-title" className="text-xl font-black text-slate-800 dark:text-slate-100 tracking-tight flex items-center gap-2">
-                                {variation ? 'Editar Variação' : 'Adicionar Variação'}
-                                <span className="text-slate-400 text-xs font-normal">| {parentProduct.name || parentProduct.description || 'Produto Pai'}</span>
+                <div className="px-4 sm:px-6 py-3 sm:py-4 border-b border-slate-50 dark:border-slate-800/50 flex flex-col gap-2 sm:gap-4 shrink-0 bg-white dark:bg-slate-900">
+                    <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0 flex-1">
+                            <h2 id="variation-form-modal-title" className="text-lg sm:text-xl font-black text-slate-800 dark:text-slate-100 tracking-tight flex items-center gap-2 flex-wrap">
+                                <span className="shrink-0">{variation ? 'Editar Variação' : 'Adicionar Variação'}</span>
+                                <span className="text-slate-400 text-xs font-normal truncate max-w-[200px] sm:max-w-none">| {parentProduct.name || parentProduct.description || 'Produto Pai'}</span>
                             </h2>
                             <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest mt-0.5">
                                 Configure os dados específicos desta variação.
                             </p>
                         </div>
+                        <button 
+                            type="button" 
+                            onClick={onClose} 
+                            aria-label="Fechar"
+                            className="shrink-0 w-9 h-9 sm:w-10 sm:h-10 flex items-center justify-center rounded-xl bg-slate-50 dark:bg-slate-800 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all cursor-pointer"
+                        >
+                            <i className="bi bi-x-lg text-base sm:text-lg" aria-hidden="true" />
+                        </button>
+                    </div>
 
-                        <div className="flex items-center gap-2 flex-wrap">
-                            {/* Pílula ERP */}
+                    <div className="flex items-center gap-2 flex-wrap">
+                        {/* Pílulas de status */}
                             <div className="relative group cursor-help">
                                 <div className={`flex items-center gap-1.5 h-6 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider border ${erpStatus.isLegible ? 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-955/20 dark:text-blue-400 dark:border-blue-900/30' : 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-955/20 dark:text-amber-400 dark:border-amber-900/30'}`}>
                                     <span>ERP: {erpStatus.isLegible ? 'Ativo' : 'Pendente'}</span>
@@ -179,37 +188,43 @@ export const VariationFormModal: React.FC<VariationFormModalProps> = (props) => 
                             </div>
                         </div>
                     </div>
-                    <button 
-                        type="button" 
-                        onClick={onClose} 
-                        aria-label="Fechar"
-                        className="w-10 h-10 flex items-center justify-center rounded-xl bg-slate-50 dark:bg-slate-800 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all self-end sm:self-auto cursor-pointer"
-                    >
-                        <i className="bi bi-x-lg text-lg" aria-hidden="true" />
-                    </button>
-                </div>
 
                 {/* Sub-Header Navegação de Abas */}
-                <div className="px-6 border-b border-slate-50 dark:border-slate-800/50 bg-white dark:bg-slate-900 shrink-0 sticky top-0 z-10 overflow-x-auto scrollbar-none">
-                    <div className="flex items-center gap-6" role="tablist" aria-label="Abas da variação">
-                        {getFormTabs(parentProduct.itemType === 'composition' || (parentProduct as any).item_type === 'composition').map((tab) => (
-                            <button
-                                key={tab.id}
-                                type="button"
-                                role="tab"
-                                aria-selected={activeTab === tab.id}
-                                onClick={() => setActiveTab(tab.id)}
-                                className={`py-3 text-[10px] font-black uppercase tracking-widest flex items-center gap-2 border-b-2 transition-all shrink-0 cursor-pointer ${activeTab === tab.id ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-400 hover:text-slate-600 dark:hover:text-slate-200'}`}
-                            >
-                                <i className={`bi ${tab.icon}`} aria-hidden="true" />
-                                {tab.label}
-                            </button>
-                        ))}
+                <div className="px-4 sm:px-6 border-b border-slate-50 dark:border-slate-800/50 bg-white dark:bg-slate-900 shrink-0 z-10 overflow-x-auto scrollbar-hide" style={{scrollbarWidth: 'none'}}>
+                    <div className="flex items-center gap-4 sm:gap-6 min-w-max" role="tablist" aria-label="Abas da variação">
+                        {getFormTabs(parentProduct.itemType === 'composition' || (parentProduct as any).item_type === 'composition').map((tab) => {
+                            const hasParentCategory = (parentProduct.categoryIds || []).length > 0;
+                            const isTabDisabled = tab.id === 'tecnico' && !hasParentCategory;
+
+                            return (
+                                <button
+                                    key={tab.id}
+                                    type="button"
+                                    role="tab"
+                                    aria-selected={activeTab === tab.id}
+                                    aria-disabled={isTabDisabled}
+                                    disabled={isTabDisabled}
+                                    onClick={() => !isTabDisabled && setActiveTab(tab.id)}
+                                    title={isTabDisabled ? 'Selecione pelo menos uma categoria no produto pai para habilitar as Especificações Técnicas' : undefined}
+                                    className={`py-3 text-[10px] font-black uppercase tracking-widest flex items-center gap-1.5 border-b-2 transition-all shrink-0 whitespace-nowrap ${
+                                        isTabDisabled
+                                            ? 'border-transparent text-slate-300 dark:text-slate-700 cursor-not-allowed opacity-50'
+                                            : activeTab === tab.id
+                                            ? 'border-blue-600 text-blue-600 cursor-pointer'
+                                            : 'border-transparent text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer'
+                                    }`}
+                                >
+                                    <i className={`bi ${tab.icon}`} aria-hidden="true" />
+                                    <span>{tab.label}</span>
+                                    {isTabDisabled && <i className="bi bi-lock-fill text-[10px] text-slate-300 dark:text-slate-600" aria-hidden="true" />}
+                                </button>
+                            );
+                        })}
                     </div>
                 </div>
 
                 {/* Corpo do Formulário */}
-                <div className="flex-1 overflow-y-auto p-6 flex flex-col gap-6 custom-scrollbar min-h-0">
+                <div className="flex-1 overflow-y-auto p-4 sm:p-6 flex flex-col gap-4 sm:gap-6 custom-scrollbar min-h-0">
                     {activeTab === 'identificacao' && (
                         <VariationIdentificationTab
                             formData={formData}
@@ -271,11 +286,11 @@ export const VariationFormModal: React.FC<VariationFormModalProps> = (props) => 
                 </div>
 
                 {/* Footer Controls */}
-                <div className="px-6 py-4 border-t border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 flex items-center justify-between gap-4 shrink-0">
+                <div className="px-4 sm:px-6 py-3 sm:py-4 border-t border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 flex items-center justify-between gap-3 shrink-0" style={{paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))'}}>
                     <button
                         type="button"
                         onClick={onClose}
-                        className="px-6 py-2.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-xl font-bold uppercase tracking-widest text-[10px] transition-all cursor-pointer"
+                        className="px-5 sm:px-6 py-2.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-xl font-bold uppercase tracking-widest text-[10px] transition-all cursor-pointer min-h-[44px]"
                     >
                         Cancelar
                     </button>
@@ -283,7 +298,7 @@ export const VariationFormModal: React.FC<VariationFormModalProps> = (props) => 
                         type="button"
                         onClick={handleSubmit}
                         disabled={loading}
-                        className="px-8 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-black uppercase tracking-widest text-[10px] shadow-lg shadow-emerald-500/20 active:scale-95 transition-all cursor-pointer disabled:opacity-50"
+                        className="px-6 sm:px-8 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-black uppercase tracking-widest text-[10px] shadow-lg shadow-emerald-500/20 active:scale-95 transition-all cursor-pointer disabled:opacity-50 min-h-[44px]"
                     >
                         {loading ? 'Salvando...' : 'Concluir'}
                     </button>

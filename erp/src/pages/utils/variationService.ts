@@ -91,7 +91,7 @@ export const subscribeToVariations = (callback: (variations: VariationType[]) =>
             // 1. Buscar atributos globais ordenados por nome
             const { data: attrData, error: attrErr } = await supabase
                 .from("attributes")
-                .select("*")
+                .select("id, name, active, data_type, unit, is_globally_required")
                 .order("name", { ascending: true });
             if (attrErr) throw attrErr;
 
@@ -120,6 +120,7 @@ export const subscribeToVariations = (callback: (variations: VariationType[]) =>
                 active: attr.active ?? true,
                 dataType: attr.data_type || 'list',
                 unit: attr.unit || '',
+                isGloballyRequired: Boolean(attr.is_globally_required),
                 options: sortAttributeValuesNaturally((valData || [])
                     .filter((val: any) => val.attribute_id === attr.id)
                     .map((val: any) => ({
@@ -163,7 +164,8 @@ export const saveVariation = async (variation: VariationType): Promise<void> => 
                 name: capitalize(variation.name),
                 active: variation.active ?? true,
                 data_type: variation.dataType || 'list',
-                unit: variation.unit || null
+                unit: variation.unit || null,
+                is_globally_required: variation.isGloballyRequired ?? false
             }])
             .select()
             .single();
@@ -222,6 +224,7 @@ export const updateVariation = async (id: string, variationToUpdate: Partial<Var
         if (variationToUpdate.active !== undefined) attrUpdates.active = variationToUpdate.active;
         if (variationToUpdate.dataType !== undefined) attrUpdates.data_type = variationToUpdate.dataType;
         if (variationToUpdate.unit !== undefined) attrUpdates.unit = variationToUpdate.unit;
+        if (variationToUpdate.isGloballyRequired !== undefined) attrUpdates.is_globally_required = variationToUpdate.isGloballyRequired;
 
         if (Object.keys(attrUpdates).length > 0) {
             let { error: attrErr } = await supabase

@@ -4,6 +4,8 @@ import { saveProduct } from '@/pages/utils/productService';
 import { checkERPLegibility, checkEcomLegibility } from '../utils/productLegibilityRules';
 import { hasMissingRequiredAttributes, hasVariationAttribute, getIncompleteVariationAttributes } from '@/pages/utils/productVariationDefaults';
 import { toast } from 'react-toastify';
+import { ecommerceSupabase as supabase } from '@/pages/utils/supabaseConfig';
+import { getMissingRequiredTechnicalFields } from '@/pages/utils/technicalValuesService';
 
 interface SubmitProps {
   formData: Partial<Product>;
@@ -64,14 +66,43 @@ export const useProductFormSubmit = ({
             v.unitPrice !== undefined && v.unitPrice !== null && !isNaN(Number(v.unitPrice)) && Number(v.unitPrice) > 0
         );
 
-        if (!hasParentPrice && !hasVariationWithPrice) {
-            errors.unitPrice = true;
+        const { data: requiredTechnicalAttributes, error: requiredAttributesError } = await supabase
+            .from('attributes')
+            .select('name')
+            .eq('active', true)
+            .eq('is_globally_required', true);
+
+        if (requiredAttributesError) {
+            setActiveTab('technical');
+            setValidationErrors({ technicalValues: true });
+            toast.error('Não foi possível validar as Especificações Técnicas obrigatórias. Tente novamente.');
+            return false;
+        }
+
+        const emptyActiveTechnicalFields = getMissingRequiredTechnicalFields(
+            (requiredTechnicalAttributes || []).map((field: { name: string }) => field.name),
+            formData.technicalValues || {}
+        );
+
+        if (emptyActiveTechnicalFields.length > 0) {
+            errors.technicalValues = true;
         }
 
         if (Object.keys(errors).length > 0) {
             setValidationErrors(errors);
             if (errors.name || errors.categoryIds) {
                 setActiveTab('geral');
+            } else if (errors.technicalValues) {
+                setActiveTab('technical');
+                const fieldName = emptyActiveTechnicalFields[0];
+                toast.error(`Especificação Técnica obrigatória: selecione uma opção para "${fieldName}".`);
+                setTimeout(() => {
+                    const el = document.getElementById(`technical-field-${fieldName}`);
+                    if (el) {
+                        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    }
+                }, 150);
+                return false;
             } else if (errors.unitPrice || errors.mainSupplierId) {
                 setActiveTab('estoque');
             } else if (errors.variations || errors.variationsAttributes) {

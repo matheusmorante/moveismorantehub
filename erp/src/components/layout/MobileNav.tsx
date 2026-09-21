@@ -19,7 +19,7 @@ const menuItems: any[] = [
         bg: 'bg-indigo-50 dark:bg-indigo-900/20',
         links: [
             { to: '/registrations/products', icon: 'bi-list-ul', iconColor: 'text-indigo-500', label: 'Lista de Produtos' },
-            { to: '/registrations/variations', icon: 'bi-ui-radios', iconColor: 'text-blue-500', label: 'Atributos e Variações' },
+            { to: '/registrations/variations', icon: 'bi-gear-wide-connected', iconColor: 'text-blue-500', label: 'Especificações Técnicas' },
             { to: '/registrations/product-categories', icon: 'bi-tag-fill', iconColor: 'text-teal-500', label: 'Ambientes e Categorias' },
             { to: '/products/compositions', icon: 'bi-diagram-3-fill', iconColor: 'text-amber-500', label: 'Composições' },
             { to: '/products/reconciliation/suppliers', icon: 'bi-magic', iconColor: 'text-purple-500', label: 'Conciliação' },

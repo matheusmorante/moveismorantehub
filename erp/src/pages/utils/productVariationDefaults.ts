@@ -65,6 +65,14 @@ export const getIncompleteVariationAttributes = (variation?: Variation | any): I
 export const hasVariationAttribute = (variation?: Variation | any): boolean => {
     if (!variation) return false;
 
+    // Se já possui Informações Técnicas com valores definidos
+    if (variation.technicalValues && typeof variation.technicalValues === 'object') {
+        const hasDefinedTechValue = Object.values(variation.technicalValues).some(
+            v => v !== undefined && v !== null && String(v).trim() !== ''
+        );
+        if (hasDefinedTechValue) return true;
+    }
+
     let rawAttributes = variation.attributes;
     if (typeof rawAttributes === 'string' && rawAttributes.trim()) {
         try {

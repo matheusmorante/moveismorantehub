@@ -1,7 +1,18 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import Product, { Variation } from '../../../../types/product.type';
 import { aiService } from '@/pages/utils/aiService';
 import { toast } from 'react-toastify';
+import { ecommerceSupabase as supabase } from '@/pages/utils/supabaseConfig';
+import { 
+    TechnicalFieldDefinition, 
+    getApplicableTechnicalFields, 
+    getAvailableAdditionalFields,
+    getEffectiveTechnicalValue,
+    hasVariationOverride,
+    setVariationOverride,
+    removeVariationOverride
+} from '@/pages/utils/technicalValuesService';
+import { TechnicalCombobox } from '../tabs/TechnicalCombobox';
 
 interface VariationTechnicalTabProps {
     readonly formData: Variation;
@@ -16,10 +27,188 @@ export const VariationTechnicalTab: React.FC<VariationTechnicalTabProps> = ({
     handleChange
 }) => {
     const [isImprovingDescription, setIsImprovingDescription] = useState(false);
+    const [allTechnicalFields, setAllTechnicalFields] = useState<TechnicalFieldDefinition[]>([]);
+    const [manualFieldNames, setManualFieldNames] = useState<string[]>([]);
+    const [loadingFields, setLoadingFields] = useState(false);
+    const [isAddMenuOpen, setIsAddMenuOpen] = useState(false);
+    const [addSearchTerm, setAddSearchTerm] = useState('');
+    const addDropdownRef = useRef<HTMLDivElement | null>(null);
+
+    // Fechar dropdown de adicionar campo ao clicar fora
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (addDropdownRef.current && !addDropdownRef.current.contains(event.target as Node)) {
+                setIsAddMenuOpen(false);
+                setAddSearchTerm('');
+            }
+        };
+
+        if (isAddMenuOpen) {
+            document.addEventListener('mousedown', handleClickOutside);
+        }
+        return () => {
+            document.removeEventListener('mousedown', handleClickOutside);
+        };
+    }, [isAddMenuOpen]);
+
+    // Carregar Informações Técnicas cadastradas e vínculos
+    useEffect(() => {
+        let isMounted = true;
+
+        const loadFields = async () => {
+            setLoadingFields(true);
+            try {
+                const { data: attrData, error: attrErr } = await supabase
+                    .from('attributes')
+                    .select('id, name, active, is_globally_required')
+                    .eq('active', true)
+                    .order('name');
+                if (attrErr) throw attrErr;
+
+                const { data: valData } = await supabase
+                    .from('attribute_values')
+                    .select('id, attribute_id, value');
+
+                const { data: catAttrData, error: catAttrErr } = await supabase
+                    .from('category_attributes')
+                    .select('attribute_id, category_id, is_required');
+                if (catAttrErr) {
+                    console.warn('Aviso ao buscar category_attributes na variação:', catAttrErr);
+                }
+
+                if (!isMounted) return;
+
+                const mapped: TechnicalFieldDefinition[] = (attrData || []).map((attr: any) => {
+                    const opts = (valData || [])
+                        .filter((v: any) => v.attribute_id === attr.id)
+                        .map((v: any) => ({ id: v.id, value: v.value }))
+                        .sort((a: any, b: any) => a.value.localeCompare(b.value, 'pt-BR', { numeric: true, sensitivity: 'base' }));
+
+                    const linkedCategoryIds = (catAttrErr ? [] : (catAttrData || []))
+                        .filter((ca: any) => ca.attribute_id === attr.id)
+                        .map((ca: any) => ca.category_id);
+
+                    return {
+                        id: attr.id,
+                        name: attr.name,
+                        dataType: 'list',
+                        unit: '',
+                        isRequired: Boolean(attr.is_globally_required),
+                        options: opts,
+                        categoryIds: linkedCategoryIds
+                    };
+                });
+
+                setAllTechnicalFields(mapped);
+            } catch (err) {
+                console.error('Erro ao carregar Especificações Técnicas na variação:', err);
+            } finally {
+                if (isMounted) setLoadingFields(false);
+            }
+        };
+
+        loadFields();
+
+        return () => {
+            isMounted = false;
+        };
+    }, []);
+
+    // Atributos definidos na própria variação (ex: Cor, Material, Tamanho vindos do cadastro de variação)
+    // Mapeados de forma normalizada para garantir match case-insensitive com o nome dos campos técnicos
+    const variationAttributeValues = useMemo(() => {
+        const map: Record<string, any> = {};
+        (formData?.attributes || []).forEach(attr => {
+            if (attr.name && attr.value) {
+                map[attr.name] = attr.value;
+                map[attr.name.trim().toLowerCase()] = attr.value;
+            }
+        });
+        return map;
+    }, [formData?.attributes]);
+
+    // Campos visíveis na variação: categorias do pai + valores do pai + overrides da variação + atributos da variação + manuais
+    const combinedValues = useMemo(() => {
+        return {
+            ...(parentProduct?.technicalValues || {}),
+            ...variationAttributeValues,
+            ...(formData?.technicalValues || {})
+        };
+    }, [parentProduct?.technicalValues, variationAttributeValues, formData?.technicalValues]);
+
+    const visibleFields = useMemo(() => {
+        return getApplicableTechnicalFields(
+            allTechnicalFields,
+            parentProduct?.categoryIds || [],
+            combinedValues,
+            manualFieldNames
+        );
+    }, [allTechnicalFields, parentProduct?.categoryIds, combinedValues, manualFieldNames]);
+
+    const availableAdditionalFields = useMemo(() => {
+        return getAvailableAdditionalFields(allTechnicalFields, visibleFields);
+    }, [allTechnicalFields, visibleFields]);
+
+    const filteredAdditionalFields = useMemo(() => {
+        const term = addSearchTerm.trim().toLowerCase();
+        if (!term) return availableAdditionalFields;
+        return availableAdditionalFields.filter(f => f.name.toLowerCase().includes(term));
+    }, [availableAdditionalFields, addSearchTerm]);
+
+    const handleSetOverride = (fieldName: string, value: any) => {
+        const currentOverrides = formData.technicalValues || {};
+        const updated = setVariationOverride(currentOverrides, fieldName, value);
+        handleChange('technicalValues', updated);
+
+        // Manter sincronizado com formData.attributes para retrocompatibilidade
+        const currentAttrs = [...(formData.attributes || [])];
+        const lowerName = fieldName.trim().toLowerCase();
+        const existingIdx = currentAttrs.findIndex(a => a.name?.trim().toLowerCase() === lowerName);
+        if (value) {
+            if (existingIdx >= 0) {
+                currentAttrs[existingIdx] = { ...currentAttrs[existingIdx], value: String(value) };
+            } else {
+                currentAttrs.push({ name: fieldName, value: String(value), showName: true });
+            }
+            handleChange('attributes', currentAttrs);
+        } else if (existingIdx >= 0) {
+            currentAttrs.splice(existingIdx, 1);
+            handleChange('attributes', currentAttrs);
+        }
+    };
+
+    const handleRemoveOverride = (fieldName: string) => {
+        const currentOverrides = formData.technicalValues || {};
+        const updated = removeVariationOverride(currentOverrides, fieldName);
+        handleChange('technicalValues', updated);
+
+        // Ao remover override e voltar a herdar, limpa também atributo correspondente se existir
+        const currentAttrs = (formData.attributes || []).filter(
+            a => a.name?.trim().toLowerCase() !== fieldName.trim().toLowerCase()
+        );
+        handleChange('attributes', currentAttrs);
+    };
+
+    const handleAddManualField = (field: TechnicalFieldDefinition) => {
+        setManualFieldNames(prev => Array.from(new Set([...prev, field.name])));
+        handleSetOverride(field.name, '');
+        setIsAddMenuOpen(false);
+        setAddSearchTerm('');
+    };
+
+    const handleRemoveManualField = (fieldName: string) => {
+        setManualFieldNames(prev => prev.filter(name => name !== fieldName));
+        handleRemoveOverride(fieldName);
+    };
 
     const handleImproveDescriptionWithAI = async () => {
         const title = (formData.name || parentProduct.name || parentProduct.description || '').trim();
         setIsImprovingDescription(true);
+        const mergedTechnicalValues = {
+            ...(parentProduct.technicalValues || {}),
+            ...(formData.technicalValues || {})
+        };
+
         try {
             const result = await aiService.improveProductDescription({
                 currentDescription: formData.description || '',
@@ -30,7 +219,8 @@ export const VariationTechnicalTab: React.FC<VariationTechnicalTabProps> = ({
                 width: formData.syncWidth ? parentProduct.width : formData.width,
                 height: formData.syncHeight ? parentProduct.height : formData.height,
                 depth: formData.syncDepth ? parentProduct.depth : formData.depth,
-                weight: formData.syncWeight ? parentProduct.weight : formData.weight
+                weight: formData.syncWeight ? parentProduct.weight : formData.weight,
+                technicalValues: mergedTechnicalValues
             });
 
             handleChange('description', result.improvedDescription);
@@ -47,6 +237,172 @@ export const VariationTechnicalTab: React.FC<VariationTechnicalTabProps> = ({
 
     return (
         <div className="space-y-6 animate-in fade-in duration-350">
+            {/* Especificações Técnicas da Variação — Primeiro bloco da aba */}
+            <div className="flex flex-col gap-4 bg-white dark:bg-slate-900/40 p-6 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm transition-all">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border-b border-slate-100 dark:border-slate-800/80 pb-3">
+                    <div>
+                        <h4 className="text-[10px] font-black uppercase tracking-widest text-blue-600 flex items-center gap-2">
+                            <i className="bi bi-cpu" />
+                            Especificações Técnicas da Variação
+                        </h4>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                        {/* Botão para adicionar campo adicional específico na variação */}
+                        <div className="relative" ref={addDropdownRef}>
+                            <button
+                                type="button"
+                                onClick={() => setIsAddMenuOpen(prev => !prev)}
+                                disabled={loadingFields || !((parentProduct?.categoryIds || []).length > 0) || availableAdditionalFields.length === 0}
+                                title={!((parentProduct?.categoryIds || []).length > 0) ? 'Defina pelo menos uma categoria no produto pai' : undefined}
+                                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-blue-100/80 hover:bg-blue-200/80 dark:bg-blue-950/60 dark:hover:bg-blue-900/60 border border-blue-200 dark:border-blue-800/70 text-blue-600 dark:text-blue-400 text-[10px] font-black uppercase tracking-wider transition-all disabled:opacity-40 disabled:pointer-events-none active:scale-95 shadow-sm cursor-pointer"
+                            >
+                                <i className="bi bi-plus-lg text-xs" />
+                                <span>Campo Adicional</span>
+                                {((parentProduct?.categoryIds || []).length > 0) && availableAdditionalFields.length > 0 && (
+                                    <span className="ml-1 px-1.5 py-0.2 rounded-full text-[8px] bg-blue-200 dark:bg-blue-800 font-black">
+                                        {availableAdditionalFields.length}
+                                    </span>
+                                )}
+                            </button>
+
+                            {isAddMenuOpen && (
+                                <div className="absolute right-0 top-full mt-2 w-64 z-50 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-xl overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+                                <div className="p-2 border-b border-slate-100 dark:border-slate-800">
+                                    <div className="relative flex items-center">
+                                        <i className="bi bi-search absolute left-2.5 top-1/2 -translate-y-1/2 text-[10px] text-slate-400 pointer-events-none" />
+                                        <input
+                                            type="text"
+                                            autoFocus
+                                            value={addSearchTerm}
+                                            onChange={(e) => setAddSearchTerm(e.target.value)}
+                                            placeholder="Buscar campo..."
+                                            className="w-full pl-7 pr-2 py-1 text-xs bg-slate-50 dark:bg-slate-800/50 rounded-lg border border-slate-200 dark:border-slate-700 outline-none text-slate-800 dark:text-slate-200"
+                                        />
+                                    </div>
+                                </div>
+
+                                <div className="max-h-56 overflow-y-auto p-1 custom-scrollbar">
+                                    {filteredAdditionalFields.length === 0 ? (
+                                        <div className="py-3 text-center text-slate-400 text-xs italic">
+                                            Nenhum campo disponível.
+                                        </div>
+                                    ) : (
+                                        filteredAdditionalFields.map(field => (
+                                            <button
+                                                key={field.id}
+                                                type="button"
+                                                onClick={() => handleAddManualField(field)}
+                                                className="w-full text-left px-2.5 py-1.5 rounded-lg text-xs font-bold text-slate-700 dark:text-slate-200 hover:bg-blue-50 dark:hover:bg-blue-900/40 hover:text-blue-600 transition-colors flex items-center justify-between"
+                                            >
+                                                <span className="truncate">{field.name}</span>
+                                                <i className="bi bi-plus text-slate-400" />
+                                            </button>
+                                        ))
+                                    )}
+                                </div>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+
+                {loadingFields ? (
+                    <div className="py-6 text-center text-slate-400 text-xs font-bold animate-pulse">
+                        <i className="bi bi-arrow-clockwise animate-spin mr-2" />
+                        Carregando especificações técnicas...
+                    </div>
+                ) : !((parentProduct?.categoryIds || []).length > 0) ? (
+                    <div className="py-6 text-center text-slate-400 text-xs italic bg-white dark:bg-slate-900/40 rounded-2xl border border-dashed border-slate-200 dark:border-slate-800 flex flex-col items-center gap-2">
+                        <i className="bi bi-lock-fill text-lg text-slate-400" />
+                        <span className="font-bold text-slate-600 dark:text-slate-300">Produto pai sem categoria definida.</span>
+                        <span className="text-[11px] text-slate-500">
+                            Defina uma categoria no produto pai para ver as especificações por categoria. As obrigatórias globais permanecem disponíveis.
+                        </span>
+                    </div>
+                ) : visibleFields.length === 0 ? (
+                    <div className="py-6 text-center text-slate-400 text-xs italic bg-white dark:bg-slate-900/40 rounded-2xl border border-dashed border-slate-200 dark:border-slate-800">
+                        Nenhuma Especificação Técnica aplicável configurada.
+                    </div>
+                ) : (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 pt-1">
+                        {visibleFields.map(field => {
+                            const fieldLower = field.name.trim().toLowerCase();
+                            const hasExplicitOverride = hasVariationOverride(formData.technicalValues, field.name);
+                            const hasAttributeValue = variationAttributeValues[field.name] !== undefined || variationAttributeValues[fieldLower] !== undefined;
+                            const isOverridden = hasExplicitOverride || hasAttributeValue;
+                            
+                            const rawEffectiveVal = getEffectiveTechnicalValue(
+                                parentProduct?.technicalValues || {},
+                                { ...variationAttributeValues, ...(formData.technicalValues || {}) },
+                                field.name
+                            );
+                            const effectiveVal = rawEffectiveVal !== undefined 
+                                ? rawEffectiveVal 
+                                : variationAttributeValues[fieldLower];
+                            const isManual = manualFieldNames.includes(field.name);
+                            // Campo está "ativo" se tem override próprio OU se o pai informou valor
+                            const parentVal = parentProduct?.technicalValues?.[field.name];
+                            const isEnabled = isOverridden || (parentVal !== undefined && parentVal !== null && String(parentVal).trim() !== '');
+
+                            return (
+                                <div key={field.id} className="flex flex-col gap-1.5 p-1 transition-all min-w-0">
+                                    <div className="flex items-center justify-between gap-2 min-w-0">
+                                        <label className="text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-300 truncate min-w-0" title={field.name}>
+                                            {field.name}
+                                            {field.isRequired && <span className="ml-1 text-red-500" aria-label="Obrigatório">*</span>}
+                                        </label>
+                                        <div className="flex items-center gap-1 shrink-0">
+                                            {/* Ícone sync: verde=sincronizado (corrente ligada), cinza=manual (corrente quebrada) */}
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    if (isOverridden) {
+                                                        handleRemoveOverride(field.name);
+                                                    } else {
+                                                        handleSetOverride(field.name, effectiveVal ?? '');
+                                                    }
+                                                }}
+                                                className={`p-1 rounded-lg flex items-center transition-all cursor-pointer ${
+                                                    isOverridden
+                                                        ? 'text-slate-400 hover:text-slate-600'
+                                                        : 'text-emerald-500 hover:text-emerald-600'
+                                                }`}
+                                                title={isOverridden ? "Manual — clique para sincronizar com o pai" : "Sincronizado com o pai — clique para personalizar"}
+                                            >
+                                                <i className={`bi ${isOverridden ? 'bi-link-45deg' : 'bi-link'} text-sm`} />
+                                            </button>
+
+                                            {isManual && (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => handleRemoveManualField(field.name)}
+                                                    title={`Remover campo ${field.name}`}
+                                                    className="text-slate-400 hover:text-red-500 text-xs p-0.5"
+                                                >
+                                                    <i className="bi bi-trash3" />
+                                                </button>
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    <TechnicalCombobox
+                                        fieldName={field.name}
+                                        value={effectiveVal !== undefined && effectiveVal !== null ? String(effectiveVal) : ''}
+                                        placeholder={field.isRequired ? `Selecione ${field.name}...` : 'Não informado'}
+                                        options={field.options}
+                                        disabled={!isOverridden && isEnabled}
+                                        onChange={(selectedVal) => {
+                                            handleSetOverride(field.name, selectedVal);
+                                        }}
+                                    />
+                                </div>
+                            );
+                        })}
+                    </div>
+                )}
+            </div>
+
             {/* Descrição */}
             <div className="flex flex-col gap-2 bg-slate-50 dark:bg-slate-950 p-6 rounded-3xl border border-slate-100 dark:border-slate-800">
                 <div className="flex items-center justify-between">
@@ -81,21 +437,20 @@ export const VariationTechnicalTab: React.FC<VariationTechnicalTabProps> = ({
                             title={formData.syncDescription ? "Desvincular Descrição do Pai" : "Sincronizar Descrição com o Pai"}
                         >
                             <i className={`bi ${formData.syncDescription ? 'bi-link text-emerald-600' : 'bi-link-45deg text-slate-400'}`}></i>
-                            <span className="text-[9px] font-black uppercase">{formData.syncDescription ? 'Herdado do Pai' : 'Manual'}</span>
+                            <span className="text-[9px] font-black uppercase">{formData.syncDescription ? 'Sincronizado' : 'Manual'}</span>
                         </button>
                     </div>
                 </div>
                 {formData.syncDescription ? (
-                    <div className="w-full mt-2 p-4 bg-slate-100 dark:bg-slate-900/50 rounded-2xl border border-slate-200/50 dark:border-slate-800 text-xs font-semibold text-slate-500 flex items-start justify-between min-h-[80px]">
+                    <div className="w-full mt-2 p-4 bg-slate-100 dark:bg-slate-900/50 rounded-2xl border border-slate-200/50 dark:border-slate-800 text-xs font-semibold text-slate-500 min-h-[80px]">
                         <span className="whitespace-pre-wrap">{parentProduct?.description || ''}</span>
-                        <span className="text-[8px] font-black uppercase tracking-wider text-emerald-700 dark:text-emerald-400 bg-emerald-100 dark:bg-emerald-955/60 px-2 py-0.5 rounded-md shrink-0 ml-2">Herdado</span>
                     </div>
                 ) : (
                     <textarea
                         rows={4}
                         value={formData.description || ''}
                         onChange={(e) => handleChange('description', e.target.value)}
-                        placeholder="Descrição específica desta variação (se vazia, herdará do pai no e-commerce)..."
+                        placeholder="Descrição específica desta variação (se vazia, sincroniza com o pai no e-commerce)..."
                         className="w-full mt-2 p-4 bg-transparent border-b-2 border-t-0 border-x-0 border-slate-200 dark:border-slate-800 outline-none text-xs font-bold focus:border-blue-600 dark:focus:border-blue-400 transition-all resize-none dark:text-slate-100"
                     />
                 )}
@@ -122,7 +477,6 @@ export const VariationTechnicalTab: React.FC<VariationTechnicalTabProps> = ({
                         {formData.syncWidth ? (
                             <div className="w-full px-3 py-2.5 bg-slate-100 dark:bg-slate-900/50 rounded-xl border border-slate-200/50 dark:border-slate-800 text-xs font-bold text-slate-500 flex items-center justify-between">
                                 <span>{parentProduct?.width || 0} cm</span>
-                                <span className="text-[8px] font-black uppercase tracking-wider text-emerald-700 dark:text-emerald-400 bg-emerald-100 dark:bg-emerald-955/60 px-1.5 py-0.5 rounded">Herdado</span>
                             </div>
                         ) : (
                             <div className="relative">
@@ -156,7 +510,6 @@ export const VariationTechnicalTab: React.FC<VariationTechnicalTabProps> = ({
                         {formData.syncHeight ? (
                             <div className="w-full px-3 py-2.5 bg-slate-100 dark:bg-slate-900/50 rounded-xl border border-slate-200/50 dark:border-slate-800 text-xs font-bold text-slate-500 flex items-center justify-between">
                                 <span>{parentProduct?.height || 0} cm</span>
-                                <span className="text-[8px] font-black uppercase tracking-wider text-emerald-700 dark:text-emerald-400 bg-emerald-100 dark:bg-emerald-955/60 px-1.5 py-0.5 rounded">Herdado</span>
                             </div>
                         ) : (
                             <div className="relative">
@@ -190,7 +543,6 @@ export const VariationTechnicalTab: React.FC<VariationTechnicalTabProps> = ({
                         {formData.syncDepth ? (
                             <div className="w-full px-3 py-2.5 bg-slate-100 dark:bg-slate-900/50 rounded-xl border border-slate-200/50 dark:border-slate-800 text-xs font-bold text-slate-500 flex items-center justify-between">
                                 <span>{parentProduct?.depth || 0} cm</span>
-                                <span className="text-[8px] font-black uppercase tracking-wider text-emerald-700 dark:text-emerald-400 bg-emerald-100 dark:bg-emerald-955/60 px-1.5 py-0.5 rounded">Herdado</span>
                             </div>
                         ) : (
                             <div className="relative">
@@ -224,7 +576,6 @@ export const VariationTechnicalTab: React.FC<VariationTechnicalTabProps> = ({
                         {formData.syncWeight ? (
                             <div className="w-full px-3 py-2.5 bg-slate-100 dark:bg-slate-900/50 rounded-xl border border-slate-200/50 dark:border-slate-800 text-xs font-bold text-slate-500 flex items-center justify-between">
                                 <span>{parentProduct?.weight || 0} kg</span>
-                                <span className="text-[8px] font-black uppercase tracking-wider text-emerald-700 dark:text-emerald-400 bg-emerald-100 dark:bg-emerald-955/60 px-1.5 py-0.5 rounded">Herdado</span>
                             </div>
                         ) : (
                             <div className="relative">

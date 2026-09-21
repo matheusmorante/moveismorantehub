@@ -132,6 +132,7 @@ export const mapFromDB = (data: any, index?: number): Product => {
         whatsappSync: data.whatsapp_sync ?? false,
         ecommerceSync: data.ecommerce_sync ?? false,
         whatsappAutoSync: data.whatsapp_auto_sync ?? false,
-        lastWhatsappSync: data.last_whatsapp_sync
+        lastWhatsappSync: data.last_whatsapp_sync,
+        technicalValues: data.technical_specs?.technicalValues || {}
     };
 };

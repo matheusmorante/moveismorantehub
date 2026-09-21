@@ -42,7 +42,7 @@ export const ProductFormHeader: React.FC<ProductFormHeaderProps> = ({
         { id: 'geral', label: 'Cadastro Geral', icon: '' },
         ...(!isService ? [
             { id: 'ecommerce' as const, label: 'Fotos', icon: 'bi-images' },
-            { id: 'technical' as const, label: 'Informações Técnicas', icon: 'bi-info-circle' },
+            { id: 'technical' as const, label: 'Especificações Técnicas', icon: 'bi-info-circle' },
             { id: 'estoque' as const, label: 'Estoque e Precificação', icon: 'bi-box-seam' },
             { id: 'variacoes' as const, label: 'Variações', icon: 'bi-grid-3x3-gap' },
         ] : []),
@@ -171,21 +171,31 @@ export const ProductFormHeader: React.FC<ProductFormHeaderProps> = ({
                             (tab.id === 'estoque' && (validationErrors.unitPrice || validationErrors.mainSupplierId)) ||
                             (tab.id === 'variacoes' && validationErrors.variationsImages);
 
+                        const hasCategory = (formData.categoryIds || []).length > 0;
+                        const isTabDisabled = tab.id === 'technical' && !hasCategory;
+
                         return (
                             <button
                                 key={tab.id}
                                 type="button"
                                 role="tab"
                                 aria-selected={activeTab === tab.id}
-                                onClick={() => setActiveTab(tab.id)}
-                                className={`py-3 text-[10px] font-black uppercase tracking-widest flex items-center gap-2 border-b-2 transition-all shrink-0 cursor-pointer ${hasTabErrors
-                                    ? (activeTab === tab.id ? 'border-red-500 text-red-600' : 'border-red-200 text-red-500')
-                                    : (activeTab === tab.id ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-400 hover:text-slate-600 dark:hover:text-slate-200')
+                                aria-disabled={isTabDisabled}
+                                disabled={isTabDisabled}
+                                onClick={() => !isTabDisabled && setActiveTab(tab.id)}
+                                title={isTabDisabled ? 'Selecione pelo menos uma categoria no Cadastro Geral para habilitar as Especificações Técnicas' : undefined}
+                                className={`py-3 text-[10px] font-black uppercase tracking-widest flex items-center gap-2 border-b-2 transition-all shrink-0 ${
+                                    isTabDisabled
+                                        ? 'border-transparent text-slate-300 dark:text-slate-700 cursor-not-allowed opacity-50'
+                                        : hasTabErrors
+                                        ? (activeTab === tab.id ? 'border-red-500 text-red-600' : 'border-red-200 text-red-500 cursor-pointer')
+                                        : (activeTab === tab.id ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer')
                                 }`}
                             >
                                 {tab.icon && <i className={`bi ${tab.icon}`} aria-hidden="true" />}
                                 <span>{tab.label}</span>
-                                {hasTabErrors && <i className="bi bi-exclamation-circle-fill text-red-500 text-xs animate-pulse" aria-hidden="true" />}
+                                {isTabDisabled && <i className="bi bi-lock-fill text-[10px] text-slate-300 dark:text-slate-600" aria-hidden="true" />}
+                                {hasTabErrors && !isTabDisabled && <i className="bi bi-exclamation-circle-fill text-red-500 text-xs animate-pulse" aria-hidden="true" />}
                             </button>
                         );
                     })}

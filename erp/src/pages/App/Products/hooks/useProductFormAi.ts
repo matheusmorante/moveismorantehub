@@ -281,7 +281,8 @@ export function useProductFormAi(
                 width: formData.width,
                 height: formData.height,
                 depth: formData.depth,
-                weight: formData.weight
+                weight: formData.weight,
+                technicalValues: formData.technicalValues
             });
 
             setFormData((prev: Partial<Product>) => ({

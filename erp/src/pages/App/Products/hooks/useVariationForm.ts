@@ -13,6 +13,7 @@ import { toast } from "react-toastify";
 import { ecommerceSupabase as supabase } from '@/pages/utils/supabaseConfig';
 import { toTitleCase } from '@/pages/utils/textUtils';
 import { sortAttributeValuesNaturally } from '@/pages/utils/attributeValueSorting';
+import { getMissingRequiredTechnicalFields } from '@/pages/utils/technicalValuesService';
 
 interface UseVariationFormOptions {
     isOpen: boolean;
@@ -58,19 +59,21 @@ export function useVariationForm({
         }
     }, [formData?.name, diferenciarTitulo]);
 
-    // O nome da variação é sempre composto pelo nome atual do pai e pelos
-    // atributos. Isso mantém o valor salvo igual ao que é mostrado na tela.
+    // Sincroniza o nome do pai no início do nome da variação caso o produto pai mude de nome
+    // mas preserva o sufixo manual definido pelo usuário.
     useEffect(() => {
         setFormData(previous => {
             if (!previous) return previous;
-            const nextName = computeVariationName(
-                parentProduct.name || parentProduct.description || '',
-                previous.attributes || []
-            ) || 'Variação';
+            const parentPrefix = (parentProduct.name || parentProduct.description || '').trim();
+            if (!parentPrefix) return previous;
 
-            return previous.name === nextName ? previous : { ...previous, name: nextName };
+            const currentName = (previous.name || '').trim();
+            if (!currentName) {
+                return { ...previous, name: parentPrefix };
+            }
+            return previous;
         });
-    }, [parentProduct.name, parentProduct.description, formData?.attributes]);
+    }, [parentProduct.name, parentProduct.description]);
 
     // Atualiza a cópia de trabalho da variação enquanto o pai é editado. Isso
     // preserva a prévia correta ao alternar de "Herdado" para "Manual", sem
@@ -368,13 +371,23 @@ export function useVariationForm({
             name: toTitleCase(attr.name),
             value: toTitleCase(attr.value),
         }));
-        const generatedName = computeVariationName(parentProduct.name || parentProduct.description || '', cleanAttributes);
+        const parentPrefix = (parentProduct.name || parentProduct.description || '').trim();
+        let variationName = (formData.name || '').trim();
+        if (parentPrefix) {
+            if (!variationName.toLowerCase().startsWith(parentPrefix.toLowerCase())) {
+                variationName = `${parentPrefix} ${variationName}`.trim();
+            }
+        }
+        if (!variationName) {
+            variationName = parentPrefix || 'Variação';
+        }
+
         let finalVariation = {
             ...formData,
             attributes: cleanAttributes,
-            name: toTitleCase(generatedName || formData.name || ''),
-            title: toTitleCase(diferenciarTitulo ? (formData.title || generatedName || formData.name || '') : generatedName),
-            marketplaceTitle: toTitleCase(diferenciarTitulo ? (formData.marketplaceTitle || formData.title || generatedName || formData.name || '') : generatedName),
+            name: toTitleCase(variationName),
+            title: toTitleCase(diferenciarTitulo ? (formData.title || variationName) : variationName),
+            marketplaceTitle: toTitleCase(diferenciarTitulo ? (formData.marketplaceTitle || formData.title || variationName) : variationName),
             syncFiscal: true
         };
 
@@ -407,6 +420,35 @@ export function useVariationForm({
         if (hasDuplicateVariationAttributeCombination(finalVariation, parentProduct.variations || [])) {
             toast.error("Já existe outra variação com a mesma combinação de atributos e valores.");
             setActiveTab('identificacao');
+            return;
+        }
+
+        const { data: requiredTechnicalAttributes, error: requiredAttributesError } = await supabase
+            .from('attributes')
+            .select('name')
+            .eq('active', true)
+            .eq('is_globally_required', true);
+
+        if (requiredAttributesError) {
+            toast.error('Não foi possível validar as Especificações Técnicas obrigatórias. Tente novamente.');
+            setActiveTab('tecnico');
+            return;
+        }
+
+        const variationAttributeValues = Object.fromEntries(
+            cleanAttributes.map(attribute => [attribute.name, attribute.value])
+        );
+        const missingRequiredFields = getMissingRequiredTechnicalFields(
+            (requiredTechnicalAttributes || []).map((field: { name: string }) => field.name),
+            {
+                ...(parentProduct.technicalValues || {}),
+                ...variationAttributeValues,
+                ...(formData.technicalValues || {})
+            }
+        );
+        if (missingRequiredFields.length > 0) {
+            toast.error(`Selecione as Especificações Técnicas obrigatórias: ${missingRequiredFields.join(', ')}.`);
+            setActiveTab('tecnico');
             return;
         }
 

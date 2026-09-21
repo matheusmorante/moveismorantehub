@@ -17,6 +17,7 @@ export type VariationType = {
     active: boolean;
     dataType?: AttributeDataType;
     unit?: string;
+    isGloballyRequired?: boolean;
     categoryAttributes?: CategoryAttribute[];
     deleted?: boolean;
     createdAt?: string;

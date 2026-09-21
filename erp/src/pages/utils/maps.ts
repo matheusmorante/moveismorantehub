@@ -69,7 +69,13 @@ if (typeof window !== 'undefined') {
 const loadGoogleMapsApi = async (apiKey?: string): Promise<void> => {
     const keyToUse = getEffectiveGoogleMapsApiKey(apiKey);
 
-    if ((window as any).google?.maps?.places && (window as any).google?.maps?.Geocoder) {
+    if (!keyToUse || keyToUse.includes('REDACTED')) {
+        throw new Error('Chave da API do Google Maps não configurada.');
+    }
+
+    if ((window as any).google?.maps?.places
+        && (window as any).google?.maps?.Geocoder
+        && (window as any).google?.maps?.DirectionsService) {
         return Promise.resolve();
     }
     if ((window as any).__googleMapsPromise) return (window as any).__googleMapsPromise;
@@ -84,9 +90,20 @@ const loadGoogleMapsApi = async (apiKey?: string): Promise<void> => {
         script.src = `https://maps.googleapis.com/maps/api/js?key=${keyToUse}&libraries=places&language=pt-BR&region=BR`;
         script.async = true;
         script.defer = true;
-        script.onload = () => resolve();
+        script.onload = () => {
+            const googleMaps = (window as any).google?.maps;
+            if (googleMaps?.places && googleMaps?.Geocoder && googleMaps?.DirectionsService) {
+                resolve();
+                return;
+            }
+
+            (window as any).__googleMapsPromise = null;
+            script.remove();
+            reject(new Error('A API do Google Maps carregou sem os serviços necessários. Verifique as APIs habilitadas para esta chave.'));
+        };
         script.onerror = (err) => {
             (window as any).__googleMapsPromise = null;
+            script.remove();
             console.error("[loadGoogleMapsApi] Falha ao carregar script do Google Maps:", err);
             reject(new Error('Failed to load Google Maps script'));
         };
@@ -247,7 +264,7 @@ export const calculateRouteViaGoogleMaps = async (
         const r: any = await new Promise((resolve, reject) => {
             directionsService.route(request, (result: any, status: any) => {
                 if (status === 'OK') resolve(result);
-                else reject(status);
+                else reject(new Error(`Google Directions: ${status}`));
             });
         });
 
@@ -277,7 +294,7 @@ export const calculateRouteViaGoogleMaps = async (
             };
         }
     } catch (e) {
-        console.error("Google Directions API error:", e);
+        console.error("Google Directions API error. Verifique se Directions API está habilitada, se a chave permite este domínio e se o faturamento do projeto está ativo:", e);
         ApiUsageTracker.record({
             provider: 'google',
             service: 'google_routes',
@@ -425,6 +442,9 @@ export const searchAddressSuggestions = async (query: string, city?: string, sta
                             if (isOk && res && res.length > 0) {
                                 resolve(res);
                             } else {
+                                if (status !== 'ZERO_RESULTS') {
+                                    console.error(`[Google Maps Places] Busca de endereços falhou (${status}). Confira se Places API está habilitada, a chave permite este domínio e o faturamento está ativo.`);
+                                }
                                 resolve([]);
                             }
                         }

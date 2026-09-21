@@ -122,6 +122,16 @@ produtos:
       - erp/src/pages/App/Variations/attributeValueBatch.test.ts
       - erp/src/pages/utils/variationService.test.ts
 
+  conciliacao_fornecedores:
+    ui:
+      - erp/src/pages/App/Products/Reconciliation/SupplierReconciliation.tsx
+
+  tipos_produtos_e_canais:
+    ui:
+      - erp/src/pages/App/Products/ProductTypes/Index.tsx
+      - erp/src/pages/App/Products/WhatsAppMarketplace.tsx
+      - erp/src/pages/App/Products/MetaCatalog.tsx
+
 # ==========================================
 # 3. VENDAS E PEDIDOS (SALES ORDERS)
 # ==========================================
@@ -134,13 +144,30 @@ vendas:
       - erp/src/pages/utils/orderMapper.ts
       - erp/src/pages/utils/orderStatusTransitionRules.ts
       - erp/src/pages/utils/saleItemInventorySync.ts
+      - erp/src/pages/utils/orderSyncQueries.ts
+      - erp/src/pages/utils/orderHistoryService.ts
     ui:
       - erp/src/pages/App/SalesOrder/index.tsx
       - erp/src/pages/App/SalesOrder/useSalesOrderForm.ts
       - erp/src/pages/App/SalesOrder/OrderEditModal.tsx
+      - erp/src/pages/App/SalesOrder/OrderRouteMap.tsx
+      - erp/src/pages/OrderPage/Index.tsx
+      - erp/src/pages/ReceiptPage/Index.tsx
+      - erp/src/pages/ShippingLabelPage/Index.tsx
+      - erp/src/pages/WarrantyTermPage.tsx
     tests:
       - erp/src/pages/utils/orderLifecycleOperations.undoReturn.test.ts
       - erp/src/pages/utils/orderSnapshotResolution.test.ts
+
+  relatorios_vendas:
+    ui:
+      - erp/src/pages/App/SalesOrder/Reports/Index.tsx
+      - erp/src/pages/App/SalesOrder/Reports/components/ReportView.tsx
+      - erp/src/pages/App/SalesOrder/Reports/modals/ReportConfigModal.tsx
+    service:
+      - erp/src/pages/App/SalesOrder/Reports/hooks/useSalesReport.ts
+      - erp/src/pages/App/SalesOrder/Reports/services/salesReportApiService.ts
+      - erp/src/pages/App/SalesOrder/Reports/utils/salesReportCalculations.ts
 
   devolucoes:
     service:
@@ -180,6 +207,14 @@ logistica:
       - erp/src/pages/utils/deliverySummaryMetrics.test.ts
       - erp/src/pages/utils/googleMapsNavigationDeliveryFlow.test.ts
 
+  montagens_agenda:
+    ui:
+      - erp/src/pages/App/Logistics/AssemblyListPage.tsx
+      - erp/src/pages/App/Logistics/AssemblyPrintPage.tsx
+      - erp/src/pages/App/Logistics/components/AssemblyDetailModal.tsx
+    hooks:
+      - erp/src/pages/App/Logistics/hooks/useAssemblyData.ts
+
   app_mobile_entregas:
     screens:
       - mobile/src/features/schedule/
@@ -196,9 +231,11 @@ logistica:
 financeiro:
   contas_pagar_receber:
     ui:
+      - erp/src/pages/App/Finance/Dashboard/index.tsx
       - erp/src/pages/App/Finance/Payables/Index.tsx
       - erp/src/pages/App/Finance/Receivables/Index.tsx
       - erp/src/pages/App/Finance/Transactions/Index.tsx
+      - erp/src/pages/App/Finance/Settings/index.tsx
     database:
       - supabase/migrations/20260906140000_add_idempotency_key_to_financial_transactions.sql
 
@@ -222,6 +259,7 @@ cadastros:
       - erp/src/pages/utils/customerShippingValidation.ts
     ui:
       - erp/src/pages/App/Customers/Index.tsx
+      - erp/src/pages/App/Customers/CustomerDesiresPage.tsx
       - erp/src/pages/App/Suppliers/Index.tsx
 
   autenticacao_permissoes:
@@ -319,6 +357,9 @@ mobile_offline_first:
       - mobile/src/features/orders/screens/NativeOrdersScreen.tsx
       - mobile/src/features/finance/screens/FinanceHubScreen.tsx
       - mobile/src/features/reports/screens/NativeReportsScreen.tsx
+      - mobile/src/features/products/screens/NativeProductsScreen.tsx
+      - mobile/src/features/products/screens/ProductFormScreen.tsx
+      - mobile/src/features/settings/screens/NativeSettingsScreen.tsx
       - mobile/src/features/agent/screens/GlobalAgentScreen.tsx
     navigation:
       - mobile/src/navigation/MainNavigator.tsx

@@ -150,6 +150,7 @@ const ProductFormModal: React.FC<ProductFormModalProps> = (props) => {
                             setFormData={setFormData}
                             handleImproveDescriptionWithAI={ai.handleImproveDescriptionWithAI}
                             isImprovingDescription={ai.isImprovingDescription}
+                            validationErrors={validationErrors}
                         />
                     )}
 

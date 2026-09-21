@@ -85,7 +85,7 @@ const ProductVariationsTab: React.FC<ProductVariationsTabProps> = ({
                         Variações do produto
                     </h4>
                     <p className="mt-1 text-[10px] font-bold text-slate-500">
-                        Cada variação deve conter pelo menos um atributo com seu valor definido. Para todo atributo adicionado, é obrigatório informar o valor correspondente.
+                        Cada variação herda as Especificações Técnicas do produto pai e pode definir valores próprios clicando para editar a variação.
                     </p>
                 </div>
             </div>
@@ -95,22 +95,14 @@ const ProductVariationsTab: React.FC<ProductVariationsTabProps> = ({
                     <h4 className="text-xs font-black uppercase tracking-widest text-slate-800 dark:text-slate-200">
                         Variações ({list.length})
                     </h4>
-                    <span className="group relative" title={!canAddVariation ? disabledMessage : undefined}>
-                        <button
-                            type="button"
-                            disabled={!canAddVariation}
-                            onClick={handleAdd}
-                            className="rounded-xl bg-blue-600 px-4 py-2 text-[10px] font-black uppercase tracking-widest text-white shadow-lg transition-all hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:shadow-none dark:disabled:bg-slate-700 cursor-pointer"
-                        >
-                            <i className="bi bi-plus-lg mr-2" aria-hidden="true" />
-                            Adicionar variação
-                        </button>
-                        {!canAddVariation && (
-                            <span role="tooltip" className="pointer-events-none absolute right-0 top-full z-10 mt-2 hidden w-64 rounded-xl bg-slate-800 px-3 py-2 text-center text-[10px] font-bold normal-case tracking-normal text-white shadow-xl group-hover:block">
-                                {disabledMessage}
-                            </span>
-                        )}
-                    </span>
+                    <button
+                        type="button"
+                        onClick={handleAdd}
+                        className="rounded-xl bg-blue-600 px-4 py-2 text-[10px] font-black uppercase tracking-widest text-white shadow-lg transition-all hover:bg-blue-700 cursor-pointer"
+                    >
+                        <i className="bi bi-plus-lg mr-2" aria-hidden="true" />
+                        Adicionar variação
+                    </button>
                 </div>
 
                 <div className="overflow-x-auto rounded-[2.5rem] xl:border xl:border-slate-100 xl:bg-white xl:shadow-sm dark:xl:border-slate-800 dark:xl:bg-slate-950/20">
@@ -119,7 +111,7 @@ const ProductVariationsTab: React.FC<ProductVariationsTabProps> = ({
                             <div className="xl:table-row bg-slate-50 dark:bg-slate-900/50">
                                 <div className="xl:table-cell w-[80px] px-6 py-5 text-[9px] font-black uppercase tracking-widest text-slate-400">Foto</div>
                                 <div className="xl:table-cell px-6 py-5 text-[9px] font-black uppercase tracking-widest text-slate-400">SKU / Código</div>
-                                <div className="xl:table-cell px-6 py-5 text-[9px] font-black uppercase tracking-widest text-slate-400">Atributos</div>
+                                <div className="xl:table-cell px-6 py-5 text-[9px] font-black uppercase tracking-widest text-slate-400">Nome da Variação</div>
                                 <div className="xl:table-cell px-6 py-5 text-[9px] font-black uppercase tracking-widest text-slate-400">Preço venda (R$)</div>
                                 <div className="xl:table-cell px-6 py-5 text-right text-[9px] font-black uppercase tracking-widest text-slate-400">Ações</div>
                             </div>

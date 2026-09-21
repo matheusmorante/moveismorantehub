@@ -80,6 +80,12 @@
   .btn-pro-ghost {
     @apply btn-pro bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700;
   }
+
+  /* Padrão Visual Global ERP: Inputs com Borda Apenas Embaixo */
+  .input-bottom-border {
+    @apply bg-transparent border-b-2 border-t-0 border-x-0 border-slate-200 dark:border-slate-800 
+           rounded-none outline-none transition-all focus:border-blue-600 dark:focus:border-blue-400;
+  }
 }
 
 /* Custom scrollbar Improvements */

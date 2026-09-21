@@ -135,5 +135,14 @@ export const mapToDB = (product: Partial<Product>) => {
     if (product.condition !== undefined) data.is_salvado = product.condition === 'salvado';
     if (product.opportunityId !== undefined) data.opportunity_id = product.opportunityId || null;
 
+    // Persistência de Especificações Técnicas na coluna jsonb 'technical_specs'
+    if (product.technicalValues !== undefined) {
+        const existingSpecs = (product as any).technical_specs || {};
+        data.technical_specs = {
+            ...existingSpecs,
+            technicalValues: product.technicalValues
+        };
+    }
+
     return data;
 };

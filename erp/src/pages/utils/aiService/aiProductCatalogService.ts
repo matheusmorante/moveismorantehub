@@ -230,15 +230,23 @@ Retorne APENAS um JSON no formato:
         height?: string | number;
         depth?: string | number;
         weight?: string | number;
+        technicalValues?: Record<string, any>;
     }): Promise<{ improvedDescription: string }> {
+        const technicalInfoText = data.technicalValues && Object.keys(data.technicalValues).length > 0
+            ? Object.entries(data.technicalValues)
+                .filter(([_, val]) => val !== undefined && val !== null && String(val).trim() !== '')
+                .map(([key, val]) => `- ${key}: ${val}`)
+                .join('\n')
+            : '';
+
         const prompt = `Você é um redator expert em e-commerce de móveis e decoração no Brasil, com habilidade de criar textos que convertem visitantes em compradores.
 
 ═══════════════════════════════════════
 REGRA ABSOLUTA — NUNCA INVENTE NADA:
-• Use SOMENTE as informações fornecidas nos campos abaixo.
+• Use SOMENTE as informações fornecidas nos campos abaixo, incluindo TODAS as Informações Técnicas fornecidas.
 • NÃO adicione características, materiais, funcionalidades ou especificações que NÃO estejam explicitamente nos dados fornecidos.
 • Se um campo estiver como "Não informado" ou "Não informada", IGNORE esse campo — não mencione e não deduza nada sobre ele.
-• Seu papel é REESCREVER com linguagem melhor, não CRIAR informações novas.
+• Seu papel é REESCREVER com linguagem melhor e rica, incorporando harmoniosamente todas as especificações técnicas, não CRIAR informações novas.
 ═══════════════════════════════════════
 
 COMO INTERPRETAR O NOME DO PRODUTO (MUITO IMPORTANTE):
@@ -254,12 +262,12 @@ COMO INTERPRETAR O NOME DO PRODUTO (MUITO IMPORTANTE):
 ESTRUTURA OBRIGATÓRIA DA RESPOSTA:
 1. PRIMEIRO PARÁGRAFO — deve ser chamativo, envolvente e persuasivo:
    • Comece diretamente pelo nome completo do produto.
-   • Destaque o diferencial principal que está nos dados (ex: funcionalidade, praticidade, organização).
+   • Destaque o diferencial principal que está nos dados e nas informações técnicas (ex: quantidade de portas, tipo de porta, gavetas, material, etc.).
    • Use linguagem que crie desejo e conexão emocional com o cliente.
    • Seja específico usando apenas o que está nos dados — sem invenções.
 2. Uma linha vazia.
-3. A linha "Características:" (somente se houver características explícitas nos dados).
-4. Lista das características — apenas o que está nos dados (sem asteriscos, sem hífens no início de cada linha).
+3. A linha "Características:" (obrigatória caso haja características ou informações técnicas informadas).
+4. Lista das características — inclua detalhadamente as Informações Técnicas informadas (ex: Tipo de Porta, Quantidade de portas, Quantidade de gavetas, Material, Tecido, etc.), sem asteriscos e sem hífens no início de cada linha.
 5. Uma linha vazia (somente se houver dimensões informadas).
 6. A linha "Dimensões:" seguida de Altura, Largura, Profundidade e Peso — somente os campos que foram informados.
 
@@ -273,6 +281,7 @@ DADOS DO PRODUTO (use SOMENTE estes):
 - Largura: ${data.width ? data.width + ' cm' : "Não informada"}
 - Profundidade: ${data.depth ? data.depth + ' cm' : "Não informada"}
 - Peso: ${data.weight ? data.weight + ' kg' : "Não informado"}
+${technicalInfoText ? `\nINFORMAÇÕES TÉCNICAS ADICIONAIS:\n${technicalInfoText}\n` : ''}
 
 REGRAS FINAIS:
 - Retorne apenas o texto da descrição, sem blocos markdown (\`\`\`), sem saudações, sem notas explicativas.

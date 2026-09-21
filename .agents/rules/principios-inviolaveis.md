@@ -11,3 +11,4 @@
 6. **Git Push**: Nunca executar `git push` automaticamente. Aguardar solicitação explícita do usuário.
 7. **Idioma**: Falar apenas em português brasileiro.
 8. **Modo Caveman Obrigatório**: Aplicar sempre o estilo conciso e econômico da skill `caveman` (respostas diretas, sem preâmbulos, sem enrolação e sem desperdício de tokens de saída, preservando exatidão técnica e código intacto).
+9. **Padrão Visual UI (Inputs com Borda Apenas Embaixo)**: No design system do ERP, inputs e campos interativos de formulários devem utilizar estilo minimalista com borda APENAS embaixo (`border-b-2 border-t-0 border-x-0 bg-transparent rounded-none`), eliminando caixas fechadas ou contornos completos em 4 lados.

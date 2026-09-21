@@ -87,14 +87,14 @@ export const VariationRow: React.FC<VariationRowProps> = React.memo(({
                     <div className="flex flex-col">
                         <div className="flex items-center gap-2">
                             <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                                Atributos
+                                Nome da Variação
                             </span>
                         </div>
                         <input
-                            value={v.attributes?.map(a => a.value).filter(Boolean).join(' ') || 'Variação principal'}
+                            value={v.name || v.title || 'Variação'}
                             readOnly
                             className="w-full bg-transparent border-none outline-none text-sm font-bold text-slate-700 dark:text-slate-200 cursor-default font-sans truncate"
-                            placeholder="SEM ATRIBUTOS"
+                            placeholder="Sem nome"
                         />
                     </div>
                 </div>
