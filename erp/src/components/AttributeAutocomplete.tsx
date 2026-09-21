@@ -56,18 +56,19 @@ const AttributeAutocomplete: React.FC<AttributeAutocompleteProps> = ({
     }, []);
 
     useEffect(() => {
-        if (!query.trim()) {
-            setSuggestions(allNodes.filter(node => !selectedIds.includes(node.id)));
+        const trimmed = query.trim();
+        if (trimmed.length < 2) {
+            setSuggestions([]);
             return;
         }
 
-        const normalizedQuery = normalizeSearchTerm(query);
+        const normalizedQuery = normalizeSearchTerm(trimmed);
         const filtered = allNodes.filter(node =>
-            !selectedIds.includes(node.id) && normalizeSearchTerm(node.name).includes(normalizedQuery)
+            normalizeSearchTerm(node.name).includes(normalizedQuery)
         );
         setSuggestions(filtered);
         setActiveIndex(0);
-    }, [query, allNodes, selectedIds]);
+    }, [query, allNodes]);
 
     useEffect(() => {
         const handleClickOutside = (event: MouseEvent) => {
@@ -80,12 +81,8 @@ const AttributeAutocomplete: React.FC<AttributeAutocompleteProps> = ({
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, []);
 
-    const handleSelect = (node: AttributeNode) => {
-        if (!selectedIds.includes(node.id)) {
-            onSelect(node);
-        }
-        setQuery('');
-        setShowSuggestions(false);
+    const handleToggle = (node: AttributeNode) => {
+        onSelect(node);
     };
 
     const handleKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
@@ -104,7 +101,9 @@ const AttributeAutocomplete: React.FC<AttributeAutocompleteProps> = ({
             setActiveIndex(index => Math.max(index - 1, 0));
         } else if (event.key === 'Enter') {
             event.preventDefault();
-            handleSelect(suggestions[activeIndex]);
+            if (suggestions[activeIndex]) {
+                handleToggle(suggestions[activeIndex]);
+            }
         }
     };
 
@@ -132,37 +131,48 @@ const AttributeAutocomplete: React.FC<AttributeAutocompleteProps> = ({
             </div>
 
             <DropdownPortal
-                isOpen={showSuggestions}
+                isOpen={showSuggestions && query.trim().length >= 2}
                 anchorRef={wrapperRef}
                 onClose={() => setShowSuggestions(false)}
             >
                 <div className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl shadow-xl overflow-hidden max-h-64 overflow-y-auto custom-scrollbar p-2">
                     {suggestions.length === 0 ? (
-                        <div className="p-4 text-center text-sm text-slate-500">
-                            Nenhum atributo encontrado
+                        <div className="p-4 text-center text-xs font-semibold text-slate-500">
+                            Nenhuma especificação técnica encontrada para &ldquo;{query}&rdquo;
                         </div>
                     ) : (
                         <div className="flex flex-col gap-1">
                             {suggestions.map((node, index) => {
+                                const isChecked = selectedIds.includes(node.id);
                                 return (
                                     <button
                                         type="button"
                                         key={node.id}
-                                        onClick={() => handleSelect(node)}
-                                        className={`flex items-center gap-3 w-full text-left p-3 rounded-xl transition-all ${
+                                        onClick={() => handleToggle(node)}
+                                        className={`flex items-center justify-between w-full text-left p-2.5 rounded-xl transition-all ${
                                             index === activeIndex
-                                                ? 'bg-blue-50/50 dark:bg-blue-500/10'
-                                                : 'hover:bg-slate-50 dark:hover:bg-slate-800'
+                                                ? 'bg-blue-50/70 dark:bg-blue-500/10'
+                                                : 'hover:bg-slate-50 dark:hover:bg-slate-800/60'
                                         }`}
                                     >
-                                        <div className="flex-shrink-0 w-5 h-5 rounded flex items-center justify-center border border-slate-300 dark:border-slate-600">
-                                            <i className="bi bi-plus text-sm" />
-                                        </div>
-                                        <div className="flex flex-col overflow-hidden">
-                                            <span className="text-sm font-semibold truncate text-slate-700 dark:text-slate-300">
+                                        <div className="flex items-center gap-2.5 overflow-hidden">
+                                            <input
+                                                type="checkbox"
+                                                checked={isChecked}
+                                                onChange={() => {}} // controlado pelo clique do container
+                                                className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer pointer-events-none"
+                                            />
+                                            <span className={`text-xs font-semibold truncate ${
+                                                isChecked ? 'text-blue-600 dark:text-blue-400 font-bold' : 'text-slate-700 dark:text-slate-300'
+                                            }`}>
                                                 {node.name}
                                             </span>
                                         </div>
+                                        {isChecked && (
+                                            <span className="text-[10px] font-bold uppercase tracking-wider text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 px-2 py-0.5 rounded-md">
+                                                Ativo
+                                            </span>
+                                        )}
                                     </button>
                                 );
                             })}

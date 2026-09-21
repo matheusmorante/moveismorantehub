@@ -112,7 +112,7 @@ const ProductTechnicalTab: React.FC<ProductTechnicalTabProps> = ({
                         name: attr.name,
                         dataType: 'list',
                         unit: '',
-                        isRequired: Boolean(attr.is_globally_required),
+                        isRequired: true,
                         options: opts,
                         categoryIds: linkedCategoryIds
                     };
@@ -144,20 +144,10 @@ const ProductTechnicalTab: React.FC<ProductTechnicalTabProps> = ({
         };
     }, []);
 
-    // Campos visíveis: categorias do produto + campos já preenchidos + adicionados manualmente
-    const visibleFields = React.useMemo(() => {
-        return getApplicableTechnicalFields(
-            allTechnicalFields,
-            formData.categoryIds || [],
-            formData.technicalValues || {},
-            manualFieldNames
-        );
-    }, [allTechnicalFields, formData.categoryIds, formData.technicalValues, manualFieldNames]);
+    // Todas as especificações técnicas ativas cadastradas aparecem no formulário
+    const visibleFields = allTechnicalFields;
 
-    // Campos disponíveis para adicionar manualmente
-    const availableAdditionalFields = React.useMemo(() => {
-        return getAvailableAdditionalFields(allTechnicalFields, visibleFields);
-    }, [allTechnicalFields, visibleFields]);
+    const availableAdditionalFields: TechnicalFieldDefinition[] = [];
 
     // Filtrar campos adicionais por busca
     const filteredAdditionalFields = React.useMemo(() => {
@@ -212,62 +202,6 @@ const ProductTechnicalTab: React.FC<ProductTechnicalTabProps> = ({
                         </p>
                     </div>
 
-                    {/* Botão + Adicionar Especificação Técnica com Dropdown */}
-                    <div className="relative" ref={addDropdownRef}>
-                        <button
-                            type="button"
-                            onClick={() => setIsAddMenuOpen(prev => !prev)}
-                            disabled={loadingFields || !hasCategory || availableAdditionalFields.length === 0}
-                            title={!hasCategory ? "Selecione uma categoria primeiro" : undefined}
-                            className="inline-flex items-center gap-2 px-3.5 py-2 rounded-2xl bg-blue-50 hover:bg-blue-100 dark:bg-blue-950/60 dark:hover:bg-blue-900/60 border border-blue-200/80 dark:border-blue-800/60 text-blue-600 dark:text-blue-400 text-xs font-black uppercase tracking-wider transition-all disabled:opacity-40 disabled:pointer-events-none active:scale-95 shadow-sm"
-                        >
-                            <i className="bi bi-plus-lg text-sm font-bold" />
-                            <span>Adicionar Especificação Técnica</span>
-                            {hasCategory && availableAdditionalFields.length > 0 && (
-                                <span className="ml-1 px-1.5 py-0.5 rounded-full text-[9px] bg-blue-200/70 dark:bg-blue-800/70 font-black">
-                                    {availableAdditionalFields.length}
-                                </span>
-                            )}
-                        </button>
-
-                        {isAddMenuOpen && (
-                            <div className="absolute right-0 top-full mt-2 w-72 z-50 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-xl overflow-hidden animate-in fade-in zoom-in-95 duration-150">
-                                <div className="p-2 border-b border-slate-100 dark:border-slate-800">
-                                    <div className="relative flex items-center">
-                                        <i className="bi bi-search absolute left-2.5 top-1/2 -translate-y-1/2 text-[11px] text-slate-400 pointer-events-none" />
-                                        <input
-                                            type="text"
-                                            autoFocus
-                                            value={addSearchTerm}
-                                            onChange={(e) => setAddSearchTerm(e.target.value)}
-                                            placeholder="Buscar campo adicional..."
-                                            className="w-full pl-7 pr-3 py-1.5 text-xs bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-200 dark:border-slate-700 outline-none focus:border-blue-500 text-slate-800 dark:text-slate-200"
-                                        />
-                                    </div>
-                                </div>
-
-                                <div className="max-h-60 overflow-y-auto p-1 custom-scrollbar">
-                                    {filteredAdditionalFields.length === 0 ? (
-                                        <div className="py-4 text-center text-slate-400 text-xs italic">
-                                            Nenhum campo disponível encontrado.
-                                        </div>
-                                    ) : (
-                                        filteredAdditionalFields.map(field => (
-                                            <button
-                                                key={field.id}
-                                                type="button"
-                                                onClick={() => handleAddManualField(field)}
-                                                className="w-full text-left px-3 py-2 rounded-xl text-xs font-bold text-slate-700 dark:text-slate-200 hover:bg-blue-50 dark:hover:bg-blue-900/40 hover:text-blue-600 transition-colors flex items-center justify-between group"
-                                            >
-                                                <span className="truncate">{field.name}</span>
-                                                <i className="bi bi-plus-circle text-slate-300 group-hover:text-blue-500 transition-colors" />
-                                            </button>
-                                        ))
-                                    )}
-                                </div>
-                            </div>
-                        )}
-                    </div>
                 </div>
 
                 {loadingFields ? (
@@ -275,21 +209,10 @@ const ProductTechnicalTab: React.FC<ProductTechnicalTabProps> = ({
                         <i className="bi bi-arrow-clockwise animate-spin mr-2" />
                         Carregando especificações técnicas...
                     </div>
-                ) : !hasCategory && visibleFields.length === 0 ? (
-                    <div className="py-8 text-center text-slate-400 text-xs italic bg-slate-50 dark:bg-slate-950/40 rounded-2xl border border-dashed border-slate-200 dark:border-slate-800 flex flex-col items-center gap-2">
-                        <i className="bi bi-lock-fill text-lg text-slate-400" />
-                        <span className="font-bold text-slate-600 dark:text-slate-300">Nenhuma categoria selecionada.</span>
-                        <span className="text-[11px] text-slate-500">
-                            Selecione uma categoria para ver as especificações da categoria. As obrigatórias globais aparecem em qualquer produto.
-                        </span>
-                    </div>
                 ) : visibleFields.length === 0 ? (
                     <div className="py-8 text-center text-slate-400 text-xs italic bg-slate-50 dark:bg-slate-950/40 rounded-2xl border border-dashed border-slate-200 dark:border-slate-800 flex flex-col items-center gap-2">
                         <i className="bi bi-info-circle text-lg text-slate-400" />
-                        <span>Nenhuma especificação técnica configurada para a categoria selecionada.</span>
-                        <span className="text-[11px] text-slate-500">
-                            Clique em <strong>+ Adicionar Especificação Técnica</strong> acima para incluir campos manualmente.
-                        </span>
+                        <span>Nenhuma especificação técnica cadastrada no sistema.</span>
                     </div>
                 ) : (
                     <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-5 pt-2">
@@ -297,7 +220,9 @@ const ProductTechnicalTab: React.FC<ProductTechnicalTabProps> = ({
                             const rawValue = formData.technicalValues?.[field.name];
                             const hasSelectedValue = rawValue !== undefined && rawValue !== null && String(rawValue).trim() !== '';
                             const isManual = manualFieldNames.includes(field.name);
-                            const isFieldInvalid = field.isRequired && !hasSelectedValue && validationErrors?.technicalValues;
+                            const isNotApplicable = rawValue === 'Não se aplica';
+                            const isApplicable = !isNotApplicable;
+                            const isFieldInvalid = isApplicable && !hasSelectedValue && validationErrors?.technicalValues;
 
                             return (
                                 <div key={field.id} id={`technical-field-${field.name}`} className="flex flex-col gap-1.5 p-1 transition-all">
@@ -305,10 +230,12 @@ const ProductTechnicalTab: React.FC<ProductTechnicalTabProps> = ({
                                         <label className={`text-[10px] font-black uppercase tracking-widest truncate flex items-center gap-1.5 transition-colors ${
                                             isFieldInvalid 
                                                 ? 'text-red-600 dark:text-red-400' 
+                                                : isNotApplicable
+                                                ? 'text-slate-400 dark:text-slate-500'
                                                 : 'text-slate-600 dark:text-slate-300'
                                         }`}>
                                             <span>{field.name}</span>
-                                            {field.isRequired && <span className="text-red-500" aria-label="Obrigatório">*</span>}
+                                            {isApplicable && <span className="text-red-500" aria-label="Obrigatório">*</span>}
                                             {isManual && (
                                                 <span className="text-[8px] font-bold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/50 px-1 py-0.2 rounded border border-blue-200/50">
                                                     Manual
@@ -316,13 +243,38 @@ const ProductTechnicalTab: React.FC<ProductTechnicalTabProps> = ({
                                             )}
                                         </label>
                                         <div className="flex items-center gap-1.5">
+                                            {/* Switch Toggle: Ligado = Se aplica (padrão) | Desligado = Não se aplica */}
+                                            <button
+                                                type="button"
+                                                role="switch"
+                                                aria-checked={isApplicable}
+                                                onClick={() => {
+                                                    // Se estava aplicável, ao desligar vira 'Não se aplica'
+                                                    // Se estava desligado ('Não se aplica'), ao ligar volta a ser vazio/editável
+                                                    handleTechnicalValueChange(field.name, isApplicable ? 'Não se aplica' : '');
+                                                }}
+                                                className={`relative inline-flex h-4 w-7 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                                                    isApplicable
+                                                        ? 'bg-blue-600 dark:bg-blue-500'
+                                                        : 'bg-slate-300 dark:bg-slate-700'
+                                                }`}
+                                                title="Se aplica?"
+                                            >
+                                                <span
+                                                    aria-hidden="true"
+                                                    className={`pointer-events-none inline-block h-3 w-3 transform rounded-full bg-white shadow-sm ring-0 transition duration-200 ease-in-out ${
+                                                        isApplicable ? 'translate-x-3' : 'translate-x-0'
+                                                    }`}
+                                                />
+                                            </button>
+
                                             {isManual && (
                                                 <button
                                                     type="button"
                                                     onClick={() => handleRemoveManualField(field.name)}
                                                     title={`Remover ${field.name}`}
                                                     aria-label={`Remover campo ${field.name}`}
-                                                    className="text-slate-400 hover:text-red-500 p-0.5 text-xs transition-colors"
+                                                    className="text-slate-400 hover:text-red-500 p-0.5 text-xs transition-colors ml-1"
                                                 >
                                                     <i className="bi bi-trash3" />
                                                 </button>
@@ -333,9 +285,10 @@ const ProductTechnicalTab: React.FC<ProductTechnicalTabProps> = ({
                                     <TechnicalCombobox
                                         fieldName={field.name}
                                         value={rawValue !== undefined && rawValue !== null ? String(rawValue) : ''}
-                                        placeholder={field.isRequired ? `Selecione ${field.name}...` : 'Não informado'}
+                                        placeholder={`Busque e selecione ${field.name}...`}
                                         options={field.options}
                                         isInvalid={Boolean(isFieldInvalid)}
+                                        disabled={rawValue === 'Não se aplica' || rawValue === 'N/A'}
                                         onChange={(selectedVal) => {
                                             handleTechnicalValueChange(field.name, selectedVal);
                                         }}

@@ -215,8 +215,7 @@ export const fetchCategoryRequiredAttributes = async (categoryId: string): Promi
                 name
             )
         `)
-        .eq('category_id', categoryId)
-        .eq('is_required', true);
+        .eq('category_id', categoryId);
 
     if (error) throw error;
 

@@ -193,30 +193,21 @@ export const VariationFormModal: React.FC<VariationFormModalProps> = (props) => 
                 <div className="px-4 sm:px-6 border-b border-slate-50 dark:border-slate-800/50 bg-white dark:bg-slate-900 shrink-0 z-10 overflow-x-auto scrollbar-hide" style={{scrollbarWidth: 'none'}}>
                     <div className="flex items-center gap-4 sm:gap-6 min-w-max" role="tablist" aria-label="Abas da variação">
                         {getFormTabs(parentProduct.itemType === 'composition' || (parentProduct as any).item_type === 'composition').map((tab) => {
-                            const hasParentCategory = (parentProduct.categoryIds || []).length > 0;
-                            const isTabDisabled = tab.id === 'tecnico' && !hasParentCategory;
-
                             return (
                                 <button
                                     key={tab.id}
                                     type="button"
                                     role="tab"
                                     aria-selected={activeTab === tab.id}
-                                    aria-disabled={isTabDisabled}
-                                    disabled={isTabDisabled}
-                                    onClick={() => !isTabDisabled && setActiveTab(tab.id)}
-                                    title={isTabDisabled ? 'Selecione pelo menos uma categoria no produto pai para habilitar as Especificações Técnicas' : undefined}
+                                    onClick={() => setActiveTab(tab.id)}
                                     className={`py-3 text-[10px] font-black uppercase tracking-widest flex items-center gap-1.5 border-b-2 transition-all shrink-0 whitespace-nowrap ${
-                                        isTabDisabled
-                                            ? 'border-transparent text-slate-300 dark:text-slate-700 cursor-not-allowed opacity-50'
-                                            : activeTab === tab.id
+                                        activeTab === tab.id
                                             ? 'border-blue-600 text-blue-600 cursor-pointer'
                                             : 'border-transparent text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer'
                                     }`}
                                 >
                                     <i className={`bi ${tab.icon}`} aria-hidden="true" />
                                     <span>{tab.label}</span>
-                                    {isTabDisabled && <i className="bi bi-lock-fill text-[10px] text-slate-300 dark:text-slate-600" aria-hidden="true" />}
                                 </button>
                             );
                         })}

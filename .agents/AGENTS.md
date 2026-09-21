@@ -1,27 +1,24 @@
-# Morante Hub — Mapa Operacional e Roteador
+# Morante Hub — Guia Operacional Direto
 
-Documento canônico enxuto. O agente consulta apenas o módulo específico sob demanda conforme a tarefa.
-
----
-
-## Roteador de Módulos Operacionais
-
-Consulte o arquivo correspondente conforme o contexto:
-
-1. **Princípios e Regras Invioláveis**: [.agents/rules/principios-inviolaveis.md](file:///c:/Users/mathe/OneDrive/%C3%81rea%20de%20Trabalho/projetos/morantehub/.agents/rules/principios-inviolaveis.md)
-   * Investigação prévia, causa raiz, menor alteração, identificador único de testes (`testRunId`), proibições e modo caveman.
-2. **Matriz e Roteador de Skills**: [.agents/rules/roteador-skills.md](file:///c:/Users/mathe/OneDrive/%C3%81rea%20de%20Trabalho/projetos/morantehub/.agents/rules/roteador-skills.md)
-   * Tabela de decisão e gatilhos para acionar skills técnicas (`database-supabase`, `testes-seguros-erp`, `nfe-sefaz-direto`, etc.).
-3. **Documentação Oficial e Regras de Negócio**: [.agents/rules/indice-documentacao.md](file:///c:/Users/mathe/OneDrive/%C3%81rea%20de%20Trabalho/projetos/morantehub/.agents/rules/indice-documentacao.md)
-   * Links para diagramas, ADRs, módulos de estoque, vendas, fiscal e financeiro em `docs/`.
-4. **Code Context Router (Obrigatório antes de buscas)**: [docs/code-context-router.yaml](file:///c:/Users/mathe/OneDrive/%C3%81rea%20de%20Trabalho/projetos/morantehub/docs/code-context-router.yaml)
-   * Mapa determinístico de arquivos-chave por domínio. O agente DEVE abrir inicialmente apenas esses arquivos antes de qualquer busca global.
+Diretrizes para foco, velocidade e economia máxima de contexto e tokens.
 
 ---
 
-## Pre-Flight Rápido (3 Níveis)
+## Regras de Execução Direta (Sem Burocracia & Antidesperdício)
 
-Antes de qualquer edição (`replace_file_content` / `write_to_file`):
-* **Nível 1 (Global)**: Causa raiz identificada? Menor alteração necessária? Sem refatoração paralela?
-* **Nível 2 (Técnico)**: Consultou a skill especializada em `.agents/rules/roteador-skills.md`?
-* **Nível 3 (Domínio)**: Verificou conformidade com a documentação oficial em `docs/`?
+1. **Foco no Escopo Solicitado**: Se o arquivo ou componente já foi identificado pelo usuário ou pela tarefa, vá direto a ele. **NÃO** faça exploração preventiva ampla nem leia índices, diagramas ou roteadores.
+2. **Proibido Reler Trechos Já Obtidos**: **NUNCA** faça chamadas repetidas de leitura (`view_file`) no mesmo arquivo ou nos mesmos blocos de linhas quando o conteúdo já foi trazido nesta conversa. Reutilize o contexto já retornado.
+3. **Expansão Sob Demanda Concreta**: Abra novos arquivos apenas quando houver dependência técnica real e indispensável para concluir a alteração.
+4. **Menor Alteração Necessária**: Altere apenas o estritamente necessário. Sem refatorações colaterais, sem limpezas automáticas não pedidas.
+5. **Causa Raiz & Resolução Segura**: Entenda o ponto exato da alteração antes de editar.
+6. **Sem Git Push Automático**: Aguarde comando explícito do usuário.
+7. **Idioma**: Apenas português brasileiro.
+8. **Estilo Conciso**: Respostas objetivas, sem preâmbulos, sem desperdício de tokens.
+
+---
+
+## Consultas Opcionais (Apenas Sob Demanda Específica)
+Consulte apenas se a tarefa envolver o tema correspondente:
+* Princípios detalhados: [.agents/rules/principios-inviolaveis.md](file:///c:/Users/Rosilene/Desktop/morantehub/.agents/rules/principios-inviolaveis.md)
+* Regras de negócio profundas (SEFAZ, Supabase, etc.): consulte as skills e docs específicos **somente sob demanda expressa**.
+

@@ -423,14 +423,29 @@ export function useVariationForm({
             return;
         }
 
-        const { data: requiredTechnicalAttributes, error: requiredAttributesError } = await supabase
+        // Validar dimensões obrigatórias da variação (> 0)
+        const effectiveWidth = finalVariation.syncWidth ? Number(parentProduct.width || 0) : Number(formData.width || 0);
+        const effectiveHeight = finalVariation.syncHeight ? Number(parentProduct.height || 0) : Number(formData.height || 0);
+        const effectiveDepth = finalVariation.syncDepth ? Number(parentProduct.depth || 0) : Number(formData.depth || 0);
+
+        if (effectiveWidth <= 0 || effectiveHeight <= 0 || effectiveDepth <= 0) {
+            const missingDims: string[] = [];
+            if (effectiveWidth <= 0) missingDims.push('Largura');
+            if (effectiveHeight <= 0) missingDims.push('Altura');
+            if (effectiveDepth <= 0) missingDims.push('Profundidade');
+            toast.warn(`Informe valores maiores que zero para as dimensões obrigatórias: ${missingDims.join(', ')}.`);
+            setActiveTab('tecnico');
+            return;
+        }
+
+        // Buscar todas as especificações técnicas ativas (todas são obrigatórias na variação)
+        const { data: allActiveAttributes, error: activeAttributesError } = await supabase
             .from('attributes')
             .select('name')
-            .eq('active', true)
-            .eq('is_globally_required', true);
+            .eq('active', true);
 
-        if (requiredAttributesError) {
-            toast.error('Não foi possível validar as Especificações Técnicas obrigatórias. Tente novamente.');
+        if (activeAttributesError) {
+            toast.error('Não foi possível validar as Especificações Técnicas. Tente novamente.');
             setActiveTab('tecnico');
             return;
         }
@@ -438,16 +453,16 @@ export function useVariationForm({
         const variationAttributeValues = Object.fromEntries(
             cleanAttributes.map(attribute => [attribute.name, attribute.value])
         );
-        const missingRequiredFields = getMissingRequiredTechnicalFields(
-            (requiredTechnicalAttributes || []).map((field: { name: string }) => field.name),
+        const missingTechnicalFields = getMissingRequiredTechnicalFields(
+            (allActiveAttributes || []).map((field: { name: string }) => field.name),
             {
                 ...(parentProduct.technicalValues || {}),
                 ...variationAttributeValues,
                 ...(formData.technicalValues || {})
             }
         );
-        if (missingRequiredFields.length > 0) {
-            toast.error(`Selecione as Especificações Técnicas obrigatórias: ${missingRequiredFields.join(', ')}.`);
+        if (missingTechnicalFields.length > 0) {
+            toast.error(`Preencha as Especificações Técnicas obrigatórias da variação: ${missingTechnicalFields.join(', ')}.`);
             setActiveTab('tecnico');
             return;
         }

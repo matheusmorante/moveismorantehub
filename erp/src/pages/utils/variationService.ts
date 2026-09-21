@@ -89,11 +89,24 @@ export const subscribeToVariations = (callback: (variations: VariationType[]) =>
     const fetchAll = async () => {
         try {
             // 1. Buscar atributos globais ordenados por nome
-            const { data: attrData, error: attrErr } = await supabase
+            let attrData: any[] | null = null;
+            const primaryQuery = await supabase
                 .from("attributes")
                 .select("id, name, active, data_type, unit, is_globally_required")
                 .order("name", { ascending: true });
-            if (attrErr) throw attrErr;
+
+            if (primaryQuery.error && (primaryQuery.error.message?.includes("column") || primaryQuery.error.code === '42703')) {
+                const fallbackQuery = await supabase
+                    .from("attributes")
+                    .select("id, name, active, is_globally_required")
+                    .order("name", { ascending: true });
+                if (fallbackQuery.error) throw fallbackQuery.error;
+                attrData = fallbackQuery.data;
+            } else if (primaryQuery.error) {
+                throw primaryQuery.error;
+            } else {
+                attrData = primaryQuery.data;
+            }
 
             // 2. Buscar todos os valores/opções vinculados
             const { data: valData, error: valErr } = await supabase

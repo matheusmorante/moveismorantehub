@@ -69,8 +69,7 @@ export const useProductFormSubmit = ({
         const { data: requiredTechnicalAttributes, error: requiredAttributesError } = await supabase
             .from('attributes')
             .select('name')
-            .eq('active', true)
-            .eq('is_globally_required', true);
+            .eq('active', true);
 
         if (requiredAttributesError) {
             setActiveTab('technical');

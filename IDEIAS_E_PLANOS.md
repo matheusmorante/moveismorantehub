@@ -4,6 +4,30 @@ Este arquivo centraliza planos, ideias e tarefas pendentes do projeto Morante Hu
 
 ---
 
+## 0. Especificações Técnicas: Obrigatórias com Asterisco (*) e Regra Global Antidesperdício
+- **Status**: Concluído com Sucesso! 🏷️⚡
+- **Data**: 21/09/2026
+- **Solicitação**:
+  1. No produto pai e variações, exibir o asterisco vermelho (*) de obrigatório em todas as especificações técnicas ativas.
+  2. Eliminar dependência do `is_globally_required` do banco, tratando todas as especificações ativas como obrigatórias (`isRequired: true`).
+  3. Adicionar regra global no Antigravity contra leituras repetitivas dos mesmos blocos de código e exploração ampla sem necessidade.
+- **Implementações Executadas**:
+  1. **Regra Global Antigravity ([`C:\Users\Rosilene\.gemini\config\rules\GEMINI.md`](file:///C:/Users/Rosilene/.gemini/config/rules/GEMINI.md))**:
+     - Proibição estrita de releituras repetitivas do mesmo arquivo ou mesmos blocos de linhas quando o conteúdo já está no contexto recente.
+     - Proibição de exploração preventiva ampla de pastas e diagramas; acesso cirúrgico direto aos arquivos-alvo.
+  2. **Regra Local do Workspace ([`.agents/AGENTS.md`](file:///c:/Users/Rosilene/Desktop/morantehub/.agents/AGENTS.md))**:
+     - Atualizado com as regras de execução direta sem burocracia e antidesperdício.
+  3. **Interface do Produto Pai ([`ProductTechnicalTab.tsx`](file:///c:/Users/Rosilene/Desktop/morantehub/erp/src/pages/App/Products/components/tabs/ProductTechnicalTab.tsx))**:
+     - `isRequired: true` para todas as especificações ativas, garantindo o asterisco vermelho (*) em cada campo.
+  4. **Interface da Variação ([`VariationTechnicalTab.tsx`](file:///c:/Users/Rosilene/Desktop/morantehub/erp/src/pages/App/Products/components/variationTabs/VariationTechnicalTab.tsx))**:
+     - `isRequired: true` garantindo o asterisco vermelho (*) em todas as especificações ativas.
+  5. **Validação no Salvamento do Produto ([`useProductFormSubmit.ts`](file:///c:/Users/Rosilene/Desktop/morantehub/erp/src/pages/App/Products/hooks/useProductFormSubmit.ts))**:
+     - Valida todas as especificações ativas cadastradas em `attributes` (sem filtrar `is_globally_required`), alinhando 100% com a validação que já existia na variação (`useVariationForm.ts`).
+  6. **Testes Unitários**:
+     - `variationService.test.ts` e `technicalValuesService.test.ts` executados e 100% aprovados (14 testes passaram).
+
+---
+
 ## 0. Correção de TypeError: onPriceChange is not a function na Precificação do Produto
 - **Status**: Concluído com Sucesso! 🛠️⚡
 - **Data**: 14/09/2026

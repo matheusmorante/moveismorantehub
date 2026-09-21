@@ -146,14 +146,14 @@ export const CategoryEnvironmentModal: React.FC<CategoryEnvironmentModalProps> =
                 {!isEnv && setSelectedAttributes && (
                     <div className="flex flex-col gap-2 pt-2">
                         <label className="text-xs font-bold text-slate-500 uppercase tracking-widest">
-                            Atributos Obrigatórios
+                            Especificações Técnicas da Categoria
                         </label>
                         <p className="text-xs text-slate-500 dark:text-slate-400">
-                            Produtos desta categoria deverão preencher estes atributos.
+                            Selecione as especificações técnicas aplicáveis aos produtos desta categoria.
                         </p>
                         {isLoadingAttributes && (
                             <p className="flex items-center gap-2 text-xs text-slate-500" role="status">
-                                <i className="bi bi-arrow-repeat animate-spin" /> Carregando atributos obrigatórios...
+                                <i className="bi bi-arrow-repeat animate-spin" /> Carregando especificações técnicas...
                             </p>
                         )}
                         {attributeLoadFailed && (
@@ -163,15 +163,24 @@ export const CategoryEnvironmentModal: React.FC<CategoryEnvironmentModalProps> =
                         )}
                         <AttributeAutocomplete
                             selectedIds={selectedAttributes.map(a => a.id)}
-                            onSelect={(attr) => setSelectedAttributes(prev => [...prev, attr])}
+                            onSelect={(attr) => {
+                                setSelectedAttributes(prev => {
+                                    const exists = prev.some(a => a.id === attr.id);
+                                    if (exists) {
+                                        return prev.filter(a => a.id !== attr.id);
+                                    }
+                                    return [...prev, attr];
+                                });
+                            }}
+                            placeholder="Buscar especificação técnica (mínimo 2 letras)..."
                             disabled={isSubmitting || isLoadingAttributes || attributeLoadFailed}
                         />
                         {selectedAttributes.length > 0 && (
-                            <div className="flex flex-wrap gap-2 mt-1">
+                            <div className="flex flex-wrap gap-2 mt-1 max-h-36 overflow-y-auto custom-scrollbar p-1">
                                 {selectedAttributes.map(attr => (
                                     <div
                                         key={attr.id}
-                                        className="flex items-center gap-1.5 px-3 py-1 bg-blue-50 dark:bg-blue-500/10 text-blue-700 dark:text-blue-400 rounded-full border border-blue-200 dark:border-blue-500/20 text-xs font-bold"
+                                        className="flex items-center gap-1.5 px-3 py-1 bg-blue-50 dark:bg-blue-500/10 text-blue-700 dark:text-blue-400 rounded-full border border-blue-200 dark:border-blue-500/20 text-xs font-bold shadow-2xs"
                                     >
                                         <span>{attr.name}</span>
                                         <button
@@ -179,18 +188,13 @@ export const CategoryEnvironmentModal: React.FC<CategoryEnvironmentModalProps> =
                                             onClick={() => setSelectedAttributes(prev => prev.filter(a => a.id !== attr.id))}
                                             className="hover:text-blue-900 dark:hover:text-blue-200 transition-colors bg-transparent border-0 flex items-center justify-center rounded-full outline-none"
                                             disabled={isSubmitting}
-                                            aria-label={`Remover atributo ${attr.name}`}
+                                            aria-label={`Remover especificação ${attr.name}`}
                                         >
                                             <i className="bi bi-x-lg text-[10px]" />
                                         </button>
                                     </div>
                                 ))}
                             </div>
-                        )}
-                        {hasAddedRequiredAttributes && (
-                            <p className="rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:bg-amber-500/10 dark:text-amber-300">
-                                Novos atributos passarão a ser obrigatórios. Produtos sem valor serão sinalizados para conciliação.
-                            </p>
                         )}
                     </div>
                 )}

@@ -93,7 +93,7 @@ export const VariationTechnicalTab: React.FC<VariationTechnicalTabProps> = ({
                         name: attr.name,
                         dataType: 'list',
                         unit: '',
-                        isRequired: Boolean(attr.is_globally_required),
+                        isRequired: true,
                         options: opts,
                         categoryIds: linkedCategoryIds
                     };
@@ -136,18 +136,10 @@ export const VariationTechnicalTab: React.FC<VariationTechnicalTabProps> = ({
         };
     }, [parentProduct?.technicalValues, variationAttributeValues, formData?.technicalValues]);
 
-    const visibleFields = useMemo(() => {
-        return getApplicableTechnicalFields(
-            allTechnicalFields,
-            parentProduct?.categoryIds || [],
-            combinedValues,
-            manualFieldNames
-        );
-    }, [allTechnicalFields, parentProduct?.categoryIds, combinedValues, manualFieldNames]);
+    // Todas as especificações técnicas ativas cadastradas aparecem na variação
+    const visibleFields = allTechnicalFields;
 
-    const availableAdditionalFields = useMemo(() => {
-        return getAvailableAdditionalFields(allTechnicalFields, visibleFields);
-    }, [allTechnicalFields, visibleFields]);
+    const availableAdditionalFields: TechnicalFieldDefinition[] = [];
 
     const filteredAdditionalFields = useMemo(() => {
         const term = addSearchTerm.trim().toLowerCase();
@@ -247,64 +239,6 @@ export const VariationTechnicalTab: React.FC<VariationTechnicalTabProps> = ({
                         </h4>
                     </div>
 
-                    <div className="flex items-center gap-2">
-                        {/* Botão para adicionar campo adicional específico na variação */}
-                        <div className="relative" ref={addDropdownRef}>
-                            <button
-                                type="button"
-                                onClick={() => setIsAddMenuOpen(prev => !prev)}
-                                disabled={loadingFields || !((parentProduct?.categoryIds || []).length > 0) || availableAdditionalFields.length === 0}
-                                title={!((parentProduct?.categoryIds || []).length > 0) ? 'Defina pelo menos uma categoria no produto pai' : undefined}
-                                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-blue-100/80 hover:bg-blue-200/80 dark:bg-blue-950/60 dark:hover:bg-blue-900/60 border border-blue-200 dark:border-blue-800/70 text-blue-600 dark:text-blue-400 text-[10px] font-black uppercase tracking-wider transition-all disabled:opacity-40 disabled:pointer-events-none active:scale-95 shadow-sm cursor-pointer"
-                            >
-                                <i className="bi bi-plus-lg text-xs" />
-                                <span>Campo Adicional</span>
-                                {((parentProduct?.categoryIds || []).length > 0) && availableAdditionalFields.length > 0 && (
-                                    <span className="ml-1 px-1.5 py-0.2 rounded-full text-[8px] bg-blue-200 dark:bg-blue-800 font-black">
-                                        {availableAdditionalFields.length}
-                                    </span>
-                                )}
-                            </button>
-
-                            {isAddMenuOpen && (
-                                <div className="absolute right-0 top-full mt-2 w-64 z-50 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-xl overflow-hidden animate-in fade-in zoom-in-95 duration-150">
-                                <div className="p-2 border-b border-slate-100 dark:border-slate-800">
-                                    <div className="relative flex items-center">
-                                        <i className="bi bi-search absolute left-2.5 top-1/2 -translate-y-1/2 text-[10px] text-slate-400 pointer-events-none" />
-                                        <input
-                                            type="text"
-                                            autoFocus
-                                            value={addSearchTerm}
-                                            onChange={(e) => setAddSearchTerm(e.target.value)}
-                                            placeholder="Buscar campo..."
-                                            className="w-full pl-7 pr-2 py-1 text-xs bg-slate-50 dark:bg-slate-800/50 rounded-lg border border-slate-200 dark:border-slate-700 outline-none text-slate-800 dark:text-slate-200"
-                                        />
-                                    </div>
-                                </div>
-
-                                <div className="max-h-56 overflow-y-auto p-1 custom-scrollbar">
-                                    {filteredAdditionalFields.length === 0 ? (
-                                        <div className="py-3 text-center text-slate-400 text-xs italic">
-                                            Nenhum campo disponível.
-                                        </div>
-                                    ) : (
-                                        filteredAdditionalFields.map(field => (
-                                            <button
-                                                key={field.id}
-                                                type="button"
-                                                onClick={() => handleAddManualField(field)}
-                                                className="w-full text-left px-2.5 py-1.5 rounded-lg text-xs font-bold text-slate-700 dark:text-slate-200 hover:bg-blue-50 dark:hover:bg-blue-900/40 hover:text-blue-600 transition-colors flex items-center justify-between"
-                                            >
-                                                <span className="truncate">{field.name}</span>
-                                                <i className="bi bi-plus text-slate-400" />
-                                            </button>
-                                        ))
-                                    )}
-                                </div>
-                                </div>
-                            )}
-                        </div>
-                    </div>
                 </div>
 
                 {loadingFields ? (
@@ -312,17 +246,9 @@ export const VariationTechnicalTab: React.FC<VariationTechnicalTabProps> = ({
                         <i className="bi bi-arrow-clockwise animate-spin mr-2" />
                         Carregando especificações técnicas...
                     </div>
-                ) : !((parentProduct?.categoryIds || []).length > 0) ? (
-                    <div className="py-6 text-center text-slate-400 text-xs italic bg-white dark:bg-slate-900/40 rounded-2xl border border-dashed border-slate-200 dark:border-slate-800 flex flex-col items-center gap-2">
-                        <i className="bi bi-lock-fill text-lg text-slate-400" />
-                        <span className="font-bold text-slate-600 dark:text-slate-300">Produto pai sem categoria definida.</span>
-                        <span className="text-[11px] text-slate-500">
-                            Defina uma categoria no produto pai para ver as especificações por categoria. As obrigatórias globais permanecem disponíveis.
-                        </span>
-                    </div>
                 ) : visibleFields.length === 0 ? (
                     <div className="py-6 text-center text-slate-400 text-xs italic bg-white dark:bg-slate-900/40 rounded-2xl border border-dashed border-slate-200 dark:border-slate-800">
-                        Nenhuma Especificação Técnica aplicável configurada.
+                        Nenhuma Especificação Técnica cadastrada.
                     </div>
                 ) : (
                     <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 pt-1">
@@ -389,7 +315,7 @@ export const VariationTechnicalTab: React.FC<VariationTechnicalTabProps> = ({
                                     <TechnicalCombobox
                                         fieldName={field.name}
                                         value={effectiveVal !== undefined && effectiveVal !== null ? String(effectiveVal) : ''}
-                                        placeholder={field.isRequired ? `Selecione ${field.name}...` : 'Não informado'}
+                                        placeholder={`Busque e selecione ${field.name}...`}
                                         options={field.options}
                                         disabled={!isOverridden && isEnabled}
                                         onChange={(selectedVal) => {

@@ -77,6 +77,7 @@ describe('subscribeToVariations', () => {
                     { id: 'value-2', value: 'Azul 10' }
                 ],
                 categoryAttributes: [],
+                isGloballyRequired: false,
                 deleted: false
             }
         ]);

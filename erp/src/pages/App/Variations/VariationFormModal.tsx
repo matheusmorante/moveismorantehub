@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from "react";
 import VariationType, { VariationOption, AttributeDataType } from "../../types/variation.type";
 import { saveVariation, checkVariationUsage } from "../../utils/variationService";
-import { fetchCategories, Category } from "../../utils/categoryService";
 import { toast } from "react-toastify";
 
 interface VariationFormModalProps {
@@ -23,7 +22,6 @@ const DATA_TYPES: Array<{ value: AttributeDataType; label: string }> = [
 
 const VariationFormModal = ({ isOpen, onClose, onSuccess, variation }: VariationFormModalProps) => {
     const [loading, setLoading] = useState(false);
-    const [categories, setCategories] = useState<Category[]>([]);
     
     const initialFormData: Partial<VariationType> = {
         name: "",
@@ -37,13 +35,6 @@ const VariationFormModal = ({ isOpen, onClose, onSuccess, variation }: Variation
 
     const [formData, setFormData] = useState<Partial<VariationType>>(initialFormData);
     const [newOptionValue, setNewOptionValue] = useState("");
-    const [isGlobal, setIsGlobal] = useState(true);
-
-    useEffect(() => {
-        if (isOpen) {
-            fetchCategories().then(setCategories).catch(console.error);
-        }
-    }, [isOpen]);
 
     useEffect(() => {
         if (variation) {
@@ -52,12 +43,10 @@ const VariationFormModal = ({ isOpen, onClose, onSuccess, variation }: Variation
                 dataType: variation.dataType || 'list',
                 unit: variation.unit || '',
                 isGloballyRequired: variation.isGloballyRequired ?? false,
-                categoryAttributes: variation.categoryAttributes || []
+                categoryAttributes: []
             });
-            setIsGlobal(!variation.categoryAttributes || variation.categoryAttributes.length === 0);
         } else {
             setFormData(initialFormData);
-            setIsGlobal(true);
         }
         setNewOptionValue("");
     }, [variation, isOpen]);
@@ -98,32 +87,6 @@ const VariationFormModal = ({ isOpen, onClose, onSuccess, variation }: Variation
         }));
     };
 
-    const toggleCategory = (categoryId: string) => {
-        const currentCats = formData.categoryAttributes || [];
-        const exists = currentCats.find(c => c.categoryId === categoryId);
-
-        if (exists) {
-            setFormData(prev => ({
-                ...prev,
-                categoryAttributes: (prev?.categoryAttributes || []).filter(c => c.categoryId !== categoryId)
-            }));
-        } else {
-            setFormData(prev => ({
-                ...prev,
-                categoryAttributes: [...(prev?.categoryAttributes || []), { categoryId, isRequired: false }]
-            }));
-        }
-    };
-
-    const toggleRequiredCategory = (categoryId: string) => {
-        setFormData(prev => ({
-            ...prev,
-            categoryAttributes: (prev?.categoryAttributes || []).map(c => 
-                c.categoryId === categoryId ? { ...c, isRequired: !c.isRequired } : c
-            )
-        }));
-    };
-
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!formData.name?.trim()) {
@@ -157,7 +120,7 @@ const VariationFormModal = ({ isOpen, onClose, onSuccess, variation }: Variation
                 dataType: effectiveDataType,
                 unit: formData.unit?.trim() || undefined,
                 isGloballyRequired: formData.isGloballyRequired ?? false,
-                categoryAttributes: isGlobal ? [] : (formData.categoryAttributes || [])
+                categoryAttributes: []
             };
 
             await saveVariation(payload);
@@ -276,58 +239,6 @@ const VariationFormModal = ({ isOpen, onClose, onSuccess, variation }: Variation
                                 ))}
                             </div>
                         </div>
-
-                        {/* Adicionar automaticamente nas categorias */}
-                        <div className="flex flex-col gap-3 pt-3 border-t border-slate-100 dark:border-slate-800">
-                            <div className="flex items-center justify-between">
-                                <div>
-                                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
-                                        <i className="bi bi-magic text-blue-600" />
-                                        <span>Adicionar automaticamente nas categorias</span>
-                                    </label>
-                                    <p className="text-[11px] text-slate-400 dark:text-slate-500 font-medium mt-0.5">
-                                        Quando um produto de uma dessas categorias for cadastrado, este campo aparecerá sugerido automaticamente.
-                                    </p>
-                                </div>
-                            </div>
-
-                            {/* Categorias Selecionadas (Chips) */}
-                            <div className="flex flex-wrap gap-1.5 min-h-[32px] p-2 bg-slate-50 dark:bg-slate-950/60 rounded-xl border border-slate-200 dark:border-slate-800">
-                                {(!formData.categoryAttributes || formData.categoryAttributes.length === 0) ? (
-                                    <span className="text-xs text-slate-400 italic py-1 px-2">
-                                        Nenhuma categoria vinculada (campo disponível apenas para adição manual nos produtos).
-                                    </span>
-                                ) : (
-                                    formData.categoryAttributes.map(ca => {
-                                        const cat = categories.find(c => c.id === ca.categoryId);
-                                        const catName = cat?.name || 'Categoria';
-                                        return (
-                                            <span 
-                                                key={ca.categoryId}
-                                                className="inline-flex items-center gap-1.5 px-3 py-1 bg-blue-50 dark:bg-blue-950/50 border border-blue-200 dark:border-blue-800/80 rounded-lg text-xs font-bold text-blue-700 dark:text-blue-300 animate-in fade-in"
-                                            >
-                                                <span>{catName}</span>
-                                                <button
-                                                    type="button"
-                                                    onClick={() => toggleCategory(ca.categoryId)}
-                                                    aria-label={`Remover categoria ${catName}`}
-                                                    className="hover:text-red-500 transition-colors cursor-pointer"
-                                                >
-                                                    <i className="bi bi-x-circle-fill text-[11px]" />
-                                                </button>
-                                            </span>
-                                        );
-                                    })
-                                )}
-                            </div>
-
-                            {/* Seletor com Busca para Adicionar Categoria */}
-                            <CategoryAutocompletePicker
-                                categories={categories}
-                                selectedIds={new Set((formData.categoryAttributes || []).map(ca => ca.categoryId))}
-                                onSelectCategory={(catId) => toggleCategory(catId)}
-                            />
-                        </div>
                     </div>
                 </form>
 
@@ -354,96 +265,6 @@ const VariationFormModal = ({ isOpen, onClose, onSuccess, variation }: Variation
                     </button>
                 </div>
             </div>
-        </div>
-    );
-};
-
-interface CategoryAutocompletePickerProps {
-    readonly categories: readonly Category[];
-    readonly selectedIds: ReadonlySet<string>;
-    readonly onSelectCategory: (categoryId: string) => void;
-}
-
-const CategoryAutocompletePicker: React.FC<CategoryAutocompletePickerProps> = ({
-    categories,
-    selectedIds,
-    onSelectCategory
-}) => {
-    const [search, setSearch] = useState('');
-    const [isOpen, setIsOpen] = useState(false);
-    const containerRef = React.useRef<HTMLDivElement>(null);
-
-    useEffect(() => {
-        const handleClickOutside = (e: MouseEvent) => {
-            if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
-                setIsOpen(false);
-            }
-        };
-        document.addEventListener('mousedown', handleClickOutside);
-        return () => document.removeEventListener('mousedown', handleClickOutside);
-    }, []);
-
-    const availableCategories = React.useMemo(() => {
-        const term = search.trim().toLowerCase();
-        return categories
-            .filter(c => !selectedIds.has(c.id))
-            .filter(c => !term || c.name.toLowerCase().includes(term))
-            .sort((a, b) => a.name.localeCompare(b.name, 'pt-BR', { sensitivity: 'base' }));
-    }, [categories, selectedIds, search]);
-
-    return (
-        <div ref={containerRef} className="relative">
-            <div className="relative flex items-center">
-                <i className="bi bi-search absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-xs pointer-events-none" />
-                <input
-                    type="text"
-                    value={search}
-                    onFocus={() => setIsOpen(true)}
-                    onChange={(e) => {
-                        setSearch(e.target.value);
-                        setIsOpen(true);
-                    }}
-                    placeholder="Buscar categoria para adicionar automaticamente..."
-                    className="w-full pl-9 pr-8 py-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-bold dark:text-slate-100 outline-none focus:ring-2 focus:ring-blue-500/20"
-                />
-                {search && (
-                    <button
-                        type="button"
-                        onClick={() => setSearch('')}
-                        className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs"
-                    >
-                        <i className="bi bi-x-circle-fill" />
-                    </button>
-                )}
-            </div>
-
-            {isOpen && (
-                <div className="absolute left-0 right-0 top-full mt-1 z-50 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-xl overflow-hidden max-h-48 overflow-y-auto custom-scrollbar animate-in fade-in zoom-in-95 duration-150">
-                    {availableCategories.length === 0 ? (
-                        <div className="p-3 text-center text-slate-400 text-xs">
-                            {search ? `Nenhuma categoria encontrada para "${search}"` : 'Todas as categorias já foram adicionadas'}
-                        </div>
-                    ) : (
-                        <div className="p-1 space-y-0.5">
-                            {availableCategories.map(cat => (
-                                <button
-                                    key={cat.id}
-                                    type="button"
-                                    onMouseDown={(e) => {
-                                        e.preventDefault();
-                                        onSelectCategory(cat.id);
-                                        setSearch('');
-                                    }}
-                                    className="w-full px-3 py-2 rounded-xl text-left text-xs font-bold hover:bg-slate-100 dark:hover:bg-slate-800/80 text-slate-700 dark:text-slate-200 flex items-center justify-between transition-colors cursor-pointer"
-                                >
-                                    <span>{cat.name}</span>
-                                    <i className="bi bi-plus-circle text-blue-600 dark:text-blue-400 text-xs" />
-                                </button>
-                            ))}
-                        </div>
-                    )}
-                </div>
-            )}
         </div>
     );
 };
