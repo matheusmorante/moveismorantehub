@@ -222,29 +222,25 @@ export const useDeliverySchedule = () => {
     useEffect(() => {
         let isMounted = true;
 
-        const loadOrders = async () => {
-            setLoading(true);
+        const loadOrders = async (silent = false) => {
+            if (!silent) setLoading(true);
             const orders = await fetchScheduledAndDraftOrders();
             if (!isMounted) return;
             setAllOrders(orders);
-            const showroomOrders = showroomAssemblies.map(mapShowroomToOrder) as Order[];
-            const { scheduled, pending } = processOrders([...orders, ...showroomOrders], filter, typeFilter, scheduleType, settings, { start: startDate, end: endDate });
-            setSchedule(scheduled);
-            setPendingOrders(pending);
-            setLoading(false);
+            if (!silent) setLoading(false);
         };
 
         loadOrders();
 
         const unsubscribe = subscribeToOrderChanges(() => {
-            loadOrders();
+            loadOrders(true); // silent reload on background changes
         });
 
         return () => {
             isMounted = false;
             unsubscribe();
         };
-    }, [filter, typeFilter, scheduleType, showroomAssemblies, startDate, endDate, settings]);
+    }, []);
 
     // Fetch Showroom Assemblies
     useEffect(() => {
