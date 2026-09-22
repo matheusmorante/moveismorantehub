@@ -102,9 +102,13 @@ function matchesStatus(row: Record<string, any>, requested?: string): boolean {
   const target = normalizeText(requested);
   const aliases: Record<string, string[]> = {
     agendado: ['scheduled', 'agendado'], agendada: ['scheduled', 'agendado'],
-    concluido: ['fulfilled', 'concluido', 'atendido', 'entregue', 'finalizado'],
-    entregue: ['fulfilled', 'concluido', 'atendido', 'entregue', 'finalizado'],
+    agendados: ['scheduled', 'agendado'], agendadas: ['scheduled', 'agendado'],
+    concluido: ['fulfilled', 'concluido', 'concluidos', 'atendido', 'entregue', 'finalizado'],
+    concluidos: ['fulfilled', 'concluido', 'concluidos', 'atendido', 'entregue', 'finalizado'],
+    entregue: ['fulfilled', 'concluido', 'concluidos', 'atendido', 'entregue', 'entregues', 'finalizado'],
+    entregues: ['fulfilled', 'concluido', 'concluidos', 'atendido', 'entregue', 'entregues', 'finalizado'],
     cancelado: ['cancelled', 'canceled', 'cancelado', 'cancelada', 'estornado'],
+    cancelada: ['cancelled', 'canceled', 'cancelado', 'cancelada', 'estornado'],
     rascunho: ['draft', 'rascunho'], pendente: ['pending', 'pendente'],
   };
   const requestedTerms = aliases[target] || [target];
