@@ -164,9 +164,21 @@ function HomeContent() {
   }, [searchParams, router, categories, opportunities])
 
   const clearFilters = useCallback(() => {
-    setFilters(INITIAL_FILTERS)
-    router.push("/", { scroll: false })
-  }, [router])
+    const baseFilters = {
+      envs: filters.envs,
+      cats: filters.cats,
+      search: "",
+      minPrice: 0,
+      maxPrice: 10000,
+      type: "all",
+      sortBy: "newest",
+    }
+    setFilters(baseFilters)
+    const params = new URLSearchParams()
+    if (filters.envs.length > 0) params.set("ambientes", resolveSlugsFromCategoryIds(filters.envs, categories).join(","))
+    if (filters.cats.length > 0) params.set("categorias", resolveSlugsFromCategoryIds(filters.cats, categories).join(","))
+    router.push(params.toString() ? `/?${params.toString()}` : "/", { scroll: false })
+  }, [router, filters.envs, filters.cats, categories])
 
   useEffect(() => {
     async function loadData() {
@@ -187,51 +199,6 @@ function HomeContent() {
 
   const filterBadges = useMemo(() => {
     const badges: Array<{ id: string; label: string; onRemove: () => void }> = []
-    const processedCatIds = new Set<string>()
-    const processedEnvIds = new Set<string>()
-    const dbEnvs = categories.filter(c => c.type === "environment")
-
-    dbEnvs.forEach(env => {
-      const envCats = categories.filter(c =>
-        c.type === "category" && relationships.some(r => r.parent_id === env.id && r.child_id === c.id)
-      )
-      const allCatsSelected = envCats.length > 0 && envCats.every(c => filters.cats.includes(c.id))
-      if (allCatsSelected) {
-        badges.push({
-          id: `all-env-${env.id}`,
-          label: `Todos de ${env.name}`,
-          onRemove: () => handleFilterChange({
-            envs: filters.envs.filter(id => id !== env.id),
-            cats: filters.cats.filter(id => !envCats.some(c => c.id === id))
-          })
-        })
-        processedEnvIds.add(env.id)
-        envCats.forEach(c => processedCatIds.add(c.id))
-      }
-    })
-
-    filters.envs.forEach(envId => {
-      if (!processedEnvIds.has(envId)) {
-        const envName = categories.find(c => c.id === envId)?.name
-        if (envName) badges.push({
-          id: `env-${envId}`,
-          label: `Ambiente: ${envName}`,
-          onRemove: () => handleFilterChange({ envs: filters.envs.filter(id => id !== envId) })
-        })
-      }
-    })
-
-    filters.cats.forEach(catId => {
-      if (!processedCatIds.has(catId)) {
-        const catName = categories.find(c => c.id === catId)?.name
-        if (catName) badges.push({
-          id: `cat-${catId}`,
-          label: `Categoria: ${catName}`,
-          onRemove: () => handleFilterChange({ cats: filters.cats.filter(id => id !== catId) })
-        })
-      }
-    })
-
     if (filters.search) {
       badges.push({
         id: "search",
@@ -262,7 +229,18 @@ function HomeContent() {
   }, [filters, categories, relationships, opportunities, handleFilterChange])
 
   const activeFilterCount = filterBadges.length
-  const showHeroAndAdvantages = !filters.search
+  const hasBaseNavigationFilter = filters.envs.length > 0 || filters.cats.length > 0
+  const showHeroAndAdvantages = !filters.search && !hasBaseNavigationFilter
+  const baseFilterTitle = useMemo(() => {
+    const selectedCategories = categories
+      .filter(category => filters.cats.includes(category.id))
+      .map(category => category.name)
+    const selectedEnvironments = categories
+      .filter(category => filters.envs.includes(category.id))
+      .map(category => category.name)
+    const labels = [...selectedCategories, ...selectedEnvironments]
+    return labels.length > 0 ? `Produtos em ${labels.join(", ")}` : "Resultados da pesquisa"
+  }, [categories, filters.cats, filters.envs])
 
   return (
     <div className="flex flex-col gap-0">
@@ -278,7 +256,9 @@ function HomeContent() {
 
           {/* Barra de filtros */}
           <div className="space-y-4 pb-6 mb-8 pt-4">
-            <h2 className="text-2xl md:text-3xl font-black text-primary">Catálogo de Produtos</h2>
+            <h2 className="text-2xl md:text-3xl font-black text-primary">
+              {hasBaseNavigationFilter ? baseFilterTitle : "Catálogo de Produtos"}
+            </h2>
 
             {/* Busca + ambientes (ProductFilter sem o select de ordenação duplicado) */}
             <ProductFilter

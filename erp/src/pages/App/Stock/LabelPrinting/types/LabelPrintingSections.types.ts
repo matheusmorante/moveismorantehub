@@ -18,6 +18,7 @@ export interface HeaderSectionProps {
 export interface QueueSectionProps {
     selectedCategory: string | null;
     printingMode: 'simple' | 'advanced';
+    config: LabelConfig;
     products: Product[];
     selectedProductToAdd: Product | null;
     setSelectedProductToAdd: (product: Product | null) => void;

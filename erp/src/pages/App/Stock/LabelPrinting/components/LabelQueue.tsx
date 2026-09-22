@@ -1,11 +1,13 @@
 import React from 'react';
 import labelMdf from '../../../../../assets/label_mdf.png';
+import { calculateLabelPhysicalSize } from '../utils/LabelPhysicalGeometry';
 
 
 interface LabelQueueProps {
     labelItems: any[];
     setLabelItems: React.Dispatch<React.SetStateAction<any[]>>;
     printingMode: 'simple' | 'advanced';
+    config: any;
     selectedCategory?: string | null;
 }
 
@@ -13,9 +15,12 @@ const LabelQueue: React.FC<LabelQueueProps> = ({
     labelItems, 
     setLabelItems, 
     printingMode,
+    config,
     selectedCategory
 }) => {
     const [dragOverIdx, setDragOverIdx] = React.useState<number | null>(null);
+    const labelPhysicalSize = calculateLabelPhysicalSize(config || {});
+    const isImagePriceQueue = selectedCategory === 'precos' && printingMode === 'simple';
     
     const updateItem = (idx: number, updates: any) => {
         const newItems = [...labelItems];
@@ -85,17 +90,17 @@ const LabelQueue: React.FC<LabelQueueProps> = ({
     }
 
     return (
-        <div className="flex flex-col gap-3">
+        <div className={isImagePriceQueue ? 'grid grid-cols-2 sm:grid-cols-3 gap-3' : 'flex flex-col gap-3'}>
             {labelItems.map((item, idx) => (
                 <div 
                     key={idx} 
-                    draggable={selectedCategory !== 'precos' || printingMode === 'simple'}
+                    draggable={true}
                     onDragStart={(e) => handleDragStart(e, idx)}
                     onDragOver={(e) => handleDragOver(e, idx)}
                     onDragLeave={handleDragLeave}
                     onDrop={(e) => handleDrop(e, idx)}
-                    className={`group relative w-full max-w-2xl bg-white dark:bg-slate-900 rounded-[1.75rem] border p-3 hover:shadow-xl hover:border-blue-500/30 transition-all duration-300 flex items-center gap-3 ${
-                        (selectedCategory !== 'precos' || printingMode === 'simple') ? 'cursor-grab active:cursor-grabbing' : ''
+                    className={`group relative w-full ${isImagePriceQueue ? 'max-w-none flex-col items-stretch' : 'max-w-2xl flex items-center'} bg-white dark:bg-slate-900 rounded-[1.75rem] border p-3 hover:shadow-xl hover:border-blue-500/30 transition-all duration-300 gap-3 ${
+                        'cursor-grab active:cursor-grabbing'
                     } ${
                         dragOverIdx === idx 
                             ? 'border-2 border-dashed border-blue-500 bg-blue-500/5 scale-[1.01] z-10' 
@@ -103,20 +108,19 @@ const LabelQueue: React.FC<LabelQueueProps> = ({
                     }`}
                 >
                     {/* Drag Grip Handle */}
-                    {(selectedCategory !== 'precos' || printingMode === 'simple') && (
-                        <div className="text-slate-350 dark:text-slate-650 hover:text-slate-450 px-1 py-2 flex items-center justify-center pointer-events-none select-none">
-                            <i className="bi bi-grip-vertical text-base opacity-60" />
-                        </div>
-                    )}
+                    <div className="text-slate-350 dark:text-slate-650 hover:text-slate-450 px-1 py-2 flex items-center justify-center pointer-events-none select-none">
+                        <i className="bi bi-grip-vertical text-base opacity-60" />
+                    </div>
                     
                     {/* Miniatura Interativa */}
                     {selectedCategory !== 'identificacao' && (selectedCategory !== 'precos' || printingMode === 'simple') && (
                         <div className="flex flex-col gap-2 items-center">
-                            <div className="relative w-16 h-16 shrink-0 rounded-[1.25rem] bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 flex items-center justify-center overflow-hidden p-1.5 group/thumb shadow-inner">
-                                {item.isBlank ? (
-                                    <div className="w-full h-full border border-dashed border-slate-300 dark:border-slate-700 rounded-lg flex items-center justify-center bg-white dark:bg-slate-900">
-                                        <span className="text-[8px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-tighter text-center">EM BRANCO</span>
-                                    </div>
+                            <div
+                                className={`relative shrink-0 rounded-[1.25rem] bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 flex items-center justify-center overflow-hidden p-1.5 group/thumb shadow-inner ${isImagePriceQueue ? 'w-full' : 'w-16 h-16'}`}
+                                style={isImagePriceQueue ? { aspectRatio: `${labelPhysicalSize.widthMm} / ${labelPhysicalSize.heightMm}` } : undefined}
+                            >
+                                {item.isBlank && !item.image ? (
+                                    <div className="w-full h-full rounded-lg flex items-center justify-center bg-blue-600" />
                                 ) : (
                                     <img 
                                         src={item.image || labelMdf} 
@@ -128,7 +132,27 @@ const LabelQueue: React.FC<LabelQueueProps> = ({
                                         alt="" 
                                     />
                                 )}
-                                {!item.isBlank && (
+                                {item.isBlank ? (
+                                    <div className="absolute inset-0 bg-blue-600/90 backdrop-blur-sm flex items-center justify-center p-2">
+                                        <label className="w-full h-full flex items-center justify-center text-white rounded-xl cursor-pointer hover:bg-blue-500/40 active:scale-95 transition-all">
+                                            <i className="bi bi-image text-xl" aria-label="Selecionar imagem" />
+                                            <input
+                                                type="file"
+                                                accept="image/*"
+                                                className="hidden"
+                                                onChange={(e) => {
+                                                    const file = e.target.files?.[0];
+                                                    if (file) {
+                                                        const reader = new FileReader();
+                                                        reader.onload = (ev) => updateItem(idx, { image: ev.target?.result as string, isBlank: false });
+                                                        reader.readAsDataURL(file);
+                                                    }
+                                                    e.target.value = '';
+                                                }}
+                                            />
+                                        </label>
+                                    </div>
+                                ) : (
                                     <div className="absolute inset-0 bg-blue-600/90 backdrop-blur-sm opacity-0 group-hover/thumb:opacity-100 flex flex-col items-center justify-center gap-2 transition-all p-2">
                                         <label className="w-full text-center py-1.5 bg-white text-blue-600 rounded-xl text-[8px] font-black uppercase cursor-pointer hover:scale-105 active:scale-95 transition-all shadow-lg">
                                             Trocar Imagem
@@ -189,14 +213,16 @@ const LabelQueue: React.FC<LabelQueueProps> = ({
                             {/* Nome e SKU */}
                             <div className="min-w-0 flex-1">
                                 {item.isBlank ? (
-                                    <>
-                                        <label className="text-[8px] font-black uppercase text-slate-400 mb-0.5 block tracking-widest">
-                                            Espaçador
-                                        </label>
-                                        <h4 className="text-[11px] font-black text-slate-800 dark:text-white uppercase truncate tracking-tighter">
-                                            Etiqueta Em Branco
-                                        </h4>
-                                    </>
+                                    selectedCategory === 'precos' && printingMode === 'simple' ? null : (
+                                        <>
+                                            <label className="text-[8px] font-black uppercase text-slate-400 mb-0.5 block tracking-widest">
+                                                Espaçador
+                                            </label>
+                                            <h4 className="text-[11px] font-black text-slate-800 dark:text-white uppercase truncate tracking-tighter">
+                                                Etiqueta Em Branco
+                                            </h4>
+                                        </>
+                                    )
                                 ) : (
                                     <>
                                         <h4 className="text-xs font-black text-slate-800 dark:text-slate-100 uppercase truncate" title={item.name || 'Produto sem nome'}>

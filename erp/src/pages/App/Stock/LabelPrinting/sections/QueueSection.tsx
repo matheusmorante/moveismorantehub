@@ -5,7 +5,7 @@ import LabelQueue from '../components/LabelQueue';
 
 export const QueueSection: React.FC<QueueSectionProps> = (props) => {
     const { 
-        selectedCategory, printingMode, products, selectedProductToAdd, 
+        selectedCategory, printingMode, config, products, selectedProductToAdd,
         setSelectedProductToAdd, productAddQty, setProductAddQty, 
         handleProductSelect, labelItems, setLabelItems, logoItems, 
         setLogoItems, isDownloading, handleAddBlankLabel, cellInputRef, handleLogoUpload, setIsAssetManagerModalOpen
@@ -57,18 +57,20 @@ export const QueueSection: React.FC<QueueSectionProps> = (props) => {
                             <>
                                 <button
                                     type="button"
-                                    onClick={() => cellInputRef?.current?.click()}
+                                    onClick={() => selectedCategory === 'precos' ? handleAddBlankLabel?.(1) : cellInputRef?.current?.click()}
                                     className="p-2.5 px-4 bg-blue-50 dark:bg-blue-900/20 hover:bg-blue-100 dark:hover:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-xl transition-all font-black text-[9px] uppercase tracking-widest flex items-center gap-2 border border-blue-100 dark:border-blue-900/40 shadow-sm cursor-pointer"
                                 >
                                     {selectedCategory === 'precos' ? 'Adicionar' : <><i className="bi bi-cloud-arrow-up-fill" /> Imagem</>}
                                 </button>
-                                <input
-                                    type="file"
-                                    ref={cellInputRef}
-                                    className="hidden"
-                                    accept="image/*"
-                                    onChange={handleLogoUpload}
-                                />
+                                {selectedCategory !== 'precos' && (
+                                    <input
+                                        type="file"
+                                        ref={cellInputRef}
+                                        className="hidden"
+                                        accept="image/*"
+                                        onChange={handleLogoUpload}
+                                    />
+                                )}
                             </>
                         )}
                         {selectedCategory === 'logos' && (
@@ -129,6 +131,7 @@ export const QueueSection: React.FC<QueueSectionProps> = (props) => {
                                 labelItems={logoItems} 
                                 setLabelItems={setLogoItems} 
                                 printingMode="simple" 
+                                config={config}
                                 selectedCategory={selectedCategory}
                             />
                         ) : (
@@ -136,6 +139,7 @@ export const QueueSection: React.FC<QueueSectionProps> = (props) => {
                                 labelItems={labelItems} 
                                 setLabelItems={setLabelItems} 
                                 printingMode={printingMode} 
+                                config={config}
                                 selectedCategory={selectedCategory}
                             />
                         )}
