@@ -1,6 +1,7 @@
 import React from 'react';
 import labelMdf from '../../../../../assets/label_mdf.png';
 import { calculateLabelPhysicalSize } from '../utils/LabelPhysicalGeometry';
+import ProductSearchInput from './ProductSearchInput';
 
 
 interface LabelQueueProps {
@@ -8,6 +9,8 @@ interface LabelQueueProps {
     setLabelItems: React.Dispatch<React.SetStateAction<any[]>>;
     printingMode: 'simple' | 'advanced';
     config: any;
+    products?: any[];
+    onSelectProduct?: (index: number, product: any) => void;
     selectedCategory?: string | null;
 }
 
@@ -16,6 +19,8 @@ const LabelQueue: React.FC<LabelQueueProps> = ({
     setLabelItems, 
     printingMode,
     config,
+    products = [],
+    onSelectProduct,
     selectedCategory
 }) => {
     const [dragOverIdx, setDragOverIdx] = React.useState<number | null>(null);
@@ -99,7 +104,7 @@ const LabelQueue: React.FC<LabelQueueProps> = ({
                     onDragOver={(e) => handleDragOver(e, idx)}
                     onDragLeave={handleDragLeave}
                     onDrop={(e) => handleDrop(e, idx)}
-                    className={`group relative w-full ${isImagePriceQueue ? 'max-w-none flex-col items-stretch' : 'max-w-2xl flex items-center'} bg-white dark:bg-slate-900 rounded-[1.75rem] border p-3 hover:shadow-xl hover:border-blue-500/30 transition-all duration-300 gap-3 ${
+                    className={`group relative w-full ${isImagePriceQueue ? 'max-w-none flex items-center' : 'max-w-2xl flex items-center'} bg-white dark:bg-slate-900 rounded-[1.75rem] border p-3 hover:shadow-xl hover:border-blue-500/30 transition-all duration-300 gap-3 ${
                         'cursor-grab active:cursor-grabbing'
                     } ${
                         dragOverIdx === idx 
@@ -116,7 +121,7 @@ const LabelQueue: React.FC<LabelQueueProps> = ({
                     {selectedCategory !== 'identificacao' && (selectedCategory !== 'precos' || printingMode === 'simple') && (
                         <div className="flex flex-col gap-2 items-center">
                             <div
-                                className={`relative shrink-0 rounded-[1.25rem] bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 flex items-center justify-center overflow-hidden p-1.5 group/thumb shadow-inner ${isImagePriceQueue ? 'w-full' : 'w-16 h-16'}`}
+                                className={`relative shrink-0 rounded-[1.25rem] bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 flex items-center justify-center overflow-hidden p-1.5 group/thumb shadow-inner ${isImagePriceQueue ? 'w-32 sm:w-36' : 'w-16 h-16'}`}
                                 style={isImagePriceQueue ? { aspectRatio: `${labelPhysicalSize.widthMm} / ${labelPhysicalSize.heightMm}` } : undefined}
                             >
                                 {item.isBlank && !item.image ? (
@@ -171,6 +176,21 @@ const LabelQueue: React.FC<LabelQueueProps> = ({
                                     </div>
                                 )}
                             </div>
+
+                            {isImagePriceQueue && (
+                                <div className="flex items-center justify-center gap-1 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg px-1.5 py-1 w-full">
+                                    <span className="text-[9px] font-black text-slate-400 mr-1 uppercase">Qtd</span>
+                                    <button onClick={() => updateItem(idx, { quantity: Math.max(1, (item.quantity || 1) - 1) })} className="text-slate-500 hover:text-blue-500 w-5 h-5 flex items-center justify-center bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded shadow-sm"><i className="bi bi-dash" /></button>
+                                    <input
+                                        type="number"
+                                        value={item.quantity || 1}
+                                        onChange={e => updateItem(idx, { quantity: Math.max(1, parseInt(e.target.value) || 1) })}
+                                        className="w-8 bg-transparent text-center text-xs font-black outline-none text-slate-700 dark:text-slate-200"
+                                    />
+                                    <button onClick={() => updateItem(idx, { quantity: (item.quantity || 1) + 1 })} className="text-slate-500 hover:text-blue-500 w-5 h-5 flex items-center justify-center bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded shadow-sm"><i className="bi bi-plus" /></button>
+                                    <button onClick={() => removeItem(idx)} className="w-7 h-7 ml-1 rounded-lg bg-white dark:bg-slate-900 text-slate-400 hover:bg-red-50 hover:text-red-500 hover:border-red-200 transition-all flex items-center justify-center border border-slate-200 dark:border-slate-800 shadow-sm" title="Remover item"><i className="bi bi-trash3-fill text-xs" /></button>
+                                </div>
+                            )}
                             
                             {!item.isBlank && (item.productImages?.length > 0 || item.parentImages?.length > 0) && (() => {
                                 const allImages = [...(item.productImages || []), ...(item.parentImages || [])];
@@ -212,8 +232,16 @@ const LabelQueue: React.FC<LabelQueueProps> = ({
                         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                             {/* Nome e SKU */}
                             <div className="min-w-0 flex-1">
-                                {item.isBlank ? (
-                                    selectedCategory === 'precos' && printingMode === 'simple' ? null : (
+                        {item.isBlank ? (
+                                    selectedCategory === 'precos' && printingMode === 'advanced' ? (
+                                        <ProductSearchInput
+                                            products={products}
+                                            selectedProduct={null}
+                                            onSelectProduct={(product) => product && onSelectProduct?.(idx, product)}
+                                            placeholder="Buscar produto ou SKU..."
+                                            hideIcon
+                                        />
+                                    ) : selectedCategory === 'precos' ? null : (
                                         <>
                                             <label className="text-[8px] font-black uppercase text-slate-400 mb-0.5 block tracking-widest">
                                                 Espaçador
@@ -243,7 +271,7 @@ const LabelQueue: React.FC<LabelQueueProps> = ({
                             </div>
                             
                             {/* Quantidade e Lixeira */}
-                            <div className="flex items-center gap-2 shrink-0 self-end sm:self-auto">
+                            <div className={`${isImagePriceQueue ? 'hidden' : 'flex'} items-center gap-2 shrink-0 self-end sm:self-auto`}>
                                 <div className="flex items-center gap-1 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg px-1.5 py-1 shrink-0">
                                     <span className="text-[9px] font-black text-slate-400 mr-1 uppercase hidden md:inline">Qtd</span>
                                     <button onClick={() => updateItem(idx, { quantity: Math.max(1, (item.quantity || 1) - 1) })} className="text-slate-500 hover:text-blue-500 w-5 h-5 flex items-center justify-center bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded shadow-sm"><i className="bi bi-dash" /></button>

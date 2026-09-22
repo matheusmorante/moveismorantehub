@@ -14,6 +14,7 @@ interface ProductSearchInputProps {
     onSelectProduct: (product: Product | null) => void;
     placeholder?: string;
     className?: string;
+    hideIcon?: boolean;
 }
 
 export const ProductSearchInput: React.FC<ProductSearchInputProps> = ({
@@ -21,7 +22,8 @@ export const ProductSearchInput: React.FC<ProductSearchInputProps> = ({
     selectedProduct = null,
     onSelectProduct,
     placeholder = "Digite para buscar produto...",
-    className = ""
+    className = "",
+    hideIcon = false
 }) => {
     const normalizeSearchText = (value: unknown) => String(value || '')
         .normalize('NFD')
@@ -221,13 +223,15 @@ export const ProductSearchInput: React.FC<ProductSearchInputProps> = ({
     return (
         <div ref={containerRef} className={`relative flex-1 ${className}`}>
             <div className="flex items-center gap-3 w-full px-2 py-2 bg-transparent border-b-2 border-slate-200 dark:border-slate-800 focus-within:border-blue-500 transition-colors cursor-text min-w-[240px]">
-                <span className="w-6 h-6 rounded-xl flex items-center justify-center shrink-0">
-                    {isLoading ? (
-                        <i className="bi bi-arrow-repeat text-xs animate-spin text-blue-500" />
-                    ) : (
-                        <i className="bi bi-search text-xs text-slate-400" />
-                    )}
-                </span>
+                {!hideIcon && (
+                    <span className="w-6 h-6 rounded-xl flex items-center justify-center shrink-0">
+                        {isLoading ? (
+                            <i className="bi bi-arrow-repeat text-xs animate-spin text-blue-500" />
+                        ) : (
+                            <i className="bi bi-search text-xs text-slate-400" />
+                        )}
+                    </span>
+                )}
 
                 <div className="flex flex-col min-w-0 flex-1">
                     <input

@@ -31,46 +31,16 @@ export const QueueSection: React.FC<QueueSectionProps> = (props) => {
                         )}
                     </div>
 
-                    {selectedCategory === 'precos' && printingMode === 'advanced' && (
-                        <div className="flex-1 min-w-[240px] max-w-xl flex items-center gap-2">
-                            <ProductSearchInput
-                                products={products}
-                                selectedProduct={null}
-                                onSelectProduct={(p) => { if (p) handleProductSelect(p, 1); }}
-                                placeholder="Buscar produto, variação ou SKU para adicionar..."
-                            />
-                            {handleAddBlankLabel && (
-                                <button
-                                    type="button"
-                                    onClick={() => handleAddBlankLabel(1)}
-                                    className="shrink-0 p-2.5 px-4 bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-xl text-[9px] font-black uppercase tracking-wider transition-all border border-slate-100 dark:border-slate-700 shadow-sm active:scale-95 flex items-center gap-1.5 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700"
-                                    title="Adicionar etiqueta em branco"
-                                >
-                                    <i className="bi bi-plus-lg" /> Em branco
-                                </button>
-                            )}
-                        </div>
-                    )}
-                    
                     <div className="flex items-center gap-2 shrink-0">
-                        {printingMode === 'simple' && (
+                        {selectedCategory === 'precos' && handleAddBlankLabel && (
                             <>
                                 <button
                                     type="button"
-                                    onClick={() => selectedCategory === 'precos' ? handleAddBlankLabel?.(1) : cellInputRef?.current?.click()}
+                                    onClick={() => handleAddBlankLabel(1)}
                                     className="p-2.5 px-4 bg-blue-50 dark:bg-blue-900/20 hover:bg-blue-100 dark:hover:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-xl transition-all font-black text-[9px] uppercase tracking-widest flex items-center gap-2 border border-blue-100 dark:border-blue-900/40 shadow-sm cursor-pointer"
                                 >
-                                    {selectedCategory === 'precos' ? 'Adicionar' : <><i className="bi bi-cloud-arrow-up-fill" /> Imagem</>}
+                                    Adicionar
                                 </button>
-                                {selectedCategory !== 'precos' && (
-                                    <input
-                                        type="file"
-                                        ref={cellInputRef}
-                                        className="hidden"
-                                        accept="image/*"
-                                        onChange={handleLogoUpload}
-                                    />
-                                )}
                             </>
                         )}
                         {selectedCategory === 'logos' && (
@@ -132,6 +102,7 @@ export const QueueSection: React.FC<QueueSectionProps> = (props) => {
                                 setLabelItems={setLogoItems} 
                                 printingMode="simple" 
                                 config={config}
+                                products={products}
                                 selectedCategory={selectedCategory}
                             />
                         ) : (
@@ -140,6 +111,11 @@ export const QueueSection: React.FC<QueueSectionProps> = (props) => {
                                 setLabelItems={setLabelItems} 
                                 printingMode={printingMode} 
                                 config={config}
+                                products={products}
+                                onSelectProduct={(idx, product) => {
+                                    setLabelItems(prev => prev.filter((_, itemIdx) => itemIdx !== idx));
+                                    handleProductSelect(product, 1);
+                                }}
                                 selectedCategory={selectedCategory}
                             />
                         )}
