@@ -7,13 +7,12 @@ export default defineConfig({
   retries: process.env.CI ? 2 : 0,
   workers: 1,
   timeout: 60000,
-  reporter: [
-    ['list'],
-    ['html', { outputFolder: 'playwright-report', open: 'never' }]
-  ],
+  reporter: process.env.PW_HTML_REPORT === '1' || process.env.CI
+    ? [['html', { outputFolder: 'playwright-report', open: 'never' }], ['list']]
+    : [['dot']],
   use: {
     baseURL: process.env.PLAYWRIGHT_TEST_BASE_URL || 'http://localhost:8081',
-    trace: 'retain-on-failure',
+    trace: 'on-first-retry',
     screenshot: 'only-on-failure',
     video: 'retain-on-failure',
     // Mobile tests will simulate a mobile environment

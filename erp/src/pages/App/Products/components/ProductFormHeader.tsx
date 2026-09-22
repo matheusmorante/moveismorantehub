@@ -2,7 +2,7 @@ import React from 'react';
 import Product from '../../../types/product.type';
 import { checkERPLegibility } from '../utils/productLegibilityRules';
 
-export type ProductFormTabId = 'geral' | 'ecommerce' | 'technical' | 'estoque' | 'variacoes' | 'fiscal' | 'ambientes';
+export type ProductFormTabId = 'geral' | 'ecommerce' | 'technical' | 'description' | 'estoque' | 'variacoes' | 'fiscal' | 'ambientes';
 
 export interface ProductTabItem {
     id: ProductFormTabId;
@@ -43,6 +43,7 @@ export const ProductFormHeader: React.FC<ProductFormHeaderProps> = ({
         ...(!isService ? [
             { id: 'ecommerce' as const, label: 'Fotos', icon: 'bi-images' },
             { id: 'technical' as const, label: 'Características', icon: 'bi-info-circle' },
+            { id: 'description' as const, label: 'Descrição', icon: 'bi-file-text' },
             { id: 'estoque' as const, label: 'Estoque e Precificação', icon: 'bi-box-seam' },
             { id: 'variacoes' as const, label: 'Variações', icon: 'bi-grid-3x3-gap' },
         ] : []),
@@ -172,7 +173,9 @@ export const ProductFormHeader: React.FC<ProductFormHeaderProps> = ({
                             (tab.id === 'variacoes' && validationErrors.variationsImages);
 
                         const hasCategory = (formData.categoryIds || []).length > 0;
-                        const isTabDisabled = tab.id === 'technical' && !hasCategory;
+                        const hasProductName = String(formData.name || '').trim().length >= 2;
+                        const hasRequiredTechnicalValues = !validationErrors.technicalValues;
+                        const isTabDisabled = (tab.id === 'technical' && !hasCategory) || (tab.id === 'description' && (!hasCategory || !hasProductName || !hasRequiredTechnicalValues));
 
                         return (
                             <button

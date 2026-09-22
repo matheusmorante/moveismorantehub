@@ -20,7 +20,7 @@ interface VariationFormModalProps {
     readonly onSave?: (updatedVariation: Variation) => void;
 }
 
-type VariationTabId = 'identificacao' | 'fotos' | 'estoque' | 'tecnico' | 'compostos';
+type VariationTabId = 'identificacao' | 'fotos' | 'estoque' | 'tecnico' | 'descricao' | 'compostos';
 
 interface TabDefinition {
     readonly id: VariationTabId;
@@ -32,6 +32,7 @@ const getFormTabs = (isComposition: boolean): readonly TabDefinition[] => {
     const tabs: TabDefinition[] = [
         { id: 'identificacao', label: 'Identificação', icon: 'bi-info-circle' },
         { id: 'tecnico', label: 'Características', icon: 'bi-gear' },
+        { id: 'descricao', label: 'Descrição', icon: 'bi-file-text' },
         { id: 'fotos', label: 'Fotos da Variação', icon: 'bi-images' },
     ];
     
@@ -112,7 +113,7 @@ export const VariationFormModal: React.FC<VariationFormModalProps> = (props) => 
                 role="dialog"
                 aria-modal="true"
                 aria-labelledby="variation-form-modal-title"
-                className="relative bg-white dark:bg-slate-900 w-full max-w-5xl h-[100dvh] sm:h-auto sm:max-h-[calc(100dvh-2rem)] rounded-none sm:rounded-3xl shadow-2xl flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200 border-0 sm:border border-slate-100 dark:border-slate-800 z-10"
+                className="relative bg-white dark:bg-slate-900 w-full max-w-5xl h-[100dvh] sm:h-[calc(100dvh-2rem)] rounded-none sm:rounded-3xl shadow-2xl flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200 border-0 sm:border border-slate-100 dark:border-slate-800 z-10"
             >
                 {/* Header */}
                 <div className="px-4 sm:px-6 py-3 sm:py-4 border-b border-slate-50 dark:border-slate-800/50 flex flex-col gap-2 sm:gap-4 shrink-0 bg-white dark:bg-slate-900">
@@ -264,6 +265,10 @@ export const VariationFormModal: React.FC<VariationFormModalProps> = (props) => 
                             parentProduct={parentProduct}
                             handleChange={handleChange}
                         />
+                    )}
+
+                    {activeTab === 'descricao' && (
+                        <div className="space-y-3"><h3 className="text-sm font-black uppercase tracking-widest text-slate-700 dark:text-slate-200">Descrição da variação</h3><textarea rows={16} value={formData.description || ''} onChange={(event) => handleChange('description', event.target.value)} placeholder="Descrição específica desta variação..." className="w-full min-h-[320px] rounded-2xl border border-slate-200 dark:border-slate-800 bg-transparent p-4 text-sm font-semibold outline-none focus:border-blue-600 resize-y dark:text-slate-200" /></div>
                     )}
 
                     {activeTab === 'compostos' && (

@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { subscribeToOrders } from '../../utils/orderHistoryService';
+import { fetchAllOrdersForDashboard, subscribeToOrderChanges } from '../../utils/orderHistoryService';
 import Order from '../../types/order.type';
 import { isSameDay, subDays, differenceInCalendarDays, startOfDay, endOfDay, subMonths, isWithinInterval } from 'date-fns';
 import { dashboardRevenueFactor, getDashboardRevenueImpact, getDefinitiveOrderValue, isDashboardSaleOrder } from './dashboardRevenue';
@@ -21,11 +21,11 @@ export interface DashboardStats {
     totalProfit: number;
     /** Margem bruta em % */
     grossMargin: number;
-    /** CMV total do período */
+    /** CMV total do perÃ­odo */
     totalCmv: number;
-    /** true se algum item não teve unitCost calculável */
+    /** true se algum item nÃ£o teve unitCost calculÃ¡vel */
     cmvPartial: boolean;
-    /** Qtd de itens sem custo calculável */
+    /** Qtd de itens sem custo calculÃ¡vel */
     itemsWithoutCost: number;
     avgTicket: number;
     pendingOrders: number;
@@ -69,7 +69,7 @@ const STATUS_LABELS: Record<string, string> = {
 const startOfLocalDay = (dateStr: string) => new Date(dateStr + "T00:00:00");
 const endOfLocalDay = (dateStr: string) => new Date(dateStr + "T23:59:59");
 
-/** Calcula o CMV real de um pedido usando unitCost dos itens (CMPM histórico) */
+/** Calcula o CMV real de um pedido usando unitCost dos itens (CMPM histÃ³rico) */
 export const calcOrderCmv = (order: Order): { cmv: number; partial: boolean; itemsWithout: number } => {
     let cmv = 0;
     let itemsWithout = 0;
@@ -93,11 +93,20 @@ export const useDashboardData = (period: Period, customStartDate?: string, custo
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        const unsubscribe = subscribeToOrders((fetchedOrders: Order[]) => {
-            setOrders(fetchedOrders);
-            setLoading(false);
-        });
-        return () => { if (unsubscribe) unsubscribe(); };
+        let active = true;
+        const refresh = async () => {
+            const fetchedOrders = await fetchAllOrdersForDashboard();
+            if (active) {
+                setOrders(fetchedOrders);
+                setLoading(false);
+            }
+        };
+        void refresh();
+        const unsubscribe = subscribeToOrderChanges(() => { void refresh(); });
+        return () => {
+            active = false;
+            unsubscribe();
+        };
     }, []);
 
     const intervals = useMemo(() => {
@@ -204,7 +213,7 @@ export const useDashboardData = (period: Period, customStartDate?: string, custo
             for (const origin of origins) {
                 if (origin && typeof origin === 'string') {
                     const mo = origin.toLowerCase().trim();
-                    if (mo === 'paid' || mo.includes('trafego') || mo.includes('tráfego') || mo.includes('ads') || mo.includes('facebook') || mo.includes('instagram') || mo.includes('google')) return true;
+                    if (mo === 'paid' || mo.includes('trafego') || mo.includes('trÃ¡fego') || mo.includes('ads') || mo.includes('facebook') || mo.includes('instagram') || mo.includes('google')) return true;
                 }
             }
             return false;

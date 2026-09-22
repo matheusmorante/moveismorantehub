@@ -26,6 +26,7 @@ export interface CharacteristicGroup<T extends { name: string }> {
 const CHARACTERISTIC_TOPICS: Array<{ title: string; matches: RegExp }> = [
     { title: 'Dimensões e peso', matches: /\b(altura|largura|profundidade|comprimento|peso)\b/i },
     { title: 'Tecido e revestimento', matches: /\b(tecido|revestimento|espuma|densidade|estofad)/i },
+    { title: 'Estrutura', matches: /\b(estrutura|material da estrutura|tipo de portas|quantidade de portas)\b/i },
     { title: 'Funcionalidades', matches: /\b(espelho|porta|gaveta|deslizamento|mecanismo|retr[aá]til|extens[íi]vel)\b/i },
     { title: 'Acessórios', matches: /\b(p[eé]s?|puxador|rod[ií]zio|sapata)\b/i },
     { title: 'Materiais e acabamento', matches: /\b(material|acabamento|cor|madeira|metal|vidro)\b/i },

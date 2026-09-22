@@ -104,14 +104,16 @@ export const VariationAttributeValueInput: React.FC<VariationAttributeValueInput
         }
 
         if (dataType === 'integer' || dataType === 'decimal' || dataType === 'measure') {
+            const isDecimal = dataType === 'decimal' || dataType === 'measure';
             return (
                 <div className="relative flex items-center">
                     <input
-                        type="number"
+                        type={isDecimal ? 'text' : 'number'}
+                        inputMode={isDecimal ? 'decimal' : 'numeric'}
                         step={dataType === 'integer' ? '1' : '0.01'}
-                        placeholder={attributeName ? `Valor de ${attributeName}...` : "Informe um valor..."}
-                        value={value}
-                        onChange={(e) => onChange(e.target.value)}
+                        placeholder={isDecimal ? '0,00' : (/porta|gaveta/i.test(attributeName || '') ? 'Insira a quantidade de portas' : 'Insira um número inteiro')}
+                        value={isDecimal ? formatDecimalValue(value) : value}
+                        onChange={(e) => onChange(isDecimal ? maskDecimalValue(e.target.value) : e.target.value)}
                         className={`box-border h-[34px] w-full bg-transparent border-b-2 border-t-0 border-x-0 outline-none px-1 py-0 ${unit ? 'pr-8' : ''} text-xs font-bold transition-all border-slate-200 dark:border-slate-800 text-slate-800 dark:text-slate-200 focus:border-blue-500`}
                     />
                     {unit && (
@@ -121,7 +123,7 @@ export const VariationAttributeValueInput: React.FC<VariationAttributeValueInput
                     )}
                 </div>
             );
-        }
+}
 
         if (dataType === 'text') {
             return (
@@ -228,3 +230,15 @@ export const VariationAttributeValueInput: React.FC<VariationAttributeValueInput
         </div>
     );
 };
+
+function maskDecimalValue(input: string): string {
+    const digits = input.replace(/\D/g, '').replace(/^0+(?=\d)/, '');
+    if (!digits) return '';
+    return (Number(digits) / 100).toFixed(2);
+}
+
+function formatDecimalValue(value: string): string {
+    if (!value) return '';
+    const numeric = Number(value.replace(',', '.'));
+    return Number.isFinite(numeric) ? numeric.toFixed(2).replace('.', ',') : '';
+}

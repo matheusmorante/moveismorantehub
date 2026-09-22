@@ -18,9 +18,9 @@ const menuItems: any[] = [
         color: 'text-indigo-500',
         bg: 'bg-indigo-50 dark:bg-indigo-900/20',
         links: [
-            { to: '/registrations/products', icon: 'bi-list-ul', iconColor: 'text-indigo-500', label: 'Lista de Produtos' },
-            { to: '/registrations/variations', icon: 'bi-gear-wide-connected', iconColor: 'text-blue-500', label: 'Características' },
-            { to: '/registrations/product-categories', icon: 'bi-tag-fill', iconColor: 'text-teal-500', label: 'Ambientes e Categorias' },
+            { to: '/products', icon: 'bi-list-ul', iconColor: 'text-indigo-500', label: 'Lista de Produtos' },
+            { to: '/products/characteristics', icon: 'bi-sliders2', iconColor: 'text-blue-500', label: 'Características' },
+            { to: '/products/categories', icon: 'bi-tag-fill', iconColor: 'text-teal-500', label: 'Ambientes e Categorias' },
             { to: '/products/compositions', icon: 'bi-diagram-3-fill', iconColor: 'text-amber-500', label: 'Composições' },
             { to: '/products/reconciliation/suppliers', icon: 'bi-magic', iconColor: 'text-purple-500', label: 'Conciliação' },
         ]
@@ -101,7 +101,7 @@ const menuItems: any[] = [
         bg: 'bg-pink-50 dark:bg-pink-900/20',
         links: [
             { to: '/marketing/posts', icon: 'bi-instagram', iconColor: 'text-pink-500', label: 'Gerador de Prompt para Posts' },
-            { to: '/registrations/meta-catalog', icon: 'bi-meta', iconColor: 'text-blue-600', label: 'Catálogo Meta' },
+            { to: '/products/meta-catalog', icon: 'bi-meta', iconColor: 'text-blue-600', label: 'Catálogo Meta' },
             { to: '/estoque/etiquetas?category=logos', icon: 'bi-printer-fill', iconColor: 'text-purple-500', label: 'Impressão de Logotipos e Artes' },
         ]
     },

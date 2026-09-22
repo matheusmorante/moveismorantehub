@@ -135,8 +135,8 @@ export const VariationRow: React.FC<VariationRowProps> = React.memo(({
                     type="button"
                     onClick={() => onEdit?.(v.id)}
                     className="p-1.5 rounded-xl transition-all bg-slate-100 dark:bg-slate-800 text-slate-400 hover:text-blue-600"
-                    title="Editar detalhes da variação"
-                    aria-label="Editar detalhes da variação"
+                    title="Editar características da variação"
+                    aria-label="Editar características da variação"
                 >
                     <i className="bi bi-pencil-square text-base" aria-hidden="true" />
                 </button>

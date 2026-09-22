@@ -76,11 +76,20 @@ const ProductTechnicalTab: React.FC<ProductTechnicalTabProps> = ({
             setLoadingFields(true);
             try {
                 // 1. Buscar todos os atributos (campos técnicos)
-                const { data: attrData, error: attrErr } = await supabase
+                let { data: attrData, error: attrErr } = await supabase
                     .from('attributes')
-                    .select('id, name, active, data_type, is_globally_required, is_custom')
+                    .select('id, name, active, data_type, unit, is_globally_required, is_custom')
                     .eq('active', true)
                     .order('name');
+                if (attrErr && (attrErr.message?.includes('is_custom') || attrErr.code === '42703')) {
+                    const fallback = await supabase
+                        .from('attributes')
+                        .select('id, name, active, data_type, unit, is_globally_required')
+                        .eq('active', true)
+                        .order('name');
+                    attrData = fallback.data;
+                    attrErr = fallback.error;
+                }
                 if (attrErr) throw attrErr;
 
                 // 2. Buscar valores/opções cadastrados
@@ -112,8 +121,8 @@ const ProductTechnicalTab: React.FC<ProductTechnicalTabProps> = ({
                         id: attr.id,
                         name: attr.name,
                         dataType: attr.data_type || 'list',
-                        unit: '',
-                        isRequired: Boolean(attr.is_globally_required),
+                        unit: attr.unit || (['altura', 'largura', 'profundidade'].includes(String(attr.name).toLocaleLowerCase('pt-BR')) ? 'cm' : String(attr.name).toLocaleLowerCase('pt-BR') === 'peso' ? 'kg' : undefined),
+                        isRequired: false,
                         isCustom: Boolean(attr.is_custom),
                         options: opts,
                         categoryIds: linkedCategoryIds
@@ -146,11 +155,16 @@ const ProductTechnicalTab: React.FC<ProductTechnicalTabProps> = ({
         };
     }, []);
 
-    // Todas as especificações técnicas ativas cadastradas aparecem no formulário
-    const visibleFields = allTechnicalFields;
+    // Só exibe características globais ou vinculadas às categorias selecionadas.
+    const visibleFields = getApplicableTechnicalFields(
+        allTechnicalFields,
+        formData.categoryIds || [],
+        formData.technicalValues || {},
+        manualFieldNames
+    );
     const fieldGroups = groupTechnicalFields(visibleFields);
 
-    const availableAdditionalFields: TechnicalFieldDefinition[] = [];
+    const availableAdditionalFields = getAvailableAdditionalFields(allTechnicalFields, visibleFields);
 
     // Filtrar campos adicionais por busca
     const filteredAdditionalFields = React.useMemo(() => {
@@ -211,17 +225,18 @@ const ProductTechnicalTab: React.FC<ProductTechnicalTabProps> = ({
                                 <h4 id={`technical-group-${group.title}`} className="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400 border-b border-slate-200 dark:border-slate-800 pb-2">
                                     {group.title}
                                 </h4>
-                                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-5">
+                                <div className="grid grid-cols-[repeat(auto-fit,minmax(280px,280px))] gap-x-5 gap-y-4">
                                     {group.fields.map((field) => {
                             const rawValue = formData.technicalValues?.[field.name];
                             const hasSelectedValue = rawValue !== undefined && rawValue !== null && String(rawValue).trim() !== '';
                             const isManual = manualFieldNames.includes(field.name);
                             const isNotApplicable = rawValue === 'Não se aplica';
-                            const isApplicable = !isNotApplicable;
+                            const isAlwaysApplicable = ['cor', 'material da estrutura'].includes(field.name.trim().toLocaleLowerCase('pt-BR'));
+                            const isApplicable = isAlwaysApplicable || !isNotApplicable;
                             const isFieldInvalid = isApplicable && !hasSelectedValue && validationErrors?.technicalValues;
 
                                         return (
-                                <div key={field.id} id={`technical-field-${field.name}`} className="flex flex-col gap-1.5 p-1 transition-all">
+                                <div key={field.id} id={`technical-field-${field.name}`} className="flex w-[280px] max-w-full flex-col gap-1.5 p-1 transition-all">
                                     <div className="flex items-center justify-between gap-2">
                                         <label className={`text-[10px] font-black uppercase tracking-widest truncate flex items-center gap-1.5 transition-colors ${
                                             isFieldInvalid 
@@ -230,8 +245,8 @@ const ProductTechnicalTab: React.FC<ProductTechnicalTabProps> = ({
                                                 ? 'text-slate-400 dark:text-slate-500'
                                                 : 'text-slate-600 dark:text-slate-300'
                                         }`}>
-                                            <span>{field.name}</span>
-                                            {isApplicable && <span className="text-red-500" aria-label="Obrigatório">*</span>}
+                                            <span>{field.name}{field.unit ? ` (${field.unit})` : ''}</span>
+                                            {field.isRequired && isApplicable && <span className="text-red-500" aria-label="Obrigatório">*</span>}
                                             {isManual && (
                                                 <span className="text-[8px] font-bold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/50 px-1 py-0.2 rounded border border-blue-200/50">
                                                     Manual
@@ -240,11 +255,12 @@ const ProductTechnicalTab: React.FC<ProductTechnicalTabProps> = ({
                                         </label>
                                         <div className="flex items-center gap-1.5">
                                             {/* Switch Toggle: Ligado = Se aplica (padrão) | Desligado = Não se aplica */}
-                                            <button
+                                            { !['cor', 'material da estrutura'].includes(field.name.trim().toLocaleLowerCase('pt-BR')) && <button
                                                 type="button"
                                                 role="switch"
                                                 aria-checked={isApplicable}
                                                 onClick={() => {
+                                                    if (field.name.trim().toLocaleLowerCase('pt-BR') === 'cor') return;
                                                     // Se estava aplicável, ao desligar vira 'Não se aplica'
                                                     // Se estava desligado ('Não se aplica'), ao ligar volta a ser vazio/editável
                                                     handleTechnicalValueChange(field.name, isApplicable ? 'Não se aplica' : '');
@@ -254,7 +270,8 @@ const ProductTechnicalTab: React.FC<ProductTechnicalTabProps> = ({
                                                         ? 'bg-blue-600 dark:bg-blue-500'
                                                         : 'bg-slate-300 dark:bg-slate-700'
                                                 }`}
-                                                title="Se aplica?"
+                                                disabled={field.name.trim().toLocaleLowerCase('pt-BR') === 'cor'}
+                                                title={field.name.trim().toLocaleLowerCase('pt-BR') === 'cor' ? 'Cor é obrigatória' : 'Se aplica?'}
                                             >
                                                 <span
                                                     aria-hidden="true"
@@ -262,7 +279,7 @@ const ProductTechnicalTab: React.FC<ProductTechnicalTabProps> = ({
                                                         isApplicable ? 'translate-x-3' : 'translate-x-0'
                                                     }`}
                                                 />
-                                            </button>
+                                            </button> }
 
                                             {isManual && (
                                                 <button
@@ -282,7 +299,7 @@ const ProductTechnicalTab: React.FC<ProductTechnicalTabProps> = ({
                                         field={field}
                                         value={rawValue !== undefined && rawValue !== null ? rawValue : ''}
                                         isInvalid={Boolean(isFieldInvalid)}
-                                        disabled={rawValue === 'Não se aplica' || rawValue === 'N/A'}
+                                        disabled={!isAlwaysApplicable && (rawValue === 'Não se aplica' || rawValue === 'N/A')}
                                         onChange={(selectedVal) => handleTechnicalValueChange(field.name, selectedVal)}
                                     />
                                 </div>
@@ -295,43 +312,6 @@ const ProductTechnicalTab: React.FC<ProductTechnicalTabProps> = ({
                 )}
             </div>
 
-            {/* Descrição Detalhada */}
-            <div className="flex flex-col gap-2 pt-4">
-                <div className="flex items-center justify-between">
-                    <h4 className="text-xs font-black uppercase tracking-widest text-slate-800 dark:text-slate-200 flex items-center gap-2">
-                        <i className="bi bi-file-text text-blue-600" aria-hidden="true"></i> Descrição Detalhada
-                    </h4>
-                    {handleImproveDescriptionWithAI && (
-                        <button
-                            type="button"
-                            onClick={handleImproveDescriptionWithAI}
-                            disabled={isImprovingDescription}
-                            aria-label="Aperfeiçoar descrição com inteligência artificial"
-                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-purple-100/80 hover:bg-purple-200/80 dark:bg-purple-950/60 dark:hover:bg-purple-900/60 border border-purple-200 dark:border-purple-800/70 text-amber-600 dark:text-amber-400 font-black uppercase text-[9px] tracking-wider transition-all disabled:opacity-50 active:scale-95 shadow-sm"
-                        >
-                            {isImprovingDescription ? (
-                                <>
-                                    <i className="bi bi-arrow-repeat animate-spin text-amber-500" aria-hidden="true" />
-                                    Aperfeiçoando...
-                                </>
-                            ) : (
-                                <>
-                                    <i className="bi bi-stars text-amber-500 text-xs font-bold" aria-hidden="true" />
-                                    Aperfeiçoar
-                                </>
-                            )}
-                        </button>
-                    )}
-                </div>
-                <textarea
-                    rows={12}
-                    aria-label="Descrição detalhada do produto"
-                    value={formData.description || ''}
-                    onChange={(e) => handleFieldChange('description', e.target.value)}
-                    placeholder="Escreva a descrição detalhada do produto, diferenciais, especificações técnicas..."
-                    className="w-full mt-2 p-3 bg-transparent border-b-2 border-t-0 border-x-0 border-slate-200 dark:border-slate-800 outline-none text-xs font-bold focus:border-blue-600 dark:focus:border-blue-400 resize-y dark:text-slate-200 transition-all min-h-[220px]"
-                />
-            </div>
         </div>
     );
 };

@@ -86,9 +86,9 @@ const DesktopNav = ({ activeMenu, setActiveMenu }: DesktopNavProps) => {
                 {activeMenu === 'products' && (
                     <div className={dropdownClass}>
                         <DropdownGroup title="Catálogo" />
-                        <DropdownItem to="/registrations/products" icon="bi-list-ul" title="Lista de produtos" description="Gerenciar produtos" onClick={() => setActiveMenu(null)} />
-                        <DropdownItem to="/registrations/variations" icon="bi-gear-wide-connected" title="Características" description="Cores, medidas e características" onClick={() => setActiveMenu(null)} />
-                        <DropdownItem to="/registrations/product-categories" icon="bi-tag-fill" title="Ambientes e categorias" description="Agrupamentos de catálogo" onClick={() => setActiveMenu(null)} />
+                        <DropdownItem to="/products" icon="bi-list-ul" title="Lista de produtos" description="Gerenciar produtos" onClick={() => setActiveMenu(null)} />
+                        <DropdownItem to="/products/characteristics" icon="bi-sliders2" title="Características" description="Cores, medidas e características" onClick={() => setActiveMenu(null)} />
+                        <DropdownItem to="/products/categories" icon="bi-tag-fill" title="Ambientes e categorias" description="Agrupamentos de catálogo" onClick={() => setActiveMenu(null)} />
                         <DropdownItem to="/products/compositions" icon="bi-diagram-3-fill" title="Composições" description="Kits e montagens" onClick={() => setActiveMenu(null)} />
                         
                         <DropdownSeparator />
@@ -226,7 +226,7 @@ const DesktopNav = ({ activeMenu, setActiveMenu }: DesktopNavProps) => {
                     <div className={dropdownClass}>
                         <DropdownGroup title="Criação" />
                         <DropdownItem to="/marketing/posts" icon="bi-instagram" title="Gerador de prompt" description="Criar ideias de posts" onClick={() => setActiveMenu(null)} />
-                        <DropdownItem to="/registrations/meta-catalog" icon="bi-meta" title="Catálogo Meta" description="Integração de feed" onClick={() => setActiveMenu(null)} />
+                        <DropdownItem to="/products/meta-catalog" icon="bi-meta" title="Catálogo Meta" description="Integração de feed" onClick={() => setActiveMenu(null)} />
                         <DropdownItem to="/estoque/etiquetas?category=logos" icon="bi-printer-fill" title="Impressão de logotipos" description="Artes e promoções" onClick={() => setActiveMenu(null)} />
                     </div>
                 )}

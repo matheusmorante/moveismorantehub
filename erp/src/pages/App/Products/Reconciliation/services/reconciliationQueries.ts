@@ -68,7 +68,6 @@ export async function fetchProductsForReconciliation(
         .select(`
             id,
             code,
-            sku,
             name,
             description,
             category,
@@ -114,7 +113,7 @@ export async function fetchProductsForReconciliation(
         const safe = filters.search.replace(/"/g, '').trim();
         if (safe) {
             const s = `%${safe}%`;
-            query = query.or(`name.ilike."${s}",code.ilike."${s}",sku.ilike."${s}"`);
+            query = query.or(`name.ilike."${s}",code.ilike."${s}"`);
         }
     }
 
@@ -208,7 +207,7 @@ export async function fetchProductsForReconciliation(
         const productBase = {
             id: raw.id,
             code: raw.code,
-            sku: raw.sku,
+            sku: raw.sku || raw.code,
             name: raw.name || raw.description || '',
             category: raw.category || (categoryNames.length > 0 ? categoryNames.join(' | ') : ''),
             categoryId: raw.category_id,

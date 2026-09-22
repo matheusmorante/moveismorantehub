@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect } from "react";
 import { createPortal } from "react-dom";
 import Product from "../../../types/product.type";
 
@@ -17,6 +17,7 @@ import ProductEcommerceTab from "../components/tabs/ProductEcommerceTab";
 import ProductInventoryTab from "../components/tabs/ProductInventoryTab";
 import ProductFiscalTab from "../components/tabs/ProductFiscalTab";
 import ProductTechnicalTab from "../components/tabs/ProductTechnicalTab";
+import ProductDescriptionTab from "../components/tabs/ProductDescriptionTab";
 
 // Orchestrator Hook
 import { useProductFormModal } from "../hooks/useProductFormModal";
@@ -80,6 +81,14 @@ const ProductFormModal: React.FC<ProductFormModalProps> = (props) => {
         handleNextStep,
         isLastStep
     } = useProductFormModal(props);
+
+    // As características só existem no contexto de uma categoria.
+    // Se a categoria for removida enquanto a aba estiver aberta, volta ao cadastro geral.
+    useEffect(() => {
+        if (activeTab === 'technical' && (!formData.categoryIds || formData.categoryIds.length === 0)) {
+            setActiveTab('geral');
+        }
+    }, [activeTab, formData.categoryIds, setActiveTab]);
 
     if (!isOpen) return null;
 
@@ -152,6 +161,10 @@ const ProductFormModal: React.FC<ProductFormModalProps> = (props) => {
                             isImprovingDescription={ai.isImprovingDescription}
                             validationErrors={validationErrors}
                         />
+                    )}
+
+                    {!isService && activeTab === 'description' && (
+                        <ProductDescriptionTab formData={formData} setFormData={setFormData} onImprove={ai.handleImproveDescriptionWithAI} improving={ai.isImprovingDescription} />
                     )}
 
                     {!isService && activeTab === 'estoque' && (

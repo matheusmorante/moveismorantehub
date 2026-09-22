@@ -7,6 +7,22 @@ description: Planeje e execute testes seguros do ERP e App Mobile em alteraçõe
 
 Use esta skill sempre que a mudança puder alterar regras de negócio, persistência, interface ou efeitos entre módulos. Também utilize-a como guia mestre para executar e continuar o **Roadmap Cíclico de Testes Contínuos** do Morante Hub.
 
+## Regra de execução sob demanda
+
+Esta skill é principalmente uma orientação de planejamento e segurança. **Não execute Vitest, Playwright, testes E2E, testes de integração, typecheck ou qualquer outra bateria automaticamente.**
+
+Só execute testes quando o usuário solicitar explicitamente, por exemplo: “rode os testes”, “execute o Vitest”, “valide com Playwright” ou equivalente.
+
+Durante uma alteração, registre os testes recomendados e o comando focalizado que deveria ser usado, mas aguarde autorização para executá-los. Não interprete iniciar o ambiente Dev, editar código, fazer pull ou abrir o Dashboard como autorização para testar.
+
+Quando houver solicitação explícita, prefira nesta ordem:
+
+1. teste diretamente afetado;
+2. teste de regressão relacionado;
+3. suíte mais ampla somente se o usuário também solicitar ou se houver uma necessidade técnica clara a ser comunicada antes.
+
+Não inicie watchers, retries, Playwright, Vitest ou suítes em background sem solicitação explícita.
+
 ---
 
 ## 1. Regra de Ouro da Blindagem de Dados

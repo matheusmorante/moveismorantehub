@@ -13,7 +13,7 @@ interface AttributeCardProps {
 }
 
 export function AttributeCard({ attribute, onAddValues, onDeleteAttribute, onDeleteValue, onEdit }: AttributeCardProps) {
-    const canAddOptions = ['list', 'radio', 'multi_select'].includes(attribute.dataType || 'list');
+    const canAddOptions = ['radio', 'multi_select'].includes(attribute.dataType || '');
     const [isExpanded, setIsExpanded] = useState(false);
     const [showAll, setShowAll] = useState(false);
     const [valueSearch, setValueSearch] = useState('');
@@ -50,30 +50,34 @@ export function AttributeCard({ attribute, onAddValues, onDeleteAttribute, onDel
                 return 'Número Decimal';
             case 'integer':
                 return 'Número Inteiro';
+            case 'number':
+                return 'Número Inteiro';
+            case 'decimal':
+                return 'Número Decimal';
             case 'text':
             case 'text_short':
+            case 'text_long':
                 return 'Texto';
             case 'radio':
                 return `Escolha única • ${attribute.options.length} ${attribute.options.length === 1 ? 'opção' : 'opções'}`;
             case 'multi_select':
                 return `Escolha múltipla • ${attribute.options.length} ${attribute.options.length === 1 ? 'opção' : 'opções'}`;
             default:
-                return `${attribute.options.length} ${attribute.options.length === 1 ? 'valor' : 'valores'}`;
+                return 'Texto';
         }
     };
 
     return (
         <article className="bg-white dark:bg-slate-950 border border-slate-200/80 dark:border-slate-800 rounded-3xl shadow-sm overflow-visible">
             <div className="flex items-center gap-3 px-5 py-4 sm:px-6">
-                <button type="button" onClick={() => setIsExpanded((current) => !current)} className="min-w-0 flex-1 flex items-center justify-between gap-4 text-left cursor-pointer" aria-expanded={isExpanded}>
+                <div className="min-w-0 flex-1 flex items-center justify-between gap-4 text-left">
                     <span className="min-w-0">
                         <span className="block text-base sm:text-lg font-black text-slate-800 dark:text-slate-100 truncate">{attribute.name}</span>
                         <span className="block text-[10px] font-black uppercase tracking-widest text-slate-400 mt-0.5">
                             {getSubtitle()}
                         </span>
                     </span>
-                    <i className={`bi ${isExpanded ? 'bi-chevron-up' : 'bi-chevron-down'} text-slate-400`} aria-hidden="true" />
-                </button>
+                </div>
 
                 <div className="relative shrink-0">
                     <button type="button" onClick={() => setMenuOpen((current) => !current)} className="w-9 h-9 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 dark:hover:text-slate-200 transition-colors cursor-pointer" aria-label={`Abrir ações do atributo ${attribute.name}`} aria-expanded={menuOpen}>
@@ -81,6 +85,9 @@ export function AttributeCard({ attribute, onAddValues, onDeleteAttribute, onDel
                     </button>
                     {menuOpen && (
                         <div className="absolute right-0 top-11 z-30 w-52 rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-xl p-1.5">
+                            <button type="button" onClick={() => { setMenuOpen(false); setIsExpanded(true); }} className="w-full px-3 py-2 text-left rounded-xl text-xs font-bold text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer">
+                                <i className="bi bi-eye mr-2" aria-hidden="true" />Detalhes
+                            </button>
                             <button type="button" onClick={() => { setMenuOpen(false); onEdit(attribute); }} className="w-full px-3 py-2 text-left rounded-xl text-xs font-bold text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer">
                                 <i className="bi bi-pencil mr-2" aria-hidden="true" />Editar atributo
                             </button>
@@ -96,7 +103,12 @@ export function AttributeCard({ attribute, onAddValues, onDeleteAttribute, onDel
             </div>
 
             {isExpanded && (
-                <div className="border-t border-slate-100 dark:border-slate-800 px-5 py-5 sm:px-6 space-y-4">
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/50" onClick={() => setIsExpanded(false)}>
+                  <div role="dialog" aria-modal="true" className="w-full max-w-2xl max-h-[85vh] overflow-y-auto rounded-3xl bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 shadow-2xl p-5 sm:p-7 space-y-5" onClick={(event) => event.stopPropagation()}>
+                    <div className="flex items-start justify-between gap-4">
+                      <div><h2 className="text-xl font-black text-slate-800 dark:text-slate-100">{attribute.name}</h2><p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mt-1">Detalhes • {getSubtitle()}</p></div>
+                      <button type="button" onClick={() => setIsExpanded(false)} className="w-9 h-9 rounded-xl text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer" aria-label="Fechar detalhes"><i className="bi bi-x-lg" /></button>
+                    </div>
                     {!canAddOptions ? (
                         <div className="rounded-2xl bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-800 p-4 flex items-center gap-3">
                             <div className="w-8 h-8 rounded-xl bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0">
@@ -108,7 +120,7 @@ export function AttributeCard({ attribute, onAddValues, onDeleteAttribute, onDel
                         </div>
                     ) : (
                         <>
-                            {hasManyValues && (
+                            {canAddOptions && (
                                 <div className="relative max-w-xl">
                                     <i className="bi bi-search absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-xs" aria-hidden="true" />
                                     <input value={valueSearch} onChange={(event) => setValueSearch(event.target.value)} placeholder={`Buscar entre ${attribute.options.length} valores...`} aria-label={`Buscar valores de ${attribute.name}`} className="w-full pl-9 pr-3 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-xs font-bold outline-none focus:ring-2 focus:ring-blue-500/20 dark:text-slate-200" />
@@ -148,6 +160,7 @@ export function AttributeCard({ attribute, onAddValues, onDeleteAttribute, onDel
                             )}
                         </>
                     )}
+                  </div>
                 </div>
             )}
         </article>

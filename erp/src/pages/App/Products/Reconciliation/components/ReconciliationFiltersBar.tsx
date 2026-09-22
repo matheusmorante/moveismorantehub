@@ -48,7 +48,7 @@ export const ReconciliationFiltersBar: React.FC<Props> = ({ filters, onChange })
                         className={`${INPUT_BASE} px-3 cursor-pointer`}
                     >
                         <option value="all">Todas as pendências</option>
-                        <option value="supplier">Sem fornecedor principal</option>
+                        <option value="supplier">Sem fornecedores</option>
                         <option value="category">Sem categoria</option>
                         <option value="ncm">NCM ausente ou inválido</option>
                         <option value="attributes">Atributos obrigatórios / vazios</option>

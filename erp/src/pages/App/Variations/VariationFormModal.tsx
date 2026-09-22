@@ -11,14 +11,6 @@ interface VariationFormModalProps {
     allVariations?: VariationType[];
 }
 
-const DATA_TYPES: Array<{ value: AttributeDataType; label: string }> = [
-    { value: 'text_short', label: 'Texto' },
-    { value: 'integer', label: 'Número Inteiro' },
-    { value: 'measure', label: 'Número Decimal' },
-    { value: 'radio', label: 'Escolha única' },
-    { value: 'multi_select', label: 'Escolha múltipla' }
-];
-
 const normalizeDataType = (value?: AttributeDataType): AttributeDataType => {
     if (value === 'text' || value === 'text_long') return 'text_short';
     if (value === 'number') return 'integer';
@@ -163,49 +155,13 @@ const VariationFormModal = ({ isOpen, onClose, onSuccess, variation }: Variation
 
                 <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto min-h-0 custom-scrollbar p-6 sm:p-8">
                     <div className="flex flex-col gap-6">
-                        {/* Nome da característica */}
-                        <div className="flex flex-col gap-2">
-                            <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">
-                                Nome da característica
-                            </label>
-                            <input
-                                type="text"
-                                required
-                                value={formData.name || ''}
-                                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                                className="w-full px-4 py-3.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all text-sm font-bold dark:text-slate-100"
-                                placeholder="Ex: Tipo de porta, Cor, Material..."
-                            />
+                        <div className="rounded-2xl bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 px-4 py-3 text-sm font-black text-slate-700 dark:text-slate-200">
+                            {formData.name}
+                            <span className="block mt-1 text-[10px] uppercase tracking-widest text-slate-400">Gerencie apenas os valores disponíveis</span>
                         </div>
 
-                        <div className="flex flex-col gap-2">
-                            <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">Tipo de preenchimento</label>
-                            <select
-                                value={formData.dataType || 'list'}
-                                onChange={(event) => setFormData(prev => ({ ...prev, dataType: event.target.value as AttributeDataType }))}
-                                className="w-full px-4 py-3.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none text-sm font-bold dark:text-slate-100"
-                            >
-                                {DATA_TYPES.map(type => <option key={type.value} value={type.value}>{type.label}</option>)}
-                            </select>
-                        </div>
-
-                        <label className="flex items-center justify-between gap-3 cursor-pointer">
-                            <span className="text-xs font-bold text-slate-700 dark:text-slate-200">Obrigatória no cadastro/edição de produto</span>
-                            <span className="flex items-center gap-2">
-                                <input
-                                    type="checkbox"
-                                    checked={Boolean(formData.isGloballyRequired)}
-                                    onChange={(event) => setFormData(prev => ({ ...prev, isGloballyRequired: event.target.checked }))}
-                                    className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
-                                />
-                                <span title="Quando ativada, exige um valor para esta característica ao salvar o produto.">
-                                    <i className="bi bi-info-circle text-slate-400" aria-label="Informação sobre obrigatoriedade" />
-                                </span>
-                            </span>
-                        </label>
-
-                        {/* Valores Possíveis (Opções) */}
-                        <div className="flex flex-col gap-3">
+                        {/* Valores Possíveis (Opções) — somente tipos de seleção */}
+                        {isListType && <div className="flex flex-col gap-3">
                             <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">
                                 Valores Possíveis (Opções)
                             </label>
@@ -258,7 +214,7 @@ const VariationFormModal = ({ isOpen, onClose, onSuccess, variation }: Variation
                                     </div>
                                 ))}
                             </div>
-                        </div>
+                        </div>}
                     </div>
                 </form>
 

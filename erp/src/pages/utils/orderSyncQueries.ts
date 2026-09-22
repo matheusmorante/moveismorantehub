@@ -353,6 +353,39 @@ export const subscribeToOrders = (callback: OrdersSubscriber) => {
     };
 };
 
+/** Leitura completa para indicadores históricos; não altera a consulta resumida das demais telas. */
+export const fetchAllOrdersForDashboard = async (): Promise<Order[]> => {
+    const pageSize = 1000;
+    const rows: any[] = [];
+    let from = 0;
+
+    try {
+        while (true) {
+            const { data, error } = await supabase
+                .from(TABLE_NAME)
+                .select('*, order_items(*), order_payments(*)')
+                .order('created_at', { ascending: false })
+                .range(from, from + pageSize - 1);
+            if (error) throw error;
+            const page = Array.isArray(data) ? data : [];
+            rows.push(...page);
+            if (page.length < pageSize) break;
+            from += pageSize;
+        }
+
+        return await enrichOrdersWithPeopleOrigins(rows.filter(isValidOrderRow).map((row: any) => {
+            try {
+                return mapOrderFromDatabase(row);
+            } catch (_e) {
+                return capitalizeOrder({ ...(row.order_data || {}), id: String(row.id) } as Order);
+            }
+        }));
+    } catch (error) {
+        console.error('[OrdersSync] Erro ao buscar histórico completo do dashboard:', error);
+        return [];
+    }
+};
+
 // Para telas que já possuem sua própria consulta paginada, o Realtime deve
 // apenas sinalizar uma mudança. Isso evita baixar a lista completa sem usar os
 // dados recebidos.

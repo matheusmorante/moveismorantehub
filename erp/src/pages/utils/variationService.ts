@@ -3,6 +3,27 @@ import VariationType, { VariationOption } from "../types/variation.type";
 import { toTitleCase } from './textUtils';
 import { sortAttributeValuesNaturally } from './attributeValueSorting';
 
+export const normalizeAttributeDataType = (value?: VariationType['dataType']): NonNullable<VariationType['dataType']> => {
+    if (value === 'text' || value === 'text_long') return 'text_short';
+    if (value === 'number' || value === 'decimal') return value === 'decimal' ? 'measure' : 'integer';
+    if (value === 'list') return 'radio';
+    return value || 'text_short';
+};
+
+// Compatibilidade para instalações onde a coluna data_type ainda não existe
+// ou perdeu os valores durante uma sincronização antiga.
+const inferAttributeDataType = (name: string, value?: VariationType['dataType']) => {
+    const normalizedName = name.trim().toLocaleLowerCase('pt-BR');
+    if (['altura', 'largura', 'peso', 'profundidade'].includes(normalizedName)) return 'measure' as const;
+    if ([
+        'densidade da espuma', 'tecido', 'espelho', 'contém espelho', 'tipo de porta', 'tipo de portas',
+        'sistema de deslizamento da gaveta', 'tipo de pés', 'material de pés', 'material dos pés', 'tipo de puxador', 'material dos puxadores',
+        'acabamento', 'cor', 'estrutura', 'material da estrutura', 'quantidade de gavetas',
+        'quantidade de portas'
+    ].includes(normalizedName)) return 'radio' as const;
+    return normalizeAttributeDataType(value);
+};
+
 const capitalize = (str: string): string => {
     return toTitleCase(str);
 };
@@ -98,7 +119,7 @@ export const subscribeToVariations = (callback: (variations: VariationType[]) =>
             if (primaryQuery.error && (primaryQuery.error.message?.includes("column") || primaryQuery.error.code === '42703')) {
                 const fallbackQuery = await supabase
                     .from("attributes")
-                    .select("id, name, active, is_globally_required")
+                    .select("id, name, active, data_type, unit, is_globally_required")
                     .order("name", { ascending: true });
                 if (fallbackQuery.error) throw fallbackQuery.error;
                 attrData = fallbackQuery.data;
@@ -131,7 +152,7 @@ export const subscribeToVariations = (callback: (variations: VariationType[]) =>
                 id: String(attr.id),
                 name: attr.name,
                 active: attr.active ?? true,
-                dataType: attr.data_type || 'list',
+                dataType: inferAttributeDataType(attr.name, attr.data_type),
                 unit: attr.unit || '',
                 isGloballyRequired: Boolean(attr.is_globally_required),
                 isCustom: Boolean(attr.is_custom),
@@ -188,7 +209,13 @@ export const saveVariation = async (variation: VariationType): Promise<void> => 
         if (attrErr && (attrErr.message?.includes("column") || attrErr.code === '42703')) {
             const { data: retryAttr, error: retryErr } = await supabase
                 .from("attributes")
-                .insert([{ name: capitalize(variation.name) }])
+                .insert([{
+                    name: capitalize(variation.name),
+                    active: variation.active ?? true,
+                    data_type: normalizeAttributeDataType(variation.dataType),
+                    unit: variation.unit || null,
+                    is_globally_required: variation.isGloballyRequired ?? false
+                }])
                 .select()
                 .single();
             attr = retryAttr;
@@ -237,10 +264,11 @@ export const updateVariation = async (id: string, variationToUpdate: Partial<Var
         const attrUpdates: any = {};
         if (variationToUpdate.name !== undefined) attrUpdates.name = capitalize(variationToUpdate.name);
         if (variationToUpdate.active !== undefined) attrUpdates.active = variationToUpdate.active;
-        if (variationToUpdate.dataType !== undefined) attrUpdates.data_type = variationToUpdate.dataType;
+        if (variationToUpdate.dataType !== undefined) attrUpdates.data_type = normalizeAttributeDataType(variationToUpdate.dataType);
         if (variationToUpdate.unit !== undefined) attrUpdates.unit = variationToUpdate.unit;
         if (variationToUpdate.isGloballyRequired !== undefined) attrUpdates.is_globally_required = variationToUpdate.isGloballyRequired;
-        if (variationToUpdate.isCustom !== undefined) attrUpdates.is_custom = variationToUpdate.isCustom;
+        // is_custom existe apenas em instalações que aplicaram a migration opcional.
+        // O cadastro deve continuar salvando nas instalações legadas.
 
         if (Object.keys(attrUpdates).length > 0) {
             let { error: attrErr } = await supabase
@@ -248,16 +276,12 @@ export const updateVariation = async (id: string, variationToUpdate: Partial<Var
                 .update(attrUpdates)
                 .eq("id", id);
             if (attrErr && (attrErr.message?.includes("column") || attrErr.code === '42703')) {
-                delete attrUpdates.active;
-                if (Object.keys(attrUpdates).length > 0) {
-                    const { error: retryErr } = await supabase
-                        .from("attributes")
-                        .update(attrUpdates)
-                        .eq("id", id);
-                    attrErr = retryErr;
-                } else {
-                    attrErr = null;
-                }
+                delete attrUpdates.is_custom;
+                const { error: retryErr } = await supabase
+                    .from("attributes")
+                    .update(attrUpdates)
+                    .eq("id", id);
+                attrErr = retryErr;
             }
             if (attrErr) throw attrErr;
         }

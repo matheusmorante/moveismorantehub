@@ -453,14 +453,20 @@ export function useVariationForm({
         const variationAttributeValues = Object.fromEntries(
             cleanAttributes.map(attribute => [attribute.name, attribute.value])
         );
-        const missingRequiredFields = getMissingRequiredTechnicalFields(
-            (requiredAttributes || []).map((field: { name: string }) => field.name),
-            {
-                ...(parentProduct.technicalValues || {}),
-                ...variationAttributeValues,
-                ...(formData.technicalValues || {})
-            }
+        const requiredFieldNames = Array.from(new Set([
+            ...(requiredAttributes || []).map((field: { name: string }) => field.name),
+            'Cor',
+            'Material da estrutura'
+        ]));
+        const effectiveTechnicalValues = {
+            ...(parentProduct.technicalValues || {}),
+            ...variationAttributeValues,
+            ...(formData.technicalValues || {})
+        };
+        const applicableRequiredFieldNames = requiredFieldNames.filter((name) =>
+            String(effectiveTechnicalValues[name] ?? '').trim().toLocaleLowerCase('pt-BR') !== 'não se aplica'
         );
+        const missingRequiredFields = getMissingRequiredTechnicalFields(applicableRequiredFieldNames, effectiveTechnicalValues);
         if (missingRequiredFields.length > 0) {
             toast.error(`Preencha as características obrigatórias da variação: ${missingRequiredFields.join(', ')}.`);
             setActiveTab('tecnico');

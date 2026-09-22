@@ -173,15 +173,18 @@ function Router() {
             <Route path='/api-usage' element={<AdminRoute><ApiUsagePage /></AdminRoute>} />
 
             {/* Registrations */}
-            <Route path='/products' element={<Navigate to="/registrations/products" replace />} />
-            <Route path='/registrations/products' element={<Products />} />
+            <Route path='/products' element={<Products />} />
+            <Route path='/registrations/products' element={<Navigate to="/products" replace />} />
             <Route path='/products/compositions' element={<ProductCompositions />} />
             <Route path='/products/reconciliation' element={<SupplierReconciliation />} />
             <Route path='/products/reconciliation/suppliers' element={<SupplierReconciliation />} />
-            <Route path='/registrations/meta-catalog' element={<MetaCatalog />} />
+            <Route path='/products/meta-catalog' element={<MetaCatalog />} />
+            <Route path='/registrations/meta-catalog' element={<Navigate to="/products/meta-catalog" replace />} />
             <Route path='/registrations/whatsapp-marketplace' element={<WhatsAppMarketplace />} />
-            <Route path='/registrations/product-categories' element={<Categories />} />
-            <Route path='/registrations/product-types' element={<ProductTypes />} />
+            <Route path='/products/categories' element={<Categories />} />
+            <Route path='/products/types' element={<ProductTypes />} />
+            <Route path='/registrations/product-categories' element={<Navigate to="/products/categories" replace />} />
+            <Route path='/registrations/product-types' element={<Navigate to="/products/types" replace />} />
             {/* Estoque */}
             <Route path='/estoque' element={<Navigate to="/estoque/movimentacoes" replace />} />
             <Route path='/estoque/movimentacoes' element={<Stock />} />
@@ -199,7 +202,8 @@ function Router() {
             <Route path='/marketing/meta-catalog' element={<MetaCatalog />} />
             <Route path='/marketing/channel-catalog' element={<ChannelCatalog />} />
             <Route path='/registrations/services' element={<Services />} />
-            <Route path='/registrations/variations' element={<Variations />} />
+            <Route path='/products/characteristics' element={<Variations />} />
+            <Route path='/registrations/variations' element={<Navigate to="/products/characteristics" replace />} />
             <Route path='/registrations/customers' element={<Customers />} />
             <Route path='/customers/desires' element={<CustomerDesiresPage />} />
             <Route path='/estoque/fornecedores' element={<Suppliers />} />

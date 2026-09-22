@@ -99,7 +99,7 @@ export const TodaySummaryCard: React.FC<TodaySummaryCardProps> = ({
         } else {
           supabase
             .from('orders')
-            .select('*')
+            .select('id, status, created_at, updated_at, order_data')
             .order('created_at', { ascending: false })
             .then(({ data }) => {
               if (alive && data && data.length > 0) setFallbackOrders(data);

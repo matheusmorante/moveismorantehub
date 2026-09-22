@@ -245,11 +245,11 @@ export const ReconciliationProductCard: React.FC<Props> = ({
                         </div>
 
                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                            {/* Fornecedor Principal */}
+                            {/* Fornecedores */}
                             {activeParentPendencies.some(p => p.type === 'supplier') && (
                                 <div className="flex flex-col gap-1">
                                     <label className="text-[10px] font-black uppercase text-amber-800 dark:text-amber-400 tracking-wider flex items-center gap-1">
-                                        <i className="bi bi-exclamation-circle"></i> Fornecedor Principal
+                                        <i className="bi bi-exclamation-circle"></i> Fornecedores
                                     </label>
                                     <SupplierAutocomplete
                                         suppliers={[]}

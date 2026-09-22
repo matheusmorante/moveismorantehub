@@ -3,13 +3,14 @@ import { whatsappGraphService } from '@/pages/utils/whatsappGraphService';
 import { pluralizeProductType } from '@/pages/utils/pluralize';
 import { VariationRow, CatalogCollectionItem, ChannelFilter } from '../types';
 
-const CATALOG_COLUMNS = 'id, code, description, brand, category, unit_price, stock, active, deleted_at, images, variations, environment, product_type_name, last_whatsapp_sync, line';
+const CATALOG_COLUMNS = 'id, code, description, brand, category, unit_price, stock, active, deleted_at, images, environment, product_type_name, last_whatsapp_sync, line, product_variations(id, product_id, name, sku, price, stock, active, status, image_url, attributes)';
 
 export async function fetchLightweightCollections(): Promise<CatalogCollectionItem[]> {
     const { data, error } = await supabase
         .from('products')
         .select('environment, product_type_name')
-        .is('deleted_at', null);
+        .is('deleted_at', null)
+        .range(0, 29);
 
     if (error || !data) return [];
 
@@ -68,11 +69,23 @@ export async function fetchPaginatedChannelProducts(options: FetchPaginatedOptio
 
     if (search) {
         const searchLower = search.toLowerCase();
-        query = query.or(`description.ilike.%${searchLower}%,code.ilike.%${searchLower}%`);
+        const { data: matchingVariations, error: variationSearchError } = await supabase
+            .from('product_variations')
+            .select('product_id')
+            .or(`name.ilike.%${searchLower}%,sku.ilike.%${searchLower}%`)
+            .limit(100);
+        if (variationSearchError) throw variationSearchError;
+
+        const matchingParentIds = Array.from(new Set((matchingVariations || []).map(v => v.product_id).filter(Boolean)));
+        if (matchingParentIds.length > 0) {
+            query = query.or(`description.ilike.%${searchLower}%,code.ilike.%${searchLower}%,id.in.(${matchingParentIds.join(',')})`);
+        } else {
+            query = query.or(`description.ilike.%${searchLower}%,code.ilike.%${searchLower}%`);
+        }
     }
 
     if (filterChannel === 'whatsapp') {
-        query = query.contains('variations', '[{"whatsappSync": true}]');
+        // A publicação no WhatsApp é filtrada após a expansão das variações.
     }
 
     const from = (page - 1) * itemsPerPage;
@@ -92,14 +105,9 @@ export async function fetchPaginatedChannelProducts(options: FetchPaginatedOptio
 
     const expanded: VariationRow[] = [];
     for (const p of (productsData || [])) {
-        let variations: any[] = [];
-        if (Array.isArray(p.variations)) {
-            variations = p.variations;
-        } else if (typeof p.variations === 'string' && p.variations.trim().startsWith('[')) {
-            try { variations = JSON.parse(p.variations); } catch { variations = []; }
-        } else if (p.variations && typeof p.variations === 'object') {
-            variations = Object.values(p.variations);
-        }
+        const variations: any[] = Array.isArray((p as any).product_variations)
+            ? (p as any).product_variations
+            : [];
 
         for (const v of variations) {
             if (v && typeof v === 'object' && !v.deleted) {

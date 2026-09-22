@@ -25,7 +25,7 @@ export function detectProductPendencies(
     const parentPendencies: ProductPendency[] = [];
     const variationsWithPendencies: ReconciliationVariationItem[] = [];
 
-    // 1. Fornecedor Principal (Pai)
+    // 1. Fornecedores (Pai)
     const hasSupplier = Boolean(
         product.mainSupplierId?.trim() ||
         product.supplierId?.trim() ||
@@ -37,7 +37,7 @@ export function detectProductPendencies(
             type: 'supplier',
             level: 'parent',
             field: 'mainSupplierId',
-            label: 'Fornecedor Principal',
+            label: 'Fornecedores',
             isCritical: true,
             currentValue: null
         });

@@ -20,12 +20,14 @@ interface VariationTechnicalTabProps {
     readonly setFormData?: React.Dispatch<React.SetStateAction<Variation | null>>;
     readonly parentProduct: Product;
     readonly handleChange: <K extends keyof Variation>(field: K, value: Variation[K]) => void;
+    readonly showDescription?: boolean;
 }
 
 export const VariationTechnicalTab: React.FC<VariationTechnicalTabProps> = ({
     formData,
     parentProduct,
-    handleChange
+    handleChange,
+    showDescription = false
 }) => {
     const [isImprovingDescription, setIsImprovingDescription] = useState(false);
     const [allTechnicalFields, setAllTechnicalFields] = useState<TechnicalFieldDefinition[]>([]);
@@ -59,11 +61,18 @@ export const VariationTechnicalTab: React.FC<VariationTechnicalTabProps> = ({
         const loadFields = async () => {
             setLoadingFields(true);
             try {
-                const { data: attrData, error: attrErr } = await supabase
+                let { data: attrData, error: attrErr } = await supabase
                     .from('attributes')
-                    .select('id, name, active, data_type, is_globally_required, is_custom')
+                    .select('id, name, active, data_type, unit, is_globally_required, is_custom')
                     .eq('active', true)
                     .order('name');
+                if (attrErr && (attrErr.message?.includes('is_custom') || attrErr.code === '42703')) {
+                    const fallback = await supabase.from('attributes')
+                        .select('id, name, active, data_type, unit, is_globally_required')
+                        .eq('active', true).order('name');
+                    attrData = fallback.data;
+                    attrErr = fallback.error;
+                }
                 if (attrErr) throw attrErr;
 
                 const { data: valData } = await supabase
@@ -93,8 +102,8 @@ export const VariationTechnicalTab: React.FC<VariationTechnicalTabProps> = ({
                         id: attr.id,
                         name: attr.name,
                         dataType: attr.data_type || 'list',
-                        unit: '',
-                        isRequired: Boolean(attr.is_globally_required),
+                        unit: attr.unit || undefined,
+                        isRequired: Boolean(attr.is_globally_required) || ['cor', 'material da estrutura'].includes(String(attr.name).trim().toLocaleLowerCase('pt-BR')),
                         isCustom: Boolean(attr.is_custom),
                         options: opts,
                         categoryIds: linkedCategoryIds
@@ -139,7 +148,7 @@ export const VariationTechnicalTab: React.FC<VariationTechnicalTabProps> = ({
     }, [parentProduct?.technicalValues, variationAttributeValues, formData?.technicalValues]);
 
     // Todas as especificações técnicas ativas cadastradas aparecem na variação
-    const visibleFields = allTechnicalFields;
+    const visibleFields = getApplicableTechnicalFields(allTechnicalFields, parentProduct.categoryIds || [], combinedValues, manualFieldNames);
     const fieldGroups = groupTechnicalFields(visibleFields);
 
     const availableAdditionalFields: TechnicalFieldDefinition[] = [];
@@ -242,7 +251,7 @@ export const VariationTechnicalTab: React.FC<VariationTechnicalTabProps> = ({
                     </div>
                 ) : visibleFields.length === 0 ? (
                     <div className="py-6 text-center text-slate-400 text-xs italic bg-white dark:bg-slate-900/40 rounded-2xl border border-dashed border-slate-200 dark:border-slate-800">
-                        Nenhuma Especificação Técnica cadastrada.
+                        Nenhuma característica cadastrada.
                     </div>
                 ) : (
                     <div className="flex flex-col gap-6 pt-1">
@@ -269,16 +278,52 @@ export const VariationTechnicalTab: React.FC<VariationTechnicalTabProps> = ({
                             const isManual = manualFieldNames.includes(field.name);
                             // Campo está "ativo" se tem override próprio OU se o pai informou valor
                             const parentVal = parentProduct?.technicalValues?.[field.name];
-                            const isEnabled = isOverridden || (parentVal !== undefined && parentVal !== null && String(parentVal).trim() !== '');
+                            const parentText = String(parentVal ?? '').trim();
+                            const parentIsZero = ['integer', 'number', 'decimal', 'measure'].includes(field.dataType) && Number(parentText.replace(',', '.')) === 0;
+                            const hasMeaningfulParentValue = parentText !== '' && parentText.toLocaleLowerCase('pt-BR') !== 'não se aplica' && !parentIsZero;
+                            const isInheritedFromParent = !isOverridden && hasMeaningfulParentValue;
+                            const isAlwaysApplicable = ['cor', 'material da estrutura'].includes(field.name.trim().toLocaleLowerCase('pt-BR'));
+                            const normalizedEffectiveValue = String(effectiveVal ?? '').trim().toLocaleLowerCase('pt-BR');
+                            // O override vazio ainda representa uma escolha manual de
+                            // "Aplica-se"; não confundir ausência de valor com "Não se aplica".
+                            const isApplicable = isAlwaysApplicable || (
+                                isOverridden
+                                    ? normalizedEffectiveValue !== 'não se aplica'
+                                    : normalizedEffectiveValue !== '' && normalizedEffectiveValue !== 'não se aplica'
+                            );
+                            // O vínculo é a fonte da verdade: sem override a variação está
+                            // sincronizada e o status deve ser somente leitura. Ao dessincronizar,
+                            // handleSetOverride cria também um override vazio, quando necessário.
+                            const canEditApplicability = !isAlwaysApplicable && isOverridden;
 
                                         return (
                                 <div key={field.id} className="flex flex-col gap-1.5 p-1 transition-all min-w-0">
                                     <div className="flex items-center justify-between gap-2 min-w-0">
                                         <label className="text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-300 truncate min-w-0" title={field.name}>
                                             {field.name}
-                                            {field.isRequired && <span className="ml-1 text-red-500" aria-label="Obrigatório">*</span>}
+                                            {isApplicable && <span className="ml-1 text-red-500" aria-label="Obrigatório">*</span>}
                                         </label>
                                         <div className="flex items-center gap-1 shrink-0">
+                                            {!isAlwaysApplicable && <button
+                                                type="button"
+                                                role="switch"
+                                                aria-checked={isApplicable}
+                                                onClick={() => {
+                                                    // O status de aplicabilidade só é editável fora da sincronização.
+                                                    // Alterá-lo não pode criar/remover o vínculo com o pai.
+                                                    if (canEditApplicability) {
+                                                        const valueToApply = isApplicable
+                                                            ? 'Não se aplica'
+                                                            : (normalizedEffectiveValue === 'não se aplica' ? '' : (effectiveVal ?? ''));
+                                                        handleSetOverride(field.name, valueToApply);
+                                                    }
+                                                }}
+                                                disabled={!canEditApplicability}
+                                                className={`relative inline-flex h-4 w-7 shrink-0 rounded-full border-2 border-transparent transition-colors ${canEditApplicability ? 'cursor-pointer' : 'cursor-not-allowed opacity-60'} ${isApplicable ? 'bg-blue-600' : 'bg-slate-300 dark:bg-slate-700'}`}
+                                                title={isAlwaysApplicable ? 'Esta característica é obrigatória' : (isOverridden ? (isApplicable ? 'Aplica-se — clique para marcar Não se aplica' : 'Não se aplica — clique para reativar') : 'Sincronizado com o pai — dessincronize para alterar')}
+                                            >
+                                                <span className={`pointer-events-none inline-block h-3 w-3 transform rounded-full bg-white shadow-sm transition ${isApplicable ? 'translate-x-3' : 'translate-x-0'}`} />
+                                            </button>}
                                             {/* Ícone sync: verde=sincronizado (corrente ligada), cinza=manual (corrente quebrada) */}
                                             <button
                                                 type="button"
@@ -315,7 +360,7 @@ export const VariationTechnicalTab: React.FC<VariationTechnicalTabProps> = ({
                                     <TechnicalFieldInput
                                         field={field}
                                         value={effectiveVal !== undefined && effectiveVal !== null ? effectiveVal : ''}
-                                        disabled={!isOverridden && isEnabled}
+                                        disabled={isInheritedFromParent}
                                         onChange={(selectedVal) => handleSetOverride(field.name, selectedVal)}
                                     />
                                 </div>
@@ -328,6 +373,7 @@ export const VariationTechnicalTab: React.FC<VariationTechnicalTabProps> = ({
                 )}
             </div>
 
+            {showDescription && (<>
             {/* Descrição */}
             <div className="flex flex-col gap-2 bg-slate-50 dark:bg-slate-950 p-6 rounded-3xl border border-slate-100 dark:border-slate-800">
                 <div className="flex items-center justify-between">
@@ -380,6 +426,7 @@ export const VariationTechnicalTab: React.FC<VariationTechnicalTabProps> = ({
                     />
                 )}
             </div>
+            </>)}
         </div>
     );
 };

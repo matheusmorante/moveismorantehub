@@ -10,6 +10,7 @@ import {
 } from './orderSearchQueries';
 import { 
     fetchOrdersPage, 
+    fetchAllOrdersForDashboard,
     subscribeToOrders, 
     subscribeToOrderChanges,
     enrichOrdersWithPeopleOrigins,
@@ -35,6 +36,7 @@ export {
     getOrdersCustomerDataOnly,
     fetchOrderById,
     fetchOrdersPage,
+    fetchAllOrdersForDashboard,
     subscribeToOrders,
     subscribeToOrderChanges,
     fetchScheduledAndDraftOrders,

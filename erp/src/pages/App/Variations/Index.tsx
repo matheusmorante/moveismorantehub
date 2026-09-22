@@ -3,7 +3,7 @@ import { toast } from 'react-toastify';
 import VariationType, { VariationOption } from '../../types/variation.type';
 import { checkVariationUsage, saveVariation, updateVariation } from '../../utils/variationService';
 import { normalizeSearchTerm } from '../../utils/textUtils';
-import { groupCharacteristicsByTopic } from '../../utils/technicalValuesService';
+import { groupTechnicalFields } from '../../utils/technicalValuesService';
 import { AttributeCard } from './AttributeCard';
 import { parseAttributeValueBatch } from './attributeValueBatch';
 import VariationFormModal from './VariationFormModal';
@@ -26,7 +26,7 @@ const Variations = () => {
             .sort((left, right) => left.name.localeCompare(right.name, 'pt-BR', { sensitivity: 'base' }));
     }, [searchTerm, variations]);
     const groupedVariations = useMemo(
-        () => groupCharacteristicsByTopic(filteredVariations),
+        () => groupTechnicalFields(filteredVariations),
         [filteredVariations]
     );
 
@@ -130,7 +130,7 @@ const Variations = () => {
             <header className="shrink-0 bg-white dark:bg-slate-950 border-b border-slate-100 dark:border-slate-800 px-4 py-3 sm:px-6 md:px-8 shadow-sm relative z-20">
                 <div className="max-w-7xl mx-auto flex flex-col md:flex-row md:items-center justify-between gap-3 sm:gap-4">
                     <div className="flex items-center gap-2.5 sm:gap-3">
-                        <i className="bi bi-gear-wide-connected text-xl sm:text-2xl text-blue-600 shrink-0" aria-hidden="true" />
+                        <i className="bi bi-sliders2 text-xl sm:text-2xl text-blue-600 shrink-0" aria-hidden="true" />
                         <h1 className="text-xl sm:text-2xl font-black text-slate-800 dark:text-slate-100 tracking-tight truncate">Características</h1>
                     </div>
 
@@ -153,14 +153,6 @@ const Variations = () => {
                         >
                             <i className="bi bi-upload sm:mr-2" aria-hidden="true" />
                             <span className="hidden sm:inline">Importar CSV</span>
-                        </button>
-                        <button
-                            type="button"
-                            onClick={() => openForm(null)}
-                            className="px-3.5 sm:px-4 py-2 sm:py-2.5 rounded-xl sm:rounded-2xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-black shadow-md shadow-blue-500/20 cursor-pointer flex items-center justify-center gap-1.5 sm:gap-2 shrink-0"
-                        >
-                            <i className="bi bi-plus-lg" aria-hidden="true" />
-                            <span>Nova característica</span>
                         </button>
                     </div>
                 </div>

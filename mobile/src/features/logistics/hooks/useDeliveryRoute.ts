@@ -63,7 +63,7 @@ export function useDeliveryRoute(dateScope: DeliveryRouteDateScope = 'today') {
       // 2. Busca do Supabase
       const { data, error } = await supabase
         .from('orders')
-        .select('*')
+        .select('id, status, created_at, updated_at, order_data')
         .order('created_at', { ascending: false });
 
       if (!error && data) {
