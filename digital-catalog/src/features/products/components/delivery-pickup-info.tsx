@@ -13,10 +13,10 @@ export function DeliveryPickupInfo() {
   }
 
   return (
-    <div className="flex flex-col sm:flex-row gap-3">
+    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 mt-2 items-stretch">
       <Dialog>
         <DialogTrigger asChild>
-          <Button variant="outline" className="flex-1 gap-2 border-primary/20 hover:border-primary text-primary h-12">
+          <Button variant="outline" className="w-full min-w-0 gap-2 border-primary/20 hover:border-primary text-primary h-11 px-3 text-sm whitespace-normal leading-tight">
             <Truck className="h-4 w-4" />
             Condições de Entrega
           </Button>
@@ -58,7 +58,7 @@ export function DeliveryPickupInfo() {
 
       <Dialog>
         <DialogTrigger asChild>
-          <Button variant="outline" className="flex-1 gap-2 border-primary/20 hover:border-primary text-primary h-12">
+          <Button variant="outline" className="w-full min-w-0 gap-2 border-primary/20 hover:border-primary text-primary h-11 px-3 text-sm whitespace-normal leading-tight">
             <Package className="h-4 w-4" />
             Condições de Retirada
           </Button>

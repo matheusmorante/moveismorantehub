@@ -30,6 +30,7 @@ export function ProductGrid({ filters }: ProductGridProps) {
   const [allProducts, setAllProducts] = useState<any[]>([])
   const [rawDbProducts, setRawDbProducts] = useState<any[]>([])
   const [currentPage, setCurrentPage] = useState(1)
+  const [totalProducts, setTotalProducts] = useState(0)
   const [loading, setLoading] = useState(true)
   const [cardStyle, setCardStyle] = useState<StoreDesignSettings>(defaultStoreDesignSettings)
   const { isAdminMode } = useAdminMode()
@@ -85,20 +86,52 @@ export function ProductGrid({ filters }: ProductGridProps) {
           let q = supabase.from("products")
           
           const selColumns = `
-            id, name, slug, price, promo_price, description, sku, code, category_id, opportunity_id, is_salvado, status,
+            id, name, slug, price, promo_price, description, code, category_id, opportunity_id, is_salvado, status,
             product_images(image_url, is_main),
             product_variations(id, name, sku, price, promo_price, image_url, attributes, use_parent_price, use_parent_promo_price, use_parent_name, status, active),
             product_categories(category_id, categories(name))
           ` + (hasOpportunities ? `, opportunities(name, slug, badge_color, border_color, border_style, badge_animation, title_color)` : ``);
           
-          q = q.select(selColumns)
+          q = q.select(selColumns, { count: "exact" })
           q = q.eq("status", "published")
 
           if (hasDeletedAt) {
             q = q.is("deleted_at", null)
           }
 
-          return q.limit(5000)
+          const searchTerm = filters?.search?.trim()
+          if (searchTerm) {
+            q = q.or(`name.ilike.%${searchTerm}%,description.ilike.%${searchTerm}%,code.ilike.%${searchTerm}%`)
+          }
+
+          const selectedCategoryIds = Array.from(new Set([
+            ...(filters?.cats || []),
+            ...allowedCategoryIds,
+          ].filter(Boolean)))
+          if (selectedCategoryIds.length > 0) {
+            q = q.in("category_id", selectedCategoryIds)
+          }
+
+          if (resolvedOppId === "salvados") {
+            q = q.eq("is_salvado", true)
+          } else if (resolvedOppId === "promotion") {
+            q = q.not("promo_price", "is", null)
+          } else if (resolvedOppId && resolvedOppId !== "all") {
+            q = q.eq("opportunity_id", resolvedOppId)
+          }
+
+          if ((filters?.minPrice ?? 0) > 0) q = q.gte("price", filters!.minPrice)
+          if ((filters?.maxPrice ?? 10000) < 10000) q = q.lte("price", filters!.maxPrice)
+
+          const sortBy = filters?.sortBy || "newest"
+          if (sortBy === "price-asc") q = q.order("price", { ascending: true })
+          else if (sortBy === "price-desc") q = q.order("price", { ascending: false })
+          else if (sortBy === "title-asc") q = q.order("name", { ascending: true })
+          else q = q.order("created_at", { ascending: false })
+
+          const from = (currentPage - 1) * ITEMS_PER_PAGE
+          return q
+            .range(from, from + ITEMS_PER_PAGE - 1)
         }
 
         const stylePromise = getCachedStoreStyleSettings()
@@ -108,6 +141,7 @@ export function ProductGrid({ filters }: ProductGridProps) {
         let result = await buildProductsQuery(hasDeletedAt, hasOpportunities)
         let data = result.data
         let error = result.error
+        let count = result.count
 
         if (error) {
           console.warn("Erro ao buscar produtos, tentando com fallback de compatibilidade de schema:", error)
@@ -126,12 +160,14 @@ export function ProductGrid({ filters }: ProductGridProps) {
               const thirdAttempt = await buildProductsQuery(false, false)
               if (thirdAttempt.error) throw thirdAttempt.error
               data = thirdAttempt.data
+              count = thirdAttempt.count
               hasOpportunities = false
             } else {
               throw secondAttempt.error
             }
           } else {
             data = secondAttempt.data
+            count = secondAttempt.count
           }
         }
 
@@ -163,14 +199,25 @@ export function ProductGrid({ filters }: ProductGridProps) {
               const varImg = (v.image_url && v.image_url.includes(",") ? v.image_url.split(",")[0] : v.image_url) || p.product_images?.find((img: any) => img.is_main)?.image_url || p.product_images?.[0]?.image_url
 
               const isParentName = v.use_parent_name !== false
-              const comboName = Object.entries(v.attributes || {})
-                .map(([_, valStr]) => valStr)
+              const comboName = Object.values(v.attributes || {})
+                .map((attributeValue: any) => {
+                  if (attributeValue === null || attributeValue === undefined) return ""
+                  if (typeof attributeValue === "object") {
+                    return String(
+                      attributeValue.value ??
+                      attributeValue.label ??
+                      attributeValue.name ??
+                      ""
+                    )
+                  }
+                  return String(attributeValue)
+                })
                 .filter(Boolean)
                 .join(" / ")
               
               const displayName = !isParentName && v.name 
                 ? v.name 
-                : (comboName ? `${p.name} - ${comboName}` : p.name)
+                : (v.name || (comboName ? `${p.name} - ${comboName}` : p.name))
 
               results.push({
                 ...mappedProduct,
@@ -196,6 +243,7 @@ export function ProductGrid({ filters }: ProductGridProps) {
         const { data: catsList } = await supabase.from("categories").select("id, name, slug, type")
         setDbCategoriesList(catsList || [])
         setRawDbProducts(results)
+        setTotalProducts(count || 0)
 
       } catch (error) {
         console.error("Erro ao carregar produtos:", error)
@@ -205,7 +253,17 @@ export function ProductGrid({ filters }: ProductGridProps) {
     }
 
     fetchProducts()
-  }, [refreshTrigger]) // Não depende mais de filters! Fetching principal só roda 1 vez.
+  }, [
+    refreshTrigger,
+    currentPage,
+    filters?.search,
+    filters?.minPrice,
+    filters?.maxPrice,
+    filters?.type,
+    filters?.sortBy,
+    filters?.envs,
+    filters?.cats,
+  ])
 
   useEffect(() => {
     if (rawDbProducts.length === 0) return;
@@ -408,9 +466,11 @@ export function ProductGrid({ filters }: ProductGridProps) {
         }
 
         setAllProducts(filtered)
-        setCurrentPage(1)
-
   }, [filters, rawDbProducts, dbCategoriesList])
+
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [filters?.envs, filters?.cats, filters?.search, filters?.minPrice, filters?.maxPrice, filters?.type, filters?.sortBy])
 
   if (loading) {
     return (
@@ -439,9 +499,9 @@ export function ProductGrid({ filters }: ProductGridProps) {
     )
   }
 
-  const totalPages = Math.ceil(allProducts.length / ITEMS_PER_PAGE) || 1
+  const totalPages = Math.ceil(totalProducts / ITEMS_PER_PAGE) || 1
   const startIndex = (currentPage - 1) * ITEMS_PER_PAGE
-  const paginatedProducts = allProducts.slice(startIndex, startIndex + ITEMS_PER_PAGE)
+  const paginatedProducts = allProducts
 
   const handlePageChange = (p: number) => {
     if (p < 1 || p > totalPages || p === currentPage) return
@@ -497,7 +557,7 @@ export function ProductGrid({ filters }: ProductGridProps) {
       {totalPages > 1 && (
         <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-8 pb-4 border-t border-gray-100 mt-8">
           <span className="text-xs font-semibold text-muted-foreground order-2 sm:order-1 text-center sm:text-left">
-            Mostrando <span className="font-bold text-gray-900">{startIndex + 1}</span> a <span className="font-bold text-gray-900">{Math.min(startIndex + ITEMS_PER_PAGE, allProducts.length)}</span> de <span className="font-bold text-gray-900">{allProducts.length}</span> produtos
+            Mostrando <span className="font-bold text-gray-900">{startIndex + 1}</span> a <span className="font-bold text-gray-900">{Math.min(startIndex + paginatedProducts.length, totalProducts)}</span> de <span className="font-bold text-gray-900">{totalProducts}</span> produtos
           </span>
 
           <div className="flex items-center justify-center gap-1.5 md:gap-2.5 order-1 sm:order-2 select-none">
