@@ -369,12 +369,12 @@ export function ProductGrid({ filters }: ProductGridProps) {
             .filter(c => filters.envs.includes(c.id))
             .map(c => normalizeSearch(c.name))
 
-          results = results.filter(p => {
+          filtered = filtered.filter(p => {
             const prodCatIds = [
               p.category_id,
               ...(p.product_categories?.map((pc: any) => pc.category_id) || [])
             ].filter(Boolean)
-            if (prodCatIds.some((catId: string) => allowedCategoryIds.includes(catId))) {
+            if (prodCatIds.some((catId: string) => filters.envs.includes(catId))) {
               return true
             }
 
@@ -432,9 +432,9 @@ export function ProductGrid({ filters }: ProductGridProps) {
           // Categoria é um filtro exato. Produtos antigos podem ter somente
           // category_id, enquanto os novos usam também product_categories.
           if (allCatTargetIds.size === 0) {
-            results = []
+            filtered = []
           } else {
-            results = results.filter(product => {
+            filtered = filtered.filter(product => {
               const productCategoryIds = [
                 product.category_id,
                 ...(product.product_categories?.map((link: any) => link.category_id) || [])

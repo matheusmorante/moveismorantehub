@@ -287,7 +287,8 @@ export const ProductSearchInput: React.FC<ProductSearchInputProps> = ({
                                         key={p.id}
                                         type="button"
                                         onClick={() => {
-                                            setFilterText(title);
+                                            setFilterText('');
+                                            setDbSearchResults([]);
                                             onSelectProduct(p);
                                             setIsOpen(false);
                                         }}

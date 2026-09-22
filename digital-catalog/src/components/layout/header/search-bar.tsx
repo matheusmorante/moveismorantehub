@@ -90,7 +90,7 @@ export function DesktopSearchBar({
               {query.trim().length >= 2 && (
                 <div className="p-2 border-b border-gray-100 bg-red-50/40">
                   <Link
-                    href={`/?search=${encodeURIComponent(query.trim())}#produtos`}
+                    href={`/?search=${encodeURIComponent(query.trim())}`}
                     onClick={() => setShowSuggestions(false)}
                     className="w-full text-left px-3 py-2 rounded-xl hover:bg-red-100/50 flex items-center justify-start gap-2 group transition-colors text-xs font-black text-red-600"
                   >
@@ -108,7 +108,7 @@ export function DesktopSearchBar({
                     {suggestions.environments.map(env => (
                       <Link
                         key={env.id}
-                        href={`/?envs=${env.slug || slugifyCategory(env) || env.id}#produtos`}
+                        href={`/?ambientes=${env.slug || slugifyCategory(env) || env.id}`}
                         onClick={() => setShowSuggestions(false)}
                         className="w-full text-left px-3 py-1.5 rounded-lg hover:bg-primary/5 flex items-center justify-start gap-2 group transition-colors text-xs font-bold text-gray-700 capitalize"
                       >
@@ -128,7 +128,7 @@ export function DesktopSearchBar({
                     {suggestions.categories.map(cat => (
                       <Link
                         key={cat.id}
-                        href={`/?cats=${cat.slug || slugifyCategory(cat) || cat.id}#produtos`}
+                        href={`/?categorias=${cat.slug || slugifyCategory(cat) || cat.id}`}
                         onClick={() => setShowSuggestions(false)}
                         className="w-full text-left px-3 py-1.5 rounded-lg hover:bg-red-50/60 flex items-center justify-start gap-2 group transition-colors text-xs font-bold text-gray-700 capitalize"
                       >
@@ -252,7 +252,7 @@ export function MobileSearchOverlay({
             <div className="overflow-y-auto divide-y divide-gray-100">
               {query.trim().length >= 2 && (
                 <Link
-                  href={`/?search=${encodeURIComponent(query.trim())}#produtos`}
+                  href={`/?search=${encodeURIComponent(query.trim())}`}
                   onClick={() => {
                     setShowSuggestions(false)
                     onClose()
@@ -267,7 +267,7 @@ export function MobileSearchOverlay({
               {suggestions.environments.map(env => (
                 <Link
                   key={env.id}
-                  href={`/?envs=${env.slug || slugifyCategory(env) || env.id}#produtos`}
+                        href={`/?ambientes=${env.slug || slugifyCategory(env) || env.id}`}
                   onClick={() => {
                     setShowSuggestions(false)
                     onClose()
@@ -282,7 +282,7 @@ export function MobileSearchOverlay({
               {suggestions.categories.map(cat => (
                 <Link
                   key={cat.id}
-                  href={`/?cats=${cat.slug || slugifyCategory(cat) || cat.id}#produtos`}
+                        href={`/?categorias=${cat.slug || slugifyCategory(cat) || cat.id}`}
                   onClick={() => {
                     setShowSuggestions(false)
                     onClose()

@@ -78,7 +78,7 @@ export function Header() {
               <div className="overflow-y-auto divide-y divide-gray-100">
                 {search.query.trim().length >= 2 && (
                   <Link
-                    href={`/?search=${encodeURIComponent(search.query.trim())}#produtos`}
+                    href={`/?search=${encodeURIComponent(search.query.trim())}`}
                     onClick={() => search.setShowSuggestions(false)}
                     className="w-full text-left px-4 py-2.5 flex items-center justify-start gap-2 text-xs font-black text-red-600 border-b border-gray-100 bg-red-50/40"
                   >
@@ -90,7 +90,7 @@ export function Header() {
                 {search.suggestions.environments.map(env => (
                   <Link
                     key={env.id}
-                    href={`/?envs=${env.slug || slugifyCategory(env) || env.id}#produtos`}
+                    href={`/?ambientes=${env.slug || slugifyCategory(env) || env.id}`}
                     onClick={() => search.setShowSuggestions(false)}
                     className="w-full text-left px-4 py-2 flex items-center justify-start gap-2 text-xs font-bold text-gray-700 capitalize hover:bg-primary/5"
                   >
@@ -102,7 +102,7 @@ export function Header() {
                 {search.suggestions.categories.map(cat => (
                   <Link
                     key={cat.id}
-                    href={`/?cats=${cat.slug || slugifyCategory(cat) || cat.id}#produtos`}
+                    href={`/?categorias=${cat.slug || slugifyCategory(cat) || cat.id}`}
                     onClick={() => search.setShowSuggestions(false)}
                     className="w-full text-left px-4 py-2 flex items-center justify-start gap-2 text-xs font-bold text-gray-700 capitalize hover:bg-red-50/60"
                   >

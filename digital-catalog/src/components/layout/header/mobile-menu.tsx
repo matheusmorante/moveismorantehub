@@ -97,7 +97,7 @@ export function MobileMenu() {
                 <div className="space-y-2">
                   {/* Atalho especial de Salvados */}
                   <Link
-                    href="/?type=salvados#produtos"
+                    href="/?type=salvados"
                     onClick={() => setOpen(false)}
                     className="flex items-center justify-between p-3 rounded-2xl bg-orange-50 hover:bg-orange-100 text-orange-600 transition-all text-sm font-black group shadow-2xs"
                   >
@@ -117,13 +117,13 @@ export function MobileMenu() {
                     return (
                       <div key={env.id} className="rounded-2xl border border-gray-100 bg-gray-50/40 overflow-hidden transition-all">
                         <div className="flex items-center justify-between p-1">
-                          <Link
-                            href={`/?envs=${envSlug}#produtos`}
-                            onClick={() => setOpen(false)}
-                            className="flex-1 p-2.5 text-sm font-black text-gray-800 hover:text-primary transition-colors capitalize"
+                          <button
+                            type="button"
+                            onClick={() => toggleExpand(env.id)}
+                            className="flex-1 p-2.5 text-left text-sm font-black text-gray-800 hover:text-primary transition-colors capitalize"
                           >
                             {env.name}
-                          </Link>
+                          </button>
 
                           {envCats.length > 0 && (
                             <button
@@ -141,7 +141,7 @@ export function MobileMenu() {
                           <div className="p-2 pt-0 space-y-1 bg-white border-t border-gray-100/80 animate-in fade-in-0 duration-150">
                             {/* Primeira Opção: Ver todos */}
                             <Link
-                              href={`/?envs=${envSlug}#produtos`}
+                                  href={`/?ambientes=${envSlug}`}
                               onClick={() => setOpen(false)}
                               className="block p-2 px-3 rounded-xl text-xs font-bold text-gray-600 hover:text-primary hover:bg-gray-50 transition-colors"
                             >
@@ -154,7 +154,7 @@ export function MobileMenu() {
                               return (
                                 <Link
                                   key={cat.id}
-                                  href={`/?cats=${catSlug}#produtos`}
+                                  href={`/?categorias=${catSlug}`}
                                   onClick={() => setOpen(false)}
                                   className="block p-2 px-3 rounded-xl text-xs font-semibold text-gray-600 hover:text-primary hover:bg-gray-50 transition-colors capitalize"
                                 >

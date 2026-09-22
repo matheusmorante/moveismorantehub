@@ -10,8 +10,8 @@ import { slugifyCategory } from "@/lib/slug-utils"
 export function SubHeader() {
   const { environments, getCategoriesForEnv } = useSubHeaderData()
   const searchParams = useSearchParams()
-  const activeEnvId = searchParams.get("envs")
-  const activeCatId = searchParams.get("cats")
+  const activeEnvId = searchParams.get("ambientes") || searchParams.get("envs")
+  const activeCatId = searchParams.get("categorias") || searchParams.get("cats")
   const activeType = searchParams.get("type")
   const [mounted, setMounted] = useState(false)
   const [activeDropdown, setActiveDropdown] = useState<string | null>(null)
@@ -51,7 +51,7 @@ export function SubHeader() {
             ].join(" ")
 
             return (
-              <Link href="/?type=salvados#produtos" className={salvadosClass}>
+              <Link href="/?type=salvados" className={salvadosClass}>
                 <Flame className="h-3.5 w-3.5 fill-current" />
                 QUEIMA DOS SALVADOS
               </Link>
@@ -83,12 +83,16 @@ export function SubHeader() {
                 onMouseEnter={() => handleMouseEnter(env.id)}
                 onMouseLeave={handleMouseLeave}
               >
-                <Link href={`/?envs=${envSlug}#produtos`} className={buttonClass}>
+                <button
+                  type="button"
+                  onClick={() => setActiveDropdown(isOpen ? null : env.id)}
+                  className={buttonClass}
+                >
                   <span>{env.name}</span>
                   {envCats.length > 0 && (
                     <ChevronDown className={`h-3.5 w-3.5 transition-transform duration-200 opacity-70 group-hover:opacity-100 ${isOpen ? 'rotate-180' : ''}`} />
                   )}
-                </Link>
+                </button>
 
                 {/* Dropdown Modal com Categorias do Ambiente */}
                 {isOpen && (
@@ -97,7 +101,7 @@ export function SubHeader() {
                   >
                     {/* Primeira opção: Ver todos */}
                     <Link
-                      href={`/?envs=${envSlug}#produtos`}
+                      href={`/?ambientes=${envSlug}`}
                       onClick={() => setActiveDropdown(null)}
                       className={`p-2.5 rounded-xl text-xs font-bold flex items-center justify-between transition-all ${isActive && !activeCatId ? 'bg-primary/10 text-primary font-black' : 'text-slate-600 hover:text-primary hover:bg-slate-50'}`}
                     >
@@ -112,7 +116,7 @@ export function SubHeader() {
                       return (
                         <Link
                           key={cat.id}
-                          href={`/?cats=${catSlug}#produtos`}
+                          href={`/?categorias=${catSlug}`}
                           onClick={() => setActiveDropdown(null)}
                           className={`p-2.5 rounded-xl text-xs font-bold capitalize flex items-center justify-between transition-all ${isCatActive ? 'bg-primary/10 text-primary font-black' : 'text-slate-600 hover:text-primary hover:bg-slate-50'}`}
                         >

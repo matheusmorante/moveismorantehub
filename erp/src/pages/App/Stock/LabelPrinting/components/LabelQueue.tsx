@@ -203,7 +203,7 @@ const LabelQueue: React.FC<LabelQueueProps> = ({
                                             {item.name || 'Produto sem nome'}
                                         </h4>
                                         <div className="flex items-center gap-2 mt-1">
-                                            {(item.sku || item.code) && (
+                                            {selectedCategory !== 'precos' && (item.sku || item.code) && (
                                                 <div className="flex items-center gap-1.5">
                                                     <span className="text-[8px] font-black uppercase tracking-widest text-slate-400">SKU</span>
                                                     <span className="text-[10px] text-slate-600 dark:text-slate-300 font-bold truncate uppercase tracking-wide bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded">
@@ -240,35 +240,6 @@ const LabelQueue: React.FC<LabelQueueProps> = ({
                             </div>
                         </div>
 
-                        {/* CONFIGURAÇÕES AVANÇADAS (Se ativo) */}
-                        {printingMode === 'advanced' && selectedCategory === 'precos' && !item.isBlank && (
-                            <div className="space-y-3 pt-3 border-t border-slate-100 dark:border-slate-800 mt-1">
-                                <div className="flex items-center gap-2">
-                                    <div className="flex-1">
-                                        <input 
-                                            type="text"
-                                            value={item.name || ''}
-                                            onChange={e => updateItem(idx, { name: e.target.value })}
-                                            placeholder="Título na etiqueta..."
-                                            className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg px-2.5 py-1.5 text-[10px] font-black uppercase outline-none focus:border-blue-500 transition-all text-slate-800 dark:text-slate-100"
-                                        />
-                                    </div>
-                                    <button
-                                        type="button"
-                                        onClick={() => updateItem(idx, { showName: item.showName === false })}
-                                        className={`h-7 px-2 rounded-lg border text-[9px] font-black uppercase transition-all shrink-0 flex items-center ${
-                                            item.showName === false
-                                                ? 'bg-slate-100 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-500'
-                                                : 'bg-blue-50 dark:bg-blue-950/40 border-blue-200 dark:border-blue-800 text-blue-600 dark:text-blue-300'
-                                        }`}
-                                    >
-                                        <i className={`bi ${item.showName === false ? 'bi-eye-slash' : 'bi-eye'} mr-1`} />
-                                        {item.showName === false ? 'Oculto' : 'Visível'}
-                                    </button>
-                                </div>
-                            </div>
-                        )}
-                        
                         {/* OPÇÕES DE LOGO / IMAGEM LIVRE (Zoom) */}
                         {(selectedCategory === 'logos' || (selectedCategory === 'precos' && printingMode === 'simple')) && !item.isBlank && (
                             <div className="pt-2 border-t border-slate-100 dark:border-slate-800 mt-1">

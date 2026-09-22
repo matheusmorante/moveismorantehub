@@ -50,8 +50,8 @@ function HomeContent() {
 
   // Sincroniza a URL com o estado de filtros
   useEffect(() => {
-    const envsParam = searchParams.get("envs")
-    const catsParam = searchParams.get("cats")
+    const envsParam = searchParams.get("ambientes") || searchParams.get("envs")
+    const catsParam = searchParams.get("categorias") || searchParams.get("cats")
     const searchParam = searchParams.get("search") || ""
     const rawType = searchParams.get("type") || "all"
     const sortByParam = searchParams.get("sortBy") || "newest"
@@ -93,6 +93,8 @@ function HomeContent() {
     if (nextFilters.search !== undefined) {
       if (nextFilters.search) {
         params.set("search", nextFilters.search)
+        params.delete("ambientes")
+        params.delete("categorias")
         params.delete("envs")
         params.delete("cats")
       } else {
@@ -102,17 +104,24 @@ function HomeContent() {
     if (nextFilters.envs !== undefined) {
       if (nextFilters.envs.length > 0) {
         const envSlugs = resolveSlugsFromCategoryIds(nextFilters.envs, categories)
-        params.set("envs", envSlugs.join(","))
+        params.set("ambientes", envSlugs.join(","))
+        params.delete("envs")
       } else {
+        params.delete("ambientes")
         params.delete("envs")
       }
-      if (newFilters.cats === undefined) params.delete("cats")
+      if (newFilters.cats === undefined) {
+        params.delete("categorias")
+        params.delete("cats")
+      }
     }
     if (nextFilters.cats !== undefined) {
       if (nextFilters.cats.length > 0) {
         const catSlugs = resolveSlugsFromCategoryIds(nextFilters.cats, categories)
-        params.set("cats", catSlugs.join(","))
+        params.set("categorias", catSlugs.join(","))
+        params.delete("cats")
       } else {
+        params.delete("categorias")
         params.delete("cats")
       }
     }
