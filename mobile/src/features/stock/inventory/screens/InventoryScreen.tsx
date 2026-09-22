@@ -54,7 +54,7 @@ export const InventoryScreen: React.FC<Props> = ({ isDarkMode, userProfile, onBa
                     </TouchableOpacity>
 
                     <TouchableOpacity style={styles.modalOption} onPress={() => { setSelectedSession(null); Alert.alert('Em breve', 'A cópia de inventário estará disponível na próxima atualização.'); }}>
-                        <Text style={[styles.modalOptionText, isDarkMode && styles.modalOptionTextDark]}>Copiar inventário</Text>
+                        <Text style={[styles.modalOptionText, isDarkMode && styles.modalOptionTextDark]}>Duplicar inventário</Text>
                     </TouchableOpacity>
 
                     {canRevert && (

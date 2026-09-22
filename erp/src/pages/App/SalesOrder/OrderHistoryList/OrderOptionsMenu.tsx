@@ -65,7 +65,7 @@ export const OrderOptionsMenu = ({
                         ? 'text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 hover:text-slate-900 dark:hover:white hover:bg-slate-50 dark:hover:bg-slate-700 cursor-pointer'
                         : 'text-slate-400 dark:text-slate-500 bg-white dark:bg-slate-950 border-slate-100 dark:border-slate-800 hover:text-slate-800 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800'
                 }`}
-                title={isCancelled ? "Mais opções (Copiar pedido)" : "Mais ações e opções de envio"}
+                title={isCancelled ? "Mais opções (Duplicar pedido)" : "Mais ações e opções de envio"}
                 onClick={handleToggleMenu}
             >
                 <i className="bi bi-three-dots-vertical text-sm" />
@@ -92,7 +92,7 @@ export const OrderOptionsMenu = ({
                             >
                                 <i className="bi bi-files text-lg" />
                                 <span className="text-xs font-black uppercase tracking-widest">
-                                    Copiar Pedido
+                                    Duplicar Pedido
                                 </span>
                             </button>
                         ) : isDraft ? (

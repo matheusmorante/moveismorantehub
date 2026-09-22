@@ -29,7 +29,7 @@ export const systemDocumentation: DocumentationSection[] = [
             "Rascunho é criado durante o preenchimento e não pode voltar a ser escolhido depois do cadastro.",
             "Ao cadastrar um pedido válido, ele passa para Agendado; isso habilita os gatilhos da agenda e de estoque configurados.",
             "Agendado pode ser marcado como atendido mediante confirmação; atendido pode voltar a agendado sem alterar itens ou valores.",
-            "Pedido cancelado tem status definitivo; para refazer, usa-se Copiar pedido.",
+            "Pedido cancelado tem status definitivo; para refazer, usa-se Duplicar pedido.",
             "Pedido de devolução pode nascer de venda atendida, mantendo o vínculo, ou ser criado sem venda vinculada com cliente e itens próprios. Em ambos os casos nasce Agendado e não movimenta estoque ao ser gerado.",
             "Ao marcar a devolução como Atendida, uma confirmação de cinco segundos informa que a entrada será criada apenas para os itens e quantidades devolvidos.",
             "Devolução Agendada não cria entrada. Se o item estiver temporário, a entrada fica pendente até o produto ser reconciliado no pedido de venda; uma devolução já atendida recebe automaticamente essa entrada histórica após a reconciliação.",

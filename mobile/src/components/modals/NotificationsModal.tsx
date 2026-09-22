@@ -75,15 +75,12 @@ export const NotificationsModal: React.FC<Props> = ({
               {sortedNotifications.map(notif => {
                 const notifType = notif.type || '';
                 const notifTitle = notif.title || '';
-                const isOutsideAssembly = notifType === 'assembly_outside' || notifTitle.toLowerCase().includes('montagem fora');
-                const isDepotAssembly = notifType === 'assembly_depot' || notifTitle.toLowerCase().includes('montagem no depósito');
-                const isAssembly = isOutsideAssembly || isDepotAssembly || notifType === 'assembly' || notifType.includes('assembly') || notifTitle.includes('Montagem') || notifTitle.includes('🛠️');
+                const isAssembly = notifType === 'assembly_outside' || notifType === 'assembly_depot' || notifType === 'assembly' || notifType.includes('assembly') || notifTitle.includes('Montagem') || notifTitle.includes('🛠️');
                 const isOrder = notifType === 'order_created' || notifType === 'order_edited' || notifTitle.includes('Pedido') || notifTitle.includes('🛒');
 
                 let cardBg = isDarkMode ? '#1e293b' : '#f8fafc';
                 let cardBorder = isDarkMode ? '#334155' : '#e2e8f0';
                 let titleColor = isDarkMode ? '#f8fafc' : '#0f172a';
-                let msgColor = isDarkMode ? '#cbd5e1' : '#475569';
                 let badgeDateColor = isDarkMode ? '#94a3b8' : '#64748b';
 
                 if (isOrder) {
@@ -91,14 +88,12 @@ export const NotificationsModal: React.FC<Props> = ({
                   cardBg = isDarkMode ? '#064e3b' : '#ecfdf5';
                   cardBorder = isDarkMode ? '#059669' : '#a7f3d0';
                   titleColor = isDarkMode ? '#ecfdf5' : '#065f46';
-                  msgColor = isDarkMode ? '#a7f3d0' : '#047857';
                   badgeDateColor = isDarkMode ? '#6ee7b7' : '#059669';
                 } else if (isAssembly) {
                   // Fundo Laranja para Montagens (Depósito / Mostruário)
                   cardBg = isDarkMode ? '#7c2d12' : '#fff7ed';
                   cardBorder = isDarkMode ? '#ea580c' : '#fed7aa';
                   titleColor = isDarkMode ? '#fff7ed' : '#9a3412';
-                  msgColor = isDarkMode ? '#fed7aa' : '#c2410c';
                   badgeDateColor = isDarkMode ? '#fdba74' : '#ea580c';
                 }
 
@@ -128,19 +123,6 @@ export const NotificationsModal: React.FC<Props> = ({
                         {notif.timestamp}
                       </Text>
                     </View>
-                    <Text style={{ fontSize: 10, fontWeight: '700', color: msgColor, marginTop: 3 }}>
-                      {notif.message}
-                    </Text>
-                    {isAssembly ? (
-                      <Text style={{ fontSize: 9, fontWeight: '900', color: titleColor, marginTop: 5 }}>
-                        {isOutsideAssembly ? '🔴 MONTAGEM FORA' : isDepotAssembly ? '🟠 MONTAGEM NO DEPÓSITO' : '🟠 MONTAGEM'}
-                      </Text>
-                    ) : null}
-                    {notif.scheduleText ? (
-                      <Text style={{ fontSize: 9, fontWeight: '800', color: titleColor, marginTop: 4 }}>
-                        📅 {notif.scheduleText}
-                      </Text>
-                    ) : null}
                   </TouchableOpacity>
                 );
               })}

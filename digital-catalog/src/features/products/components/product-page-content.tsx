@@ -58,6 +58,10 @@ export default function ProductPageContent({
   useEffect(() => {
     if (!product?.id) return
 
+    const analyticsKey = `product-viewed:${product.id}`
+    if (sessionStorage.getItem(analyticsKey)) return
+    sessionStorage.setItem(analyticsKey, "1")
+
     // Obtém ou cria identificador único do visitante salvo no navegador
     let visitorId = localStorage.getItem("morante_visitor_id")
     if (!visitorId) {

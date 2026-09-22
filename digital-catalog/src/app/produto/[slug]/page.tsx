@@ -3,6 +3,7 @@ import { supabase } from "@/lib/supabase/client"
 import ProductPageContent from "@/features/products/components/product-page-content"
 import { stripHtml } from "@/services/meta-catalog"
 import { hasPublicCatalogItem } from "@/features/products/product-visibility"
+import { cache } from "react"
 
 // A ocultação no ERP precisa refletir imediatamente também em links diretos,
 // prévias de compartilhamento e páginas já visitadas do catálogo.
@@ -13,11 +14,11 @@ interface Props {
 }
 
 // Função para buscar dados compartilhada entre generateMetadata e o componente
-async function getProductData(slug: string) {
+const getProductData = cache(async (slug: string) => {
   const [prodRes, styleRes] = await Promise.all([
     supabase
       .from("products")
-      .select("*, product_images(*), opportunities(*), product_variations(*)")
+      .select("id, name, slug, description, price, promo_price, code, status, is_salvado, opportunity_id, width, depth, height, depth_use_length, technical_specs, product_images(id, image_url, is_main), opportunities(id, name, slug, badge_color, border_color, border_style, badge_animation, title_color), product_variations(*)")
       .eq("slug", slug)
       .eq("status", "published")
       .is("deleted_at", null)
@@ -56,7 +57,7 @@ async function getProductData(slug: string) {
     technicalSpecifications: [],
     buttonStyle: (styleRes.data?.button_style || "standard") as "standard" | "rounded"
   }
-}
+})
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params

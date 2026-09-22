@@ -37,6 +37,20 @@ export class TelemetryBuffer {
     return metricsToSave;
   }
 
+  public merge(metrics: AggregatedMetric[]) {
+    for (const metric of metrics) {
+      const key = `${metric.module}_${metric.screen}_${metric.action}_${metric.table_name}_${metric.operation_type}`;
+      const existing = this.buffer.get(key);
+      if (existing) {
+        existing.execution_count += metric.execution_count;
+        existing.total_duration_ms += metric.total_duration_ms;
+        existing.rows_returned += metric.rows_returned;
+      } else {
+        this.buffer.set(key, { ...metric });
+      }
+    }
+  }
+
   public getMetrics(): AggregatedMetric[] {
     return Array.from(this.buffer.values());
   }

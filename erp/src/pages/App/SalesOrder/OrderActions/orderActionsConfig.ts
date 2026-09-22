@@ -516,7 +516,7 @@ export const buttons: OrderButton[] = [
         key: "duplicateOrder",
         icon: "bi-files",
         action: "DUPLICATE_ORDER",
-        label: "Copiar Pedido",
+        label: "Duplicar Pedido",
         color: "text-emerald-600 hover:bg-emerald-50",
         tooltip: "Criar uma cópia deste pedido",
         orderTypes: ['sale', 'showroom', 'assistance', 'budget']

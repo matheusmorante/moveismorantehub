@@ -119,7 +119,7 @@ export interface GeocodeResponse {
     isPrecision: boolean;
 }
 
-export const geocodeAddress = async (address: CustomerData['fullAddress'] | string | any): Promise<GeocodeResponse | null> => {
+export const geocodeAddress = async (address: CustomerData['fullAddress'] | string | any, onFailure?: (reason: string) => void): Promise<GeocodeResponse | null> => {
     let street = '', neighborhood = '', city = '', number = '', state = 'PR';
     
     if (typeof address === 'string') {
@@ -135,6 +135,10 @@ export const geocodeAddress = async (address: CustomerData['fullAddress'] | stri
                     coords: [parsed.longitude, parsed.latitude] as [number, number],
                     isPrecision: true
                 };
+            }
+            if (!address.street && !address.neighborhood && !address.city && !address.cep) {
+                onFailure?.('A URL de localização não contém coordenadas reconhecíveis. Confira o link do Google Maps ou informe o endereço físico.');
+                return null;
             }
         }
 
@@ -168,10 +172,12 @@ export const geocodeAddress = async (address: CustomerData['fullAddress'] | stri
     const guard = await ApiUsageGuard.check('google_geocoding');
     if (!guard.allowed) {
         console.warn(`[ApiUsageGuard] Chamada a Geocoding bloqueada: ${guard.reason}`);
+        onFailure?.(`A busca do endereço foi bloqueada: ${guard.reason}`);
         return null;
     }
 
     const startTime = Date.now();
+    let lastGeocodeStatus = '';
     try {
         await loadGoogleMapsApi(apiKey);
         const geocoder = new (window as any).google.maps.Geocoder();
@@ -191,12 +197,14 @@ export const geocodeAddress = async (address: CustomerData['fullAddress'] | stri
             r = await runGeocode(queryPrimary);
             isPrimarySuccess = true;
         } catch (errPrimary) {
+            lastGeocodeStatus = String(errPrimary);
             if (queryFallback !== queryPrimary) {
                 console.warn("[geocodeAddress] Falha na query primária, tentando fallback:", queryFallback, errPrimary);
                 try {
                     r = await runGeocode(queryFallback);
                     isPrimarySuccess = false;
                 } catch (errFb) {
+                    lastGeocodeStatus = String(errFb);
                     console.warn("[geocodeAddress] Falha no fallback de geocode:", errFb);
                 }
             }
@@ -219,6 +227,7 @@ export const geocodeAddress = async (address: CustomerData['fullAddress'] | stri
         }
     } catch (e) {
         console.error("Google Maps Geocoder error:", e);
+        onFailure?.(`Falha no serviço de geocodificação do Google Maps: ${String(e)}`);
         ApiUsageTracker.record({
             provider: 'google',
             service: 'google_geocoding',
@@ -229,10 +238,12 @@ export const geocodeAddress = async (address: CustomerData['fullAddress'] | stri
             module_source: 'sales_order',
             error_message: String(e),
         });
+        return null;
     }
 
     // Se a geocodificação direta falhar, não aplicar fallback cego de bairro/cidade
     // para evitar que entregas sejam marcadas em localizações incorretas.
+    onFailure?.(`O Google Maps não localizou o endereço informado${lastGeocodeStatus ? ` (${lastGeocodeStatus})` : ''}. Confira rua, número, bairro, cidade e UF.`);
     return null;
 };
 
@@ -241,12 +252,14 @@ export const geocodeAddress = async (address: CustomerData['fullAddress'] | stri
 export const calculateRouteViaGoogleMaps = async (
     origin: [number, number],
     destination: [number, number],
-    apiKey?: string
+    apiKey?: string,
+    onFailure?: (reason: string) => void
 ): Promise<{ distanceKm: number; durationMinutes: number; geometry: any } | null> => {
     const key = getEffectiveGoogleMapsApiKey(apiKey);
     const guard = await ApiUsageGuard.check('google_routes');
     if (!guard.allowed) {
         console.warn(`[ApiUsageGuard] Cálculo de rota bloqueado: ${guard.reason}`);
+        onFailure?.(`O cálculo da rota foi bloqueado: ${guard.reason}`);
         return null;
     }
 
@@ -294,6 +307,7 @@ export const calculateRouteViaGoogleMaps = async (
             };
         }
     } catch (e) {
+        onFailure?.(`O Google Maps recusou ou não encontrou uma rota dirigível: ${String(e)}`);
         console.error("Google Directions API error. Verifique se Directions API está habilitada, se a chave permite este domínio e se o faturamento do projeto está ativo:", e);
         ApiUsageTracker.record({
             provider: 'google',
@@ -311,7 +325,7 @@ export const calculateRouteViaGoogleMaps = async (
 
 // ─── Public: Auto-calculate route distance (Exclusivo Google Maps) ───────────
 
-export const autoCalculateRouteDistance = async (address: CustomerData['fullAddress'] | any): Promise<RouteResult | null> => {
+export const autoCalculateRouteDistance = async (address: CustomerData['fullAddress'] | any, onFailure?: (reason: string) => void): Promise<RouteResult | null> => {
     try {
         const settings = getSettings();
         const apiKey = getEffectiveGoogleMapsApiKey();
@@ -332,7 +346,7 @@ export const autoCalculateRouteDistance = async (address: CustomerData['fullAddr
         }
 
         if (!destCoords) {
-            const geoRes = await geocodeAddress(address);
+            const geoRes = await geocodeAddress(address, onFailure);
             if (!geoRes) {
                 console.warn("[autoCalculateRouteDistance] Geocodificação retornou nulo para o endereço:", address);
                 return null;
@@ -341,7 +355,7 @@ export const autoCalculateRouteDistance = async (address: CustomerData['fullAddr
         }
 
         console.info("[autoCalculateRouteDistance] Coordenadas de destino resolvidas:", destCoords, "Calculando rota de:", origin);
-        const routeData = await calculateRouteViaGoogleMaps(origin, destCoords, apiKey);
+        const routeData = await calculateRouteViaGoogleMaps(origin, destCoords, apiKey, onFailure);
         if (!routeData) {
             console.warn("[autoCalculateRouteDistance] DirectionsService não encontrou rota viável para as coordenadas:", destCoords);
             return null;
@@ -356,6 +370,7 @@ export const autoCalculateRouteDistance = async (address: CustomerData['fullAddr
         };
     } catch (error) {
         console.error("Erro ao calcular distância via Google Maps:", error);
+        onFailure?.(`Erro na integração com o Google Maps: ${String(error)}`);
         return null;
     }
 };

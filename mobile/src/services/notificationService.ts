@@ -164,6 +164,7 @@ export const savePushTokenToSupabase = async (token: string): Promise<boolean> =
 };
 
 import Constants from 'expo-constants';
+import { ExecutionEnvironment } from 'expo-constants';
 
 /**
  * Obtém e registra o Push Token do aparelho no Supabase com tolerância a falhas e retries
@@ -172,6 +173,16 @@ export const registerPushToken = async (): Promise<string | null> => {
   try {
     if (Platform.OS === 'web') return null;
     lastPushTokenRegistrationError = null;
+
+    // O Expo Go não oferece push remoto no Android (SDK 53+). Notificações
+    // locais continuam disponíveis; o registro remoto ocorre em builds nativas.
+    if (
+      Platform.OS === 'android' &&
+      Constants.executionEnvironment === ExecutionEnvironment.StoreClient
+    ) {
+      lastPushTokenRegistrationError = 'Push remoto no Android requer uma development build ou versão instalada do app. Notificações locais continuam disponíveis no Expo Go.';
+      return null;
+    }
 
     await setupNotificationChannel();
     const hasPermission = await ensureNotificationPermissions();

@@ -592,6 +592,7 @@ export const ModalsSection: React.FC<ModalsSectionProps> = (props) => {
                                                     type="button"
                                                     onClick={() => {
                                                         selectLayout(model);
+                                                        setGridModalOpen(false);
                                                         setIsModelManagerModalOpen(false);
                                                         toast.success(`Modelo "${model.name}" selecionado!`);
                                                     }}

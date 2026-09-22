@@ -5,6 +5,11 @@ import { calculateFreightByDistance } from '@/pages/utils/shippingPricing';
 import Shipping from '@/pages/types/Shipping.type';
 import CustomerData from '@/pages/types/customerData.type';
 
+const getAddressKey = (address: any) => [address?.street, address?.number,
+    address?.neighborhood, address?.city, address?.state, address?.cep,
+    address?.mapsUrl, address?.googleMapsUrl, address?.mapsLink]
+    .map(value => String(value || '').trim().toLocaleLowerCase()).join('|');
+
 export function useOrderDistanceCalculator(
     shipping: Shipping,
     customerData: CustomerData,
@@ -12,8 +17,10 @@ export function useOrderDistanceCalculator(
 ) {
     const [isCalculatingDistance, setIsCalculatingDistance] = useState(false);
     const lastCalculatedAddressRef = useRef<string>("");
+    const calculatingAddressRef = useRef<string>("");
+    const requestIdRef = useRef(0);
 
-    const handleAutoCalculateDistance = useCallback(async (customAddress?: any) => {
+    const handleAutoCalculateDistance = useCallback(async (customAddress?: any, options: { silentSuccess?: boolean } = {}) => {
         const addressObj = customAddress || (
             shipping.useCustomerAddress === false && shipping.deliveryAddress
                 ? shipping.deliveryAddress
@@ -30,37 +37,48 @@ export function useOrderDistanceCalculator(
             return;
         }
 
-        const currentAddrStr = `${addressObj.street || ''}, ${addressObj.number || ''}, ${addressObj.neighborhood || ''}, ${addressObj.city || ''}, ${addressObj.cep || ''}`;
-        if (currentAddrStr.trim() === ", , , ," || (!addressObj.street && !addressObj.neighborhood && !addressObj.city && !addressObj.cep)) {
+        if (!addressObj.street && !addressObj.neighborhood && !addressObj.city && !addressObj.cep &&
+            !addressObj.mapsUrl && !addressObj.googleMapsUrl && !addressObj.mapsLink) {
             toast.warn("Preencha ao menos a rua, bairro ou cidade para calcular a distância.");
             return;
         }
 
+        const addressKey = getAddressKey(addressObj);
+        if (lastCalculatedAddressRef.current === addressKey) return;
+        if (calculatingAddressRef.current === addressKey) return;
+        calculatingAddressRef.current = addressKey;
+        const requestId = ++requestIdRef.current;
+
         setIsCalculatingDistance(true);
         try {
-            const routeResult = await autoCalculateRouteDistance(addressObj);
+            let failureReason = '';
+            const routeResult = await autoCalculateRouteDistance(addressObj, reason => { failureReason = reason; });
             const distance = routeResult?.distanceKm;
             if (distance !== null && distance !== undefined && !isNaN(distance)) {
-                lastCalculatedAddressRef.current = currentAddrStr;
+                if (requestId !== requestIdRef.current) return;
+                lastCalculatedAddressRef.current = addressKey;
                 const calculatedFreight = calculateFreightByDistance(distance);
                 setShipping(prev => ({
                     ...prev,
-                    distance: distance,
-                    value: calculatedFreight,
+                    distance,
                     durationMinutes: routeResult?.durationMinutes,
                     destinationCoords: routeResult?.destinationCoords,
                     routeGeoJSON: routeResult?.routeGeoJSON,
-                    autoCalculateValue: true
+                    value: prev.autoCalculateValue === false ? prev.value : calculatedFreight,
                 }));
-                toast.success(`Distância calculada: ${distance.toFixed(1)} km (Frete: R$ ${calculatedFreight.toFixed(2)})`);
+                if (!options.silentSuccess) {
+                    toast.success(`Distância calculada: ${distance.toFixed(1)} km (Frete: R$ ${calculatedFreight.toFixed(2)})`);
+                }
             } else {
-                toast.error("Não foi possível calcular a rota para o endereço informado.");
+                toast.error(failureReason || "Não foi possível calcular a rota para o endereço informado.");
             }
         } catch (error) {
+            if (requestId !== requestIdRef.current) return;
             console.error("Erro ao calcular distância:", error);
             toast.error("Erro ao calcular a distância da rota.");
         } finally {
-            setIsCalculatingDistance(false);
+            if (calculatingAddressRef.current === addressKey) calculatingAddressRef.current = "";
+            if (requestId === requestIdRef.current) setIsCalculatingDistance(false);
         }
     }, [shipping.useCustomerAddress, shipping.deliveryAddress, customerData.fullAddress, setShipping]);
 

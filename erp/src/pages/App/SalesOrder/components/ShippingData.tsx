@@ -12,6 +12,7 @@ import { PatternFormat as PatternFormatBase } from "react-number-format";
 const PatternFormat = PatternFormatBase as any;
 import SmartInput from '@/components/SmartInput';
 import AddressVerificationMap from './AddressVerificationMap';
+import { toast } from 'react-toastify';
 
 interface Props {
     shipping: Shipping;
@@ -49,7 +50,7 @@ const ShippingData = ({ shipping, setShipping, customerData, isCalculatingDistan
     const onChangeDistance = (newValue: string) => {
         const numValue = parseFloat(newValue.replace(',', '.'));
         setShipping((prev: Shipping) => {
-            const distance = isNaN(numValue) ? undefined : numValue;
+            const distance = Number.isFinite(numValue) && numValue > 0 ? numValue : undefined;
             let value = prev.value;
 
             // Calcula o frete baseado na distância APENAS se o cálculo automático estiver ativado
@@ -348,21 +349,20 @@ const ShippingData = ({ shipping, setShipping, customerData, isCalculatingDistan
                             routeUrl={route}
                             onChangeValue={onChangeShippingValue}
                             onChangeDistance={onChangeDistance}
-                            onAutoCalculateDistance={onAutoCalculateDistance}
                             autoCalculateValue={shipping.autoCalculateValue}
-                            onToggleAutoCalculate={() => {
+                            onToggleAutoCalculateValue={() => {
                                 const isCurrentlyAuto = shipping.autoCalculateValue !== false;
                                 const willBeAuto = !isCurrentlyAuto;
+                                if (willBeAuto && shipping.distance === undefined) {
+                                    toast.warn('Calcule ou informe a distância antes de ativar o frete automático.');
+                                    return;
+                                }
                                 setShipping(prev => {
-                                    let newShippingValue = prev.value;
-                                    if (willBeAuto && prev.distance !== undefined) {
-                                        newShippingValue = calculateFreightByDistance(prev.distance);
-                                    }
+                                    const newShippingValue = willBeAuto && prev.distance !== undefined
+                                        ? calculateFreightByDistance(prev.distance)
+                                        : prev.value;
                                     return { ...prev, autoCalculateValue: willBeAuto, value: newShippingValue };
                                 });
-                                if (willBeAuto && onAutoCalculateDistance) {
-                                    onAutoCalculateDistance();
-                                }
                             }}
                             isCalculatingDistance={isCalculatingDistance}
                             errors={errors}

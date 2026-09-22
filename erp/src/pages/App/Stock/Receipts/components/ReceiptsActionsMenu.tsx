@@ -75,7 +75,7 @@ export const ReceiptsActionsMenu: React.FC<ReceiptsActionsMenuProps> = ({
                     }}
                     className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-left text-xs font-bold text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950/30 cursor-pointer"
                 >
-                    <i className="bi bi-copy" /> Copiar recebimento
+                    <i className="bi bi-copy" /> Duplicar recebimento
                 </button>
             )}
 

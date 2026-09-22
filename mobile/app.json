@@ -8,9 +8,6 @@
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
-    "splash": {
-      "backgroundColor": "#ffffff"
-    },
     "assetBundlePatterns": [
       "**/*"
     ],
@@ -27,7 +24,22 @@
             "./assets/order_cancelled.mp3"
           ]
         }
-      ]
+      ],
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#ffffff"
+        }
+      ],
+      "expo-sqlite",
+      [
+        "expo-web-browser",
+        {
+          "experimentalLauncherActivity": true
+        }
+      ],
+      "expo-status-bar",
+      "expo-splash-screen"
     ],
     "ios": {
       "supportsTablet": true,
@@ -39,7 +51,6 @@
     "android": {
       "package": "com.morante.mobile",
       "versionCode": 17,
-      "experimentalLauncherActivity": true,
       "googleServicesFile": "./google-services.json",
       "config": {
         "googleMaps": {

@@ -9,9 +9,8 @@ interface FreteDistanciaProps {
     routeUrl: string;
     onChangeValue: (val: number) => void;
     onChangeDistance: (val: string) => void;
-    onAutoCalculateDistance?: () => void;
     autoCalculateValue?: boolean;
-    onToggleAutoCalculate?: () => void;
+    onToggleAutoCalculateValue?: () => void;
     isCalculatingDistance?: boolean;
     errors: ValidationErrors;
 }
@@ -22,38 +21,35 @@ const FreteDistancia = ({
     routeUrl,
     onChangeValue,
     onChangeDistance,
-    onAutoCalculateDistance,
     autoCalculateValue,
-    onToggleAutoCalculate,
+    onToggleAutoCalculateValue,
     isCalculatingDistance,
     errors
 }: FreteDistanciaProps) => {
-    const isAuto = autoCalculateValue !== false;
+    const isValueAuto = autoCalculateValue !== false;
+
+    const AutoToggle = ({ enabled, onClick, label }: { enabled: boolean; onClick?: () => void; label: string }) => (
+        <button
+            type="button"
+            onClick={onClick}
+            disabled={!onClick}
+            aria-label={`${enabled ? 'Desligar' : 'Ligar'} cálculo automático de ${label}`}
+            aria-pressed={enabled}
+            title={`${enabled ? 'Desligar' : 'Ligar'} automático de ${label} • cálculo automático`}
+            className={`absolute right-1.5 top-1/2 inline-flex -translate-y-1/2 items-center gap-1.5 rounded-full px-1.5 py-1 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${enabled ? 'text-blue-700 dark:text-blue-300' : 'text-slate-400 hover:text-blue-600 dark:text-slate-500'}`}
+        >
+            <span className={`relative h-4 w-7 rounded-full transition-colors ${enabled ? 'bg-blue-600' : 'bg-slate-300 dark:bg-slate-600'}`}>
+                <span className={`absolute top-0.5 h-3 w-3 rounded-full bg-white shadow transition-transform ${enabled ? 'translate-x-3.5' : 'translate-x-0.5'}`} />
+            </span>
+            <i className={`bi bi-lightning-charge-fill text-xs ${enabled ? 'text-amber-500' : ''}`} aria-hidden="true" />
+        </button>
+    );
 
     return (
         <div className="flex flex-col gap-2.5">
-            {/* Barra superior de controle com botão Auto unificado */}
+            {/* Cabeçalho */}
             <div className="flex items-center justify-between gap-4">
-                <div className="flex items-center gap-2">
-                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">
-                        Frete & Distância
-                    </span>
-                    {onToggleAutoCalculate && (
-                        <button
-                            type="button"
-                            onClick={onToggleAutoCalculate}
-                            className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all shadow-sm ${
-                                isAuto
-                                    ? 'bg-blue-600 text-white shadow-blue-500/20 hover:bg-blue-700 active:scale-95'
-                                    : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700 active:scale-95 border border-slate-200/60 dark:border-slate-700/60'
-                            }`}
-                            title={isAuto ? "Preenchimento automático ativado (clique para editar manualmente)" : "Preenchimento manual (clique para ativar cálculo automático)"}
-                        >
-                            <i className={`bi ${isCalculatingDistance ? 'bi-arrow-repeat animate-spin' : isAuto ? 'bi-lightning-charge-fill text-amber-300' : 'bi-lightning-charge'}`} />
-                            <span>{isCalculatingDistance ? 'Calculando...' : 'Auto'}</span>
-                        </button>
-                    )}
-                </div>
+                <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">Frete & Distância</span>
 
                 <a
                     href={routeUrl}
@@ -76,21 +72,22 @@ const FreteDistancia = ({
                     </label>
                     <div className="relative">
                         <NumericFormat
-                            className={`w-full border-b-2 bg-transparent px-2 py-2 text-sm font-bold outline-none transition-colors placeholder:text-slate-300 dark:text-slate-300 dark:placeholder:text-slate-700 ${
-                                isAuto
+                            className={`w-full border-b-2 bg-transparent py-2 pl-2 pr-16 text-sm font-bold outline-none transition-colors placeholder:text-slate-300 dark:text-slate-300 dark:placeholder:text-slate-700 ${
+                                isValueAuto
                                     ? 'opacity-80 cursor-not-allowed bg-slate-50/60 dark:bg-slate-800/30 rounded-t-lg'
                                     : ''
                             } ${errors['shipping_value'] ? 'border-red-500 focus:border-red-500' : 'border-slate-200 focus:border-blue-600 dark:border-slate-700 dark:focus:border-blue-500'}`}
                             value={value === 0 ? "" : value}
                             allowNegative={false}
-                            disabled={isAuto}
+                            disabled={isValueAuto}
                             thousandSeparator="."
                             prefix={"R$ "}
                             decimalScale={2}
                             decimalSeparator=","
-                            onFocus={(e: any) => !isAuto && e.target.select()}
-                            onValueChange={(values: any) => !isAuto && onChangeValue(values.floatValue || 0)}
+                            onFocus={(e: any) => !isValueAuto && e.target.select()}
+                            onValueChange={(values: any) => !isValueAuto && onChangeValue(values.floatValue || 0)}
                         />
+                        <AutoToggle enabled={isValueAuto} onClick={onToggleAutoCalculateValue} label="valor do frete" />
                         {errors['shipping_value'] && (
                             <div className="absolute left-0 -top-8 hidden group-hover:flex items-center px-2 py-1 bg-red-500 text-white text-[10px] font-bold rounded shadow-lg z-50 whitespace-nowrap">
                                 {errors['shipping_value']}
@@ -102,21 +99,25 @@ const FreteDistancia = ({
 
                 {/* Distância KM */}
                 <div className="group relative flex w-44 max-w-full flex-none flex-col">
-                    <label className="mb-1 ml-1 text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500">
-                        Distância KM
+                        <label className="mb-1 ml-1 text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500">
+                        Distância KM <span className="text-red-500" aria-hidden="true">*</span>
                     </label>
-                    <input
-                        type="text"
-                        disabled={isAuto}
-                        className={`w-full border-b-2 border-slate-200 bg-transparent px-2 py-2 text-sm font-bold outline-none transition-colors placeholder:text-slate-300 focus:border-blue-600 dark:border-slate-700 dark:text-slate-300 dark:placeholder:text-slate-700 dark:focus:border-blue-500 ${
-                            isAuto
-                                ? 'opacity-80 cursor-not-allowed bg-slate-50/60 dark:bg-slate-800/30 rounded-t-lg'
-                                : ''
-                        }`}
-                        value={distance !== undefined ? distance.toString().replace('.', ',') : ''}
-                        onChange={(e) => !isAuto && onChangeDistance(e.target.value)}
-                        placeholder={isAuto ? "Automático" : "Ex: 5,5"}
-                    />
+                    <div className="relative">
+                        <input
+                            type="text"
+                            inputMode="decimal"
+                            aria-label="Distância em quilômetros (obrigatória)"
+                            aria-invalid={Boolean(errors['shipping_distance'])}
+                            className={`w-full border-b-2 bg-transparent px-2 py-2 text-sm font-bold outline-none transition-colors placeholder:text-slate-300 focus:border-blue-600 dark:text-slate-300 dark:placeholder:text-slate-700 dark:focus:border-blue-500 ${errors['shipping_distance'] ? 'border-red-500' : 'border-slate-200 dark:border-slate-700'}`}
+                            value={distance !== undefined ? distance.toString().replace('.', ',') : ''}
+                            onChange={(e) => onChangeDistance(e.target.value)}
+                            placeholder={isCalculatingDistance ? 'Calculando...' : 'Ex: 5,5'}
+                        />
+                        {isCalculatingDistance && <span className="sr-only" role="status">Calculando distância</span>}
+                        {errors['shipping_distance'] && (
+                            <p className="mt-1 text-[10px] font-semibold text-red-500">{errors['shipping_distance']}</p>
+                        )}
+                    </div>
                 </div>
             </div>
         </div>

@@ -21,6 +21,7 @@ export interface LabelItemConfig {
     showName?: boolean;
     showPromoPrice?: boolean;
     isLogoOnly?: boolean;
+    printingMode?: 'simple' | 'advanced';
     productImages?: { image_url: string; is_main: boolean }[];
     parentImages?: { image_url: string; is_main: boolean }[];
     currentImageIndex?: number;
@@ -214,8 +215,8 @@ const LabelGrid: React.FC<Props> = ({
                 overflow: 'auto', 
                 display: 'flex', 
                 justifyContent: 'center',
-                padding: previewMode ? '10px' : 0,
-                backgroundColor: previewMode ? '#f8fafc' : 'transparent'
+                padding: 0,
+                backgroundColor: 'transparent'
             }}
         >
             <div 
@@ -253,6 +254,7 @@ const LabelGrid: React.FC<Props> = ({
                                 (() => {
                                     let itemConfig: any = {
                                         ...config,
+                                        printingMode: item.printingMode || config.printingMode,
                                         isBlank: item.isBlank,
                                         showName: item.showName !== false,
                                         text: item.isBlank ? '' : (item.showName === false ? '' : (item.name || (item.type === 'logo' ? '' : (config.text || '')))),

@@ -183,9 +183,9 @@ function HomeContent() {
   useEffect(() => {
     async function loadData() {
       const [catRes, relRes, oppRes] = await Promise.all([
-        supabase.from("categories").select("*").order("name"),
-        supabase.from("category_relationships").select("*"),
-        supabase.from("opportunities").select("*").eq("active", true),
+        supabase.from("categories").select("id, name, slug, type").order("name"),
+        supabase.from("category_relationships").select("parent_id, child_id"),
+        supabase.from("opportunities").select("id, name, slug, badge_color, border_color, border_style, badge_animation, title_color").eq("active", true),
       ])
       if (catRes.data) setCategories(catRes.data)
       if (relRes.data) setRelationships(relRes.data)

@@ -65,6 +65,33 @@ These are the core rules the agent should internalise. Full detail in
    `.headroom-cache/<sha256>.txt` and include the SHA in your narration: "CCR
    key: `a3f9…`". If a later turn needs the original, retrieve it from there.
 
+## Validation loops (TypeScript, Vitest, Playwright)
+
+These rules reduce repeated work and context volume without weakening the
+project's validation or test-safety requirements. They do not independently
+authorize running tests; follow the repository's applicable instructions.
+
+- TypeScript checks (`tsc`) may be run normally when they are an appropriate
+  validation. Prefer `tsc --noEmit`; reuse incremental/cache state when the
+  project already supports it.
+- Keep terminal output focused and short. Avoid `--extendedDiagnostics`,
+  `--traceResolution`, and other verbose modes unless a specific diagnostic
+  question requires them.
+- If a check emits many errors, do not load the entire log into context. Use a
+  concise count/category summary and the first causal, relevant errors; retain
+  the complete raw output outside context when it must remain retrievable.
+  Fix shared root causes before rerunning the check.
+- For Vitest, prefer the directly affected test file or case; broaden coverage
+  only when risk or project instructions call for it. Do not rerun an unchanged
+  test against the same code state merely to reconfirm a pass.
+- For Playwright, run the smallest meaningful end-to-end flow and use concise
+  reporter/output settings. Avoid repeated runs, watchers, retries, and large
+  trace/log dumps unless a changed result or a specific failure warrants them.
+- A passing result remains valid for the code/configuration state it tested.
+  Rerun only after a relevant change or when the prior result is stale,
+  incomplete, or failed; group related fixes before rerunning and do not repeat
+  checks solely for reassurance.
+
 ## What "compression" means here
 
 Compression is **selection**, not zipping. We don't run gzip. We pick which

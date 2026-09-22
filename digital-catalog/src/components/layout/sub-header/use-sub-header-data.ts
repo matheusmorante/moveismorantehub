@@ -12,8 +12,8 @@ export function useSubHeaderData() {
   useEffect(() => {
     async function load() {
       const [catRes, relRes] = await Promise.all([
-        supabase.from("categories").select("*").order("name"),
-        supabase.from("category_relationships").select("*"),
+        supabase.from("categories").select("id, name, slug, type").order("name"),
+        supabase.from("category_relationships").select("parent_id, child_id"),
       ])
       if (catRes.data) {
         setEnvironments(catRes.data.filter((c: Category) => c.type === "environment"))

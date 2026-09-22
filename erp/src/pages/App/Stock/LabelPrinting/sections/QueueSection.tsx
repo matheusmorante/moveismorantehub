@@ -56,14 +56,14 @@ export const QueueSection: React.FC<QueueSectionProps> = (props) => {
                             <button 
                                 type="button"
                                 onClick={() => handleAddBlankLabel(1)}
-                                className="p-2.5 px-4 bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-xl text-[9px] font-black uppercase tracking-wider transition-all border border-slate-100 dark:border-slate-700 shadow-sm active:scale-95 flex items-center gap-1.5 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700"
-                                title="Adicionar etiqueta em branco"
+                                className="p-2.5 px-4 bg-blue-50 dark:bg-blue-900/20 hover:bg-blue-100 dark:hover:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-xl transition-all font-black text-[9px] uppercase tracking-widest flex items-center gap-2 border border-blue-100 dark:border-blue-900/40 shadow-sm cursor-pointer"
+                                title="Adicionar etiqueta"
                             >
-                                <i className="bi bi-plus-lg" /> Em branco
+                                <i className="bi bi-plus-lg" /> Adicionar
                             </button>
                         )}
 
-                        {selectedCategory !== 'precos' && activeItems.length > 0 && (
+                        {selectedCategory !== 'precos' && selectedCategory !== 'identificacao' && activeItems.length > 0 && (
                             <button 
                                 onClick={() => {
                                     if (window.confirm('Deseja limpar todos os itens da fila?')) {
@@ -80,17 +80,6 @@ export const QueueSection: React.FC<QueueSectionProps> = (props) => {
                     </div>
                 </div>
 
-                {/* BUSCA DE PRODUTOS AUTOMÁTICA */}
-                {selectedCategory === 'identificacao' && (
-                    <div className="w-full">
-                        <ProductSearchInput 
-                            products={products}
-                            selectedProduct={null}
-                            onSelectProduct={(p) => { if (p) handleProductSelect(p, 1); }}
-                            placeholder="Buscar produto, variação ou SKU para adicionar..."
-                        />
-                    </div>
-                )}
             </div>
 
             <div className="flex flex-col gap-6">

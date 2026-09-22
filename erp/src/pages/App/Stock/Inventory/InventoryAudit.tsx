@@ -209,7 +209,7 @@ export const InventoryAudit: React.FC<InventoryAuditProps> = ({ onCopy, onOpen }
                     className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-xs font-bold text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/30 cursor-pointer"
                 >
                     <i className="bi bi-copy" aria-hidden="true" />
-                    Copiar inventário
+                    Duplicar inventário
                 </button>
                 {activeSession.status === 'in_progress' && (
                     <button

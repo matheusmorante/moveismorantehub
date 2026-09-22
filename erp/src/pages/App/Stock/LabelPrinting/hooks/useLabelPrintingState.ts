@@ -526,7 +526,14 @@ export const useLabelPrintingState = () => {
         // 2. Busca Seletiva para economizar Banda (Egress)
         const { data, error } = await supabase
             .from('products')
-            .select('*')
+            .select(`
+                id, name, title, description, code, sku, unit_price, cost_price,
+                price, promo_price, stock, active, deleted_at, has_variations,
+                category, unit, images, is_combo,
+                variations:product_variations(
+                    id, name, description, sku, price, promo_price, stock, image_url, active
+                )
+            `)
             .is('deleted_at', null)
             .order('description', { ascending: true })
             .range(from, to);
@@ -618,10 +625,8 @@ export const useLabelPrintingState = () => {
 
         // Para Etiqueta de Identificação, por padrão selecionar o modelo de 10 Etiquetas (2x5)
         if (cat === 'identificacao') {
-            const defaultId = defaultLayoutIds['identificacao_rect'] || defaultLayoutIds['identificacao'];
             const models = [...DEFAULT_LAYOUT_MODELS, ...customLayouts];
-            const targetId = defaultId || 'ident_2x5';
-            const found = models.find(m => m.id === targetId) || models.find(m => m.id === 'ident_2x5');
+            const found = models.find(m => m.id === 'ident_2x5' || m.baseModelId === 'ident_2x5');
             if (found) {
                 selectLayout(found);
                 return;
@@ -917,6 +922,7 @@ export const useLabelPrintingState = () => {
             image: initialImage,
             productId: product.isVariation ? (product as any).parentId : product.id,
             variationId: product.isVariation ? product.id : undefined,
+            printingMode: 'advanced',
             instances: selectedCategory === 'identificacao' ? Array.from({ length: Math.max(1, quantity) }).map(() => '000XXX') : []
         };
 
@@ -948,11 +954,14 @@ export const useLabelPrintingState = () => {
                 sku: '',
                 quantity: quantity,
                 isBlank: true,
+                printingMode: 'simple',
                 extraFields: []
             };
             setLabelItems((prev: any) => [...prev, newItem]);
         }
-        toast.success(`Etiqueta em branco (${quantity} un) adicionada à fila.`);
+        if (selectedCategory !== 'precos') {
+            toast.success(`Etiqueta em branco (${quantity} un) adicionada à fila.`);
+        }
     };
 
     const handleReorderItems = (draggedIdx: number, targetIdx: number) => {

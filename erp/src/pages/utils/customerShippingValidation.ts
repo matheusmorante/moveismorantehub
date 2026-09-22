@@ -44,6 +44,11 @@ export const validateShipping = (shipping: Shipping, customer: CustomerData, isB
     }
 
     const noAddressRequired = shipping.noAddress || (shipping.useCustomerAddress !== false && customer?.noAddress);
+
+    if (!isBudget &&
+        (!Number.isFinite(shipping.distance) || (shipping.distance ?? 0) <= 0)) {
+        errors['shipping_distance'] = "Distância da entrega é obrigatória e deve ser maior que zero.";
+    }
     
     if (shipping.deliveryMethod === 'delivery' && !noAddressRequired && !isBudget) {
         if (shipping.useCustomerAddress !== false) {

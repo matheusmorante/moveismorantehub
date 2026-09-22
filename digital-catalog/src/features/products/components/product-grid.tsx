@@ -84,12 +84,27 @@ export function ProductGrid({ filters }: ProductGridProps) {
 
         function buildProductsQuery(hasDeletedAt: boolean, hasOpportunities: boolean) {
           let q = supabase.from("products")
+          const searchTerm = filters?.search?.trim()
+
+          const selectedCategoryIds = Array.from(new Set([
+            ...(filters?.cats || []),
+            ...allowedCategoryIds,
+          ].filter(Boolean)))
+
+          // Categorias são exclusivamente relacionais: um produto pode ter várias.
+          // O !inner permite filtrar e paginar no servidor sem depender de category_id legado.
+          const productCategoriesSelect = selectedCategoryIds.length > 0
+            ? "product_categories!inner(category_id, categories(name))"
+            : "product_categories(category_id, categories(name))"
+          const categorySearchSelect = searchTerm
+            ? ", search_categories:product_categories(category_id, categories!inner(name))"
+            : ""
           
           const selColumns = `
-            id, name, slug, price, promo_price, description, code, category_id, opportunity_id, is_salvado, status,
+            id, name, slug, price, promo_price, description, code, opportunity_id, is_salvado, status,
             product_images(image_url, is_main),
             product_variations(id, name, sku, price, promo_price, image_url, attributes, use_parent_price, use_parent_promo_price, use_parent_name, status, active),
-            product_categories(category_id, categories(name))
+            ${productCategoriesSelect}${categorySearchSelect}
           ` + (hasOpportunities ? `, opportunities(name, slug, badge_color, border_color, border_style, badge_animation, title_color)` : ``);
           
           q = q.select(selColumns, { count: "exact" })
@@ -99,17 +114,16 @@ export function ProductGrid({ filters }: ProductGridProps) {
             q = q.is("deleted_at", null)
           }
 
-          const searchTerm = filters?.search?.trim()
           if (searchTerm) {
-            q = q.or(`name.ilike.%${searchTerm}%,description.ilike.%${searchTerm}%,code.ilike.%${searchTerm}%`)
+            // A relação com categorias participa da mesma busca textual. A alias
+            // mantém a união (texto do produto OU nome da categoria) no servidor.
+            q = q
+              .ilike("search_categories.categories.name", `%${searchTerm}%`)
+              .or(`name.ilike.%${searchTerm}%,description.ilike.%${searchTerm}%,code.ilike.%${searchTerm}%,search_categories.not.is.null`)
           }
 
-          const selectedCategoryIds = Array.from(new Set([
-            ...(filters?.cats || []),
-            ...allowedCategoryIds,
-          ].filter(Boolean)))
           if (selectedCategoryIds.length > 0) {
-            q = q.in("category_id", selectedCategoryIds)
+            q = q.in("product_categories.category_id", selectedCategoryIds)
           }
 
           if (resolvedOppId === "salvados") {
@@ -370,10 +384,9 @@ export function ProductGrid({ filters }: ProductGridProps) {
             .map(c => normalizeSearch(c.name))
 
           filtered = filtered.filter(p => {
-            const prodCatIds = [
-              p.category_id,
-              ...(p.product_categories?.map((pc: any) => pc.category_id) || [])
-            ].filter(Boolean)
+            const prodCatIds = p.product_categories
+              ?.map((pc: any) => pc.category_id)
+              .filter(Boolean) || []
             if (prodCatIds.some((catId: string) => filters.envs.includes(catId))) {
               return true
             }
@@ -429,16 +442,14 @@ export function ProductGrid({ filters }: ProductGridProps) {
             })
           })
 
-          // Categoria é um filtro exato. Produtos antigos podem ter somente
-          // category_id, enquanto os novos usam também product_categories.
+          // Categoria é um filtro exato pelos vínculos relacionais do produto.
           if (allCatTargetIds.size === 0) {
             filtered = []
           } else {
             filtered = filtered.filter(product => {
-              const productCategoryIds = [
-                product.category_id,
-                ...(product.product_categories?.map((link: any) => link.category_id) || [])
-              ].filter(Boolean)
+              const productCategoryIds = product.product_categories
+                ?.map((link: any) => link.category_id)
+                .filter(Boolean) || []
               return productCategoryIds.some(categoryId => allCatTargetIds.has(categoryId))
             })
           }

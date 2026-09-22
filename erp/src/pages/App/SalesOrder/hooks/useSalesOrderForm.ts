@@ -414,7 +414,23 @@ export const useSalesOrderForm = (initialDeliveryMethod?: 'delivery' | 'pickup',
         },
         setPayments,
         setCustomerData: (val: React.SetStateAction<CustomerData>) => {
-            setCustomerData(val);
+            const nextCustomer = typeof val === 'function' ? val(customerData) : val;
+            const addressChanged = JSON.stringify(nextCustomer.fullAddress || {}) !== JSON.stringify(customerData.fullAddress || {});
+            const customerChanged = nextCustomer.id !== customerData.id;
+            setCustomerData(nextCustomer);
+            const address = nextCustomer.fullAddress;
+            const hasPhysicalAddress = Boolean(address?.street?.trim() && address?.city?.trim());
+            const routeAddress = hasPhysicalAddress
+                ? { ...address, mapsUrl: '', googleMapsUrl: '', mapsLink: '' }
+                : (address?.mapsUrl || address?.googleMapsUrl || address?.mapsLink)
+                    ? { mapsUrl: address.mapsUrl || address.googleMapsUrl || address.mapsLink }
+                    : null;
+            if (
+                (customerChanged || addressChanged) && nextCustomer.id && routeAddress &&
+                shipping.deliveryMethod === 'delivery' && shipping.useCustomerAddress !== false
+            ) {
+                void handleAutoCalculateDistance(routeAddress, { silentSuccess: true });
+            }
             setErrors(prev => {
                 const next = { ...prev };
                 Object.keys(next).forEach(key => {
@@ -471,7 +487,7 @@ export const useSalesOrderForm = (initialDeliveryMethod?: 'delivery' | 'pickup',
         jumpToStep: (step: number) => {
             setCurrentStep(step);
         },
-    }), [setItems, setShipping, setPayments, setCustomerData, setObservation, handleItemChange, setSeller, setSellerId, setMarketingOrigin, setOrderIndex, loadOrderForEditing, handleAutoCalculateDistance, handleSelectProduct, handleSaveOrder, handleCompleteOrder, clearForm, orderType]);
+    }), [setItems, setShipping, setPayments, setCustomerData, customerData, shipping, setObservation, handleItemChange, setSeller, setSellerId, setMarketingOrigin, setOrderIndex, loadOrderForEditing, handleAutoCalculateDistance, handleSelectProduct, handleSaveOrder, handleCompleteOrder, clearForm, orderType]);
 
     return { state, actions };
 };

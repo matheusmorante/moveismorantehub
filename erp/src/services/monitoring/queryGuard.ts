@@ -73,9 +73,7 @@ class QueryGuard {
         const url = import.meta.env.VITE_SUPABASE_URL || 'https://hkoxhourxwlddgsfdgws.supabase.co';
         const apikey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imhrb3hob3VyeHdsZGRnc2ZkZ3dzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgxNTg5MzgsImV4cCI6MjA5MzczNDkzOH0.vCNJeoR4wDl1BqESiyNhKpgviwxcx0cim8Dbl6MvdJI';
         
-        // Comentado temporariamente pois a RPC flush_supabase_telemetry não existe no banco (causando 404 a cada 5 mins)
-        /*
-        await window.fetch(`${url}/rest/v1/rpc/flush_supabase_telemetry`, {
+        const response = await window.fetch(`${url}/rest/v1/rpc/flush_supabase_telemetry`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -89,9 +87,15 @@ class QueryGuard {
             }))
           })
         });
-        */
+        if (!response.ok) {
+          this.telemetryBuffer.merge(metricsToSave);
+          console.error(`[SupabaseMonitor] Falha ao salvar telemetria (HTTP ${response.status}); lote mantido para nova tentativa.`);
+        }
+      } else {
+        this.telemetryBuffer.merge(metricsToSave);
       }
     } catch (err) {
+      this.telemetryBuffer.merge(metricsToSave);
       console.error('[SupabaseMonitor] Falha ao enviar telemetria:', err);
     }
   }
@@ -130,15 +134,15 @@ class QueryGuard {
     let tableName = 'unknown';
     let operationType: OperationType = 'UNKNOWN';
 
-    if (urlStr.includes('/rest/v1/')) {
+    if (urlStr.includes('/rest/v1/rpc/')) {
+      tableName = urlStr.split('/rest/v1/rpc/')[1]?.split('?')[0] || 'unknown_rpc';
+      operationType = 'RPC';
+    } else if (urlStr.includes('/rest/v1/')) {
       tableName = urlStr.split('/rest/v1/')[1]?.split('?')[0] || 'unknown';
       if (method === 'GET') operationType = 'SELECT';
       else if (method === 'POST') operationType = 'INSERT';
       else if (method === 'PATCH') operationType = 'UPDATE';
       else if (method === 'DELETE') operationType = 'DELETE';
-    } else if (urlStr.includes('/rest/v1/rpc/')) {
-      tableName = urlStr.split('/rest/v1/rpc/')[1]?.split('?')[0] || 'unknown_rpc';
-      operationType = 'RPC';
     } else if (urlStr.includes('/storage/v1/')) {
       tableName = urlStr.split('/storage/v1/')[1]?.split('/')[0] || 'storage';
       operationType = 'STORAGE';
@@ -209,24 +213,16 @@ class QueryGuard {
         }
       }
 
-      let callerAction = 'N/A';
-      let callerModule = 'Global';
-      try {
-        const stack = new Error().stack;
-        if (stack) {
-          const lines = stack.split('\n');
-          for (let i = 1; i < lines.length; i++) {
-            const line = lines[i];
-            if (!line.includes('QueryGuard') && !line.includes('SupabaseMonitorService') && !line.includes('@supabase') && !line.includes('supabaseConfig')) {
-              const match = line.match(/at\s+(?:async\s+)?([^\s]+)\s+\(/);
-              if (match && match[1]) callerAction = match[1];
-              const fileMatch = line.match(/\/pages\/App\/([^\/]+)\//);
-              if (fileMatch && fileMatch[1]) callerModule = fileMatch[1];
-              break;
-            }
-          }
-        }
-      } catch (e) {}
+      const currentPath = typeof window !== 'undefined' ? window.location.pathname : 'N/A';
+      const callerModule = this.currentContext.module !== 'Global'
+        ? this.currentContext.module
+        : 'ERP';
+      const callerScreen = this.currentContext.screen !== 'N/A'
+        ? this.currentContext.screen
+        : currentPath;
+      const callerAction = this.currentContext.action !== 'N/A'
+        ? this.currentContext.action
+        : 'customFetch';
 
       this.telemetryBuffer.track({
         table_name: tableName,
@@ -235,7 +231,7 @@ class QueryGuard {
         rows_returned: rowsReturned,
         module: callerModule,
         action: callerAction
-      }, this.currentContext);
+      }, { ...this.currentContext, module: callerModule, screen: callerScreen, action: callerAction });
 
       this.circuitBreaker.onSuccess(fingerprint);
 

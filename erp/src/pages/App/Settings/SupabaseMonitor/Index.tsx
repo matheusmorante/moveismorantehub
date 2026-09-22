@@ -151,7 +151,7 @@ export default function SupabaseMonitorDashboard() {
       <header className="mb-8 flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-100 dark:border-slate-800 pb-5">
         <div>
           <h1 className="text-2xl font-black text-slate-900 dark:text-white uppercase tracking-tight">Monitor do Supabase</h1>
-          <p className="text-slate-500 text-sm mt-1">Diagnóstico Progressivo (Drill-Down) de Telemetria.</p>
+          <p className="text-slate-500 text-sm mt-1">Telemetria agregada das chamadas feitas pelos clientes web do ERP.</p>
         </div>
         <div className="flex bg-slate-100 dark:bg-slate-900 p-1 rounded-xl">
           {(['15m', '1h', '24h', '7d'] as const).map((p) => (
@@ -165,6 +165,10 @@ export default function SupabaseMonitorDashboard() {
           ))}
         </div>
       </header>
+
+      <div className="mb-6 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-200">
+        Cobertura atual: chamadas instrumentadas pelos clientes web do ERP, enviadas em lotes a cada 5 minutos e dependentes de sessão autenticada. Catálogo digital, aplicativo mobile, chamadas feitas no servidor e volume em bytes (egress) não entram neste painel.
+      </div>
 
       {/* Breadcrumb Navigation */}
       <div className="flex flex-wrap items-center gap-2 mb-6 text-sm font-bold bg-white dark:bg-slate-900 px-4 py-3 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm">

@@ -292,48 +292,30 @@ const OrderEditModal = ({ order, orderId, onClose: propOnClose, onSaveSuccess: p
             className="bg-white dark:bg-slate-900 w-full h-full flex flex-col overflow-hidden"
             onClick={(e) => e.stopPropagation()}
         >
-            <div className="px-4 py-3 sm:px-6 sm:py-3.5 border-b border-slate-100 dark:border-slate-800 flex flex-col lg:flex-row justify-between items-center bg-white/80 dark:bg-slate-900/80 backdrop-blur-md transition-colors duration-300 shrink-0 gap-3">
+            <div className="flex shrink-0 flex-row items-center justify-between gap-1.5 border-b border-slate-100 bg-white/80 px-2 py-2 backdrop-blur-md transition-colors duration-300 dark:border-slate-800 dark:bg-slate-900/80 sm:gap-3 sm:px-4 sm:py-2.5 lg:px-6">
                 {/* Esquerda: Identificação */}
-                <div className="flex w-full lg:w-auto justify-between items-center shrink-0">
-                    <div className="flex items-center gap-3">
-                        <div className="bg-blue-600 p-2 sm:p-2.5 rounded-xl shadow-md shadow-blue-500/20 text-white flex items-center justify-center">
-                            <i className="bi bi-pencil-square text-sm sm:text-base" />
+                <div className="flex min-w-0 flex-1 items-center">
+                    <div className="flex min-w-0 items-center gap-1.5 sm:gap-3">
+                        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-blue-600 text-white shadow-md shadow-blue-500/20 sm:h-10 sm:w-10 sm:rounded-xl">
+                            <i className="bi bi-pencil-square text-xs sm:text-base" />
                         </div>
-                        <div>
-                            <h2 className="text-sm sm:text-base font-black text-slate-800 dark:text-slate-100 tracking-tight">{reconciliationMode ? "Conciliação Comercial" : "Editar Pedido"}</h2>
-                            <p className="text-[9px] uppercase font-bold text-slate-400 dark:text-slate-500 tracking-wider">
+                        <div className="min-w-0">
+                            <h2 className="truncate text-xs font-black tracking-tight text-slate-800 dark:text-slate-100 sm:text-base">{reconciliationMode ? "Conciliação Comercial" : "Editar Pedido"}</h2>
+                            <p className="hidden text-[9px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 sm:block">
                                 Pedido de Venda
                             </p>
                         </div>
                     </div>
-
-                    {/* Botão Fechar no Mobile */}
-                    <button
-                        type="button"
-                        onClick={onClose}
-                        className="lg:hidden flex items-center justify-center bg-slate-100 dark:bg-slate-800 hover:bg-rose-50 dark:hover:bg-rose-950/30 text-slate-400 hover:text-rose-500 rounded-xl transition-all w-8 h-8 active:scale-90"
-                        title="Fechar"
-                    >
-                        <i className="bi bi-x-lg text-xs" />
-                    </button>
                 </div>
 
                 {/* Centro: Stepper de Etapas */}
-                {!reconciliationMode && <div className="w-full lg:flex-1 max-w-2xl xl:max-w-4xl 2xl:max-w-5xl px-1 sm:px-4 flex justify-center min-w-0">
+                {!reconciliationMode && <div className="flex w-auto min-w-0 flex-none justify-center md:flex-1 md:px-1 2xl:max-w-5xl">
                     <OrderStepper currentStep={form.state.currentStep} jumpToStep={form.actions.jumpToStep} errors={form.state.errors} />
                 </div>}
 
-                {/* Direita: Botão Fechar no Desktop */}
-                <div className="hidden lg:flex items-center shrink-0">
-                    <button
-                        type="button"
-                        onClick={onClose}
-                        className="flex items-center justify-center bg-slate-100 dark:bg-slate-800 hover:bg-rose-50 dark:hover:bg-rose-950/30 text-slate-400 hover:text-rose-500 rounded-xl transition-all shadow-sm border border-slate-200/60 dark:border-slate-700/60 active:scale-90 w-9 h-9"
-                        title="Fechar"
-                    >
-                        <i className="bi bi-x-lg text-xs" />
-                    </button>
-                </div>
+                <button type="button" onClick={onClose} className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-500 transition-colors hover:bg-rose-50 hover:text-rose-500 dark:bg-slate-800 dark:hover:bg-rose-950/30 sm:h-9 sm:w-9 sm:rounded-xl" title="Fechar" aria-label="Fechar pedido">
+                    <i className="bi bi-x-lg text-xs" />
+                </button>
             </div>
 
             {/* Seller Search Modal */}
