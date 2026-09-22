@@ -7,7 +7,7 @@ import {
 } from '../financial/mobileTransactionCrudService';
 import { supabase } from '../supabaseClient';
 import { ToolExecutionResponse } from './mobileAgentTypes';
-import { getOrderDeliveryDetails, searchOrdersAndDeliveries } from './orderDeliveryAgentService';
+import { getOrderDeliveryDetails, searchOperations, searchOrdersAndDeliveries } from './orderDeliveryAgentService';
 import { getMobileProductDetails, searchMobileProducts } from './productAgentService';
 
 import {
@@ -20,9 +20,29 @@ import {
 // Executores deterministicos das ferramentas do Gemini no Mobile
 
 export const mobileAgentTools = {
+  async buscarOperacoes(args: { termo?: string; dataInicio?: string; dataFim?: string; status?: string; tipo?: 'todas' | 'venda' | 'entrega' | 'retirada' | 'assistencia' | 'devolucao' | 'montagem'; limite?: number }): Promise<ToolExecutionResponse> {
+    try {
+      const operations = await searchOperations(args);
+      return { success: true, data: operations, message: `${operations.length} operação(ões) encontrada(s).` };
+    } catch (error: unknown) {
+      return { success: false, code: 'OPERATIONS_SEARCH_ERROR', error: error instanceof Error ? error.message : 'Falha ao consultar operações.' };
+    }
+  },
+
+  async obterDetalhesOperacao(args: { operacaoId: string }): Promise<ToolExecutionResponse> {
+    if (!args.operacaoId?.trim()) return { success: false, code: 'INVALID_OPERATION_ID', error: 'É necessário informar o ID real da operação.' };
+    try {
+      const operation = await getOrderDeliveryDetails(args.operacaoId);
+      if (!operation) return { success: false, code: 'OPERATION_NOT_FOUND', error: 'Operação não encontrada.' };
+      return { success: true, data: operation, message: 'Detalhes da operação carregados.' };
+    } catch (error: unknown) {
+      return { success: false, code: 'OPERATION_DETAILS_ERROR', error: error instanceof Error ? error.message : 'Falha ao consultar detalhes da operação.' };
+    }
+  },
+
   async buscarPedidosEntregas(args: { termo?: string; dataInicio?: string; dataFim?: string; status?: string; limite?: number }): Promise<ToolExecutionResponse> {
     try {
-      const orders = await searchOrdersAndDeliveries(args);
+      const orders = await searchOrdersAndDeliveries({ ...args, tipo: 'venda' });
       return { success: true, data: orders, message: `${orders.length} pedido(s) ou entrega(s) encontrado(s).` };
     } catch (error: unknown) {
       return { success: false, code: 'ORDER_DELIVERY_SEARCH_ERROR', error: error instanceof Error ? error.message : 'Falha ao consultar pedidos e entregas.' };
@@ -37,6 +57,71 @@ export const mobileAgentTools = {
       return { success: true, data: order, message: 'Dados completos do pedido e da entrega encontrados.' };
     } catch (error: unknown) {
       return { success: false, code: 'ORDER_DELIVERY_DETAILS_ERROR', error: error instanceof Error ? error.message : 'Falha ao carregar os detalhes do pedido.' };
+    }
+  },
+
+  async buscarClientes(args: { termo: string; limite?: number }): Promise<ToolExecutionResponse> {
+    const term = args.termo?.trim().replace(/[,%()]/g, '');
+    if (!term || term.length < 2) return { success: false, code: 'CUSTOMER_SEARCH_TERM_REQUIRED', error: 'Informe pelo menos dois caracteres do nome, telefone ou e-mail do cliente.' };
+    try {
+      const limit = Math.min(Math.max(Math.floor(args.limite ?? 10), 1), 20);
+      const { data, error } = await supabase.from('people')
+        .select('id, full_name, phone, email, full_address, active')
+        .eq('person_type', 'customers')
+        .eq('deleted', false)
+        .or(`full_name.ilike.%${term}%,phone.ilike.%${term}%,email.ilike.%${term}%`)
+        .order('full_name', { ascending: true })
+        .limit(limit);
+      if (error) throw error;
+      return {
+        success: true,
+        data: (data || []).map(person => ({
+          id: person.id,
+          nome: person.full_name,
+          telefone: person.phone,
+          email: person.email,
+          cidade: person.full_address?.city || person.full_address?.cidade || null,
+          ativo: person.active,
+        })),
+        message: `${data?.length || 0} cliente(s) encontrado(s).`,
+      };
+    } catch (error: unknown) {
+      return { success: false, code: 'CUSTOMER_SEARCH_ERROR', error: error instanceof Error ? error.message : 'Falha ao consultar clientes.' };
+    }
+  },
+
+  async buscarColaboradores(args: { termo: string; limite?: number }): Promise<ToolExecutionResponse> {
+    const term = args.termo?.trim().replace(/[,%(){}]/g, '');
+    if (!term || term.length < 2) return { success: false, code: 'COLLABORATOR_SEARCH_TERM_REQUIRED', error: 'Informe pelo menos dois caracteres do nome, e-mail ou cargo do colaborador.' };
+    try {
+      const limit = Math.min(Math.max(Math.floor(args.limite ?? 10), 1), 20);
+      const normalizedTerm = term.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+      const roleAliases: Record<string, string> = {
+        administrador: 'administrator', administradora: 'administrator', admin: 'administrator',
+        gerente: 'manager', vendedor: 'seller', vendedora: 'seller', entregador: 'deliverer',
+        entregadora: 'deliverer', contador: 'accountant', contadora: 'accountant',
+        estoquista: 'stockist', pendente: 'pending',
+      };
+      const role = roleAliases[normalizedTerm] || (['administrator', 'manager', 'seller', 'deliverer', 'accountant', 'stockist', 'pending'].includes(normalizedTerm) ? normalizedTerm : null);
+      const conditions = [`full_name.ilike.%${term}%`, `email.ilike.%${term}%`, `position.ilike.%${term}%`];
+      if (role) conditions.push(`role.eq.${role}`, `roles.cs.{${role}}`);
+      const { data, error } = await supabase.from('profiles')
+        .select('id, email, full_name, position, role, roles')
+        .or(conditions.join(','))
+        .order('full_name', { ascending: true })
+        .limit(100);
+      if (error) throw error;
+      const matched = (data || []).filter(profile => {
+        const roles = Array.isArray(profile.roles) && profile.roles.length ? profile.roles : (profile.role ? [profile.role] : []);
+        return !role || roles.includes(role) || profile.role === role;
+      }).slice(0, limit);
+      return {
+        success: true,
+        data: matched.map(profile => ({ id: profile.id, nome: profile.full_name || profile.email, email: profile.email, cargo: profile.position, cargos: profile.roles?.length ? profile.roles : (profile.role ? [profile.role] : []) })),
+        message: `${matched.length} colaborador(es) encontrado(s).`,
+      };
+    } catch (error: unknown) {
+      return { success: false, code: 'COLLABORATOR_SEARCH_ERROR', error: error instanceof Error ? error.message : 'Falha ao consultar colaboradores.' };
     }
   },
 

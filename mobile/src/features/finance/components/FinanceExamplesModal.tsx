@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Modal, ScrollView } from 'react-native';
-import { X, Sparkles, Fuel, ArrowDownLeft, FileCheck, Layers } from 'lucide-react-native';
+import { X, Sparkles, Fuel, ArrowDownLeft, FileCheck, Layers, Package, Truck, Wrench, RotateCcw } from 'lucide-react-native';
 
 interface Props {
   visible: boolean;
@@ -27,7 +27,7 @@ export const FinanceExamplesModal: React.FC<Props> = ({
             <View style={styles.headerTitleRow}>
               <Sparkles size={20} color="#7c3aed" />
               <Text style={[styles.headerTitle, isDarkMode && styles.textDark]}>
-                Exemplos de como falar
+                Exemplos de consultas
               </Text>
             </View>
             <TouchableOpacity style={styles.closeBtn} onPress={onClose} activeOpacity={0.7}>
@@ -36,11 +36,83 @@ export const FinanceExamplesModal: React.FC<Props> = ({
           </View>
 
           <Text style={[styles.subtitle, isDarkMode && styles.subtitleDark]}>
-            Fale ou digite naturalmente como se estivesse conversando. Veja abaixo como descrever cada tipo de movimentação:
+            Digite naturalmente para consultar informações do ERP ou registrar movimentações financeiras:
           </Text>
 
           {/* Lista em Scroll de Exemplos para Leitura */}
           <ScrollView style={styles.scrollList} showsVerticalScrollIndicator={true}>
+            {/* Produtos */}
+            <View style={[styles.categorySection, isDarkMode && styles.categorySectionDark]}>
+              <View style={styles.categoryHeader}>
+                <Package size={16} color="#2563eb" />
+                <Text style={styles.categoryTitle}>Produtos e estoque</Text>
+              </View>
+              <View style={styles.exampleItem}>
+                <Text style={[styles.exampleText, isDarkMode && styles.exampleTextDark]}>
+                  "Consulte o preço e as medidas do guarda-roupa Verona"
+                </Text>
+              </View>
+              <View style={styles.exampleItem}>
+                <Text style={[styles.exampleText, isDarkMode && styles.exampleTextDark]}>
+                  "Qual é o saldo em estoque do produto código 123456?"
+                </Text>
+              </View>
+            </View>
+
+            {/* Entregas */}
+            <View style={[styles.categorySection, isDarkMode && styles.categorySectionDark]}>
+              <View style={styles.categoryHeader}>
+                <Truck size={16} color="#2563eb" />
+                <Text style={styles.categoryTitle}>Pedidos e entregas</Text>
+              </View>
+              <View style={styles.exampleItem}>
+                <Text style={[styles.exampleText, isDarkMode && styles.exampleTextDark]}>
+                  "Quais entregas estão programadas para amanhã?"
+                </Text>
+              </View>
+              <View style={styles.exampleItem}>
+                <Text style={[styles.exampleText, isDarkMode && styles.exampleTextDark]}>
+                  "Consulte o status do pedido da cliente Maria Rodrigues"
+                </Text>
+              </View>
+            </View>
+
+            {/* Assistência */}
+            <View style={[styles.categorySection, isDarkMode && styles.categorySectionDark]}>
+              <View style={styles.categoryHeader}>
+                <Wrench size={16} color="#f59e0b" />
+                <Text style={styles.categoryTitle}>Assistências</Text>
+              </View>
+              <View style={styles.exampleItem}>
+                <Text style={[styles.exampleText, isDarkMode && styles.exampleTextDark]}>
+                  "Consulte a assistência vinculada ao pedido da cliente Maria Rodrigues"
+                </Text>
+              </View>
+              <View style={styles.exampleItem}>
+                <Text style={[styles.exampleText, isDarkMode && styles.exampleTextDark]}>
+                  "Quais assistências estão agendadas para esta semana?"
+                </Text>
+              </View>
+            </View>
+
+            {/* Devoluções */}
+            <View style={[styles.categorySection, isDarkMode && styles.categorySectionDark]}>
+              <View style={styles.categoryHeader}>
+                <RotateCcw size={16} color="#8b5cf6" />
+                <Text style={styles.categoryTitle}>Devoluções</Text>
+              </View>
+              <View style={styles.exampleItem}>
+                <Text style={[styles.exampleText, isDarkMode && styles.exampleTextDark]}>
+                  "Quais devoluções estão agendadas para esta semana?"
+                </Text>
+              </View>
+              <View style={styles.exampleItem}>
+                <Text style={[styles.exampleText, isDarkMode && styles.exampleTextDark]}>
+                  "Quando será feita a coleta da devolução da cliente Maria Rodrigues?"
+                </Text>
+              </View>
+            </View>
+
             {/* 1. Saída à Vista */}
             <View style={[styles.categorySection, isDarkMode && styles.categorySectionDark]}>
               <View style={styles.categoryHeader}>

@@ -5,7 +5,7 @@ import { X, ShieldCheck, Settings, LogOut, RefreshCw, BellRing } from 'lucide-re
 import * as Updates from 'expo-updates';
 import { checkAndUpdateManually } from '../../hooks/useExpoAutoUpdate';
 import { testRemotePushNotification } from '../../services/notificationService';
-import { APP_VERSION, APP_BUILD } from '../../constants/appVersion';
+import { APP_NAME, APP_VERSION, APP_BUILD } from '../../constants/appVersion';
 import { styles } from './ProfileModalStyles';
 
 interface Props {
@@ -188,7 +188,7 @@ export const ProfileModal: React.FC<Props> = ({
           {/* Rodapé Informativo de Versão */}
           <View style={{ marginTop: 18, alignItems: 'center' }}>
             <Text style={{ fontSize: 10, fontWeight: '700', color: isDarkMode ? '#64748b' : '#94a3b8', textTransform: 'uppercase', letterSpacing: 0.5 }}>
-              Equipe Morante • v{APP_VERSION} • Morante Móveis
+              {APP_NAME} • v{APP_VERSION}
             </Text>
           </View>
           </ScrollView>

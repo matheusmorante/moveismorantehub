@@ -1,7 +1,6 @@
 import { Audio } from 'expo-av';
 import { supabase } from './supabaseClient';
 import { DeliverySummaryRecord } from './deliverySummaryService';
-import { speakTextWithFallback, stopSpeech as stopNativeSpeech, pauseSpeech as pauseNativeSpeech, resumeSpeech as resumeNativeSpeech } from './navigationVoiceService';
 import {
   DEFAULT_VOICE_CONFIG,
   generateAudioCacheKey,
@@ -24,7 +23,6 @@ export interface AudioPlaybackCallbacks {
 
 export const stopGeminiAudio = async () => {
   try {
-    await stopNativeSpeech();
     if (activeSound) {
       await activeSound.stopAsync().catch(() => {});
       await activeSound.unloadAsync().catch(() => {});
@@ -39,8 +37,6 @@ export const pauseGeminiAudio = async () => {
   try {
     if (activeSound) {
       await activeSound.pauseAsync();
-    } else {
-      await pauseNativeSpeech();
     }
   } catch (e) {
     console.warn('[GeminiAudio] Erro ao pausar áudio:', e);
@@ -51,8 +47,6 @@ export const resumeGeminiAudio = async () => {
   try {
     if (activeSound) {
       await activeSound.playAsync();
-    } else {
-      await resumeNativeSpeech();
     }
   } catch (e) {
     console.warn('[GeminiAudio] Erro ao retomar áudio:', e);
@@ -71,7 +65,7 @@ export const seekGeminiAudio = async (seconds: number) => {
 
 /**
  * Sintetiza o áudio com voz ultrarrealista do Google AI Studio / Google Cloud Neural2 TTS.
- * Se a API Key não tiver acesso ou a cota expirar, retorna success: false para fallback gracioso.
+ * Se a API Key não tiver acesso ou a cota expirar, retorna success: false.
  */
 function pcmToWavBase64(pcmBase64: string, sampleRate = 24000, numChannels = 1, bitsPerSample = 16): string {
   try {
@@ -160,14 +154,14 @@ export const generateGeminiAudioMp3 = async (
 
 /**
  * Reproduz o resumo por áudio.
- * Tenta primeiro a voz de estúdio da IA do Gemini (expo-av). Se indisponível, usa fallback para voz nativa.
+ * Reproduz o áudio gerado pelo Gemini via expo-av, sem fallback para voz nativa.
  */
 export const playSummaryAudio = async (
   text: string,
-  engine: 'gemini' | 'native',
+  engine: 'gemini',
   callbacks: AudioPlaybackCallbacks,
   scope?: DeliverySummaryRecord['scope'],
-): Promise<{ success: boolean; engineUsed: 'gemini' | 'native'; fallbackReason?: string }> => {
+): Promise<{ success: boolean; engineUsed: 'gemini' }> => {
   await stopGeminiAudio();
 
   const cleanText = text.trim();
@@ -176,55 +170,43 @@ export const playSummaryAudio = async (
     return { success: true, engineUsed: engine };
   }
 
-  let fallbackReason: string | undefined;
-  if (engine === 'gemini') {
-    const res = await generateGeminiAudioMp3(cleanText, scope);
-    if (res.success && (res.base64Mp3 || res.audioUrl)) {
-      try {
-        await Audio.setAudioModeAsync({
-          playsInSilentModeIOS: true,
-          staysActiveInBackground: false,
-          shouldDuckAndroid: true,
-        });
+  const res = await generateGeminiAudioMp3(cleanText, scope);
+  if (res.success && (res.base64Mp3 || res.audioUrl)) {
+    try {
+      await Audio.setAudioModeAsync({
+        playsInSilentModeIOS: true,
+        staysActiveInBackground: false,
+        shouldDuckAndroid: true,
+      });
 
-        const uri = res.audioUrl || (res.isWav ? `data:audio/wav;base64,${res.base64Mp3}` : `data:audio/mp3;base64,${res.base64Mp3}`);
-        const { sound } = await Audio.Sound.createAsync(
-          { uri },
-          { shouldPlay: true, volume: 1.0 },
-          (status) => {
-            if (!status.isLoaded) return;
-            if (status.isPlaying) {
-              const currentSec = Math.floor((status.positionMillis || 0) / 1000);
-              const durationSec = Math.floor((status.durationMillis || 1) / 1000);
-              callbacks.onProgress?.(currentSec, durationSec);
-            }
-            if (status.didJustFinish) {
-              callbacks.onDone?.();
-            }
+      const uri = res.audioUrl || (res.isWav ? `data:audio/wav;base64,${res.base64Mp3}` : `data:audio/mp3;base64,${res.base64Mp3}`);
+      const { sound } = await Audio.Sound.createAsync(
+        { uri },
+        { shouldPlay: true, volume: 1.0 },
+        (status) => {
+          if (!status.isLoaded) return;
+          if (status.isPlaying) {
+            const currentSec = Math.floor((status.positionMillis || 0) / 1000);
+            const durationSec = Math.floor((status.durationMillis || 1) / 1000);
+            callbacks.onProgress?.(currentSec, durationSec);
           }
-        );
+          if (status.didJustFinish) {
+            callbacks.onDone?.();
+          }
+        }
+      );
 
-        activeSound = sound;
-        callbacks.onStart?.();
-        return { success: true, engineUsed: 'gemini' };
-      } catch (audioErr) {
-        console.warn('[GeminiAudio] Erro ao carregar sound no expo-av, chaveando para voz nativa:', audioErr);
-      }
-    } else {
-      fallbackReason = res.error;
-      console.info('[GeminiAudio] Ativando síntese nativa de alta fidelidade:', res.error);
+      activeSound = sound;
+      callbacks.onStart?.();
+      return { success: true, engineUsed: 'gemini' };
+    } catch (audioErr) {
+      console.warn('[GeminiAudio] Erro ao carregar áudio Gemini no expo-av:', audioErr);
+      callbacks.onError?.(audioErr);
+      return { success: false, engineUsed: 'gemini' };
     }
   }
 
-  // Fallback para Voz Nativa do dispositivo (expo-speech)
-  await speakTextWithFallback(cleanText, {
-    engine: 'native',
-    rate: 0.95,
-    pitch: 1.0,
-    onStart: () => callbacks.onStart?.(),
-    onDone: () => callbacks.onDone?.(),
-    onError: (e) => callbacks.onError?.(e),
-  });
-
-  return { success: true, engineUsed: 'native', fallbackReason };
+  const error = res.error || 'Não foi possível carregar o áudio Gemini.';
+  callbacks.onError?.(new Error(error));
+  return { success: false, engineUsed: 'gemini' };
 };

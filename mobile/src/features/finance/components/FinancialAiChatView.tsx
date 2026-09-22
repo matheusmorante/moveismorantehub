@@ -6,7 +6,6 @@ import { AssistantEmptyState } from './AssistantEmptyState';
 import { ChatHeaderToolBar } from './chat/ChatHeaderToolBar';
 import { ChatMessageItem } from './chat/ChatMessageItem';
 import { FinancialTimelineCard } from './chat/FinancialTimelineCard';
-import { RecordingStatusBar } from './chat/RecordingStatusBar';
 import { FinancialChatInputBar } from './chat/FinancialChatInputBar';
 import { useFinancialAiChat } from '../hooks/useFinancialAiChat';
 
@@ -91,24 +90,12 @@ export const FinancialAiChatView: React.FC<Props> = ({
       </ScrollView>
 
 
-      {/* Indicador de Status Discreto da Sessão de Voz */}
-      <RecordingStatusBar
-        voiceState={chat.voiceState}
-        livePill={chat.livePill}
-        activeDraft={chat.activeDraft}
-        isDarkMode={isDarkMode}
-      />
-
-      {/* Barra de Entrada de Texto e Controles da Sessão de Voz */}
+      {/* Barra de entrada com Voice Mode e envio de mensagem */}
       <FinancialChatInputBar
         inputText={chat.inputText}
-        isRecordingActive={chat.isRecordingActive}
         loading={chat.loading}
         isDarkMode={isDarkMode}
         onChangeInputText={chat.setInputText}
-        onStartVoice={chat.handleStartVoice}
-        onStopVoice={chat.handleStopVoice}
-        onCancelVoice={chat.handleCancelVoice}
         onSendMessage={chat.handleSendMessage}
       />
     </View>

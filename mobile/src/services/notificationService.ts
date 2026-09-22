@@ -315,7 +315,7 @@ export const testRemotePushNotification = async () => {
     if (!hasPermission) {
       Alert.alert(
         'Permissão Necessária',
-        'Ative as notificações nas configurações do celular:\nConfigurações > Aplicativos > Equipe Morante > Notificações.'
+        'Ative as notificações nas configurações do celular:\nConfigurações > Aplicativos > App Morante > Notificações.'
       );
       return;
     }
@@ -330,7 +330,7 @@ export const testRemotePushNotification = async () => {
       if (Platform.OS !== 'web') {
         await Notifications.scheduleNotificationAsync({
           content: {
-            title: '🔔 Teste de Notificação • Equipe Morante',
+            title: '🔔 Teste de Notificação • App Morante',
             body: 'Banner e alerta sonoro funcionando perfeitamente!',
             sound: 'default',
             priority: (Notifications as any).AndroidNotificationPriority?.MAX || 'max',
@@ -377,7 +377,7 @@ export const testRemotePushNotification = async () => {
         body: JSON.stringify([{
           to: token,
           sound: 'default',
-          title: '🔔 Teste Remoto Expo • Móveis Morante',
+          title: '🔔 Teste Remoto Expo • App Morante',
           body: 'Notificação push remota recebida com sucesso!',
           channelId: 'morante_alerts_v3',
           priority: 'high',

@@ -95,12 +95,14 @@ export async function searchMobileProducts(input: {
 }): Promise<MobileProductSummaryForAgent[]> {
   const limit = normalizeLimit(input.limite);
   const statusFilter = input.apenasAtivos !== false ? 'active' : 'all';
+  const searchTerm = input.termo?.trim().replace(/[,%()]/g, '');
 
   const { data } = await fetchMobileProductsPage(1, limit, {
-    search: input.termo,
+    search: searchTerm,
     category: input.categoria,
     statusFilter,
     includeDeactivated: input.apenasAtivos === false,
+    throwOnError: true,
   });
 
   return (data || []).map((p: any) => {
@@ -132,6 +134,7 @@ export async function getMobileProductDetails(
 ): Promise<MobileProductDetailForAgent | null> {
   const target = codigoOuSku.trim();
   if (!target) return null;
+  if (!/^[a-z\d_-]+$/i.test(target)) throw new Error('O código ou SKU do produto contém caracteres inválidos.');
 
   // 1. Consulta pelo código ou SKU do produto pai
   let { data, error } = await supabase
@@ -140,44 +143,46 @@ export async function getMobileProductDetails(
     .eq('deleted', false)
     .or(`code.eq.${target},sku.eq.${target}`)
     .maybeSingle();
+  if (error) throw error;
 
   // 2. Se não encontrou no pai, verifica se é SKU de variação
   if (!data && !error) {
-    const { data: varData } = await supabase
+    const { data: varData, error: variationError } = await supabase
       .from('product_variations')
       .select('product_id')
       .eq('sku', target)
       .maybeSingle();
+    if (variationError) throw variationError;
 
     if (varData?.product_id) {
       const { data: parentData, error: parentError } = await supabase
         .from('products')
         .select('*, product_variations(*)')
         .eq('id', varData.product_id)
+        .eq('deleted', false)
         .maybeSingle();
 
+      if (parentError) throw parentError;
       data = parentData;
-      error = parentError;
     }
   }
 
   // 3. Fallback para códigos com padding (ex: "10" -> "000010")
   if (!data && !error && target.length >= 3) {
     const padded = target.padStart(6, '0');
-    const { data: fallbackData } = await supabase
+    const { data: fallbackData, error: fallbackError } = await supabase
       .from('products')
       .select('*, product_variations(*)')
       .eq('deleted', false)
       .or(`code.eq.${padded},sku.ilike.%${target}%`)
       .limit(1)
       .maybeSingle();
+    if (fallbackError) throw fallbackError;
 
     data = fallbackData;
   }
 
-  if (error || !data) {
-    return null;
-  }
+  if (!data) return null;
 
   const rawVars = data.product_variations || [];
   const parentCode = data.code || data.sku || '';

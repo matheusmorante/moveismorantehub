@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Platform, Modal, ScrollView } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Platform, Modal, ScrollView, Image } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { 
   LayoutDashboard, 
@@ -69,7 +69,7 @@ export const NativeBottomNav: React.FC<Props> = ({
     },
     {
       key: 'agente',
-      label: 'Agente',
+      label: 'Assistente',
       icon: Sparkles,
       url: `${WEB_URL}/agent`,
       visible: true,
@@ -157,26 +157,31 @@ export const NativeBottomNav: React.FC<Props> = ({
           const IconComponent = tab.icon;
           const active = isTabActive(tab.key);
           const isAgent = tab.key === 'agente';
-          const activeColor = isAgent ? '#7c3aed' : '#2563eb';
-          const inactiveColor = isAgent ? '#8b5cf6' : '#94a3b8';
+          const activeColor = isAgent ? '#eab308' : '#2563eb';
+          const inactiveColor = isAgent ? '#eab308' : '#94a3b8';
           return (
             <TouchableOpacity
               key={tab.key}
               style={[styles.navItem, active && styles.navItemActive]}
               onPress={() => handleTabChange(tab.key, tab.url)}
+              accessibilityLabel={isAgent ? 'Assistente' : tab.label}
             >
-              <IconComponent 
-                size={22} 
-                color={active ? activeColor : inactiveColor} 
-                strokeWidth={active ? 2.5 : 2} 
-              />
-              <Text style={[
-                styles.navText, 
-                active && (isAgent ? styles.navTextAgentActive : styles.navTextActive),
-                !active && isAgent && styles.navTextAgentInactive
-              ]}>
-                {tab.label}
-              </Text>
+              {isAgent ? (
+                <View style={styles.agentAvatarPrimaryFrame}>
+                  <Image source={require('../../../../assets/lizandro.png')} style={styles.agentAvatarPrimary} />
+                </View>
+              ) : (
+                <IconComponent
+                  size={22}
+                  color={active ? activeColor : inactiveColor}
+                  strokeWidth={active ? 2.5 : 2}
+                />
+              )}
+              {!isAgent && (
+                <Text style={[styles.navText, active && styles.navTextActive]}>
+                  {tab.label}
+                </Text>
+              )}
             </TouchableOpacity>
           );
         })}
@@ -260,16 +265,22 @@ export const NativeBottomNav: React.FC<Props> = ({
                         handleTabChange(tab.key, tab.url);
                       }}
                     >
-                      <View style={[
-                        styles.sheetIconWrapper,
-                        active ? styles.sheetIconWrapperActive : (isDarkMode ? styles.sheetIconWrapperDark : styles.sheetIconWrapperLight)
-                      ]}>
-                        <IconComponent 
-                          size={20} 
-                          color={active ? '#2563eb' : (isDarkMode ? '#cbd5e1' : '#475569')} 
-                          strokeWidth={active ? 2.5 : 2} 
-                        />
-                      </View>
+                      {tab.key === 'agente' ? (
+                        <View style={styles.agentAvatarFrame}>
+                          <Image source={require('../../../../assets/lizandro.png')} style={styles.agentAvatar} />
+                        </View>
+                      ) : (
+                        <View style={[
+                          styles.sheetIconWrapper,
+                          active ? styles.sheetIconWrapperActive : (isDarkMode ? styles.sheetIconWrapperDark : styles.sheetIconWrapperLight)
+                        ]}>
+                          <IconComponent
+                            size={20}
+                            color={active ? '#2563eb' : (isDarkMode ? '#cbd5e1' : '#475569')}
+                            strokeWidth={active ? 2.5 : 2}
+                          />
+                        </View>
+                      )}
                       <Text style={[
                         styles.sheetItemLabel,
                         isDarkMode && styles.sheetTextDark,
@@ -314,6 +325,36 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 3,
+  },
+  agentAvatarFrame: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    borderWidth: 2,
+    borderColor: '#2563eb',
+    overflow: 'hidden',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  agentAvatar: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 17,
+  },
+  agentAvatarPrimaryFrame: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    borderWidth: 2.5,
+    borderColor: '#2563eb',
+    overflow: 'hidden',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  agentAvatarPrimary: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 24,
   },
   navItemActive: {},
   navText: {

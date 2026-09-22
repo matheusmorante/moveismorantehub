@@ -6,6 +6,7 @@ export interface MobileProductFilterOptions {
   statusFilter?: 'all' | 'active' | 'disabled' | 'draft';
   includeDeactivated?: boolean;
   includeMerged?: boolean;
+  throwOnError?: boolean;
 }
 
 export const fetchMobileProductsPage = async (
@@ -45,16 +46,19 @@ export const fetchMobileProductsPage = async (
       let matchedParentIds: string[] = [];
 
       try {
-        const { data: matchedVars } = await supabase
+        const { data: matchedVars, error: variationsError } = await supabase
           .from('product_variations')
           .select('product_id')
           .or(`name.ilike.${term},sku.ilike.${term}`)
           .limit(100);
+        if (variationsError && options?.throwOnError) throw variationsError;
+        if (variationsError) console.warn('[MobileProductService] Erro ao buscar variações filhas:', variationsError);
 
         if (matchedVars && matchedVars.length > 0) {
           matchedParentIds = Array.from(new Set(matchedVars.map((v: any) => v.product_id).filter(Boolean)));
         }
       } catch (e) {
+        if (options?.throwOnError) throw e;
         console.warn('[MobileProductService] Erro ao buscar variações filhas:', e);
       }
 
@@ -75,6 +79,7 @@ export const fetchMobileProductsPage = async (
 
     const { data, count, error } = await query;
     if (error) {
+      if (options?.throwOnError) throw error;
       console.warn('[MobileProductService] Erro ao buscar produtos:', error);
       return { data: [], total: 0 };
     }
@@ -163,6 +168,7 @@ export const fetchMobileProductsPage = async (
 
     return { data: formatted, total: count || 0 };
   } catch (err) {
+    if (options?.throwOnError) throw err;
     console.error('[MobileProductService] Exceção ao buscar produtos:', err);
     return { data: [], total: 0 };
   }

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { Animated, View, Text, StyleSheet, Alert } from 'react-native';
+import { Animated, View, Text, StyleSheet } from 'react-native';
 import { Truck, FileText, ChevronRight } from 'lucide-react-native';
 import { generateDeliveryAISummary, subscribeSummaryQuota } from '../../../services/aiSummaryService';
 import { playSummaryAudio, stopGeminiAudio, pauseGeminiAudio, resumeGeminiAudio, seekGeminiAudio } from '../../../services/geminiAudioService';
@@ -12,9 +12,6 @@ import { getLatestSavedSummaryRecord, type DeliverySummaryRecord } from '../../.
 import { getCachedAudioRecord } from '../../../services/deliveryAudioCacheService';
 import { offlineStorageService } from '../../../services/offline/offlineStorageService';
 import { DeliveryShiftMetricsGrid } from './DeliveryShiftMetricsGrid';
-import { DeliverySummaryControlsBar } from './DeliverySummaryControlsBar';
-
-export type VoiceEngineType = 'gemini' | 'native';
 
 interface OrderItem {
   id: string;
@@ -43,7 +40,6 @@ export const TodaySummaryCard: React.FC<TodaySummaryCardProps> = ({
   isDarkMode = false,
   periodFilter = 'today',
 }) => {
-  const [voiceEngine, setVoiceEngine] = useState<VoiceEngineType>('gemini');
   const [isGeminiQuotaExceeded, setIsGeminiQuotaExceeded] = useState<boolean>(false);
   const [isPlayingAudio, setIsPlayingAudio] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
@@ -53,9 +49,6 @@ export const TodaySummaryCard: React.FC<TodaySummaryCardProps> = ({
   useEffect(() => {
     const unsub = subscribeSummaryQuota((exceeded) => {
       setIsGeminiQuotaExceeded(exceeded);
-      if (exceeded) {
-        setVoiceEngine('native');
-      }
     });
     return unsub;
   }, []);
@@ -220,18 +213,6 @@ export const TodaySummaryCard: React.FC<TodaySummaryCardProps> = ({
     return `${m.toString().padStart(2, '0')}:${r.toString().padStart(2, '0')}`;
   };
 
-  const handleSelectGeminiVoice = async () => {
-    if (isGeminiQuotaExceeded) {
-      Alert.alert(
-        'Voz Gemini IA Indisponível',
-        'O serviço de Voz Gemini IA atingiu uma indisponibilidade temporária. O áudio utilizará a Voz Nativa.'
-      );
-      setVoiceEngine('native');
-    } else {
-      setVoiceEngine('gemini');
-    }
-  };
-
   const handleTogglePlayAudio = async (textToPlay?: string) => {
     const textTarget = textToPlay || activeSummaryText;
     if (!textTarget) return;
@@ -248,7 +229,7 @@ export const TodaySummaryCard: React.FC<TodaySummaryCardProps> = ({
       setIsPlayingAudio(true);
       setIsPaused(false);
 
-      await playSummaryAudio(textTarget, voiceEngine, {
+      await playSummaryAudio(textTarget, 'gemini', {
         onStart: () => {
           setIsPlayingAudio(true);
           setIsPaused(false);
@@ -288,13 +269,6 @@ export const TodaySummaryCard: React.FC<TodaySummaryCardProps> = ({
           </Text>
         </View>
       </View>
-
-      <DeliverySummaryControlsBar
-        voiceEngine={voiceEngine}
-        isGeminiQuotaExceeded={isGeminiQuotaExceeded}
-        onSelectGeminiVoice={handleSelectGeminiVoice}
-        onSelectNativeVoice={() => setVoiceEngine('native')}
-      />
 
       <DeliveryShiftMetricsGrid
         morningCount={morningCount}

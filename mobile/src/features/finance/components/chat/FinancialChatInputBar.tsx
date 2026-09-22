@@ -1,35 +1,27 @@
 import React from 'react';
-import { View, TouchableOpacity, StyleSheet, TextInput } from 'react-native';
-import { Send, Mic, MicOff, Square } from 'lucide-react-native';
+import { Alert, View, TouchableOpacity, StyleSheet, TextInput } from 'react-native';
+import { AudioLines, Send } from 'lucide-react-native';
 
 interface Props {
   inputText: string;
-  isRecordingActive: boolean;
   loading: boolean;
   isDarkMode?: boolean;
   onChangeInputText: (text: string) => void;
-  onStartVoice: () => void;
-  onStopVoice: () => void;
-  onCancelVoice: () => void;
   onSendMessage: () => void;
 }
 
 export const FinancialChatInputBar: React.FC<Props> = ({
   inputText,
-  isRecordingActive,
   loading,
   isDarkMode,
   onChangeInputText,
-  onStartVoice,
-  onStopVoice,
-  onCancelVoice,
   onSendMessage,
 }) => {
   return (
     <View style={[styles.inputContainer, isDarkMode && styles.inputContainerDark]}>
       <TextInput
         style={[styles.textInput, isDarkMode && styles.textInputDark]}
-        placeholder={isRecordingActive ? 'Ditando mensagem por voz...' : 'Descreva a movimentação ou dúvida...'}
+        placeholder="Descreva a movimentação ou dúvida..."
         placeholderTextColor={isDarkMode ? '#64748b' : '#94a3b8'}
         value={inputText}
         onChangeText={onChangeInputText}
@@ -37,51 +29,29 @@ export const FinancialChatInputBar: React.FC<Props> = ({
         maxLength={500}
       />
 
-      {isRecordingActive ? (
-        <View style={styles.recordingControlsGroup}>
-          <TouchableOpacity
-            style={styles.cancelRecordingBtn}
-            onPress={onCancelVoice}
-            accessibilityLabel="Cancelar ditado"
-            activeOpacity={0.7}
-          >
-            <MicOff size={16} color="#ef4444" />
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.stopRecordingBtn}
-            onPress={onStopVoice}
-            accessibilityLabel="Parar gravação"
-            activeOpacity={0.8}
-          >
-            <Square size={14} color="#ffffff" />
-          </TouchableOpacity>
-        </View>
+      {inputText.trim() ? (
+        <TouchableOpacity
+          style={[styles.sendBtn, loading ? styles.sendBtnDisabled : null]}
+          onPress={onSendMessage}
+          disabled={loading}
+          activeOpacity={0.8}
+          accessibilityRole="button"
+          accessibilityLabel="Enviar mensagem"
+        >
+          <Send size={16} color="#ffffff" />
+        </TouchableOpacity>
       ) : (
         <TouchableOpacity
-          style={[styles.micBtn, isDarkMode && styles.micBtnDark]}
-          onPress={onStartVoice}
-          accessibilityLabel="Iniciar ditado por voz"
-          activeOpacity={0.7}
+          style={styles.voiceModeBtn}
+          onPress={() => Alert.alert('Voice Mode', 'A conversa por voz será ativada quando integrarmos a Gemini Live API.')}
+          accessibilityRole="button"
+          accessibilityLabel="Voice Mode"
+          accessibilityHint="Aguardando integração com Gemini Live API"
+          activeOpacity={0.8}
         >
-          <Mic size={18} color="#7c3aed" />
+          <AudioLines size={18} color="#ffffff" />
         </TouchableOpacity>
       )}
-
-      <TouchableOpacity
-        style={[styles.sendBtn, !inputText.trim() || loading ? styles.sendBtnDisabled : null]}
-        onPress={async () => {
-          if (isRecordingActive) {
-            onStopVoice();
-          }
-          onSendMessage();
-        }}
-        disabled={!inputText.trim() || loading}
-        activeOpacity={0.8}
-        accessibilityLabel="Enviar mensagem"
-      >
-        <Send size={16} color="#ffffff" />
-      </TouchableOpacity>
     </View>
   );
 };
@@ -115,35 +85,11 @@ const styles = StyleSheet.create({
     color: '#f8fafc',
     backgroundColor: '#0f172a',
   },
-  micBtn: {
+  voiceModeBtn: {
     width: 38,
     height: 38,
     borderRadius: 19,
-    backgroundColor: '#f3e8ff',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  micBtnDark: {
-    backgroundColor: '#3b0764',
-  },
-  recordingControlsGroup: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  cancelRecordingBtn: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: '#fee2e2',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  stopRecordingBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: '#ef4444',
+    backgroundColor: '#2563eb',
     alignItems: 'center',
     justifyContent: 'center',
   },

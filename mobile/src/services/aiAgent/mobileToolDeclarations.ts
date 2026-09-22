@@ -210,8 +210,27 @@ export const mobileFinancialTools = [
 
 const mobileOrderDeliveryTools = [
   {
+    name: 'buscarOperacoes',
+    description: 'Consulta operações do ERP: pedidos de venda, entregas, retiradas, assistências, devoluções e montagens. Pesquise pelo nome do cliente ou código e use datas/status quando disponíveis. Retorna resumo e IDs reais para abrir detalhes. Somente leitura.',
+    parameters: { type: 'OBJECT', properties: {
+      tipo: { type: 'STRING', enum: ['todas', 'venda', 'entrega', 'retirada', 'assistencia', 'devolucao', 'montagem'], description: 'Qual operação pesquisar. Use todas quando o pedido não especificar.' },
+      termo: { type: 'STRING', description: 'Nome do cliente ou número do pedido.' },
+      dataInicio: { type: 'STRING', description: 'Início da agenda no formato AAAA-MM-DD.' },
+      dataFim: { type: 'STRING', description: 'Fim da agenda no formato AAAA-MM-DD.' },
+      status: { type: 'STRING', description: 'Status desejado: agendado, concluído/entregue, cancelado ou pendente.' },
+      limite: { type: 'NUMBER', description: 'Quantidade de resultados (1 a 20, padrão 10).' },
+    } },
+  },
+  {
+    name: 'obterDetalhesOperacao',
+    description: 'Consulta os detalhes de uma operação/pedido encontrado por buscarOperacoes: cliente, itens, agendamento, entrega, pagamento, observações e dados de devolução. Use apenas o ID real retornado pela busca. Somente leitura.',
+    parameters: { type: 'OBJECT', properties: {
+      operacaoId: { type: 'STRING', description: 'ID real da operação retornado por buscarOperacoes.' },
+    }, required: ['operacaoId'] },
+  },
+  {
     name: 'buscarPedidosEntregas',
-    description: 'Pesquisa pedidos e entregas do ERP de forma paginada. Use para localizar pedidos por cliente, código, status ou período antes de responder. Retorna status, cliente, valor, agendamento e situação da entrega; use obterDetalhesPedidoEntrega para todos os campos de um item específico.',
+    description: 'Compatibilidade: pesquisa pedidos de venda e entregas. Para assistência, devolução, retirada ou montagem, use buscarOperacoes.',
     parameters: { type: 'OBJECT', properties: {
       termo: { type: 'STRING', description: 'Nome do cliente ou código do pedido.' },
       dataInicio: { type: 'STRING', description: 'Data inicial de agendamento/entrega AAAA-MM-DD, e não data de criação do pedido.' },
@@ -224,6 +243,25 @@ const mobileOrderDeliveryTools = [
     name: 'obterDetalhesPedidoEntrega',
     description: 'Obtém todas as informações persistidas de um pedido e sua entrega: itens, cliente, endereço, agendamento, pagamentos, observações e estados operacionais. Use somente após obter o pedidoId pela busca; nunca invente IDs.',
     parameters: { type: 'OBJECT', properties: { pedidoId: { type: 'STRING', description: 'ID real retornado por buscarPedidosEntregas.' } }, required: ['pedidoId'] },
+  },
+];
+
+const mobilePeopleTools = [
+  {
+    name: 'buscarClientes',
+    description: 'Pesquisa cadastro de clientes por nome, telefone ou e-mail. Retorna apenas os dados de contato necessários; não use para fornecedores ou colaboradores. Somente leitura.',
+    parameters: { type: 'OBJECT', properties: {
+      termo: { type: 'STRING', description: 'Nome, telefone ou e-mail do cliente.' },
+      limite: { type: 'NUMBER', description: 'Quantidade de resultados (1 a 20, padrão 10).' },
+    }, required: ['termo'] },
+  },
+  {
+    name: 'buscarColaboradores',
+    description: 'Pesquisa colaboradores/usuários por nome, e-mail ou cargo e informa cargos e função cadastrados. Use quando perguntarem quem exerce uma função ou quais cargos uma pessoa tem. Somente leitura.',
+    parameters: { type: 'OBJECT', properties: {
+      termo: { type: 'STRING', description: 'Nome, e-mail ou cargo/função.' },
+      limite: { type: 'NUMBER', description: 'Quantidade de resultados (1 a 20, padrão 10).' },
+    }, required: ['termo'] },
   },
 ];
 
@@ -275,6 +313,7 @@ export const mobileProductTools = [
 export const mobileDomainTools = {
   finance: mobileFinancialTools,
   ordersAndDeliveries: mobileOrderDeliveryTools,
+  people: mobilePeopleTools,
   products: mobileProductTools,
 };
 

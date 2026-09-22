@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Image } from 'react-native';
-import { Fuel, ArrowDownLeft, FileCheck, Layers, ChevronRight } from 'lucide-react-native';
+import { Fuel, ArrowDownLeft, FileCheck, Layers, ChevronRight, Package, Truck, Wrench, RotateCcw } from 'lucide-react-native';
 import { FinanceExamplesModal } from './FinanceExamplesModal';
 
 const SEU_LIZANDRO_IMG = require('../../../../assets/lizandro.png');
@@ -25,11 +25,11 @@ export const AssistantEmptyState: React.FC<Props> = ({
       </View>
 
       <Text style={[styles.title, isDarkMode && styles.textDark]}>
-        Seu Lizandro - IA Financeira
+        Seu Lizandro
       </Text>
 
       <Text style={[styles.subtitle, isDarkMode && styles.subtitleDark]}>
-        Fale ou digite naturalmente o que aconteceu.{'\n'}Eu identifico os dados e preparo o lançamento para você.
+        Consulte produtos, pedidos e operações ou registre movimentações financeiras. Digite naturalmente sua dúvida.
       </Text>
 
       {/* Container de Exemplos Práticos Rápidos (Apenas para Leitura) */}
@@ -38,7 +38,51 @@ export const AssistantEmptyState: React.FC<Props> = ({
           EXEMPLOS PRÁTICOS DE COMO FALAR:
         </Text>
 
-        {/* 1. Saída */}
+        {/* 1. Produtos */}
+        <View style={[styles.exampleRow, isDarkMode && styles.exampleRowDark]}>
+          <View style={styles.badgeLabel}>
+            <Package size={12} color="#2563eb" />
+            <Text style={styles.badgeLabelTextRecurrent}>Produtos</Text>
+          </View>
+          <Text style={[styles.exampleQuoteText, isDarkMode && styles.exampleQuoteTextDark]}>
+            "Consulte o preço e as medidas do guarda-roupa Verona"
+          </Text>
+        </View>
+
+        {/* 2. Entregas */}
+        <View style={[styles.exampleRow, isDarkMode && styles.exampleRowDark]}>
+          <View style={styles.badgeLabel}>
+            <Truck size={12} color="#2563eb" />
+            <Text style={styles.badgeLabelTextRecurrent}>Entregas</Text>
+          </View>
+          <Text style={[styles.exampleQuoteText, isDarkMode && styles.exampleQuoteTextDark]}>
+            "Quais entregas estão programadas para amanhã?"
+          </Text>
+        </View>
+
+        {/* 3. Assistência */}
+        <View style={[styles.exampleRow, isDarkMode && styles.exampleRowDark]}>
+          <View style={styles.badgeLabel}>
+            <Wrench size={12} color="#f59e0b" />
+            <Text style={styles.badgeLabelTextRecurrent}>Assistência</Text>
+          </View>
+          <Text style={[styles.exampleQuoteText, isDarkMode && styles.exampleQuoteTextDark]}>
+            "Consulte a assistência do pedido da cliente Maria Rodrigues"
+          </Text>
+        </View>
+
+        {/* 4. Devoluções */}
+        <View style={[styles.exampleRow, isDarkMode && styles.exampleRowDark]}>
+          <View style={styles.badgeLabel}>
+            <RotateCcw size={12} color="#8b5cf6" />
+            <Text style={styles.badgeLabelTextMultiple}>Devoluções</Text>
+          </View>
+          <Text style={[styles.exampleQuoteText, isDarkMode && styles.exampleQuoteTextDark]}>
+            "Quando será feita a coleta da devolução da cliente Maria Rodrigues?"
+          </Text>
+        </View>
+
+        {/* 5. Saída */}
         <View style={[styles.exampleRow, isDarkMode && styles.exampleRowDark]}>
           <View style={styles.badgeLabel}>
             <Fuel size={12} color="#ef4444" />
@@ -49,7 +93,7 @@ export const AssistantEmptyState: React.FC<Props> = ({
           </Text>
         </View>
 
-        {/* 2. Entrada */}
+        {/* 6. Entrada */}
         <View style={[styles.exampleRow, isDarkMode && styles.exampleRowDark]}>
           <View style={styles.badgeLabel}>
             <ArrowDownLeft size={12} color="#10b981" />
@@ -60,7 +104,7 @@ export const AssistantEmptyState: React.FC<Props> = ({
           </Text>
         </View>
 
-        {/* 3. Pagamento de Parcela */}
+        {/* 7. Pagamento de Parcela */}
         <View style={[styles.exampleRow, isDarkMode && styles.exampleRowDark]}>
           <View style={styles.badgeLabel}>
             <FileCheck size={12} color="#3b82f6" />
@@ -71,7 +115,7 @@ export const AssistantEmptyState: React.FC<Props> = ({
           </Text>
         </View>
 
-        {/* 4. Múltiplas Saídas */}
+        {/* 8. Múltiplas Saídas */}
         <View style={[styles.exampleRow, isDarkMode && styles.exampleRowDark]}>
           <View style={styles.badgeLabel}>
             <Layers size={12} color="#8b5cf6" />

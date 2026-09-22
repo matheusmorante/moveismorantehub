@@ -3,7 +3,7 @@ import { View, Text, TouchableOpacity, Image, Platform, StatusBar } from 'react-
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Bell, Moon, Sun } from 'lucide-react-native';
 
-const SEU_LIZANDRO_IMG = require('../../../../assets/lizandro.png');
+const MORANTE_LOGO = require('../../../../assets/logo-morante.png');
 
 interface Props {
   isDarkMode: boolean;
@@ -35,45 +35,18 @@ export const DashboardHeader: React.FC<Props> = ({
       paddingBottom: 12,
       backgroundColor: isDarkMode ? '#0f172a' : '#f8fafc',
     }}>
-      {/* Lado Esquerdo: Logo do Seu Lizandro + Nome do App Equipe Morante */}
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+      {/* Marca da empresa */}
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
         <View style={{
-          width: 38,
-          height: 38,
-          borderRadius: 12,
-          backgroundColor: '#ffffff',
+          width: 92,
+          height: 52,
           overflow: 'hidden',
-          borderWidth: 1.5,
-          borderColor: isDarkMode ? '#334155' : '#cbd5e1',
-          elevation: 2,
-          shadowColor: '#000',
-          shadowOffset: { width: 0, height: 1 },
-          shadowOpacity: 0.1,
-          shadowRadius: 2,
         }}>
           <Image
-            source={SEU_LIZANDRO_IMG}
+            source={MORANTE_LOGO}
             style={{ width: '100%', height: '100%' }}
             resizeMode="cover"
           />
-        </View>
-        <View>
-          <Text style={{
-            fontSize: 16,
-            fontWeight: '900',
-            color: isDarkMode ? '#f8fafc' : '#0f172a',
-            letterSpacing: 0.3
-          }}>
-            Equipe Morante
-          </Text>
-          <Text style={{
-            fontSize: 10,
-            fontWeight: '700',
-            color: isDarkMode ? '#94a3b8' : '#64748b',
-            letterSpacing: 0.2
-          }}>
-            Móveis Morante
-          </Text>
         </View>
       </View>
 
