@@ -146,14 +146,14 @@ export const CategoryEnvironmentModal: React.FC<CategoryEnvironmentModalProps> =
                 {!isEnv && setSelectedAttributes && (
                     <div className="flex flex-col gap-2 pt-2">
                         <label className="text-xs font-bold text-slate-500 uppercase tracking-widest">
-                            Especificações Técnicas da Categoria
+                            Características da Categoria
                         </label>
                         <p className="text-xs text-slate-500 dark:text-slate-400">
-                            Selecione as especificações técnicas aplicáveis aos produtos desta categoria.
+                            Selecione as características aplicáveis aos produtos desta categoria.
                         </p>
                         {isLoadingAttributes && (
                             <p className="flex items-center gap-2 text-xs text-slate-500" role="status">
-                                <i className="bi bi-arrow-repeat animate-spin" /> Carregando especificações técnicas...
+                                <i className="bi bi-arrow-repeat animate-spin" /> Carregando características...
                             </p>
                         )}
                         {attributeLoadFailed && (
@@ -172,7 +172,7 @@ export const CategoryEnvironmentModal: React.FC<CategoryEnvironmentModalProps> =
                                     return [...prev, attr];
                                 });
                             }}
-                            placeholder="Buscar especificação técnica (mínimo 2 letras)..."
+                            placeholder="Buscar característica (mínimo 2 letras)..."
                             disabled={isSubmitting || isLoadingAttributes || attributeLoadFailed}
                         />
                         {selectedAttributes.length > 0 && (

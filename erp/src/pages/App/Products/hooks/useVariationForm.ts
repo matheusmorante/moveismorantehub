@@ -438,14 +438,14 @@ export function useVariationForm({
             return;
         }
 
-        // Buscar todas as especificações técnicas ativas (todas são obrigatórias na variação)
-        const { data: allActiveAttributes, error: activeAttributesError } = await supabase
+        const { data: requiredAttributes, error: requiredAttributesError } = await supabase
             .from('attributes')
             .select('name')
-            .eq('active', true);
+            .eq('active', true)
+            .eq('is_globally_required', true);
 
-        if (activeAttributesError) {
-            toast.error('Não foi possível validar as Especificações Técnicas. Tente novamente.');
+        if (requiredAttributesError) {
+            toast.error('Não foi possível validar as características obrigatórias. Tente novamente.');
             setActiveTab('tecnico');
             return;
         }
@@ -453,16 +453,16 @@ export function useVariationForm({
         const variationAttributeValues = Object.fromEntries(
             cleanAttributes.map(attribute => [attribute.name, attribute.value])
         );
-        const missingTechnicalFields = getMissingRequiredTechnicalFields(
-            (allActiveAttributes || []).map((field: { name: string }) => field.name),
+        const missingRequiredFields = getMissingRequiredTechnicalFields(
+            (requiredAttributes || []).map((field: { name: string }) => field.name),
             {
                 ...(parentProduct.technicalValues || {}),
                 ...variationAttributeValues,
                 ...(formData.technicalValues || {})
             }
         );
-        if (missingTechnicalFields.length > 0) {
-            toast.error(`Preencha as Especificações Técnicas obrigatórias da variação: ${missingTechnicalFields.join(', ')}.`);
+        if (missingRequiredFields.length > 0) {
+            toast.error(`Preencha as características obrigatórias da variação: ${missingRequiredFields.join(', ')}.`);
             setActiveTab('tecnico');
             return;
         }

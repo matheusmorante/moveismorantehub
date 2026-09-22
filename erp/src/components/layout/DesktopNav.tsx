@@ -87,7 +87,7 @@ const DesktopNav = ({ activeMenu, setActiveMenu }: DesktopNavProps) => {
                     <div className={dropdownClass}>
                         <DropdownGroup title="Catálogo" />
                         <DropdownItem to="/registrations/products" icon="bi-list-ul" title="Lista de produtos" description="Gerenciar produtos" onClick={() => setActiveMenu(null)} />
-                        <DropdownItem to="/registrations/variations" icon="bi-gear-wide-connected" title="Especificações técnicas" description="Cores, medidas, especificações" onClick={() => setActiveMenu(null)} />
+                        <DropdownItem to="/registrations/variations" icon="bi-gear-wide-connected" title="Características" description="Cores, medidas e características" onClick={() => setActiveMenu(null)} />
                         <DropdownItem to="/registrations/product-categories" icon="bi-tag-fill" title="Ambientes e categorias" description="Agrupamentos de catálogo" onClick={() => setActiveMenu(null)} />
                         <DropdownItem to="/products/compositions" icon="bi-diagram-3-fill" title="Composições" description="Kits e montagens" onClick={() => setActiveMenu(null)} />
                         

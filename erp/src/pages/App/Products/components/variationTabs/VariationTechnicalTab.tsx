@@ -11,8 +11,9 @@ import {
     hasVariationOverride,
     setVariationOverride,
     removeVariationOverride
+    , groupTechnicalFields
 } from '@/pages/utils/technicalValuesService';
-import { TechnicalCombobox } from '../tabs/TechnicalCombobox';
+import { TechnicalFieldInput } from '../tabs/TechnicalFieldInput';
 
 interface VariationTechnicalTabProps {
     readonly formData: Variation;
@@ -60,7 +61,7 @@ export const VariationTechnicalTab: React.FC<VariationTechnicalTabProps> = ({
             try {
                 const { data: attrData, error: attrErr } = await supabase
                     .from('attributes')
-                    .select('id, name, active, is_globally_required')
+                    .select('id, name, active, data_type, is_globally_required, is_custom')
                     .eq('active', true)
                     .order('name');
                 if (attrErr) throw attrErr;
@@ -91,9 +92,10 @@ export const VariationTechnicalTab: React.FC<VariationTechnicalTabProps> = ({
                     return {
                         id: attr.id,
                         name: attr.name,
-                        dataType: 'list',
+                        dataType: attr.data_type || 'list',
                         unit: '',
-                        isRequired: true,
+                        isRequired: Boolean(attr.is_globally_required),
+                        isCustom: Boolean(attr.is_custom),
                         options: opts,
                         categoryIds: linkedCategoryIds
                     };
@@ -101,7 +103,7 @@ export const VariationTechnicalTab: React.FC<VariationTechnicalTabProps> = ({
 
                 setAllTechnicalFields(mapped);
             } catch (err) {
-                console.error('Erro ao carregar Especificações Técnicas na variação:', err);
+                console.error('Erro ao carregar Características na variação:', err);
             } finally {
                 if (isMounted) setLoadingFields(false);
             }
@@ -138,6 +140,7 @@ export const VariationTechnicalTab: React.FC<VariationTechnicalTabProps> = ({
 
     // Todas as especificações técnicas ativas cadastradas aparecem na variação
     const visibleFields = allTechnicalFields;
+    const fieldGroups = groupTechnicalFields(visibleFields);
 
     const availableAdditionalFields: TechnicalFieldDefinition[] = [];
 
@@ -229,7 +232,7 @@ export const VariationTechnicalTab: React.FC<VariationTechnicalTabProps> = ({
 
     return (
         <div className="space-y-6 animate-in fade-in duration-350">
-            {/* Especificações Técnicas da Variação */}
+            {/* Características da Variação */}
             <div className="flex flex-col gap-4">
 
                 {loadingFields ? (
@@ -242,8 +245,14 @@ export const VariationTechnicalTab: React.FC<VariationTechnicalTabProps> = ({
                         Nenhuma Especificação Técnica cadastrada.
                     </div>
                 ) : (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 pt-1">
-                        {visibleFields.map(field => {
+                    <div className="flex flex-col gap-6 pt-1">
+                        {fieldGroups.map(group => (
+                            <section key={group.title} aria-labelledby={`variation-technical-group-${group.title}`} className="flex flex-col gap-3">
+                                <h4 id={`variation-technical-group-${group.title}`} className="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400 border-b border-slate-200 dark:border-slate-800 pb-2">
+                                    {group.title}
+                                </h4>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+                                    {group.fields.map(field => {
                             const fieldLower = field.name.trim().toLowerCase();
                             const hasExplicitOverride = hasVariationOverride(formData.technicalValues, field.name);
                             const hasAttributeValue = variationAttributeValues[field.name] !== undefined || variationAttributeValues[fieldLower] !== undefined;
@@ -262,7 +271,7 @@ export const VariationTechnicalTab: React.FC<VariationTechnicalTabProps> = ({
                             const parentVal = parentProduct?.technicalValues?.[field.name];
                             const isEnabled = isOverridden || (parentVal !== undefined && parentVal !== null && String(parentVal).trim() !== '');
 
-                            return (
+                                        return (
                                 <div key={field.id} className="flex flex-col gap-1.5 p-1 transition-all min-w-0">
                                     <div className="flex items-center justify-between gap-2 min-w-0">
                                         <label className="text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-300 truncate min-w-0" title={field.name}>
@@ -303,19 +312,18 @@ export const VariationTechnicalTab: React.FC<VariationTechnicalTabProps> = ({
                                         </div>
                                     </div>
 
-                                    <TechnicalCombobox
-                                        fieldName={field.name}
-                                        value={effectiveVal !== undefined && effectiveVal !== null ? String(effectiveVal) : ''}
-                                        placeholder={`Busque e selecione ${field.name}...`}
-                                        options={field.options}
+                                    <TechnicalFieldInput
+                                        field={field}
+                                        value={effectiveVal !== undefined && effectiveVal !== null ? effectiveVal : ''}
                                         disabled={!isOverridden && isEnabled}
-                                        onChange={(selectedVal) => {
-                                            handleSetOverride(field.name, selectedVal);
-                                        }}
+                                        onChange={(selectedVal) => handleSetOverride(field.name, selectedVal)}
                                     />
                                 </div>
-                            );
-                        })}
+                                        );
+                                    })}
+                                </div>
+                            </section>
+                        ))}
                     </div>
                 )}
             </div>

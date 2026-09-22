@@ -138,7 +138,7 @@ const AttributeAutocomplete: React.FC<AttributeAutocompleteProps> = ({
                 <div className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl shadow-xl overflow-hidden max-h-64 overflow-y-auto custom-scrollbar p-2">
                     {suggestions.length === 0 ? (
                         <div className="p-4 text-center text-xs font-semibold text-slate-500">
-                            Nenhuma especificação técnica encontrada para &ldquo;{query}&rdquo;
+                            Nenhuma característica encontrada para &ldquo;{query}&rdquo;
                         </div>
                     ) : (
                         <div className="flex flex-col gap-1">

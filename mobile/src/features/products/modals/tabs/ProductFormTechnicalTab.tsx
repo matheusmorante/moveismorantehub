@@ -24,7 +24,7 @@ export const ProductFormTechnicalTab: React.FC<Props> = ({ formData, setFormData
         <TextInput
           value={formData.description || ''}
           onChangeText={v => set('description', v)}
-          placeholder="Escreva a descrição detalhada do produto, diferenciais, especificações técnicas..."
+          placeholder="Escreva a descrição detalhada do produto, diferenciais e características..."
           placeholderTextColor="#94a3b8"
           multiline
           numberOfLines={8}

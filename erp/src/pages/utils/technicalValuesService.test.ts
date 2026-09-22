@@ -10,11 +10,20 @@ import {
     getApplicableTechnicalFields,
     getAvailableAdditionalFields,
     getMissingRequiredTechnicalFields,
+    groupCharacteristicsByTopic,
     TechnicalFieldDefinition,
     TechnicalValuesMap
 } from './technicalValuesService';
 
 describe('technicalValuesService', () => {
+    it('mantém personalizadas em características adicionais e não cria tópico removido', () => {
+        const groups = groupCharacteristicsByTopic([
+            { name: 'Altura', isCustom: false },
+            { name: 'Acabamento especial', isCustom: true },
+        ]);
+        expect(groups.map(group => group.title)).toEqual(['Dimensões e peso', 'Outras características']);
+        expect(groups[1].fields[0].name).toBe('Acabamento especial');
+    });
     it('exige valor somente nas especificações globais obrigatórias', () => {
         const missing = getMissingRequiredTechnicalFields(
             ['Cor', 'Estrutura'],

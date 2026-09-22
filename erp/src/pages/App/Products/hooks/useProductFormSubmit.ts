@@ -69,21 +69,22 @@ export const useProductFormSubmit = ({
         const { data: requiredTechnicalAttributes, error: requiredAttributesError } = await supabase
             .from('attributes')
             .select('name')
-            .eq('active', true);
+            .eq('active', true)
+            .eq('is_globally_required', true);
 
         if (requiredAttributesError) {
             setActiveTab('technical');
             setValidationErrors({ technicalValues: true });
-            toast.error('Não foi possível validar as Especificações Técnicas obrigatórias. Tente novamente.');
+            toast.error('Não foi possível validar as características obrigatórias. Tente novamente.');
             return false;
         }
 
-        const emptyActiveTechnicalFields = getMissingRequiredTechnicalFields(
+        const emptyRequiredTechnicalFields = getMissingRequiredTechnicalFields(
             (requiredTechnicalAttributes || []).map((field: { name: string }) => field.name),
             formData.technicalValues || {}
         );
 
-        if (emptyActiveTechnicalFields.length > 0) {
+        if (emptyRequiredTechnicalFields.length > 0) {
             errors.technicalValues = true;
         }
 
@@ -93,13 +94,11 @@ export const useProductFormSubmit = ({
                 setActiveTab('geral');
             } else if (errors.technicalValues) {
                 setActiveTab('technical');
-                const fieldName = emptyActiveTechnicalFields[0];
-                toast.error(`Especificação Técnica obrigatória: selecione uma opção para "${fieldName}".`);
+                const fieldName = emptyRequiredTechnicalFields[0];
+                toast.error(`Característica obrigatória: selecione uma opção para "${fieldName}".`);
                 setTimeout(() => {
-                    const el = document.getElementById(`technical-field-${fieldName}`);
-                    if (el) {
-                        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                    }
+                    document.getElementById(`technical-field-${fieldName}`)
+                        ?.scrollIntoView({ behavior: 'smooth', block: 'center' });
                 }, 150);
                 return false;
             } else if (errors.unitPrice || errors.mainSupplierId) {

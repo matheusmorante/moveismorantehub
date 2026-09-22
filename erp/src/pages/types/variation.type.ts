@@ -1,4 +1,4 @@
-export type AttributeDataType = 'list' | 'integer' | 'decimal' | 'text' | 'boolean' | 'measure';
+export type AttributeDataType = 'list' | 'integer' | 'decimal' | 'text' | 'text_short' | 'text_long' | 'radio' | 'multi_select' | 'boolean' | 'measure' | 'number';
 
 export type CategoryAttribute = {
     categoryId: string;
@@ -18,6 +18,7 @@ export type VariationType = {
     dataType?: AttributeDataType;
     unit?: string;
     isGloballyRequired?: boolean;
+    isCustom?: boolean;
     categoryAttributes?: CategoryAttribute[];
     deleted?: boolean;
     createdAt?: string;

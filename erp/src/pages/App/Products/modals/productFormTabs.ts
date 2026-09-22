@@ -6,7 +6,7 @@ export const getProductFormTabs = (isService: boolean, isComposition?: boolean):
     { id: 'geral', label: 'Cadastro Geral' },
     ...(!isService ? [
         { id: 'ecommerce' as const, label: 'Fotos' },
-        { id: 'technical' as const, label: 'Especificações Técnicas' },
+        { id: 'technical' as const, label: 'Características' },
         { id: 'estoque' as const, label: 'Estoque e Precificação' },
         { id: 'variacoes' as const, label: 'Variações' },
     ] : []),

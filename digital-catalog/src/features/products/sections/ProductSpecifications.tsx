@@ -72,12 +72,12 @@ export function ProductSpecifications({
         </div>
       )}
 
-      {/* ESPECIFICAÇÕES TÉCNICAS */}
+      {/* CARACTERÍSTICAS */}
       {technicalSpecs.length > 0 && (
         <div className="space-y-3 bg-white p-4 rounded-xl border border-gray-100">
           <div className="flex items-center gap-2 text-gray-800 font-bold text-xs uppercase tracking-wider">
             <Layers className="h-3.5 w-3.5 text-primary" />
-            <h3>Especificações</h3>
+            <h3>Características</h3>
           </div>
           <dl className="space-y-1.5 border-t pt-2 text-[11px] leading-relaxed">
             {technicalSpecs.map(([label, value]) => (

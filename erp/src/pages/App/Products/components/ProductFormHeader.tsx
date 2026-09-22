@@ -42,7 +42,7 @@ export const ProductFormHeader: React.FC<ProductFormHeaderProps> = ({
         { id: 'geral', label: 'Cadastro Geral', icon: '' },
         ...(!isService ? [
             { id: 'ecommerce' as const, label: 'Fotos', icon: 'bi-images' },
-            { id: 'technical' as const, label: 'Especificações Técnicas', icon: 'bi-info-circle' },
+            { id: 'technical' as const, label: 'Características', icon: 'bi-info-circle' },
             { id: 'estoque' as const, label: 'Estoque e Precificação', icon: 'bi-box-seam' },
             { id: 'variacoes' as const, label: 'Variações', icon: 'bi-grid-3x3-gap' },
         ] : []),
@@ -183,7 +183,7 @@ export const ProductFormHeader: React.FC<ProductFormHeaderProps> = ({
                                 aria-disabled={isTabDisabled}
                                 disabled={isTabDisabled}
                                 onClick={() => !isTabDisabled && setActiveTab(tab.id)}
-                                title={isTabDisabled ? 'Selecione pelo menos uma categoria no Cadastro Geral para habilitar as Especificações Técnicas' : undefined}
+                                title={isTabDisabled ? 'Selecione pelo menos uma categoria no Cadastro Geral para habilitar as Características' : undefined}
                                 className={`py-3 text-[10px] font-black uppercase tracking-widest flex items-center gap-2 border-b-2 transition-all shrink-0 ${
                                     isTabDisabled
                                         ? 'border-transparent text-slate-300 dark:text-slate-700 cursor-not-allowed opacity-50'

@@ -31,7 +31,7 @@ interface TabDefinition {
 const getFormTabs = (isComposition: boolean): readonly TabDefinition[] => {
     const tabs: TabDefinition[] = [
         { id: 'identificacao', label: 'Identificação', icon: 'bi-info-circle' },
-        { id: 'tecnico', label: 'Especificações Técnicas', icon: 'bi-gear' },
+        { id: 'tecnico', label: 'Características', icon: 'bi-gear' },
         { id: 'fotos', label: 'Fotos da Variação', icon: 'bi-images' },
     ];
     

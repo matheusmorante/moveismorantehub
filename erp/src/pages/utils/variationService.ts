@@ -92,7 +92,7 @@ export const subscribeToVariations = (callback: (variations: VariationType[]) =>
             let attrData: any[] | null = null;
             const primaryQuery = await supabase
                 .from("attributes")
-                .select("id, name, active, data_type, unit, is_globally_required")
+                .select("id, name, active, data_type, unit, is_globally_required, is_custom")
                 .order("name", { ascending: true });
 
             if (primaryQuery.error && (primaryQuery.error.message?.includes("column") || primaryQuery.error.code === '42703')) {
@@ -134,6 +134,7 @@ export const subscribeToVariations = (callback: (variations: VariationType[]) =>
                 dataType: attr.data_type || 'list',
                 unit: attr.unit || '',
                 isGloballyRequired: Boolean(attr.is_globally_required),
+                isCustom: Boolean(attr.is_custom),
                 options: sortAttributeValuesNaturally((valData || [])
                     .filter((val: any) => val.attribute_id === attr.id)
                     .map((val: any) => ({
@@ -179,6 +180,7 @@ export const saveVariation = async (variation: VariationType): Promise<void> => 
                 data_type: variation.dataType || 'list',
                 unit: variation.unit || null,
                 is_globally_required: variation.isGloballyRequired ?? false
+                ,is_custom: variation.isCustom ?? true
             }])
             .select()
             .single();
@@ -238,6 +240,7 @@ export const updateVariation = async (id: string, variationToUpdate: Partial<Var
         if (variationToUpdate.dataType !== undefined) attrUpdates.data_type = variationToUpdate.dataType;
         if (variationToUpdate.unit !== undefined) attrUpdates.unit = variationToUpdate.unit;
         if (variationToUpdate.isGloballyRequired !== undefined) attrUpdates.is_globally_required = variationToUpdate.isGloballyRequired;
+        if (variationToUpdate.isCustom !== undefined) attrUpdates.is_custom = variationToUpdate.isCustom;
 
         if (Object.keys(attrUpdates).length > 0) {
             let { error: attrErr } = await supabase

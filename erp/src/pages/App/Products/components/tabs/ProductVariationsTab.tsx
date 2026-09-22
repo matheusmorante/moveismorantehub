@@ -85,7 +85,7 @@ const ProductVariationsTab: React.FC<ProductVariationsTabProps> = ({
                         Variações do produto
                     </h4>
                     <p className="mt-1 text-[10px] font-bold text-slate-500">
-                        Cada variação herda as Especificações Técnicas do produto pai e pode definir valores próprios clicando para editar a variação.
+                        Cada variação herda as Características do produto pai e pode definir valores próprios clicando para editar a variação.
                     </p>
                 </div>
             </div>

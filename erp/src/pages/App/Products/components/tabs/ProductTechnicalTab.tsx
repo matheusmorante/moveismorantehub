@@ -6,8 +6,9 @@ import {
     TechnicalFieldDefinition, 
     getApplicableTechnicalFields, 
     getAvailableAdditionalFields 
+    , groupTechnicalFields
 } from '@/pages/utils/technicalValuesService';
-import { TechnicalCombobox } from './TechnicalCombobox';
+import { TechnicalFieldInput } from './TechnicalFieldInput';
 
 interface ProductTechnicalTabProps {
     readonly formData: Partial<Product>;
@@ -77,7 +78,7 @@ const ProductTechnicalTab: React.FC<ProductTechnicalTabProps> = ({
                 // 1. Buscar todos os atributos (campos técnicos)
                 const { data: attrData, error: attrErr } = await supabase
                     .from('attributes')
-                    .select('id, name, active, is_globally_required')
+                    .select('id, name, active, data_type, is_globally_required, is_custom')
                     .eq('active', true)
                     .order('name');
                 if (attrErr) throw attrErr;
@@ -110,9 +111,10 @@ const ProductTechnicalTab: React.FC<ProductTechnicalTabProps> = ({
                     return {
                         id: attr.id,
                         name: attr.name,
-                        dataType: 'list',
+                        dataType: attr.data_type || 'list',
                         unit: '',
-                        isRequired: true,
+                        isRequired: Boolean(attr.is_globally_required),
+                        isCustom: Boolean(attr.is_custom),
                         options: opts,
                         categoryIds: linkedCategoryIds
                     };
@@ -131,7 +133,7 @@ const ProductTechnicalTab: React.FC<ProductTechnicalTabProps> = ({
                     return changed ? { ...prev, technicalValues } : prev;
                 });
             } catch (err) {
-                console.error('Erro ao carregar Especificações Técnicas:', err);
+                console.error('Erro ao carregar Características:', err);
             } finally {
                 if (isMounted) setLoadingFields(false);
             }
@@ -146,6 +148,7 @@ const ProductTechnicalTab: React.FC<ProductTechnicalTabProps> = ({
 
     // Todas as especificações técnicas ativas cadastradas aparecem no formulário
     const visibleFields = allTechnicalFields;
+    const fieldGroups = groupTechnicalFields(visibleFields);
 
     const availableAdditionalFields: TechnicalFieldDefinition[] = [];
 
@@ -188,7 +191,7 @@ const ProductTechnicalTab: React.FC<ProductTechnicalTabProps> = ({
 
     return (
         <div className="flex flex-col gap-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
-            {/* Especificações Técnicas */}
+            {/* Características */}
             <div className="flex flex-col gap-4">
 
                 {loadingFields ? (
@@ -202,8 +205,14 @@ const ProductTechnicalTab: React.FC<ProductTechnicalTabProps> = ({
                         <span>Nenhuma especificação técnica cadastrada no sistema.</span>
                     </div>
                 ) : (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-5 pt-2">
-                        {visibleFields.map((field) => {
+                    <div className="flex flex-col gap-6 pt-2">
+                        {fieldGroups.map(group => (
+                            <section key={group.title} aria-labelledby={`technical-group-${group.title}`} className="flex flex-col gap-3">
+                                <h4 id={`technical-group-${group.title}`} className="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400 border-b border-slate-200 dark:border-slate-800 pb-2">
+                                    {group.title}
+                                </h4>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-5">
+                                    {group.fields.map((field) => {
                             const rawValue = formData.technicalValues?.[field.name];
                             const hasSelectedValue = rawValue !== undefined && rawValue !== null && String(rawValue).trim() !== '';
                             const isManual = manualFieldNames.includes(field.name);
@@ -211,7 +220,7 @@ const ProductTechnicalTab: React.FC<ProductTechnicalTabProps> = ({
                             const isApplicable = !isNotApplicable;
                             const isFieldInvalid = isApplicable && !hasSelectedValue && validationErrors?.technicalValues;
 
-                            return (
+                                        return (
                                 <div key={field.id} id={`technical-field-${field.name}`} className="flex flex-col gap-1.5 p-1 transition-all">
                                     <div className="flex items-center justify-between gap-2">
                                         <label className={`text-[10px] font-black uppercase tracking-widest truncate flex items-center gap-1.5 transition-colors ${
@@ -269,20 +278,19 @@ const ProductTechnicalTab: React.FC<ProductTechnicalTabProps> = ({
                                         </div>
                                     </div>
 
-                                    <TechnicalCombobox
-                                        fieldName={field.name}
-                                        value={rawValue !== undefined && rawValue !== null ? String(rawValue) : ''}
-                                        placeholder={`Busque e selecione ${field.name}...`}
-                                        options={field.options}
+                                    <TechnicalFieldInput
+                                        field={field}
+                                        value={rawValue !== undefined && rawValue !== null ? rawValue : ''}
                                         isInvalid={Boolean(isFieldInvalid)}
                                         disabled={rawValue === 'Não se aplica' || rawValue === 'N/A'}
-                                        onChange={(selectedVal) => {
-                                            handleTechnicalValueChange(field.name, selectedVal);
-                                        }}
+                                        onChange={(selectedVal) => handleTechnicalValueChange(field.name, selectedVal)}
                                     />
                                 </div>
-                            );
-                        })}
+                                        );
+                                    })}
+                                </div>
+                            </section>
+                        ))}
                     </div>
                 )}
             </div>

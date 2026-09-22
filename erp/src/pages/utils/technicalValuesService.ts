@@ -1,16 +1,73 @@
 export interface TechnicalFieldDefinition {
     id: string;
     name: string; // Ex: "Cor", "Quantidade de portas"
-    dataType: 'list' | 'integer' | 'decimal' | 'text' | 'boolean' | 'measure';
+    dataType: 'list' | 'integer' | 'decimal' | 'text' | 'text_short' | 'text_long' | 'radio' | 'multi_select' | 'boolean' | 'measure' | 'number';
     unit?: string; // Ex: "cm", "kg", "lugares"
     active?: boolean;
     isRequired?: boolean;
+    isCustom?: boolean;
     displayOrder?: number;
     includeInName?: boolean;
     nameOrder?: number;
     options: Array<{ id: string; value: string }>;
     categoryIds?: string[];
 }
+
+export interface TechnicalFieldGroup {
+    title: string;
+    fields: TechnicalFieldDefinition[];
+}
+
+export interface CharacteristicGroup<T extends { name: string }> {
+    title: string;
+    fields: T[];
+}
+
+const CHARACTERISTIC_TOPICS: Array<{ title: string; matches: RegExp }> = [
+    { title: 'Dimensões e peso', matches: /\b(altura|largura|profundidade|comprimento|peso)\b/i },
+    { title: 'Tecido e revestimento', matches: /\b(tecido|revestimento|espuma|densidade|estofad)/i },
+    { title: 'Funcionalidades', matches: /\b(espelho|porta|gaveta|deslizamento|mecanismo|retr[aá]til|extens[íi]vel)\b/i },
+    { title: 'Acessórios', matches: /\b(p[eé]s?|puxador|rod[ií]zio|sapata)\b/i },
+    { title: 'Materiais e acabamento', matches: /\b(material|acabamento|cor|madeira|metal|vidro)\b/i },
+];
+
+/** Organiza características por tópicos de apresentação, sem alterar valores ou identificadores persistidos. */
+export const groupCharacteristicsByTopic = <T extends { name: string; isCustom?: boolean }>(
+    fields: readonly T[]
+): CharacteristicGroup<T>[] => {
+    const groups = new Map<string, T[]>();
+    const otherFields: T[] = [];
+
+    fields.forEach(field => {
+        if (field.isCustom === true) {
+            otherFields.push(field);
+            return;
+        }
+        const topic = CHARACTERISTIC_TOPICS.find(candidate => candidate.matches.test(field.name));
+        if (topic) {
+            const groupedFields = groups.get(topic.title) || [];
+            groupedFields.push(field);
+            groups.set(topic.title, groupedFields);
+        } else {
+            otherFields.push(field);
+        }
+    });
+
+    return [
+        ...CHARACTERISTIC_TOPICS.flatMap(topic => {
+            const groupedFields = groups.get(topic.title);
+            return groupedFields?.length ? [{ title: topic.title, fields: groupedFields }] : [];
+        }),
+        ...(otherFields.length > 0
+            ? [{ title: 'Outras características', fields: otherFields }]
+            : []),
+    ];
+};
+
+/** Agrupa as características para manter a mesma organização no pai e nas variações. */
+export const groupTechnicalFields = (
+    fields: readonly TechnicalFieldDefinition[]
+): TechnicalFieldGroup[] => groupCharacteristicsByTopic(fields);
 
 export type TechnicalValuesMap = Record<string, any>;
 

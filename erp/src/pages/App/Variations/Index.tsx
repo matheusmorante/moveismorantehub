@@ -3,6 +3,7 @@ import { toast } from 'react-toastify';
 import VariationType, { VariationOption } from '../../types/variation.type';
 import { checkVariationUsage, saveVariation, updateVariation } from '../../utils/variationService';
 import { normalizeSearchTerm } from '../../utils/textUtils';
+import { groupCharacteristicsByTopic } from '../../utils/technicalValuesService';
 import { AttributeCard } from './AttributeCard';
 import { parseAttributeValueBatch } from './attributeValueBatch';
 import VariationFormModal from './VariationFormModal';
@@ -24,6 +25,10 @@ const Variations = () => {
             ))
             .sort((left, right) => left.name.localeCompare(right.name, 'pt-BR', { sensitivity: 'base' }));
     }, [searchTerm, variations]);
+    const groupedVariations = useMemo(
+        () => groupCharacteristicsByTopic(filteredVariations),
+        [filteredVariations]
+    );
 
     const openForm = (attribute: VariationType | null) => {
         setEditingAttribute(attribute);
@@ -31,7 +36,7 @@ const Variations = () => {
     };
 
     const handleDeleteValue = async (attribute: VariationType, option: VariationOption) => {
-        if (!window.confirm(`Tem certeza que deseja remover o valor "${option.value}" da Especificação Técnica "${attribute.name}"?`)) return;
+        if (!window.confirm(`Tem certeza que deseja remover o valor "${option.value}" da característica "${attribute.name}"?`)) return;
 
         try {
             if (await checkVariationUsage(attribute.name, option.value)) {
@@ -52,7 +57,7 @@ const Variations = () => {
     const handleAddValues = async (attribute: VariationType, input: string): Promise<boolean> => {
         const newValues = parseAttributeValueBatch(input, attribute.options.map((option) => option.value));
         if (newValues.length === 0) {
-            toast.info('Todos os valores informados já existem nessa Especificação Técnica.');
+            toast.info('Todos os valores informados já existem nessa característica.');
             return false;
         }
 
@@ -126,7 +131,7 @@ const Variations = () => {
                 <div className="max-w-7xl mx-auto flex flex-col md:flex-row md:items-center justify-between gap-3 sm:gap-4">
                     <div className="flex items-center gap-2.5 sm:gap-3">
                         <i className="bi bi-gear-wide-connected text-xl sm:text-2xl text-blue-600 shrink-0" aria-hidden="true" />
-                        <h1 className="text-xl sm:text-2xl font-black text-slate-800 dark:text-slate-100 tracking-tight truncate">Especificações Técnicas</h1>
+                        <h1 className="text-xl sm:text-2xl font-black text-slate-800 dark:text-slate-100 tracking-tight truncate">Características</h1>
                     </div>
 
                     <div className="flex items-center gap-2 sm:gap-3 w-full md:w-auto">
@@ -155,7 +160,7 @@ const Variations = () => {
                             className="px-3.5 sm:px-4 py-2 sm:py-2.5 rounded-xl sm:rounded-2xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-black shadow-md shadow-blue-500/20 cursor-pointer flex items-center justify-center gap-1.5 sm:gap-2 shrink-0"
                         >
                             <i className="bi bi-plus-lg" aria-hidden="true" />
-                            <span>Novo Campo</span>
+                            <span>Nova característica</span>
                         </button>
                     </div>
                 </div>
@@ -166,21 +171,30 @@ const Variations = () => {
                     {loading ? (
                         <div className="bg-white dark:bg-slate-950 rounded-3xl border border-slate-100 dark:border-slate-800 p-12 text-center shadow-sm">
                             <i className="bi bi-arrow-clockwise animate-spin text-3xl text-blue-600" aria-hidden="true" />
-                            <p className="text-xs font-black uppercase tracking-widest text-slate-400 mt-3">Carregando especificações técnicas...</p>
+                            <p className="text-xs font-black uppercase tracking-widest text-slate-400 mt-3">Carregando características...</p>
                         </div>
                     ) : filteredVariations.length === 0 ? (
                         <div className="bg-white dark:bg-slate-950 rounded-3xl border border-slate-100 dark:border-slate-800 p-12 text-center shadow-sm text-slate-400 font-bold">
-                            Nenhuma Especificação Técnica encontrada.
+                            Nenhuma característica encontrada.
                         </div>
-                    ) : filteredVariations.map((attribute) => (
-                        <AttributeCard
-                            key={attribute.id}
-                            attribute={attribute}
-                            onAddValues={handleAddValues}
-                            onDeleteAttribute={handleDelete}
-                            onDeleteValue={handleDeleteValue}
-                            onEdit={openForm}
-                        />
+                    ) : groupedVariations.map((group) => (
+                        <section key={group.title} className="space-y-3" aria-labelledby={`characteristic-topic-${group.title}`}>
+                            <h2 id={`characteristic-topic-${group.title}`} className="text-xs font-black uppercase tracking-widest text-slate-500 dark:text-slate-400 border-b border-slate-200 dark:border-slate-800 pb-2">
+                                {group.title}
+                            </h2>
+                            <div className="grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-3 gap-4">
+                                {group.fields.map((attribute) => (
+                                    <AttributeCard
+                                        key={attribute.id}
+                                        attribute={attribute}
+                                        onAddValues={handleAddValues}
+                                        onDeleteAttribute={handleDelete}
+                                        onDeleteValue={handleDeleteValue}
+                                        onEdit={openForm}
+                                    />
+                                ))}
+                            </div>
+                        </section>
                     ))}
                 </div>
             </main>

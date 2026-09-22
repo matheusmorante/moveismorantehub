@@ -101,7 +101,7 @@ export const ProductFormBasicSection: React.FC<Props> = ({
         <TextInput
           value={formData.description}
           onChangeText={(v) => update('description', v)}
-          placeholder="Detalhes, especificações técnicas, etc..."
+          placeholder="Detalhes, características, etc..."
           placeholderTextColor="#94a3b8"
           multiline
           numberOfLines={3}
