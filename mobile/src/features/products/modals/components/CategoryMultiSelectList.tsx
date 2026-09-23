@@ -1,6 +1,6 @@
-import React from 'react';
-import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { Check } from 'lucide-react-native';
+import React, { useMemo, useState } from 'react';
+import { ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Check, Search, X } from 'lucide-react-native';
 import { MobileCategory } from '../../services/mobileCategoryService';
 
 interface CategoryMultiSelectListProps {
@@ -11,6 +11,12 @@ interface CategoryMultiSelectListProps {
   dark: boolean;
 }
 
+const normalizeSearchTerm = (value: string) => value
+  .normalize('NFD')
+  .replace(/[\u0300-\u036f]/g, '')
+  .toLocaleLowerCase('pt-BR')
+  .trim();
+
 export const CategoryMultiSelectList: React.FC<CategoryMultiSelectListProps> = ({
   categories,
   filteredCategories,
@@ -18,10 +24,61 @@ export const CategoryMultiSelectList: React.FC<CategoryMultiSelectListProps> = (
   onToggleCategory,
   dark,
 }) => {
+  const [search, setSearch] = useState('');
+  const selectedCategories = useMemo(
+    () => filteredCategories.filter(category => selectedCategoryIds.includes(category.id)),
+    [filteredCategories, selectedCategoryIds],
+  );
+  const normalizedSearch = normalizeSearchTerm(search);
+  const matchingCategories = useMemo(() => {
+    if (normalizedSearch.length < 2) return [];
+    return filteredCategories.filter(category => {
+      const parentNames = (category.parents || [])
+        .map(id => categories.find(item => item.id === id)?.name || '')
+        .join(' ');
+      return normalizeSearchTerm(`${category.name} ${parentNames}`).includes(normalizedSearch);
+    });
+  }, [categories, filteredCategories, normalizedSearch]);
+
   return (
     <View style={[styles.categoriesContainer, dark && styles.darkCategoriesContainer]}>
-      <ScrollView nestedScrollEnabled style={styles.categoriesScroll}>
-        {filteredCategories.map((cat) => {
+      <View style={styles.searchBox}>
+        <Search size={16} color={dark ? '#94a3b8' : '#64748b'} />
+        <TextInput
+          value={search}
+          onChangeText={setSearch}
+          placeholder="Pesquisar categorias..."
+          placeholderTextColor="#94a3b8"
+          accessibilityLabel="Pesquisar categorias"
+          style={[styles.searchInput, dark && styles.lightText]}
+        />
+        {search.length > 0 && (
+          <TouchableOpacity onPress={() => setSearch('')} accessibilityLabel="Limpar pesquisa">
+            <X size={16} color={dark ? '#94a3b8' : '#64748b'} />
+          </TouchableOpacity>
+        )}
+      </View>
+      {selectedCategories.length > 0 && (
+        <View style={styles.selectedWrap}>
+          {selectedCategories.map(category => {
+            const parentNames = (category.parents || [])
+              .map(id => categories.find(item => item.id === id)?.name)
+              .filter(Boolean)
+              .join(', ');
+            return (
+              <TouchableOpacity key={category.id} onPress={() => onToggleCategory(category)} style={styles.selectedChip}>
+                <Check size={12} color="#2563eb" strokeWidth={3} />
+                <Text style={styles.selectedChipText}>{category.name}</Text>
+                {parentNames ? <Text style={styles.selectedChipParents} numberOfLines={1}>({parentNames})</Text> : null}
+                <X size={12} color="#64748b" />
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+      )}
+      {normalizedSearch.length >= 2 ? (
+      <ScrollView nestedScrollEnabled style={styles.categoriesScroll} keyboardShouldPersistTaps="handled">
+        {matchingCategories.map((cat) => {
           const isChecked = selectedCategoryIds.includes(cat.id);
           const parentNames = (cat.parents || [])
             .map((pid) => categories.find((item) => item.id === pid)?.name)
@@ -63,10 +120,13 @@ export const CategoryMultiSelectList: React.FC<CategoryMultiSelectListProps> = (
             </TouchableOpacity>
           );
         })}
-        {filteredCategories.length === 0 && (
-          <Text style={styles.emptyCategoriesText}>Carregando categorias...</Text>
+        {matchingCategories.length === 0 && (
+          <Text style={styles.emptyCategoriesText}>Nenhuma categoria encontrada para “{search}”.</Text>
         )}
       </ScrollView>
+      ) : (
+        <Text style={styles.emptyCategoriesText}>Digite ao menos 2 caracteres para pesquisar.</Text>
+      )}
     </View>
   );
 };
@@ -86,6 +146,51 @@ const styles = StyleSheet.create({
   },
   categoriesScroll: {
     padding: 6,
+    maxHeight: 220,
+  },
+  searchBox: {
+    minHeight: 44,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 9,
+    paddingHorizontal: 12,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: '#cbd5e1',
+  },
+  searchInput: {
+    flex: 1,
+    minWidth: 0,
+    paddingVertical: 10,
+    fontSize: 13,
+    color: '#0f172a',
+  },
+  selectedWrap: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+    padding: 8,
+  },
+  selectedChip: {
+    maxWidth: '100%',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#dbeafe',
+    paddingHorizontal: 9,
+    paddingVertical: 6,
+    borderRadius: 6,
+  },
+  selectedChipText: {
+    flexShrink: 1,
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#1d4ed8',
+  },
+  selectedChipParents: {
+    flexShrink: 1,
+    fontSize: 10,
+    fontWeight: '500',
+    color: '#94a3b8',
   },
   categoryItem: {
     flexDirection: 'row',

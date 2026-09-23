@@ -3,8 +3,8 @@
     "name": "App Morante",
     "slug": "mobile",
     "scheme": "morantehub",
-    "version": "1.6.1",
-    "runtimeVersion": "1.6.1",
+    "version": "1.6.0",
+    "runtimeVersion": "1.6.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -39,9 +39,7 @@
         }
       ],
       "expo-status-bar",
-      "expo-splash-screen",
-      "expo-audio",
-      "react-native-audio-api"
+      "expo-splash-screen"
     ],
     "ios": {
       "supportsTablet": true,
@@ -52,7 +50,7 @@
     },
     "android": {
       "package": "com.morante.mobile",
-      "versionCode": 19,
+      "versionCode": 23,
       "googleServicesFile": "./google-services.json",
       "config": {
         "googleMaps": {

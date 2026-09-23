@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   ScrollView,
   StyleSheet,
@@ -8,23 +8,13 @@ import {
   View,
 } from 'react-native';
 import { ChevronDown, FileText } from 'lucide-react-native';
+import { supabase } from '../../../../services/supabaseClient';
 
 interface Props {
   formData: any;
   setFormData: (fn: (prev: any) => any) => void;
   dark: boolean;
 }
-
-const COMMON_NCMS = [
-  { code: '94036000', description: 'Outros móveis de madeira (Rack, Painel, Aparador)' },
-  { code: '94016100', description: 'Assentos com armação de madeira, estofados (Sofá, Poltrona)' },
-  { code: '94035000', description: 'Móveis de madeira para dormitórios (Guarda-roupa, Cama)' },
-  { code: '94033000', description: 'Móveis de madeira para escritórios (Escrivaninha, Mesa)' },
-  { code: '94034000', description: 'Móveis de madeira para cozinhas (Armário, Balcão)' },
-  { code: '94042100', description: 'Colchões de espuma (borracha ou plástico)' },
-  { code: '94042900', description: 'Colchões de molas ou outros materiais' },
-  { code: '94032000', description: 'Outros móveis de metal (Mesa com base de aço)' },
-];
 
 const CFOP_OPTIONS = [
   { value: '5102', label: '5102 - Venda de mercadoria de terceiros' },
@@ -37,20 +27,76 @@ const CSOSN_OPTIONS = [
   { value: '102', label: '102 - Tributada pelo Simples sem permissão de crédito' },
   { value: '500', label: '500 - ICMS cobrado anteriormente por ST' },
   { value: '101', label: '101 - Com permissão de crédito' },
+  { value: '201', label: '201 - Com permissão de crédito e ST' },
+  { value: '202', label: '202 - Sem permissão de crédito e ST' },
+  { value: '300', label: '300 - Imune' },
   { value: '400', label: '400 - Não tributada pelo Simples Nacional' },
+  { value: '900', label: '900 - Outros' },
+];
+
+const PIS_COFINS_OPTIONS = [
+  { value: '49', label: '49 - Outras Operações de Saída' },
+  { value: '07', label: '07 - Operação Isenta da Contribuição' },
+  { value: '08', label: '08 - Operação Sem Incidência da Contribuição' },
+  { value: '04', label: '04 - Tributável Monofásica (Alíquota Zero)' },
+  { value: '06', label: '06 - Tributável com Alíquota Zero' },
+  { value: '01', label: '01 - Tributável com Alíquota Básica' },
+  { value: '99', label: '99 - Outras Operações' },
 ];
 
 const ORIGEM_OPTIONS = [
   { value: '0', label: '0 - Nacional' },
   { value: '1', label: '1 - Estrangeira - Importação Direta' },
   { value: '2', label: '2 - Estrangeira - Adquirida no Mercado Interno' },
+  { value: '3', label: '3 - Nacional, conteúdo de importação superior a 40%' },
+  { value: '4', label: '4 - Nacional, PPB' },
+  { value: '5', label: '5 - Nacional, conteúdo de importação até 40%' },
+  { value: '6', label: '6 - Estrangeira - Importação Direta (CAMEX)' },
+  { value: '7', label: '7 - Estrangeira - Adquirida no Mercado Interno (CAMEX)' },
+  { value: '8', label: '8 - Nacional, conteúdo de importação superior a 70%' },
 ];
 
 export const ProductFormFiscalTab: React.FC<Props> = ({ formData, setFormData, dark }) => {
-  const [showNcmList, setShowNcmList] = useState(false);
   const [showCfopPicker, setShowCfopPicker] = useState(false);
   const [showCsosnPicker, setShowCsosnPicker] = useState(false);
   const [showOrigemPicker, setShowOrigemPicker] = useState(false);
+  const [showPisPicker, setShowPisPicker] = useState(false);
+  const [showCofinsPicker, setShowCofinsPicker] = useState(false);
+  const [ncmSearch, setNcmSearch] = useState(String(formData.fiscal?.ncm || ''));
+  const [ncmResults, setNcmResults] = useState<any[]>([]);
+  const [ncmLoading, setNcmLoading] = useState(false);
+  const [ncmCatalog, setNcmCatalog] = useState<any>(null);
+
+  useEffect(() => setNcmSearch(String(formData.fiscal?.ncm || '')), [formData.fiscal?.ncm]);
+
+  useEffect(() => {
+    const query = ncmSearch.trim();
+    if (query.length < 2 || /^\d{8}$/.test(query)) { setNcmResults([]); return; }
+    let cancelled = false;
+    const timer = setTimeout(async () => {
+      setNcmLoading(true);
+      try {
+        const { data, error } = await supabase.rpc('search_ncms', { search_term: query, max_results: 10 });
+        if (error) throw error;
+        if (!cancelled) setNcmResults(data || []);
+      } catch (error) {
+        console.warn('[ProductFormFiscalTab] Falha ao pesquisar NCM:', error);
+        if (!cancelled) setNcmResults([]);
+      } finally { if (!cancelled) setNcmLoading(false); }
+    }, 300);
+    return () => { cancelled = true; clearTimeout(timer); };
+  }, [ncmSearch]);
+
+  useEffect(() => {
+    const code = String(formData.fiscal?.ncm || '').replace(/\D/g, '');
+    if (code.length !== 8) { setNcmCatalog(null); return; }
+    let cancelled = false;
+    supabase.from('ncms').select('code, official_description, active, start_date, end_date')
+      .eq('code', code).maybeSingle().then(({ data, error }) => {
+        if (!cancelled && !error) setNcmCatalog(data);
+      });
+    return () => { cancelled = true; };
+  }, [formData.fiscal?.ncm]);
 
   const fiscal = formData.fiscal || {};
 
@@ -80,57 +126,52 @@ export const ProductFormFiscalTab: React.FC<Props> = ({ formData, setFormData, d
         <View style={styles.field}>
           <Text style={[styles.label, dark && styles.dimText]}>Código NCM (8 dígitos)</Text>
           <TextInput
-            value={fiscal.ncm || ''}
-            onChangeText={v => setFiscalField('ncm', v.replace(/\D/g, '').slice(0, 8))}
-            keyboardType="numeric"
-            placeholder="Ex: 94036000"
+            value={ncmSearch}
+            onChangeText={v => {
+              setNcmSearch(v);
+              if (/^\d{8}$/.test(v.trim())) setFiscalField('ncm', v.trim());
+              else if (!v.trim()) setFiscalField('ncm', '');
+            }}
+            placeholder="Digite o código ou descrição do NCM"
             placeholderTextColor="#94a3b8"
             style={[styles.input, dark && styles.darkInput, dark && styles.lightText]}
           />
+          {ncmLoading && <Text style={styles.ncmDesc}>Pesquisando catálogo oficial...</Text>}
+          {ncmResults.length > 0 && ncmSearch.trim().length >= 2 && (
+            <View style={[styles.dropdownBox, dark && styles.darkCard]}>
+              <ScrollView nestedScrollEnabled style={{ maxHeight: 220 }}>
+                {ncmResults.map((result: any) => (
+                  <TouchableOpacity key={result.code} onPress={() => {
+                    setFiscalField('ncm', result.code);
+                    setFiscalField('ncmDescription', result.official_description);
+                    setNcmSearch(result.code);
+                    setNcmResults([]);
+                  }} style={styles.dropdownItem}>
+                    <Text style={[styles.ncmCode, dark && styles.lightText]}>{result.code}</Text>
+                    <Text style={styles.ncmDesc}>{result.official_description}</Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            </View>
+          )}
+          {ncmCatalog && <Text style={[styles.ncmDesc, { color: ncmCatalog.active ? '#15803d' : '#b45309' }]}>
+            {ncmCatalog.active ? 'Código ativo no catálogo oficial' : 'Atenção: código inativo no catálogo oficial'}
+          </Text>}
         </View>
 
-        <TouchableOpacity
-          onPress={() => setShowNcmList(!showNcmList)}
-          style={[styles.selectBtn, dark && styles.darkInput]}
-        >
-          <Text style={[styles.selectBtnText, dark && styles.lightText]}>
-            {showNcmList ? 'Ocultar NCMs Frequentes' : 'Ver NCMs Sugeridos (Móveis)'}
-          </Text>
-          <ChevronDown size={14} color="#94a3b8" />
-        </TouchableOpacity>
-
-        {showNcmList && (
-          <View style={[styles.dropdownBox, dark && styles.darkCard]}>
-            <ScrollView nestedScrollEnabled style={{ maxHeight: 200 }}>
-              {COMMON_NCMS.map(ncm => (
-                <TouchableOpacity
-                  key={ncm.code}
-                  onPress={() => {
-                    setFiscalField('ncm', ncm.code);
-                    setFiscalField('ncmDescription', ncm.description);
-                    setShowNcmList(false);
-                  }}
-                  style={styles.dropdownItem}
-                >
-                  <Text style={[styles.ncmCode, dark && styles.lightText]}>{ncm.code}</Text>
-                  <Text style={styles.ncmDesc}>{ncm.description}</Text>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
+        {(['201', '202', '500'].includes(fiscal.cst || fiscal.csosn || '') || Boolean(fiscal.cest)) && (
+          <View style={styles.field}>
+            <Text style={[styles.label, dark && styles.dimText]}>CEST (Substituição Tributária)</Text>
+            <TextInput
+              value={fiscal.cest || ''}
+              onChangeText={v => setFiscalField('cest', v.replace(/\D/g, '').slice(0, 7))}
+              keyboardType="numeric"
+              placeholder="Ex: 2806100"
+              placeholderTextColor="#94a3b8"
+              style={[styles.input, dark && styles.darkInput, dark && styles.lightText]}
+            />
           </View>
         )}
-
-        <View style={styles.field}>
-          <Text style={[styles.label, dark && styles.dimText]}>CEST (Opcional)</Text>
-          <TextInput
-            value={fiscal.cest || ''}
-            onChangeText={v => setFiscalField('cest', v)}
-            keyboardType="numeric"
-            placeholder="Ex: 2806100"
-            placeholderTextColor="#94a3b8"
-            style={[styles.input, dark && styles.darkInput, dark && styles.lightText]}
-          />
-        </View>
       </View>
 
       {/* CFOP & CSOSN Card */}
@@ -240,6 +281,33 @@ export const ProductFormFiscalTab: React.FC<Props> = ({ formData, setFormData, d
             style={[styles.input, dark && styles.darkInput, dark && styles.lightText]}
           />
         </View>
+
+        {(['pisCst', 'cofinsCst'] as const).map((field) => {
+          const isPis = field === 'pisCst';
+          const visible = isPis ? showPisPicker : showCofinsPicker;
+          const setVisible = isPis ? setShowPisPicker : setShowCofinsPicker;
+          const value = fiscal[field] || '49';
+          const selected = PIS_COFINS_OPTIONS.find(option => option.value === value);
+          return (
+            <View key={field} style={styles.field}>
+              <Text style={[styles.label, dark && styles.dimText]}>{isPis ? 'PIS CST' : 'COFINS CST'}</Text>
+              <TouchableOpacity onPress={() => setVisible(!visible)} style={[styles.selectBtn, dark && styles.darkInput]}>
+                <Text style={[styles.selectBtnText, dark && styles.lightText]} numberOfLines={1}>{selected?.label || value}</Text>
+                <ChevronDown size={14} color="#94a3b8" />
+              </TouchableOpacity>
+              {visible && <View style={[styles.dropdownBox, dark && styles.darkCard]}>
+                <ScrollView nestedScrollEnabled style={{ maxHeight: 220 }}>
+                  {PIS_COFINS_OPTIONS.map(option => <TouchableOpacity key={option.value} onPress={() => {
+                    setFiscalField(field, option.value);
+                    setVisible(false);
+                  }} style={styles.dropdownItem}>
+                    <Text style={[styles.dropdownItemText, dark && styles.lightText]}>{option.label}</Text>
+                  </TouchableOpacity>)}
+                </ScrollView>
+              </View>}
+            </View>
+          );
+        })}
       </View>
     </View>
   );

@@ -50,9 +50,21 @@ export function buildNfeXml(params: NfeXmlBuilderParams): string {
     // 5. Bloco de Totais, Transporte, Pagamento e Informações Adicionais (<total>, <transp>, <pag>, <infAdic>)
     const totalsXml = buildTotalsAndPaymentXml(order, vProdTotal, vDescTotal);
 
+    // NFC-e online (PR): QR Code 3.0 uses the access key, environment and
+    // the CSC identifier registered at SEFA/PR. The CSC secret itself must
+    // never be embedded in the XML/QR Code.
+    const infNFeSupl = model === '65'
+        ? (() => {
+            const cscId = String((settings as any).cscId || '').trim();
+            const qrCode = `http://www.fazenda.pr.gov.br/nfce/qrcode?p=${accessKey}|3|${environment}|${cscId}`;
+            return `\n<infNFeSupl><qrCode><![CDATA[${qrCode}]]></qrCode><urlChave>http://www.fazenda.pr.gov.br/nfce/qrcode</urlChave></infNFeSupl>`;
+        })()
+        : '';
+
     return `<?xml version="1.0" encoding="UTF-8"?>
 <NFe xmlns="http://www.portalfiscal.inf.br/nfe">
   <infNFe Id="NFe${accessKey}" versao="4.00">${ideXml}${emitXml}${destXml}${itemsXml}${totalsXml}
   </infNFe>
+  ${infNFeSupl}
 </NFe>`;
 }

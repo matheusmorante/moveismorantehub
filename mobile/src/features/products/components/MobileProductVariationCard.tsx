@@ -7,6 +7,7 @@ interface MobileProductVariationCardProps {
   variation: any;
   index: number;
   dark: boolean;
+  parentImage?: string | null;
   isParentDraft?: boolean;
   onToggleActive?: (varId: string, currentActive: boolean) => void;
   onToggleCatalog: (varId: string, currentStatus: string) => void;
@@ -16,6 +17,7 @@ export const MobileProductVariationCard: React.FC<MobileProductVariationCardProp
   variation: v,
   index,
   dark,
+  parentImage,
   isParentDraft = false,
   onToggleActive,
   onToggleCatalog,
@@ -30,7 +32,7 @@ export const MobileProductVariationCard: React.FC<MobileProductVariationCardProp
 
   const isPublished = v.status === 'published';
   const isActive = v.active !== false;
-  const imgUrl = Array.isArray(v.images) && v.images[0] ? v.images[0] : (v.imageUrl || null);
+  const imgUrl = Array.isArray(v.images) && v.images[0] ? v.images[0] : (v.imageUrl || parentImage || null);
   const normalPrice = Number(v.price ?? v.unit_price ?? 0);
   const promoPrice = Number(v.promo_price ?? v.promoPrice ?? 0);
   const hasPromo = promoPrice > 0 && promoPrice < normalPrice;

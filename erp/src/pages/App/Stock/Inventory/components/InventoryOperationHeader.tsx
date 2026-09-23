@@ -6,6 +6,7 @@ interface InventoryOperationHeaderProps {
     readonly items: readonly AuditItem[];
     readonly mode: 'scanner' | 'manual';
     readonly setMode: (mode: 'scanner' | 'manual') => void;
+    readonly onOpenQrScanner: () => void;
     readonly onClose?: () => void;
 }
 
@@ -14,6 +15,7 @@ export const InventoryOperationHeader: React.FC<InventoryOperationHeaderProps> =
     items,
     mode,
     setMode,
+    onOpenQrScanner,
     onClose,
 }) => {
     const countedItems = items.filter((i) => i.physicalCount !== null);
@@ -40,7 +42,16 @@ export const InventoryOperationHeader: React.FC<InventoryOperationHeaderProps> =
                     </div>
                 </div>
 
-                <div className="flex items-center gap-4 w-full md:w-auto">
+                <div className="flex items-center gap-3 w-full md:w-auto">
+                    <button
+                        type="button"
+                        onClick={onOpenQrScanner}
+                        className="w-12 h-12 rounded-full bg-emerald-500 hover:bg-emerald-600 text-white flex items-center justify-center shadow-lg shadow-emerald-500/30 transition-transform active:scale-95 shrink-0"
+                        title="Iniciar escaneamento por QR Code"
+                        aria-label="Iniciar escaneamento por QR Code"
+                    >
+                        <i className="bi bi-qr-code-scan text-2xl" aria-hidden="true"></i>
+                    </button>
                     <div className="flex p-1 bg-slate-100 dark:bg-slate-900 rounded-xl shrink-0 w-full md:w-auto">
                         <button
                             onClick={() => setMode('manual')}

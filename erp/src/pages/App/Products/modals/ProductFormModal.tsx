@@ -210,6 +210,9 @@ const ProductFormModal: React.FC<ProductFormModalProps> = (props) => {
                             isNcmAutoEnabled={ai.isNcmAutoEnabled}
                             toggleNcmAuto={ai.toggleNcmAuto}
                             isGeneratingNCM={ai.isGeneratingNCM}
+                            ncmSuggestion={ai.ncmSuggestion}
+                            acceptNcmSuggestion={ai.acceptNcmSuggestion}
+                            dismissNcmSuggestion={ai.dismissNcmSuggestion}
                         />
                     )}
                 </div>

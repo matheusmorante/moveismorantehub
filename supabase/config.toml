@@ -411,6 +411,10 @@ verify_jwt = false
 
 [functions.refresh-delivery-summaries]
 verify_jwt = false
+
+[functions.sync-ncms]
+# The handler validates administrator sessions and the dedicated cron secret.
+verify_jwt = false
 # Configure one of the supported backends: `postgres`, `bigquery`.
 backend = "postgres"
 

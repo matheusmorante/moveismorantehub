@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Platform, Modal, ScrollView, Image } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { 
-  LayoutDashboard, 
   ShoppingBag, 
   Package,
   Calendar, 
@@ -53,16 +52,16 @@ export const NativeBottomNav: React.FC<Props> = ({
   // Lista base de todas as abas configuradas para o app
   const allTabs = [
     {
-      key: 'home',
-      label: 'Início',
-      icon: LayoutDashboard,
-      url: WEB_URL,
-      visible: true,
-    },
-    {
       key: 'entregas',
       label: 'Operações',
       icon: Route,
+      url: `${WEB_URL}/schedule`,
+      visible: true,
+    },
+    {
+      key: 'agenda',
+      label: 'Agenda',
+      icon: Calendar,
       url: `${WEB_URL}/schedule`,
       visible: true,
     },
@@ -71,13 +70,6 @@ export const NativeBottomNav: React.FC<Props> = ({
       label: 'Assistente',
       icon: Sparkles,
       url: `${WEB_URL}/agent`,
-      visible: true,
-    },
-    {
-      key: 'agenda',
-      label: 'Agenda',
-      icon: Calendar,
-      url: `${WEB_URL}/schedule`,
       visible: true,
     },
     {

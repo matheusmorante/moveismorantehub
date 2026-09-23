@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import Product from '../../../../../types/product.type';
 import { ncmService, NcmSearchResult } from '@/services/fiscal/ncmService';
+import type { NcmAiSuggestion } from '@/pages/utils/aiService/aiFiscalClassificationService';
 
 interface ProductNcmSelectorProps {
     formData: Partial<Product>;
@@ -8,6 +9,9 @@ interface ProductNcmSelectorProps {
     isNcmAutoEnabled: boolean;
     readonly toggleNcmAuto: () => void;
     isGeneratingNCM: boolean;
+    suggestion: NcmAiSuggestion | null;
+    onAcceptSuggestion: () => void;
+    onDismissSuggestion: () => void;
 }
 
 export const ProductNcmSelector: React.FC<ProductNcmSelectorProps> = ({
@@ -15,7 +19,10 @@ export const ProductNcmSelector: React.FC<ProductNcmSelectorProps> = ({
     setFormData,
     isNcmAutoEnabled,
     toggleNcmAuto,
-    isGeneratingNCM
+    isGeneratingNCM,
+    suggestion,
+    onAcceptSuggestion,
+    onDismissSuggestion,
 }) => {
     const [searchQuery, setSearchQuery] = useState(formData.fiscal?.ncm || '');
     const [isDropdownOpen, setIsDropdownOpen] = useState(false);
@@ -36,6 +43,8 @@ export const ProductNcmSelector: React.FC<ProductNcmSelectorProps> = ({
 
     const [results, setResults] = useState<NcmSearchResult[]>([]);
     const [isLoadingNcms, setIsLoadingNcms] = useState(false);
+    const [currentCatalogEntry, setCurrentCatalogEntry] = useState<Awaited<ReturnType<typeof ncmService.getCatalogEntry>>>(null);
+    const [hasCheckedCatalogEntry, setHasCheckedCatalogEntry] = useState(false);
 
     useEffect(() => {
         const fetchNcms = async () => {
@@ -49,6 +58,7 @@ export const ProductNcmSelector: React.FC<ProductNcmSelectorProps> = ({
                 setResults(res);
             } catch (err) {
                 console.error("Erro ao buscar NCMs:", err);
+                setResults([]);
             } finally {
                 setIsLoadingNcms(false);
             }
@@ -56,6 +66,29 @@ export const ProductNcmSelector: React.FC<ProductNcmSelectorProps> = ({
         const timer = setTimeout(fetchNcms, 300);
         return () => clearTimeout(timer);
     }, [searchQuery]);
+
+    useEffect(() => {
+        const code = (formData.fiscal?.ncm || '').replace(/\D/g, '');
+        if (code.length !== 8) {
+            setCurrentCatalogEntry(null);
+            setHasCheckedCatalogEntry(false);
+            return;
+        }
+        let cancelled = false;
+        setHasCheckedCatalogEntry(false);
+        const timer = window.setTimeout(async () => {
+            try {
+                const entry = await ncmService.getCatalogEntry(code);
+                if (!cancelled) setCurrentCatalogEntry(entry);
+            } catch (error) {
+                console.warn('[NCM] Não foi possível consultar a vigência do código.', error);
+                if (!cancelled) setCurrentCatalogEntry(null);
+            } finally {
+                if (!cancelled) setHasCheckedCatalogEntry(true);
+            }
+        }, 250);
+        return () => { cancelled = true; window.clearTimeout(timer); };
+    }, [formData.fiscal?.ncm]);
 
     return (
         <div className="flex flex-col gap-2 relative" ref={dropdownRef}>
@@ -69,7 +102,7 @@ export const ProductNcmSelector: React.FC<ProductNcmSelectorProps> = ({
                         aria-label="Autopreencher NCM"
                         onClick={toggleNcmAuto}
                         className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-purple-100/80 hover:bg-purple-200/80 dark:bg-purple-950/60 dark:hover:bg-purple-900/60 border border-purple-200 dark:border-purple-800/70 text-amber-600 dark:text-amber-400 font-black uppercase text-[9px] tracking-wider transition-all disabled:opacity-50 active:scale-95 shadow-sm"
-                        title="Usar IA para auto-preencher o NCM"
+                        title="Ativar sugestões de NCM por IA"
                     >
                         {isGeneratingNCM ? <i className="bi bi-arrow-repeat animate-spin text-amber-500" /> : <i className="bi bi-stars text-amber-500 text-xs font-bold" />}
                         <span>Autopreencher</span>
@@ -139,6 +172,32 @@ export const ProductNcmSelector: React.FC<ProductNcmSelectorProps> = ({
                 )}
             </div>
 
+            {currentCatalogEntry && !currentCatalogEntry.active && (
+                <p role="alert" className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-[10px] leading-relaxed text-amber-800 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-200">
+                    Este NCM não está vigente na base local. Revise a classificação antes de usar em novas operações.
+                </p>
+            )}
+            {hasCheckedCatalogEntry && currentCatalogEntry === null && (
+                <p className="text-[10px] text-slate-500">Não foi possível confirmar a vigência deste NCM. Sincronize a tabela oficial antes de emitir documentos fiscais.</p>
+            )}
+            {suggestion?.ncm && (
+                <div className="rounded-xl border border-violet-200 bg-violet-50 p-3 dark:border-violet-900 dark:bg-violet-950/20">
+                    <div className="flex items-start justify-between gap-3">
+                        <div>
+                            <p className="text-[10px] font-black uppercase tracking-wider text-violet-800 dark:text-violet-200">Sugestão de NCM · confirme antes de aplicar</p>
+                            <p className="mt-1 font-mono text-xs font-bold text-slate-800 dark:text-slate-100">{suggestion.ncm}</p>
+                            <p className="mt-0.5 text-[10px] text-slate-600 dark:text-slate-300">{suggestion.description}</p>
+                            <p className="mt-2 text-[10px] leading-relaxed text-violet-800 dark:text-violet-200">{suggestion.reviewReason}</p>
+                        </div>
+                        <button type="button" onClick={onDismissSuggestion} aria-label="Descartar sugestão de NCM" className="shrink-0 p-1 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"><i className="bi bi-x-lg" /></button>
+                    </div>
+                    <div className="mt-3 flex items-center justify-between gap-3">
+                        <span className="text-[9px] text-slate-500">Confiança informada pela IA: {Math.round(suggestion.confidence * 100)}%</span>
+                        <button type="button" onClick={onAcceptSuggestion} className="rounded-lg bg-violet-600 px-3 py-2 text-[10px] font-bold text-white hover:bg-violet-700">Aplicar sugestão</button>
+                    </div>
+                </div>
+            )}
+
             {isDropdownOpen && (
                 <div className="absolute left-0 right-0 top-full mt-2 bg-white dark:bg-slate-900 border border-slate-150 dark:border-slate-800 rounded-2xl shadow-xl z-50 p-2 max-h-60 overflow-y-auto custom-scrollbar flex flex-col gap-0.5">
                     {isLoadingNcms ? (
@@ -197,7 +256,7 @@ export const ProductNcmSelector: React.FC<ProductNcmSelectorProps> = ({
                             </button>
                         </div>
                         <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
-                            O autopreenchimento começa ligado. Preencha o nome do produto, o título (o próprio nome quando não houver título diferente), uma categoria e a descrição para gerar uma sugestão de NCM. Ao desligar, a geração automática para. Ao ligar novamente, uma nova sugestão é solicitada assim que esses campos estiverem preenchidos.
+                            A IA sugere um NCM a partir do nome, categoria, descrição e material. Ela não altera o código do produto automaticamente: confira o código e a descrição oficial e clique em “Aplicar sugestão” se a classificação estiver correta. Quando o material não está claro, MDF/MDP/madeira pode aparecer como hipótese, que exige confirmação do material real.
                         </p>
                         <button
                             type="button"

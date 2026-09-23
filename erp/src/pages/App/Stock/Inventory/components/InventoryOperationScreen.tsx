@@ -6,6 +6,7 @@ import { InventoryManualMode } from './InventoryManualMode';
 import { InventoryStagesView } from './InventoryStagesView';
 import { useInventoryOperation } from "../../hooks/useInventoryOperation";
 import type { InventoryScopeType } from '../modals/InventoryScopeModal';
+import QRScannerModal from '@/components/shared/QRScannerModal';
 
 interface InventoryOperationScreenProps {
     readonly items: AuditItem[];
@@ -37,6 +38,7 @@ export const InventoryOperationScreen: React.FC<InventoryOperationScreenProps> =
     hasChanges,
 }) => {
     const [mode, setMode] = useState<'scanner' | 'manual'>('manual');
+    const [isQrScannerOpen, setIsQrScannerOpen] = useState(false);
     const [activeStage, setActiveStage] = useState<string | null>(null);
     
     // Filtramos os itens pelo fornecedor ativo, ou usamos todos se não tiver etapas
@@ -57,6 +59,27 @@ export const InventoryOperationScreen: React.FC<InventoryOperationScreenProps> =
     const isShowingStages = hasStages && !activeStage;
     const isCustom = scopeType === 'custom';
 
+    const handleQrScan = (rawCode: string) => {
+        let code = rawCode.trim();
+        try {
+            const parsed = JSON.parse(code);
+            code = String(parsed.productId ?? parsed.sku ?? parsed.code ?? parsed.scanId ?? code);
+        } catch {
+            // Códigos simples continuam sendo tratados diretamente.
+        }
+
+        const item = items.find((candidate) =>
+            candidate.productId === code ||
+            candidate.variationId === code ||
+            candidate.name.toLowerCase().includes(code.toLowerCase())
+        );
+
+        if (item) {
+            onUpdateCount(item.id, (item.physicalCount ?? 0) + 1);
+        }
+        setIsQrScannerOpen(false);
+    };
+
     return (
         <div className="flex flex-col h-full bg-slate-50 dark:bg-slate-900">
             {!isShowingStages && (
@@ -65,6 +88,7 @@ export const InventoryOperationScreen: React.FC<InventoryOperationScreenProps> =
                     items={activeItems}
                     mode={mode}
                     setMode={setMode}
+                    onOpenQrScanner={() => setIsQrScannerOpen(true)}
                     onClose={onClose}
                 />
             )}
@@ -152,6 +176,13 @@ export const InventoryOperationScreen: React.FC<InventoryOperationScreenProps> =
                     </button>
                 </div>
             </div>
+
+            <QRScannerModal
+                isOpen={isQrScannerOpen}
+                onClose={() => setIsQrScannerOpen(false)}
+                onScan={handleQrScan}
+                title="Escanear produto"
+            />
         </div>
     );
 };

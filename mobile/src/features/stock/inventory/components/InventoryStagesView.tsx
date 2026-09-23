@@ -49,9 +49,11 @@ export const InventoryStagesView: React.FC<Props> = ({ items, isDarkMode, onSele
             return stage;
         });
 
-        // Sort: Suppliers alphabetically. Filter out 'Sem fornecedor'.
-        const filteredStagesArray = stagesArray.filter(stage => stage.supplierName !== 'Sem fornecedor');
+        // Keep products without a supplier countable in their own stage.
+        const filteredStagesArray = stagesArray;
         filteredStagesArray.sort((a, b) => {
+            if (a.supplierName === 'Sem fornecedor') return 1;
+            if (b.supplierName === 'Sem fornecedor') return -1;
             return a.supplierName.localeCompare(b.supplierName);
         });
         

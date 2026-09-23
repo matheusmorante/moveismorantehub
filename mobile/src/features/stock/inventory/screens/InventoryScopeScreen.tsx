@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator, Alert } from 'react-native';
 import { X, Package, Users, Filter } from 'lucide-react-native';
-import { supabase } from '../../../../services/supabaseClient';
 import { useAuth } from '../../../../contexts/AuthContext';
 import type { ScopeConfiguration, ScopeProduct, ScopeSupplier, InventoryScopeType } from '../hooks/useInventoryScopeBuilder';
+import { clearInventoryScopeCache, fetchInventoryScopeProducts, fetchInventoryScopeSuppliers } from '../../../../services/stockService';
+import { InventoryProductSearchModal, type SearchableProduct } from '../components/InventoryProductSearchModal';
 
 interface Props {
   isDarkMode: boolean;
@@ -13,21 +14,19 @@ interface Props {
 
 export const InventoryScopeScreen: React.FC<Props> = ({ isDarkMode, onCancel, onConfirm }) => {
   const { userProfile } = useAuth();
-  const [allProducts, setAllProducts] = useState<ScopeProduct[]>([]);
   const [suppliers, setSuppliers] = useState<ScopeSupplier[]>([]);
   const [loadingData, setLoadingData] = useState(true);
   const [expandedType, setExpandedType] = useState<InventoryScopeType | null>(null);
+  const [selectedSupplierId, setSelectedSupplierId] = useState<string | null>(null);
+  const [customProducts, setCustomProducts] = useState<SearchableProduct[]>([]);
+  const [searchOpen, setSearchOpen] = useState(false);
 
   // Load Initial Data
   useEffect(() => {
-    Promise.all([
-      supabase.from('products').select('id, name, description, stock, unit, main_supplier_id').eq('deleted', false).eq('active', true),
-      supabase.from('people').select('id, full_name').eq('person_type', 'suppliers')
-    ]).then(([prodRes, supRes]) => {
-      if (prodRes.data) setAllProducts(prodRes.data as ScopeProduct[]);
-      if (supRes.data) setSuppliers(supRes.data as ScopeSupplier[]);
+    fetchInventoryScopeSuppliers().then((supplierData) => {
+      setSuppliers(supplierData as ScopeSupplier[]);
       setLoadingData(false);
-    });
+    }).catch(() => setLoadingData(false));
   }, []);
 
   const bg = isDarkMode ? '#0f172a' : '#f8fafc';
@@ -36,7 +35,16 @@ export const InventoryScopeScreen: React.FC<Props> = ({ isDarkMode, onCancel, on
   const textPrimary = isDarkMode ? '#f1f5f9' : '#0f172a';
   const muted = isDarkMode ? '#94a3b8' : '#64748b';
 
-  const confirmDirectly = (type: InventoryScopeType, supplierId?: string) => {
+  const confirmDirectly = async (type: InventoryScopeType, supplierId?: string) => {
+    setLoadingData(true);
+    try {
+    let allProducts: ScopeProduct[];
+    if (type === 'custom') {
+      allProducts = customProducts as ScopeProduct[];
+    } else {
+      clearInventoryScopeCache();
+      allProducts = await fetchInventoryScopeProducts(type, supplierId) as ScopeProduct[];
+    }
     const dateStr = new Date().toLocaleDateString('pt-BR', { month: 'long' });
     let name = '';
     if (type === 'full') name = `Inventário Geral - ${dateStr}`;
@@ -46,28 +54,38 @@ export const InventoryScopeScreen: React.FC<Props> = ({ isDarkMode, onCancel, on
     const items: ScopeConfiguration['itemsSnapshot'] = [];
     
     const getSupplierNames = (product: ScopeProduct) => {
-        if (!product.main_supplier_id) return 'Fábrica não informada';
-        const supplier = suppliers.find(s => s.id === product.main_supplier_id);
-        return supplier ? supplier.full_name : 'Fábrica não informada';
+        const ids = [...new Set([product.main_supplier_id, product.supplier_id, ...(product.supplier_ids || [])].filter(Boolean).map(String))];
+        const names = ids.map(id => suppliers.find(s => String(s.id) === id)?.full_name).filter(Boolean);
+        return names.join(' / ') || 'Fábrica não informada';
     };
 
     const addProduct = (product: ScopeProduct) => {
         const supplierName = getSupplierNames(product);
         items.push({
             productId: String(product.id),
+            variationId: product.variation_id ? String(product.variation_id) : undefined,
             name: product.name || product.description || 'Produto',
             supplierNames: supplierName,
-            assignedSupplier: supplierName.split(' / ')[0] || 'Sem fornecedor',
+            assignedSupplier: getAssignedSupplier(product),
             systemStock: Number(product.stock ?? 0),
             unit: product.unit || 'UN',
         });
     };
 
+    const getAssignedSupplier = (product: ScopeProduct) => {
+        const id = [product.main_supplier_id, product.supplier_id, ...(product.supplier_ids || [])].find(Boolean);
+        return (id && suppliers.find(s => String(s.id) === String(id))?.full_name) || 'Sem fornecedor';
+    };
+
     if (type === 'full') {
         for (const product of allProducts) addProduct(product);
     } else if (type === 'supplier' && supplierId) {
-        const supplierProducts = allProducts.filter(p => p.main_supplier_id === supplierId);
+        const supplierProducts = allProducts.filter(p =>
+          [p.main_supplier_id, p.supplier_id, ...(p.supplier_ids || [])].some(id => String(id) === String(supplierId))
+        );
         for (const product of supplierProducts) addProduct(product);
+    } else if (type === 'custom') {
+        for (const product of allProducts) addProduct(product);
     }
 
     onConfirm({
@@ -75,10 +93,17 @@ export const InventoryScopeScreen: React.FC<Props> = ({ isDarkMode, onCancel, on
         name,
         blindCount: false, // Padrão no mobile para ser mais ágil
         hasStages: type === 'full',
+        // A autoria do inventário no aplicativo sempre vem do usuário autenticado.
         responsibleId: userProfile?.id || '',
         supplierId,
-        itemsSnapshot: type === 'custom' ? [] : items,
+        itemsSnapshot: items,
     });
+    } catch (error) {
+      console.error('Não foi possível preparar o escopo do inventário:', error);
+      Alert.alert('Erro', 'Não foi possível carregar os produtos para este inventário. Tente novamente.');
+    } finally {
+      setLoadingData(false);
+    }
   };
 
   if (loadingData) {
@@ -108,7 +133,7 @@ export const InventoryScopeScreen: React.FC<Props> = ({ isDarkMode, onCancel, on
           <View style={styles.optionsContainer}>
             <TouchableOpacity 
               style={[styles.typeOption, { backgroundColor: surface, borderColor: border }]} 
-              onPress={() => confirmDirectly('full')}
+                    onPress={() => void confirmDirectly('full')}
             >
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16 }}>
                   <View style={[styles.typeIcon, { backgroundColor: 'rgba(16, 185, 129, 0.15)', marginBottom: 0 }]}>
@@ -120,7 +145,6 @@ export const InventoryScopeScreen: React.FC<Props> = ({ isDarkMode, onCancel, on
                   </View>
               </View>
             </TouchableOpacity>
-
             <View style={{ marginBottom: expandedType === 'supplier' ? 12 : 0 }}>
                 <TouchableOpacity 
                   style={[
@@ -149,19 +173,27 @@ export const InventoryScopeScreen: React.FC<Props> = ({ isDarkMode, onCancel, on
                                 <TouchableOpacity
                                     key={s.id}
                                     style={[ styles.chip, { borderColor: border, backgroundColor: bg } ]}
-                                    onPress={() => confirmDirectly('supplier', s.id)}
+                                    onPress={() => setSelectedSupplierId(s.id)}
                                 >
                                     <Text style={{ color: textPrimary, fontWeight: '500' }}>{s.full_name}</Text>
                                 </TouchableOpacity>
                             ))}
                         </View>
+                        {selectedSupplierId && (
+                          <TouchableOpacity
+                            style={[styles.startSupplierButton, { backgroundColor: '#2563eb' }]}
+                            onPress={() => void confirmDirectly('supplier', selectedSupplierId)}
+                          >
+                            <Text style={{ color: '#fff', fontWeight: '800' }}>Continuar com {suppliers.find(s => s.id === selectedSupplierId)?.full_name}</Text>
+                          </TouchableOpacity>
+                        )}
                     </View>
                 )}
             </View>
 
             <TouchableOpacity 
               style={[styles.typeOption, { backgroundColor: surface, borderColor: border }]} 
-              onPress={() => confirmDirectly('custom')}
+              onPress={() => setExpandedType(expandedType === 'custom' ? null : 'custom')}
             >
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16 }}>
                   <View style={[styles.typeIcon, { backgroundColor: 'rgba(168, 85, 247, 0.15)', marginBottom: 0 }]}>
@@ -169,12 +201,41 @@ export const InventoryScopeScreen: React.FC<Props> = ({ isDarkMode, onCancel, on
                   </View>
                   <View style={{ flex: 1 }}>
                       <Text style={[styles.typeTitle, { color: textPrimary }]}>Seleção Personalizada</Text>
-                      <Text style={[styles.typeDesc, { color: muted }]}>Adicione produtos durante a contagem conforme necessário.</Text>
+                      <Text style={[styles.typeDesc, { color: muted }]}>Pesquise e adicione produtos ou variações específicas ao escopo.</Text>
                   </View>
               </View>
             </TouchableOpacity>
+            {expandedType === 'custom' && (
+              <View style={{ backgroundColor: surface, borderColor: border, borderWidth: 1, borderRadius: 16, padding: 16, marginTop: -12 }}>
+                <Text style={{ color: muted, fontSize: 13, marginBottom: 12 }}>Selecione produtos ou variações antes de iniciar a contagem.</Text>
+                <TouchableOpacity style={styles.customAddButton} onPress={() => setSearchOpen(true)}>
+                  <Text style={{ color: '#fff', fontWeight: '800' }}>+ Adicionar produto ou variação</Text>
+                </TouchableOpacity>
+                {customProducts.map(product => (
+                  <View key={`${product.id}-${product.variation_id || 'main'}`} style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 9, borderBottomWidth: 1, borderBottomColor: border }}>
+                    <Text numberOfLines={2} style={{ color: textPrimary, flex: 1 }}>{product.name}</Text>
+                    <TouchableOpacity onPress={() => setCustomProducts(current => current.filter(item => item.id !== product.id || item.variation_id !== product.variation_id))} accessibilityLabel={`Remover ${product.name}`}>
+                      <X size={18} color={muted} />
+                    </TouchableOpacity>
+                  </View>
+                ))}
+                <TouchableOpacity
+                  style={[styles.startSupplierButton, { backgroundColor: '#7c3aed', opacity: customProducts.length ? 1 : 0.5 }]}
+                  disabled={!customProducts.length}
+                  onPress={() => void confirmDirectly('custom')}
+                >
+                  <Text style={{ color: '#fff', fontWeight: '800' }}>Continuar com {customProducts.length} item(ns)</Text>
+                </TouchableOpacity>
+              </View>
+            )}
           </View>
       </ScrollView>
+      <InventoryProductSearchModal
+        isDarkMode={isDarkMode}
+        visible={searchOpen}
+        onClose={() => setSearchOpen(false)}
+        onSelect={product => setCustomProducts(current => current.some(item => item.id === product.id && item.variation_id === product.variation_id) ? current : [...current, product])}
+      />
     </View>
   );
 };
@@ -213,5 +274,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderRadius: 20,
   },
+  startSupplierButton: { alignItems: 'center', padding: 12, borderRadius: 12, marginTop: 14 },
+  customAddButton: { alignItems: 'center', padding: 12, borderRadius: 12, backgroundColor: '#7c3aed', marginBottom: 8 },
 });
 

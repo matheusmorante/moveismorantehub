@@ -11,7 +11,7 @@ export function buildDanfeItemsOfficialHtml(order: Order, settings: AppSettings)
         const itemDiscount = Number(item.unitDiscount || 0) * qCom;
         const vProd = qCom * vUnCom - itemDiscount;
         const fiscal = (item as any).fiscal || (settings as any).fiscalDefaults || {};
-        const ncm = fiscal.ncm || '94036000';
+        const ncm = (item as any).fiscal?.ncm || '—';
         const cst = fiscal.cst || '102';
         const cfop = fiscal.cfop || '5102';
 

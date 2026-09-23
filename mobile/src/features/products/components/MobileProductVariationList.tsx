@@ -5,6 +5,7 @@ import { MobileProductVariationCard } from './MobileProductVariationCard';
 interface Props {
   variations: any[];
   dark: boolean;
+  parentImage?: string | null;
   isParentDraft?: boolean;
   onToggleCatalog: (varId: string, currentStatus: string) => void;
   onToggleActive?: (varId: string, currentActive: boolean) => void;
@@ -13,6 +14,7 @@ interface Props {
 export const MobileProductVariationList: React.FC<Props> = ({
   variations,
   dark,
+  parentImage,
   isParentDraft = false,
   onToggleCatalog,
   onToggleActive,
@@ -31,6 +33,7 @@ export const MobileProductVariationList: React.FC<Props> = ({
           variation={v}
           index={index}
           dark={dark}
+          parentImage={parentImage}
           isParentDraft={isParentDraft}
           onToggleActive={onToggleActive}
           onToggleCatalog={onToggleCatalog}

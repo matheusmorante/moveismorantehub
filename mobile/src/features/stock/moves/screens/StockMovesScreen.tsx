@@ -13,9 +13,9 @@ interface Props {
 }
 
 export const StockMovesScreen: React.FC<Props> = ({ isDarkMode, onBack, renderHeader }) => {
-  const { moves, loading, page, totalPages, goToPage, setProductId } = useStockMoves();
+  const { moves, loading, page, totalPages, goToPage, setProductId, changePeriod } = useStockMoves();
   const [showPeriodModal, setShowPeriodModal] = useState(false);
-  const [selectedPeriod, setSelectedPeriod] = useState('Últimos 30 Dias');
+  const [selectedPeriod, setSelectedPeriod] = useState('Este Mês');
   const periodOptions = ['Hoje', 'Esta Semana', 'Este Mês', 'Últimos 30 Dias', 'Este Trimestre'];
 
   // Search States
@@ -193,6 +193,7 @@ export const StockMovesScreen: React.FC<Props> = ({ isDarkMode, onBack, renderHe
                           style={styles.modalOption}
                           onPress={() => {
                               setSelectedPeriod(option);
+                              changePeriod(option);
                               setShowPeriodModal(false);
                           }}
                       >

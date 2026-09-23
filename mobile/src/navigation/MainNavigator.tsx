@@ -1,17 +1,15 @@
 import React, { useState } from 'react';
-import { View, ScrollView, Platform } from 'react-native';
+import { View, Platform } from 'react-native';
 import { useAuth } from '../contexts/AuthContext';
 import { useAppNotifications } from '../contexts/NotificationContext';
 
 import { DashboardHeader } from '../features/dashboard/components/DashboardHeader';
-import { OperationalStatsGrid } from '../features/dashboard/components/OperationalStatsGrid';
 import { NativeBottomNav } from '../features/dashboard/components/NativeBottomNav';
-import { useDashboardStats } from '../features/dashboard/hooks/useDashboardStats';
-import { useAISummary } from '../features/dashboard/hooks/useAISummary';
 
 import { NativeOrdersScreen } from '../features/orders/screens/NativeOrdersScreen';
 import { NativeLogisticsScreen } from '../features/logistics/screens/NativeLogisticsScreen';
-import { DeliveriesHubScreen, type DeliveriesSubTab } from '../features/logistics/screens/DeliveriesHubScreen';
+import { DeliveriesHubScreen } from '../features/logistics/screens/DeliveriesHubScreen';
+import { NativeAssembliesScreen } from '../features/assemblies/screens/NativeAssembliesScreen';
 import { NativeReportsScreen } from '../features/reports/screens/NativeReportsScreen';
 import { NativeSettingsScreen } from '../features/settings/screens/NativeSettingsScreen';
 import { NativeProductsScreen } from '../features/products';
@@ -38,40 +36,22 @@ export const MainNavigator: React.FC<MainNavigatorProps> = ({ isDarkMode, setIsD
     if (Platform.OS === 'web' && typeof window !== 'undefined') {
       const p = new URLSearchParams(window.location.search);
       const tab = p.get('tab');
-      if (tab) return tab;
+      if (tab && tab !== 'home') return tab;
     }
-    return 'home';
+    return 'entregas';
   });
 
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [showNotificationsModal, setShowNotificationsModal] = useState(false);
   const [appSelectedOrder, setAppSelectedOrder] = useState<any>(null);
 
-  const [assemblySubTab, setAssemblySubTab] = useState<'internal' | 'outside'>('internal');
-  const [deliveriesSubTab, setDeliveriesSubTab] = useState<DeliveriesSubTab>('today');
-
-  const {
-    selectedPeriod,
-    handlePeriodChange,
-    showPeriodModal,
-    setShowPeriodModal,
-    deliveriesCount,
-    assistancesCount,
-    returnsCount,
-    salesOrdersCount,
-    loadingStats,
-  } = useDashboardStats();
+  const assemblySubTab: 'internal' | 'outside' = 'internal';
+  const [deliveriesSubTab, setDeliveriesSubTab] = useState<'today' | 'map'>('today');
 
   const handleTabChange = (newTab: string, url: string) => {
     if (newTab === 'configuracoes') {
       void url;
       setCurrentTab('configuracoes');
-      return;
-    }
-    if (newTab === 'montagens') {
-      void url;
-      setDeliveriesSubTab('assemblies');
-      setCurrentTab('entregas');
       return;
     }
     if (newTab === 'entregas' && currentTab !== 'entregas') {
@@ -100,14 +80,6 @@ export const MainNavigator: React.FC<MainNavigatorProps> = ({ isDarkMode, setIsD
     }
   };
 
-  const PERIOD_OPTIONS = [
-    { id: 'today', label: 'Hoje' },
-    { id: 'this_week', label: 'Esta Semana' },
-    { id: 'this_month', label: 'Este Mês' },
-    { id: 'last_30_days', label: 'Últimos 30 Dias' },
-    { id: 'this_quarter', label: 'Este Trimestre' },
-  ];
-
   return (
     <View style={{ flex: 1 }}>
       <DashboardHeader
@@ -123,25 +95,7 @@ export const MainNavigator: React.FC<MainNavigatorProps> = ({ isDarkMode, setIsD
       />
       <OfflineSyncBar isDarkMode={isDarkMode} />
       
-      {currentTab === 'home' ? (
-        <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: 128 }}>
-          <OperationalStatsGrid
-            isDarkMode={isDarkMode}
-            selectedPeriod={selectedPeriod}
-            setShowPeriodModal={setShowPeriodModal}
-            showPeriodModal={showPeriodModal}
-            PERIOD_OPTIONS={PERIOD_OPTIONS}
-            handlePeriodChange={handlePeriodChange}
-            deliveriesCount={deliveriesCount}
-            assistancesCount={assistancesCount}
-            returnsCount={returnsCount}
-            salesOrdersCount={salesOrdersCount}
-            loadingStats={loadingStats}
-            handleTabChange={handleTabChange}
-            WEB_URL={WEB_URL}
-          />
-        </ScrollView>
-      ) : currentTab === 'agente' ? (
+      {currentTab === 'agente' ? (
         <GlobalAgentScreen isDarkMode={isDarkMode} userProfile={userProfile} />
       ) : currentTab === 'financeiro' && canSeeFinance ? (
         <FinanceHubScreen isDarkMode={isDarkMode} userProfile={userProfile} />
@@ -149,13 +103,12 @@ export const MainNavigator: React.FC<MainNavigatorProps> = ({ isDarkMode, setIsD
         <NativeOrdersScreen isDarkMode={isDarkMode} isAdmin={isAdmin} onSelectOrder={setAppSelectedOrder} />
       ) : currentTab === 'produtos' && canSeeProducts ? (
         <NativeProductsScreen isDarkMode={isDarkMode} userProfile={userProfile} />
-      ) : currentTab === 'entregas' || currentTab === 'montagens' ? (
+      ) : currentTab === 'entregas' ? (
         <DeliveriesHubScreen
           isDarkMode={isDarkMode}
           isAdmin={isAdmin}
           userProfile={userProfile}
-          initialTab={currentTab === 'montagens' ? 'assemblies' : deliveriesSubTab}
-          initialAssemblySubTab={assemblySubTab}
+          initialTab={deliveriesSubTab}
           onSelectOrder={setAppSelectedOrder}
         />
       ) : (currentTab === 'agenda' || currentTab === 'logistica' || currentTab === 'cronograma') ? (
@@ -169,8 +122,10 @@ export const MainNavigator: React.FC<MainNavigatorProps> = ({ isDarkMode, setIsD
             setCurrentTab('entregas');
           }}
         />
+      ) : currentTab === 'montagens' ? (
+        <NativeAssembliesScreen isDarkMode={isDarkMode} initialSubTab={assemblySubTab} onSelectOrder={setAppSelectedOrder} />
       ) : currentTab === 'configuracoes' ? (
-        <NativeSettingsScreen isDarkMode={isDarkMode} setIsDarkMode={setIsDarkMode} isAdmin={isAdmin} onBack={() => setCurrentTab('home')} />
+        <NativeSettingsScreen isDarkMode={isDarkMode} setIsDarkMode={setIsDarkMode} isAdmin={isAdmin} onBack={() => setCurrentTab('entregas')} />
       ) : currentTab === 'estoque' ? (
         <NativeStockScreen isDarkMode={isDarkMode} userProfile={userProfile} />
       ) : canSeeReports ? (

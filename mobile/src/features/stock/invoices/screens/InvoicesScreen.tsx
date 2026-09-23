@@ -5,6 +5,7 @@ import { useInvoices } from '../hooks/useInvoices';
 import { InvoiceCard } from '../components/InvoiceCard';
 import { InvoiceActionModal } from '../modals/InvoiceActionModal';
 import { InvoiceImportModal } from '../modals/InvoiceImportModal';
+import { InboundInvoiceMappingsModal } from '../modals/InboundInvoiceMappingsModal';
 import { Invoice } from '../../types/stock.types';
 
 interface Props {
@@ -14,8 +15,9 @@ interface Props {
 }
 
 export const InvoicesScreen: React.FC<Props> = ({ isDarkMode, onBack, renderHeader }) => {
-  const { invoices, loading, loadingMore, loadMore } = useInvoices();
+  const { invoices, loading, loadingMore, loadMore, reload } = useInvoices();
   const [activeInvoice, setActiveInvoice] = useState<Invoice | null>(null);
+  const [mappingInvoice, setMappingInvoice] = useState<Invoice | null>(null);
   const [showImportModal, setShowImportModal] = useState(false);
   const [showPeriodModal, setShowPeriodModal] = useState(false);
   const [selectedPeriod, setSelectedPeriod] = useState('Últimos 30 Dias');
@@ -102,6 +104,15 @@ export const InvoicesScreen: React.FC<Props> = ({ isDarkMode, onBack, renderHead
           onClose={() => setActiveInvoice(null)}
           onDownloadXML={(invoice) => console.log('Download XML', invoice.id)}
           onViewDetails={(invoice) => console.log('View Details', invoice.id)}
+          onManageMappings={setMappingInvoice}
+      />
+
+      <InboundInvoiceMappingsModal
+          visible={!!mappingInvoice}
+          invoice={mappingInvoice}
+          isDarkMode={isDarkMode}
+          onClose={() => setMappingInvoice(null)}
+          onSaved={() => { void reload(); }}
       />
 
       <InvoiceImportModal

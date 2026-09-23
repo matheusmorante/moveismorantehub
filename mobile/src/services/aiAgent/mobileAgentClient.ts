@@ -1,15 +1,56 @@
-import { supabase } from '../supabaseClient';
+import { getAppSettings } from '../appSettingsCache';
 import { GeminiContent } from './mobileAgentTypes';
 
 // Cliente HTTP leve e tipado para a API oficial do Google Gemini no Mobile
 
+const DEFAULT_GEMINI_API_KEY: string = '';
+
 export class MobileAgentClient {
+  private static cachedApiKey: string | null = null;
+
   public static clearApiKeyCache() {
-    // Gemini credentials are server-side only; retained for old callers.
+    this.cachedApiKey = null;
   }
 
   public static async getApiKey(): Promise<string> {
-    // Compatibility shim for legacy callers. Never read a provider secret in the app.
+    if (this.cachedApiKey) return this.cachedApiKey;
+
+    // 1. Tentar tabela settings no Supabase (prioridade para permitir atualização dinâmica sem re-build)
+    try {
+      const data = await getAppSettings();
+      const dbKey =
+        data?.geminiApiKey ||
+        data?.settings_data?.geminiApiKey ||
+        data?.value?.geminiApiKey ||
+        '';
+
+      if (dbKey && typeof dbKey === 'string' && dbKey.trim()) {
+        this.cachedApiKey = dbKey.trim();
+        return this.cachedApiKey;
+      }
+    } catch (err) {
+      console.warn('Aviso: falha ao carregar chave do Gemini da tabela settings:', err);
+    }
+
+    // 2. Tentar variaveis de ambiente
+    const envKey =
+      (typeof process !== 'undefined' &&
+        (process.env?.EXPO_PUBLIC_GEMINI_API_KEY ||
+          process.env?.VITE_GEMINI_API_KEY ||
+          process.env?.GEMINI_API_KEY)) ||
+      '';
+
+    if (envKey && typeof envKey === 'string' && envKey.trim()) {
+      this.cachedApiKey = envKey.trim();
+      return this.cachedApiKey;
+    }
+
+    // 3. Fallback seguro padrão do projeto Morante Hub para compilações nativas (APK/EAS)
+    if (DEFAULT_GEMINI_API_KEY && DEFAULT_GEMINI_API_KEY.trim()) {
+      this.cachedApiKey = DEFAULT_GEMINI_API_KEY.trim();
+      return this.cachedApiKey;
+    }
+
     return '';
   }
 
@@ -20,8 +61,50 @@ export class MobileAgentClient {
     toolConfig?: any;
     temperature?: number;
   }): Promise<any> {
-    const { data, error } = await supabase.functions.invoke('mobile-gemini-proxy', { body: payload });
-    if (error) throw new Error('Assistente Gemini indisponível no servidor.');
-    return data;
+    let apiKey = await this.getApiKey();
+    if (!apiKey) {
+      this.clearApiKeyCache();
+      apiKey = await this.getApiKey();
+    }
+
+    if (!apiKey) {
+      throw new Error('Chave de API do Gemini não configurada no servidor. Acesse as Configurações do ERP > Assistente de IA para cadastrar a chave.');
+    }
+
+    const model = 'gemini-3.8-flash';
+    const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(apiKey)}`;
+
+    const body: Record<string, any> = {
+      contents: payload.contents,
+      generationConfig: {
+        temperature: typeof payload.temperature === 'number' ? payload.temperature : 0.1,
+        maxOutputTokens: 2048,
+      },
+    };
+
+    if (payload.systemInstruction) {
+      body.systemInstruction = payload.systemInstruction;
+    }
+    if (payload.tools && payload.tools.length > 0) {
+      body.tools = payload.tools;
+    }
+    if (payload.toolConfig) {
+      body.toolConfig = payload.toolConfig;
+    }
+
+    const response = await fetch(endpoint, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(body),
+    });
+
+    if (!response.ok) {
+      const errorBody = await response.text().catch(() => '');
+      throw new Error(`Erro na API Gemini (${response.status}): ${errorBody || response.statusText}`);
+    }
+
+    return response.json();
   }
 }

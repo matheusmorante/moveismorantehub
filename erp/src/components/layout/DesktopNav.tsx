@@ -115,12 +115,12 @@ const DesktopNav = ({ activeMenu, setActiveMenu }: DesktopNavProps) => {
                         <DropdownItem to="/estoque/movimentacoes" icon="bi-arrow-left-right" title="Movimentações" description="Entradas e saídas manuais" onClick={() => setActiveMenu(null)} />
                         <DropdownItem to="/estoque/inventarios" icon="bi-journal-check" title="Inventário" description="Contagem e ajustes" onClick={() => setActiveMenu(null)} />
                         <DropdownItem to="/estoque/recebimentos" icon="bi-clipboard-check" title="Recebimentos" description="Conferência de mercadorias" onClick={() => setActiveMenu(null)} />
+                        <DropdownItem to="/settings/stock" icon="bi-gear-fill" title="Configurações de estoque" description="Ajustes do leitor de código" onClick={() => setActiveMenu(null)} />
 
                         <DropdownSeparator />
 
                         <DropdownGroup title="Compras" />
                         <DropdownItem to="/estoque/pedidos-compra" icon="bi-cart-fill" title="Pedidos de compra" description="Gestão de pedidos" onClick={() => setActiveMenu(null)} />
-                        <DropdownItem to="/estoque/notas-fiscais-entrada" icon="bi-receipt-cutoff" title="Notas fiscais de entrada" description="Manifestação e importação XML" onClick={() => setActiveMenu(null)} />
                         <DropdownItem to="/estoque/fornecedores" icon="bi-truck" title="Fornecedores" description="Cadastro e gestão" onClick={() => setActiveMenu(null)} />
 
                         <DropdownSeparator />
@@ -170,17 +170,31 @@ const DesktopNav = ({ activeMenu, setActiveMenu }: DesktopNavProps) => {
                         <DropdownItem to="/budgets" icon="bi-file-text" title="Orçamentos" description="Propostas e negociações" onClick={() => setActiveMenu(null)} />
                         <DropdownItem to="/assistance-orders" icon="bi-tools" title="Assistências" description="Garantias e reparos" onClick={() => setActiveMenu(null)} />
                         <DropdownItem to="/returns" icon="bi-arrow-return-left" title="Devoluções" description="Trocas e devoluções" onClick={() => setActiveMenu(null)} />
-
-                        <DropdownSeparator />
-
-                        <DropdownGroup title="Documentos Fiscais" />
-                        <DropdownItem to="/fiscal-documents" icon="bi-receipt" title="Notas fiscais de venda" description="NF-e / NFC-e" onClick={() => setActiveMenu(null)} />
+                        <DropdownItem to="/settings/sales" icon="bi-gear-fill" title="Configurações de vendas" description="Bandeiras e juros por parcela" onClick={() => setActiveMenu(null)} />
 
                         <DropdownSeparator />
 
                         <DropdownGroup title="Relatórios" />
                         <DropdownItem to="/sales-order/reports" icon="bi-bar-chart-fill" title="Relatório de vendas" description="Exportação CSV" onClick={() => setActiveMenu(null)} />
                         <DropdownItem to="/sales-order/reports-bling" icon="bi-clouds-fill" title="Relatórios Bling" description="Integração externa" beta={true} onClick={() => setActiveMenu(null)} />
+                    </div>
+                )}
+            </div>
+
+            {/* Fiscal */}
+            <div className="relative h-full flex items-center" onMouseEnter={() => setActiveMenu('fiscal')} onMouseLeave={() => setActiveMenu(null)}>
+                <button onClick={() => toggle('fiscal')} className={menuBtnClass(activeMenu === 'fiscal', false)}>
+                    <i className="bi bi-receipt-cutoff"></i><span>Fiscal</span><i className={chevronClass(activeMenu === 'fiscal')}></i>
+                </button>
+                {activeMenu === 'fiscal' && (
+                    <div className={dropdownClass}>
+                        <DropdownGroup title="Documentos e cadastros" />
+                        <DropdownItem to="/fiscal-documents" icon="bi-receipt" title="Notas fiscais de saída" description="NF-e e NFC-e" onClick={() => setActiveMenu(null)} />
+                        <DropdownItem to="/estoque/notas-fiscais-entrada" icon="bi-receipt-cutoff" title="Notas de entrada" description="Manifestação e importação XML" onClick={() => setActiveMenu(null)} />
+                        <DropdownItem to="/estoque/ncm" icon="bi-journal-text" title="NCM" description="Tabela oficial e revisão de produtos" onClick={() => setActiveMenu(null)} />
+                        <DropdownSeparator />
+                        <DropdownGroup title="Configurações" />
+                        <DropdownItem to="/settings/fiscal" icon="bi-gear-fill" title="Configurações fiscais" description="Parâmetros fiscais da empresa" onClick={() => setActiveMenu(null)} />
                     </div>
                 )}
             </div>
@@ -202,6 +216,7 @@ const DesktopNav = ({ activeMenu, setActiveMenu }: DesktopNavProps) => {
                         <DropdownItem to="/delivery-schedule" icon="bi-calendar-event" title="Agenda" description="Cronograma de entregas" onClick={() => setActiveMenu(null)} />
                         <DropdownItem to="/logistics/assembly-list" icon="bi-list-check" title="Lista de montagem" description="Roteiro de montadores" onClick={() => setActiveMenu(null)} />
                         <DropdownItem to="/sales-order/freight-calculation" icon="bi-calculator" title="Cálculo de frete" description="Simulação de custos" onClick={() => setActiveMenu(null)} />
+                        <DropdownItem to="/settings/logistics" icon="bi-gear-fill" title="Configurações de logística" description="Frete, mapas, manuseio e montagem" onClick={() => setActiveMenu(null)} />
 
                         <DropdownSeparator />
 

@@ -45,7 +45,8 @@ describe('NF-e Validator', () => {
                     productId: 'prod_1',
                     description: 'Guarda Roupa Casal',
                     quantity: 1,
-                    unitPrice: 1200
+                    unitPrice: 1200,
+                    fiscal: { ncm: '94035000' }
                 }
             ],
             itemsSummary: { totalQuantity: 1, itemsSubtotal: 1200 },
@@ -61,6 +62,17 @@ describe('NF-e Validator', () => {
         const result = validateOrderForNfe(mockOrder, mockSettings);
         expect(result.isValid).toBe(true);
         expect(result.errors).toHaveLength(0);
+    });
+
+    it('rejeita item sem NCM mesmo que haja código padrão nas configurações', () => {
+        const order = {
+            items: [{ description: 'Mesa', quantity: 1, unitPrice: 100 }],
+            shipping: { deliveryMethod: 'pickup' },
+            paymentsSummary: { totalOrderValue: 100 },
+        } as unknown as Order;
+        const result = validateOrderForNfe(order, { ...mockSettings, fiscalDefaults: { ncm: '94036000' } });
+        expect(result.isValid).toBe(false);
+        expect(result.errors.some(error => error.includes('NCM válido'))).toBe(true);
     });
 
     it('flags orders without items or with zero total', () => {
@@ -93,7 +105,8 @@ describe('NF-e XML Builder (Homologação)', () => {
                     productId: 'prod_1',
                     description: 'Mesa de Jantar 6 Cadeiras',
                     quantity: 1,
-                    unitPrice: 850
+                    unitPrice: 850,
+                    fiscal: { ncm: '94036000' }
                 }
             ],
             itemsSummary: { totalQuantity: 1, itemsSubtotal: 850 },
@@ -129,6 +142,7 @@ describe('NF-e XML Builder (Homologação)', () => {
         expect(xml).toContain('<tpAmb>2</tpAmb>');
         expect(xml).toContain('NF-E EMITIDA EM AMBIENTE DE HOMOLOGACAO - SEM VALOR FISCAL');
         expect(xml).toContain('<mod>65</mod>');
+        expect(xml).toContain('<NCM>94036000</NCM>');
         expect(xml).toContain('<vNF>850.00</vNF>');
     });
 });

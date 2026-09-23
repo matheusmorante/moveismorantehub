@@ -11,6 +11,11 @@ const Login = () => {
     const [isSubmitting, setIsSubmitting] = useState(false);
     const navigate = useNavigate();
 
+    const getAuthRedirectUrl = (path = '') => {
+        const isLocalNetwork = /^192\.168\.100\.2(?::\d+)?$/.test(window.location.hostname);
+        return isLocalNetwork ? `http://192.168.100.2:5173/${path}` : `${window.location.origin}/${path}`;
+    };
+
     const handleForgotPassword = async () => {
         if (!email) {
             return toast.warning('Por favor, informe seu e-mail primeiro.');
@@ -18,7 +23,7 @@ const Login = () => {
 
         try {
             const { error } = await supabase.auth.resetPasswordForEmail(email, {
-                redirectTo: `${window.location.origin}/reset-password`,
+                redirectTo: getAuthRedirectUrl('reset-password'),
             });
             if (error) throw error;
             toast.success('E-mail de recuperação enviado! Verifique sua caixa de entrada.');
@@ -147,7 +152,7 @@ const Login = () => {
                                 const { error } = await supabase.auth.signInWithOAuth({
                                     provider: 'google',
                                     options: {
-                                        redirectTo: `${window.location.origin}/`
+                                        redirectTo: getAuthRedirectUrl()
                                     }
                                 });
                                 if (error) throw error;

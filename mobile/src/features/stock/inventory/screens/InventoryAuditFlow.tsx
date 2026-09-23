@@ -49,7 +49,7 @@ export const InventoryAuditFlow: React.FC<Props> = ({ isDarkMode, userProfile, o
     };
 
     const handleAddProductFromSearch = (product: SearchableProduct) => {
-        const key = `${product.id}-main`;
+        const key = `${product.id}-${product.variation_id || 'main'}`;
 
         // Evita duplicatas
         if (items.some((i: AuditItem) => i.key === key && i.id !== searchTargetItemId)) {
@@ -61,7 +61,7 @@ export const InventoryAuditFlow: React.FC<Props> = ({ isDarkMode, userProfile, o
         const updatedData = {
             key,
             productId: String(product.id),
-            variationId: undefined,
+            variationId: product.variation_id ? String(product.variation_id) : undefined,
             name: product.name || product.description || 'Produto',
             supplierNames: 'Fábrica não informada',
             systemStock: Number(product.stock ?? 0),

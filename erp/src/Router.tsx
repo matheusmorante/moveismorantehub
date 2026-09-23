@@ -22,6 +22,7 @@ import Employees from './pages/App/Employees/Index';
 import Services from './pages/App/Services/Index';
 import Variations from './pages/App/Variations/Index';
 import Stock from './pages/App/Stock';
+import NcmCatalogPage from './pages/App/Stock/NcmCatalogPage';
 import Login from './pages/Login';
 import Signup from './pages/Signup';
 import ProfilePage from './pages/App/Profile/Index';
@@ -169,6 +170,10 @@ function Router() {
             <Route path='/warranty-term' element={<WarrantyTermPage />} />
             <Route path='/delivery-schedule' element={<DeliverySchedule />} />
             <Route path='/settings' element={<AdminRoute><Settings /></AdminRoute>} />
+            <Route path='/settings/fiscal' element={<AdminRoute><Settings module="fiscal" /></AdminRoute>} />
+            <Route path='/settings/stock' element={<AdminRoute><Settings module="stock" /></AdminRoute>} />
+            <Route path='/settings/sales' element={<AdminRoute><Settings module="sales" /></AdminRoute>} />
+            <Route path='/settings/logistics' element={<AdminRoute><Settings module="logistics" /></AdminRoute>} />
             <Route path='/settings/supabase-monitor' element={<AdminRoute><SupabaseMonitorDashboard /></AdminRoute>} />
             <Route path='/api-usage' element={<AdminRoute><ApiUsagePage /></AdminRoute>} />
 
@@ -189,6 +194,7 @@ function Router() {
             <Route path='/estoque' element={<Navigate to="/estoque/movimentacoes" replace />} />
             <Route path='/estoque/movimentacoes' element={<Stock />} />
             <Route path='/estoque/inventarios' element={<Stock />} />
+            <Route path='/estoque/ncm' element={<NcmCatalogPage />} />
             <Route path='/estoque/pedidos-compra' element={<PurchasesPage />} />
             <Route path='/estoque/notas-fiscais-entrada' element={<InboundInvoicesPage />} />
             <Route path='/estoque/recebimentos' element={<ReceiptsPage />} />

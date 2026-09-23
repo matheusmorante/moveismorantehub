@@ -23,7 +23,9 @@ import CompanySettingsSection from './components/CompanySettingsSection';
 
 import { settingsCategories } from './components/settingsCategories';
 
-export default function Settings(): any {
+type SettingsModule = 'fiscal' | 'stock' | 'sales' | 'logistics';
+
+export default function Settings({ module }: { module?: SettingsModule }): any {
     const { theme, setTheme } = useTheme();
     const { isAdmin } = useAuth();
     const [settings, setSettings] = useState<AppSettings>(getSettings());
@@ -100,6 +102,37 @@ export default function Settings(): any {
         return cat?.group === 'system';
     };
 
+    if (module) {
+        const moduleTitles: Record<SettingsModule, { title: string; description: string }> = {
+            fiscal: { title: 'Configurações fiscais', description: 'Parâmetros fiscais padrão usados na emissão de NF-e e NFC-e.' },
+            stock: { title: 'Configurações de estoque', description: 'Ajustes do leitor usados nas operações de estoque.' },
+            sales: { title: 'Configurações de vendas', description: 'Bandeiras aceitas e taxas por parcela usadas no simulador de pagamento.' },
+            logistics: { title: 'Configurações de logística', description: 'Frete, mapas, manuseio e montagem da operação logística.' },
+        };
+        const page = moduleTitles[module];
+
+        return (
+            <div className="min-h-screen w-full max-w-4xl mx-auto px-2 sm:px-0">
+                <header className="mb-8 flex items-center gap-3">
+                    <div>
+                        <h1 className="text-2xl font-black tracking-tight text-slate-800 dark:text-slate-100">{page.title}</h1>
+                        <p className="mt-1 text-xs font-medium text-slate-400 dark:text-slate-500">{page.description}</p>
+                    </div>
+                    {isSaving && <span className="ml-auto flex items-center gap-2 rounded-full bg-blue-50 px-3 py-1 text-xs font-bold text-blue-500 dark:bg-blue-900/30"><i className="bi bi-cloud-arrow-up-fill" /> Salvando...</span>}
+                </header>
+                <div className="space-y-6">
+                    {module === 'fiscal' && <SettingsSection id="fiscal" title="Tributação padrão (NF-e/NFC-e)" icon="bi-file-earmark-spreadsheet-fill" isVisible isSearching={false} isAdminOnly><FiscalSettingsSection settings={settings} onChange={handleChange} /></SettingsSection>}
+                    {module === 'stock' && <SettingsSection id="scanner" title="Leitor de código de barras" icon="bi-qr-code-scan" isVisible isSearching={false} isAdminOnly><ScannerConfigSection settings={settings} onChange={handleChange} /></SettingsSection>}
+                    {module === 'sales' && <SettingsSection id="bandeiras" title="Bandeiras e juros de cartão" icon="bi-credit-card-2-front" isVisible isSearching={false} isAdminOnly><CardFlagSettings settings={settings} onChange={handleChange} /></SettingsSection>}
+                    {module === 'logistics' && <>
+                        <SettingsSection id="logistica" title="Frete e mapas" icon="bi-truck" isVisible isSearching={false} isAdminOnly><LogisticsSection settings={settings} onChange={handleChange} /></SettingsSection>
+                        <SettingsSection id="manuseio" title="Manuseio e montagem" icon="bi-hand-index-thumb" isVisible isSearching={false} isAdminOnly><HandlingSection settings={settings} onChange={handleChange} /></SettingsSection>
+                    </>}
+                </div>
+            </div>
+        );
+    }
+
     return (
         <div className="flex gap-8 relative min-h-screen">
             <SettingsSidebar categories={settingsCategories} isAdmin={isAdmin} />
@@ -165,14 +198,6 @@ export default function Settings(): any {
                         <StatusLabelsSection settings={settings} onChange={handleChange} />
                     </SettingsSection>
 
-                    <SettingsSection id="logistica" title="Logística e Frete" icon="bi-truck" isVisible={isVisible('logistica')} isSearching={!!search.trim()} isAdminOnly={isAdminGroup('logistica')}>
-                        <LogisticsSection settings={settings} onChange={handleChange} />
-                    </SettingsSection>
-
-                    <SettingsSection id="manuseio" title="Manuseio e Montagem" icon="bi-hand-index-thumb" isVisible={isVisible('manuseio')} isSearching={!!search.trim()} isAdminOnly={isAdminGroup('manuseio')}>
-                        <HandlingSection settings={settings} onChange={handleChange} />
-                    </SettingsSection>
-
                     <SettingsSection id="whatsapp" title="WhatsApp & Catálogo" icon="bi-whatsapp" isVisible={isVisible('whatsapp')} isSearching={!!search.trim()} isAdminOnly={isAdminGroup('whatsapp')}>
                         <WhatsAppConfigSection settings={settings} onChange={handleChange} />
                     </SettingsSection>
@@ -183,18 +208,6 @@ export default function Settings(): any {
 
                     <SettingsSection id="templates" title="Mensagens & Templates" icon="bi-chat-quote-fill" isVisible={isVisible('templates')} isSearching={!!search.trim()} isAdminOnly={isAdminGroup('templates')}>
                         <WhatsAppTemplatesSection settings={settings} onChange={handleChange} />
-                    </SettingsSection>
-
-                    <SettingsSection id="fiscal" title="Tributação Padrão (NF-e/NFC-e)" icon="bi-file-earmark-spreadsheet-fill" isVisible={isVisible('fiscal')} isSearching={!!search.trim()} isAdminOnly={isAdminGroup('fiscal')}>
-                        <FiscalSettingsSection settings={settings} onChange={handleChange} />
-                    </SettingsSection>
-
-                    <SettingsSection id="bandeiras" title="Bandeiras e Juros de Cartão" icon="bi-credit-card-2-front" isVisible={isVisible('bandeiras')} isSearching={!!search.trim()} isAdminOnly={isAdminGroup('bandeiras')}>
-                        <CardFlagSettings settings={settings} onChange={handleChange} />
-                    </SettingsSection>
-
-                    <SettingsSection id="scanner" title="Leitor de Código de Barras" icon="bi-qr-code-scan" isVisible={isVisible('scanner')} isSearching={!!search.trim()} isAdminOnly={isAdminGroup('scanner')}>
-                        <ScannerConfigSection settings={settings} onChange={handleChange} />
                     </SettingsSection>
 
                     <SettingsSection id="bling" title="Integração Bling (API v3)" icon="bi-clouds-fill" isVisible={isVisible('bling')} isSearching={!!search.trim()} isAdminOnly={isAdminGroup('bling')}>

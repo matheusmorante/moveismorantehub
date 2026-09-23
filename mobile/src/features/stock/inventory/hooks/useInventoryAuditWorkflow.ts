@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef } from 'react';
-import { getNextInventoryCode, saveInventoryMove, updateInventoryMove } from '../../../../services/stockService';
+import { getNextInventoryCode } from '../../../../services/stockService';
 import { supabase } from '../../../../services/supabaseClient';
 import { Alert, Platform } from 'react-native';
 import type { ScopeConfiguration } from './useInventoryScopeBuilder';
@@ -70,9 +70,8 @@ export const useInventoryAuditWorkflow = (
 
         setIsSaving(true);
         try {
-            const auditId = draftRef.current.id || Math.random().toString(36).slice(2);
+            const auditId = draftRef.current.id || require('uuid').v4();
             const code = draftRef.current.code || await getNextInventoryCode();
-            const completionDate = new Date().toISOString();
             
             const auditObservation = JSON.stringify({
                 inventoryAudit: true,
@@ -82,42 +81,23 @@ export const useInventoryAuditWorkflow = (
                 blindCount: scopeConfig.blindCount,
                 hasStages: scopeConfig.hasStages,
                 responsibleId: scopeConfig.responsibleId,
-                responsibleName: userProfile.fullName || userProfile.full_name || userProfile.name || (userProfile.email ? userProfile.email.split('@')[0] : 'Usuário Desconhecido'),
+                responsibleName: userProfile.fullName || userProfile.full_name || 'Usuário',
                 items: items.map(({ productId, variationId, name, systemStock, physicalCount, assignedSupplier }) => ({ productId, variationId, name, systemStock, physicalCount, assignedSupplier })),
             });
 
-            // Insere o Marker inicial que representa a conclusão
-            console.log('UI LOG: Inserting marker...');
-            const markerRes = await supabase.from('inventory_moves').insert({
-                product_id: items[0]?.productId,
-                type: 'adjustment',
-                quantity: 0,
-                date: completionDate,
-                label: `Inventário #${code}`,
-                observation: auditObservation,
+            const { error } = await supabase.rpc('finalize_inventory_transaction', {
+                p_audit_id: auditId,
+                p_code: code,
+                p_observation: JSON.parse(auditObservation),
+                p_items: itemsWithAdjustment.map(({ productId, variationId, name, physicalCount }) => ({
+                    productId,
+                    variationId: variationId || null,
+                    name,
+                    physicalCount,
+                })),
+                p_responsible_name: userProfile.fullName || userProfile.full_name || 'Usuário',
             });
-            if (markerRes.error) throw markerRes.error;
-
-            // Lança os ajustes individuais
-            const movesToInsert = itemsWithAdjustment.map(item => ({
-                product_id: item.productId,
-                product_description: item.name,
-                type: 'adjustment',
-                quantity: 0, // Como no ERP, ajustes reais acontecem no trigger ou usando targetStock
-                date: completionDate,
-                label: `Ajuste lançado pelo inventário #${code}`,
-                observation: JSON.stringify({ 
-                    note: `Saldo definido pelo inventário #${code}`, 
-                    targetStock: item.physicalCount, 
-                    source: 'inventory_audit' 
-                }),
-            }));
-
-            if (movesToInsert.length > 0) {
-                console.log('UI LOG: Inserting moves...', movesToInsert.length);
-                const { error } = await supabase.from('inventory_moves').insert(movesToInsert);
-                if (error) throw error;
-            }
+            if (error) throw error;
 
             console.log('UI LOG: Calling Alert.alert Success');
             if (Platform.OS === 'web') {

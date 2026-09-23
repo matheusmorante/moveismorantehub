@@ -20,7 +20,7 @@ export const fetchMobileProductsPage = async (
 
     let query = supabase
       .from('products')
-      .select('*, product_variations(*)', { count: 'exact' })
+      .select('*, product_variations(*), product_categories(category_id), product_images(image_url, is_main)', { count: 'exact' })
       .eq('deleted', false);
 
     const status = options?.statusFilter || 'all';
@@ -86,7 +86,13 @@ export const fetchMobileProductsPage = async (
 
     const formatted = (data || []).map((p: any) => {
       const parentCode = p.code || p.sku || '000000';
-      const productImages = Array.isArray(p.images)
+      const orderedImageRows = Array.isArray(p.product_images)
+        ? [...p.product_images].sort((a: any, b: any) => Number(Boolean(b.is_main)) - Number(Boolean(a.is_main)))
+        : [];
+      const relationImages = orderedImageRows.map((image: any) => image.image_url).filter(Boolean);
+      const productImages = relationImages.length > 0
+        ? relationImages
+        : Array.isArray(p.images)
         ? p.images
         : typeof p.images === 'string' && p.images
         ? [p.images]
@@ -100,7 +106,7 @@ export const fetchMobileProductsPage = async (
           ? v.images
           : v.image_url
           ? String(v.image_url).split(',').map((s: string) => s.trim()).filter(Boolean)
-          : productImages;
+          : [];
 
         const suffix = String(vIdx + 1).padStart(2, '0');
         const expectedPrefix = parentCode ? `${parentCode}-` : '';
@@ -143,7 +149,7 @@ export const fetchMobileProductsPage = async (
             active: p.active !== false,
             status: p.status || 'published',
             attributes: {},
-            images: productImages,
+            images: [],
           },
         ];
       }

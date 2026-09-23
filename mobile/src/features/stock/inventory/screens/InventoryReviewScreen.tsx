@@ -1,7 +1,8 @@
-import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
-import { CheckCircle2, ArrowLeft, ArrowRight, Save } from 'lucide-react-native';
+import React, { useEffect, useState } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator } from 'react-native';
+import { CheckCircle2, ArrowLeft } from 'lucide-react-native';
 import type { AuditItem } from '../hooks/useInventoryAuditWorkflow';
+import { supabase } from '../../../../services/supabaseClient';
 
 interface Props {
     isDarkMode: boolean;
@@ -18,6 +19,63 @@ export const InventoryReviewScreen: React.FC<Props> = ({
     onCancel,
     onConfirm
 }) => {
+    const [reconciledItems, setReconciledItems] = useState<Array<AuditItem & { reconciledExpected: number; difference: number }>>([]);
+    const [loading, setLoading] = useState(true);
+    const [reconcileError, setReconcileError] = useState(false);
+
+    useEffect(() => {
+        let active = true;
+        const reconcile = async () => {
+            setLoading(true);
+            setReconcileError(false);
+            try {
+                const { data, error } = await supabase
+                    .from('inventory_moves')
+                    .select('product_id, variation_id, type, quantity, observation')
+                    .gte('date', startDate)
+                    .neq('status', 'reversed')
+                    .neq('status', 'cancelled');
+                if (error) throw error;
+
+                const result = items.map(item => {
+                    const relevantMoves = (data || []).filter(move =>
+                        String(move.product_id) === String(item.productId) &&
+                        (item.variationId
+                            ? String(move.variation_id) === String(item.variationId)
+                            : !move.variation_id)
+                    ).filter(move => {
+                        let observation: any = move.observation;
+                        if (typeof observation === 'string') {
+                            try { observation = JSON.parse(observation); } catch { observation = {}; }
+                        }
+                        return !observation?.inventoryAudit && move.type !== 'adjustment';
+                    });
+
+                    const delta = relevantMoves.reduce((sum, move) => {
+                        const quantity = Number(move.quantity || 0);
+                        if (move.type === 'entry') return sum + quantity;
+                        if (move.type === 'exit') return sum - quantity;
+                        return sum;
+                    }, 0);
+                    const reconciledExpected = Number(item.systemStock || 0) + delta;
+                    return {
+                        ...item,
+                        reconciledExpected,
+                        difference: item.physicalCount === null ? 0 : item.physicalCount - reconciledExpected,
+                    };
+                });
+                if (active) setReconciledItems(result);
+            } catch (error) {
+                console.error('Falha ao reconciliar movimentos do inventário:', error);
+                if (active) setReconcileError(true);
+            } finally {
+                if (active) setLoading(false);
+            }
+        };
+        void reconcile();
+        return () => { active = false; };
+    }, [items, startDate]);
+
     const bg = isDarkMode ? '#0f172a' : '#f8fafc';
     const surface = isDarkMode ? '#1e293b' : '#ffffff';
     const border = isDarkMode ? '#334155' : '#e2e8f0';
@@ -26,26 +84,13 @@ export const InventoryReviewScreen: React.FC<Props> = ({
 
     const countedItems = items.filter(i => i.physicalCount !== null);
     
-    // Simplificação da reconciliação para a UI: No ERP a lógica é mais avançada consultando moves.
-    // Aqui vamos usar o systemStock que foi capturado no início do Snapshot.
-    const reconciledItems = items
-        .filter(i => i.physicalCount !== null)
-        .map(i => {
-            const expected = i.systemStock;
-            return {
-                ...i,
-                reconciledExpected: expected,
-                difference: i.physicalCount! - expected
-            };
-        });
-
-    const itemsWithDifferences = reconciledItems.filter(i => i.difference !== 0);
+    const itemsWithDifferences = reconciledItems.filter(i => i.physicalCount !== null && i.difference !== 0);
     const adjustmentsCount = itemsWithDifferences.length;
 
     const handleConfirm = () => {
         console.log('UI LOG: handleConfirm called! countedItems:', countedItems.length);
-        if (countedItems.length === 0) return;
-        onConfirm(reconciledItems);
+        if (countedItems.length === 0 || loading || reconcileError) return;
+        onConfirm(reconciledItems.filter(item => item.physicalCount !== null && item.difference !== 0));
     };
 
     return (
@@ -58,7 +103,16 @@ export const InventoryReviewScreen: React.FC<Props> = ({
                 <View style={{ width: 40 }} />
             </View>
 
-            <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 16, gap: 16 }}>
+            {loading ? (
+              <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', gap: 12 }}>
+                <ActivityIndicator size="large" color="#10b981" />
+                <Text style={{ color: muted }}>Reconciliando movimentações desde o início da contagem...</Text>
+              </View>
+            ) : reconcileError ? (
+              <View style={{ flex: 1, justifyContent: 'center', padding: 24 }}>
+                <Text style={{ color: '#ef4444', textAlign: 'center', fontWeight: '700' }}>Não foi possível reconciliar o estoque. Volte à contagem e tente revisar novamente.</Text>
+              </View>
+            ) : <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 16, gap: 16 }}>
                 <View style={[styles.card, { backgroundColor: surface, borderColor: border }]}>
                     <View style={{ alignItems: 'center', marginBottom: 24 }}>
                         <View style={{ width: 64, height: 64, borderRadius: 32, backgroundColor: 'rgba(16,185,129,0.1)', alignItems: 'center', justifyContent: 'center', marginBottom: 12 }}>
@@ -103,18 +157,18 @@ export const InventoryReviewScreen: React.FC<Props> = ({
                         ))}
                     </View>
                 )}
-            </ScrollView>
+            </ScrollView>}
 
             <View style={[styles.footer, { backgroundColor: surface, borderTopColor: border }]}>
-                {countedItems.length === 0 && (
+                {(countedItems.length === 0 || loading || reconcileError) && (
                     <Text style={{ color: '#ef4444', textAlign: 'center', marginBottom: 12, fontWeight: '600' }}>
-                        Você precisa contar pelo menos 1 item para finalizar o inventário.
+                        {countedItems.length === 0 ? 'Você precisa contar pelo menos 1 item para finalizar o inventário.' : 'A revisão precisa concluir a reconciliação antes de finalizar.'}
                     </Text>
                 )}
                 <TouchableOpacity 
-                    style={[styles.confirmBtn, countedItems.length === 0 && { backgroundColor: muted }]} 
+                    style={[styles.confirmBtn, (countedItems.length === 0 || loading || reconcileError) && { backgroundColor: muted }]}
                     onPress={handleConfirm}
-                    disabled={countedItems.length === 0}
+                    disabled={countedItems.length === 0 || loading || reconcileError}
                 >
                     <Text style={styles.confirmBtnText}>Confirmar e Atualizar Estoque</Text>
                 </TouchableOpacity>

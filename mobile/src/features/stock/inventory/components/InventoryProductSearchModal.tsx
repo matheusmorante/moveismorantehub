@@ -5,6 +5,8 @@ import { supabase } from '../../../../services/supabaseClient';
 
 export interface SearchableProduct {
     id: string;
+    variation_id?: string;
+    sku?: string | null;
     name: string;
     description?: string;
     stock: number;
@@ -35,12 +37,33 @@ export const InventoryProductSearchModal: React.FC<Props> = ({ isDarkMode, visib
         setLoading(true);
         supabase
             .from('products')
-            .select('id, name, description, stock, unit, main_supplier_id')
+            .select('id, name, description, stock, unit, main_supplier_id, supplier_id, supplier_ids, sku')
             .eq('deleted', false)
             .eq('active', true)
             .order('name')
-            .then(({ data }) => {
-                if (data) setProducts(data as SearchableProduct[]);
+            .then(async ({ data }) => {
+                if (data) {
+                    const productIds = data.map(product => product.id);
+                    const { data: variations } = productIds.length
+                        ? await supabase.from('product_variations').select('id, product_id, name, sku, stock').in('product_id', productIds)
+                        : { data: [] };
+                    const variationsByProduct = new Map<string, typeof variations>();
+                    for (const variation of variations || []) {
+                        const key = String(variation.product_id);
+                        variationsByProduct.set(key, [...(variationsByProduct.get(key) || []), variation]);
+                    }
+                    setProducts(data.flatMap(product => {
+                        const productVariations = variationsByProduct.get(String(product.id)) || [];
+                        if (!productVariations.length) return [product as SearchableProduct];
+                        return productVariations.map(variation => ({
+                            ...product,
+                            variation_id: String(variation.id),
+                            name: variation.name || product.name || product.description,
+                            sku: variation.sku || product.sku,
+                            stock: variation.stock ?? 0,
+                        } as SearchableProduct));
+                    }));
+                }
                 setLoading(false);
             });
     }, [visible]);
@@ -48,7 +71,7 @@ export const InventoryProductSearchModal: React.FC<Props> = ({ isDarkMode, visib
     const filtered = search.length < 2
         ? products.slice(0, 30)
         : products.filter(p =>
-            (p.name || p.description || '').toLowerCase().includes(search.toLowerCase())
+            `${p.name || p.description || ''} ${p.sku || ''}`.toLowerCase().includes(search.toLowerCase())
           ).slice(0, 30);
 
     const handleSelect = (product: SearchableProduct) => {
@@ -118,7 +141,7 @@ export const InventoryProductSearchModal: React.FC<Props> = ({ isDarkMode, visib
                                         {item.name || item.description || 'Produto'}
                                     </Text>
                                     <Text style={[styles.productStock, { color: muted }]}>
-                                        Estoque: {item.stock ?? 0} {item.unit || 'UN'}
+                                        {item.sku ? `SKU: ${item.sku} · ` : ''}Estoque: {item.stock ?? 0} {item.unit || 'UN'}
                                     </Text>
                                 </View>
                                 <View style={styles.addBtn}>

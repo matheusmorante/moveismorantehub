@@ -7,11 +7,12 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { ChevronDown, Link2 } from 'lucide-react-native';
+import { ChevronDown, Settings } from 'lucide-react-native';
 import { fetchMobileCategories, MobileCategory } from '../../services/mobileCategoryService';
 import { fetchMobileOpportunities, MobileOpportunity } from '../../services/mobileOpportunityService';
 import { OpportunitySelectModal } from '../components/OpportunitySelectModal';
 import { CategoryMultiSelectList } from '../components/CategoryMultiSelectList';
+import { CategoriesManagerModal } from '../CategoriesManagerModal';
 
 interface Props {
   formData: any;
@@ -38,6 +39,7 @@ export const ProductFormBasicTab: React.FC<Props> = ({ formData, setFormData, da
   const [categories, setCategories] = useState<MobileCategory[]>([]);
   const [opportunities, setOpportunities] = useState<MobileOpportunity[]>([]);
   const [showOpportunityModal, setShowOpportunityModal] = useState(false);
+  const [showCategoriesManager, setShowCategoriesManager] = useState(false);
 
   const [diferenciarTitulo, setDiferenciarTitulo] = useState<boolean>(
     Boolean(formData.title && formData.title !== formData.name) ||
@@ -45,26 +47,18 @@ export const ProductFormBasicTab: React.FC<Props> = ({ formData, setFormData, da
   );
 
   useEffect(() => {
+    setDiferenciarTitulo(
+      Boolean(formData.title && formData.title !== formData.name) ||
+      Boolean(formData.marketplaceTitle && formData.marketplaceTitle !== formData.name)
+    );
+  }, [formData.name, formData.title, formData.marketplaceTitle]);
+
+  useEffect(() => {
     fetchMobileCategories().then(setCategories);
     fetchMobileOpportunities().then(setOpportunities);
   }, []);
 
   const set = (field: string, val: any) => setFormData(prev => ({ ...prev, [field]: val }));
-
-  const computedSlug = useMemo(() => {
-    const raw = formData.title || formData.name || '';
-    const clean = raw
-      .toLowerCase()
-      .normalize('NFD')
-      .replace(/[\u0300-\u036f]/g, '')
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/^-+|-+$/g, '');
-    return clean || 'slug-do-produto';
-  }, [formData.name, formData.title]);
-
-  useEffect(() => {
-    set('slug', computedSlug);
-  }, [computedSlug]);
 
   const filteredCategories = useMemo(() => {
     return categories.filter(cat => {
@@ -87,7 +81,7 @@ export const ProductFormBasicTab: React.FC<Props> = ({ formData, setFormData, da
       nextIds = [...currentIds, cat.id];
     }
 
-    const firstSelected = categories.find(c => nextIds.includes(c.id));
+    const firstSelected = categories.find(c => c.id === nextIds[0]);
 
     setFormData(prev => ({
       ...prev,
@@ -176,23 +170,8 @@ export const ProductFormBasicTab: React.FC<Props> = ({ formData, setFormData, da
         </View>
       )}
 
-      {/* SLUG */}
-      <View style={styles.field}>
-        <View style={styles.labelRow}>
-          <View style={styles.labelBadgeRow}>
-            <Link2 size={13} color="#3b82f6" />
-            <Text style={[styles.label, dark && styles.lightLabel]}>SLUG (URL DO PRODUTO)</Text>
-          </View>
-        </View>
-        <View style={[styles.slugBox, dark && styles.darkSlugBox]}>
-          <Text style={styles.slugPrefix}>/produto/</Text>
-          <Text style={styles.slugText} numberOfLines={1}>
-            {computedSlug}
-          </Text>
-        </View>
-      </View>
-
       {/* CATEGORIA(S) */}
+      {formData.itemType !== 'service' && (
       <View style={styles.field}>
         <View style={styles.labelRow}>
           <View style={styles.labelBadgeRow}>
@@ -202,7 +181,21 @@ export const ProductFormBasicTab: React.FC<Props> = ({ formData, setFormData, da
             <View style={styles.catalogBadge}>
               <Text style={styles.catalogBadgeText}>CATÁLOGO</Text>
             </View>
+            <TouchableOpacity
+              onPress={() => setShowCategoriesManager(true)}
+              style={styles.manageCategoriesButton}
+              accessibilityRole="button"
+              accessibilityLabel="Gerenciar categorias de produtos"
+            >
+              <Text style={styles.manageCategoriesText}>GERENCIAR</Text>
+              <Settings size={12} color="#64748b" />
+            </TouchableOpacity>
           </View>
+          {selectedCategoryIds.length > 0 && (
+            <Text style={styles.selectedCategoryCount}>
+              {selectedCategoryIds.length} selecionada{selectedCategoryIds.length > 1 ? 's' : ''}
+            </Text>
+          )}
         </View>
 
         <CategoryMultiSelectList
@@ -213,6 +206,7 @@ export const ProductFormBasicTab: React.FC<Props> = ({ formData, setFormData, da
           dark={dark}
         />
       </View>
+      )}
 
       {/* OPORTUNIDADE */}
       <View style={styles.field}>
@@ -260,6 +254,14 @@ export const ProductFormBasicTab: React.FC<Props> = ({ formData, setFormData, da
         onClose={() => setShowOpportunityModal(false)}
         dark={dark}
       />
+      <CategoriesManagerModal
+        visible={showCategoriesManager}
+        dark={dark}
+        onClose={() => {
+          setShowCategoriesManager(false);
+          fetchMobileCategories().then(setCategories);
+        }}
+      />
     </View>
   );
 };
@@ -281,6 +283,28 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
+  },
+  selectedCategoryCount: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#2563eb',
+    backgroundColor: '#eff6ff',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 10,
+  },
+  manageCategoriesButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    paddingHorizontal: 3,
+    paddingVertical: 2,
+  },
+  manageCategoriesText: {
+    fontSize: 8,
+    fontWeight: '900',
+    letterSpacing: 0.3,
+    color: '#64748b',
   },
   label: {
     fontSize: 10,

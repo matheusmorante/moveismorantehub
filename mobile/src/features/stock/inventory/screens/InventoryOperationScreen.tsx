@@ -117,7 +117,7 @@ export const InventoryOperationScreen: React.FC<Props> = ({
       } else if (diff < 0) {
           const absDiff = Math.abs(diff);
           for (let i = 0; i < absDiff; i++) {
-              await removeLatestScanForProduct(inventoryId, item.productId);
+              await removeLatestScanForProduct(inventoryId, item.productId, item.variationId || null);
           }
       }
       onUpdateCount(item.id, newCount);

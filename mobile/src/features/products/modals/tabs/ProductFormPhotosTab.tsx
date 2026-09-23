@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import {
   Image,
+  Alert,
+  ActivityIndicator,
   Modal,
   Platform,
   StyleSheet,
@@ -8,7 +10,27 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { Plus, Trash2, Star, RefreshCw, X, Camera } from 'lucide-react-native';
+import * as DocumentPicker from 'expo-document-picker';
+import { Plus, Trash2, Star, RefreshCw, X, Camera, Crop } from 'lucide-react-native';
+
+const MAX_PRODUCT_IMAGES = 75;
+const CATALOG_API_URL = (process.env.EXPO_PUBLIC_CATALOG_API_URL || 'https://www.moveismorante.com.br').replace(/\/$/, '');
+
+const uploadProductPhoto = async (blob: Blob, fileName: string, contentType: string): Promise<string> => {
+  const credentialResponse = await fetch(`${CATALOG_API_URL}/api/upload`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ fileName: `products/${Date.now()}-${fileName.replace(/[^a-zA-Z0-9._-]/g, '-')}`, contentType }),
+  });
+  if (!credentialResponse.ok) {
+    const details = await credentialResponse.json().catch(() => ({}));
+    throw new Error(details.error || 'Não foi possível preparar o envio da foto.');
+  }
+  const { uploadUrl, fileUrl } = await credentialResponse.json();
+  const uploadResponse = await fetch(uploadUrl, { method: 'PUT', headers: { 'Content-Type': contentType }, body: blob });
+  if (!uploadResponse.ok) throw new Error('Falha ao enviar a foto para o armazenamento do catálogo.');
+  return fileUrl;
+};
 
 interface Props {
   formData: any;
@@ -19,50 +41,45 @@ interface Props {
 export const ProductFormPhotosTab: React.FC<Props> = ({ formData, setFormData, dark }) => {
   const images: string[] = Array.isArray(formData.images) ? formData.images : [];
   const [selectedPhotoIdx, setSelectedPhotoIdx] = useState<number | null>(null);
+  const [uploading, setUploading] = useState(false);
 
   // Selecionar imagem usando leitor universal do dispositivo / Web
-  const pickImage = (onImagePicked: (dataUrl: string) => void) => {
+  const pickImage = (onImagePicked: (url: string) => void) => {
     if (Platform.OS === 'web' && typeof document !== 'undefined') {
       const input = document.createElement('input');
       input.type = 'file';
       input.accept = 'image/*';
-      input.onchange = (e: any) => {
+      input.onchange = async (e: any) => {
         const file = e.target?.files?.[0];
         if (!file) return;
-        const reader = new FileReader();
-        reader.onload = (event) => {
-          const result = event.target?.result as string;
-          if (result) onImagePicked(result);
-        };
-        reader.readAsDataURL(file);
+        setUploading(true);
+        try { onImagePicked(await uploadProductPhoto(file, file.name || 'produto.jpg', file.type || 'image/jpeg')); }
+        catch (error: any) { Alert.alert('Erro ao enviar foto', error?.message || 'Tente novamente.'); }
+        finally { setUploading(false); }
       };
       input.click();
     } else {
-      // Fallback para React Native via input ou WebBrowser/FilePicker
-      try {
-        if (typeof document !== 'undefined') {
-          const input = document.createElement('input');
-          input.type = 'file';
-          input.accept = 'image/*';
-          input.onchange = (e: any) => {
-            const file = e.target?.files?.[0];
-            if (!file) return;
-            const reader = new FileReader();
-            reader.onload = (event) => {
-              const result = event.target?.result as string;
-              if (result) onImagePicked(result);
-            };
-            reader.readAsDataURL(file);
-          };
-          input.click();
-        }
-      } catch (err) {
-        console.warn('[ImagePick] Erro ao abrir seletor:', err);
-      }
+      DocumentPicker.getDocumentAsync({ type: 'image/*', copyToCacheDirectory: true }).then(async result => {
+        if (result.canceled || !result.assets?.[0]) return;
+        const asset = result.assets[0];
+        setUploading(true);
+        try {
+          const response = await fetch(asset.uri);
+          const blob = await response.blob();
+          const type = asset.mimeType || blob.type || 'image/jpeg';
+          onImagePicked(await uploadProductPhoto(blob, asset.name || 'produto.jpg', type));
+        } catch (error: any) {
+          Alert.alert('Erro ao enviar foto', error?.message || 'Tente novamente.');
+        } finally { setUploading(false); }
+      }).catch((error: any) => Alert.alert('Erro ao selecionar foto', error?.message || 'Não foi possível abrir os arquivos.'));
     }
   };
 
   const handleAddPhoto = () => {
+    if (images.length >= MAX_PRODUCT_IMAGES) {
+      Alert.alert('Limite de fotos', `O ERP permite até ${MAX_PRODUCT_IMAGES} fotos por produto.`);
+      return;
+    }
     pickImage((dataUrl) => {
       setFormData(prev => ({
         ...prev,
@@ -109,8 +126,9 @@ export const ProductFormPhotosTab: React.FC<Props> = ({ formData, setFormData, d
       <View style={[styles.infoBar, dark && styles.darkInfoBar]}>
         <Camera size={16} color="#2563eb" />
         <Text style={[styles.infoText, dark && styles.lightText]}>
-          Fotos do Produto ({images.length}) · Proporção Quadrada 1:1
+          Fotos do Produto ({images.length}/{MAX_PRODUCT_IMAGES}) · Armazenamento do catálogo
         </Text>
+        {uploading && <ActivityIndicator size="small" color="#2563eb" />}
       </View>
 
       {/* Grade de Fotos (2 fotos por linha, aspecto 1:1) */}
@@ -119,6 +137,7 @@ export const ProductFormPhotosTab: React.FC<Props> = ({ formData, setFormData, d
         <TouchableOpacity
           activeOpacity={0.8}
           onPress={handleAddPhoto}
+          disabled={uploading || images.length >= MAX_PRODUCT_IMAGES}
           style={[styles.addCard, dark && styles.darkAddCard]}
         >
           <View style={styles.addIconCircle}>
@@ -183,6 +202,16 @@ export const ProductFormPhotosTab: React.FC<Props> = ({ formData, setFormData, d
 
             {/* Ações da Foto */}
             <View style={styles.modalActions}>
+              <TouchableOpacity
+                accessibilityRole="button"
+                accessibilityLabel="Recortar foto em formato quadrado"
+                style={[styles.modalBtn, styles.modalBtnCrop]}
+                onPress={() => Alert.alert('Recortar foto', 'O editor de recorte será conectado na etapa de funcionalidades.')}
+              >
+                <Crop size={16} color="#7e22ce" />
+                <Text style={styles.modalBtnCropText}>Recortar foto (1:1)</Text>
+              </TouchableOpacity>
+
               <TouchableOpacity
                 style={[styles.modalBtn, styles.modalBtnReplace]}
                 onPress={() => selectedPhotoIdx !== null && handleReplacePhoto(selectedPhotoIdx)}
@@ -296,10 +325,17 @@ const styles = StyleSheet.create({
     backgroundColor: '#1e293b',
     borderColor: '#334155',
   },
+  darkInput: { backgroundColor: '#0f172a', borderColor: '#334155' },
   photoImg: {
     width: '100%',
     height: '100%',
   },
+  descriptionCard: { backgroundColor: '#f8fafc', borderRadius: 16, padding: 14, gap: 10, borderWidth: 1, borderColor: '#e2e8f0' },
+  sectionTitle: { fontSize: 13, fontWeight: '900', color: '#0f172a' },
+  sectionHint: { fontSize: 11, color: '#64748b' },
+  label: { fontSize: 10, fontWeight: '800', color: '#475569', textTransform: 'uppercase' },
+  descriptionInput: { minHeight: 110, backgroundColor: '#fff', borderRadius: 10, padding: 12, borderWidth: 1, borderColor: '#e2e8f0', fontSize: 12, color: '#0f172a' },
+  shortDescription: { minHeight: 88 },
   coverBadge: {
     position: 'absolute',
     top: 8,
@@ -393,6 +429,14 @@ const styles = StyleSheet.create({
   },
   modalBtnReplace: {
     backgroundColor: '#eff6ff',
+  },
+  modalBtnCrop: {
+    backgroundColor: '#f3e8ff',
+  },
+  modalBtnCropText: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#7e22ce',
   },
   modalBtnReplaceText: {
     fontSize: 13,

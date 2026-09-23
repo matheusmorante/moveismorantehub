@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import type Product from '../../../types/product.type';
 import { aiService } from '@/pages/utils/aiService';
+import type { NcmAiSuggestion } from '@/pages/utils/aiService/aiFiscalClassificationService';
 import { getSettings } from '@/pages/utils/settingsService';
 import { matchCategoryByRules } from '@/pages/utils/categoryResolutionService';
 import { isQuotaExceeded, notifyAiQuotaWarning } from '@/services/aiGateway/aiQuotaNotifier';
@@ -34,6 +35,7 @@ export function useProductFormAi(
     const [isGeneratingComboName, setIsGeneratingComboName] = useState(false);
     const [isGeneratingDescription, setIsGeneratingDescription] = useState(false);
     const [isGeneratingNCM, setIsGeneratingNCM] = useState(false);
+    const [ncmSuggestion, setNcmSuggestion] = useState<NcmAiSuggestion | null>(null);
     const [isNcmAutoEnabled, setIsNcmAutoEnabled] = useState(true);
     const ncmEnabledRef = useRef(true);
     const ncmRequestVersion = useRef(0);
@@ -184,9 +186,7 @@ export function useProductFormAi(
                 ...prev,
                 fiscal: {
                     ...(prev.fiscal || {}),
-                    ncm: fiscalData.ncm,
                     cest: fiscalData.cest,
-                    ncmDescription: fiscalData.ncmDescription,
                     cfop: fiscalData.cfop,
                     cst: fiscalData.cst,
                     icmsPercent: fiscalData.icmsPercent,
@@ -196,7 +196,7 @@ export function useProductFormAi(
                 }
             }));
 
-            toast.success(`Dados fiscais preenchidos com IA! NCM: ${fiscalData.ncm}, CFOP: ${fiscalData.cfop}, CSOSN: ${fiscalData.cst}`);
+            toast.success(`Dados fiscais sugeridos pela IA. Revise CFOP ${fiscalData.cfop} e CSOSN ${fiscalData.cst} antes de salvar.`);
         } catch (error: any) {
             console.error(error);
             if (!isQuotaExceeded(error)) {
@@ -209,33 +209,33 @@ export function useProductFormAi(
 
     const handleGenerateNCM = async (isAutoTrigger = false) => {
         if (!ncmEnabledRef.current || !canGenerateNcm || ncmInFlight.current) return;
-        ncmInFlight.current = true;
-        const requestVersion = ncmRequestVersion.current;
-        const context = ncmContext;
-        ncmAttempt.current = context;
         const title = (formData.name || formData.description || '').trim();
         if (!title) {
             if (!isAutoTrigger) toast.warning('Título necessário para buscar NCM');
             return;
         }
+        ncmInFlight.current = true;
+        const requestVersion = ncmRequestVersion.current;
+        const context = ncmContext;
+        ncmAttempt.current = context;
         setIsGeneratingNCM(true);
+        setNcmSuggestion(null);
         try {
             const category = availableCategories.find(c => formData.categoryIds?.includes(c.id))?.name || formData.category || '';
             const description = formData.description || formData.ecommerceDescription || '';
-            const { ncm, description: ncmDescription } = await aiService.findNCM(
+            const suggestion = await aiService.findNCM(
                 title,
                 formData.material || '',
                 description,
                 category
             );
-            if (ncm && ncmEnabledRef.current && requestVersion === ncmRequestVersion.current && context === latestNcmContext.current) {
-                setFormData((prev: Partial<Product>) => ({
-                    ...prev,
-                    fiscal: { ...prev.fiscal!, ncm, ncmDescription }
-                }));
+            if (suggestion.ncm && ncmEnabledRef.current && requestVersion === ncmRequestVersion.current && context === latestNcmContext.current) {
+                setNcmSuggestion(suggestion);
                 if (!isAutoTrigger) {
-                    toast.success(`NCM Encontrado: ${ncm}`);
+                    toast.info(`Sugestão de NCM ${suggestion.ncm} pronta para revisão.`);
                 }
+            } else if (!isAutoTrigger && suggestion.reviewReason) {
+                toast.warning(suggestion.reviewReason);
             }
         } catch (error) {
             console.error(error);
@@ -243,6 +243,16 @@ export function useProductFormAi(
             ncmInFlight.current = false;
             setIsGeneratingNCM(false);
         }
+    };
+
+    const acceptNcmSuggestion = () => {
+        if (!ncmSuggestion?.ncm) return;
+        setFormData((prev: Partial<Product>) => ({
+            ...prev,
+            fiscal: { ...prev.fiscal!, ncm: ncmSuggestion.ncm, ncmDescription: ncmSuggestion.description }
+        }));
+        setNcmSuggestion(null);
+        toast.success(`NCM ${ncmSuggestion.ncm} aplicado ao cadastro após confirmação.`);
     };
 
     // Uma tentativa por contexto; religar permite solicitar uma nova sugestão.
@@ -344,6 +354,9 @@ export function useProductFormAi(
         isGeneratingComboName,
         isGeneratingDescription,
         isGeneratingNCM,
+        ncmSuggestion,
+        acceptNcmSuggestion,
+        dismissNcmSuggestion: () => setNcmSuggestion(null),
         isGeneratingTitle,
         isImprovingDescription,
         isFillingFiscalWithAI,

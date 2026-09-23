@@ -23,7 +23,7 @@ export function buildItemsXml(order: Order, settings: AppSettings, isHomologacao
         vDescTotal += itemDiscount;
 
         const fiscal = (item as any).fiscal || (settings as any).fiscalDefaults || {};
-        const ncm = (fiscal.ncm || '94036000').replace(/\D/g, '').padStart(8, '0');
+        const ncm = (String((item as any).fiscal?.ncm || '')).replace(/\D/g, '');
         const cest = (fiscal.cest || '').replace(/\D/g, '');
         const cfop = fiscal.cfop || '5102';
         const csosn = fiscal.cst || '102';

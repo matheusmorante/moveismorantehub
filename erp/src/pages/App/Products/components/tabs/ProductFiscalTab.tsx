@@ -4,6 +4,7 @@ import { getSettings } from '@/pages/utils/settingsService';
 import { CEST_OPTIONS, CFOP_OPTIONS, CSOSN_OPTIONS, ORIGEM_OPTIONS, PIS_COFINS_OPTIONS } from './productFiscalOptions';
 import { createInitialProductFiscalInfo } from './productFiscalDefaults';
 import { ProductNcmSelector } from './fiscal/ProductNcmSelector';
+import type { NcmAiSuggestion } from '@/pages/utils/aiService/aiFiscalClassificationService';
 
 interface ProductFiscalTabProps {
     readonly formData: Partial<Product>;
@@ -11,6 +12,9 @@ interface ProductFiscalTabProps {
     readonly isNcmAutoEnabled: boolean;
     readonly toggleNcmAuto: () => void;
     readonly isGeneratingNCM: boolean;
+    readonly ncmSuggestion: NcmAiSuggestion | null;
+    readonly acceptNcmSuggestion: () => void;
+    readonly dismissNcmSuggestion: () => void;
 }
 
 const ProductFiscalTab: React.FC<ProductFiscalTabProps> = ({
@@ -18,7 +22,10 @@ const ProductFiscalTab: React.FC<ProductFiscalTabProps> = ({
     setFormData,
     isNcmAutoEnabled,
     toggleNcmAuto,
-    isGeneratingNCM
+    isGeneratingNCM,
+    ncmSuggestion,
+    acceptNcmSuggestion,
+    dismissNcmSuggestion,
 }) => {
     const [isInfoModalOpen, setIsInfoModalOpen] = useState(false);
 
@@ -81,6 +88,9 @@ const ProductFiscalTab: React.FC<ProductFiscalTabProps> = ({
                                 isNcmAutoEnabled={isNcmAutoEnabled}
                                 toggleNcmAuto={toggleNcmAuto}
                                 isGeneratingNCM={isGeneratingNCM}
+                                suggestion={ncmSuggestion}
+                                onAcceptSuggestion={acceptNcmSuggestion}
+                                onDismissSuggestion={dismissNcmSuggestion}
                             />
 
                             {/* CEST - Exibido apenas se a operação for sujeita à Substituição Tributária (CSOSN 201, 202, 500) */}
@@ -267,10 +277,10 @@ const ProductFiscalTab: React.FC<ProductFiscalTabProps> = ({
                             </button>
                         </div>
                         <p className="text-xs text-slate-600 dark:text-slate-300 font-medium leading-relaxed">
-                            O NCM é classificado automaticamente por Inteligência Artificial (Gemini) à medida que você preenche o <strong className="text-slate-800 dark:text-slate-100">título</strong>, a <strong className="text-slate-800 dark:text-slate-100">descrição</strong> e a <strong className="text-slate-800 dark:text-slate-100">categoria</strong> do produto.
+                            A IA pode sugerir um NCM com base no <strong className="text-slate-800 dark:text-slate-100">título</strong>, na <strong className="text-slate-800 dark:text-slate-100">descrição</strong> e na <strong className="text-slate-800 dark:text-slate-100">categoria</strong>. A sugestão não altera o cadastro até você revisar e confirmar.
                         </p>
                         <p className="text-xs text-slate-600 dark:text-slate-300 font-medium leading-relaxed">
-                            Você também pode clicar no botão <strong className="text-amber-600 dark:text-amber-400">"Auto-preencher com IA"</strong> a qualquer momento para recalcular e atualizar a classificação fiscal.
+                            Se o material não estiver informado, a IA pode usar MDF/MDP/madeira como hipótese inicial. Essa hipótese será destacada e exigirá confirmação; ela não garante a classificação fiscal correta.
                         </p>
                         <div className="pt-2 flex justify-end">
                             <button

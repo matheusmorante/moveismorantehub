@@ -1,14 +1,16 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   StyleSheet,
-  Switch,
   Text,
   TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
-import { Truck, Package, DollarSign, Calculator, Search, X } from 'lucide-react-native';
+import { Truck, DollarSign, Search, X, Plus } from 'lucide-react-native';
 import { supabase } from '../../../../services/supabaseClient';
+import { saveSupplier as persistSupplier } from '../../../../services/stockService';
+import { SupplierFormModal } from '../../../stock/suppliers/SupplierFormModal';
+import { parseLocalizedPrice as parsePrice } from '../../services/mobileProductHelpers';
 
 interface Props {
   formData: any;
@@ -16,25 +18,26 @@ interface Props {
   dark: boolean;
 }
 
-const parsePrice = (val: any): number => {
-  if (typeof val === 'number') return val;
-  if (!val) return 0;
-  const clean = String(val).replace(/[^\d.,]/g, '').replace(',', '.');
-  const parsed = parseFloat(clean);
-  return isNaN(parsed) ? 0 : parsed;
-};
+const syncInheritedVariationPrices = (form: any, unitPrice: number, promoPrice: number | undefined) => ({
+  ...form,
+  variations: (form.variations || []).map((variation: any) => ({
+    ...variation,
+    ...(variation.syncUnitPrice !== false ? { price: unitPrice } : {}),
+    ...(variation.syncPromoPrice !== false ? { promoPrice: promoPrice ?? '' } : {}),
+  })),
+});
 
 export const ProductFormPricesTab: React.FC<Props> = ({ formData, setFormData, dark }) => {
   const [suppliers, setSuppliers] = useState<any[]>([]);
   const [supplierSearch, setSupplierSearch] = useState<string>('');
-  const [hasInitialStock, setHasInitialStock] = useState<boolean>(Boolean(formData.stock && Number(formData.stock) > 0));
+  const [showSupplierForm, setShowSupplierForm] = useState(false);
 
   // Carrega fornecedores ativos do banco
   useEffect(() => {
     supabase
       .from('people')
       .select('id, full_name, nickname')
-      .eq('person_type', 'supplier')
+      .in('person_type', ['supplier', 'suppliers'])
       .eq('active', true)
       .eq('deleted', false)
       .order('full_name')
@@ -50,33 +53,16 @@ export const ProductFormPricesTab: React.FC<Props> = ({ formData, setFormData, d
   // Regra: exige 2 ou mais caracteres para pesquisar fornecedores
   const visibleSuppliers = useMemo(() => {
     const q = supplierSearch.trim().toLowerCase();
-    if (q.length < 2) {
-      if (formData.mainSupplierId) {
-        return suppliers.filter(s => s.id === formData.mainSupplierId);
-      }
-      return [];
-    }
+    const selectedIds: string[] = formData.supplierIds?.length
+      ? formData.supplierIds
+      : [formData.mainSupplierId || formData.supplierId].filter(Boolean);
+    if (q.length < 2) return [];
     return suppliers.filter(sup => {
-      const name = (sup.nickname || sup.full_name || '').toLowerCase();
+      if (selectedIds.includes(sup.id)) return false;
+      const name = `${sup.nickname || ''} ${sup.full_name || ''}`.toLocaleLowerCase('pt-BR');
       return name.includes(q);
     });
-  }, [suppliers, supplierSearch, formData.mainSupplierId]);
-
-  // Recalcula preço final de compra ao mudar custo, IPI ou frete
-  const updateFinalCost = useCallback((fields: Record<string, any>) => {
-    setFormData(prev => {
-      const next = { ...prev, ...fields };
-      const cost = parsePrice(next.costPrice);
-      const ipi = parseFloat(next.ipiPercent || 0);
-      const freight = parsePrice(next.freightCost);
-      const freightType = next.freightType || 'fixed';
-      let final = cost + cost * (ipi / 100);
-      if (freightType === 'fixed') final += freight;
-      else final += cost * (freight / 100);
-      next.finalPurchasePrice = Number(final.toFixed(2));
-      return next;
-    });
-  }, [setFormData]);
+  }, [suppliers, supplierSearch, formData.mainSupplierId, formData.supplierId, formData.supplierIds]);
 
   // Calcula desconto ao mudar preço promo
   const handlePromoChange = useCallback((promoStr: string) => {
@@ -92,7 +78,34 @@ export const ProductFormPricesTab: React.FC<Props> = ({ formData, setFormData, d
         next.discountFixed = '';
         next.discountPercent = '';
       }
-      return next;
+      return syncInheritedVariationPrices(next, orig, promo > 0 ? promo : undefined);
+    });
+  }, [setFormData]);
+
+  const handleUnitPriceChange = useCallback((priceStr: string) => {
+    setFormData(prev => {
+      const orig = parsePrice(priceStr);
+      const next: any = { ...prev, unitPrice: priceStr };
+      if (orig <= 0) {
+        next.promoPrice = '';
+        next.discountFixed = '';
+        next.discountPercent = '';
+      } else if (String(prev.discountPercent || '').trim()) {
+        const percent = Number(String(prev.discountPercent).replace(',', '.'));
+        if (Number.isFinite(percent) && percent >= 0) {
+          const fixed = orig * (percent / 100);
+          next.discountFixed = fixed.toFixed(2);
+          next.promoPrice = String(Number(Math.max(0, orig - fixed).toFixed(2)));
+        }
+      } else {
+        const previousPromo = parsePrice(prev.promoPrice);
+        if (previousPromo > 0 && previousPromo < orig) {
+          const fixed = orig - previousPromo;
+          next.discountFixed = fixed.toFixed(2);
+          next.discountPercent = ((fixed / orig) * 100).toFixed(1);
+        }
+      }
+      return syncInheritedVariationPrices(next, orig, parsePrice(next.promoPrice) > 0 ? parsePrice(next.promoPrice) : undefined);
     });
   }, [setFormData]);
 
@@ -109,7 +122,7 @@ export const ProductFormPricesTab: React.FC<Props> = ({ formData, setFormData, d
         next.discountFixed = '';
         next.promoPrice = '';
       }
-      return next;
+      return syncInheritedVariationPrices(next, orig, parsePrice(next.promoPrice) > 0 ? parsePrice(next.promoPrice) : undefined);
     });
   }, [setFormData]);
 
@@ -125,29 +138,40 @@ export const ProductFormPricesTab: React.FC<Props> = ({ formData, setFormData, d
         next.discountPercent = '';
         next.promoPrice = '';
       }
-      return next;
+      return syncInheritedVariationPrices(next, orig, parsePrice(next.promoPrice) > 0 ? parsePrice(next.promoPrice) : undefined);
     });
   }, [setFormData]);
 
-  const handleToggleInitialStock = (val: boolean) => {
-    setHasInitialStock(val);
-    if (!val) {
-      set('stock', '0');
-    }
-  };
-
   const f = (v: any) => (v !== null && v !== undefined && v !== '' ? String(v) : '');
+  const selectedSupplierIds: string[] = formData.supplierIds?.length
+    ? formData.supplierIds
+    : [formData.mainSupplierId || formData.supplierId].filter(Boolean);
+  const addSupplier = (supplier: any) => {
+    if (!supplier?.id || selectedSupplierIds.includes(supplier.id) || selectedSupplierIds.length >= 3) return;
+    const nextIds = [...selectedSupplierIds, supplier.id];
+    setFormData(prev => ({ ...prev, supplierIds: nextIds, mainSupplierId: nextIds[0], supplierId: nextIds[0] }));
+  };
+  const removeSupplier = (supplierId: string) => {
+    const nextIds = selectedSupplierIds.filter(id => id !== supplierId);
+    setFormData(prev => ({ ...prev, supplierIds: nextIds, mainSupplierId: nextIds[0] || '', supplierId: nextIds[0] || '' }));
+  };
 
   return (
     <View style={styles.container}>
-      {/* ─── Seção 1: Fornecedor Principal (Idêntico ao ERP) ─── */}
+      {/* ─── Fornecedores ─── */}
       <View style={[styles.card, dark && styles.darkCard]}>
-        <View style={styles.cardHeader}>
-          <Truck size={16} color="#2563eb" />
-          <Text style={[styles.cardTitle, dark && styles.lightText]}>Fornecedor Principal</Text>
+        <View style={styles.supplierHeading}>
+          <View style={styles.cardHeader}>
+            <Truck size={16} color="#2563eb" />
+            <Text style={[styles.cardTitle, dark && styles.lightText]}>Fornecedores *</Text>
+          </View>
+          <TouchableOpacity onPress={() => setShowSupplierForm(true)} disabled={selectedSupplierIds.length >= 3} style={[styles.newSupplierButton, selectedSupplierIds.length >= 3 && styles.disabledButton]}>
+            <Plus size={13} color="#2563eb" />
+            <Text style={styles.newSupplierText}>Novo</Text>
+          </TouchableOpacity>
         </View>
 
-        <Text style={[styles.label, dark && styles.dimText]}>Buscar Fornecedor</Text>
+        <Text style={[styles.label, dark && styles.dimText]}>Buscar fornecedor · {selectedSupplierIds.length}/3</Text>
         <View style={[styles.searchInputWrapper, dark && styles.darkSearchInputWrapper]}>
           <Search size={14} color={dark ? "#94a3b8" : "#64748b"} />
           <TextInput
@@ -176,32 +200,24 @@ export const ProductFormPricesTab: React.FC<Props> = ({ formData, setFormData, d
             <Text style={[styles.emptySupplierText, dark && styles.dimText]}>
               Nenhum fornecedor cadastrado
             </Text>
-          ) : visibleSuppliers.length === 0 ? (
+          ) : supplierSearch.trim().length < 2 ? (
             <Text style={[styles.emptySupplierText, dark && styles.dimText]}>
-              {supplierSearch.trim().length >= 2 
-                ? 'Nenhum fornecedor encontrado com este termo.' 
-                : 'Digite 2 ou mais caracteres acima para buscar fornecedores.'}
+              Digite 2 ou mais caracteres para buscar fornecedores.
             </Text>
+          ) : visibleSuppliers.length === 0 ? (
+            <Text style={[styles.emptySupplierText, dark && styles.dimText]}>Nenhum fornecedor encontrado com este termo.</Text>
           ) : (
             visibleSuppliers.map(sup => {
-              const isSelected = formData.mainSupplierId === sup.id;
               return (
                 <TouchableOpacity
                   key={sup.id}
                   activeOpacity={0.8}
-                  onPress={() => set('mainSupplierId', isSelected ? '' : sup.id)}
-                  style={[
-                    styles.supplierChip,
-                    isSelected && styles.supplierChipSelected,
-                    dark && !isSelected && styles.darkSupplierChip,
-                  ]}
+                  onPress={() => addSupplier(sup)}
+                  disabled={selectedSupplierIds.length >= 3}
+                  style={[styles.supplierChip, dark && styles.darkSupplierChip, selectedSupplierIds.length >= 3 && styles.disabledButton]}
                 >
                   <Text
-                    style={[
-                      styles.supplierChipText,
-                      isSelected && styles.supplierChipTextSelected,
-                      dark && !isSelected && styles.lightText,
-                    ]}
+                    style={[styles.supplierChipText, dark && styles.lightText]}
                     numberOfLines={1}
                   >
                     {sup.nickname || sup.full_name}
@@ -211,6 +227,20 @@ export const ProductFormPricesTab: React.FC<Props> = ({ formData, setFormData, d
             })
           )}
         </View>
+        {selectedSupplierIds.length > 0 && (
+          <View style={styles.selectedSuppliers}>
+            {selectedSupplierIds.map(id => {
+              const supplier = suppliers.find(item => item.id === id);
+              const name = supplier?.nickname || supplier?.full_name || 'Fornecedor';
+              return (
+                <TouchableOpacity key={id} onPress={() => removeSupplier(id)} style={styles.selectedSupplierChip} accessibilityLabel={`Remover fornecedor ${name}`}>
+                  <Text style={styles.selectedSupplierName} numberOfLines={1}>{name}</Text>
+                  <X size={12} color="#1d4ed8" />
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        )}
       </View>
 
       {/* ─── Seção 2: Preços de Venda & Descontos ─── */}
@@ -225,7 +255,7 @@ export const ProductFormPricesTab: React.FC<Props> = ({ formData, setFormData, d
             <Text style={[styles.label, dark && styles.dimText]}>Preço de Venda (R$) *</Text>
             <TextInput
               value={f(formData.unitPrice)}
-              onChangeText={v => set('unitPrice', v)}
+              onChangeText={handleUnitPriceChange}
               keyboardType="numeric"
               placeholder="0,00"
               placeholderTextColor="#94a3b8"
@@ -273,128 +303,29 @@ export const ProductFormPricesTab: React.FC<Props> = ({ formData, setFormData, d
         </View>
       </View>
 
-      {/* ─── Seção 3: Composição de Custo ─── */}
-      <View style={[styles.card, dark && styles.darkCard]}>
-        <View style={styles.cardHeader}>
-          <Calculator size={16} color="#d97706" />
-          <Text style={[styles.cardTitle, dark && styles.lightText]}>Composição de Custo</Text>
-        </View>
-
-        <View style={styles.row}>
-          <View style={styles.flex1}>
-            <Text style={[styles.label, dark && styles.dimText]}>Preço de Custo (R$)</Text>
-            <TextInput
-              value={f(formData.costPrice)}
-              onChangeText={v => updateFinalCost({ costPrice: v })}
-              keyboardType="numeric"
-              placeholder="0,00"
-              placeholderTextColor="#94a3b8"
-              style={[styles.input, dark && styles.darkInput, dark && styles.lightText]}
-            />
-          </View>
-          <View style={[styles.flex1, { maxWidth: 90 }]}>
-            <Text style={[styles.label, dark && styles.dimText]}>IPI %</Text>
-            <TextInput
-              value={f(formData.ipiPercent)}
-              onChangeText={v => updateFinalCost({ ipiPercent: v })}
-              keyboardType="numeric"
-              placeholder="0"
-              placeholderTextColor="#94a3b8"
-              style={[styles.input, dark && styles.darkInput, dark && styles.lightText]}
-            />
-          </View>
-        </View>
-
-        <View style={styles.row}>
-          <View style={{ flex: 1.2 }}>
-            <Text style={[styles.label, dark && styles.dimText]}>Tipo de Frete</Text>
-            <View style={styles.segRow}>
-              {[{ l: 'Fixo', v: 'fixed' }, { l: '%', v: 'percent' }, { l: 'Grátis', v: 'none' }].map(opt => (
-                <TouchableOpacity
-                  key={opt.v}
-                  onPress={() => updateFinalCost({ freightType: opt.v })}
-                  style={[styles.seg, (formData.freightType || 'fixed') === opt.v && styles.segActive]}
-                >
-                  <Text style={[styles.segText, (formData.freightType || 'fixed') === opt.v && styles.segTextActive]}>
-                    {opt.l}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-          </View>
-          {(formData.freightType || 'fixed') !== 'none' && (
-            <View style={styles.flex1}>
-              <Text style={[styles.label, dark && styles.dimText]}>
-                Frete {(formData.freightType || 'fixed') === 'percent' ? '(%)' : '(R$)'}
-              </Text>
-              <TextInput
-                value={f(formData.freightCost)}
-                onChangeText={v => updateFinalCost({ freightCost: v })}
-                keyboardType="numeric"
-                placeholder="0,00"
-                placeholderTextColor="#94a3b8"
-                style={[styles.input, dark && styles.darkInput, dark && styles.lightText]}
-              />
-            </View>
-          )}
-        </View>
-
-        <View style={[styles.finalPriceBox, dark && styles.darkFinalPrice]}>
-          <Text style={[styles.finalPriceLabel, dark && styles.dimText]}>Preço Final de Compra</Text>
-          <Text style={styles.finalPriceValue}>
-            R$ {(parsePrice(formData.finalPurchasePrice) || 0).toFixed(2).replace('.', ',')}
-          </Text>
-        </View>
-      </View>
-
-      {/* ─── Seção 4: Estoque (Idêntico ao ERP - Estoque Inicial apenas se ativado) ─── */}
-      <View style={[styles.card, dark && styles.darkCard]}>
-        <View style={styles.cardHeader}>
-          <Package size={16} color="#9333ea" />
-          <Text style={[styles.cardTitle, dark && styles.lightText]}>Controle de Estoque</Text>
-        </View>
-
-        {/* Toggle para Lançar Estoque Inicial (Igual ao ERP) */}
-        <View style={styles.toggleRow}>
-          <View style={styles.flex1}>
-            <Text style={[styles.toggleTitle, dark && styles.lightText]}>Possui Estoque Inicial?</Text>
-            <Text style={styles.toggleSubtitle}>Ative para lançar o saldo inicial na criação do produto</Text>
-          </View>
-          <Switch
-            value={hasInitialStock}
-            onValueChange={handleToggleInitialStock}
-            trackColor={{ false: '#cbd5e1', true: '#93c5fd' }}
-            thumbColor={hasInitialStock ? '#2563eb' : '#f8fafc'}
+      {!formData.hasVariations && (
+        <View style={[styles.card, dark && styles.darkCard]}>
+          <Text style={[styles.label, dark && styles.dimText]}>Estoque Mínimo</Text>
+          <TextInput
+            value={f(formData.minStock)}
+            onChangeText={v => set('minStock', v)}
+            keyboardType="numeric"
+            placeholder="0"
+            placeholderTextColor="#94a3b8"
+            style={[styles.input, dark && styles.darkInput, dark && styles.lightText]}
           />
         </View>
-
-        <View style={styles.row}>
-          {hasInitialStock && (
-            <View style={styles.flex1}>
-              <Text style={[styles.label, dark && styles.dimText]}>Estoque Inicial</Text>
-              <TextInput
-                value={f(formData.stock)}
-                onChangeText={v => set('stock', v)}
-                keyboardType="numeric"
-                placeholder="0"
-                placeholderTextColor="#94a3b8"
-                style={[styles.input, dark && styles.darkInput, dark && styles.lightText]}
-              />
-            </View>
-          )}
-          <View style={styles.flex1}>
-            <Text style={[styles.label, dark && styles.dimText]}>Estoque Mínimo</Text>
-            <TextInput
-              value={f(formData.minStock)}
-              onChangeText={v => set('minStock', v)}
-              keyboardType="numeric"
-              placeholder="0"
-              placeholderTextColor="#94a3b8"
-              style={[styles.input, dark && styles.darkInput, dark && styles.lightText]}
-            />
-          </View>
-        </View>
-      </View>
+      )}
+      <SupplierFormModal
+        visible={showSupplierForm}
+        onClose={() => setShowSupplierForm(false)}
+        isDarkMode={dark}
+        onSave={async data => {
+          const supplier = await persistSupplier(data);
+          setSuppliers(previous => [...previous.filter(item => item.id !== supplier.id), supplier]);
+          addSupplier(supplier);
+        }}
+      />
     </View>
   );
 };
@@ -404,6 +335,10 @@ const styles = StyleSheet.create({
   card: { backgroundColor: '#f8fafc', borderRadius: 16, padding: 14, gap: 12, borderWidth: 1, borderColor: '#e2e8f0' },
   darkCard: { backgroundColor: '#1e293b', borderColor: '#334155' },
   cardHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 2 },
+  supplierHeading: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
+  newSupplierButton: { minHeight: 32, flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 8, borderRadius: 8, backgroundColor: '#eff6ff' },
+  newSupplierText: { color: '#2563eb', fontSize: 11, fontWeight: '800' },
+  disabledButton: { opacity: 0.45 },
   cardTitle: { fontSize: 13, fontWeight: '900', color: '#0f172a' },
   lightText: { color: '#f1f5f9' },
   dimText: { color: '#94a3b8' },
@@ -430,6 +365,9 @@ const styles = StyleSheet.create({
   darkSearchInput: { color: '#f1f5f9' },
   helperText: { fontSize: 10, fontWeight: '700', color: '#f59e0b', marginTop: -4 },
   supplierGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 4 },
+  selectedSuppliers: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 4 },
+  selectedSupplierChip: { maxWidth: '100%', flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 10, paddingVertical: 7, borderRadius: 8, backgroundColor: '#dbeafe' },
+  selectedSupplierName: { maxWidth: 220, flexShrink: 1, color: '#1d4ed8', fontSize: 11, fontWeight: '800' },
   supplierChip: { paddingHorizontal: 12, paddingVertical: 8, borderRadius: 10, backgroundColor: '#ffffff', borderWidth: 1, borderColor: '#e2e8f0' },
   darkSupplierChip: { backgroundColor: '#0f172a', borderColor: '#334155' },
   supplierChipSelected: { backgroundColor: '#2563eb', borderColor: '#2563eb' },

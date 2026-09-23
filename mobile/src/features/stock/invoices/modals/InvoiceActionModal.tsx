@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Modal, TouchableWithoutFeedback } from 'react-native';
-import { Download, FileText } from 'lucide-react-native';
+import { Download, FileText, Link2 } from 'lucide-react-native';
 import { Invoice } from '../../types/stock.types';
 
 interface Props {
@@ -10,9 +10,10 @@ interface Props {
   onClose: () => void;
   onDownloadXML?: (invoice: Invoice) => void;
   onViewDetails?: (invoice: Invoice) => void;
+  onManageMappings?: (invoice: Invoice) => void;
 }
 
-export const InvoiceActionModal: React.FC<Props> = ({ visible, isDarkMode, activeInvoice, onClose, onDownloadXML, onViewDetails }) => {
+export const InvoiceActionModal: React.FC<Props> = ({ visible, isDarkMode, activeInvoice, onClose, onDownloadXML, onViewDetails, onManageMappings }) => {
   if (!activeInvoice) return null;
 
   return (
@@ -25,6 +26,11 @@ export const InvoiceActionModal: React.FC<Props> = ({ visible, isDarkMode, activ
               <Text style={[styles.bsTitle, isDarkMode && styles.textDark]} numberOfLines={1}>
                 NF-e {activeInvoice.number}
               </Text>
+
+              <TouchableOpacity style={styles.bsActionBtn} onPress={() => { onManageMappings?.(activeInvoice); onClose(); }}>
+                <Link2 size={20} color={isDarkMode ? '#60a5fa' : '#3b82f6'} />
+                <Text style={[styles.bsActionText, { color: isDarkMode ? '#60a5fa' : '#3b82f6' }]}>Gerenciar vínculos</Text>
+              </TouchableOpacity>
               
               <TouchableOpacity style={styles.bsActionBtn} onPress={() => { onDownloadXML?.(activeInvoice); onClose(); }}>
                 <Download size={20} color={isDarkMode ? '#60a5fa' : '#3b82f6'} />

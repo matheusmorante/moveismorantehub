@@ -1,6 +1,6 @@
 import { getSQLiteDatabase } from './database';
 import 'react-native-get-random-values';
-import { v4 as uuidv4 } from 'uuid';
+const { v4: uuidv4 } = require('uuid');
 
 export interface InventoryScan {
   id: string;
@@ -54,11 +54,11 @@ export const addInventoryScan = async (
   }
 };
 
-export const removeLatestScanForProduct = async (inventoryId: string, productId: string): Promise<void> => {
+export const removeLatestScanForProduct = async (inventoryId: string, productId: string, variationId: string | null = null): Promise<void> => {
   const db = await getSQLiteDatabase();
   const latest = await db.getFirstAsync<{ id: string }>(
-    `SELECT id FROM inventory_scans_local WHERE inventory_id = ? AND product_id = ? ORDER BY scanned_at DESC LIMIT 1;`,
-    [inventoryId, productId]
+    `SELECT id FROM inventory_scans_local WHERE inventory_id = ? AND product_id = ? AND (variation_id = ? OR (variation_id IS NULL AND ? IS NULL)) ORDER BY scanned_at DESC LIMIT 1;`,
+    [inventoryId, productId, variationId, variationId]
   );
   if (latest) {
     await db.runAsync(`DELETE FROM inventory_scans_local WHERE id = ?;`, [latest.id]);

@@ -39,7 +39,7 @@ export function useNfeEmission(order: Order | null, onSuccess?: () => void) {
 
                 // Se o produto está cadastrado no ERP mas não veio com dados fiscais no snapshot do item,
                 // consulta o cadastro do produto/variação no banco para obter NCM/dados fiscais oficiais
-                if (item.productId && (!itemNcm || itemNcm === '94036000')) {
+                if (item.productId && !itemNcm) {
                     try {
                         const fullProd = await getFullProduct(item.productId);
                         if (fullProd?.fiscal?.ncm) {

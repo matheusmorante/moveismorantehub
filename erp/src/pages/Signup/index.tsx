@@ -13,6 +13,11 @@ const Signup = () => {
     const [isSubmitting, setIsSubmitting] = useState(false);
     const navigate = useNavigate();
 
+    const getAuthRedirectUrl = (path = '') => {
+        const isLocalNetwork = /^192\.168\.100\.2(?::\d+)?$/.test(window.location.hostname);
+        return isLocalNetwork ? `http://192.168.100.2:5173/${path}` : `${window.location.origin}/${path}`;
+    };
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
 
@@ -33,7 +38,7 @@ const Signup = () => {
                 email,
                 password,
                 options: {
-                    emailRedirectTo: `${window.location.origin}/login`,
+                    emailRedirectTo: getAuthRedirectUrl('login'),
                     data: {
                         full_name: fullName,
                         role: 'pending' // Default role
@@ -171,7 +176,7 @@ const Signup = () => {
                                 const { error } = await supabase.auth.signInWithOAuth({
                                     provider: 'google',
                                     options: {
-                                        redirectTo: `${window.location.origin}/`
+                                        redirectTo: getAuthRedirectUrl()
                                     }
                                 });
                                 if (error) throw error;

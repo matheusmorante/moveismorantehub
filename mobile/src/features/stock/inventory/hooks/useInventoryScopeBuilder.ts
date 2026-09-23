@@ -2,11 +2,14 @@ import { useState, useMemo } from 'react';
 
 export interface ScopeProduct {
     id: string;
+    variation_id?: string;
     name: string;
     description?: string;
     stock: number;
     unit?: string;
     main_supplier_id?: string;
+    supplier_id?: string;
+    supplier_ids?: string[];
 }
 
 export interface ScopeSupplier {

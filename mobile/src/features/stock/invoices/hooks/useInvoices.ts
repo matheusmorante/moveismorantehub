@@ -32,9 +32,19 @@ export const useInvoices = () => {
                 supplierCnpj: inv.emitente_cnpj || inv.supplier_cnpj || '',
                 issueDate: inv.data_emissao || inv.issue_date || inv.created_at,
                 totalValue: inv.valor_total || inv.total_value || 0,
-                itemsCount: Array.isArray(inv.inbound_invoice_items) ? inv.inbound_invoice_items.length : (inv.total_items || 0),
+                itemsCount: Array.isArray(inv.itens) && inv.itens.length
+                    ? inv.itens.length
+                    : Array.isArray(inv.inbound_invoice_items) && inv.inbound_invoice_items.length
+                        ? inv.inbound_invoice_items.length
+                        : Array.isArray(inv.raw_extraction?.items)
+                            ? inv.raw_extraction.items.length
+                            : (inv.total_items || 0),
                 status: inv.status || 'available',
-                hasPendingBindings: inv.has_pending_bindings !== false,
+                hasPendingBindings: (() => {
+                    const items = Array.isArray(inv.itens) && inv.itens.length ? inv.itens : inv.inbound_invoice_items || [];
+                    if (items.length) return items.some((item: any) => !(item.matchedProductId || item.matched_product_id || item.product_id || item.compositionLinks?.length));
+                    return inv.has_pending_bindings !== false;
+                })(),
                 sefazStatus: inv.sefaz_status || 'pending'
             }));
 

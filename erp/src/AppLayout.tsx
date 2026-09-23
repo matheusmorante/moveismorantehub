@@ -15,7 +15,7 @@ import AIChatAssistant from "./components/shared/AIChatAssistant";
 import AiQuotaHeaderNotice from "./components/shared/AiQuotaHeaderNotice";
 import logoMorante from "./assets/logo.jpeg";
 
-export type MenuKey = 'products' | 'stock' | 'salesOrder' | 'logistics' | 'registrations' | 'finance' | 'marketing' | 'assembly' | null;
+export type MenuKey = 'products' | 'stock' | 'salesOrder' | 'fiscal' | 'logistics' | 'registrations' | 'finance' | 'marketing' | 'assembly' | null;
 
 export default function AppLayout() {
   const location = useLocation();

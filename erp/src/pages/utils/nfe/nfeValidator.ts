@@ -46,10 +46,10 @@ export function validateOrderForNfe(order: Order, settings: AppSettings): NfeVal
             }
 
             // NCM (8 dígitos)
-            const ncm = (item as any).fiscal?.ncm || (settings as any).fiscalDefaults?.ncm || '94036000';
+            const ncm = (item as any).fiscal?.ncm || '';
             const cleanNcm = String(ncm).replace(/\D/g, '');
             if (!cleanNcm || cleanNcm.length !== 8) {
-                warnings.push(`Item ${itemNum} (${desc}): NCM '${ncm}' não possui 8 dígitos.`);
+                errors.push(`Item ${itemNum} (${desc}): informe um NCM válido de 8 dígitos antes da emissão.`);
             }
         });
     }

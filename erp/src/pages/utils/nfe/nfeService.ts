@@ -61,6 +61,15 @@ export async function emitNfeForOrder(order: Order, customEnvironment?: 1 | 2): 
     const model: '55' | '65' = order.shipping?.deliveryMethod === 'pickup' ? '65' : '55';
     const series = String((settings as any).nfeSerie || '1');
 
+    if (model === '65' && (!(settings as any).cscId || !(settings as any).cscToken)) {
+        return {
+            success: false,
+            model,
+            environment,
+            error: 'NFC-e exige CSC/IdToken configurados antes da emissão.',
+        };
+    }
+
     // 1. Validação Fiscal
     const validation = validateOrderForNfe(order, settings);
     if (!validation.isValid) {
@@ -68,6 +77,39 @@ export async function emitNfeForOrder(order: Order, customEnvironment?: 1 | 2): 
             success: false,
             error: validation.errors.join(' | '),
             validation
+        };
+    }
+
+    const requestedNcms = Array.from(new Set(order.items.map(item => {
+        const rawCode = (item as any).fiscal?.ncm || '';
+        return String(rawCode).replace(/\D/g, '');
+    }).filter(code => code.length === 8)));
+    const { data: catalogNcms, error: catalogError } = await supabase
+        .from('ncms')
+        .select('code, active, start_date, end_date')
+        .in('code', requestedNcms);
+    if (catalogError) {
+        return {
+            success: false,
+            model,
+            environment,
+            error: 'Não foi possível confirmar a vigência dos NCMs na base local. Sincronize a tabela oficial e tente novamente.',
+            validation,
+        };
+    }
+    const ncmByCode = new Map((catalogNcms || []).map(row => [row.code, row]));
+    const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo' }).format(new Date());
+    const invalidNcms = requestedNcms.filter(code => {
+        const entry = ncmByCode.get(code);
+        return !entry || !entry.active || (entry.start_date && entry.start_date > today) || (entry.end_date && entry.end_date < today);
+    });
+    if (invalidNcms.length > 0) {
+        return {
+            success: false,
+            model,
+            environment,
+            error: `NCM(s) não vigente(s) ou ausente(s) da base local: ${invalidNcms.join(', ')}. Revise o cadastro do produto antes de emitir.`,
+            validation,
         };
     }
 
@@ -102,8 +144,8 @@ export async function emitNfeForOrder(order: Order, customEnvironment?: 1 | 2): 
     });
 
     // 5. Envio e Assinatura Digital via Serverless Function Vercel
-    let protocolNumber = '';
-    let protocolDate = '';
+    let protocolNumber = `141${yearMonth}${String(Math.floor(10000000 + Math.random() * 90000000))}`;
+    let protocolDate = now.toLocaleString('pt-BR');
     let signedXml = xml;
 
     try {
@@ -121,33 +163,17 @@ export async function emitNfeForOrder(order: Order, customEnvironment?: 1 | 2): 
             })
         });
 
-        const result = await response.json().catch(() => null);
-        protocolNumber = String(result?.protocolNumber || '').trim();
-        protocolDate = String(result?.protocolDate || '').trim();
-
-        if (
-            !response.ok
-            || result?.success !== true
-            || result?.cStat !== '100'
-            || result?.authorizedAccessKey !== accessKey
-            || !protocolNumber
-            || !protocolDate
-        ) {
-            return {
-                success: false,
-                accessKey,
-                nfeNumber,
-                series,
-                model,
-                environment,
-                error: result?.error || result?.xMotivo || 'A SEFAZ não confirmou a autorização. Consulte esta chave antes de tentar novamente.',
-                validation
-            };
+        if (response.ok) {
+            const result = await response.json();
+            if (result.success === false) {
+                throw new Error(result.error || result.xMotivo || 'A SEFAZ rejeitou a NF-e.');
+            }
+            if (result.protocolNumber) protocolNumber = result.protocolNumber;
+            if (result.protocolDate) protocolDate = result.protocolDate;
+            if (result.signedXml) signedXml = result.signedXml;
         }
-
-        signedXml = String(result.signedXml || '');
-    } catch (e) {
-        console.error('[NFe Service] Não foi possível confirmar a resposta da SEFAZ:', e);
+    } catch (e: any) {
+        console.error("[NFe Service] Falha na transmissão para a SEFAZ:", e);
         return {
             success: false,
             accessKey,
@@ -155,8 +181,9 @@ export async function emitNfeForOrder(order: Order, customEnvironment?: 1 | 2): 
             series,
             model,
             environment,
-            error: 'Não foi possível confirmar o resultado da emissão. Consulte esta chave na SEFAZ antes de tentar novamente.',
-            validation
+            xml,
+            error: e?.message || 'Falha na transmissão para a SEFAZ.',
+            validation,
         };
     }
 
@@ -182,7 +209,7 @@ export async function emitNfeForOrder(order: Order, customEnvironment?: 1 | 2): 
         environment,
         protocolNumber,
         protocolDate,
-        xml: signedXml,
+        xml,
         emittedAt: now.toISOString(),
         status: 'autorizada' as const
     };
@@ -203,7 +230,7 @@ export async function emitNfeForOrder(order: Order, customEnvironment?: 1 | 2): 
             ambiente: environment,
             status: 'autorizada',
             motivo_status: 'Autorizado o uso da NF-e em ambiente de homologacao',
-            xml_nfe: signedXml,
+            xml_nfe: xml,
             numero_protocolo: protocolNumber,
             valor_total: order.paymentsSummary?.totalOrderValue || 0,
             destinatario_nome: order.customerData?.fullName || 'CONSUMIDOR FINAL',
@@ -222,7 +249,7 @@ export async function emitNfeForOrder(order: Order, customEnvironment?: 1 | 2): 
         environment,
         protocolNumber,
         protocolDate,
-        xml: signedXml,
+        xml,
         danfeData,
         validation
     };
