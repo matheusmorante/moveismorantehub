@@ -26,6 +26,7 @@ export const LoginScreen: React.FC<Props> = ({ isDarkMode, onLoginSuccess }) => 
       setLoading(true);
       setErrorMsg('');
       const redirectUrl = getGoogleAuthRedirectUrl();
+      if (__DEV__) console.log('[GoogleLogin] redirectTo:', redirectUrl);
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {

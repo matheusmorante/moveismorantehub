@@ -39,7 +39,9 @@
         }
       ],
       "expo-status-bar",
-      "expo-splash-screen"
+      "expo-splash-screen",
+      "expo-audio",
+      "react-native-audio-api"
     ],
     "ios": {
       "supportsTablet": true,

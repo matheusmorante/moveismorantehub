@@ -2,7 +2,8 @@ import React from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Clock, MapPin, Navigation, Package, Truck, Wrench } from 'lucide-react-native';
 import { MobileDrill } from '../../../components/shared/MobileDrill';
-import { formatFullAddress, formatItemNameExact } from '../../../utils/orderUtils';
+import { OrderItemChip } from '../../../components/orders/OrderItemChip';
+import { formatFullAddress } from '../../../utils/orderUtils';
 import { isAssemblyOutsideType, isAssemblyInternalType } from '../../../utils/aiSummaryHelper';
 import { OrderCardDeliveryFooter } from '../../../components/cards/OrderCardDeliveryFooter';
 
@@ -155,37 +156,14 @@ export const LogisticsOrderCard: React.FC<LogisticsOrderCardProps> = ({
           <Text style={styles.itemsSectionTitle}>
             {isAssistance ? 'PEÇAS / MATERIAIS' : 'ITENS DO PEDIDO'}
           </Text>
-          <View style={styles.itemsPillsRow}>
-            {items.map((item: any, idx: number) => {
-              const qty = Number(item.quantity || item.qty || 1);
-              const name = formatItemNameExact(item);
-              const itemHandling = (item.handlingType || item.handling || '').toString();
-              
-              const isItemOutside = isAssemblyOutsideType(itemHandling, handlingOptions);
-              const isItemInternal = isAssemblyInternalType(itemHandling, handlingOptions);
-
-              return (
-                <View
-                  key={idx}
-                  style={[
-                    styles.itemPill,
-                    isItemOutside ? styles.itemPillOutside : (isItemInternal ? styles.itemPillInternal : styles.itemPillDefault),
-                    isDarkMode && styles.itemPillDark
-                  ]}
-                >
-                  <Text style={[
-                    styles.itemPillText,
-                    isItemOutside ? styles.itemPillTextOutside : (isItemInternal ? styles.itemPillTextInternal : styles.itemPillTextDefault),
-                    isDarkMode && isItemOutside && { color: '#fca5a5' },
-                    isDarkMode && isItemInternal && { color: '#fcd34d' },
-                    isDarkMode && !isItemOutside && !isItemInternal && { color: '#cbd5e1' }
-                  ]}>
-                    <Text style={{ fontWeight: '900' }}>{qty}x</Text> {name}
-                  </Text>
-                </View>
-              );
-            })}
-          </View>
+          <Text style={styles.itemsPillsRow}>
+            {items.map((item: any, idx: number) => (
+              <React.Fragment key={idx}>
+                <OrderItemChip item={item} handlingOptions={handlingOptions} dark={isDarkMode} />
+                {idx < items.length - 1 ? '  ' : null}
+              </React.Fragment>
+            ))}
+          </Text>
         </View>
       ) : null}
 
@@ -236,7 +214,7 @@ const styles = StyleSheet.create({
   badgeDelivery: { backgroundColor: '#10b981' },
   badgePickup: { backgroundColor: '#a855f7' },
   badgeAssistance: { backgroundColor: '#f59e0b' },
-  badgeInternal: { backgroundColor: '#3b82f6' },
+  badgeInternal: { backgroundColor: '#f59e0b' },
   badgeOutside: { backgroundColor: '#ef4444' },
   handlingBadgeText: {
     color: '#ffffff',
@@ -273,6 +251,7 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: '#0f172a',
     marginBottom: 4,
+    flexShrink: 1,
   },
   addressBox: {
     flexDirection: 'row',
@@ -311,19 +290,5 @@ const styles = StyleSheet.create({
     marginBottom: 6,
     letterSpacing: 0.5,
   },
-  itemsPillsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 4 },
-  itemPill: {
-    paddingHorizontal: 6,
-    paddingVertical: 3,
-    borderRadius: 6,
-    borderWidth: 1,
-  },
-  itemPillDefault: { backgroundColor: '#f1f5f9', borderColor: '#e2e8f0' },
-  itemPillOutside: { backgroundColor: '#fee2e2', borderColor: '#fca5a5' },
-  itemPillInternal: { backgroundColor: '#fef3c7', borderColor: '#fcd34d' },
-  itemPillDark: { backgroundColor: '#1e293b', borderColor: '#334155' },
-  itemPillText: { fontSize: 11 },
-  itemPillTextDefault: { color: '#334155' },
-  itemPillTextOutside: { color: '#b91c1c', fontWeight: '700' },
-  itemPillTextInternal: { color: '#b45309', fontWeight: '700' },
+  itemsPillsRow: { fontSize: 11, lineHeight: 24 },
 });

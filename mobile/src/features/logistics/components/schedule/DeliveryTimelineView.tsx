@@ -18,6 +18,13 @@ interface Props {
   isDarkMode?: boolean;
 }
 
+const matchesPeriod = (item: DeliveryRouteItem, period: 'morning' | 'afternoon') => {
+  const label = item.periodLabel.toLowerCase();
+  return period === 'morning'
+    ? label.includes('manhã') || label.includes('08:') || label.includes('09:') || label.includes('10:') || label.includes('11:')
+    : label.includes('tarde') || label.includes('13:') || label.includes('14:') || label.includes('15:') || label.includes('16:') || label.includes('17:') || label.includes('18:');
+};
+
 export const DeliveryTimelineView: React.FC<Props> = ({
   items,
   refreshing,
@@ -29,6 +36,11 @@ export const DeliveryTimelineView: React.FC<Props> = ({
 }) => {
   const [periodFilter, setPeriodFilter] = useState<'all' | 'morning' | 'afternoon'>('all');
   const [handlingOptions, setHandlingOptions] = useState<any[]>([]);
+
+  const shiftCounts = useMemo(() => ({
+    morning: items.filter((item) => matchesPeriod(item, 'morning')).length,
+    afternoon: items.filter((item) => matchesPeriod(item, 'afternoon')).length,
+  }), [items]);
 
   // Usa as mesmas modalidades configuradas no ERP para identificar os selos.
   useEffect(() => {
@@ -51,60 +63,50 @@ export const DeliveryTimelineView: React.FC<Props> = ({
   // Filtro por Período (Todas, Manhã, Tarde)
   const filteredItems = useMemo(() => {
     if (periodFilter === 'all') return items;
-    return items.filter((item) => {
-      const p = item.periodLabel.toLowerCase();
-      if (periodFilter === 'morning') {
-        return p.includes('manhã') || p.includes('08:') || p.includes('09:') || p.includes('10:') || p.includes('11:');
-      }
-      if (periodFilter === 'afternoon') {
-        return p.includes('tarde') || p.includes('13:') || p.includes('14:') || p.includes('15:') || p.includes('16:') || p.includes('17:') || p.includes('18:');
-      }
-      return true;
-    });
+    return items.filter((item) => matchesPeriod(item, periodFilter));
   }, [items, periodFilter]);
 
   return (
     <View style={[styles.container, isDarkMode && styles.containerDark]}>
-      {/* Pílulas de Período: [ Todas ] [ Manhã ] [ Tarde ] */}
-      <View style={styles.periodFilterRow}>
-        <TouchableOpacity
-          style={[styles.periodPill, periodFilter === 'all' && styles.periodPillActive]}
-          onPress={() => setPeriodFilter('all')}
-          activeOpacity={0.8}
-        >
-          <Text style={[styles.periodPillText, periodFilter === 'all' && styles.periodPillTextActive]}>
-            Todas ({items.length})
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[styles.periodPill, periodFilter === 'morning' && styles.periodPillActive]}
-          onPress={() => setPeriodFilter('morning')}
-          activeOpacity={0.8}
-        >
-          <Text style={[styles.periodPillText, periodFilter === 'morning' && styles.periodPillTextActive]}>
-            Manhã
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[styles.periodPill, periodFilter === 'afternoon' && styles.periodPillActive]}
-          onPress={() => setPeriodFilter('afternoon')}
-          activeOpacity={0.8}
-        >
-          <Text style={[styles.periodPillText, periodFilter === 'afternoon' && styles.periodPillTextActive]}>
-            Tarde
-          </Text>
-        </TouchableOpacity>
-      </View>
-
-      {/* Timeline Vertical */}
       <ScrollView
         style={{ flex: 1 }}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#2563eb']} />}
       >
+        {/* Filtro local do Cronograma: rola junto com os cards da timeline. */}
+        <View style={[styles.periodFilterRow, isDarkMode && styles.periodFilterRowDark]}>
+          <TouchableOpacity
+            style={[styles.periodPill, isDarkMode && styles.periodPillDark, periodFilter === 'all' && styles.periodPillActive]}
+            onPress={() => setPeriodFilter('all')}
+            activeOpacity={0.8}
+          >
+            <Text style={[styles.periodPillText, isDarkMode && styles.periodPillTextDark, periodFilter === 'all' && styles.periodPillTextActive]}>
+              Todas ({items.length})
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.periodPill, isDarkMode && styles.periodPillDark, periodFilter === 'morning' && styles.periodPillActive]}
+            onPress={() => setPeriodFilter('morning')}
+            activeOpacity={0.8}
+          >
+            <Text style={[styles.periodPillText, isDarkMode && styles.periodPillTextDark, periodFilter === 'morning' && styles.periodPillTextActive]}>
+              Manhã ({shiftCounts.morning})
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.periodPill, isDarkMode && styles.periodPillDark, periodFilter === 'afternoon' && styles.periodPillActive]}
+            onPress={() => setPeriodFilter('afternoon')}
+            activeOpacity={0.8}
+          >
+            <Text style={[styles.periodPillText, isDarkMode && styles.periodPillTextDark, periodFilter === 'afternoon' && styles.periodPillTextActive]}>
+              Tarde ({shiftCounts.afternoon})
+            </Text>
+          </TouchableOpacity>
+        </View>
+
         {filteredItems.length === 0 ? (
           <View style={styles.emptyState}>
             <Text style={[styles.emptyText, isDarkMode && styles.textMuted]}>
@@ -201,32 +203,41 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    alignSelf: 'center',
+    flexWrap: 'wrap',
     gap: 8,
-    paddingHorizontal: 16,
+    paddingHorizontal: 8,
     paddingBottom: 12,
+    marginBottom: 4,
     borderBottomWidth: 1,
     borderBottomColor: '#e2e8f0',
   },
+  periodFilterRowDark: { borderBottomColor: '#334155' },
   periodPill: {
     paddingHorizontal: 16,
-    paddingVertical: 6,
+    minHeight: 40,
+    paddingVertical: 9,
     borderRadius: 12,
     backgroundColor: '#f1f5f9',
+    justifyContent: 'center',
   },
   periodPillActive: {
     backgroundColor: '#2563eb',
   },
+  periodPillDark: { backgroundColor: '#1e293b' },
   periodPillText: {
     fontSize: 11,
     fontWeight: '800',
     color: '#64748b',
   },
+  periodPillTextDark: { color: '#cbd5e1' },
   periodPillTextActive: {
     color: '#ffffff',
   },
   scrollContent: {
     paddingHorizontal: 16,
-    paddingVertical: 16,
+    paddingTop: 0,
+    paddingBottom: 16,
   },
   timelineItemWrapper: {
     flexDirection: 'row',

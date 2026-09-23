@@ -14,6 +14,7 @@ import {
   MAX_VOICE_INACTIVITY_MS,
 } from '../../../services/financialAiAssistantService';
 import { MobileAgentService } from '../../../services/aiAgent/mobileAgentService';
+import { GeminiLiveSession, type LiveState, type Quota } from '../../../services/geminiLiveService';
 import { GeminiContent, ExecutedToolRecord } from '../../../services/aiAgent/mobileAgentTypes';
 import { VoiceSessionState } from '../types/VoiceSessionState';
 import { CardVisualState } from '../components/TransactionPreviewCard';
@@ -52,6 +53,8 @@ export function useFinancialAiChat({
   // Estados da Sessao de Voz
   const [voiceState, setVoiceState] = useState<VoiceSessionState>('IDLE');
   const [livePill, setLivePill] = useState<LocalSemanticDelta | null>(null);
+  const [liveState, setLiveState] = useState<LiveState | null>(null);
+  const [liveQuota, setLiveQuota] = useState<Quota | null>(null);
 
   const scrollViewRef = useRef<ScrollView>(null);
   const baseInputTextRef = useRef('');
@@ -62,6 +65,7 @@ export function useFinancialAiChat({
   const inactivityTimerRef = useRef<any>(null);
   const geminiHistoryRef = useRef<GeminiContent[]>([]);
   const confirmingTimelineCardIdsRef = useRef(new Set<string>());
+  const liveSessionRef = useRef<GeminiLiveSession | null>(null);
 
   const voiceSessionIdRef = useRef<number>(0);
   const abortControllerRef = useRef<AbortController | null>(null);
@@ -69,6 +73,7 @@ export function useFinancialAiChat({
   useEffect(() => {
     return () => {
       stopVoiceRecording();
+      void liveSessionRef.current?.end();
       if (abortControllerRef.current) {
         abortControllerRef.current.abort();
       }
@@ -115,6 +120,9 @@ export function useFinancialAiChat({
   };
 
   const handleClearChat = () => {
+    void liveSessionRef.current?.end();
+    liveSessionRef.current = null;
+    setLiveState(null);
     if (abortControllerRef.current) abortControllerRef.current.abort();
     setMessages([]);
     setPendingIntent(null);
@@ -389,6 +397,41 @@ export function useFinancialAiChat({
     setVoiceState('IDLE');
   };
 
+  const handleStartLive = async () => {
+    if (liveSessionRef.current) {
+      if (liveState === 'paused') await liveSessionRef.current.resume();
+      return;
+    }
+    const session = new GeminiLiveSession({
+      onState: state => { setLiveState(state === 'ended' ? null : state); if (state === 'ended') liveSessionRef.current = null; },
+      onTranscript: (role, text) => setMessages(current => [...current, {
+        id: `live_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+        sender: role === 'user' ? 'user' : 'assistant', text,
+        timestamp: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }), status: 'ACTIVE',
+      }]),
+      onQuota: setLiveQuota,
+      onError: error => Alert.alert('Gemini Live', error.message),
+    });
+    liveSessionRef.current = session;
+    setLiveState('connecting');
+    try {
+      await session.start();
+    } catch (error) {
+      liveSessionRef.current = null;
+      setLiveState(null);
+      await session.end();
+      Alert.alert('Gemini Live', error instanceof Error ? error.message : 'Não foi possível iniciar a ligação.');
+    }
+  };
+
+  const handleToggleLivePause = () => {
+    const session = liveSessionRef.current;
+    if (!session) return;
+    void (liveState === 'paused' ? session.resume() : session.pause()).catch(error => Alert.alert('Gemini Live', error.message));
+  };
+  const handleToggleLiveMute = () => { void liveSessionRef.current?.toggleMute(); };
+  const handleEndLive = () => { void liveSessionRef.current?.end(); };
+
   const handleCancelVoice = async () => {
     voiceSessionIdRef.current += 1;
     if (inactivityTimerRef.current) clearTimeout(inactivityTimerRef.current);
@@ -510,6 +553,8 @@ export function useFinancialAiChat({
     copiedMessageId,
     voiceState,
     livePill,
+    liveState,
+    liveQuota,
     isRecordingActive,
     scrollViewRef,
     setInputText,
@@ -522,6 +567,10 @@ export function useFinancialAiChat({
     handleSaveAndResend,
     handleSendMessage,
     handleStartVoice,
+    handleStartLive,
+    handleToggleLivePause,
+    handleToggleLiveMute,
+    handleEndLive,
     handleStopVoice,
     handleCancelVoice,
     handleConfirmRegister,

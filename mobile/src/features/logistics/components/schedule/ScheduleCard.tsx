@@ -113,14 +113,14 @@ export const ScheduleCard: React.FC<Props> = ({
       </View>
 
       {/* Cliente e Localização com Deslocamento e Quilometragem */}
-      <Text style={[styles.customerName, isDarkMode && styles.textLight]} numberOfLines={1}>
+      <Text style={[styles.customerName, isDarkMode && styles.textLight]}>
         {item.customerName}
       </Text>
 
       {addressAndTravelText ? (
         <View style={styles.locationRow}>
           <MapPin size={13} color="#ef4444" style={{ marginTop: 1 }} />
-          <Text style={[styles.locationText, isDarkMode && styles.textMuted]} numberOfLines={1}>
+          <Text style={[styles.locationText, isDarkMode && styles.textMuted]}>
             {addressAndTravelText}
           </Text>
         </View>
@@ -137,6 +137,14 @@ export const ScheduleCard: React.FC<Props> = ({
           </Text>
         )}
       </View>
+
+      {item.observations ? (
+        <View style={[styles.observationsBox, isDarkMode && styles.observationsBoxDark]}>
+          <Text style={[styles.observationText, isDarkMode && styles.textMuted]}>
+            {item.observations}
+          </Text>
+        </View>
+      ) : null}
 
       {/* Botões de Ação do Card */}
       <View style={styles.actionsRow}>
@@ -275,17 +283,22 @@ const styles = StyleSheet.create({
     fontWeight: '900',
     color: '#0f172a',
     marginBottom: 4,
+    flexShrink: 1,
   },
   locationRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
     marginBottom: 10,
+    minWidth: 0,
   },
   locationText: {
     fontSize: 12,
     fontWeight: '700',
     color: '#64748b',
+    flex: 1,
+    flexShrink: 1,
+    minWidth: 0,
   },
   serviceBadgesRow: {
     flexDirection: 'row',
@@ -440,6 +453,16 @@ const styles = StyleSheet.create({
     lineHeight: 16,
     fontWeight: '600',
     color: '#475569',
+    flexShrink: 1,
+  },
+  observationsBox: {
+    backgroundColor: '#f8fafc',
+    borderRadius: 10,
+    padding: 10,
+    marginBottom: 12,
+  },
+  observationsBoxDark: {
+    backgroundColor: '#0f172a',
   },
   fullOrderBtn: {
     flexDirection: 'row',

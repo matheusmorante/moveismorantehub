@@ -22,7 +22,7 @@ export function useMobileOrders() {
       if (!pull) {
         const cached = await OrderRepository.list();
         if (cached.length > 0) {
-          const localItems = cached.map((order) => ({ id: order.id, order_number: String(order.orderData.orderIndex ?? ''), created_at: order.updatedAt,
+          const localItems = cached.map((order) => ({ id: order.id, order_number: String(order.orderData.orderIndex ?? ''), created_at: String(order.orderData.createdAt || order.orderData.date || ''),
             status: order.status, order_type: order.orderType ?? 'sale', customer_name: order.customerName ?? '', total_value: order.totalAmount ?? 0,
             order_data: order.orderData, version: order.version }));
           setOrders(localItems);

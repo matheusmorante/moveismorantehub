@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, ActivityIndicator, Modal, StyleSheet } from 'react-native';
-import { Calendar, Truck, Hammer, Wrench, RotateCcw, Check } from 'lucide-react-native';
+import { Calendar, Truck, Wrench, RotateCcw, ShoppingCart, Check } from 'lucide-react-native';
 
 interface Props {
   isDarkMode: boolean;
@@ -10,13 +10,11 @@ interface Props {
   PERIOD_OPTIONS: any[];
   handlePeriodChange: (id: string) => void;
   deliveriesCount: number;
-  assembliesInternalCount: number;
-  assembliesOutsideCount: number;
   assistancesCount: number;
   returnsCount: number;
+  salesOrdersCount: number;
   loadingStats: boolean;
   handleTabChange: (tab: string, url: string) => void;
-  setAssemblySubTab: (sub: 'internal' | 'outside') => void;
   WEB_URL: string;
 }
 
@@ -28,13 +26,11 @@ export const OperationalStatsGrid: React.FC<Props> = ({
   PERIOD_OPTIONS,
   handlePeriodChange,
   deliveriesCount,
-  assembliesInternalCount,
-  assembliesOutsideCount,
   assistancesCount,
   returnsCount,
+  salesOrdersCount,
   loadingStats,
   handleTabChange,
-  setAssemblySubTab,
   WEB_URL,
 }) => {
   const currentPeriodLabel = PERIOD_OPTIONS.find(p => p.id === selectedPeriod)?.label || 'Hoje';
@@ -93,49 +89,7 @@ export const OperationalStatsGrid: React.FC<Props> = ({
           <Text style={styles.statLabel}>Entregas Agendadas</Text>
         </TouchableOpacity>
 
-        {/* Card 2A: Montagens Internas */}
-        <TouchableOpacity
-          style={[styles.statCardGrid, styles.assemblyCard]}
-          onPress={() => {
-            setAssemblySubTab('internal');
-            handleTabChange('montagens', `${WEB_URL}/assembly-schedule`);
-          }}
-        >
-          <View style={styles.statIconWrapper}>
-            <Hammer size={22} color="#7c3aed" />
-          </View>
-          {loadingStats ? (
-            <ActivityIndicator size="small" color="#7c3aed" style={{ marginTop: 8 }} />
-          ) : (
-            <Text style={styles.statNumber}>
-              {assembliesInternalCount} <Text style={{ fontSize: 13, fontWeight: '600' }}>{assembliesInternalCount === 1 ? 'móvel' : 'móveis'}</Text>
-            </Text>
-          )}
-          <Text style={[styles.statLabel, { color: isDarkMode ? '#cbd5e1' : '#6d28d9' }]}>devem ser montados na loja</Text>
-        </TouchableOpacity>
-
-        {/* Card 2B: Montagens Fora */}
-        <TouchableOpacity
-          style={[styles.statCardGrid, styles.assemblyOutsideCard]}
-          onPress={() => {
-            setAssemblySubTab('outside');
-            handleTabChange('montagens', `${WEB_URL}/assembly-schedule`);
-          }}
-        >
-          <View style={styles.statIconWrapper}>
-            <Hammer size={22} color="#ef4444" />
-          </View>
-          {loadingStats ? (
-            <ActivityIndicator size="small" color="#ef4444" style={{ marginTop: 8 }} />
-          ) : (
-            <Text style={styles.statNumber}>
-              {assembliesOutsideCount} <Text style={{ fontSize: 13, fontWeight: '600' }}>{assembliesOutsideCount === 1 ? 'móvel' : 'móveis'}</Text>
-            </Text>
-          )}
-          <Text style={[styles.statLabel, { color: isDarkMode ? '#cbd5e1' : '#e11d48' }]}>devem ser montados fora</Text>
-        </TouchableOpacity>
-
-        {/* Card 3: Assistências */}
+        {/* Card 2: Assistências */}
         <TouchableOpacity
           style={[styles.statCardGrid, styles.assistanceCard]}
           onPress={() => handleTabChange('entregas', `${WEB_URL}/delivery-schedule`)}
@@ -151,7 +105,7 @@ export const OperationalStatsGrid: React.FC<Props> = ({
           <Text style={styles.statLabel}>Assistências</Text>
         </TouchableOpacity>
 
-        {/* Card 4: Devoluções */}
+        {/* Card 3: Coletas de devolução */}
         <TouchableOpacity
           style={[styles.statCardGrid, styles.returnCard]}
           onPress={() => handleTabChange('pedidos', `${WEB_URL}/sales-order`)}
@@ -164,7 +118,23 @@ export const OperationalStatsGrid: React.FC<Props> = ({
           ) : (
             <Text style={styles.statNumber}>{returnsCount}</Text>
           )}
-          <Text style={styles.statLabel}>Devoluções</Text>
+          <Text style={styles.statLabel}>Coletas de devolução</Text>
+        </TouchableOpacity>
+
+        {/* Card 4: Pedidos de venda cadastrados no período */}
+        <TouchableOpacity
+          style={[styles.statCardGrid, styles.salesCard]}
+          onPress={() => handleTabChange('pedidos', `${WEB_URL}/sales-order`)}
+        >
+          <View style={styles.statIconWrapper}>
+            <ShoppingCart size={22} color="#059669" />
+          </View>
+          {loadingStats ? (
+            <ActivityIndicator size="small" color="#059669" style={{ marginTop: 8 }} />
+          ) : (
+            <Text style={styles.statNumber}>{salesOrdersCount}</Text>
+          )}
+          <Text style={styles.statLabel}>Pedidos de Venda</Text>
         </TouchableOpacity>
       </View>
 
@@ -241,14 +211,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#eff6ff',
     borderColor: '#bfdbfe'
   },
-  assemblyCard: {
-    backgroundColor: '#f5f3ff',
-    borderColor: '#ddd6fe'
-  },
-  assemblyOutsideCard: {
-    backgroundColor: '#fff1f2',
-    borderColor: '#fecdd3'
-  },
   assistanceCard: {
     backgroundColor: '#fffbeb',
     borderColor: '#fef3c7'
@@ -256,6 +218,10 @@ const styles = StyleSheet.create({
   returnCard: {
     backgroundColor: '#fff1f2',
     borderColor: '#ffe4e6'
+  },
+  salesCard: {
+    backgroundColor: '#ecfdf5',
+    borderColor: '#a7f3d0'
   },
   statIconWrapper: {
     width: 36,

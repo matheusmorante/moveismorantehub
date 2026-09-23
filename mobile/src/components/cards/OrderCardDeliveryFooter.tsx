@@ -120,7 +120,7 @@ export const OrderCardDeliveryFooter: React.FC<Props> = ({ order, dark, onPress 
           {config.icon}
           <Text style={styles.label}>{config.label}</Text>
         </View>
-        <Text numberOfLines={1} style={styles.subtext}>
+        <Text style={styles.subtext}>
           {config.subtext}
         </Text>
       </View>
@@ -142,6 +142,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: 8,
+    flexWrap: 'wrap',
   },
   left: {
     flexDirection: 'row',
@@ -160,6 +161,7 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: '700',
     flexShrink: 1,
+    minWidth: 0,
     textAlign: 'right',
   },
 });

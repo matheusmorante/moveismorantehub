@@ -7,6 +7,7 @@ import { ChatHeaderToolBar } from './chat/ChatHeaderToolBar';
 import { ChatMessageItem } from './chat/ChatMessageItem';
 import { FinancialTimelineCard } from './chat/FinancialTimelineCard';
 import { FinancialChatInputBar } from './chat/FinancialChatInputBar';
+import { GeminiLiveOrb } from './chat/GeminiLiveOrb';
 import { useFinancialAiChat } from '../hooks/useFinancialAiChat';
 
 interface Props {
@@ -89,7 +90,6 @@ export const FinancialAiChatView: React.FC<Props> = ({
         ) : null}
       </ScrollView>
 
-
       {/* Barra de entrada com Voice Mode e envio de mensagem */}
       <FinancialChatInputBar
         inputText={chat.inputText}
@@ -97,7 +97,17 @@ export const FinancialAiChatView: React.FC<Props> = ({
         isDarkMode={isDarkMode}
         onChangeInputText={chat.setInputText}
         onSendMessage={chat.handleSendMessage}
+        onStartLive={chat.handleStartLive}
       />
+      {chat.liveState && <GeminiLiveOrb
+        active
+        paused={chat.liveState === 'paused'}
+        muted={chat.liveState === 'muted'}
+        remainingMs={chat.liveQuota?.remainingMs ?? 30 * 60 * 1000}
+        onPause={chat.handleToggleLivePause}
+        onMute={chat.handleToggleLiveMute}
+        onEnd={chat.handleEndLive}
+      />}
     </View>
   );
 };

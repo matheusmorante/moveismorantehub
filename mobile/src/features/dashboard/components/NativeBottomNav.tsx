@@ -7,7 +7,6 @@ import {
   Package,
   Calendar, 
   Truck,
-  Hammer, 
   BarChart3, 
   Wallet,
   MoreHorizontal, 
@@ -89,13 +88,6 @@ export const NativeBottomNav: React.FC<Props> = ({
       visible: true,
     },
     {
-      key: 'montagens',
-      label: 'Montagens',
-      icon: Hammer,
-      url: `${WEB_URL}/assembly-schedule`,
-      visible: true,
-    },
-    {
       key: 'financeiro',
       label: 'Financeiro',
       icon: Wallet,
@@ -143,6 +135,7 @@ export const NativeBottomNav: React.FC<Props> = ({
     if (key === 'agenda' || key === 'logistica') {
       return currentTab === 'agenda' || currentTab === 'logistica' || currentTab === 'cronograma';
     }
+    if (key === 'entregas') return currentTab === 'entregas' || currentTab === 'montagens';
     return currentTab === key;
   };
 

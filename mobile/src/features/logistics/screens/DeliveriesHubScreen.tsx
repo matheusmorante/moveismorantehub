@@ -1,7 +1,7 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, ScrollView, RefreshControl } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { FileText, Map, CalendarClock } from 'lucide-react-native';
+import { FileText, Map, CalendarClock, Hammer, ChevronLeft, ChevronRight } from 'lucide-react-native';
 import { useDeliveryRoute, DeliveryRouteDateScope, DeliveryRouteItem } from '../hooks/useDeliveryRoute';
 import { useDriverLocation } from '../hooks/useDriverLocation';
 import { useRoutesApi } from '../hooks/useRoutesApi';
@@ -11,13 +11,15 @@ import { MapErrorBoundary } from '../components/deliveryMap/MapErrorBoundary';
 import { DeliveryBottomSheet } from '../components/deliveryMap/DeliveryBottomSheet';
 import { TodaySummaryCard } from '../components/TodaySummaryCard';
 import { DeliveryTimelineView } from '../components/schedule/DeliveryTimelineView';
+import { NativeAssembliesScreen } from '../../assemblies/screens/NativeAssembliesScreen';
 
-export type DeliveriesSubTab = 'today' | 'schedule' | 'map';
+export type DeliveriesSubTab = 'today' | 'schedule' | 'assemblies' | 'map';
 
 interface Props {
   isDarkMode?: boolean;
   isAdmin?: boolean;
   initialTab?: DeliveriesSubTab;
+  initialAssemblySubTab?: 'internal' | 'outside';
   userProfile?: any;
   onSelectOrder: (order: any) => void;
 }
@@ -26,6 +28,7 @@ export const DeliveriesHubScreen: React.FC<Props> = ({
   isDarkMode = false,
   isAdmin = false,
   initialTab = 'today',
+  initialAssemblySubTab = 'internal',
   userProfile,
   onSelectOrder,
 }) => {
@@ -33,10 +36,59 @@ export const DeliveriesHubScreen: React.FC<Props> = ({
   const [activeTab, setActiveTab] = useState<DeliveriesSubTab>(initialTab);
   const [selectedMarkerItem, setSelectedMarkerItem] = useState<DeliveryRouteItem | null>(null);
   const [scheduleDateScope, setScheduleDateScope] = useState<DeliveryRouteDateScope>('today');
+  const tabsScrollRef = useRef<ScrollView>(null);
+  const tabsScrollMetrics = useRef({ viewport: 0, content: 0, offset: 0 });
+  const tabLayouts = useRef<Partial<Record<DeliveriesSubTab, { x: number; width: number }>>>({});
+  const [tabsScrollEdges, setTabsScrollEdges] = useState({ left: false, right: false });
+  const tabsEndGutter = 48;
+  const getTabsContentWidth = () => Math.max(tabsScrollMetrics.current.content - tabsEndGutter, 0);
+  const updateTabsScrollMetrics = (update: Partial<typeof tabsScrollMetrics.current>) => {
+    const metrics = { ...tabsScrollMetrics.current, ...update };
+    tabsScrollMetrics.current = metrics;
+    const contentWidth = Math.max(metrics.content - tabsEndGutter, 0);
+    const edges = {
+      left: metrics.offset > 1,
+      right: contentWidth > metrics.viewport + 1 && metrics.offset + metrics.viewport < contentWidth + tabsEndGutter - 1,
+    };
+    setTabsScrollEdges(current => current.left === edges.left && current.right === edges.right ? current : edges);
+  };
+  const scrollTabs = (direction: -1 | 1) => {
+    if (direction > 0) {
+      tabsScrollRef.current?.scrollToEnd({ animated: true });
+      return;
+    }
+    const metrics = tabsScrollMetrics.current;
+    const maxOffset = Math.max(0, getTabsContentWidth() - metrics.viewport);
+    const nextOffset = Math.max(0, Math.min(maxOffset, metrics.offset + direction * Math.max(120, metrics.viewport * 0.75)));
+    tabsScrollRef.current?.scrollTo({ x: nextOffset, animated: true });
+  };
+
+  const scrollTabIntoView = useCallback((tab: DeliveriesSubTab) => {
+    const layout = tabLayouts.current[tab];
+    const { viewport, offset } = tabsScrollMetrics.current;
+    if (!layout || !viewport) return;
+
+    if (layout.x < offset) {
+      tabsScrollRef.current?.scrollTo({ x: Math.max(0, layout.x - 8), animated: true });
+    } else if (layout.x + layout.width > offset + viewport) {
+      tabsScrollRef.current?.scrollTo({ x: layout.x + layout.width - viewport + 8, animated: true });
+    }
+  }, []);
+
+  const recordTabLayout = useCallback((tab: DeliveriesSubTab, event: any) => {
+    const { x, width } = event.nativeEvent.layout;
+    tabLayouts.current[tab] = { x, width };
+    if (tab === activeTab) setTimeout(() => scrollTabIntoView(tab), 0);
+  }, [activeTab, scrollTabIntoView]);
 
   useEffect(() => {
     setActiveTab(initialTab);
   }, [initialTab]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => scrollTabIntoView(activeTab), 0);
+    return () => clearTimeout(timer);
+  }, [activeTab, scrollTabIntoView]);
 
   // Hooks de Dados e Localização (unificado para as 3 abas: Resumo, Cronograma e Mapa)
   const { orders, routeItems, currentDelivery, nextDelivery, stats, loading, refreshing, onRefresh } = useDeliveryRoute(
@@ -80,13 +132,13 @@ export const DeliveriesHubScreen: React.FC<Props> = ({
 
   return (
     <View style={[styles.container, isDarkMode && styles.containerDark]}>
-      {/* Barra de Tabs Superior: [ Resumo ] [ Cronograma ] [ Mapa ] */}
+      {/* Barra de Tabs Superior: [ Resumo ] [ Cronograma ] [ Montagens ] [ Mapa ] */}
       <View style={[styles.headerContainer, isDarkMode && styles.headerContainerDark, { paddingTop: Math.max(insets.top, 12) + 6 }]}>
         <View style={styles.titleRow}>
-          <Text style={[styles.screenTitle, isDarkMode && styles.textLight]}>Operação</Text>
+          <Text style={[styles.screenTitle, isDarkMode && styles.textLight]}>Operações</Text>
 
           {/* Filtro Global de Período posicionado na linha do título: [ Hoje ] [ Dias seguintes ] */}
-          <View style={[styles.dateScopeContainer, isDarkMode && styles.dateScopeContainerDark]}>
+          {activeTab !== 'assemblies' && <View style={[styles.dateScopeContainer, isDarkMode && styles.dateScopeContainerDark]}>
             <TouchableOpacity
               style={[styles.dateScopeBtn, scheduleDateScope === 'today' && styles.dateScopeBtnActive]}
               onPress={() => setScheduleDateScope('today')}
@@ -106,17 +158,35 @@ export const DeliveriesHubScreen: React.FC<Props> = ({
                 Dias Seguintes
               </Text>
             </TouchableOpacity>
-          </View>
+          </View>}
         </View>
 
-        {/* Tabs no Topo em Pílulas: [ Resumo ] [ Cronograma ] [ Mapa ] */}
-        <View style={[styles.tabsPillContainer, isDarkMode && styles.tabsPillContainerDark]}>
+        {/* Tabs no Topo em Pílulas: [ Resumo ] [ Cronograma ] [ Montagens ] [ Mapa ] */}
+        <View
+          style={styles.tabsViewport}
+        >
+          <ScrollView
+            ref={tabsScrollRef}
+            style={[
+              styles.tabsScrollView,
+              tabsScrollEdges.left && styles.tabsScrollWithLeftArrow,
+              tabsScrollEdges.right && styles.tabsScrollWithRightArrow,
+            ]}
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.tabsPillContainer}
+            onLayout={({ nativeEvent }) => updateTabsScrollMetrics({ viewport: nativeEvent.layout.width })}
+            onContentSizeChange={(_, content) => updateTabsScrollMetrics({ content })}
+            onScroll={({ nativeEvent }) => updateTabsScrollMetrics({ offset: nativeEvent.contentOffset.x })}
+            scrollEventThrottle={32}
+          >
           <TouchableOpacity
             style={[styles.tabBtn, activeTab === 'today' && styles.tabBtnActive]}
+            onLayout={(event) => recordTabLayout('today', event)}
             onPress={() => setActiveTab('today')}
             activeOpacity={0.8}
           >
-            <FileText size={13} color={activeTab === 'today' ? '#2563eb' : (isDarkMode ? '#94a3b8' : '#64748b')} />
+            <FileText size={15} color={activeTab === 'today' ? '#2563eb' : (isDarkMode ? '#94a3b8' : '#64748b')} />
             <Text style={[styles.tabBtnText, activeTab === 'today' && styles.tabBtnTextActive]}>
               Resumo
             </Text>
@@ -124,25 +194,74 @@ export const DeliveriesHubScreen: React.FC<Props> = ({
 
           <TouchableOpacity
             style={[styles.tabBtn, activeTab === 'schedule' && styles.tabBtnActive]}
+            onLayout={(event) => recordTabLayout('schedule', event)}
             onPress={() => setActiveTab('schedule')}
             activeOpacity={0.8}
           >
-            <CalendarClock size={13} color={activeTab === 'schedule' ? '#2563eb' : (isDarkMode ? '#94a3b8' : '#64748b')} />
+            <CalendarClock size={15} color={activeTab === 'schedule' ? '#2563eb' : (isDarkMode ? '#94a3b8' : '#64748b')} />
             <Text style={[styles.tabBtnText, activeTab === 'schedule' && styles.tabBtnTextActive]}>
               Cronograma
             </Text>
           </TouchableOpacity>
 
           <TouchableOpacity
+            style={[styles.tabBtn, activeTab === 'assemblies' && styles.tabBtnActive]}
+            onLayout={(event) => recordTabLayout('assemblies', event)}
+            onPress={() => setActiveTab('assemblies')}
+            activeOpacity={0.8}
+          >
+            <Hammer size={15} color={activeTab === 'assemblies' ? '#2563eb' : (isDarkMode ? '#94a3b8' : '#64748b')} />
+            <Text style={[styles.tabBtnText, activeTab === 'assemblies' && styles.tabBtnTextActive]}>
+              Montagens
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
             style={[styles.tabBtn, activeTab === 'map' && styles.tabBtnActive]}
+            onLayout={(event) => recordTabLayout('map', event)}
             onPress={() => setActiveTab('map')}
             activeOpacity={0.8}
           >
-            <Map size={13} color={activeTab === 'map' ? '#2563eb' : (isDarkMode ? '#94a3b8' : '#64748b')} />
+            <Map size={15} color={activeTab === 'map' ? '#2563eb' : (isDarkMode ? '#94a3b8' : '#64748b')} />
             <Text style={[styles.tabBtnText, activeTab === 'map' && styles.tabBtnTextActive]}>
               Mapa
             </Text>
           </TouchableOpacity>
+          </ScrollView>
+          {tabsScrollEdges.left && (
+            <>
+              <View pointerEvents="none" style={[styles.scrollFade, styles.leftScrollFade]}>
+                <View style={[styles.scrollFadeSegment, { backgroundColor: isDarkMode ? '#1e293b' : '#ffffff', opacity: 0.9 }]} />
+                <View style={[styles.scrollFadeSegment, { backgroundColor: isDarkMode ? '#1e293b' : '#ffffff', opacity: 0.65 }]} />
+                <View style={[styles.scrollFadeSegment, { backgroundColor: isDarkMode ? '#1e293b' : '#ffffff', opacity: 0.3 }]} />
+              </View>
+              <TouchableOpacity
+                style={[styles.scrollArrow, styles.leftScrollArrow, isDarkMode && styles.scrollArrowDark]}
+                onPress={() => scrollTabs(-1)}
+                accessibilityRole="button"
+                accessibilityLabel="Rolar abas para a esquerda"
+              >
+                <ChevronLeft size={18} color={isDarkMode ? '#e2e8f0' : '#2563eb'} />
+              </TouchableOpacity>
+            </>
+          )}
+          {tabsScrollEdges.right && (
+            <>
+              <View pointerEvents="none" style={[styles.scrollFade, styles.rightScrollFade]}>
+                <View style={[styles.scrollFadeSegment, { backgroundColor: isDarkMode ? '#1e293b' : '#ffffff', opacity: 0.3 }]} />
+                <View style={[styles.scrollFadeSegment, { backgroundColor: isDarkMode ? '#1e293b' : '#ffffff', opacity: 0.65 }]} />
+                <View style={[styles.scrollFadeSegment, { backgroundColor: isDarkMode ? '#1e293b' : '#ffffff', opacity: 0.9 }]} />
+              </View>
+              <TouchableOpacity
+                style={[styles.scrollArrow, styles.rightScrollArrow, isDarkMode && styles.rightScrollArrowDark]}
+                onPress={() => scrollTabs(1)}
+                accessibilityRole="button"
+                accessibilityLabel="Rolar abas para a direita"
+              >
+                <ChevronRight size={18} color="#ffffff" />
+              </TouchableOpacity>
+            </>
+          )}
         </View>
       </View>
 
@@ -181,6 +300,12 @@ export const DeliveriesHubScreen: React.FC<Props> = ({
             isDarkMode={isDarkMode}
           />
         )
+      ) : activeTab === 'assemblies' ? (
+        <NativeAssembliesScreen
+          isDarkMode={isDarkMode}
+          initialSubTab={initialAssemblySubTab}
+          onSelectOrder={onSelectOrder}
+        />
       ) : (
         /* Aba MAPA: Visão geográfica limpa no mapa */
         <View style={styles.mapArea}>
@@ -233,7 +358,7 @@ const styles = StyleSheet.create({
   headerContainer: {
     backgroundColor: '#ffffff',
     paddingHorizontal: 16,
-    paddingBottom: 14,
+    paddingBottom: 18,
     borderBottomWidth: 1,
     borderBottomColor: '#f1f5f9',
   },
@@ -295,24 +420,66 @@ const styles = StyleSheet.create({
   },
   tabsPillContainer: {
     flexDirection: 'row',
-    backgroundColor: '#f1f5f9',
-    borderRadius: 14,
-    padding: 3,
+    alignItems: 'center',
+    gap: 8,
+    paddingVertical: 2,
+    paddingRight: 48,
   },
-  tabsPillContainerDark: {
-    backgroundColor: '#0f172a',
+  tabsViewport: {
+    position: 'relative',
+    width: '100%',
+    zIndex: 1,
   },
+  tabsScrollView: { alignSelf: 'stretch' },
+  tabsScrollWithLeftArrow: { marginLeft: 42 },
+  tabsScrollWithRightArrow: { marginRight: 42 },
+  scrollFade: {
+    position: 'absolute',
+    top: 0,
+    bottom: 0,
+    width: 42,
+    flexDirection: 'row',
+  },
+  leftScrollFade: { left: 0 },
+  rightScrollFade: { right: 0 },
+  scrollFadeSegment: { flex: 1 },
+  scrollArrow: {
+    position: 'absolute',
+    top: '50%',
+    marginTop: -17,
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 3,
+    backgroundColor: 'rgba(255,255,255,0.94)',
+    elevation: 2,
+    shadowColor: '#0f172a',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.12,
+    shadowRadius: 3,
+  },
+  leftScrollArrow: { left: 4 },
+  rightScrollArrow: { right: 4, backgroundColor: '#2563eb' },
+  rightScrollArrowDark: { backgroundColor: '#1d4ed8' },
+  scrollArrowDark: { backgroundColor: 'rgba(30,41,59,0.96)' },
   tabBtn: {
-    flex: 1,
+    flexShrink: 0,
+    minWidth: 96,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 6,
-    paddingVertical: 8,
-    borderRadius: 11,
+    gap: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'transparent',
   },
   tabBtnActive: {
     backgroundColor: '#ffffff',
+    borderColor: '#dbeafe',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.08,
@@ -323,6 +490,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '800',
     color: '#64748b',
+    flexShrink: 0,
   },
   tabBtnTextActive: {
     color: '#2563eb',

@@ -1,8 +1,8 @@
 import React from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import { DollarSign, FileText, Flame } from 'lucide-react-native';
 import { SectionCard, SectionHeader } from './SectionCard';
-import { formatItemNameExact } from '../../../utils/orderUtils';
+import { OrderItemChip } from '../../orders/OrderItemChip';
 
 interface ItemsSectionProps {
   items: any[];
@@ -45,42 +45,23 @@ export function ItemsSection({ items, handlingOptions, total, dark }: ItemsSecti
             const finalUnitPrice = finalTotalPrice / qty;
             const hasDiscount = discountValue > 0 || (unitPrice > 0 && unitPrice > finalUnitPrice + 0.01);
 
-            const handlingText = String(item.handlingType || item.handling || item.manuseio || item.handling_type || '').trim();
             const displayFinalPrice = finalTotalPrice;
             const displayOriginalPrice = hasDiscount ? (unitPrice * qty) : finalTotalPrice;
-
-            const opt = (handlingOptions || []).find((o: any) => 
-              String(o.label || '').trim().toLowerCase() === handlingText.toLowerCase()
-            );
-            const handlingColor = opt?.color || (dark ? '#94a3b8' : '#64748b');
-            const handlingBg = opt?.color ? `${opt.color}18` : (dark ? '#0f172a' : '#f1f5f9');
-            const handlingBorder = opt?.color ? `${opt.color}45` : (dark ? '#334155' : '#e2e8f0');
 
             const opportunityLabel = resolveOpportunityLabel(item);
 
             return (
               <View key={index} style={[styles.itemCard, dark && styles.itemCardDark]}>
                 <View style={styles.itemInfo}>
-                  <Text style={[styles.itemName, dark && styles.light]}>
-                    <Text style={styles.qty}>{qty}x</Text> {formatItemNameExact(item)}
-                  </Text>
-                  <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tagsRow}>
-                    {Boolean(opportunityLabel) && (
+                  <OrderItemChip item={item} handlingOptions={handlingOptions} dark={dark} />
+                  {opportunityLabel ? (
+                    <View style={styles.tagsRow}>
                       <View style={[styles.oppBadge, dark && styles.oppBadgeDark]}>
                         <Flame size={10} color={dark ? '#fbbf24' : '#d97706'} />
-                        <Text style={[styles.oppBadgeText, dark && styles.oppBadgeTextDark]}>
-                          {opportunityLabel}
-                        </Text>
+                        <Text style={[styles.oppBadgeText, dark && styles.oppBadgeTextDark]}>{opportunityLabel}</Text>
                       </View>
-                    )}
-                    {Boolean(handlingText) && (
-                      <View style={[styles.handlingBadge, { backgroundColor: handlingBg, borderColor: handlingBorder }]}>
-                        <Text style={[styles.itemHandling, { color: handlingColor }]}>
-                          {handlingText}
-                        </Text>
-                      </View>
-                    )}
-                  </ScrollView>
+                    </View>
+                  ) : null}
                 </View>
 
                 <View style={styles.priceContainer}>
@@ -120,7 +101,7 @@ const styles = StyleSheet.create({
   light: { color: '#f8fafc' },
   inline: { flexDirection: 'row', alignItems: 'center', gap: 5 },
   itemsListContainer: { gap: 8, marginTop: 4 },
-  tagsRow: { gap: 6, alignItems: 'center', paddingRight: 4 },
+  tagsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, alignItems: 'flex-start' },
   itemCard: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -138,9 +119,6 @@ const styles = StyleSheet.create({
     borderColor: '#334155',
   },
   itemInfo: { flex: 1, gap: 4 },
-  itemName: { fontSize: 13, fontWeight: '700', color: '#1e293b', lineHeight: 18 },
-  handlingBadge: { alignSelf: 'flex-start', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8, borderWidth: 1 },
-  itemHandling: { fontSize: 10, fontWeight: '800' },
   oppBadge: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -152,6 +130,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#fef3c7',
     borderWidth: 1,
     borderColor: '#fcd34d',
+    maxWidth: '100%',
   },
   oppBadgeDark: {
     backgroundColor: '#451a03',
@@ -163,11 +142,11 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
     letterSpacing: 0.5,
     color: '#92400e',
+    flexShrink: 1,
   },
   oppBadgeTextDark: {
     color: '#fcd34d',
   },
-  qty: { color: '#7c3aed', fontWeight: '900' },
   priceContainer: { alignItems: 'flex-end', justifyContent: 'center', gap: 1 },
   price: { fontSize: 13, fontWeight: '900', color: '#16a34a' },
   totalCard: { backgroundColor: '#f0fdf4', padding: 17, borderRadius: 20, borderWidth: 1, borderColor: '#bbf7d0', gap: 10 },

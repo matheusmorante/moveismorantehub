@@ -80,6 +80,35 @@ export const formatItemNameExact = (item: any): string => {
   return observation ? `${itemName} - ${observation}` : itemName;
 };
 
+const PRODUCT_NAME_SMALL_WORDS = new Set(['a', 'as', 'o', 'os', 'e', 'de', 'da', 'do', 'das', 'dos', 'em', 'no', 'na', 'nos', 'nas', 'para', 'por', 'com', 'sem']);
+const PRODUCT_NAME_ACRONYMS: Record<string, string> = {
+  abnt: 'ABNT',
+  led: 'LED',
+  mdf: 'MDF',
+  mdp: 'MDP',
+  rgb: 'RGB',
+  tv: 'TV',
+  usb: 'USB',
+  pvc: 'PVC',
+};
+
+/** Formats stored product names for readable UI without changing persisted values. */
+export const formatItemDisplayName = (item: any): string => {
+  const rawName = formatItemNameExact(item).trim();
+  if (!rawName) return rawName;
+
+  return rawName.split(/\s+/).map((word, index) => {
+    const lowerWord = word.toLocaleLowerCase('pt-BR');
+    const acronym = PRODUCT_NAME_ACRONYMS[lowerWord];
+    if (acronym) return acronym;
+    if (index > 0 && PRODUCT_NAME_SMALL_WORDS.has(lowerWord)) return lowerWord;
+
+    return lowerWord.replace(/(^|[-/])([a-zà-öø-ÿ])/g, (_match, separator: string, letter: string) =>
+      `${separator}${letter.toLocaleUpperCase('pt-BR')}`,
+    );
+  }).join(' ');
+};
+
 export const formatItemsListSummary = (items: any[]): string => {
   if (!Array.isArray(items) || items.length === 0) return '';
   return items

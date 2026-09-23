@@ -1,5 +1,5 @@
 import React from 'react';
-import { Alert, View, TouchableOpacity, StyleSheet, TextInput } from 'react-native';
+import { View, TouchableOpacity, StyleSheet, TextInput } from 'react-native';
 import { AudioLines, Send } from 'lucide-react-native';
 
 interface Props {
@@ -8,6 +8,7 @@ interface Props {
   isDarkMode?: boolean;
   onChangeInputText: (text: string) => void;
   onSendMessage: () => void;
+  onStartLive: () => void;
 }
 
 export const FinancialChatInputBar: React.FC<Props> = ({
@@ -16,6 +17,7 @@ export const FinancialChatInputBar: React.FC<Props> = ({
   isDarkMode,
   onChangeInputText,
   onSendMessage,
+  onStartLive,
 }) => {
   return (
     <View style={[styles.inputContainer, isDarkMode && styles.inputContainerDark]}>
@@ -43,10 +45,10 @@ export const FinancialChatInputBar: React.FC<Props> = ({
       ) : (
         <TouchableOpacity
           style={styles.voiceModeBtn}
-          onPress={() => Alert.alert('Voice Mode', 'A conversa por voz será ativada quando integrarmos a Gemini Live API.')}
+          onPress={onStartLive}
           accessibilityRole="button"
           accessibilityLabel="Voice Mode"
-          accessibilityHint="Aguardando integração com Gemini Live API"
+          accessibilityHint="Iniciar conversa por voz Gemini Live"
           activeOpacity={0.8}
         >
           <AudioLines size={18} color="#ffffff" />

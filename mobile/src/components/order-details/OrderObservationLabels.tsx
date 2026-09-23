@@ -35,12 +35,15 @@ export function OrderObservationLabels({ observations, dark }: { observations: O
 
   return <View style={[styles.container, dark && styles.dark]}>
     <View style={styles.heading}><AlertCircle size={16} color={dark ? "#fca5a5" : "#dc2626"} /><Text style={[styles.title, dark && styles.titleDark]}>Observações do pedido</Text></View>
-    <View style={styles.labels}>
-      {observations.map((item, index) => <View key={`${item.type}-${index}`} style={[styles.label, dark && styles.labelDark]}><Text style={[styles.text, dark && styles.textDark]}>{item.text}</Text></View>)}
-    </View>
+    <Text style={styles.labels}>
+      {observations.map((item, index) => <React.Fragment key={`${item.type}-${index}`}>
+        {index > 0 ? ' ' : null}
+        <Text style={[styles.label, dark && styles.labelDark]}>{item.text}</Text>
+      </React.Fragment>)}
+    </Text>
   </View>;
 }
 
 const styles = StyleSheet.create({
-  container: { padding: 14, borderRadius: 18, borderWidth: 1, gap: 10, backgroundColor: '#fef2f2', borderColor: '#fecaca' }, dark: { backgroundColor: '#1e293b', borderColor: '#ef4444' }, heading: { flexDirection: 'row', alignItems: 'center', gap: 7 }, title: { fontSize: 11, fontWeight: '900', color: '#dc2626', textTransform: 'uppercase' }, titleDark: { color: '#fca5a5' }, labels: { gap: 7 }, label: { alignSelf: 'flex-start', maxWidth: '100%', backgroundColor: '#fff', borderWidth: 1, borderColor: '#fecaca', borderRadius: 10, paddingHorizontal: 10, paddingVertical: 7 }, labelDark: { backgroundColor: '#0f172a', borderColor: '#7f1d1d' }, text: { flexShrink: 1, fontSize: 12, fontWeight: '800', color: '#991b1b', lineHeight: 17 }, textDark: { color: '#f8fafc' },
+  container: { padding: 14, borderRadius: 18, borderWidth: 1, gap: 10, backgroundColor: '#fef2f2', borderColor: '#fecaca' }, dark: { backgroundColor: '#1e293b', borderColor: '#ef4444' }, heading: { flexDirection: 'row', alignItems: 'center', gap: 7 }, title: { fontSize: 11, fontWeight: '900', color: '#dc2626', textTransform: 'uppercase' }, titleDark: { color: '#fca5a5' }, labels: { fontSize: 12, lineHeight: 32 }, label: { maxWidth: '100%', minWidth: 0, flexShrink: 1, backgroundColor: '#fff', borderWidth: 1, borderColor: '#fecaca', borderRadius: 10, paddingHorizontal: 10, paddingVertical: 7, fontSize: 12, fontWeight: '800', color: '#991b1b', lineHeight: 17 }, labelDark: { backgroundColor: '#0f172a', borderColor: '#7f1d1d', color: '#f8fafc' },
 });

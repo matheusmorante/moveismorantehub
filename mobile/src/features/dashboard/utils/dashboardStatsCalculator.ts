@@ -7,89 +7,94 @@ export interface DashboardStats {
   assembliesOutsideCount: number;
   assistancesCount: number;
   returnsCount: number;
+  salesOrdersCount: number;
 }
 
-export const calculateDashboardStats = (rawOrders: any[], settingsData: any, periodId: string): DashboardStats => {
-  if (!rawOrders || rawOrders.length === 0) {
-    return { deliveriesCount: 0, assembliesInternalCount: 0, assembliesOutsideCount: 0, assistancesCount: 0, returnsCount: 0 };
-  }
+const normalize = (value: unknown) => String(value ?? '')
+  .normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toLowerCase();
 
+const record = (value: unknown): Record<string, any> =>
+  value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, any> : {};
+
+const getOrderType = (order: Record<string, any>, data: Record<string, any>) =>
+  normalize(data.orderType || data.order_type || order.order_type || order.orderType || 'sale');
+
+const getOrderStatus = (order: Record<string, any>, data: Record<string, any>) =>
+  normalize(order.status || data.status || order.order_status || data.order_status);
+
+const isDraft = (status: string) => status === 'draft' || status === 'rascunho';
+
+const isDeleted = (order: Record<string, any>, data: Record<string, any>) =>
+  order.deleted === true || data.deleted === true || Boolean(order.deletedAt || order.deleted_at || data.deletedAt || data.deleted_at);
+
+const getScheduleDate = (order: Record<string, any>, data: Record<string, any>) => {
+  const shipping = record(data.shipping);
+  const schedule = record(shipping.scheduling || data.schedule || data.scheduling || order.schedule);
+  return schedule.date || schedule.startDate || order.scheduled_date || data.scheduledDate || '';
+};
+
+const getOrderDate = (order: Record<string, any>, data: Record<string, any>) =>
+  data.date || order.date || data.createdAt || data.created_at || order.created_at || '';
+
+const matchesPeriod = (date: unknown, period: string) =>
+  typeof date === 'string' && isDateInPeriod(date, period);
+
+export const calculateDashboardStats = (rawOrders: any[], settingsData: any, periodId: string): DashboardStats => {
+  const zero = { deliveriesCount: 0, assembliesInternalCount: 0, assembliesOutsideCount: 0, assistancesCount: 0, returnsCount: 0, salesOrdersCount: 0 };
+  if (!Array.isArray(rawOrders) || rawOrders.length === 0) return zero;
+
+  const settings = record(settingsData);
   const allHandlingOptions = [
-    ...(settingsData?.deliveryHandlingOptions || []),
-    ...(settingsData?.pickupHandlingOptions || [])
+    ...(Array.isArray(settings.deliveryHandlingOptions) ? settings.deliveryHandlingOptions : []),
+    ...(Array.isArray(settings.pickupHandlingOptions) ? settings.pickupHandlingOptions : []),
   ];
 
-  const activeOrders = rawOrders.filter((o: any) => {
-    const oData = o.order_data || {};
-    return !oData.deleted && !o.deleted;
-  });
+  const stats = { ...zero };
+  rawOrders.forEach((rawOrder: any) => {
+    const order = record(rawOrder);
+    const data = record(order.order_data);
+    const status = getOrderStatus(order, data);
+    if (isDeleted(order, data) || isDraft(status) || isCancelledOrder({ ...order, status, order_data: data })) return;
 
-  let dCount = 0;
-  let aIntCount = 0;
-  let aOutCount = 0;
-  let astCount = 0;
-  let retCount = 0;
+    const orderType = getOrderType(order, data);
+    const scheduleDate = getScheduleDate(order, data);
+    const orderDate = getOrderDate(order, data);
+    const isSale = orderType === 'sale' || orderType === 'venda';
+    const isAssistance = orderType === 'assistance' || orderType === 'assistencia';
+    const isReturn = orderType === 'return' || orderType === 'devolucao';
 
-  activeOrders.forEach((o: any) => {
-    const oData = o.order_data || {};
-    const orderStatus = (o.status || oData.status || '').toLowerCase();
-    if (orderStatus === 'draft' || orderStatus === 'rascunho' || isCancelledOrder(o)) return;
+    // Deliveries and pending assemblies represent upcoming work, not completed orders.
+    const isScheduled = status === 'scheduled' || status === 'agendado' || status === 'agendada';
+    const shipping = record(data.shipping);
+    const deliveryMethod = normalize(shipping.deliveryMethod || data.deliveryMethod || order.delivery_method);
+    const deliveryStatus = normalize(data.deliveryStatus || order.delivery_status);
+    const deliveryFinished = Boolean(data.deliveryFinishedAt || order.delivery_finished_at);
+    const hasDeliverySchedule = matchesPeriod(scheduleDate, periodId);
+    const isPickup = deliveryMethod === 'pickup' || deliveryMethod === 'retirada';
 
-    const shipping = oData.shipping || {};
-    const sched = shipping.scheduling || oData.schedule || oData.scheduling || o.schedule || {};
-    const rawSchedDate = sched.date || sched.startDate || o.scheduled_date || o.date || '';
-
-    const isInPeriod = isDateInPeriod(rawSchedDate || o.created_at, periodId);
-    if (!isInPeriod) return;
-
-    const items = oData.items || o.items || [];
-    const orderType = (oData.orderType || o.order_type || '').toLowerCase();
-
-    if (orderType === 'assistance') astCount++;
-    if (orderType === 'return') retCount++;
-
-    if (rawSchedDate || sched.date || orderType === 'delivery' || (!orderType || orderType === 'sale' || orderType === 'venda')) {
-      dCount++;
+    if (isScheduled && hasDeliverySchedule && !isPickup && !deliveryFinished && deliveryStatus !== 'completed' &&
+      (isSale || orderType === 'delivery' || orderType === 'entrega')) {
+      stats.deliveriesCount++;
     }
 
-    const orderHandling = (
-      oData.handlingType ||
-      oData.handling ||
-      oData.deliveryType ||
-      shipping.handlingType ||
-      shipping.handling ||
-      o.handling ||
-      o.handlingType ||
-      ''
-    ).toString();
+    if (isAssistance && matchesPeriod(scheduleDate || orderDate, periodId)) stats.assistancesCount++;
+    if (isReturn && matchesPeriod(orderDate, periodId)) stats.returnsCount++;
+    if (isSale && matchesPeriod(orderDate, periodId)) stats.salesOrdersCount++;
 
-    if (Array.isArray(items) && items.length > 0) {
-      items.forEach((item: any) => {
-        const itemHandling = (
-          item.handlingType ||
-          item.handling ||
-          item.handling_type ||
-          item.deliveryType ||
-          ''
-        ).toString();
-
-        const qty = Number(item.quantity || item.qty || 1);
-        const effectiveHandling = itemHandling || orderHandling;
-
-        if (isAssemblyOutsideType(effectiveHandling, allHandlingOptions)) {
-          aOutCount += qty;
-        } else if (isAssemblyInternalType(effectiveHandling, allHandlingOptions)) {
-          aIntCount += qty;
-        }
-      });
+    if (isScheduled && matchesPeriod(scheduleDate || orderDate, periodId)) {
+      const items = Array.isArray(data.items) ? data.items : Array.isArray(order.items) ? order.items : [];
+      const orderHandling = String(data.handlingType || data.handling || data.deliveryType || shipping.handlingType || shipping.handling || order.handling || order.handlingType || '');
+      for (const item of items) {
+        const itemData = record(item);
+        const itemHandling = String(itemData.handlingType || itemData.handling || itemData.handling_type || itemData.deliveryType || '');
+        const rawQuantity = Number(itemData.quantity ?? itemData.qty ?? 1);
+        const quantity = Number.isFinite(rawQuantity) && rawQuantity > 0 ? rawQuantity : 0;
+        const handling = itemHandling || orderHandling;
+        if (isAssemblyOutsideType(handling, allHandlingOptions)) stats.assembliesOutsideCount += quantity;
+        else if (isAssemblyInternalType(handling, allHandlingOptions)) stats.assembliesInternalCount += quantity;
+      }
     }
   });
 
-  return {
-    deliveriesCount: dCount,
-    assembliesInternalCount: aIntCount,
-    assembliesOutsideCount: aOutCount,
-    assistancesCount: astCount,
-    returnsCount: retCount,
-  };
+  return stats;
 };

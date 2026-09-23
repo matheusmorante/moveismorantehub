@@ -96,7 +96,7 @@ export const DeliveryBottomSheet: React.FC<Props> = ({
 
           <ScrollView style={styles.contentScroll} showsVerticalScrollIndicator={false} bounces={false}>
             {/* Cliente */}
-            <Text style={[styles.customerName, isDarkMode && styles.textLight]} numberOfLines={2}>
+            <Text style={[styles.customerName, isDarkMode && styles.textLight]}>
               {item.customerName}
             </Text>
 
@@ -306,6 +306,7 @@ const styles = StyleSheet.create({
     fontWeight: '900',
     color: '#0f172a',
     marginBottom: 4,
+    flexShrink: 1,
   },
   infoRow: {
     flexDirection: 'row',
@@ -319,6 +320,7 @@ const styles = StyleSheet.create({
     color: '#64748b',
     flex: 1,
     lineHeight: 16,
+    flexShrink: 1,
   },
   pillsRow: {
     flexDirection: 'row',
@@ -410,6 +412,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     paddingHorizontal: 9,
     paddingVertical: 4.5,
+    maxWidth: '100%',
   },
   obsTagDark: {
     backgroundColor: '#7f1d1d',
@@ -420,6 +423,7 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: '#b91c1c',
     lineHeight: 16,
+    flexShrink: 1,
   },
   obsTagTextDark: {
     color: '#fef2f2',

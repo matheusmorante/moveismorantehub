@@ -36,6 +36,7 @@ interface OrderListRow {
   is_stock_checked: boolean | null;
   is_registered_in_bling: boolean | null;
   item_handling: unknown;
+  deleted?: boolean | null;
 }
 
 const toListItem = (row: any): MobileOrderListItem => {
@@ -57,6 +58,7 @@ const toListItem = (row: any): MobileOrderListItem => {
     order_data: {
       ...data,
       id: String(row.id),
+      deleted: Boolean(data.deleted ?? row.deleted),
       orderIndex: data.orderIndex || data.order_index || orderNumber || String(row.id),
       status: orderStatus,
       orderType: orderType,
@@ -130,7 +132,7 @@ export const fetchMobileOrdersPage = async ({
   // 2. Fallback resiliente direto na tabela orders oficial (sempre existente e populada)
   let query = supabase
     .from('orders')
-    .select('id, order_number, status, customer_name, total_amount, created_at, updated_at, order_data', { count: 'exact' })
+    .select('id, order_number, status, customer_name, total_amount, created_at, updated_at, deleted, order_data', { count: 'exact' })
     .order('created_at', { ascending: false });
 
   const term = search.trim().replace(/[,%()]/g, '');
@@ -158,7 +160,8 @@ async function cacheOrders(items: MobileOrderListItem[]): Promise<MobileOrderLis
   try {
     await Promise.all(items.map((item) => OrderRepository.saveLocal({ id: item.id, status: item.status,
       orderType: item.order_type, customerName: item.customer_name, totalAmount: item.total_value,
-      orderData: item.order_data, version: item.version ?? 1, updatedAt: item.created_at ?? new Date().toISOString(),
+      orderData: { ...item.order_data, createdAt: item.created_at || item.order_data.createdAt || undefined },
+      version: item.version ?? 1, updatedAt: item.created_at ?? new Date().toISOString(),
       syncedAt: new Date().toISOString(), isPendingLocal: false })));
   } catch (error) {
     console.warn('[MobileOrders] Cache local indisponível; mantendo resposta remota:', error);
