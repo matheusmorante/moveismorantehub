@@ -7,8 +7,8 @@ const client = new Client({
 async function run() {
     await client.connect();
 
-    const newApkUrl = 'https://expo.dev/artifacts/eas/c6GuI7KSgOnw0kSY-zI9S_5dxaFMuc9lCT37XL-ynYE.apk';
-    const newMinBuild = 17;
+    const newApkUrl = 'https://expo.dev/artifacts/eas/VoGC59p8BCNpahUbSUGEQIpL0o14O9wj_5QYIFvcnqQ.apk';
+    const newMinBuild = 19;
 
     console.log('--- ATUALIZANDO CONFIGURAÇÃO DE BUILD E APK NO SUPABASE ---');
 
@@ -32,7 +32,12 @@ async function run() {
         [JSON.stringify(currentData)]
     );
 
+    if (updateRes.rowCount !== 1) {
+        throw new Error(`Esperava atualizar 1 configuração do app, mas atualizou ${updateRes.rowCount}.`);
+    }
+
     console.log('Configurações atualizadas com sucesso:');
+    console.log('requiredAndroidBuild:', currentData.mobileSettings.requiredAndroidBuild);
     console.log('minimumAndroidBuild:', currentData.mobileSettings.minimumAndroidBuild);
     console.log('androidUpdateUrl:', currentData.mobileSettings.androidUpdateUrl);
 

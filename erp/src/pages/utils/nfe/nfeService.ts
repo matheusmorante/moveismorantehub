@@ -102,8 +102,8 @@ export async function emitNfeForOrder(order: Order, customEnvironment?: 1 | 2): 
     });
 
     // 5. Envio e Assinatura Digital via Serverless Function Vercel
-    let protocolNumber = `141${yearMonth}${String(Math.floor(10000000 + Math.random() * 90000000))}`;
-    let protocolDate = now.toLocaleString('pt-BR');
+    let protocolNumber = '';
+    let protocolDate = '';
     let signedXml = xml;
 
     try {
@@ -121,14 +121,43 @@ export async function emitNfeForOrder(order: Order, customEnvironment?: 1 | 2): 
             })
         });
 
-        if (response.ok) {
-            const result = await response.json();
-            if (result.protocolNumber) protocolNumber = result.protocolNumber;
-            if (result.protocolDate) protocolDate = result.protocolDate;
-            if (result.signedXml) signedXml = result.signedXml;
+        const result = await response.json().catch(() => null);
+        protocolNumber = String(result?.protocolNumber || '').trim();
+        protocolDate = String(result?.protocolDate || '').trim();
+
+        if (
+            !response.ok
+            || result?.success !== true
+            || result?.cStat !== '100'
+            || result?.authorizedAccessKey !== accessKey
+            || !protocolNumber
+            || !protocolDate
+        ) {
+            return {
+                success: false,
+                accessKey,
+                nfeNumber,
+                series,
+                model,
+                environment,
+                error: result?.error || result?.xMotivo || 'A SEFAZ não confirmou a autorização. Consulte esta chave antes de tentar novamente.',
+                validation
+            };
         }
+
+        signedXml = String(result.signedXml || '');
     } catch (e) {
-        console.warn("[NFe Service] Backend /api/nfe/emit em modo fallback local:", e);
+        console.error('[NFe Service] Não foi possível confirmar a resposta da SEFAZ:', e);
+        return {
+            success: false,
+            accessKey,
+            nfeNumber,
+            series,
+            model,
+            environment,
+            error: 'Não foi possível confirmar o resultado da emissão. Consulte esta chave na SEFAZ antes de tentar novamente.',
+            validation
+        };
     }
 
     const danfeData: DanfeData = {
@@ -153,7 +182,7 @@ export async function emitNfeForOrder(order: Order, customEnvironment?: 1 | 2): 
         environment,
         protocolNumber,
         protocolDate,
-        xml,
+        xml: signedXml,
         emittedAt: now.toISOString(),
         status: 'autorizada' as const
     };
@@ -174,7 +203,7 @@ export async function emitNfeForOrder(order: Order, customEnvironment?: 1 | 2): 
             ambiente: environment,
             status: 'autorizada',
             motivo_status: 'Autorizado o uso da NF-e em ambiente de homologacao',
-            xml_nfe: xml,
+            xml_nfe: signedXml,
             numero_protocolo: protocolNumber,
             valor_total: order.paymentsSummary?.totalOrderValue || 0,
             destinatario_nome: order.customerData?.fullName || 'CONSUMIDOR FINAL',
@@ -193,7 +222,7 @@ export async function emitNfeForOrder(order: Order, customEnvironment?: 1 | 2): 
         environment,
         protocolNumber,
         protocolDate,
-        xml,
+        xml: signedXml,
         danfeData,
         validation
     };

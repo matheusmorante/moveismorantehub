@@ -3,8 +3,8 @@
     "name": "App Morante",
     "slug": "mobile",
     "scheme": "morantehub",
-    "version": "1.6.0",
-    "runtimeVersion": "1.6.0",
+    "version": "1.6.1",
+    "runtimeVersion": "1.6.1",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -52,7 +52,7 @@
     },
     "android": {
       "package": "com.morante.mobile",
-      "versionCode": 17,
+      "versionCode": 19,
       "googleServicesFile": "./google-services.json",
       "config": {
         "googleMaps": {
