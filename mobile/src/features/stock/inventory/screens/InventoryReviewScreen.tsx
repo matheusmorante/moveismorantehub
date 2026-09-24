@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator } from 'react-native';
-import { CheckCircle2, ArrowLeft } from 'lucide-react-native';
+import { CheckCircle2, ArrowLeft, AlertTriangle } from 'lucide-react-native';
 import type { AuditItem } from '../hooks/useInventoryAuditWorkflow';
 import { supabase } from '../../../../services/supabaseClient';
 
@@ -130,15 +130,35 @@ export const InventoryReviewScreen: React.FC<Props> = ({
                             <Text style={{ color: textPrimary, fontWeight: '800', fontSize: 16 }}>{adjustmentsCount}</Text>
                         </View>
                         <View style={styles.summaryRow}>
-                            <Text style={{ color: muted, fontWeight: '700' }}>Itens Ignorados</Text>
+                            <Text style={{ color: muted, fontWeight: '700' }}>Itens não contados</Text>
                             <Text style={{ color: textPrimary, fontWeight: '800', fontSize: 16 }}>{items.length - countedItems.length}</Text>
                         </View>
                     </View>
                 </View>
 
-                {itemsWithDifferences.length > 0 && (
+                {items.length - countedItems.length > 0 && (
+                    <View style={[styles.warningCard, { backgroundColor: isDarkMode ? 'rgba(217, 119, 6, 0.15)' : '#fffbeb', borderColor: '#f59e0b' }]}>
+                        <AlertTriangle size={20} color="#d97706" style={{ marginTop: 2 }} />
+                        <View style={{ flex: 1 }}>
+                            <Text style={[styles.warningTitle, { color: isDarkMode ? '#fbbf24' : '#92400e' }]}>Itens não contados ({items.length - countedItems.length})</Text>
+                            <Text style={[styles.warningDesc, { color: isDarkMode ? '#fde68a' : '#b45309' }]}>
+                                As variações que não receberam contagem permanecerão com o saldo intacto no sistema.
+                            </Text>
+                        </View>
+                    </View>
+                )}
+
+                {itemsWithDifferences.length === 0 ? (
+                    <View style={[styles.card, { backgroundColor: surface, borderColor: border, alignItems: 'center', padding: 24 }]}>
+                        <CheckCircle2 size={36} color="#10b981" style={{ marginBottom: 8 }} />
+                        <Text style={[styles.title, { color: textPrimary, fontSize: 16 }]}>Nenhuma divergência encontrada!</Text>
+                        <Text style={[styles.subtitle, { color: muted, textAlign: 'center', marginTop: 4 }]}>
+                            Todos os itens contados batem exatamente com o estoque reconciliado.
+                        </Text>
+                    </View>
+                ) : (
                     <View style={[styles.card, { backgroundColor: surface, borderColor: border }]}>
-                        <Text style={[styles.sectionTitle, { color: textPrimary }]}>Ajustes que serão lançados:</Text>
+                        <Text style={[styles.sectionTitle, { color: textPrimary }]}>Ajustes que serão lançados ({itemsWithDifferences.length}):</Text>
                         {itemsWithDifferences.map(item => (
                             <View key={item.id} style={[styles.diffItem, { borderBottomColor: border }]}>
                                 <View style={{ flex: 1, paddingRight: 8 }}>
@@ -192,4 +212,14 @@ const styles = StyleSheet.create({
     footer: { padding: 16, paddingBottom: 32, borderTopWidth: 1 },
     confirmBtn: { backgroundColor: '#10b981', paddingVertical: 16, borderRadius: 12, alignItems: 'center' },
     confirmBtnText: { color: '#ffffff', fontWeight: '800', fontSize: 16 },
+    warningCard: {
+        flexDirection: 'row',
+        alignItems: 'flex-start',
+        gap: 12,
+        padding: 16,
+        borderRadius: 14,
+        borderWidth: 1,
+    },
+    warningTitle: { fontSize: 14, fontWeight: '800', marginBottom: 2 },
+    warningDesc: { fontSize: 12, lineHeight: 18 },
 });

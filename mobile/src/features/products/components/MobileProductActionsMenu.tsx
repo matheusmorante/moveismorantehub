@@ -1,6 +1,6 @@
 import React from 'react';
 import { Alert, Modal, StyleSheet, Text, TouchableOpacity, TouchableWithoutFeedback, View } from 'react-native';
-import { Pencil, EyeOff, Eye, Trash2 } from 'lucide-react-native';
+import { Copy, Pencil, EyeOff, Eye, Trash2, Share2, Clock3 } from 'lucide-react-native';
 
 interface MobileProductActionsMenuProps {
   visible: boolean;
@@ -12,6 +12,11 @@ interface MobileProductActionsMenuProps {
   onEdit: (product: any) => void;
   onToggleActive: (id: string, active: boolean) => void;
   onDelete: (id: string, isDraft?: boolean) => void;
+  onDuplicate?: (product: any) => void;
+  onShare?: (product: any) => void;
+  onLaunchStock?: (product: any) => void;
+  onShowHistory?: (product: any) => void;
+  onShowOrders?: (product: any) => void;
 }
 
 export const MobileProductActionsMenu: React.FC<MobileProductActionsMenuProps> = ({
@@ -24,6 +29,11 @@ export const MobileProductActionsMenu: React.FC<MobileProductActionsMenuProps> =
   onEdit,
   onToggleActive,
   onDelete,
+  onDuplicate,
+  onShare,
+  onLaunchStock,
+  onShowHistory,
+  onShowOrders,
 }) => {
   const handleEdit = () => {
     onClose();
@@ -88,6 +98,37 @@ export const MobileProductActionsMenu: React.FC<MobileProductActionsMenuProps> =
                   Editar Produto
                 </Text>
               </TouchableOpacity>
+
+              {onDuplicate && (
+                <TouchableOpacity style={styles.menuItem} onPress={() => { onClose(); onDuplicate(product); }}>
+                  <Copy size={16} color="#4f46e5" />
+                  <Text style={[styles.menuItemText, dark && styles.lightText]}>Duplicar Produto</Text>
+                </TouchableOpacity>
+              )}
+              {onShare && (
+                <TouchableOpacity style={styles.menuItem} onPress={() => { onClose(); onShare(product); }}>
+                  <Share2 size={16} color="#059669" />
+                  <Text style={[styles.menuItemText, dark && styles.lightText]}>Compartilhar Produto</Text>
+                </TouchableOpacity>
+              )}
+              {onLaunchStock && product.itemType !== 'service' && (
+                <TouchableOpacity style={styles.menuItem} onPress={() => { onClose(); onLaunchStock(product); }}>
+                  <Share2 size={16} color="#059669" />
+                  <Text style={[styles.menuItemText, dark && styles.lightText]}>Movimentações de Estoque</Text>
+                </TouchableOpacity>
+              )}
+              {onShowHistory && (
+                <TouchableOpacity style={styles.menuItem} onPress={() => { onClose(); onShowHistory(product); }}>
+                  <Clock3 size={16} color="#64748b" />
+                  <Text style={[styles.menuItemText, dark && styles.lightText]}>Histórico de Preços</Text>
+                </TouchableOpacity>
+              )}
+              {onShowOrders && (
+                <TouchableOpacity style={styles.menuItem} onPress={() => { onClose(); onShowOrders(product); }}>
+                  <Share2 size={16} color="#2563eb" />
+                  <Text style={[styles.menuItemText, dark && styles.lightText]}>Pedidos Vinculados</Text>
+                </TouchableOpacity>
+              )}
 
               {/* Se RASCUNHO: Apenas opção de Descartar Rascunho */}
               {isDraft ? (

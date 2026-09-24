@@ -1,0 +1,61 @@
+{
+  "sales_order": {
+    "printerName": "EPSON L3250 Series",
+    "paperSize": "A4",
+    "orientation": "portrait",
+    "copies": 1,
+    "scale": 0.92,
+    "quality": "normal",
+    "monochrome": false,
+    "margins": {
+      "top": "5mm",
+      "right": "5mm",
+      "bottom": "5mm",
+      "left": "5mm"
+    }
+  },
+  "receipt": {
+    "printerName": "EPSON L3250 Series",
+    "paperSize": "A4",
+    "orientation": "portrait",
+    "copies": 1,
+    "scale": 1,
+    "quality": "normal",
+    "monochrome": true,
+    "margins": {
+      "top": "5mm",
+      "right": "5mm",
+      "bottom": "5mm",
+      "left": "5mm"
+    }
+  },
+  "danfe": {
+    "printerName": "EPSON L3250 Series",
+    "paperSize": "A4",
+    "orientation": "portrait",
+    "copies": 1,
+    "scale": 1,
+    "quality": "normal",
+    "monochrome": false,
+    "margins": {
+      "top": "0mm",
+      "right": "0mm",
+      "bottom": "0mm",
+      "left": "0mm"
+    }
+  },
+  "test": {
+    "printerName": "EPSON L3250 Series",
+    "paperSize": "A4",
+    "orientation": "portrait",
+    "copies": 1,
+    "scale": 1,
+    "margins": {
+      "top": "10mm",
+      "right": "10mm",
+      "bottom": "10mm",
+      "left": "10mm"
+    },
+    "quality": "draft"
+  }
+}

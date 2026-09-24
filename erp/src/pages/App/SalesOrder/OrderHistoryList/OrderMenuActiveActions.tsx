@@ -2,6 +2,7 @@ import React from "react";
 import Order from "../../../types/order.type";
 import { buttons } from "../OrderActions/orderActionsConfig";
 import PostSaleActionMenuButton, { isPostSaleAction } from "./PostSaleActionMenuButton";
+import UndoFulfillmentButton from "./UndoFulfillmentButton";
 import CancelScheduledSaleButton from "./CancelScheduledSaleButton";
 import { canGenerateReturn } from "@/pages/utils/returnPolicy";
 
@@ -108,6 +109,12 @@ export const OrderMenuActiveActions: React.FC<OrderMenuActiveActionsProps> = ({
                     </button>
                 );
             })}
+
+            <UndoFulfillmentButton
+                order={order}
+                onStatusUpdate={onStatusUpdate}
+                onCloseMenu={onCloseMenu}
+            />
 
             <CancelScheduledSaleButton
                 order={order}

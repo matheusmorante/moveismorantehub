@@ -49,8 +49,12 @@ export const InboundInvoiceMappingsModal: React.FC<Props> = ({ invoice, visible,
   const [supplierId, setSupplierId] = useState('');
   const [supplierSearch, setSupplierSearch] = useState('');
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
+  const [supplierSearchError, setSupplierSearchError] = useState('');
+  const [supplierSearchLoading, setSupplierSearchLoading] = useState(false);
   const [queries, setQueries] = useState<Record<number, string>>({});
   const [products, setProducts] = useState<Record<number, Product[]>>({});
+  const [productSearchLoading, setProductSearchLoading] = useState<Record<number, boolean>>({});
+  const [productSearchErrors, setProductSearchErrors] = useState<Record<number, string>>({});
   const [suggestions, setSuggestions] = useState<Record<number, ProductSuggestion[]>>({});
   const [dismissedSuggestions, setDismissedSuggestions] = useState<Record<number, boolean>>({});
   const [suggestionsLoading, setSuggestionsLoading] = useState(false);
@@ -68,6 +72,7 @@ export const InboundInvoiceMappingsModal: React.FC<Props> = ({ invoice, visible,
   const [registrationOptionsVisible, setRegistrationOptionsVisible] = useState(false);
   const [parentSearch, setParentSearch] = useState('');
   const [parentResults, setParentResults] = useState<any[]>([]);
+  const [parentSearchError, setParentSearchError] = useState('');
   const [parentSearchLoading, setParentSearchLoading] = useState(false);
   const suggestionCache = useRef(new Map<string, Promise<Product[]>>());
   const suggestionRunKey = useRef('');
@@ -138,13 +143,21 @@ export const InboundInvoiceMappingsModal: React.FC<Props> = ({ invoice, visible,
   useEffect(() => {
     if (!visible || supplierSearch.trim().length < 2 || supplierId) {
       setSuppliers([]);
+      setSupplierSearchError('');
+      setSupplierSearchLoading(false);
       return;
     }
     let active = true;
     const timer = setTimeout(() => {
+      setSupplierSearchLoading(true);
+      setSuppliers([]);
       void stockService.searchInboundInvoiceSuppliers(supplierSearch)
-        .then((rows) => { if (active) setSuppliers(rows as Supplier[]); })
-        .catch((error) => console.warn('[InboundInvoiceMappings] supplier search failed', error));
+        .then((rows) => { if (active) { setSuppliers(rows as Supplier[]); setSupplierSearchError(''); } })
+        .catch((error) => {
+          console.warn('[InboundInvoiceMappings] supplier search failed', error);
+          if (active) { setSuppliers([]); setSupplierSearchError('Não foi possível buscar fornecedores. Tente novamente.'); }
+        })
+        .finally(() => { if (active) setSupplierSearchLoading(false); });
     }, 250);
     return () => { active = false; clearTimeout(timer); };
   }, [visible, supplierSearch, supplierId]);
@@ -152,14 +165,20 @@ export const InboundInvoiceMappingsModal: React.FC<Props> = ({ invoice, visible,
   useEffect(() => {
     if (!registrationOptionsVisible || parentSearch.trim().length < 2) {
       setParentResults([]);
+      setParentSearchError('');
+      setParentSearchLoading(false);
       return;
     }
     let active = true;
     const timer = setTimeout(() => {
       setParentSearchLoading(true);
+      setParentResults([]);
       void stockService.searchInboundInvoiceProductParents(parentSearch)
-        .then((rows) => { if (active) setParentResults(rows); })
-        .catch((error) => console.warn('[InboundInvoiceMappings] parent product search failed', error))
+        .then((rows) => { if (active) { setParentResults(rows); setParentSearchError(''); } })
+        .catch((error) => {
+          console.warn('[InboundInvoiceMappings] parent product search failed', error);
+          if (active) { setParentResults([]); setParentSearchError('Não foi possível buscar produtos-pai. Tente novamente.'); }
+        })
         .finally(() => { if (active) setParentSearchLoading(false); });
     }, 250);
     return () => { active = false; clearTimeout(timer); };
@@ -171,12 +190,21 @@ export const InboundInvoiceMappingsModal: React.FC<Props> = ({ invoice, visible,
     const timers = Object.entries(queries).map(([itemNumber, query]) => {
       if (query.trim().length < 2) {
         setProducts((current) => ({ ...current, [itemNumber]: [] }));
+        setProductSearchErrors((current) => ({ ...current, [itemNumber]: '' }));
+        setProductSearchLoading((current) => ({ ...current, [itemNumber]: false }));
         return null;
       }
       return setTimeout(() => {
+        setProductSearchErrors((current) => ({ ...current, [itemNumber]: '' }));
+        setProductSearchLoading((current) => ({ ...current, [itemNumber]: true }));
+        setProducts((current) => ({ ...current, [itemNumber]: [] }));
         void stockService.searchInboundInvoiceProducts(query.trim())
           .then((rows) => { if (active) setProducts((current) => ({ ...current, [itemNumber]: rows as Product[] })); })
-          .catch((error) => console.warn('[InboundInvoiceMappings] product search failed', error));
+          .catch((error) => {
+            console.warn('[InboundInvoiceMappings] product search failed', error);
+            if (active) setProductSearchErrors((current) => ({ ...current, [itemNumber]: 'Não foi possível buscar produtos. Tente novamente.' }));
+          })
+          .finally(() => { if (active) setProductSearchLoading((current) => ({ ...current, [itemNumber]: false })); });
       }, 250);
     }).filter(Boolean);
     return () => { active = false; timers.forEach((timer) => clearTimeout(timer as ReturnType<typeof setTimeout>)); };
@@ -240,6 +268,9 @@ export const InboundInvoiceMappingsModal: React.FC<Props> = ({ invoice, visible,
       matchedVariationId: undefined,
       productErpName: undefined,
       linkedProductCode: undefined,
+      sellingPrice: undefined,
+      compositionLinks: [],
+      linkMode: 'single' as const,
     }));
     if (await persist(cleared, supplier.id)) {
       setSupplierSearch('');
@@ -302,7 +333,7 @@ export const InboundInvoiceMappingsModal: React.FC<Props> = ({ invoice, visible,
       description: item.additionalDescription || '',
       itemType: 'product',
       mainSupplierId: supplierId,
-      costPrice: String(amount(item.unitCost)),
+      costPrice: String(landedUnitCost(item)),
       unitPrice: '',
       stock: '0',
       hasVariations: false,
@@ -459,6 +490,8 @@ export const InboundInvoiceMappingsModal: React.FC<Props> = ({ invoice, visible,
                     <Search size={17} color="#94a3b8" />
                     <TextInput value={supplierSearch} onChangeText={setSupplierSearch} placeholder="Buscar fornecedor" placeholderTextColor="#94a3b8" style={[styles.input, isDarkMode && styles.textDark]} />
                   </View>
+                  {supplierSearchLoading ? <ActivityIndicator style={{ margin: 12 }} color="#2563eb" /> : null}
+                  {supplierSearchError ? <Text style={styles.errorText}>{supplierSearchError}</Text> : null}
                   {suppliers.map((supplier) => (
                     <TouchableOpacity key={supplier.id} style={styles.resultRow} onPress={() => void chooseSupplier(supplier)}>
                       <Text style={[styles.itemName, isDarkMode && styles.textDark]}>{supplier.full_name}</Text>
@@ -643,6 +676,8 @@ export const InboundInvoiceMappingsModal: React.FC<Props> = ({ invoice, visible,
                                 style={[styles.input, isDarkMode && styles.textDark]}
                               />
                             </View>
+                            {productSearchErrors[item.itemNumber] ? <Text style={[styles.error, { marginTop: 8 }]}>{productSearchErrors[item.itemNumber]}</Text> : null}
+                            {productSearchLoading[item.itemNumber] ? <ActivityIndicator style={{ margin: 12 }} color="#2563eb" /> : null}
                             {(products[item.itemNumber] || []).map((product) => (
                               <TouchableOpacity key={`${product.productId}:${product.variationId || 'product'}`} disabled={saving} style={styles.resultRow} onPress={() => void linkProduct(item, product)}>
                                 <View style={{ flex: 1 }}>
@@ -652,7 +687,7 @@ export const InboundInvoiceMappingsModal: React.FC<Props> = ({ invoice, visible,
                                 <Link2 size={18} color="#2563eb" />
                               </TouchableOpacity>
                             ))}
-                            {(queries[item.itemNumber] || '').trim().length >= 2 && (products[item.itemNumber] || []).length === 0 && !saving ? (
+                            {(queries[item.itemNumber] || '').trim().length >= 2 && !productSearchLoading[item.itemNumber] && !productSearchErrors[item.itemNumber] && (products[item.itemNumber] || []).length === 0 && !saving ? (
                               <Text style={[styles.muted, { marginTop: 10 }]}>Nenhum produto encontrado.</Text>
                             ) : null}
                             {isComposition && composition.length === 0 ? <Text style={styles.lockedText}>Adicione ao menos um produto para formar a composição.</Text> : null}
@@ -692,6 +727,7 @@ export const InboundInvoiceMappingsModal: React.FC<Props> = ({ invoice, visible,
             <Text style={[styles.sectionTitle, isDarkMode && styles.textDark, { marginTop: 16 }]}>Adicionar variação a um produto existente</Text>
             <View style={[styles.searchBox, isDarkMode && styles.searchBoxDark]}><Search size={17} color="#94a3b8" /><TextInput value={parentSearch} onChangeText={setParentSearch} placeholder="Buscar produto pai por nome ou SKU" placeholderTextColor="#94a3b8" style={[styles.input, isDarkMode && styles.textDark]} /></View>
             {parentSearchLoading ? <ActivityIndicator style={{ margin: 12 }} color="#2563eb" /> : null}
+            {parentSearchError ? <Text style={styles.errorText}>{parentSearchError}</Text> : null}
             {parentResults.map((parent) => <TouchableOpacity key={parent.id} style={styles.resultRow} onPress={() => startVariationRegistration(parent)}><View style={{ flex: 1 }}><Text style={[styles.itemName, isDarkMode && styles.textDark]}>{parent.name}</Text><Text style={styles.muted}>SKU: {parent.code || '—'} · {(parent.product_variations || []).length} variações</Text></View><Plus size={18} color="#2563eb" /></TouchableOpacity>)}
           </ScrollView>
         </SafeAreaView>
@@ -777,6 +813,7 @@ const styles = StyleSheet.create({
   multiplierInputDark: { color: '#f8fafc', borderColor: '#475569', backgroundColor: '#0f172a' },
   removeButton: { padding: 9 },
   error: { color: '#dc2626', padding: 8 },
+  errorText: { color: '#dc2626', fontSize: 12, marginTop: 8 },
   doneButton: { alignSelf: 'flex-end', flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 12, paddingHorizontal: 20, backgroundColor: '#2563eb', borderRadius: 12, marginTop: 8 },
   doneText: { color: '#fff', fontWeight: '800' },
 });

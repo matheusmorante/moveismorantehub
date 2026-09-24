@@ -56,6 +56,11 @@ const INITIAL_FORM = {
   code: '',
   slug: '',
   itemType: 'product',
+  environment: '',
+  includeEnvironment: true,
+  includeBrand: true,
+  titleOrder: ['type', 'environment', 'line', 'brand', 'complement'],
+  featured: false,
   condition: 'novo',
   category: '',
   categoryId: '',
@@ -113,6 +118,7 @@ export const ProductFormScreen: React.FC<Props> = ({
   const [requirementsLoaded, setRequirementsLoaded] = useState(false);
   const [requirementsError, setRequirementsError] = useState(false);
   const tabScrollRef = useRef<ScrollView>(null);
+  const dirtyRef = useRef(false);
 
   const categoryIds: string[] = Array.isArray(formData.categoryIds) && formData.categoryIds.length
     ? formData.categoryIds
@@ -179,12 +185,25 @@ export const ProductFormScreen: React.FC<Props> = ({
 
   // Wrapper estável para setFormData (aceita função ou objeto)
   const setFormData = useCallback((fn: any) => {
+    dirtyRef.current = true;
     setFormDataRaw((prev: any) => (typeof fn === 'function' ? fn(prev) : { ...prev, ...fn }));
   }, []);
+
+  const handleRequestClose = useCallback(() => {
+    if (!dirtyRef.current) {
+      onClose();
+      return;
+    }
+    Alert.alert('Descartar alterações?', 'Existem alterações não salvas neste produto.', [
+      { text: 'Continuar editando', style: 'cancel' },
+      { text: 'Descartar', style: 'destructive', onPress: onClose },
+    ]);
+  }, [onClose]);
 
   // Preenche o formulário ao abrir (edição) ou limpa (criação)
   useEffect(() => {
     if (!visible) return;
+    dirtyRef.current = false;
     if (product) {
       const productCategories = Array.isArray(product.product_categories)
         ? product.product_categories.map((relation: any) => relation.category_id || relation.categories?.id || relation.id).filter(Boolean)
@@ -221,6 +240,11 @@ export const ProductFormScreen: React.FC<Props> = ({
         seoDescription: product.seo_description || product.seoDescription || '',
         code: product.code || '',
         itemType: product.item_type || product.itemType || 'product',
+        environment: product.environment || '',
+        includeEnvironment: product.include_environment !== false,
+        includeBrand: product.include_brand !== false,
+        titleOrder: Array.isArray(product.title_order) ? product.title_order : INITIAL_FORM.titleOrder,
+        featured: Boolean(product.featured),
         condition: product.condition || (product.is_salvado ? 'salvado' : 'novo'),
         category: product.category || '',
         categoryId: product.category_id || product.categoryId || '',
@@ -333,7 +357,7 @@ export const ProductFormScreen: React.FC<Props> = ({
         console.warn('[ProductFormScreen] Erro ao obter próximo código:', err);
       });
     }
-    setActiveTab('geral');
+    setActiveTab(product?.selectedVariationId ? 'variacoes' : 'geral');
   }, [visible, product, initialData]);
 
   // Validação antes de salvar
@@ -346,6 +370,17 @@ export const ProductFormScreen: React.FC<Props> = ({
       return false;
     }
     if (!isDraft) {
+      if (formData.itemType === 'composition') {
+        const componentCount = (Array.isArray(formData.variations) ? formData.variations : [])
+          .reduce((total: number, variation: any) => total + (Array.isArray(variation.comboItems) ? variation.comboItems.length : 0), 0);
+        const fallbackCount = Array.isArray(formData.comboItems) ? formData.comboItems.length : 0;
+        if (Math.max(componentCount, fallbackCount) < 2) {
+          Alert.alert('Componentes obrigatórios', 'Vincule pelo menos 2 produtos componentes na aba Variações.', [
+            { text: 'OK', onPress: () => setActiveTab('variacoes') },
+          ]);
+          return false;
+        }
+      }
       if (formData.itemType !== 'service' && !(Array.isArray(formData.categoryIds) && formData.categoryIds.length > 0) && !formData.category && !formData.categoryId) {
         Alert.alert('Campo Obrigatório', 'Selecione a categoria do produto.', [
           { text: 'OK', onPress: () => setActiveTab('geral') },
@@ -458,6 +493,7 @@ export const ProductFormScreen: React.FC<Props> = ({
           status: saveAsDraft ? 'draft' : product?.status === 'published' ? (variation.status || 'published') : 'hidden',
         })),
       });
+      dirtyRef.current = false;
       onClose();
     } catch (err: any) {
       Alert.alert('Erro ao Salvar', err?.message || 'Falha ao salvar o produto. Tente novamente.');
@@ -547,7 +583,7 @@ export const ProductFormScreen: React.FC<Props> = ({
   };
 
   return (
-    <Modal visible={visible} animationType="slide" presentationStyle="fullScreen" onRequestClose={onClose}>
+    <Modal visible={visible} animationType="slide" presentationStyle="fullScreen" onRequestClose={handleRequestClose}>
       <SafeAreaView style={[styles.safeArea, dark && styles.darkBg]}>
         <StatusBar barStyle={dark ? 'light-content' : 'dark-content'} />
         <KeyboardAvoidingView
@@ -557,12 +593,12 @@ export const ProductFormScreen: React.FC<Props> = ({
         >
           {/* ── Header ── */}
           <View style={[styles.header, dark && styles.darkHeader]}>
-            <TouchableOpacity onPress={onClose} style={[styles.backBtn, dark && styles.darkBtn]}>
+            <TouchableOpacity onPress={handleRequestClose} style={[styles.backBtn, dark && styles.darkBtn]}>
               <ChevronLeft size={20} color={dark ? '#94a3b8' : '#475569'} />
             </TouchableOpacity>
             <View style={styles.headerCenter}>
               <Text style={[styles.headerTitle, dark && styles.lightText]} numberOfLines={1}>
-                {product ? 'Editar Produto' : 'Cadastro de Produto'}
+                {product?.id ? 'Editar Produto' : 'Cadastro de Produto'}
               </Text>
               <View style={styles.headerMeta}>
                 {formData.code ? <Text style={styles.headerCode}>{formData.code}</Text> : null}
@@ -579,7 +615,7 @@ export const ProductFormScreen: React.FC<Props> = ({
               </View>
             </View>
             {!product?.id && <TouchableOpacity
-              onPress={onClose}
+              onPress={handleRequestClose}
               style={[styles.closeBtn, dark && styles.darkBtn]}
             >
               <X size={18} color={dark ? '#94a3b8' : '#475569'} />
@@ -655,7 +691,7 @@ export const ProductFormScreen: React.FC<Props> = ({
             )}
 
             <TouchableOpacity
-              onPress={onClose}
+              onPress={handleRequestClose}
               disabled={saving}
               style={[styles.discardBtn, dark && styles.darkBtn]}
               accessibilityRole="button"

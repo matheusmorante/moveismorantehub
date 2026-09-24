@@ -20,6 +20,7 @@ import BlingConfigSection from './components/BlingConfigSection';
 import FiscalSettingsSection from './components/FiscalSettingsSection';
 import ScannerConfigSection from './components/ScannerConfigSection';
 import CompanySettingsSection from './components/CompanySettingsSection';
+import PrintConfigSection from './components/PrintConfigSection';
 
 import { settingsCategories } from './components/settingsCategories';
 
@@ -212,6 +213,10 @@ export default function Settings({ module }: { module?: SettingsModule }): any {
 
                     <SettingsSection id="bling" title="Integração Bling (API v3)" icon="bi-clouds-fill" isVisible={isVisible('bling')} isSearching={!!search.trim()} isAdminOnly={isAdminGroup('bling')}>
                         <BlingConfigSection settings={settings} onChange={handleChange} />
+                    </SettingsSection>
+
+                    <SettingsSection id="impressao" title="Impressão Direta (Windows)" icon="bi-printer-fill" isVisible={isVisible('impressao')} isSearching={!!search.trim()} isAdminOnly={isAdminGroup('impressao')}>
+                        <PrintConfigSection />
                     </SettingsSection>
 
 

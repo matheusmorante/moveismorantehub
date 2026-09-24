@@ -27,8 +27,20 @@ export const saveComposition = async (
         compId = data.id;
     }
 
-    // Upsert Variations (simplificado para uma variação padrão por enquanto)
-    for (const v of variations) {
+    // Toda composição possui ao menos uma variação operacional. O pai serve
+    // apenas para agrupamento; itens, estoque e futuras movimentações usam a
+    // variação filha.
+    const variationsToSave = variations.length > 0
+        ? variations
+        : [{
+            name: composition.name || 'Padrão',
+            sku: composition.sku,
+            active: composition.active !== false,
+            items: [],
+        }];
+
+    // Upsert das variações
+    for (const v of variationsToSave) {
         let varId = v.id;
         const varData = {
             composition_id: compId,

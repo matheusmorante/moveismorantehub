@@ -1,8 +1,9 @@
-import { useState, useCallback, useRef } from 'react';
-import { getNextInventoryCode } from '../../../../services/stockService';
+import { useState, useCallback, useRef, useEffect } from 'react';
+import { getNextInventoryCode, fetchInventorySessionDetails, saveInventoryDraft, deleteInventoryDraft } from '../../../../services/stockService';
 import { supabase } from '../../../../services/supabaseClient';
 import { Alert, Platform } from 'react-native';
 import type { ScopeConfiguration } from './useInventoryScopeBuilder';
+import type { InventorySession } from '../../types/stock.types';
 
 export interface AuditItem {
     id: string;
@@ -19,7 +20,9 @@ export interface AuditItem {
 
 export const useInventoryAuditWorkflow = (
     userProfile: { id: string; full_name?: string; fullName?: string } | null,
-    onClose: () => void
+    onClose: () => void,
+    initialSession?: InventorySession | null,
+    copiedItems?: any[] | null
 ) => {
     const [view, setView] = useState<'scope' | 'operation' | 'review'>('scope');
     const [items, setItems] = useState<AuditItem[]>([]);
@@ -29,6 +32,102 @@ export const useInventoryAuditWorkflow = (
     const draftRef = useRef<{ id?: string; code?: string; markerMoveId?: string; date?: string }>({});
 
     const createItemId = () => Math.random().toString(36).slice(2) + Date.now().toString(36);
+
+    // Inicialização ao continuar inventário existente ou duplicar
+    useEffect(() => {
+        let isMounted = true;
+
+        const initializeFlow = async () => {
+            if (initialSession) {
+                setIsSaving(true);
+                try {
+                    const details = await fetchInventorySessionDetails(initialSession.id);
+                    if (!isMounted) return;
+
+                    const code = initialSession.inventoryCode || initialSession.id.split('-')[0];
+                    draftRef.current = {
+                        id: initialSession.id,
+                        code,
+                        markerMoveId: initialSession.id,
+                        date: initialSession.created_at,
+                    };
+
+                    const restoredItems: AuditItem[] = (details?.items || []).map((it: any) => ({
+                        id: createItemId(),
+                        key: `${it.productId}-${it.variationId || 'main'}`,
+                        productId: it.productId,
+                        variationId: it.variationId,
+                        name: it.name,
+                        supplierNames: it.assignedSupplier || 'Fábrica não informada',
+                        assignedSupplier: it.assignedSupplier || 'Sem fornecedor',
+                        systemStock: it.systemStock || 0,
+                        physicalCount: it.physicalCount !== undefined ? it.physicalCount : null,
+                        unit: it.unit || 'UN',
+                    }));
+
+                    setItems(restoredItems);
+                    setScopeConfig({
+                        name: details?.name || `Inventário #${code}`,
+                        blindCount: Boolean(details?.blindCount),
+                        hasStages: Boolean(details?.hasStages),
+                        responsibleId: details?.responsibleId || userProfile?.id || '',
+                        scopeType: details?.scopeType || 'custom',
+                    });
+                    setView('operation');
+                } catch (error) {
+                    console.error('Erro ao restaurar inventário em andamento:', error);
+                    Alert.alert('Erro', 'Não foi possível carregar os dados do inventário.');
+                } finally {
+                    if (isMounted) setIsSaving(false);
+                }
+            } else if (copiedItems && copiedItems.length > 0) {
+                setIsSaving(true);
+                try {
+                    const code = await getNextInventoryCode();
+                    if (!isMounted) return;
+
+                    draftRef.current = {
+                        id: require('uuid').v4 ? require('uuid').v4() : Math.random().toString(36).slice(2),
+                        code,
+                        date: new Date().toISOString(),
+                    };
+
+                    const duplicatedItems: AuditItem[] = copiedItems.map((it: any) => ({
+                        id: createItemId(),
+                        key: `${it.productId}-${it.variationId || 'main'}`,
+                        productId: it.productId,
+                        variationId: it.variationId,
+                        name: it.name,
+                        supplierNames: it.assignedSupplier || it.supplierNames || 'Fábrica não informada',
+                        assignedSupplier: it.assignedSupplier || 'Sem fornecedor',
+                        systemStock: it.systemStock || 0,
+                        physicalCount: null, // Zerado para nova contagem
+                        unit: it.unit || 'UN',
+                    }));
+
+                    setItems(duplicatedItems);
+                    setScopeConfig({
+                        name: `Inventário #${code} (Cópia)`,
+                        blindCount: false,
+                        hasStages: false,
+                        responsibleId: userProfile?.id || '',
+                        scopeType: 'custom',
+                    });
+                    setView('operation');
+                } catch (error) {
+                    console.error('Erro ao duplicar inventário:', error);
+                } finally {
+                    if (isMounted) setIsSaving(false);
+                }
+            }
+        };
+
+        void initializeFlow();
+
+        return () => {
+            isMounted = false;
+        };
+    }, [initialSession, copiedItems, userProfile?.id]);
 
     const handleConfirmScope = async (config: ScopeConfiguration) => {
         const initialItems = config.itemsSnapshot.map(snapshot => ({
@@ -53,13 +152,69 @@ export const useInventoryAuditWorkflow = (
             scopeType: config.type,
         });
 
-        
         const code = await getNextInventoryCode();
         draftRef.current.code = code;
         draftRef.current.date = new Date().toISOString();
         
         setView('operation');
     };
+
+    const handleSaveDraft = useCallback(async (closeAfterSave = false) => {
+        if (!items.length) {
+            if (closeAfterSave) onClose();
+            return;
+        }
+
+        setIsSaving(true);
+        try {
+            const auditId = draftRef.current.id || (require('uuid').v4 ? require('uuid').v4() : Math.random().toString(36).slice(2));
+            const code = draftRef.current.code || await getNextInventoryCode();
+            const auditDate = draftRef.current.date || new Date().toISOString();
+
+            const auditObservation = {
+                inventoryAudit: true,
+                inventoryCode: code,
+                status: 'in_progress',
+                name: scopeConfig?.name || `Inventário #${code}`,
+                blindCount: scopeConfig?.blindCount ?? false,
+                hasStages: scopeConfig?.hasStages ?? false,
+                responsibleId: scopeConfig?.responsibleId || userProfile?.id,
+                responsibleName: userProfile?.fullName || userProfile?.full_name || 'Usuário',
+                items: items.map(({ productId, variationId, name, systemStock, physicalCount, assignedSupplier }) => ({
+                    productId,
+                    variationId,
+                    name,
+                    systemStock,
+                    physicalCount,
+                    assignedSupplier
+                })),
+            };
+
+            const markerId = await saveInventoryDraft({
+                markerMoveId: draftRef.current.markerMoveId,
+                code,
+                auditId,
+                observation: auditObservation,
+                date: auditDate,
+            });
+
+            draftRef.current.markerMoveId = markerId;
+            draftRef.current.id = auditId;
+            draftRef.current.code = code;
+
+            if (closeAfterSave) {
+                Alert.alert('Rascunho salvo', `Inventário #${code} salvo como rascunho.`);
+                onClose();
+            } else {
+                Alert.alert('Rascunho salvo', `Progresso do Inventário #${code} salvo com sucesso!`);
+            }
+        } catch (error) {
+            console.error('Erro ao salvar rascunho de inventário:', error);
+            Alert.alert('Erro', 'Não foi possível salvar o rascunho.');
+        } finally {
+            setIsSaving(false);
+        }
+    }, [items, scopeConfig, userProfile, onClose]);
 
     const handleFinalize = async (itemsWithAdjustment: Array<AuditItem & { reconciledExpected: number, difference: number }>) => {
         console.log('UI LOG: handleFinalize called!');
@@ -84,6 +239,14 @@ export const useInventoryAuditWorkflow = (
                 responsibleName: userProfile.fullName || userProfile.full_name || 'Usuário',
                 items: items.map(({ productId, variationId, name, systemStock, physicalCount, assignedSupplier }) => ({ productId, variationId, name, systemStock, physicalCount, assignedSupplier })),
             });
+
+            if (draftRef.current.markerMoveId) {
+                try {
+                    await deleteInventoryDraft(draftRef.current.markerMoveId);
+                } catch (e) {
+                    console.warn('Rascunho anterior já não existe ou foi removido:', e);
+                }
+            }
 
             const { error } = await supabase.rpc('finalize_inventory_transaction', {
                 p_audit_id: auditId,
@@ -130,6 +293,7 @@ export const useInventoryAuditWorkflow = (
         draftRef,
         isSaving,
         handleConfirmScope,
+        handleSaveDraft,
         handleFinalize,
     };
 };

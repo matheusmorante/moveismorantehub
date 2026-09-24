@@ -1,8 +1,10 @@
 import React, { useRef, useState } from 'react';
+import { toast } from 'react-toastify';
 import { InboundInvoice } from '@/pages/utils/inboundNfe/inboundNfeTypes';
 import { InboundDuplicateKeyAlertModal } from './InboundDuplicateKeyAlertModal';
 import { useInboundDocumentImport } from '../hooks/useInboundDocumentImport';
 import QRScannerModal from '@/components/shared/QRScannerModal';
+import { consultInvoiceByAccessKey } from '@/pages/utils/inboundNfe/services/sefazInboundSyncService';
 
 interface InboundDocumentImportModalProps {
     readonly isOpen: boolean;
@@ -22,6 +24,7 @@ export const InboundDocumentImportModal: React.FC<InboundDocumentImportModalProp
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [accessKey, setAccessKey] = useState('');
     const [isScannerOpen, setIsScannerOpen] = useState(false);
+    const [isDirectSyncing, setIsDirectSyncing] = useState(false);
     const {
         isLoading,
         statusMessage,
@@ -32,6 +35,7 @@ export const InboundDocumentImportModal: React.FC<InboundDocumentImportModalProp
         duplicateKey,
         duplicateExistingInvoice,
         handleFile,
+        handleXmlString,
     } = useInboundDocumentImport({ isOpen, onClose, onImportSuccess, initialFile });
 
     if (!isOpen) return null;
@@ -41,6 +45,32 @@ export const InboundDocumentImportModal: React.FC<InboundDocumentImportModalProp
         const key = digits.length === 44 ? digits : value.match(/(?:^|\D)(\d{44})(?:\D|$)/)?.[1];
         setIsScannerOpen(false);
         if (key) setAccessKey(key);
+    };
+
+    const handleDirectSefazQuery = async () => {
+        const clean = accessKey.replace(/\D/g, '');
+        if (clean.length !== 44) {
+            toast.warn('A chave de acesso deve conter exatamente 44 dígitos.');
+            return;
+        }
+
+        setIsDirectSyncing(true);
+        try {
+            const res = await consultInvoiceByAccessKey(clean);
+            if (res.success && res.document?.xml) {
+                toast.success('XML oficial obtido diretamente do Web Service SEFAZ!');
+                await handleXmlString(res.document.xml);
+            } else if (res.success) {
+                toast.info(res.message || 'Dados da NF-e processados com sucesso no Ambiente Nacional.');
+                onClose();
+            } else {
+                toast.error(res.message || 'Documento não localizado no Ambiente Nacional para esta chave.');
+            }
+        } catch (err: any) {
+            toast.error(err.message || 'Erro na consulta mTLS com a SEFAZ.');
+        } finally {
+            setIsDirectSyncing(false);
+        }
     };
 
     return (
@@ -124,21 +154,36 @@ export const InboundDocumentImportModal: React.FC<InboundDocumentImportModalProp
                                     >
                                         <i className="bi bi-upc-scan" aria-hidden="true" />
                                     </button>
+                                    <button
+                                        type="button"
+                                        disabled={accessKey.length !== 44 || isDirectSyncing || isLoading}
+                                        onClick={handleDirectSefazQuery}
+                                        title="Buscar e importar NF-e diretamente pelo Web Service do Ambiente Nacional"
+                                        className={`inline-flex items-center gap-1.5 rounded-lg px-3.5 py-2 text-xs font-bold text-white transition-all ${
+                                            accessKey.length === 44 && !isDirectSyncing && !isLoading
+                                                ? 'bg-blue-600 hover:bg-blue-700 cursor-pointer shadow-sm'
+                                                : 'bg-slate-300 dark:bg-slate-700 cursor-not-allowed text-slate-500 dark:text-slate-400 opacity-60'
+                                        }`}
+                                    >
+                                        <i className={`bi ${isDirectSyncing ? 'bi-arrow-repeat animate-spin' : 'bi-cloud-arrow-down-fill'}`} aria-hidden="true" />
+                                        {isDirectSyncing ? 'Buscando...' : 'Buscar SEFAZ Direto'}
+                                    </button>
                                     <a
                                         href={`https://www.nfe.fazenda.gov.br/portal/consultaRecaptcha.aspx?tipoConsulta=resumo&nfe=${accessKey}`}
                                         target="_blank"
                                         rel="noopener noreferrer"
-                                        className={`inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-xs font-bold text-white transition-colors ${
+                                        title="Abrir portal da SEFAZ para consulta manual no navegador (contingência)"
+                                        className={`inline-flex items-center gap-1.5 rounded-lg border border-slate-300 px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-100 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800 transition-colors ${
                                             accessKey.length === 44 
-                                                ? 'bg-blue-600 hover:bg-blue-700' 
-                                                : 'bg-slate-300 dark:bg-slate-700 cursor-not-allowed text-slate-500 dark:text-slate-400'
+                                                ? 'cursor-pointer' 
+                                                : 'cursor-not-allowed text-slate-400 dark:text-slate-500 border-dashed opacity-50'
                                         }`}
                                         onClick={(e) => {
                                             if (accessKey.length !== 44) e.preventDefault();
                                         }}
                                     >
                                         <i className="bi bi-box-arrow-up-right text-[11px]" aria-hidden="true" />
-                                        Consultar no SEFAZ
+                                        Consultar no Portal
                                     </a>
                                 </div>
                             </div>

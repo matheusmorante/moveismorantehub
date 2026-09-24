@@ -54,9 +54,9 @@ export function useInventoryMovesHistory({
         return () => unsubscribe();
     }, []);
 
-    const getDisplayName = (prod: Product, variation?: Variation) => {
+    const getDisplayName = (_prod: Product, variation?: Variation) => {
         if (variation?.name) return variation.name;
-        return prod.name || prod.title || prod.description || "Produto";
+        return "Variação não identificada";
     };
 
     const handleSelectProduct = (product: Product, variation?: Variation) => {

@@ -96,6 +96,8 @@ export const hasUnlinkedInvoiceItems = (items: unknown): boolean => {
         const snapshot = row.item_snapshot && typeof row.item_snapshot === 'object'
             ? row.item_snapshot as Record<string, any>
             : {};
-        return !(snapshot.matchedProductId || snapshot.matched_product_id || row.matched_product_id || row.matchedProductId);
+        const compositionLinks = snapshot.compositionLinks || snapshot.composition_links || row.compositionLinks || row.composition_links;
+        const hasCompositionLink = Array.isArray(compositionLinks) && compositionLinks.some((link: any) => Boolean(link?.productId || link?.product_id));
+        return !(snapshot.matchedProductId || snapshot.matched_product_id || row.matched_product_id || row.matchedProductId || hasCompositionLink);
     });
 };

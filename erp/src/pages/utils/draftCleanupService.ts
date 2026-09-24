@@ -22,12 +22,15 @@ export const runDraftCleanup = async () => {
             .eq('is_draft', true)
             .lt('updated_at', isoDate);
 
-        // Limpar Serviços (Somente se as colunas existirem na raiz, senão deletamos o rascunho antigo)
-        // Nota: Serviços usam service_data para deleted/active
-        await supabase.from('services')
-            .delete()
-            .eq('is_draft', true)
-            .lt('updated_at', isoDate);
+        // Limpar Serviços (tabela opcional — suprime 404 se não existir)
+        try {
+            await supabase.from('services')
+                .delete()
+                .eq('is_draft', true)
+                .lt('updated_at', isoDate);
+        } catch {
+            // tabela services não existe neste ambiente — ignorado
+        }
 
         /* 
         // Limpar Pedidos de Venda Rascunhos abandonados

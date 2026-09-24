@@ -58,9 +58,9 @@ export const ProductFormBasicSection: React.FC<Props> = ({
       <View style={styles.fieldGroup}>
         <Text style={[styles.label, dark && styles.lightText]}>Tipo de Item</Text>
         <View style={styles.typeRow}>
-          {(['product', 'service', 'combo'] as const).map((t) => {
+          {(['product', 'service', 'composition'] as const).map((t) => {
             const active = (formData.itemType || 'product') === t;
-            const label = t === 'product' ? 'Produto' : t === 'service' ? 'Serviço' : 'Combo';
+            const label = t === 'product' ? 'Produto' : t === 'service' ? 'Serviço' : 'Composição';
             return (
               <TouchableOpacity
                 key={t}

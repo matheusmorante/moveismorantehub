@@ -8,6 +8,7 @@ import { ManageInboundInvoiceMappingsModal } from './modals/ManageInboundInvoice
 import { InboundPostImportActionModal } from './modals/InboundPostImportActionModal';
 import { InboundInvoicesPagination } from './components/InboundInvoicesPagination';
 import { fetchInboundInvoicesPage, deleteInboundInvoice } from '@/pages/utils/inboundNfe/inboundInvoicesService';
+import { consultInvoiceByAccessKey } from '@/pages/utils/inboundNfe/services/sefazInboundSyncService';
 import { InboundInvoice } from '@/pages/utils/inboundNfe/inboundNfeTypes';
 
 const getCurrentYearMonth = (): string => {
@@ -131,6 +132,24 @@ export default function InboundInvoicesPage() {
         }
     }, [currentPage, loadInvoices]);
 
+    const handleFetchXml = useCallback(async (invoice: InboundInvoice) => {
+        try {
+            toast.info('Buscando XML completo junto ao Ambiente Nacional...');
+            const res = await consultInvoiceByAccessKey(invoice.nfeKey);
+            if (res.success && res.document?.xml) {
+                toast.success('XML completo obtido com sucesso da SEFAZ!');
+                void loadInvoices(currentPage);
+            } else if (res.success) {
+                toast.info('Consulta realizada. A SEFAZ ainda disponibiliza apenas o resumo. Se necessário, envie o XML oficial manualmente.');
+                void loadInvoices(currentPage);
+            } else {
+                toast.warn(res.message || 'Não foi possível obter o XML completo neste momento.');
+            }
+        } catch (err: any) {
+            toast.error(err.message || 'Erro ao consultar SEFAZ.');
+        }
+    }, [currentPage, loadInvoices]);
+
     return (
         <div 
             className="flex flex-col relative min-h-screen"
@@ -160,6 +179,7 @@ export default function InboundInvoicesPage() {
                 dateFilter={dateFilter}
                 onDateFilterChange={setDateFilter}
                 onOpenAddInvoice={() => setIsImportModalOpen(true)}
+                onSyncSuccess={() => void loadInvoices(currentPage)}
             />
 
             <InboundInvoicesTable
@@ -168,6 +188,7 @@ export default function InboundInvoicesPage() {
                 onDownloadXml={handleDownloadXml}
                 onManageMappings={setSelectedMappingInvoice}
                 onDelete={handleDeleteInvoice}
+                onFetchXml={handleFetchXml}
             />
 
             <InboundInvoicesPagination

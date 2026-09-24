@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react';
 import type { AuditItem } from './useInventoryAuditWorkflow';
 
 export type InventoryFilter = 'all' | 'uncounted' | 'counted' | 'divergent';
+export type OperationFilter = InventoryFilter;
 
 export const useInventoryOperation = (items: readonly AuditItem[]) => {
     const [filter, setFilter] = useState<InventoryFilter>('all');

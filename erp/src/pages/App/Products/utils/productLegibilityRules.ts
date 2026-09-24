@@ -119,14 +119,13 @@ export function checkEcomLegibility(data: Readonly<Partial<Product>>): EcomLegib
 
     const isService = data.itemType === 'service';
     const hasValidDimensions = isService || (
-        isPositiveNumber(data.width) ||
-        isPositiveNumber(data.height) ||
-        isPositiveNumber(data.depth) ||
-        isPositiveNumber(data.weight)
+        isPositiveNumber(data.width) &&
+        isPositiveNumber(data.height) &&
+        isPositiveNumber(data.depth)
     );
 
     if (!isService && !hasValidDimensions) {
-        errors.push("Pelo menos uma medida (largura, altura, profundidade) ou o peso deve ser maior que zero.");
+        errors.push("Informe largura, altura e profundidade maiores que zero para publicar o produto no catálogo.");
     }
     
     if (data.promoPrice !== undefined && data.promoPrice !== null && !isNaN(Number(data.promoPrice)) && Number(data.promoPrice) > 0) {

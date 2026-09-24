@@ -210,4 +210,29 @@ describe('orderSnapshotResolution', () => {
         expect(payload.original_sold_total).toBe(500.00);
         expect(payload.return_kind).toBe('partial');
     });
+
+    it('normaliza datas no formato brasileiro (DD/MM/YYYY) para ISO válido evitando erro 22008', () => {
+        const orderComDataBR: Order = {
+            id: 'return-999',
+            orderType: 'return',
+            orderIndex: 2548,
+            status: 'fulfilled',
+            date: '24/09/2026',
+            shipping: {
+                deliveryMethod: 'pickup',
+                scheduling: { date: '24/09/2026', type: 'fixed' }
+            },
+            items: [],
+            payments: []
+        } as any;
+
+        const payload = buildOrderPersistencePayload(orderComDataBR);
+
+        // scheduled_date deve ser normalizado para YYYY-MM-DD
+        expect(payload.scheduled_date).toBe('2026-09-24');
+
+        // order_data.date deve ser convertido para timestamp ISO válido
+        expect(payload.order_data.date).toMatch(/^2026-09-24T/);
+        expect(new Date(payload.order_data.date).toISOString()).toBeDefined();
+    });
 });

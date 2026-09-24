@@ -440,7 +440,12 @@ export const ProductFormVariationsTab: React.FC<Props> = ({ formData, setFormDat
                       )}
 
                       {activeVariationTab === 'compostos' && isComposition && (
-                        <ProductFormCompositionTab formData={variationFormData} setFormData={setVariationTechnicalData} dark={dark} />
+                        <ProductFormCompositionTab
+                          formData={variationFormData}
+                          setFormData={setVariationTechnicalData}
+                          dark={dark}
+                          supplierId={formData.mainSupplierId || formData.supplierId}
+                        />
                       )}
 
                       {activeVariationTab === 'estoque' && (

@@ -1,63 +1,64 @@
 import { useState, useCallback, useEffect } from 'react';
-import * as stockService from '../../../services/stockService';
+import { supabase } from '../../../services/supabaseClient';
+import {
+  fetchMobilePurchases,
+  MobilePurchase,
+  PurchaseFilters,
+  PURCHASE_PAGE_SIZE,
+} from './mobilePurchaseService';
 
-export const usePurchases = () => {
-    const [purchases, setPurchases] = useState<any[]>([]);
-    const [loading, setLoading] = useState(false);
-    const [loadingMore, setLoadingMore] = useState(false);
-    const [page, setPage] = useState(0);
-    const [hasMore, setHasMore] = useState(true);
+export const usePurchases = (filters: PurchaseFilters = {}) => {
+  const [purchases, setPurchases] = useState<MobilePurchase[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [page, setPage] = useState(0);
+  const [hasMore, setHasMore] = useState(true);
 
-    const loadPurchases = useCallback(async (isRefresh = false, pageNum = 0) => {
-        if (isRefresh) {
-            setPage(0);
-            setHasMore(true);
-        } else if (pageNum > 0) {
-            setLoadingMore(true);
-        } else {
-            setLoading(true);
-        }
+  const loadPurchases = useCallback(async (isRefresh = false, pageNum = 0) => {
+    if (isRefresh) {
+      setPage(0);
+      setHasMore(true);
+      setLoading(true);
+    } else if (pageNum > 0) {
+      setLoadingMore(true);
+    } else {
+      setLoading(true);
+    }
 
-        try {
-            const data = await stockService.fetchPurchases(pageNum);
-            
-            const formattedData = (data || []).map((purchase: any) => ({
-                id: purchase.id,
-                supplierName: purchase.supplierName || 'Fornecedor Desconhecido',
-                totalValue: purchase.total_amount || purchase.total_value || 0,
-                status: purchase.status || 'draft',
-                issueDate: purchase.created_at
-            }));
+    try {
+      setError(null);
+      const result = await fetchMobilePurchases(pageNum, filters);
+      setPurchases(previous => isRefresh || pageNum === 0 ? result.data : [...previous, ...result.data]);
+      setHasMore(result.data.length >= PURCHASE_PAGE_SIZE);
+      setPage(pageNum);
+    } catch (cause: any) {
+      console.error('[Purchases] Falha ao carregar pedidos:', cause);
+      setError(cause?.message || 'Não foi possível carregar os pedidos de compra.');
+      if (isRefresh || pageNum === 0) setPurchases([]);
+      setHasMore(false);
+    } finally {
+      setLoading(false);
+      setLoadingMore(false);
+    }
+  }, [filters.search, filters.supplierId]);
 
-            if (isRefresh || pageNum === 0) {
-                setPurchases(formattedData);
-            } else {
-                setPurchases(prev => [...prev, ...formattedData]);
-            }
-            
-            if (data && data.length < stockService.ITEMS_PER_PAGE) {
-                setHasMore(false);
-            }
-        } catch (err) {
-            console.error('Failed to fetch purchases:', err);
-            setHasMore(false);
-        } finally {
-            setLoading(false);
-            setLoadingMore(false);
-        }
-    }, []);
+  const loadMore = useCallback(() => {
+    if (!loadingMore && hasMore && !loading) void loadPurchases(false, page + 1);
+  }, [hasMore, loading, loadingMore, loadPurchases, page]);
 
-    const loadMore = useCallback(() => {
-        if (!loadingMore && hasMore && !loading) {
-            const nextPage = page + 1;
-            setPage(nextPage);
-            void loadPurchases(false, nextPage);
-        }
-    }, [loadingMore, hasMore, loading, page, loadPurchases]);
+  useEffect(() => {
+    void loadPurchases(true, 0);
+  }, [loadPurchases]);
 
-    useEffect(() => {
-        void loadPurchases(true, 0);
-    }, [loadPurchases]);
+  useEffect(() => {
+    const channel = supabase
+      .channel(`mobile-purchases-${Date.now()}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'purchases' }, () => void loadPurchases(true, 0))
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'purchase_items' }, () => void loadPurchases(true, 0))
+      .subscribe();
+    return () => { void supabase.removeChannel(channel); };
+  }, [loadPurchases]);
 
-    return { purchases, loading, loadingMore, loadMore, reload: () => loadPurchases(true, 0) };
+  return { purchases, loading, loadingMore, error, hasMore, loadMore, reload: () => loadPurchases(true, 0) };
 };

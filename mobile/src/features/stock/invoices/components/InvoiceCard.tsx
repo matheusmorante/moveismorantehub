@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import { MoreVertical } from 'lucide-react-native';
+import { MoreVertical, CloudDownload } from 'lucide-react-native';
 import { Invoice } from '../../types/stock.types';
 
 interface Props {
@@ -8,9 +8,11 @@ interface Props {
     isDarkMode: boolean;
     onMenuPress: (item: Invoice) => void;
     onPress: (item: Invoice) => void;
+    onFetchXml?: (item: Invoice) => void;
 }
 
-export const InvoiceCard: React.FC<Props> = ({ item, isDarkMode, onMenuPress, onPress }) => {
+export const InvoiceCard: React.FC<Props> = ({ item, isDarkMode, onMenuPress, onPress, onFetchXml }) => {
+    const isSummaryOnly = Boolean(item.isSummaryOnly ?? item.itemsCount === 0);
     const isReceived = item.status === 'received';
     const hasCompleteBindings = item.itemsCount > 0 && !item.hasPendingBindings;
     const statusLabel = isReceived ? 'RECEBIDA' : 'DISPONÍVEL';
@@ -31,29 +33,52 @@ export const InvoiceCard: React.FC<Props> = ({ item, isDarkMode, onMenuPress, on
                         série {item.series}
                     </Text>
                     
-                    <View style={[styles.badge, { backgroundColor: statusColor }]}>
-                        <Text style={[styles.badgeText, { color: statusTextColor }]}>
-                            {statusLabel}
-                        </Text>
-                    </View>
+                    {isSummaryOnly ? (
+                        <>
+                            <View style={[styles.badge, { backgroundColor: isDarkMode ? '#1e3a8a' : '#dbeafe' }]}>
+                                <Text style={[styles.badgeText, { color: isDarkMode ? '#93c5fd' : '#1d4ed8' }]}>
+                                    NOVA • SEFAZ
+                                </Text>
+                            </View>
+                            <View style={[styles.badge, { backgroundColor: isDarkMode ? '#451a03' : '#fef3c7' }]}>
+                                <Text style={[styles.badgeText, { color: isDarkMode ? '#fcd34d' : '#b45309' }]}>
+                                    XML PENDENTE
+                                </Text>
+                            </View>
+                        </>
+                    ) : (
+                        <>
+                            <View style={[styles.badge, { backgroundColor: statusColor }]}>
+                                <Text style={[styles.badgeText, { color: statusTextColor }]}>
+                                    {statusLabel}
+                                </Text>
+                            </View>
 
-                    {!hasCompleteBindings && (
-                        <View style={[styles.badge, { backgroundColor: isDarkMode ? '#451a03' : '#fef3c7' }]}>
-                            <Text style={[styles.badgeText, { color: isDarkMode ? '#fcd34d' : '#b45309' }]}>
-                                VINCULAÇÕES PENDENTES
-                            </Text>
-                        </View>
-                    )}
-                    {hasCompleteBindings && (
-                        <View style={[styles.badge, { backgroundColor: isDarkMode ? '#064e3b' : '#d1fae5' }]}>
-                            <Text style={[styles.badgeText, { color: isDarkMode ? '#6ee7b7' : '#047857' }]}>
-                                VINCULAÇÃO COMPLETA
-                            </Text>
-                        </View>
+                            {!hasCompleteBindings && (
+                                <View style={[styles.badge, { backgroundColor: isDarkMode ? '#451a03' : '#fef3c7' }]}>
+                                    <Text style={[styles.badgeText, { color: isDarkMode ? '#fcd34d' : '#b45309' }]}>
+                                        VINCULAÇÕES PENDENTES
+                                    </Text>
+                                </View>
+                            )}
+                            {hasCompleteBindings && (
+                                <View style={[styles.badge, { backgroundColor: isDarkMode ? '#064e3b' : '#d1fae5' }]}>
+                                    <Text style={[styles.badgeText, { color: isDarkMode ? '#6ee7b7' : '#047857' }]}>
+                                        VINCULAÇÃO COMPLETA
+                                    </Text>
+                                </View>
+                            )}
+                        </>
                     )}
                 </View>
 
-                <TouchableOpacity onPress={(event) => { event.stopPropagation(); onMenuPress(item); }} style={styles.menuBtn} hitSlop={{ top: 10, right: 10, bottom: 10, left: 10 }}>
+                <TouchableOpacity
+                    onPress={(event) => { event.stopPropagation(); onMenuPress(item); }}
+                    style={styles.menuBtn}
+                    hitSlop={{ top: 10, right: 10, bottom: 10, left: 10 }}
+                    accessibilityRole="button"
+                    accessibilityLabel="Mais opções"
+                >
                     <MoreVertical size={20} color={isDarkMode ? '#94a3b8' : '#64748b'} />
                 </TouchableOpacity>
             </View>
@@ -73,9 +98,25 @@ export const InvoiceCard: React.FC<Props> = ({ item, isDarkMode, onMenuPress, on
             <View style={[styles.divider, isDarkMode && styles.dividerDark]} />
 
             <View style={styles.cardFooter}>
-                <Text style={[styles.itemsText, isDarkMode && styles.textMutedDark]}>
-                    {item.itemsCount} {item.itemsCount === 1 ? 'item' : 'itens'}
-                </Text>
+                <View style={styles.footerLeft}>
+                    <Text style={[styles.itemsText, isDarkMode && styles.textMutedDark]}>
+                        {isSummaryOnly ? '— itens' : `${item.itemsCount} ${item.itemsCount === 1 ? 'item' : 'itens'}`}
+                    </Text>
+                    {isSummaryOnly && onFetchXml && (
+                        <TouchableOpacity
+                            style={[styles.fetchXmlBtn, isDarkMode && styles.fetchXmlBtnDark]}
+                            onPress={(e) => {
+                                e.stopPropagation();
+                                onFetchXml(item);
+                            }}
+                            accessibilityRole="button"
+                            accessibilityLabel="Obter XML completo da SEFAZ"
+                        >
+                            <CloudDownload size={12} color="#ffffff" />
+                            <Text style={styles.fetchXmlBtnText}>Obter XML</Text>
+                        </TouchableOpacity>
+                    )}
+                </View>
                 <Text style={[styles.valueText, isDarkMode && { color: '#34d399' }]}>
                     {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(item.totalValue)}
                 </Text>
@@ -166,6 +207,28 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
+    },
+    footerLeft: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
+    },
+    fetchXmlBtn: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 4,
+        backgroundColor: '#2563eb',
+        paddingHorizontal: 8,
+        paddingVertical: 4,
+        borderRadius: 8,
+    },
+    fetchXmlBtnDark: {
+        backgroundColor: '#1d4ed8',
+    },
+    fetchXmlBtnText: {
+        fontSize: 10,
+        fontWeight: '800',
+        color: '#ffffff',
     },
     itemsText: {
         fontSize: 13,

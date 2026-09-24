@@ -16,6 +16,7 @@ interface AuthContextProps {
   canSeeReports: boolean;
   canSeeProducts: boolean;
   canSeeFinance: boolean;
+  canManageStock: boolean;
 }
 
 const AuthContext = createContext<AuthContextProps | undefined>(undefined);
@@ -168,6 +169,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const canSeeReports = isAdmin || userProfile?.role === 'manager' || isSeller;
   const canSeeProducts = isAdmin || isSeller || userProfile?.role === 'manager';
   const canSeeFinance = isAdmin || userProfile?.role === 'manager' || userProfile?.role === 'gerente';
+  const canManageStock = isAdmin || userProfile?.permissions?.manualStockMovement === true || userProfile?.permissions?.includes?.('manualStockMovement');
 
   return (
     <AuthContext.Provider value={{
@@ -180,7 +182,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       isSeller,
       canSeeReports,
       canSeeProducts,
-      canSeeFinance
+      canSeeFinance,
+      canManageStock
     }}>
       {children}
     </AuthContext.Provider>

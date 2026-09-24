@@ -6,6 +6,12 @@ import { useInventory } from '../hooks/useInventory';
 import { InventorySession } from '../../types/stock.types';
 import { InventoryAuditFlow } from './InventoryAuditFlow';
 import { InventoryDetailsModal } from '../components/InventoryDetailsModal';
+import {
+  reverseInventorySession,
+  unreverseInventorySession,
+  deleteInventoryDraft,
+  fetchInventorySessionDetails,
+} from '../../../../services/stockService';
 
 interface Props {
   isDarkMode: boolean;
@@ -17,75 +23,213 @@ interface Props {
 export const InventoryScreen: React.FC<Props> = ({ isDarkMode, userProfile, onBack, renderHeader }) => {
   const { sessions, loading, loadingMore, loadMore, reload } = useInventory();
   const [showCount, setShowCount] = useState(false);
+  const [editingSession, setEditingSession] = useState<InventorySession | null>(null);
+  const [copiedItems, setCopiedItems] = useState<any[] | null>(null);
   const [selectedSession, setSelectedSession] = useState<InventorySession | null>(null);
   const [viewDetailsSession, setViewDetailsSession] = useState<InventorySession | null>(null);
 
   if (showCount) {
-    return <InventoryAuditFlow isDarkMode={isDarkMode} userProfile={userProfile} onClose={() => {
-        setShowCount(false);
-        reload();
-    }} />;
+    return (
+      <InventoryAuditFlow
+        isDarkMode={isDarkMode}
+        userProfile={userProfile}
+        initialSession={editingSession}
+        copiedItems={copiedItems}
+        onClose={() => {
+          setShowCount(false);
+          setEditingSession(null);
+          setCopiedItems(null);
+          reload();
+        }}
+      />
+    );
   }
 
   const handleOptionsPress = (session: InventorySession) => {
-      setSelectedSession(session);
+    setSelectedSession(session);
+  };
+
+  const handleContinueInventory = (session: InventorySession) => {
+    setSelectedSession(null);
+    setEditingSession(session);
+    setCopiedItems(null);
+    setShowCount(true);
+  };
+
+  const handleDuplicateInventory = async (session: InventorySession) => {
+    setSelectedSession(null);
+    try {
+      const details = await fetchInventorySessionDetails(session.id);
+      const items = details?.items || [];
+      if (!items.length) {
+        Alert.alert('Aviso', 'Este inventário não possui itens para duplicar.');
+        return;
+      }
+      setEditingSession(null);
+      setCopiedItems(items);
+      setShowCount(true);
+    } catch (error) {
+      console.error('Erro ao buscar itens para duplicar:', error);
+      Alert.alert('Erro', 'Não foi possível carregar os itens do inventário.');
+    }
+  };
+
+  const handleReverseInventory = (session: InventorySession) => {
+    setSelectedSession(null);
+    const code = session.inventoryCode || session.name?.replace('Inventário #', '') || session.id.split('-')[0];
+    Alert.alert(
+      'Desfazer inventário',
+      `Deseja estornar todos os ajustes gerados pelo Inventário #${code}? Os saldos de estoque dos produtos retornarão aos valores anteriores.`,
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Sim, estornar',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await reverseInventorySession(session);
+              Alert.alert('Sucesso', `Inventário #${code} estornado com sucesso!`);
+              reload();
+            } catch (error) {
+              console.error('Erro ao estornar inventário:', error);
+              Alert.alert('Erro', 'Não foi possível estornar os ajustes do inventário.');
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const handleApplyAdjustments = (session: InventorySession) => {
+    setSelectedSession(null);
+    const code = session.inventoryCode || session.name?.replace('Inventário #', '') || session.id.split('-')[0];
+    Alert.alert(
+      'Aplicar ajuste',
+      `Deseja reaplicar os ajustes do Inventário #${code}? O estoque será atualizado com as quantidades contadas.`,
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Aplicar ajustes',
+          onPress: async () => {
+            try {
+              await unreverseInventorySession(session);
+              Alert.alert('Sucesso', `Ajustes do Inventário #${code} aplicados com sucesso!`);
+              reload();
+            } catch (error) {
+              console.error('Erro ao aplicar ajustes:', error);
+              Alert.alert('Erro', 'Não foi possível reaplicar os ajustes do inventário.');
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const handleDeleteDraft = (session: InventorySession) => {
+    setSelectedSession(null);
+    const code = session.inventoryCode || session.name?.replace('Inventário #', '') || session.id.split('-')[0];
+    Alert.alert(
+      'Excluir contagem',
+      `Excluir a contagem #${code}? Esta ação não pode ser desfeita.`,
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Excluir',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await deleteInventoryDraft(session.id);
+              Alert.alert('Sucesso', 'Contagem em andamento excluída.');
+              reload();
+            } catch (error) {
+              console.error('Erro ao excluir contagem:', error);
+              Alert.alert('Erro', 'Não foi possível excluir a contagem.');
+            }
+          },
+        },
+      ]
+    );
   };
 
   const renderOptionsModal = () => {
-      if (!selectedSession) return null;
-      const adjustmentsCount = selectedSession.adjustmentsCount || 0;
-      const reversedCount = selectedSession.reversedCount || 0;
-      const canRevert = selectedSession.status === 'completed' && adjustmentsCount > 0 && reversedCount === 0;
-      const hasReverted = selectedSession.status === 'completed' && reversedCount > 0;
+    if (!selectedSession) return null;
+    const adjustmentsCount = selectedSession.adjustmentsCount || 0;
+    const reversedCount = selectedSession.reversedCount || 0;
+    const isInProgress = selectedSession.status === 'in_progress';
+    const canRevert = selectedSession.status === 'completed' && adjustmentsCount > 0 && reversedCount === 0;
+    const hasReverted = selectedSession.status === 'completed' && reversedCount > 0;
 
-      return (
-        <Modal visible={true} transparent animationType="fade" onRequestClose={() => setSelectedSession(null)}>
-            <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => setSelectedSession(null)}>
-                <View style={[styles.modalContent, isDarkMode && styles.modalContentDark]}>
-                    <Text style={[styles.modalTitle, isDarkMode && styles.modalTitleDark]}>
-                        Opções do Inventário #{selectedSession.inventoryCode || selectedSession.name?.replace('Inventário #', '') || selectedSession.id.split('-')[0]}
-                    </Text>
-                    
-                    <TouchableOpacity style={styles.modalOption} onPress={() => { 
-                        setSelectedSession(null); 
-                        setTimeout(() => setViewDetailsSession(selectedSession), 300);
-                    }}>
-                        <Text style={[styles.modalOptionText, isDarkMode && styles.modalOptionTextDark]}>Ver detalhes</Text>
-                    </TouchableOpacity>
+    return (
+      <Modal visible={true} transparent animationType="fade" onRequestClose={() => setSelectedSession(null)}>
+        <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => setSelectedSession(null)}>
+          <View style={[styles.modalContent, isDarkMode && styles.modalContentDark]}>
+            <Text style={[styles.modalTitle, isDarkMode && styles.modalTitleDark]}>
+              Opções do Inventário #{selectedSession.inventoryCode || selectedSession.name?.replace('Inventário #', '') || selectedSession.id.split('-')[0]}
+            </Text>
 
-                    <TouchableOpacity style={styles.modalOption} onPress={() => { setSelectedSession(null); Alert.alert('Em breve', 'A cópia de inventário estará disponível na próxima atualização.'); }}>
-                        <Text style={[styles.modalOptionText, isDarkMode && styles.modalOptionTextDark]}>Duplicar inventário</Text>
-                    </TouchableOpacity>
+            {isInProgress ? (
+              <TouchableOpacity style={styles.modalOption} onPress={() => handleContinueInventory(selectedSession)}>
+                <Text style={[styles.modalOptionText, { color: '#059669' }]}>Continuar inventário</Text>
+              </TouchableOpacity>
+            ) : (
+              <TouchableOpacity
+                style={styles.modalOption}
+                onPress={() => {
+                  setSelectedSession(null);
+                  setTimeout(() => setViewDetailsSession(selectedSession), 300);
+                }}
+              >
+                <Text style={[styles.modalOptionText, isDarkMode && styles.modalOptionTextDark]}>Ver detalhes</Text>
+              </TouchableOpacity>
+            )}
 
-                    {canRevert && (
-                        <TouchableOpacity style={styles.modalOption} onPress={() => { setSelectedSession(null); Alert.alert('Em breve', 'A funcionalidade de estorno estará disponível na próxima atualização.'); }}>
-                            <Text style={styles.modalOptionTextDestructive}>Desfazer inventário</Text>
-                        </TouchableOpacity>
-                    )}
-
-                    {hasReverted && (
-                        <TouchableOpacity style={styles.modalOption} onPress={() => { setSelectedSession(null); Alert.alert('Em breve', 'A funcionalidade de aplicar ajuste estará disponível na próxima atualização.'); }}>
-                            <Text style={[styles.modalOptionText, isDarkMode && styles.modalOptionTextDark]}>Aplicar ajuste</Text>
-                        </TouchableOpacity>
-                    )}
-
-                    <View style={[styles.modalDivider, isDarkMode && styles.modalDividerDark]} />
-
-                    <TouchableOpacity style={styles.modalOption} onPress={() => setSelectedSession(null)}>
-                        <Text style={styles.modalOptionTextCancel}>Cancelar</Text>
-                    </TouchableOpacity>
-                </View>
+            <TouchableOpacity style={styles.modalOption} onPress={() => void handleDuplicateInventory(selectedSession)}>
+              <Text style={[styles.modalOptionText, isDarkMode && styles.modalOptionTextDark]}>Duplicar inventário</Text>
             </TouchableOpacity>
-        </Modal>
-      );
+
+            {canRevert && (
+              <TouchableOpacity style={styles.modalOption} onPress={() => handleReverseInventory(selectedSession)}>
+                <Text style={styles.modalOptionTextDestructive}>Desfazer inventário</Text>
+              </TouchableOpacity>
+            )}
+
+            {hasReverted && (
+              <TouchableOpacity style={styles.modalOption} onPress={() => handleApplyAdjustments(selectedSession)}>
+                <Text style={[styles.modalOptionText, { color: '#059669' }]}>Aplicar ajuste</Text>
+              </TouchableOpacity>
+            )}
+
+            {isInProgress && (
+              <TouchableOpacity style={styles.modalOption} onPress={() => handleDeleteDraft(selectedSession)}>
+                <Text style={styles.modalOptionTextDestructive}>Excluir contagem</Text>
+              </TouchableOpacity>
+            )}
+
+            <View style={[styles.modalDivider, isDarkMode && styles.modalDividerDark]} />
+
+            <TouchableOpacity style={styles.modalOption} onPress={() => setSelectedSession(null)}>
+              <Text style={styles.modalOptionTextCancel}>Cancelar</Text>
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+      </Modal>
+    );
   };
 
   const PageHeader = () => (
     <View style={[styles.pageHeader, isDarkMode && styles.pageHeaderDark, { justifyContent: 'flex-end' }]}>
-        <TouchableOpacity testID="new-inventory-btn" style={styles.startBtn} onPress={() => setShowCount(true)}>
-            <ClipboardList size={18} color="#ffffff" />
-            <Text style={styles.startBtnText}>Novo Inventário</Text>
-        </TouchableOpacity>
+      <TouchableOpacity
+        testID="new-inventory-btn"
+        style={styles.startBtn}
+        onPress={() => {
+          setEditingSession(null);
+          setCopiedItems(null);
+          setShowCount(true);
+        }}
+      >
+        <ClipboardList size={18} color="#ffffff" />
+        <Text style={styles.startBtnText}>Novo Inventário</Text>
+      </TouchableOpacity>
     </View>
   );
 
@@ -106,7 +250,18 @@ export const InventoryScreen: React.FC<Props> = ({ isDarkMode, userProfile, onBa
             if (item.type === 'PAGE_HEADER') return <PageHeader />;
             return (
                 <View style={styles.cardContainer}>
-                    <InventoryCard session={item.data as InventorySession} isDarkMode={isDarkMode} onOptionsPress={handleOptionsPress} />
+                    <InventoryCard 
+                        session={item.data as InventorySession} 
+                        isDarkMode={isDarkMode} 
+                        onPress={(session) => {
+                            if (session.status === 'in_progress') {
+                                handleContinueInventory(session);
+                            } else {
+                                setViewDetailsSession(session);
+                            }
+                        }}
+                        onOptionsPress={handleOptionsPress} 
+                    />
                 </View>
             );
         }}

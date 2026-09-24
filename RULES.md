@@ -106,5 +106,15 @@ Este arquivo consolida as regras de ouro e diretrizes de desenvolvimento para o 
 13. **Interface Limpa e Conciliação Direta de NF-e (`InboundInvoiceItemsReview`)**:
     - **Sem Poluição de Hipóteses de IA**: O bloco "Interpretação da IA" não deve ser exibido na conciliação dos itens.
     - **Sem Duplicidade de Custos no ERP**: Não exibir bloco de composição de custos fiscais no card do produto no ERP; a autoridade de exibição dos custos é exclusivamente o lado esquerdo ("Dados da NF").
-    - **Campo de Busca Direto (Autocomplete)**: O campo de busca de produtos no catálogo do ERP fica visível e aberto por padrão (sem necessidade de alternar botão "Vincular existente"). Abre sugestões com 2 ou mais caracteres. Ao selecionar, fixa visualmente como vinculado com checkmark, código do ERP e opção de desvincular.
     - **Vínculo Imediato pós-Cadastro Rápido**: Ao cadastrar um novo produto pelo botão "Cadastrar rapidamente", o produto criado é imediatamente associado ao item da nota e refletido no campo de seleção.
+14. **Sincronização Fiscal e Distribuição DF-e (NFeDistribuicaoDFe - Ambiente Nacional)**:
+    - **Ordem Obrigatória de 5 Etapas**:
+      1. *Auditar*: Mapear serviços, tabelas, parser e importador existentes no MoranteHub. Não criar arquitetura paralela nem tabelas redundantes.
+      2. *Documentação Oficial*: Consultar NT 2014.002, MOC e Ambiente Nacional vigentes. Não usar regras desatualizadas ou de fóruns.
+      3. *Desenho*: Reutilizar o importador e parser existentes, mantendo o fluxo manual e upload de XML como contingência permanente.
+      4. *Backend Seguro*: Execução 100% no backend (Edge Functions/Node), certificado digital protegido, isolamento rigoroso entre Desenvolvimento/Homologação e Produção, locks atômicos anti-concorrência por CNPJ.
+      5. *Testes*: Mocks de serviços SEFAZ em testes automatizados e validação completa em Homologação antes de Produção.
+    - **Ambiente Nacional Obrigatório**: A Distribuição DF-e (`NFeDistribuicaoDFe`) e os eventos de Manifestação do Destinatário rodam no **Ambiente Nacional**, não no SEFAZ-PR estadual.
+    - **Cursor distNSU & Prevenção de Bloqueio (cStat 656)**: NSU é metadado técnico retornado pelo Ambiente Nacional (nunca inventar ou extrair do XML). Respeitar cooldown de no mínimo 1 hora após `cStat 137` (nenhum documento novo) e proibir categoricamente retry loops em `cStat 656` (consumo indevido).
+    - **resNFe vs procNFe**: Resumos não contêm itens. A Manifestação do Destinatário (Ciência da Operação) é necessária para liberar o XML completo quando aplicável. Nunca registrar manifestação conclusiva silenciosamente em nome da empresa.
+

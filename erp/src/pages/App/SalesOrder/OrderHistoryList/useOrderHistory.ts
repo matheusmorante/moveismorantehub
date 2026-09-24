@@ -124,11 +124,26 @@ export const useOrderHistory = (filters?: any) => {
         try {
             await undoReturn(order);
             const returnId = order.orderType === "return" ? order.id : order.returnOrderId;
-            setOrders(prev => prev.map(item => item.id === returnId
-                ? { ...item, status: "cancelled", returnStockProcessed: false, returnStockReversed: true }
-                : item.id === order.id && order.orderType !== "return"
-                    ? { ...item, returnOrderId: undefined, returnKind: undefined }
-                    : item));
+            setOrders(prev => prev.map(item => {
+                // Marca a devolução como cancelada (se estiver na lista)
+                if (item.id === returnId) {
+                    return { ...item, status: "cancelled", returnStockProcessed: false, returnStockReversed: true };
+                }
+                // Limpa todos os campos que compõem hasReturn no pedido de venda original
+                if (item.id === order.id && order.orderType !== "return") {
+                    return {
+                        ...item,
+                        returnOrderId: null as any,
+                        returnKind: null as any,
+                        // Se a venda estava como 'returned', volta para 'fulfilled'
+                        status: item.status === 'returned' ? 'fulfilled' : item.status,
+                        // Limpar flags legadas
+                        hasReturn: false,
+                        returned: false,
+                    } as any;
+                }
+                return item;
+            }));
             const msg = order.status === "fulfilled" ? "Devolução desfeita e estornada com sucesso!" : "Devolução cancelada com sucesso!";
             toast.success(msg);
             refresh();

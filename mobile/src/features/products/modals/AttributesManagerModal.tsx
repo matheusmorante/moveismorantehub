@@ -10,7 +10,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { X, Plus, Trash2, Sliders, ChevronDown, ChevronRight, Tag } from 'lucide-react-native';
+import { X, Plus, Trash2, Sliders, ChevronDown, ChevronRight, Tag, Edit2, Check } from 'lucide-react-native';
 import {
   fetchMobileAttributes,
   saveMobileAttribute,
@@ -29,15 +29,28 @@ interface Props {
 export const AttributesManagerModal: React.FC<Props> = ({ visible, dark, onClose }) => {
   const [attributes, setAttributes] = useState<MobileAttribute[]>([]);
   const [loading, setLoading] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [newDataType, setNewDataType] = useState('text_short');
+  const [newUnit, setNewUnit] = useState('');
+  const [newRequired, setNewRequired] = useState(false);
   const [newAttrName, setNewAttrName] = useState('');
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [newValText, setNewValText] = useState('');
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editName, setEditName] = useState('');
 
   const load = async () => {
     setLoading(true);
-    const data = await fetchMobileAttributes();
-    setAttributes(data);
-    setLoading(false);
+    setLoadError(null);
+    try {
+      const data = await fetchMobileAttributes();
+      setAttributes(data);
+    } catch (_) {
+      setLoadError('Não foi possível carregar as características. Tente novamente.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {
@@ -46,8 +59,10 @@ export const AttributesManagerModal: React.FC<Props> = ({ visible, dark, onClose
 
   const handleAddAttr = async () => {
     if (!newAttrName.trim()) return;
-    await saveMobileAttribute(newAttrName);
+    await saveMobileAttribute(newAttrName, undefined, { dataType: newDataType, unit: newUnit, isGloballyRequired: newRequired });
     setNewAttrName('');
+    setNewUnit('');
+    setNewRequired(false);
     load();
   };
 
@@ -74,6 +89,19 @@ export const AttributesManagerModal: React.FC<Props> = ({ visible, dark, onClose
 
   const handleDeleteValue = async (valId: string) => {
     await deleteMobileAttributeValue(valId);
+    load();
+  };
+
+  const handleSaveEdit = async (id: string) => {
+    if (!editName.trim()) return;
+    const current = attributes.find(attribute => attribute.id === id);
+    await saveMobileAttribute(editName, id, {
+      dataType: current?.dataType,
+      unit: current?.unit,
+      isGloballyRequired: current?.isGloballyRequired,
+    });
+    setEditingId(null);
+    setEditName('');
     load();
   };
 
@@ -104,14 +132,38 @@ export const AttributesManagerModal: React.FC<Props> = ({ visible, dark, onClose
             </TouchableOpacity>
           </View>
 
+          <View style={styles.metaRow}>
+            <TextInput value={newUnit} onChangeText={setNewUnit} placeholder="Unidade (opcional)" placeholderTextColor="#94a3b8" style={[styles.metaInput, dark && styles.darkInput, dark && styles.light]} />
+            <TouchableOpacity onPress={() => setNewRequired(value => !value)} style={[styles.requiredBtn, newRequired && styles.requiredBtnActive]}>
+              <Text style={styles.requiredText}>{newRequired ? 'Obrigatória' : 'Opcional'}</Text>
+            </TouchableOpacity>
+          </View>
+          <View style={styles.typeRow}>
+            {[
+              ['text_short', 'Texto'],
+              ['integer', 'Inteiro'],
+              ['decimal', 'Decimal'],
+              ['radio', 'Lista'],
+            ].map(([value, label]) => (
+              <TouchableOpacity key={value} onPress={() => setNewDataType(value)} style={[styles.typeBtn, newDataType === value && styles.typeBtnActive]}>
+                <Text style={[styles.typeText, newDataType === value && styles.typeTextActive]}>{label}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+          <View style={[styles.searchBox, dark && styles.darkInput]}>
+            <TextInput value={searchTerm} onChangeText={setSearchTerm} placeholder="Buscar características..." placeholderTextColor="#94a3b8" style={[styles.searchInput, dark && styles.light]} />
+          </View>
+
           {loading ? (
             <ActivityIndicator size="small" color="#7c3aed" style={{ marginVertical: 20 }} />
+          ) : loadError ? (
+            <View style={styles.errorBox}><Text style={styles.errorText}>{loadError}</Text><TouchableOpacity onPress={() => void load()}><Text style={styles.retryText}>Tentar novamente</Text></TouchableOpacity></View>
           ) : (
             <ScrollView style={styles.list} contentContainerStyle={{ gap: 8 }}>
-              {attributes.length === 0 ? (
+              {attributes.filter(attr => attr.name.toLocaleLowerCase().includes(searchTerm.trim().toLocaleLowerCase())).length === 0 ? (
                 <Text style={styles.emptyText}>Nenhum atributo cadastrado</Text>
               ) : (
-                attributes.map(attr => {
+                attributes.filter(attr => attr.name.toLocaleLowerCase().includes(searchTerm.trim().toLocaleLowerCase())).map(attr => {
                   const isExp = expandedId === attr.id;
                   return (
                     <View key={attr.id} style={[styles.attrCard, dark && styles.darkItem]}>
@@ -121,12 +173,15 @@ export const AttributesManagerModal: React.FC<Props> = ({ visible, dark, onClose
                       >
                         <View style={styles.attrTitleRow}>
                           {isExp ? <ChevronDown size={16} color="#7c3aed" /> : <ChevronRight size={16} color="#94a3b8" />}
-                          <Text style={[styles.attrName, dark && styles.light]}>{attr.name}</Text>
-                          <Text style={styles.valCount}>({attr.options.length} opções)</Text>
+                          {editingId === attr.id ? (
+                            <TextInput value={editName} onChangeText={setEditName} autoFocus style={[styles.editInput, dark && styles.darkInput, dark && styles.light]} />
+                          ) : <Text style={[styles.attrName, dark && styles.light]}>{attr.name}</Text>}
+                          <Text style={styles.valCount}>({attr.options.length} opções · {attr.dataType || 'text_short'}{attr.isGloballyRequired ? ' · obrigatória' : ''})</Text>
                         </View>
-                        <TouchableOpacity onPress={() => handleDeleteAttr(attr.id, attr.name)} style={styles.trashBtn}>
-                          <Trash2 size={15} color="#ef4444" />
-                        </TouchableOpacity>
+                        <View style={styles.attrActions}>
+                          {editingId === attr.id ? <TouchableOpacity onPress={() => void handleSaveEdit(attr.id)} style={styles.trashBtn}><Check size={15} color="#059669" /></TouchableOpacity> : <TouchableOpacity onPress={() => { setEditingId(attr.id); setEditName(attr.name); setNewDataType(attr.dataType || 'text_short'); setNewUnit(attr.unit || ''); setNewRequired(Boolean(attr.isGloballyRequired)); }} style={styles.trashBtn}><Edit2 size={15} color="#2563eb" /></TouchableOpacity>}
+                          <TouchableOpacity onPress={() => handleDeleteAttr(attr.id, attr.name)} style={styles.trashBtn}><Trash2 size={15} color="#ef4444" /></TouchableOpacity>
+                        </View>
                       </TouchableOpacity>
 
                       {isExp && (
@@ -191,6 +246,8 @@ const styles = StyleSheet.create({
   attrName: { fontSize: 14, fontWeight: '800', color: '#0f172a' },
   valCount: { fontSize: 11, color: '#64748b', fontWeight: '600' },
   trashBtn: { padding: 4 },
+  attrActions: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  editInput: { minWidth: 120, height: 32, borderWidth: 1, borderColor: '#bfdbfe', borderRadius: 8, paddingHorizontal: 8, fontSize: 13 },
   valuesArea: { paddingHorizontal: 12, paddingBottom: 12, paddingTop: 4, gap: 8, borderTopWidth: 1, borderTopColor: '#e2e8f0' },
   valuesList: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
   valBadge: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#f3e8ff', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8 },
@@ -199,4 +256,19 @@ const styles = StyleSheet.create({
   addValRow: { flexDirection: 'row', gap: 6, marginTop: 4 },
   valInput: { flex: 1, height: 34, backgroundColor: '#ffffff', borderRadius: 8, paddingHorizontal: 8, borderWidth: 1, borderColor: '#e2e8f0', fontSize: 12 },
   addValBtn: { width: 34, height: 34, borderRadius: 8, backgroundColor: '#7c3aed', alignItems: 'center', justifyContent: 'center' },
+  metaRow: { flexDirection: 'row', gap: 8 },
+  metaInput: { flex: 1, height: 36, backgroundColor: '#f8fafc', borderRadius: 10, paddingHorizontal: 10, borderWidth: 1, borderColor: '#e2e8f0', fontSize: 12 },
+  requiredBtn: { paddingHorizontal: 10, borderRadius: 10, justifyContent: 'center', backgroundColor: '#f1f5f9' },
+  requiredBtnActive: { backgroundColor: '#ede9fe' },
+  requiredText: { color: '#6d28d9', fontSize: 11, fontWeight: '800' },
+  typeRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
+  typeBtn: { paddingHorizontal: 10, paddingVertical: 7, borderRadius: 9, backgroundColor: '#f1f5f9' },
+  typeBtnActive: { backgroundColor: '#7c3aed' },
+  typeText: { color: '#64748b', fontSize: 11, fontWeight: '700' },
+  typeTextActive: { color: '#ffffff' },
+  searchBox: { height: 38, borderRadius: 10, borderWidth: 1, borderColor: '#e2e8f0', backgroundColor: '#ffffff', paddingHorizontal: 10 },
+  searchInput: { flex: 1, fontSize: 12, color: '#0f172a' },
+  errorBox: { alignItems: 'center', gap: 8, paddingVertical: 20 },
+  errorText: { color: '#dc2626', fontSize: 12, fontWeight: '700', textAlign: 'center' },
+  retryText: { color: '#2563eb', fontSize: 12, fontWeight: '800' },
 });

@@ -7,6 +7,7 @@ interface Props {
 }
 
 const Footer = ({ summary }: Props) => {
+    const s = summary || ({} as any);
 
     return (
         <tfoot className="bg-slate-50 border-t-4 border-slate-900 shadow-sm transition-all duration-300">
@@ -22,16 +23,16 @@ const Footer = ({ summary }: Props) => {
                     {/* Alinhado como Resumo */}
                 </td>
                 <td className="px-1 py-1 text-right border-x border-slate-300 whitespace-nowrap">
-                    <UnitDisplay value={summary.totalQuantity} />
+                    <UnitDisplay value={s.totalQuantity || 0} />
                 </td>
                 <td className="px-2 py-1 text-right whitespace-nowrap border-r border-slate-300">
-                    <CurrencyDisplay value={summary.itemsSubtotal} />
+                    <CurrencyDisplay value={s.itemsSubtotal || 0} />
                 </td>
                 <td className="px-2 py-1 text-right border-x border-slate-300 whitespace-nowrap">
-                    <CurrencyDisplay value={summary.totalFixedDiscount} />
+                    <CurrencyDisplay value={s.totalFixedDiscount || 0} />
                 </td>
                 <td className="px-2 py-1 text-right text-lg text-slate-900 whitespace-nowrap border-l border-slate-300">
-                    <CurrencyDisplay value={summary.itemsTotalValue} />
+                    <CurrencyDisplay value={s.itemsTotalValue || 0} />
                 </td>
             </tr>
         </tfoot>

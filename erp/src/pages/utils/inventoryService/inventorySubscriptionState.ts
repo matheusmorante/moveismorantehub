@@ -46,9 +46,31 @@ export const subscribeToInventoryMoves = (callback: (moves: InventoryMove[]) => 
             .select('*')
             .order('date', { ascending: false })
             .limit(30)
-            .then(({ data, error }: { data: any, error: any }) => {
+            .then(async ({ data, error }: { data: any, error: any }) => {
                 if (data && !error) {
-                    currentMoves = data.map(mapInventoryMoveFromDB);
+                    const productIds = [...new Set(data.map((move: any) => move.product_id).filter(Boolean))];
+                    const { data: variations } = productIds.length
+                        ? await supabase
+                            .from('product_variations')
+                            .select('id, product_id, name, sku, created_at')
+                            .in('product_id', productIds)
+                            .order('created_at', { ascending: true })
+                        : { data: [] as any[] };
+                    const variationById = new Map((variations || []).map((variation: any) => [String(variation.id), variation]));
+                    const firstVariationByProduct = new Map<string, any>();
+                    (variations || []).forEach((variation: any) => {
+                        const productId = String(variation.product_id || '');
+                        if (productId && !firstVariationByProduct.has(productId)) firstVariationByProduct.set(productId, variation);
+                    });
+                    currentMoves = data.map((move: any) => {
+                        const variation = variationById.get(String(move.variation_id || ''))
+                            || (!move.variation_id ? firstVariationByProduct.get(String(move.product_id || '')) : undefined);
+                        return mapInventoryMoveFromDB({
+                            ...move,
+                            variation_id: variation?.id || move.variation_id,
+                            product_variations: variation,
+                        });
+                    });
                     notifyListeners();
                 } else if (error) {
                     console.error("Erro ao buscar lançamentos iniciais:", error);

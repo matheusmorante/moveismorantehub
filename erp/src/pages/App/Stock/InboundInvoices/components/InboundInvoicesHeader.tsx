@@ -1,6 +1,7 @@
 import React from 'react';
 import { useGeminiQuotaStatus } from '@/pages/utils/geminiQuotaService';
 import { GeminiQuotaWarningBanner } from './GeminiQuotaWarningBanner';
+import { SefazSyncStatusBadge } from './SefazSyncStatusBadge';
 
 export type DateFilterMode =
     | 'current_month'
@@ -23,6 +24,7 @@ interface InboundInvoicesHeaderProps {
     dateFilter: DateFilterConfig;
     onDateFilterChange: (config: DateFilterConfig) => void;
     onOpenAddInvoice: () => void;
+    onSyncSuccess?: () => void;
 }
 
 export const InboundInvoicesHeader: React.FC<InboundInvoicesHeaderProps> = ({
@@ -31,6 +33,7 @@ export const InboundInvoicesHeader: React.FC<InboundInvoicesHeaderProps> = ({
     dateFilter,
     onDateFilterChange,
     onOpenAddInvoice,
+    onSyncSuccess,
 }) => {
     const { isUnavailable, reason } = useGeminiQuotaStatus();
 
@@ -64,7 +67,7 @@ export const InboundInvoicesHeader: React.FC<InboundInvoicesHeaderProps> = ({
                     <button
                         type="button"
                         onClick={onOpenAddInvoice}
-                        className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-3.5 py-2 text-xs font-black uppercase tracking-wider text-white shadow-sm transition-all hover:bg-blue-700 cursor-pointer"
+                        className="inline-flex w-full sm:w-auto justify-center items-center gap-2 rounded-xl bg-blue-600 px-3.5 py-2 text-xs font-black uppercase tracking-wider text-white shadow-sm transition-all hover:bg-blue-700 cursor-pointer"
                     >
                         <i className="bi bi-file-earmark-plus-fill text-sm" />
                         Importar XML da NF-e
@@ -72,9 +75,9 @@ export const InboundInvoicesHeader: React.FC<InboundInvoicesHeaderProps> = ({
                 </div>
             </div>
 
-            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
                 <div className="flex flex-wrap items-center gap-2">
-                    <div className="flex flex-wrap items-center gap-2 rounded-xl border border-slate-200 bg-white p-1.5 text-xs font-bold text-slate-700 shadow-sm dark:border-slate-800 dark:bg-slate-900 dark:text-slate-200">
+                    <div className="flex w-full sm:w-auto flex-wrap items-center gap-2 rounded-xl border border-slate-200 bg-white p-1.5 text-xs font-bold text-slate-700 shadow-sm dark:border-slate-800 dark:bg-slate-900 dark:text-slate-200">
                         <div className="flex items-center gap-1.5 px-2 py-1">
                             <i className="bi bi-calendar-event text-blue-600 dark:text-blue-400 text-sm" />
                             <span className="text-slate-500 font-semibold">Período:</span>
@@ -152,6 +155,10 @@ export const InboundInvoicesHeader: React.FC<InboundInvoicesHeaderProps> = ({
                         )}
                     </div>
                 </div>
+
+                <div className="flex items-center self-end sm:self-center pr-1">
+                    <SefazSyncStatusBadge onSyncSuccess={onSyncSuccess} />
+                </div>
             </div>
 
             <div className="relative">
@@ -160,8 +167,9 @@ export const InboundInvoicesHeader: React.FC<InboundInvoicesHeaderProps> = ({
                     type="text"
                     value={searchTerm}
                     onChange={(e) => onSearchChange(e.target.value)}
-                    placeholder="Pesquisar por fornecedor, número da NF-e ou chave de acesso de 44 dígitos..."
+                    placeholder="Fornecedor, NF-e ou chave de acesso"
                     className="w-full rounded-xl border border-slate-200 bg-white py-2.5 pl-10 pr-4 text-xs font-medium text-slate-700 placeholder-slate-400 shadow-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-200"
+                    aria-label="Pesquisar notas fiscais de entrada"
                 />
             </div>
         </header>

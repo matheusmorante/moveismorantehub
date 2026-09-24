@@ -1,6 +1,6 @@
 import React from 'react';
 import { Modal, View, Text, StyleSheet, ScrollView, TouchableOpacity, TouchableWithoutFeedback, useWindowDimensions } from 'react-native';
-import { X } from 'lucide-react-native';
+import { X, CloudDownload } from 'lucide-react-native';
 import type { InvoiceDetail } from '../../types/stock.types';
 import { formatInvoiceDate } from '../utils/invoiceList';
 
@@ -10,6 +10,7 @@ interface Props {
   invoice: InvoiceDetail | null;
   loading: boolean;
   onClose: () => void;
+  onFetchXml?: (invoice: InvoiceDetail) => void;
 }
 
 const money = (value: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value || 0);
@@ -20,7 +21,7 @@ const fiscalDate = (value?: string) => {
   return value.includes('T') ? parsed.toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' }) : parsed.toLocaleDateString('pt-BR');
 };
 
-export const InvoiceDetailsModal: React.FC<Props> = ({ visible, isDarkMode, invoice, loading, onClose }) => {
+export const InvoiceDetailsModal: React.FC<Props> = ({ visible, isDarkMode, invoice, loading, onClose, onFetchXml }) => {
   const { width } = useWindowDimensions();
   const compactLayout = width < 600;
 
@@ -91,7 +92,27 @@ export const InvoiceDetailsModal: React.FC<Props> = ({ visible, isDarkMode, invo
 
                 <View style={[styles.itemSection, isDarkMode && styles.itemSectionDark]}>
                   <Text style={[styles.itemsHeader, isDarkMode && styles.textDark]}>Itens da Nota Fiscal ({invoice.items.length})</Text>
-                  {invoice.items.length === 0 ? <Text style={styles.emptyText}>Itens não disponíveis para esta nota fiscal.</Text> : invoice.items.map((item, index) => (
+                  {invoice.items.length === 0 ? (
+                    <View style={styles.emptyItemsBox}>
+                      <Text style={[styles.emptyText, isDarkMode && styles.textMutedDark]}>
+                        Nota recebida via SEFAZ em formato de resumo (resNFe). Os itens completos ficam disponíveis após a obtenção do XML completo.
+                      </Text>
+                      {onFetchXml && (
+                        <TouchableOpacity
+                          style={styles.fetchXmlDetailBtn}
+                          onPress={() => {
+                            onFetchXml(invoice);
+                            onClose();
+                          }}
+                          accessibilityRole="button"
+                          accessibilityLabel="Obter XML completo da SEFAZ"
+                        >
+                          <CloudDownload size={15} color="#ffffff" />
+                          <Text style={styles.fetchXmlDetailBtnText}>Obter XML Completo da SEFAZ</Text>
+                        </TouchableOpacity>
+                      )}
+                    </View>
+                  ) : invoice.items.map((item, index) => (
                     <View key={`${item.productCode}-${index}`} style={[styles.item, isDarkMode && styles.itemDark]}>
                       <View style={styles.itemDescription}>
                         <Text style={[styles.itemTitle, isDarkMode && styles.textDark]} numberOfLines={2}>{item.description}</Text>
@@ -178,6 +199,9 @@ const styles = StyleSheet.create({
   itemMeta: { color: '#94a3b8', fontSize: 10, marginTop: 3 },
   totalItem: { color: '#059669', fontSize: 11, fontWeight: '900', marginTop: 3 },
   emptyText: { textAlign: 'center', color: '#94a3b8', fontSize: 11, padding: 18 },
+  emptyItemsBox: { padding: 20, alignItems: 'center', gap: 12 },
+  fetchXmlDetailBtn: { flexDirection: 'row', alignItems: 'center', gap: 7, backgroundColor: '#2563eb', paddingHorizontal: 14, paddingVertical: 10, borderRadius: 12 },
+  fetchXmlDetailBtnText: { color: '#ffffff', fontSize: 12, fontWeight: '800' },
   totalBox: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 8, padding: 14, borderRadius: 16, borderWidth: 1, borderColor: '#a7f3d0', backgroundColor: '#ecfdf5' },
   totalCopy: { flex: 1, minWidth: 160 },
   totalLabel: { color: '#059669', fontSize: 10, fontWeight: '900', textTransform: 'uppercase' },
@@ -187,4 +211,5 @@ const styles = StyleSheet.create({
   footerBtn: { minHeight: 42, justifyContent: 'center', paddingHorizontal: 16, borderRadius: 10 },
   footerBtnText: { color: '#64748b', fontWeight: '900', fontSize: 11, textTransform: 'uppercase' },
   textDark: { color: '#f8fafc' },
+  textMutedDark: { color: '#94a3b8' },
 });

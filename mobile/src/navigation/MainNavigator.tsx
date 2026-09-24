@@ -118,7 +118,7 @@ export const MainNavigator: React.FC<MainNavigatorProps> = ({ isDarkMode, setIsD
       ) : currentTab === 'pedidos' ? (
         <NativeOrdersScreen isDarkMode={isDarkMode} isAdmin={isAdmin} onSelectOrder={setAppSelectedOrder} />
       ) : currentTab === 'produtos' && canSeeProducts ? (
-        <NativeProductsScreen isDarkMode={isDarkMode} userProfile={userProfile} />
+        <NativeProductsScreen isDarkMode={isDarkMode} userProfile={userProfile} onLaunchStock={() => setCurrentTab('estoque')} />
       ) : currentTab === 'entregas' ? (
         <DeliveriesHubScreen
           isDarkMode={isDarkMode}

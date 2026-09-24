@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const query = {
-  select: vi.fn(), order: vi.fn(), range: vi.fn(), or: vi.fn(),
+  select: vi.fn(), neq: vi.fn(), order: vi.fn(), range: vi.fn(), or: vi.fn(),
 };
 
 vi.mock('../../../services/supabaseClient', () => ({
@@ -19,6 +19,7 @@ describe('fetchMobileOrdersPage', () => {
     vi.clearAllMocks();
     vi.spyOn(console, 'warn').mockImplementation(() => undefined);
     query.select.mockReturnValue(query);
+    query.neq.mockReturnValue(query);
     query.order.mockReturnValue(query);
     query.range.mockResolvedValue({
       count: 1,
@@ -39,5 +40,22 @@ describe('fetchMobileOrdersPage', () => {
 
     expect(result.total).toBe(1);
     expect(result.items[0].order_data.shipping).toMatchObject({ scheduling: { date: '2026-09-08' } });
+    expect(query.neq).toHaveBeenCalledWith('order_type', 'budget');
+  });
+
+  it('does not return budgets even when a legacy row reaches the response', async () => {
+    query.range.mockResolvedValueOnce({
+      count: 2,
+      error: null,
+      data: [
+        { id: 'order-sale', order_number: '1001', status: 'scheduled', order_type: 'sale', customer_name: 'Venda', total_value: 100, order_data: {} },
+        { id: 'order-budget', order_number: '1002', status: 'draft', order_type: 'budget', customer_name: 'Orçamento', total_value: 200, order_data: {} },
+      ],
+    });
+
+    const result = await fetchMobileOrdersPage({ page: 1, pageSize: 15, search: '', status: 'all' });
+
+    expect(result.total).toBe(1);
+    expect(result.items.map((item) => item.id)).toEqual(['order-sale']);
   });
 });

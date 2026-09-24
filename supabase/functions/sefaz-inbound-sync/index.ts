@@ -25,6 +25,42 @@ serve(async (req) => {
     );
 
     const body = await req.json().catch(() => ({}));
+
+    // Suporte a verificação de status sem chamar o Web Service da SEFAZ (R$ 0,00 e sem risco de 656)
+    if (body.action === "status") {
+      const { data: nsuRecord } = await supabaseClient
+        .from("sefaz_nsu_control")
+        .select("*")
+        .eq("id", "default")
+        .maybeSingle();
+
+      const now = Date.now();
+      const nextAllowed = nsuRecord?.next_allowed_sync_at ? new Date(nsuRecord.next_allowed_sync_at).getTime() : 0;
+      const lastSyncMs = nsuRecord?.last_sync_at ? new Date(nsuRecord.last_sync_at).getTime() : 0;
+      const isSyncing = nsuRecord?.status === "syncing" && (now - lastSyncMs < 180000);
+      const isRateLimited = nsuRecord?.status === "rate_limited" && (now < nextAllowed);
+      const canSyncNow = !isSyncing && (now >= nextAllowed);
+
+      return new Response(
+        JSON.stringify({
+          success: true,
+          data: {
+            status: isSyncing ? "syncing" : isRateLimited ? "rate_limited" : (nsuRecord?.status || "idle"),
+            lastSyncAt: nsuRecord?.last_sync_at || null,
+            nextAllowedSyncAt: nsuRecord?.next_allowed_sync_at || null,
+            lastNsu: nsuRecord?.last_nsu || "0",
+            maxNsu: nsuRecord?.max_nsu || "0",
+            lastCstat: nsuRecord?.last_cstat || null,
+            lastXmotivo: nsuRecord?.last_xmotivo || null,
+            lastDocsCount: nsuRecord?.last_docs_count || 0,
+            environment: nsuRecord?.environment || "production",
+            canSyncNow,
+          },
+        }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 }
+      );
+    }
+
     const { cnpj: requestedCnpj, environment = "production" } = body;
     const accessKey = String(body.accessKey || "").replace(/\D/g, "");
     const isAccessKeyQuery = Boolean(accessKey);
@@ -91,6 +127,21 @@ serve(async (req) => {
         );
       }
     }
+
+    // Verificação de Cooldown (Prevenção cStat 137 / 656) para distNSU
+    if (!isAccessKeyQuery && nsuRecord?.next_allowed_sync_at) {
+      const nextAllowedMs = new Date(nsuRecord.next_allowed_sync_at).getTime();
+      if (Date.now() < nextAllowedMs) {
+        const diffMinutes = Math.max(1, Math.ceil((nextAllowedMs - Date.now()) / 60000));
+        return new Response(JSON.stringify({
+          success: false,
+          code: "SEFAZ_COOLDOWN",
+          nextAllowedSyncAt: nsuRecord.next_allowed_sync_at,
+          message: `SEFAZ consultada recentemente. Nova consulta automática permitida em aproximadamente ${diffMinutes} min.`,
+        }), { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 });
+      }
+    }
+
     if (nsuRecord?.status === "rate_limited") {
       const retryAt = new Date(new Date(nsuRecord.last_sync_at || Date.now()).getTime() + 60 * 60 * 1000);
       if (retryAt.getTime() > Date.now()) {
@@ -242,6 +293,11 @@ serve(async (req) => {
         currentMaxNsu = maxNsuRetornado;
       }
 
+      // Se cStat for 137 (nenhum documento novo), o Ambiente Nacional exige cooldown de 1 hora
+      const cooldownUntil = cStat === "137"
+        ? new Date(Date.now() + 60 * 60 * 1000).toISOString()
+        : null;
+
       await supabaseClient
         .from("sefaz_nsu_control")
         .upsert({
@@ -251,6 +307,11 @@ serve(async (req) => {
           max_nsu: currentMaxNsu,
           status: "idle",
           last_sync_at: new Date().toISOString(),
+          next_allowed_sync_at: cooldownUntil,
+          last_cstat: cStat,
+          last_xmotivo: xMotivo,
+          last_docs_count: totalPersisted,
+          environment,
           last_error: null,
         });
 
@@ -265,8 +326,15 @@ serve(async (req) => {
     const durationMs = Date.now() - startTime;
     if (rateLimitUntil) {
       await supabaseClient.from("sefaz_nsu_control").upsert({
-        id: "default", cnpj: cleanCnpj, status: "rate_limited", last_error: finalXMotivo,
+        id: "default",
+        cnpj: cleanCnpj,
+        status: "rate_limited",
+        last_error: finalXMotivo,
+        next_allowed_sync_at: rateLimitUntil,
+        last_cstat: finalCStat || "656",
+        last_xmotivo: finalXMotivo,
         last_sync_at: new Date().toISOString(),
+        environment,
       });
       return new Response(JSON.stringify({
         success: false, code: "SEFAZ_RATE_LIMIT", cStat: finalCStat, retryAfter: rateLimitUntil,

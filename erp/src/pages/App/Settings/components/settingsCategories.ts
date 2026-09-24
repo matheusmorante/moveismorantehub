@@ -14,5 +14,5 @@ export const settingsCategories: SettingsCategory[] = [
     { id: 'notificacoes', label: 'Notificações & Testes Push', icon: 'bi-bell-fill', group: 'system', keywords: ['notificação', 'alerta', 'push', 'teste', 'dispositivo'] },
     { id: 'templates', label: 'Mensagens & Templates', icon: 'bi-chat-quote-fill', group: 'system', keywords: ['mensagem', 'template', 'whatsapp', 'texto', 'avaliação', 'confirmação', 'grupo', 'promoções', 'ofertas'] },
     { id: 'bling', label: 'Integração Bling (API v3)', icon: 'bi-clouds-fill', group: 'system', keywords: ['bling', 'api', 'v3', 'integração', 'estoque', 'sincronização', 'token', 'key'] },
-
+    { id: 'impressao', label: 'Impressão Direta (Windows)', icon: 'bi-printer-fill', group: 'system', keywords: ['impressão', 'impressora', 'epson', 'l3250', 'agente', 'danfe', 'recibo', 'pedido', 'spooler'] },
 ];

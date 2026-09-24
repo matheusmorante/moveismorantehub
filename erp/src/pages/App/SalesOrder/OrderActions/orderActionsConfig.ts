@@ -19,23 +19,14 @@ import {
     sendDirectGroupInviteMessage
 } from "../../../utils/whatsapp";
 import { getSettings } from "../../../utils/settingsService";
+import { printSalesOrder, printReceipt } from "../../../utils/printing/printService";
 
 export const actionsMap: Record<OrderAction, (order: Order) => void> = {
     'PRINT_RECEIPT': (order) => {
-        if (!order.seller) {
-            toast.error("Atendente obrigatório para imprimir recibo.");
-            return;
-        }
-        sessionStorage.setItem('order', JSON.stringify(order));
-        window.open('/receipt', '_blank');
+        printReceipt(order);
     },
     'PRINT_SHIPPING_ORDER': (order) => {
-        if (!order.seller) {
-            toast.error("Atendente obrigatório para imprimir o pedido.");
-            return;
-        }
-        sessionStorage.setItem("order", JSON.stringify(order));
-        window.open("/order", "_blank");
+        printSalesOrder(order);
     },
     'PRINT_WARRANTY_TERM': (order) => {
         console.log("Gerando Termo de Garantia para o pedido:", order.id);

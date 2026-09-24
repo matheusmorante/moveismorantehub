@@ -9,6 +9,10 @@ interface Props {
   isParentDraft?: boolean;
   onToggleCatalog: (varId: string, currentStatus: string) => void;
   onToggleActive?: (varId: string, currentActive: boolean) => void;
+  onEdit?: (product: any) => void;
+  onShowHistory?: (product: any) => void;
+  onLaunchStock?: (product: any) => void;
+  parentProduct?: any;
 }
 
 export const MobileProductVariationList: React.FC<Props> = ({
@@ -18,6 +22,10 @@ export const MobileProductVariationList: React.FC<Props> = ({
   isParentDraft = false,
   onToggleCatalog,
   onToggleActive,
+  onEdit,
+  onShowHistory,
+  onLaunchStock,
+  parentProduct,
 }) => {
   if (!variations || variations.length === 0) return null;
 
@@ -37,6 +45,10 @@ export const MobileProductVariationList: React.FC<Props> = ({
           isParentDraft={isParentDraft}
           onToggleActive={onToggleActive}
           onToggleCatalog={onToggleCatalog}
+          parentProduct={parentProduct}
+          onEdit={onEdit}
+          onShowHistory={onShowHistory}
+          onLaunchStock={onLaunchStock}
         />
       ))}
     </View>

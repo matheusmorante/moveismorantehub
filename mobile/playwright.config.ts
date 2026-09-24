@@ -25,5 +25,11 @@ export default defineConfig({
         // Disable touch for playwright click stability unless needed
       },
     },
+    {
+      name: 'Desktop Chrome',
+      use: {
+        ...devices['Desktop Chrome'],
+      },
+    },
   ],
 });

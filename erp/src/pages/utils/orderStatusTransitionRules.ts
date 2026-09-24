@@ -57,10 +57,16 @@ export const canCancelOrderDirectly = (order: {
 
 /**
  * Determina se um pedido pode ter a efetivação (fulfillment) desfeita.
+ * Apenas pedidos atendidos ('fulfilled') que não sejam devoluções definitivas
+ * podem voltar para agendado.
  */
 export const canUndoFulfillment = (order: {
   status?: Order['status'];
   orderType?: string;
 }): boolean => {
-  return order.status === 'fulfilled';
+  if (order.status !== 'fulfilled') return false;
+  const type = order.orderType || 'sale';
+  if (type === 'return') return false;
+  return true;
 };
+

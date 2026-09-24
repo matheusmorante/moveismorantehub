@@ -61,7 +61,6 @@ export const StockLaunchModal: React.FC<StockLaunchModalProps> = ({
     }, [isOpen, isSaving, onClose]);
 
     const activeVariation = targetVariation || targetProduct?.variations?.[0];
-    const productName = targetProduct?.name || targetProduct?.title || targetProduct?.description || 'Produto';
     const variationWithDisplayName = activeVariation as VariationDisplayNameLike | undefined;
     const variationName = activeVariation?.name || variationWithDisplayName?.displayName || '';
 
@@ -88,7 +87,7 @@ export const StockLaunchModal: React.FC<StockLaunchModalProps> = ({
 
     if (!isOpen || !targetProduct) return null;
 
-    const fullDisplayName = variationName && variationName.trim() ? variationName.trim() : productName;
+    const fullDisplayName = variationName && variationName.trim() ? variationName.trim() : 'Variação não identificada';
     const adjustmentDiff = newDesiredStock !== '' ? Number(newDesiredStock) - currentStock : 0;
 
     const handleSave = async () => {

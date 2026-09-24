@@ -12,7 +12,9 @@ describe("cancelamento e estorno de devolucao", () => {
             .toEqual({ status: "cancelled", returnStockProcessed: false, returnStockReversed: true });
     });
 
-    it("remove o vinculo da venda original", () => {
-        expect(clearReturnLink()).toHaveProperty("returnOrderId", undefined);
+    it("remove o vinculo da venda original com null para persistir no banco", () => {
+        const link = clearReturnLink();
+        expect(link.returnOrderId).toBeNull();
+        expect(link.returnKind).toBeNull();
     });
 });

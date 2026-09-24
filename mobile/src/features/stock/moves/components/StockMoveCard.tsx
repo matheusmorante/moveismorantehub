@@ -1,16 +1,19 @@
-﻿import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import React from 'react';
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import {
     PackagePlus, PackageMinus, Scale, CheckCircle2,
     RotateCcw, Check, MessageSquare, Calendar, Tag,
 } from 'lucide-react-native';
 import { StockMove } from '../../types/stock.types';
+import { isOrderLinked as checkIsOrderLinked } from '../domain/inventoryTimelineBalance';
 
-export const StockMoveCard = ({ move, isDarkMode }: { move: StockMove; isDarkMode: boolean }) => {
+export const StockMoveCard = ({ move, isDarkMode, canManage, onReverse, onEdit }: { move: StockMove; isDarkMode: boolean; canManage?: boolean; onReverse?: (move: StockMove) => void; onEdit?: (move: StockMove) => void }) => {
+    const [expandedObservation, setExpandedObservation] = React.useState(false);
     const isEntry      = move.type === 'in'  || move.type === 'entry';
     const isExit       = move.type === 'out' || move.type === 'exit' || move.type === 'withdrawal';
     const isReversed   = move.status === 'reversed';
     const isEffective  = move.status === 'effective' || move.status === 'active';
+    const isOrderLinked = checkIsOrderLinked(move as any);
 
     let TypeIcon   = Scale;
     let typeText   = 'AJUSTE';
@@ -57,6 +60,7 @@ export const StockMoveCard = ({ move, isDarkMode }: { move: StockMove; isDarkMod
     const obsLabel = (isReversed && reasonText) ? 'MOTIVO/OBS:' : 'OBSERVACAO:';
 
     const qtyPrefix = isEntry ? '+' : isExit ? '-' : '';
+    const displayedQuantity = isEntry || isExit ? Math.abs(Number(move.quantity || 0)) : Number(move.quantity || 0);
     const qtyColor  = isEntry ? (isDarkMode ? '#4ade80' : '#16a34a')
         : isExit ? (isDarkMode ? '#f87171' : '#dc2626') : (isDarkMode ? '#fdb95b' : '#d97706');
     const dividerColor  = isDarkMode ? '#263245' : '#f1f5f9';
@@ -89,7 +93,7 @@ export const StockMoveCard = ({ move, isDarkMode }: { move: StockMove; isDarkMod
                     ) : null}
                 </View>
                 <Text style={[styles.quantity, { color: qtyColor }]}>
-                    {qtyPrefix}{move.quantity} <Text style={styles.qtyUnit}>un</Text>
+                    {qtyPrefix}{displayedQuantity} <Text style={styles.qtyUnit}>un</Text>
                 </Text>
             </View>
 
@@ -122,7 +126,8 @@ export const StockMoveCard = ({ move, isDarkMode }: { move: StockMove; isDarkMod
                     <MessageSquare size={11} color={isReversed && reasonText ? (isDarkMode ? '#fbbf24' : '#d97706') : (isDarkMode ? '#94a3b8' : '#64748b')} style={{ marginTop: 1 }} />
                     <View style={{ flex: 1 }}>
                         <Text style={[styles.obsLabel, { color: isReversed && reasonText ? (isDarkMode ? '#fbbf24' : '#b45309') : (isDarkMode ? '#94a3b8' : '#64748b') }]}>{obsLabel}</Text>
-                        <Text style={[styles.obsContent, { color: isReversed && reasonText ? (isDarkMode ? '#fde68a' : '#92400e') : (isDarkMode ? '#e2e8f0' : '#334155') }]}>{finalObs}</Text>
+                        <Text style={[styles.obsContent, { color: isReversed && reasonText ? (isDarkMode ? '#fde68a' : '#92400e') : (isDarkMode ? '#e2e8f0' : '#334155') }]}>{expandedObservation || finalObs.length <= 120 ? finalObs : `${finalObs.slice(0, 120)}…`}</Text>
+                        {finalObs.length > 120 && <TouchableOpacity onPress={() => setExpandedObservation(current => !current)}><Text style={styles.expandText}>{expandedObservation ? 'Mostrar menos' : 'Ler mais'}</Text></TouchableOpacity>}
                     </View>
                 </View>
             )}
@@ -149,6 +154,17 @@ export const StockMoveCard = ({ move, isDarkMode }: { move: StockMove; isDarkMod
 
             {!!reversedLabel && (
                 <Text style={[styles.reversedText, { backgroundColor: footerBg }, isDarkMode && { color: '#fbbf24' }]}>{reversedLabel}</Text>
+            )}
+            {canManage && isEffective && !isOrderLinked && (onReverse || onEdit) && (
+                <View style={styles.actionsRow}>
+                {onEdit && <TouchableOpacity style={styles.actionButton} onPress={() => onEdit(move)}><Text style={styles.actionButtonText}>Editar</Text></TouchableOpacity>}
+                {onReverse && (
+                <TouchableOpacity style={styles.reverseButton} onPress={() => onReverse(move)} accessibilityLabel="Estornar movimentação">
+                    <RotateCcw size={14} color={isDarkMode ? '#fbbf24' : '#b45309'} />
+                    <Text style={[styles.reverseButtonText, isDarkMode && { color: '#fbbf24' }]}>Estornar movimentação</Text>
+                </TouchableOpacity>
+                )}
+                </View>
             )}
         </View>
     );
@@ -187,4 +203,9 @@ const styles = StyleSheet.create({
     footerValue: { fontSize: 14, fontWeight: '800', color: '#0f172a' },
     footerSub: { fontSize: 11, color: '#94a3b8', marginTop: 1 },
     reversedText: { fontSize: 11, color: '#d97706', fontWeight: '600', paddingHorizontal: 14, paddingBottom: 10 },
+    reverseButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 11, borderTopWidth: 1, borderTopColor: '#fde68a', backgroundColor: '#fffbeb' },
+    reverseButtonText: { fontSize: 11, fontWeight: '800', color: '#b45309' },
+    actionsRow: { flexDirection: 'row', borderTopWidth: 1, borderTopColor: '#e2e8f0' },
+    actionButton: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 11 },
+    actionButtonText: { fontSize: 11, fontWeight: '800', color: '#2563eb' }, expandText: { fontSize: 11, fontWeight: '800', color: '#2563eb', marginTop: 4 },
 });

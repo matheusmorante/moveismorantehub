@@ -156,6 +156,25 @@ export function useInboundDocumentImport({ isOpen, onClose, onImportSuccess, ini
         }
     };
 
+    /**
+     * Processa o conteúdo XML da NF-e diretamente em memória (ex: obtido via SEFAZ consChNFe).
+     */
+    const handleXmlString = async (xmlText: string) => {
+        if (!xmlText || isLoading) return;
+        try {
+            setIsLoading(true);
+            setStatusMessage('Interpretando dados oficiais da SEFAZ...');
+            const parsed = parseInboundNfeXml(xmlText);
+            await persistAndFinish(parsed);
+        } catch (error: any) {
+            console.error('[useInboundDocumentImport] Erro ao processar XML direto:', error);
+            toast.error(error.message || 'Falha ao processar nota fiscal.');
+        } finally {
+            setIsLoading(false);
+            setStatusMessage('');
+        }
+    };
+
     useEffect(() => {
         if (!isOpen) {
             setIsLoading(false);
@@ -181,5 +200,6 @@ export function useInboundDocumentImport({ isOpen, onClose, onImportSuccess, ini
         duplicateKey,
         duplicateExistingInvoice,
         handleFile,
+        handleXmlString,
     };
 }

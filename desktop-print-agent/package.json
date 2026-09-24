@@ -1,0 +1,20 @@
+{
+  "name": "morantehub-print-agent",
+  "version": "1.0.0",
+  "description": "Agente Local de Impressão Silenciosa para Windows - Morante Hub",
+  "main": "dist/server.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "ts-node src/server.ts",
+    "serve": "node dist/server.js"
+  },
+  "dependencies": {
+    "pdf-to-printer": "^5.8.1",
+    "playwright-core": "^1.63.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.4.5"
+  }
+}

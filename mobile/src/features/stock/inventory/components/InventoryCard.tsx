@@ -3,7 +3,17 @@ import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { InventorySession } from '../../types/stock.types';
 import { MoreVertical } from 'lucide-react-native';
 
-export const InventoryCard = ({ session, isDarkMode, onOptionsPress }: { session: InventorySession; isDarkMode: boolean; onOptionsPress?: (session: InventorySession) => void }) => {
+export const InventoryCard = ({
+    session,
+    isDarkMode,
+    onPress,
+    onOptionsPress
+}: {
+    session: InventorySession;
+    isDarkMode: boolean;
+    onPress?: (session: InventorySession) => void;
+    onOptionsPress?: (session: InventorySession) => void;
+}) => {
     const isCompleted = session.status === 'completed';
     const statusColor = isCompleted ? '#059669' : '#d97706';
     const statusBg = isCompleted ? '#d1fae5' : '#fef3c7';
@@ -36,7 +46,11 @@ export const InventoryCard = ({ session, isDarkMode, onOptionsPress }: { session
     const timeStr = dateObj.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
 
     return (
-        <View style={[styles.card, isDarkMode && styles.cardDark]}>
+        <TouchableOpacity
+            activeOpacity={0.85}
+            onPress={() => onPress?.(session)}
+            style={[styles.card, isDarkMode && styles.cardDark]}
+        >
             {/* Header */}
             <View style={[styles.header, isDarkMode && styles.borderDark]}>
                 <View>
@@ -92,7 +106,7 @@ export const InventoryCard = ({ session, isDarkMode, onOptionsPress }: { session
                     </View>
                 </View>
             </View>
-        </View>
+        </TouchableOpacity>
     );
 };
 

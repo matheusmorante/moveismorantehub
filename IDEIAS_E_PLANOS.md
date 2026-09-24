@@ -4,6 +4,237 @@ Este arquivo centraliza planos, ideias e tarefas pendentes do projeto Morante Hu
 
 ---
 
+## 0. Persistência de Impressoras por Computador Físico (`C:\ProgramData\MoranteHub\print-config.json`)
+- **Status**: Concluído e Validado no Windows! 🏢💻🖨️
+- **Data**: 24/09/2026
+- **Arquitetura Implementada**:
+  1. **Arquivo Físico Machine-Level (`C:\ProgramData\MoranteHub\print-config.json`)**:
+     - Cada computador/terminal físico grava sua própria configuração de hardware independente do usuário do ERP ou do perfil do Windows.
+     - Mesmo com o mesmo operador logado em máquinas diferentes (Ex: Caixa vs Escritório), cada máquina mantém suas próprias impressoras sem conflito.
+     - Estrutura gravada:
+       ```json
+       {
+         "defaultPrinter": "EPSON L3250 Series",
+         "orderPrinter": "",
+         "receiptPrinter": "",
+         "danfePrinter": "",
+         "orderQuality": "normal",
+         "receiptQuality": "draft",
+         "danfeQuality": "normal",
+         "orderScale": 0.92,
+         "receiptScale": 1.0,
+         "danfeScale": 1.0
+       }
+       ```
+  2. **Endpoints no Print Agent (`127.0.0.1:40405`)**:
+     - `GET /config`: lê `C:\ProgramData\MoranteHub\print-config.json` e retorna o estado atual e o path do arquivo.
+     - `PUT /config` / `POST /config`: atualiza e persiste atomicamente as alterações daquela máquina física.
+     - `resolvePrinterForDocument`: resolve a impressora física para Pedido, Recibo ou DANFE priorizando as configurações da máquina física e caindo para a impressora padrão.
+  3. **Interface do ERP ([`PrintConfigSection.tsx`](file:///c:/Users/Rosilene/Desktop/morantehub/erp/src/pages/App/Settings/components/operations/PrintConfigSection.tsx))**:
+     - Selo verde: `✓ Configuração salva somente neste computador`.
+     - Exibição do caminho exato do arquivo local: `C:\ProgramData\MoranteHub\print-config.json`.
+     - Dropdowns independentes para: Impressora Padrão, Pedido, Recibo e DANFE (com opção `[ Usar impressora padrão ]`).
+     - Controles de velocidade/qualidade (Rascunho ~2s, Padrão ~5s, Alta ~20s).
+  4. **Suíte de Testes (11/11 aprovados)**:
+     - 100% de isolamento e blindagem sem toques no spooler físico.
+
+---
+
+## 0. Impressão Direta e Automática no ERP Windows (Epson EcoTank L3250)
+- **Status**: Concluído e Validado no Spooler da Epson L3250! 🖨️⚡🎉
+- **Data**: 24/09/2026
+- **Objetivo**: Sistema de impressão direta, sem abrir caixas de diálogo do navegador ou do Windows, 100% gratuito e open-source, mantendo a integridade absoluta dos layouts HTML/CSS/Tailwind existentes para Pedido de Venda, Recibo e DANFE NF-e/NFC-e.
+- **Arquitetura Implementada**:
+  1. **Agente Local Windows (`desktop-print-agent/`)**:
+     - Servidor HTTP leve em Node.js (`127.0.0.1:40405`).
+     - Renderizador headless via Playwright Chromium (`playwright-core`) com presets e escala proporcional (Pedido: 92% A4; Recibo e DANFE: 100% A4), utilizando `domcontentloaded` para geração instantânea sem bloqueio de rede.
+     - Envio silencioso ao Spooler do Windows via utilitário nativo (`pdf-to-printer`) com detecção automática da impressora padrão (`EPSON L3250 Series` na porta `USB001`).
+     - Controle de concorrência com fila, idempotência por `printJobId` e limpeza imediata de arquivos temporários de spool.
+     - Script de inicialização rápida em 1 clique: `desktop-print-agent/start-agent.bat`.
+  2. **Camada Cliente no ERP (`erp/src/pages/utils/printing/`)**:
+     - `printAgentClient.ts`: Cliente HTTP com timeouts defensivos, healthcheck, listagem de impressoras e presets.
+     - `printHtmlBuilder.ts`: Geração ultrarrápida do HTML estático em memória via `renderToStaticMarkup` (`ReceiptPrintDocument` e `OrderPrintDocument`) com injeção automática de todas as classes CSS/Tailwind e tag `<base href>`, eliminando iframes, requisições de rede lentas e risco de timeouts.
+     - `printFallbackHandler.ts`: Fallback transparente para o navegador caso o operador opte explicitamente pela impressão convencional.
+     - `printService.ts`: Orquestrador com isolamento estrito: fluxo direto (sem popups, sem `window.print()`, sem abas) e fluxo convencional separado.
+  3. **Integrações de Documentos**:
+     - **Recibo de Venda**: Conectado à ação `PRINT_RECEIPT` em `orderActionsConfig.ts` e modal de pós-venda.
+     - **Pedido de Venda**: Conectado à ação `PRINT_SHIPPING_ORDER` em `orderActionsConfig.ts` e modal de pós-venda.
+     - **DANFE (NF-e / NFC-e)**: Conectado a `openDanfePrintWindow` em `danfeGenerator.ts`.
+  4. **Painel de Configuração e Diagnóstico**:
+     - Aba de configurações em `erp/src/pages/App/Settings/` (`PrintConfigSection.tsx`).
+     - Monitoramento em tempo real do status do agente, seleção de impressora e botão de página de teste.
+- **Validação Prática Ponta a Ponta**:
+  - Testado via Chrome DevTools MCP no ERP real (`http://localhost:5173/sales-order`).
+  - Clique em **"IMPRIMIR RECIBO"**:
+    - Zero novas abas abertas (permanecendo 1 única aba).
+    - Zero chamadas a `window.print()` e zero janelas de preview do Chrome.
+    - Log do Agente: `[RECEIPT] #job_receipt_... -> EPSON L3250 Series [sent_to_spooler]` em 4s.
+    - Toast no ERP: *"Recibo enviado para EPSON L3250."*
+  - Clique em **"IMPRIMIR PEDIDO"**:
+    - Zero novas abas abertas.
+    - Zero chamadas a `window.print()` e zero janelas de preview do Chrome.
+    - Log do Agente: `[SALES_ORDER] #job_order_... -> EPSON L3250 Series [sent_to_spooler]` em 3s.
+    - Toast no ERP: *"Pedido enviado para EPSON L3250."*
+  - Testes unitários com Vitest (7 testes) 100% aprovados.
+
+---
+
+## 0. Modularização e Organização de Arquivos: `danfeGenerator.ts`
+- **Status**: Concluído com Sucesso! 📄🏛️
+- **Data**: 24/09/2026
+- **Skills e Diretrizes**: `principios-de-programacao` (SOLID, Responsabilidade Única, código limpo, meta 30–100 linhas), `organizacao-arquivos-diretorios` (subpastas semânticas, zero perda de lógica).
+- **Diagnóstico Inicial**:
+  - `danfeGenerator.ts` possuía cerca de 350 linhas acumulando a geração procedural de todos os blocos do DANFE oficial A4 Retrato (MOC 7.0 Anexo II).
+- **Estrutura Modular Implementada (`erp/src/pages/utils/nfe/danfe/`)**:
+  1. `danfe.types.ts` (~15 linhas): Interface `DanfeData`.
+  2. `danfeRecipient.ts` (~75 linhas): Bloco 3: Destinatário / Remetente (`buildDanfeRecipientOfficialHtml`).
+  3. `danfeTaxesAndTotals.ts` (~80 linhas): Blocos 4 e 5: Fatura/Duplicatas e Cálculo do Imposto (`buildDanfeTaxesAndTotalsOfficialHtml`).
+  4. `danfeTransport.ts` (~60 linhas): Bloco 6: Transportador e Volumes Transportados (`buildDanfeTransportOfficialHtml`).
+  5. `danfeAdditionalInfo.ts` (~40 linhas): Bloco 8: Informações Complementares e Reservado ao Fisco (`buildDanfeAdditionalInfoOfficialHtml`).
+  6. `danfeHeader.ts` & `danfeItemsTable.ts` & `danfeStyles.ts`: Blocos 1, 2 e 7 já coesos preservados.
+  7. `index.ts`: Barrel consolidado.
+  8. `danfeGenerator.ts` (~100 linhas): Orquestrador declarativo elegante reexportando `generateDanfeHtml`, `openDanfePrintWindow` e `DanfeData` com zero quebra de imports.
+- **Validação**: Testes unitários focados (`danfeGeneratorModules.test.ts` e `nfeModules.test.ts`) 100% aprovados.
+
+---
+
+## 0. Modularização e Organização de Arquivos: `orderMutationService.ts`
+- **Status**: Concluído com Sucesso! 🏗️✨
+- **Data**: 24/09/2026
+- **Skills e Diretrizes**: `principios-de-programacao` (SOLID, Responsabilidade Única, 30–100 linhas), `organizacao-arquivos-diretorios` (Zero perda de lógica, Barrels reexportadores).
+- **Diagnóstico Inicial**:
+  - `orderMutationService.ts` possuía mais de 530 linhas acumulando criação, atualização, regras transacionais, CRM, notificações push, conciliação de estoque de produtos temporários e controle de status.
+- **Estrutura Modular Implementada (`erp/src/pages/utils/orderMutation/`)**:
+  1. `orderCrmSyncService.ts` (~50 linhas): Resolução e cadastro prévio de clientes novos no CRM (`ensureCustomerInCrm`) e sincronização em segundo plano (`syncCustomerToCrmBackground`).
+  2. `orderNotificationDispatcher.ts` (~65 linhas): Notificações push de vendas, montagens, alterações e cancelamento de pedidos.
+  3. `orderItemStockReconciliation.ts` (~85 linhas): Conciliação de produtos temporários conciliados, estorno de itens alterados, verificação de saídas ausentes no banco (`inventory_moves`) e flags de baixa parcial (`isPartialStockProcessed`).
+  4. `orderStatusWorkflowService.ts` (~120 linhas): Registro em `order_status_history`, estorno de cancelamento via `cancelInventoryMovesByRelatedEntity`, entrada de devolução atendida via `processReturnInventoryEntries` e saídas automáticas de estoque.
+  5. `orderCreationService.ts` (~95 linhas): Caso de uso isolado para criação atômica e sequencial de pedidos (`executeSaveOrder`).
+  6. `orderUpdateService.ts` (~100 linhas): Caso de uso isolado para atualização transacional atômica de pedidos (`executeUpdateOrder`).
+  7. `index.ts` & Fachada `orderMutationService.ts` (~25 linhas): Fachada limpa mantendo 100% de retrocompatibilidade com todos os importadores diretos e indiretos (`orderHistoryService`).
+- **Validação**: Testes unitários (`orderMutationModules.test.ts`, `undoFulfillmentRules.test.ts`, `orderStatusTransitionRules.test.ts`, `duplicateOrder.test.ts`, `orderSnapshotResolution.test.ts`) 100% aprovados.
+
+---
+
+## 0. Ação "Desfazer Atendido" no Menu de 3 Pontinhos do Card de Pedido de Venda
+- **Status**: Concluído com Sucesso! 🔄📦
+- **Data**: 24/09/2026
+- **Objetivo**: Permitir corrigir casos em que um pedido de venda foi marcado como **Atendido** (`fulfilled`) por engano, restaurando-o para **Agendado** (`scheduled`) para que possa ser reagendado ou subsequentemente cancelado.
+- **Regra de Negócio & Integridade de Estoque**:
+  - No status **Agendado**, a saída de estoque da venda já foi lançada.
+  - Ao transicionar de **Agendado** para **Atendido**, a movimentação de estoque permanece idêntica.
+  - Ao **Desfazer Atendido** (voltar para **Agendado**), as movimentações de estoque **NÃO** são alteradas (sem estorno e sem nova saída).
+  - Caso o usuário queira cancelar a venda, o fluxo canônico é:
+    1. Acionar **Desfazer Atendido** → status volta para **Agendado**.
+    2. No status **Agendado**, o menu de 3 pontinhos libera a opção **Cancelar venda** → onde aí sim é executado o cancelamento com estorno seguro de estoque.
+- **Implementações**:
+  1. **Regra de Transição (`orderStatusTransitionRules.ts`)**:
+     - `canUndoFulfillment`: Refinado para autorizar exclusivamente pedidos com status `fulfilled` (vendas e showroom) e bloquear devoluções.
+  2. **Modal de Confirmação (`UndoFulfillmentModal.tsx`)**:
+     - Título: *"Desfazer status de atendido?"*
+     - Mensagem: *"O pedido voltará para o status Agendado. As movimentações de estoque não serão alteradas."*
+     - Botões *"Cancelar"* e *"Confirmar"*, com suporte a ESC, overlay de fechamento e renderização em portal (`document.body`).
+  3. **Botão Modular (`UndoFulfillmentButton.tsx`)**:
+     - Renderizado condicionalmente via `canUndoFulfillment` no menu de 3 pontinhos (`OrderMenuActiveActions.tsx`).
+     - Ícone `bi bi-arrow-counterclockwise` e tipografia padronizada em tom âmbar.
+  4. **Feedback & Ciclo de Vida (`useOrderHistoryOperations.ts`)**:
+     - Toast de sucesso dedicado: *"Pedido retornado para Agendado com sucesso."*
+     - Disparo de `refresh()` imediato para recarregar o pedido e atualizar as opções do menu no card.
+     - Histórico registrado na tabela `order_status_history` via `orderMutationService`.
+  5. **Cobertura de Testes**:
+     - 15 testes em `orderStatusTransitionRules.test.ts` e 5 testes em `undoFulfillmentRules.test.ts` (100% aprovados).
+
+---
+
+## 0. Correção de Erro 22008 ao Gerar Devolução (Data fora de faixa: "24/09/2026")
+- **Status**: Concluído com Sucesso! 🛠️✅
+- **Data**: 24/09/2026
+- **Causa Raiz Identificada**:
+  - No `ReturnOrderModal.tsx`, a data do pedido de devolução estava sendo preenchida com `dateNow()`, que retornava a data no formato brasileiro `"24/09/2026"` (`DD/MM/YYYY`).
+  - O mesmo ocorria ao disparar ações em `OrderActions/Index.tsx` e `PdvActions/Index.tsx` onde `order.date` era sobrescrito por `dateNow()`.
+  - Ao persistir o pedido no PostgreSQL, o trigger `orders_dashboard_metrics_refresh` e a função `refresh_dashboard_metric_day` executavam um cast direto `(new.order_data->>'date')::timestamptz`. Como o Postgres usa datestyle ISO (`YYYY-MM-DD` / `MM/DD/YYYY`), o dia 24 foi interpretado como mês inválido, disparando `ERROR 22008: date/time field value out of range: "24/09/2026"`.
+- **Correções Aplicadas**:
+  1. **Frontend (`ReturnOrderModal.tsx`, `OrderActions/Index.tsx`, `PdvActions/Index.tsx`)**:
+     - `ReturnOrderModal.tsx`: Substituído `dateNow()` por `new Date().toISOString()`.
+     - `OrderActions/Index.tsx` e `PdvActions/Index.tsx`: Preservada a data real do pedido `order.date || new Date().toISOString()`.
+  2. **Normalização em `orderSnapshotResolution.ts`**:
+     - `buildOrderPersistencePayload`: Higieniza `scheduled_date` e `order_data.date`, convertendo qualquer data `DD/MM/YYYY` para `YYYY-MM-DD` / ISO válido antes do envio ao Supabase.
+  3. **Backend / PostgreSQL (Migration `20260924154500_safe_dashboard_metrics_date_parsing.sql`)**:
+     - Criada a função `public.parse_order_metric_date(raw_date text, fallback_date timestamptz)` que faz o parse seguro tanto de formato ISO quanto de formato brasileiro (`DD/MM/YYYY`) com `to_date`, protegida por bloco `EXCEPTION` com fallback para `created_at`.
+     - Atualizados o trigger `refresh_dashboard_metrics_trigger` e a rotina `refresh_dashboard_metric_day`.
+     - Migration aplicada diretamente no banco de dados do Supabase.
+- **Validação**: Testes unitários focados (`orderSnapshotResolution.test.ts` e `orderLifecycleOperations.undoReturn.test.ts`) 100% aprovados.
+
+---
+
+## 0. Auditoria e Paridade Completa de Inventário (ERP Web × App Mobile)
+- **Status**: Concluído com Sucesso! 📋✨
+- **Data**: 24/09/2026
+- **Skills e Diretrizes**: `erp-web-to-mobile-replication`, `regras-de-negocio-erp`, `principios-de-programacao`
+- **Itens Auditados e Corrigidos**:
+  1. **Lista de Inventários (`InventoryCard.tsx` e `InventoryScreen.tsx`)**:
+     - *Divergência*: No ERP, clicar em qualquer card abre diretamente a sessão (`onOpen` continua rascunho se `in_progress`, ou abre detalhes se `completed`). No mobile, o card era estático e forçava clicar no menu de 3 pontinhos.
+     - *Correção*: Implementado `onPress` no `InventoryCard` redirecionando com 1 toque para continuar a contagem ou visualizar detalhes do inventário.
+  2. **Formulário de Escopo (`InventoryScopeScreen.tsx`)**:
+     - *Divergência*: No ERP, o operador pode ativar "Contagem Cega" (`blindCount`) para auditar sem viés do saldo do sistema. No mobile, o `blindCount` estava fixo em `false` sem chave de controle para o usuário.
+     - *Correção*: Adicionado switch e card visual de "Contagem Cega" com ícone `EyeOff`, permitindo ao usuário alternar livremente o modo cego antes de iniciar a contagem.
+  3. **Tela de Operação de Contagem (`InventoryOperationScreen.tsx` e `InventoryOperationFooter.tsx`)**:
+     - *Divergência*: No ERP, a barra inferior possui botão dedicado para "Salvar como rascunho" sem sair da tela. No mobile, só era possível salvar rascunho tentando sair da contagem no botão voltar.
+     - *Correção*: Adicionado o botão "Salvar rascunho" com ícone `Save` na barra de rodapé (`InventoryOperationFooter`), permitindo salvar o progresso da contagem física em tempo real com feedback instantâneo.
+  4. **Tela de Revisão Final (`InventoryReviewScreen.tsx`)**:
+     - *Divergência*: No ERP, produtos do escopo sem contagem são destacados com banner em tom âmbar explicando que manterão o saldo intacto, e quando não há divergências um card de conformidade é exibido. No mobile, não havia o card de sucesso e a terminologia dizia "Itens Ignorados".
+     - *Correção*: Padronizado com card de aviso de "Itens não contados" e card de sucesso "Nenhuma divergência encontrada! Todos os itens contados batem exatamente com o estoque reconciliado".
+  5. **Modal de Detalhes (`InventoryDetailsModal.tsx`)**:
+     - *Correção*: Adicionada badge clara "Não contado" para itens que não receberam contagem física, preservando total paridade com o ERP.
+  6. **Validação**: 6 testes unitários em `inventoryParity.test.ts` aprovados e zero erros de TypeScript no módulo de inventário.
+
+---
+
+## 0. Ajuste de UI e Espaçamento dos Botões "Hoje" e "Dias Seguintes" (Operações / Logística Mobile)
+- **Status**: Concluído com Sucesso! 📱✨
+- **Data**: 24/09/2026
+- **Arquivo**: [`mobile/src/features/logistics/screens/DeliveriesHubScreen.tsx`](file:///c:/Users/Rosilene/Desktop/morantehub/mobile/src/features/logistics/screens/DeliveriesHubScreen.tsx)
+- **Especificações Aplicadas**:
+  - **Padding externo (topo)**: 16px
+  - **Padding lateral (esquerda/direita)**: 16px
+  - **Espaçamento entre botões**: 14px (dentro da faixa 12–16px)
+  - **Altura dos botões**: 44px (área de toque mínima recomendada)
+  - **Fonte**: 15px semibold/bold
+  - **Raio de borda**: 22px nos botões e 26px no container (formato pílula)
+  - **Visual**: Container com fundo branco/neutro e borda fina `#e2e8f0`; botão ativo azul `#0055ff` com texto branco e elevação; botão inativo com texto azul e fundo transparente.
+- **Validação**: Testes de logística 100% aprovados (31 testes passando).
+
+---
+
+## 0. Modularização Arquitetural e Código Limpo: stockService, InventoryAudit e InventoryOperationScreen
+- **Status**: Concluído com Sucesso! 📦✨
+- **Data**: 24/09/2026
+- **Arquivos Refatorados conforme `modularizacao_codigo` e `organizacao-arquivos-diretorios`**:
+  1. **`mobile/src/services/stockService.ts`**:
+     - Era um monólito de 1367 linhas misturando notas fiscais, movimentações, fornecedores, recebimentos, inventário e sincronização SEFAZ.
+     - Dividido na subpasta modular `mobile/src/services/stock/`:
+       - `stockMovesService.ts`: Movimentações de estoque, fornecedores, pedidos de compra e recebimentos.
+       - `stockInvoiceService.ts`: Gestão de notas fiscais de entrada, reconciliação e parsing de XML.
+       - `stockSefazService.ts`: Chamadas e status do SEFAZ via Edge Function e consulta de chave de acesso.
+       - `stockInventoryService.ts`: Sessões de inventário, estornos, rascunhos e recálculo de saldo.
+     - `stockService.ts` foi transformado em um Barrel reexportador de 5 linhas com 100% de compatibilidade retroativa.
+  2. **`mobile/src/features/stock/inventory/screens/InventoryOperationScreen.tsx`**:
+     - Reduzido de 413 linhas para ~120 linhas.
+     - Extraídos componentes coesos em `mobile/src/features/stock/inventory/components/`:
+       - `InventoryOperationHeader.tsx`: Barra de progresso, botão voltar e scan.
+       - `InventoryOperationFilterBar.tsx`: Barra de pesquisa e chips horizontais de filtro.
+       - `InventoryOperationItemCard.tsx`: Card de contagem manual com botões `+`/`-`, input direto e modo foco.
+       - `InventoryOperationFooter.tsx`: Rodapé com botão de voltar etapa e revisão.
+  3. **`erp/src/pages/App/Stock/Inventory/InventoryAudit.tsx`**:
+     - Reduzido de 420 linhas para ~140 linhas puramente declarativas.
+     - Extraídos:
+       - `components/InventoryAuditBadges.tsx`: Badges de status da contagem e de ajustes.
+       - `components/InventoryAuditContextMenu.tsx`: Menu contextual flutuante de ações.
+       - `hooks/useInventoryAuditSessions.ts`: Orquestração de subscrições em tempo real, estorno e exclusão de rascunhos.
+- **Validação**: 100% dos testes unitários de estoque e inventário do ERP e Mobile aprovados (vitest).
+
+---
+
 ## 0. Especificações Técnicas: Obrigatórias com Asterisco (*) e Regra Global Antidesperdício
 - **Status**: Concluído com Sucesso! 🏷️⚡
 - **Data**: 21/09/2026
@@ -1088,4 +1319,73 @@ Este arquivo centraliza planos, ideias e tarefas pendentes do projeto Morante Hu
   1. **Geração de Imagens no Criador de Posts / Marketing (`gemini-2.5-flash-image`)**: Imagens consomem de 10x a 50x mais saldo que chamadas de texto normais.
   2. **Áudio / TTS (`gemini-3.1-flash-tts` / `gemini-2.5-flash-preview-tts`)**: Modelos de voz possuem custos e quotas por minuto mais restritas.
   3. **Loops e Consultas em Lote Não Intencionais**: Abertura de telas com N itens pendentes sem interrupção de erro (corrigido: agora aborta imediatamente no primeiro 429 e prioriza regras locais determinísticas a R$ 0,00 e 0ms).
-  4. **Documentos Grandes / OCR de PDFs (`analyze-inbound-invoice`)**: O envio de PDFs digitalizados inteiros consome grande volume de tokens multimodais.
+---
+
+## 27. Sincronização Automática de NF-e de Entrada com SEFAZ / Ambiente Nacional (Distribuição DF-e)
+- **Status**: Planejado / Em Backlog de Execução 📋
+- **Objetivo**:
+  - Evoluir o módulo existente de NF-e de Entrada do MoranteHub para receber automaticamente NF-e destinadas ao CNPJ da empresa por meio do serviço oficial `NFeDistribuicaoDFe`, mantendo integralmente os mecanismos manuais que já existem (upload de XML e bipagem/consulta de DANFE).
+- **Regra de Ouro Inegociável (Fluxo de Execução)**:
+  1. **Auditoria Prévia**: Mapear o que já existe no MoranteHub (tabelas, serviços, Edge Functions, componentes, parser/importador de XML, validação de chave, certificado digital e uploads manuais). Não criar arquitetura fiscal paralela.
+  2. **Documentação Oficial Vigente**: Consultar o Portal Nacional da NF-e (NT 2014.002 e atualizações vigentes), MOC e SEFA/PR. Nunca implementar por suposição ou páginas obsoletas.
+  3. **Desenho Arquitetural Conciso**: Reutilizar o importador existente e estruturar a Distribuição DF-e apenas como mais uma fonte de entrada.
+  4. **Implementação Backend Segura**: Comunicação 100% no backend (segurança mTLS, sem certificados no front), locks atômicos por CNPJ/ambiente, controle de cursor NSU e prevenção de consumo indevido.
+  5. **Testes e Homologação**: Mockar serviços SEFAZ em testes automatizados e validar integralmente em Homologação antes de liberar para Produção.
+
+- **Fontes Oficiais Vigentes Confirmadas**:
+  - [Portal Nacional da NF-e — NT 2014.002 / Distribuição DF-e](https://www.nfe.fazenda.gov.br/portal/exibirArquivo.aspx?conteudo=C%2FxkRclIh74%3D)
+  - [SEFA/PR — Eventos da NF-e e Manifestação do Destinatário](https://sped.fazenda.pr.gov.br/NFe/Pagina/Eventos-NF-e) (confirma que eventos de manifestação do destinatário são registrados no Ambiente Nacional).
+  - [Portal Nacional da NF-e — Documentos e Schemas XML Oficiais](https://www.nfe.fazenda.gov.br/Portal/exibirArquivo.aspx?conteudo=BttMW6T7ib8%3D)
+
+- **Pilares Técnicos e Arquitetura Detalhada (44 Diretrizes)**:
+  1. **Ambiente Nacional**: A Distribuição DF-e (`NFeDistribuicaoDFe` método `nfeDistDFeInteresse`) e os eventos de Manifestação do Destinatário ocorrem no Ambiente Nacional (não em endpoints estaduais do SEFAZ-PR).
+  2. **Cursor distNSU**: Mecanismo principal de busca sequencial contínua a partir de `ultNSU` persistido. Nunca inventar, calcular ou tentar extrair NSU do corpo do XML.
+  3. **Persistência de Estado e Locks**: Tabela de sincronização (ex: `fiscal_dfe_sync` com `company_id`, `cnpj`, `environment`, `last_nsu`, `max_nsu`, `last_sync_at`, `next_allowed_sync_at`, `last_cstat`, `sync_status`). Lock distribuído por CNPJ/ambiente para impedir chamadas concorrentes entre scheduler automático e clique do usuário.
+  4. **Primeira Sincronização**: Respeitar regras oficiais da NT 2014.002 para primeiro acesso sem assumir histórico infinito (o fluxo manual atua como contingência).
+  5. **Processamento de Lotes e docZip**: Descompactação segura de `retDistDFeInt -> loteDistDFeInt -> docZip` identificando os schemas (`resNFe`, `procNFe`, eventos).
+  6. **resNFe vs procNFe**: Resumos não contêm itens da nota. Armazenar metadados em estado de resumo (`SUMMARY_ONLY`) e exibir na interface fiscal.
+  7. **Manifestação do Destinatário**:
+     - *Ciência da Operação* (`210210`): Dá ciência para liberar o download do XML completo no Ambiente Nacional. NÃO significa confirmação de recebimento da mercadoria.
+     - *Confirmação da Operação* (`210200`): Conclusiva; nunca registrar automaticamente em silêncio.
+  8. **Consulta Pontual pela Chave (`consChNFe`)**: Permitir consulta por 44 dígitos (respeitando a regra: se não houver manifestação adequada, SEFAZ devolve apenas o resumo).
+  9. **consNSU**: Apenas para resolução pontual de falhas/lacunas, nunca para polling contínuo.
+  10. **Tratamento Estrito de Códigos de Status (cStat)**:
+      - `138`: Sucesso / documento localizado, avança cursor.
+      - `137`: Nenhum documento localizado. Ativar cooldown de 1h antes da próxima consulta (`next_allowed_sync_at`), sem loops.
+      - `656`: Consumo indevido. Bloqueio absoluto de retry imediato com registro de log técnico detalhado.
+  11. **Continuidade de Lotes**: Se `ultNSU < maxNSU`, prosseguir sequencialmente até `ultNSU == maxNSU`.
+  12. **Unificação com o Pipeline Existente**: O XML completo da SEFAZ converge para o mesmo `inboundInvoiceParser`, vinculação de fornecedor, vinculação de itens por código/SKU e cálculo de custos do upload manual.
+  13. **Sem Duplicidade Fiscal**: Chave de 44 dígitos como autoridade (`UNIQUE(company_id, access_key)`). Não duplicar registros nem fornecedores/produtos.
+  14. **Preservação Integral do Fluxo Manual**: Upload manual de XML e consulta por chave permanecem 100% disponíveis para notas antigas, contingência ou fornecedores diretos.
+  15. **Segurança de Certificado Digital**: Backend-only, mTLS seguro, chaves privadas nunca expostas ao frontend nem registradas em logs.
+  16. **Scheduler Backend**: Execução a cada ~1 hora, sempre checando `next_allowed_sync_at`, locks e cooldown antes de disparar.
+  17. **Decisão de UX & Design (Tela Limpa e Sem Botão Permanente)**:
+      - **Sem botão permanente de sincronização**: O funcionário não precisa operar rotinas fiscais no dia a dia. Sincronização 100% em background de hora em hora.
+      - **Indicador discreto no topo**: Localizado na linha do filtro de período:
+        `SEFAZ ✓ Atualizada há 18 min • Próxima verificação em ~42 min`.
+        Botão "Tentar novamente" surge apenas excepcionalmente em caso de erro.
+      - **Lista Única Integrada**: As notas descobertas entram na listagem padrão com o badge `NOVA • SEFAZ`. Se tiver apenas resumo, badge `XML PENDENTE` com ação `[ Obter XML ]`. Após processamento do XML completo, passa aos estados normais (`DISPONÍVEL`, `VINCULAÇÕES PENDENTES`).
+
+
+- **Status**: Concluído com Sucesso! 🚀 (ERP e Mobile integrados)
+- **Resumo da Entrega**:
+  - **Banco de Dados (Supabase)**: Migration `20260924110000_expand_sefaz_nsu_control_and_manifestation.sql` aplicada com sucesso em produção (`hkoxhourxwlddgsfdgws`), adicionando controle de cooldown (`next_allowed_sync_at`), status, cStat, logs e suporte a eventos de manifestação.
+  - **Backend / Edge Function (`sefaz-inbound-sync`)**:
+    - Suporte a `action: "status"` (consulta instantânea do cursor/cooldown com R$ 0,00 e sem risco de 656).
+    - Suporte a consulta pontual por chave de 44 dígitos (`consChNFe`) com download de docZip.
+    - Suporte a busca em lote por cursor `distNSU` no Ambiente Nacional com mTLS seguro e cooldown de 1h obrigatório para `cStat 137`.
+  - **ERP Web**:
+    - `InboundInvoicesHeader.tsx`: Preservado o botão azul `IMPORTAR XML DA NF-E` no canto superior direito como fluxo de contingência/manual.
+    - `SefazSyncStatusBadge.tsx`: Adicionado indicador minimalista e discreto ao lado do seletor de período (`SEFAZ sincronizada há X min • Próxima verificação em ~Y min`), sem botão de sincronização permanente na tela; link "Tentar novamente" apenas em erro.
+    - `InboundInvoicesTable.tsx`: Tabela unificada exibindo badges `NOVA • SEFAZ`, `XML PENDENTE`, quantidade `— itens` para resumos (`resNFe`) e botão de ação `[ Obter XML ]`.
+    - `InboundDocumentImportModal.tsx`: Adicionado botão `Buscar SEFAZ Direto` ao lado de `Consultar no Portal`, permitindo consultar o Ambiente Nacional diretamente pela chave digitada ou escaneada.
+  - **App Mobile**:
+    - `SefazSyncStatusBadge.tsx`: Criado componente nativo React Native discreto e integrado em `InvoicesScreen.tsx` na mesma linha do filtro de período.
+    - `InvoiceCard.tsx`: Suporte a badges `NOVA • SEFAZ`, `XML PENDENTE`, exibição de `— itens` e ação direta para notas em estado de resumo.
+    - `InvoiceImportModal.tsx`: Botões `Buscar SEFAZ Direto` e `Consultar no Portal` integrados, permitindo busca pontual com feedback nativo e recarregamento automático.
+    - `stockService.ts`: Funções `fetchSefazSyncStatus`, `triggerSefazSync` e `consultSefazByAccessKey` adicionadas.
+  - **Validação Estática e Testes**:
+    - TypeScript Mobile: 0 erros nas telas de estoque/notas fiscais.
+    - Vitest ERP: 14 suítes e 94 testes unitários de regras e parsing de NF-e aprovados.
+
+

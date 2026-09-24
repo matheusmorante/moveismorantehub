@@ -3,7 +3,6 @@ import Order from "../../../types/order.type";
 import { Item } from "../../../types/items.type";
 import Shipping from "../../../types/Shipping.type";
 import { saveOrder, updateOrder } from "../../../utils/orderHistoryService";
-import { dateNow } from "../../../utils/formatters";
 import { formatOrderCode } from "../../../utils/orderCode";
 import { toast } from "react-toastify";
 import { Undo2 } from "lucide-react";
@@ -119,7 +118,7 @@ const ReturnOrderModal = ({ order, onClose, onSuccess }: Props) => {
             orderType: "return",
             status: collectAtAddress ? "scheduled" : "fulfilled",
             returnStockProcessed: false,
-            date: dateNow(),
+            date: new Date().toISOString(),
             items,
             linkedOrderId: order.id,
             linkedOrderCode: formatOrderCode(order),

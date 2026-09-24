@@ -86,6 +86,9 @@ const toListItem = (row: any): MobileOrderListItem => {
   };
 };
 
+const isBudgetRow = (row: any): boolean =>
+  String(row?.order_type || row?.order_data?.orderType || row?.order_data?.order_type || '').toLowerCase() === 'budget';
+
 export const fetchMobileOrdersPage = async ({
   page,
   pageSize,
@@ -105,6 +108,7 @@ export const fetchMobileOrdersPage = async ({
     let query = supabase
       .from('order_list_items')
       .select('*', { count: 'exact' })
+      .neq('order_type', 'budget')
       .order('created_at', { ascending: false })
       .range(firstRow, lastRow);
 
@@ -118,11 +122,12 @@ export const fetchMobileOrdersPage = async ({
 
     const { data, count, error } = await query;
     if (!error && data && data.length > 0) {
-      const items = data.map(toListItem);
+      const visibleRows = data.filter((row: any) => !isBudgetRow(row));
+      const items = visibleRows.map(toListItem);
       await cacheOrders(items);
       return {
         items,
-        total: count || 0,
+        total: Math.max(0, (count || 0) - (data.length - visibleRows.length)),
       };
     }
   } catch {
@@ -132,7 +137,8 @@ export const fetchMobileOrdersPage = async ({
   // 2. Fallback resiliente direto na tabela orders oficial (sempre existente e populada)
   let query = supabase
     .from('orders')
-    .select('id, order_number, status, customer_name, total_amount, created_at, updated_at, deleted, order_data', { count: 'exact' })
+    .select('id, order_number, status, order_type, customer_name, total_amount, created_at, updated_at, deleted, order_data', { count: 'exact' })
+    .neq('order_type', 'budget')
     .order('created_at', { ascending: false });
 
   const term = search.trim().replace(/[,%()]/g, '');
@@ -148,9 +154,10 @@ export const fetchMobileOrdersPage = async ({
   const { data, count, error } = await query;
   if (error) throw error;
 
+  const visibleRows = (data || []).filter((row: any) => !isBudgetRow(row));
   return {
-    items: await cacheOrders((data || []).map(toListItem)),
-    total: count || 0,
+    items: await cacheOrders(visibleRows.map(toListItem)),
+    total: Math.max(0, (count || 0) - ((data || []).length - visibleRows.length)),
   };
 };
 

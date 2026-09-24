@@ -16,6 +16,6 @@ export const buildCancelledReturn = (order: Order): Partial<Order> => {
 };
 
 export const clearReturnLink = (): Partial<Order> => ({
-    returnOrderId: undefined as any,
-    returnKind: undefined,
+    returnOrderId: null as any,
+    returnKind: null as any,
 });

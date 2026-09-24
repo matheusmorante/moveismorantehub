@@ -1,6 +1,6 @@
 ---
 name: erp-web-to-mobile-replication
-description: Replica telas, abas, componentes e módulos existentes do ERP Web no App Mobile em React Native, preservando fidelidade visual, comportamento, regras e fluxos com adaptação responsiva. Use sempre que portar ou adaptar uma experiência do ERP Web para mobile.
+description: Replica telas, abas, componentes e módulos existentes do ERP Web no App Mobile em React Native, preservando fidelidade visual, comportamento, regras e fluxos com máxima reutilização da lógica de negócio e adaptação responsiva.
 ---
 
 # Replicação ERP Web → App Mobile
@@ -9,93 +9,155 @@ description: Replica telas, abas, componentes e módulos existentes do ERP Web n
 
 Use obrigatoriamente ao replicar, portar ou adaptar qualquer tela, aba, componente ou módulo existente do ERP Web para React Native.
 
-## Quando NÃO aplicar
+## Princípio Fundamental: Reutilização da Lógica de Negócio
 
-Não use para funcionalidades mobile novas sem equivalente no ERP Web, nem para mudanças exclusivamente no ERP Web. Para essas tarefas, use as skills específicas do domínio.
+> **Reutilizar primeiro. Adaptar somente o necessário. Duplicar somente quando houver justificativa técnica real.**
 
-## Fontes de verdade
+Ao replicar um módulo, tela, funcionalidade ou alteração do ERP para o aplicativo, **nunca recrie a lógica de negócio desnecessariamente**. O maior risco arquitetural é a divergência silenciosa: ERP e App funcionarem iguais hoje, mas terem duas implementações independentes da mesma regra que começam a divergir no primeiro ajuste futuro.
 
-- **Navegador e screenshots do ERP:** referência visual.
-- **Código do ERP:** referência de comportamento, estados, regras, validações e fluxos.
-- Não implemente de memória depois de uma única inspeção. Registre o inventário e compare os estados equivalentes durante o trabalho.
+---
 
-## Processo obrigatório: uma aba e um estado por vez
+## Separação: Lógica de Negócio vs. Implementação de Plataforma
 
-Trabalhe em uma aba de cada vez e, dentro dela, em um estado por vez. Não replique o módulo inteiro antes de comparar. Não avance para a próxima aba enquanto a atual tiver diferenças conhecidas, salvo dependência técnica que exija outra ordem; registre essa dependência e retome a pendência.
+Identifique claramente o que é lógica pura e o que é específico de plataforma antes de codificar.
 
-### 1. Inspecionar o ERP original
+### 1. Priorizar Compartilhamento (Lógica Pura JS/TS)
+Tudo o que for independente da interface e do ambiente de execução deve ser compartilhado ou manter a mesma fonte de verdade:
+- Regras de negócio, cálculos fiscais/financeiros e matrizes de estado;
+- Validações de formulários, campos obrigatórios e invariantes de domínio;
+- Transformações de dados, filtros, agrupamentos e ordenações;
+- Formatação de moedas, documentos, telefones e datas;
+- Tipos, interfaces TypeScript, schemas (Zod/Yup) e constantes/enums;
+- Regras de transição de status e matriz de permissões;
+- Preparação de payloads para mutação e sanitização de inputs;
+- Interpretação de respostas do backend e mapeamento de DTOs;
+- Funções relacionadas a queries/mutations do Supabase que não dependam de DOM;
+- Hooks ou services puros (quando desacoplados de elementos visuais);
+- Demais funções JavaScript/TypeScript puras.
 
-Antes de codificar:
+### 2. Específico de Plataforma (Adaptar Mantendo Equivalência)
+Não tentar compartilhar à força o que depende intrinsecamente do runtime:
+- **ERP / Web:** HTML, elementos DOM (`window`, `document`), CSS/Tailwind Web, APIs do navegador (LocalStorage, impressão direta via browser/Windows), componentes exclusivamente Web.
+- **React Native / App:** Primitivas nativas (`View`, `Text`, `Pressable`, `ScrollView`), StyleSheet nativo, navegação mobile (stacks/tabs), câmera, SQLite/local-first, permissões Android/iOS, notificações push, APIs nativas do Expo/RN, comportamento offline pragmático.
 
-1. Abra no navegador a tela original e percorra as áreas relevantes.
-2. Identifique abas, componentes, estados e interações: carregamento, vazio, erro, dados, seleção, expansão, filtros, busca, paginação, menus, modais, formulários, confirmações e feedback de ações, conforme existirem.
-3. Observe labels, ícones, cores, hierarquia, dimensões, espaçamento, estados ativos/desabilitados e comportamento de cada ação.
-4. Consulte o código ERP para confirmar contratos e semântica que não podem ser inferidos visualmente.
-5. Capture screenshots dos estados de referência necessários.
+Nesses casos, adapte a implementação mantendo **a mesma regra funcional e exatamente o mesmo resultado esperado**.
 
-### 2. Criar checklist e mapear equivalências
+---
 
-Para a aba escolhida, liste componentes, estados, interações e regras em um checklist. Mapeie a função de cada componente Web para seu equivalente React Native antes de implementar.
+## Regra Obrigatória Antes de Criar Qualquer Código
 
-Preserve a semântica. Não troque sem justificativa real pesquisa por select, pesquisa com modal por dropdown simples, paginação por scroll infinito, botão por item de menu, tabs por select ou filtro múltiplo por filtro único. Se uma adaptação for necessária por limitação técnica ou de tela, registre:
+Antes de escrever uma função, hook, service, validação ou regra nova no aplicativo:
+
+1. **Localizar no ERP:** Inspecione a implementação correspondente no ERP Web (`erp/`).
+2. **Localizar Módulos Compartilhados:** Verifique se a lógica já existe em módulos compartilhados (`shared/`, pacotes comuns ou pastas de domínio compartilháveis).
+3. **Localizar no App:** Inspecione a implementação atual no aplicativo (`mobile/`).
+4. **Comparar as três:** Analise contratos, entradas, saídas e efeitos colaterais.
+5. **Determinar Reutilização:** Verifique se é possível reutilizar diretamente o código existente.
+6. **Extrair Lógica Pura (se viável e seguro):** Se a lógica no ERP estiver acoplada a coisas simples de Web mas for pura, avalie se a regra pura pode ser extraída para um módulo compartilhado sem risco de quebra.
+7. **Implementar Específico Somente Sob Demanda:** Apenas crie implementação específica para React Native se houver dependência técnica real de plataforma ou risco comprovado de acoplamento.
+
+**Proibição explícita:** Nunca crie automaticamente pares duplicados como:
+```text
+ERP:  calcularComissaoVendedor()
+App:  calcularComissaoVendedorMobile()
+```
+Se ambas executam a mesma regra, a regra deve ser única e centralizada.
+
+### Política Antirrefatoração Indiscriminada
+- Se uma lógica já estiver compartilhada corretamente, reutilize sem mexer na estrutura.
+- Se estiver separada, mas a extração exigir refatoração ampla, invasiva ou de alto risco no ERP, preserve o código existente e crie a menor adaptação segura, documentando o ponto de convergência futura.
+- A diretriz é: **menor alteração segura + máxima reutilização + mesmo comportamento**. Nunca faça grandes refatorações apenas por purismo conceitual.
+
+---
+
+## Fontes de Verdade e Paridade ERP → Shared → App
+
+- **Código do ERP:** Referência canônica de comportamento, estados, regras, validações e fluxos consolidados.
+- **Navegador e App Mobile:** Referência de validação visual e interativa.
+- Não implemente de memória. Mapeie a paridade ponta a ponta:
 
 ```text
-Original:
-Limitação técnica ou mobile:
-Adaptação:
-Comportamento preservado:
+O que é regra de negócio?
+        ↓
+Pode ser compartilhado / reutilizado?
+        ↓
+SIM → reutilizar diretamente ou extrair lógica pura
+NÃO → adaptar para React Native com mesmo contrato
+        ↓
+Resultado final DEVE permanecer estritamente equivalente
 ```
 
-### 3. Replicar e comparar o estado principal
+Para cada tela, estado ou ação, confira a cadeia de paridade:
+1. Entrada de dados e validações;
+2. Regra executada e cálculos;
+3. Chamada ao backend / Supabase e payload enviado;
+4. Resposta tratada e mudanças de estado local;
+5. Estados de interface: loading, vazio, sucesso, erro, bloqueio por permissão;
+6. Efeitos colaterais e feedback visual ao usuário.
 
-Implemente primeiro apenas o estado principal da aba. Preserve identidade visual — cores, tipografia, ícones equivalentes, hierarquia, bordas, espaçamentos, labels, badges e estados — adaptando dimensões, quebras de linha, organização vertical, área de toque e modal para as necessidades do celular.
+---
 
-Obtenha screenshots do ERP e do estado equivalente no App Mobile e compare lado a lado. Confira presença e ordem dos elementos, cores, ícones, tipografia, espaçamento, alinhamento, labels, botões e hierarquia. Corrija diferenças conhecidas antes de prosseguir.
+## Processo de Execução: Uma Aba e um Estado por Vez
 
-### 4. Percorrer estados e interações alternativos
+Trabalhe em uma aba de cada vez e, dentro dela, em um estado por vez. Não replique o módulo inteiro antes de comparar.
 
-Na mesma aba, examine e reproduza os estados que existirem: vazio, carregando, erro, sem resultados, selecionado, desabilitado, formulário inválido/válido, confirmação, cancelamento, sucesso e permissão negada. Abra filtros, modais, accordions e detalhes; exercite busca, limpeza, seleção, salvamento, edição, paginação e retorno quando aplicável.
+### 1. Inspecionar o ERP Original
+- Identifique abas, componentes, estados e interações: carregamento, vazio, erro, dados, seleção, expansão, filtros, busca, paginação, menus, modais, formulários, confirmações e feedback.
+- Identifique os services, queries e helpers chamados pelo ERP nessa aba.
 
-Compare cada estado e ação equivalente entre Web e Mobile. O resultado e a sequência do fluxo devem permanecer equivalentes.
+### 2. Mapear Reutilização e Equivalências
+- Liste o que será reutilizado diretamente vs. o que será adaptado para mobile:
+```text
+Lógica de Negócio (Compartilhada/Reutilizada): [services, validações, tipos]
+Adaptação de Plataforma Mobile: [UI nativa, scroll, modais touch, feedback]
+Justificativa técnica de qualquer duplicação (se estritamente inevitável): [motivo]
+```
 
-### 5. Conectar a lógica da aba
+### 3. Replicar e Comparar o Estado Principal
+- Implemente primeiro o estado principal da aba conectando a lógica pura mapeada.
+- Preserve a identidade visual — cores, hierarquia, tipografia, ícones equivalentes (Lucide RN), bordas, espaçamentos, badges e estados — adaptando dimensões e área de toque para celular.
+- Compare visualmente e funcionalmente com o ERP.
 
-Somente depois de estabelecer a estrutura visual e mapear os estados, conecte dados, busca, filtros, ações, persistência, Supabase e regras de negócio daquela aba. Preserve validações, permissões, ordenação, paginação, tipos de interação e sequência do fluxo do ERP.
+### 4. Percorrer Estados Alternativos
+- Valide na mesma aba: vazio, carregando, erro, sem resultados de busca, formulário inválido, modal aberto, seleção múltipla e confirmação de exclusão.
+- Assegure que as mensagens de validação e bloqueios de regra sejam idênticos aos do ERP.
 
-### 6. Validar e avançar
+### 5. Validar com Menor Custo
+- Execute primeiro testes focados do módulo alterado.
+- Execute verificação estática de tipos (TypeScript) no mobile/ERP sem rodar suítes pesadas desnecessariamente.
 
-Após implementar a aba, aplique a política geral de validação do projeto: rode primeiro o teste focado do módulo alterado; se passar, execute TypeScript/compilação e lint aplicáveis. Avance para integração quando houver persistência ou comunicação entre serviços. Use E2E somente no fluxo afetado e quando agregar cobertura. Nesta skill, navegador e screenshots são justificados para comparar fidelidade visual e interação; não os substitua por memória.
+---
 
-Conclua o checklist da aba, corrija diferenças conhecidas e só então passe à próxima. Não rode a suíte completa por padrão; ela fica preferencialmente para CI no push/PR.
+## Governança Contra Divergências Futuras
 
-## Checklist de conclusão por aba
+Quando qualquer funcionalidade do ERP for alterada futuramente:
+1. **Alteração em código compartilhado:** Verificar se o aplicativo móvel já consome a mudança e se precisa de ajustes na UI.
+2. **Alteração na implementação Web:** Avaliar se houve mudança de regra funcional que deva ser refletida no app.
+3. **Mudança de Regra de Negócio:** Atualizar preferencialmente a fonte compartilhada/central da regra.
+4. **Mudança puramente cosmética/Web:** Não alterar código mobile desnecessariamente.
+5. **Divergência Detectada:** Registrar imediatamente para alinhamento funcional.
 
-**Visual**
+---
 
-- [ ] Elementos, ordem e labels equivalentes.
-- [ ] Cores, ícones, tipografia, hierarquia, bordas e espaçamento equivalentes.
-- [ ] Estados principais e alternativos comparados por screenshot.
-- [ ] Layout responsivo, sem overflow ou conteúdo cortado.
+## Checklist de Conclusão por Aba
 
-**Comportamento**
+**Lógica e Regras**
+- [ ] Regras de negócio, cálculos e validações reutilizadas ou estritamente equivalentes ao ERP.
+- [ ] Tipos TypeScript, payloads e chamadas ao Supabase unificados sem desvios de regra.
+- [ ] Bloqueios de integridade (ex: exclusão bloqueada com itens vinculados) preservados com a mesma mensagem e condição.
 
-- [ ] Busca, filtros, seleção, paginação e ações mantêm semântica e resultado.
-- [ ] Modais mantêm finalidade, campos, opções e confirmação/cancelamento.
-- [ ] Validações, permissões, estados e regras de negócio preservados.
+**Visual e Interação**
+- [ ] Elementos, ordem, hierarquia e labels equivalentes ao ERP.
+- [ ] Cores, ícones Lucide equivalentes, tipografia e badges alinhados.
+- [ ] Estados de carregamento, vazio, busca sem resultados e erro comparados.
+- [ ] Layout responsivo sem overflow, cortes ou problemas com teclado móvel.
 
-**Mobile**
+**Plataforma Mobile**
+- [ ] Área de toque adequada (mínimo 44x44px em botões críticos).
+- [ ] Feedback tátil/nativos (Alert.alert, modais fluidos, RefreshControl).
 
-- [ ] Área de toque adequada e scroll correto.
-- [ ] Teclado não bloqueia campos ou ações necessários.
-- [ ] Modal/tela adaptada e conferida em larguras relevantes.
+---
 
-## Critério de conclusão
+## Critério de Conclusão
 
-A replicação só está concluída quando todas as abas e estados incluídos no escopo tiverem checklist atendido, diferenças visuais conhecidas resolvidas ou documentadas por limitação técnica, e funcionalidades, semântica, regras e fluxos do ERP estiverem preservados com as adaptações necessárias para celular.
-
-## Referências e Fonte Canônica de Documentação
-
-- `AGENTS.md`: gatilho obrigatório e princípios gerais de replicação ERP Web → App Mobile.
-- Skill `testes-seguros-erp`: isolamento de dados e política incremental de validação para ERP e App Mobile.
-- Código do ERP Web: fonte de verdade para comportamento e regras do módulo replicado.
-- Ao posicionar ou dimensionar uma logo, aplique também `morante-responsive-logo-usage` para escolher a variante pela área disponível.
+A replicação só é considerada concluída quando a lógica de negócio do ERP estiver preservada e reutilizada com o menor índice possível de duplicação, os estados e fluxos estiverem equivalentes e o App Mobile oferecer a mesma confiabilidade operacional do ERP Web.

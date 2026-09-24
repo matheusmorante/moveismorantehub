@@ -27,6 +27,13 @@ const syncInheritedVariationPrices = (form: any, unitPrice: number, promoPrice: 
   })),
 });
 
+const calculateFinalPurchasePrice = (costPrice: number, ipiPercent: number, freightCost: number, freightType: string) => {
+  const withIpi = costPrice + (costPrice * (ipiPercent / 100));
+  if (freightType === 'none') return Number(withIpi.toFixed(2));
+  const freight = freightType === 'percentage' ? costPrice * (freightCost / 100) : freightCost;
+  return Number((withIpi + freight).toFixed(2));
+};
+
 export const ProductFormPricesTab: React.FC<Props> = ({ formData, setFormData, dark }) => {
   const [suppliers, setSuppliers] = useState<any[]>([]);
   const [supplierSearch, setSupplierSearch] = useState<string>('');
@@ -139,6 +146,21 @@ export const ProductFormPricesTab: React.FC<Props> = ({ formData, setFormData, d
         next.promoPrice = '';
       }
       return syncInheritedVariationPrices(next, orig, parsePrice(next.promoPrice) > 0 ? parsePrice(next.promoPrice) : undefined);
+    });
+  }, [setFormData]);
+
+  const handleCostFieldChange = useCallback((field: string, value: string) => {
+    setFormData(prev => {
+      const next: any = { ...prev, [field]: value };
+      const costPrice = parsePrice(field === 'costPrice' ? value : next.costPrice);
+      const ipiPercent = parsePrice(field === 'ipiPercent' ? value : next.ipiPercent);
+      const freightCost = parsePrice(field === 'freightCost' ? value : next.freightCost);
+      const freightType = field === 'freightType' ? value : (next.freightType || 'fixed');
+      next.finalPurchasePrice = calculateFinalPurchasePrice(costPrice, ipiPercent, freightCost, freightType);
+      next.variations = (next.variations || []).map((variation: any) => variation.syncCostPrice !== false
+        ? { ...variation, costPrice: costPrice }
+        : variation);
+      return next;
     });
   }, [setFormData]);
 
@@ -303,6 +325,44 @@ export const ProductFormPricesTab: React.FC<Props> = ({ formData, setFormData, d
         </View>
       </View>
 
+      {/* ─── Custo de Compra ─── */}
+      <View style={[styles.card, dark && styles.darkCard]}>
+        <View style={styles.cardHeader}>
+          <Truck size={16} color="#f59e0b" />
+          <Text style={[styles.cardTitle, dark && styles.lightText]}>Custo de Compra</Text>
+        </View>
+        <View style={styles.row}>
+          <View style={styles.flex1}>
+            <Text style={[styles.label, dark && styles.dimText]}>Preço de Custo</Text>
+            <TextInput value={f(formData.costPrice)} onChangeText={value => handleCostFieldChange('costPrice', value)} keyboardType="numeric" placeholder="0,00" placeholderTextColor="#94a3b8" style={[styles.input, dark && styles.darkInput, dark && styles.lightText]} />
+          </View>
+          <View style={styles.flex1}>
+            <Text style={[styles.label, dark && styles.dimText]}>IPI (%)</Text>
+            <TextInput value={f(formData.ipiPercent)} onChangeText={value => handleCostFieldChange('ipiPercent', value)} keyboardType="numeric" placeholder="0,0" placeholderTextColor="#94a3b8" style={[styles.input, dark && styles.darkInput, dark && styles.lightText]} />
+          </View>
+        </View>
+        <Text style={[styles.label, dark && styles.dimText]}>Tipo de Frete</Text>
+        <View style={styles.segRow}>
+          {([
+            ['fixed', 'Fixo'], ['percentage', 'Percentual'], ['none', 'Sem frete'],
+          ] as const).map(([value, label]) => (
+            <TouchableOpacity key={value} onPress={() => handleCostFieldChange('freightType', value)} style={[styles.seg, dark && styles.darkSegment, formData.freightType === value && styles.segActive]}>
+              <Text style={[styles.segText, formData.freightType === value && styles.segTextActive]}>{label}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+        {formData.freightType !== 'none' && (
+          <View>
+            <Text style={[styles.label, dark && styles.dimText]}>{formData.freightType === 'percentage' ? 'Frete (%)' : 'Frete (R$)'}</Text>
+            <TextInput value={f(formData.freightCost)} onChangeText={value => handleCostFieldChange('freightCost', value)} keyboardType="numeric" placeholder="0,00" placeholderTextColor="#94a3b8" style={[styles.input, dark && styles.darkInput, dark && styles.lightText]} />
+          </View>
+        )}
+        <View style={[styles.finalPriceBox, dark && styles.darkFinalPrice]}>
+          <Text style={[styles.finalPriceLabel, dark && styles.dimText]}>Custo final de compra</Text>
+          <Text style={styles.finalPriceValue}>R$ {Number(formData.finalPurchasePrice || 0).toFixed(2).replace('.', ',')}</Text>
+        </View>
+      </View>
+
       {!formData.hasVariations && (
         <View style={[styles.card, dark && styles.darkCard]}>
           <Text style={[styles.label, dark && styles.dimText]}>Estoque Mínimo</Text>
@@ -347,6 +407,7 @@ const styles = StyleSheet.create({
   label: { fontSize: 10, fontWeight: '800', color: '#475569', textTransform: 'uppercase', marginBottom: 4 },
   input: { height: 44, backgroundColor: '#ffffff', borderRadius: 10, paddingHorizontal: 12, borderWidth: 1, borderColor: '#e2e8f0', fontSize: 13, fontWeight: '700', color: '#0f172a' },
   darkInput: { backgroundColor: '#0f172a', borderColor: '#334155' },
+  darkSegment: { backgroundColor: '#0f172a' },
   promoInput: { color: '#16a34a', fontWeight: '900' },
   separator: { height: 1, backgroundColor: '#e2e8f0', marginVertical: 2 },
   subLabel: { fontSize: 10, fontWeight: '800', color: '#64748b', textTransform: 'uppercase' },

@@ -121,8 +121,12 @@ export const createOrderHistoryOperations = ({
         } : o));
         try {
             await updateOrder(id, { status: newStatus }, currentOrder);
-            toast.success("Status do pedido atualizado!");
-            if (isCancelled) {
+            if (currentOrder.status === 'fulfilled' && newStatus === 'scheduled') {
+                toast.success("Pedido retornado para Agendado com sucesso.");
+            } else {
+                toast.success("Status do pedido atualizado!");
+            }
+            if (isCancelled || (currentOrder.status === 'fulfilled' && newStatus === 'scheduled')) {
                 await refresh();
             }
         } catch (error) {

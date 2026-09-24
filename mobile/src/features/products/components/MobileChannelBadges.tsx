@@ -3,6 +3,8 @@ import { Alert, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 interface MobileChannelBadgesProps {
   dark: boolean;
+  isParent?: boolean;
+  disabled?: boolean;
   isActive: boolean;
   isPublished: boolean;
   isDraft: boolean;
@@ -13,6 +15,8 @@ interface MobileChannelBadgesProps {
 
 export const MobileChannelBadges: React.FC<MobileChannelBadgesProps> = ({
   dark,
+  isParent = false,
+  disabled = false,
   isActive,
   isPublished,
   isDraft,
@@ -21,6 +25,7 @@ export const MobileChannelBadges: React.FC<MobileChannelBadgesProps> = ({
   onToggleCatalog,
 }) => {
   const handleToggleERP = () => {
+    if (isParent || disabled) return;
     if (isDraft) {
       Alert.alert(
         'Produto em Rascunho',
@@ -50,6 +55,7 @@ export const MobileChannelBadges: React.FC<MobileChannelBadgesProps> = ({
       <TouchableOpacity
         activeOpacity={0.8}
         onPress={handleToggleERP}
+        disabled={isParent || disabled}
         style={[
           styles.bipartiteBtn,
           isActive && !isDraft ? styles.bipartiteActiveBorder : styles.bipartiteInactiveBorder,
@@ -62,7 +68,7 @@ export const MobileChannelBadges: React.FC<MobileChannelBadgesProps> = ({
         <View style={[styles.bipartiteStatus, isActive && !isDraft ? styles.statusActiveBg : styles.statusInactiveBg, dark && (isActive && !isDraft ? styles.darkStatusActiveBg : styles.darkStatusInactiveBg)]}>
           <View style={[styles.statusDot, { backgroundColor: isActive && !isDraft ? '#10b981' : '#94a3b8' }]} />
           <Text style={[styles.bipartiteStatusText, { color: isActive && !isDraft ? '#047857' : '#64748b' }]}>
-            {isActive && !isDraft ? 'Ativo' : 'Inativo'}
+            {isActive && !isDraft ? 'Ativo' : 'Desativado'}
           </Text>
         </View>
       </TouchableOpacity>
@@ -72,6 +78,7 @@ export const MobileChannelBadges: React.FC<MobileChannelBadgesProps> = ({
         <TouchableOpacity
           activeOpacity={0.8}
           onPress={handleToggleCat}
+          disabled={disabled}
           style={[
             styles.bipartiteBtn,
             isPublished && !isDraft ? styles.bipartiteActiveBorder : styles.bipartiteInactiveBorder,

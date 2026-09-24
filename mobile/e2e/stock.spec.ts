@@ -62,7 +62,7 @@ test.describe('Módulo de Estoque - E2E (Mobile on Web)', () => {
 
   test('Deve renderizar Notas Fiscais e carregar a lista', async ({ page }) => {
     await page.getByTestId('tab-invoices').first().click();
-    
+
     // Aguardar botão 'Importar'
     await expect(page.locator('text=Importar').first()).toBeVisible({ timeout: 15000 });
 
@@ -71,7 +71,27 @@ test.describe('Módulo de Estoque - E2E (Mobile on Web)', () => {
     await btnImportar.click();
     
     await expect(page.locator('text=Chave de Acesso')).toBeVisible();
+    const accessKeyInput = page.getByPlaceholder('Digite os 44 dígitos...');
+    await accessKeyInput.fill('1234567890');
+    const consultButton = page.getByText('Consultar no SEFAZ').first().locator('..');
+    await expect(consultButton).toHaveAttribute('aria-disabled', 'true');
     await page.locator('text=Cancelar').click();
+  });
+
+  test('Deve abrir o gerenciamento de vínculos de uma nota fiscal', async ({ page }) => {
+    await page.getByTestId('tab-invoices').first().click();
+    await expect(page.getByText('NF-e #133744').first()).toBeVisible({ timeout: 15000 });
+
+    await page.getByLabel('Mais opções').first().click();
+    await page.getByText('Gerenciar vínculos', { exact: true }).click();
+
+    await expect(page.getByText('Gerenciar vínculos', { exact: true }).last()).toBeVisible({ timeout: 15000 });
+    await expect(page.getByText('Concluir', { exact: true })).toBeVisible({ timeout: 15000 });
+
+    await page.getByText('Composição', { exact: true }).first().click();
+    await expect(page.getByPlaceholder('Adicionar produto à composição...').first()).toBeVisible({ timeout: 15000 });
+    await page.getByText('Concluir', { exact: true }).click();
+    await expect(page.getByText('Gerenciar vínculos', { exact: true }).last()).not.toBeVisible();
   });
 
   test('Deve renderizar Recebimentos e carregar a lista', async ({ page }) => {

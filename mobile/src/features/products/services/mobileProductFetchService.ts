@@ -4,10 +4,16 @@ export interface MobileProductFilterOptions {
   search?: string;
   category?: string;
   statusFilter?: 'all' | 'active' | 'disabled' | 'draft';
+  catalogStatus?: 'all' | 'published' | 'hidden';
   includeDeactivated?: boolean;
   includeMerged?: boolean;
+  itemType?: 'standard' | 'composition';
   throwOnError?: boolean;
 }
+
+const removeAccents = (value: string) => value.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+
+const escapePostgrestValue = (value: string) => value.replace(/[%(),]/g, ' ').trim();
 
 export const fetchMobileProductsPage = async (
   page: number,
@@ -23,6 +29,12 @@ export const fetchMobileProductsPage = async (
       .select('*, product_variations(*), product_categories(category_id), product_images(image_url, is_main)', { count: 'exact' })
       .eq('deleted', false);
 
+    if (options?.itemType === 'composition') {
+      query = query.eq('item_type', 'composition');
+    } else if (options?.itemType === 'standard') {
+      query = query.neq('item_type', 'composition');
+    }
+
     const status = options?.statusFilter || 'all';
     if (status === 'draft') {
       query = query.or('is_draft.eq.true,status.eq.draft');
@@ -36,20 +48,41 @@ export const fetchMobileProductsPage = async (
       query = query.or('active.eq.true,is_draft.eq.true,status.eq.draft');
     }
 
+    if (options?.catalogStatus && options.catalogStatus !== 'all') {
+      query = query.eq('status', options.catalogStatus);
+    }
+
     if (options?.category) {
-      query = query.eq('category', options.category);
+      // O ERP ainda encontra registros antigos pelo campo products.category,
+      // mas também considera a relação normalizada product_categories.
+      const { data: categoryRow } = await supabase
+        .from('categories')
+        .select('name')
+        .eq('id', options.category)
+        .maybeSingle();
+      const { data: categoryLinks } = await supabase
+        .from('product_categories')
+        .select('product_id')
+        .eq('category_id', options.category);
+      const linkedProductIds = (categoryLinks || []).map((row: any) => row.product_id).filter(Boolean);
+      const conditions = [`category_id.eq.${options.category}`];
+      if (categoryRow?.name) conditions.push(`category.eq."${escapePostgrestValue(categoryRow.name)}"`);
+      if (linkedProductIds.length > 0) conditions.push(`id.in.(${linkedProductIds.join(',')})`);
+      query = query.or(conditions.join(','));
     }
 
     const rawSearch = options?.search?.trim();
     if (rawSearch) {
-      const term = `%${rawSearch}%`;
+      const safeSearch = escapePostgrestValue(rawSearch);
+      const normalizedSearch = removeAccents(safeSearch);
+      const terms = Array.from(new Set([safeSearch, normalizedSearch])).filter(Boolean);
       let matchedParentIds: string[] = [];
 
       try {
         const { data: matchedVars, error: variationsError } = await supabase
           .from('product_variations')
           .select('product_id')
-          .or(`name.ilike.${term},sku.ilike.${term}`)
+          .or(terms.map(term => `name.ilike.%${term}%`).join(','))
           .limit(100);
         if (variationsError && options?.throwOnError) throw variationsError;
         if (variationsError) console.warn('[MobileProductService] Erro ao buscar variações filhas:', variationsError);
@@ -62,11 +95,11 @@ export const fetchMobileProductsPage = async (
         console.warn('[MobileProductService] Erro ao buscar variações filhas:', e);
       }
 
-      const orConditions = [
-        `name.ilike.${term}`,
-        `description.ilike.${term}`,
-        `code.ilike.${term}`,
-      ];
+      // Paridade com productFilterBuilder do ERP: a busca textual da lista
+      // considera nome do produto e nome da variação, não descrição/código.
+      const orConditions = terms.map(term => `name.ilike.%${term}%`);
+      const words = normalizedSearch.split(/\s+/).filter(Boolean);
+      if (words.length > 1) orConditions.push(`and(${words.map(word => `name.ilike.%${word}%`).join(',')})`);
 
       if (matchedParentIds.length > 0) {
         matchedParentIds.forEach(id => orConditions.push(`id.eq.${id}`));
@@ -82,6 +115,19 @@ export const fetchMobileProductsPage = async (
       if (options?.throwOnError) throw error;
       console.warn('[MobileProductService] Erro ao buscar produtos:', error);
       return { data: [], total: 0 };
+    }
+
+    const categoryIds = Array.from(new Set((data || []).flatMap((product: any) =>
+      (product.product_categories || []).map((relation: any) => relation.category_id).filter(Boolean)
+    )));
+    const categoryNames = new Map<string, string>();
+    if (categoryIds.length > 0) {
+      const { data: categoryRows, error: categoryError } = await supabase
+        .from('categories')
+        .select('id, name')
+        .in('id', categoryIds);
+      if (categoryError && options?.throwOnError) throw categoryError;
+      (categoryRows || []).forEach((category: any) => categoryNames.set(String(category.id), category.name));
     }
 
     const formatted = (data || []).map((p: any) => {
@@ -116,15 +162,32 @@ export const fetchMobileProductsPage = async (
         let resolvedSku = isAlreadyFormatted ? v.sku : (parentCode ? `${parentCode}-${suffix}` : (v.sku || ''));
         resolvedSku = String(resolvedSku || '').trim().replace(/^(.*-\d{2})-[a-z0-9_-]+$/i, '$1');
 
+        const syncUnitPrice = v.syncUnitPrice ?? (v.use_parent_price !== false);
+        const syncPromoPrice = v.syncPromoPrice ?? (v.use_parent_promo_price !== false);
+        const syncDescription = v.syncDescription ?? (v.use_parent_description !== false);
+        const syncDimensions = v.syncWidth ?? (v.use_parent_dimensions !== false);
+        const variationPrice = syncUnitPrice ? Number(p.unit_price ?? p.price ?? 0) : Number(v.price ?? 0);
+        const variationPromoPrice = syncPromoPrice
+          ? (p.promo_price === null || p.promo_price === undefined ? undefined : Number(p.promo_price))
+          : (v.promo_price === null || v.promo_price === undefined ? undefined : Number(v.promo_price));
+
         return {
           ...v,
           sku: resolvedSku,
           name: v.name || p.name,
           stock: Number(v.stock ?? 0),
-          price: Number(v.price ?? p.unit_price ?? p.price ?? 0),
-          promo_price: v.promo_price !== undefined && v.promo_price !== null
-            ? Number(v.promo_price)
-            : p.promo_price ? Number(p.promo_price) : undefined,
+          price: variationPrice,
+          promo_price: variationPromoPrice,
+          unitPrice: variationPrice,
+          promoPrice: variationPromoPrice,
+          costPrice: Number(v.cost_price ?? p.cost_price ?? 0),
+          syncUnitPrice,
+          syncPromoPrice,
+          syncDescription,
+          syncWidth: syncDimensions,
+          syncHeight: syncDimensions,
+          syncDepth: syncDimensions,
+          syncWeight: syncDimensions,
           status: v.status || p.status || 'published',
           active: v.active !== false,
           images: varImages,
@@ -146,7 +209,7 @@ export const fetchMobileProductsPage = async (
             price: Number(p.unit_price ?? p.price ?? 0),
             promo_price: p.promo_price !== null && p.promo_price !== undefined ? Number(p.promo_price) : undefined,
             cost_price: Number(p.cost_price ?? 0),
-            active: p.active !== false,
+            active: Boolean(p.active),
             status: p.status || 'published',
             attributes: {},
             images: [],
@@ -154,16 +217,26 @@ export const fetchMobileProductsPage = async (
         ];
       }
 
+      const activeVariationsCount = allVars.filter((variation: any) => variation.active !== false).length;
+      const totalVariationsCount = allVars.length || 1;
+      const parentActive = allVars.length > 0 ? activeVariationsCount > 0 : Boolean(p.active);
       const isParent = isProductItem || Boolean(p.has_variations || allVars.length > 0);
 
       return {
         ...p,
+        category: (p.product_categories || [])
+          .map((relation: any) => categoryNames.get(String(relation.category_id)))
+          .filter(Boolean)
+          .join(' | ') || p.category || p.category_name || '',
         allVariations: allVars,
         images: productImages,
         unitPrice: Number(p.unit_price ?? p.price ?? 0),
         promoPrice: Number(p.promo_price ?? 0),
         costPrice: Number(p.cost_price ?? 0),
         stock: Number(p.stock ?? 0),
+        active: parentActive,
+        activeVariationsCount,
+        totalVariationsCount,
         isParent,
         isDraft: Boolean(p.is_draft || p.status === 'draft'),
         mainSupplierId: p.main_supplier_id || p.supplier_id || null,

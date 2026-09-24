@@ -49,7 +49,8 @@ describe('invoice list helpers', () => {
         expect(hasUnlinkedInvoiceItems([{ matchedProductId: 'product-1' }, { matched_product_id: 'p2' }])).toBe(false);
         expect(hasUnlinkedInvoiceItems([{ item_snapshot: { matchedProductId: 'product-1' } }])).toBe(false);
         expect(hasUnlinkedInvoiceItems([{ product_id: 'product-1' }])).toBe(true);
-        expect(hasUnlinkedInvoiceItems([{ compositionLinks: [{ productId: 'p2' }] }])).toBe(true);
+        expect(hasUnlinkedInvoiceItems([{ compositionLinks: [{ productId: 'p2' }] }])).toBe(false);
+        expect(hasUnlinkedInvoiceItems([{ item_snapshot: { composition_links: [{ product_id: 'p2' }] } }])).toBe(false);
         expect(hasUnlinkedInvoiceItems([{ product_id: null }])).toBe(true);
     });
 });

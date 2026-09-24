@@ -10,7 +10,7 @@ Consulte a skill correspondente em `.agents/skills/<skill-name>/SKILL.md` para o
 | **Regras de Negócio ERP** | `regras-de-negocio-erp` | Alterar vendas, estoque, CMPM, CMV, recebimentos, devoluções e despesas. |
 | **Banco de Dados** | `database-supabase` | Criar migrations, tabelas, consultas Supabase, otimização de Egress e RLS. |
 | **Mobile & Offline** | `mobile-offline-first` | Funcionalidades offline no App, SQLite local e sincronia em 4 estados. |
-| **Fiscal & Notas** | `nfe-sefaz-direto` | Emissão de NF-e/NFC-e, XML, tributação e comunicação SEFAZ-PR. |
+| **Fiscal & Notas** | `nfe-sefaz-direto` | Emissão NF-e/NFC-e (SEFAZ-PR), Distribuição DF-e (NFeDistribuicaoDFe, Ambiente Nacional), Manifestação do Destinatário, XML e regras fiscais. |
 | **Inteligência Artificial** | `arquitetura-agente-gemini` | Function Calling, tools do assistente IA, prompts e agentes Gemini. |
 | **Testes & Qualidade** | `testes-seguros-erp` | Planejamento e execução de testes Vitest, Playwright, E2E e Docker. |
 | **Testes Financeiros** | `auditoria-e2e-assistente-financeiro` | Bateria de testes E2E com 164 casos do assistente financeiro no navegador. |

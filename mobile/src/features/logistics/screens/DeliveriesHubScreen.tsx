@@ -138,7 +138,11 @@ export const DeliveriesHubScreen: React.FC<Props> = ({
               onPress={() => setScheduleDateScope('today')}
               activeOpacity={0.8}
             >
-              <Text style={[styles.dateScopeBtnText, scheduleDateScope === 'today' && styles.dateScopeBtnTextActive]}>
+              <Text style={[
+                styles.dateScopeBtnText,
+                isDarkMode && styles.dateScopeBtnTextDark,
+                scheduleDateScope === 'today' && styles.dateScopeBtnTextActive,
+              ]}>
                 Hoje
               </Text>
             </TouchableOpacity>
@@ -148,7 +152,11 @@ export const DeliveriesHubScreen: React.FC<Props> = ({
               onPress={() => setScheduleDateScope('next_days')}
               activeOpacity={0.8}
             >
-              <Text style={[styles.dateScopeBtnText, scheduleDateScope === 'next_days' && styles.dateScopeBtnTextActive]}>
+              <Text style={[
+                styles.dateScopeBtnText,
+                isDarkMode && styles.dateScopeBtnTextDark,
+                scheduleDateScope === 'next_days' && styles.dateScopeBtnTextActive,
+              ]}>
                 Dias Seguintes
               </Text>
             </TouchableOpacity>
@@ -334,7 +342,7 @@ const styles = StyleSheet.create({
   headerContainer: {
     backgroundColor: '#ffffff',
     paddingHorizontal: 16,
-    paddingTop: 0,
+    paddingTop: 16,
     paddingBottom: 6,
     borderBottomWidth: 1,
     borderBottomColor: '#f1f5f9',
@@ -346,41 +354,51 @@ const styles = StyleSheet.create({
   titleRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 0,
+    justifyContent: 'flex-start',
+    marginBottom: 16,
   },
   dateScopeContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#0055ff',
-    borderRadius: 22,
+    backgroundColor: '#ffffff',
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    borderRadius: 26,
     padding: 3,
+    gap: 14,
   },
   dateScopeContainerDark: {
-    backgroundColor: '#1d4ed8',
+    backgroundColor: '#0f172a',
+    borderColor: '#334155',
   },
   dateScopeBtn: {
-    paddingHorizontal: 13,
-    paddingVertical: 5.5,
-    borderRadius: 18,
+    minHeight: 44,
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 22,
     backgroundColor: 'transparent',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   dateScopeBtnActive: {
-    backgroundColor: '#ffffff',
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 1.5 },
-    shadowOpacity: 0.18,
-    shadowRadius: 2.5,
-    elevation: 2.5,
+    backgroundColor: '#0055ff',
+    shadowColor: '#0055ff',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 3,
   },
   dateScopeBtnText: {
-    fontSize: 11.5,
+    fontSize: 15,
     fontWeight: '700',
-    color: '#ffffff',
+    color: '#0055ff',
+  },
+  dateScopeBtnTextDark: {
+    color: '#60a5fa',
   },
   dateScopeBtnTextActive: {
-    color: '#0055ff',
-    fontWeight: '900',
+    color: '#ffffff',
+    fontWeight: '700',
   },
   textLight: {
     color: '#f8fafc',

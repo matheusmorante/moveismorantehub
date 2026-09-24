@@ -10,6 +10,9 @@ export interface MobileAttribute {
   id: string;
   name: string;
   active?: boolean;
+  dataType?: string;
+  isGloballyRequired?: boolean;
+  unit?: string;
   options: MobileAttributeValue[];
 }
 
@@ -27,6 +30,9 @@ export const fetchMobileAttributes = async (): Promise<MobileAttribute[]> => {
       id: String(attr.id),
       name: attr.name,
       active: attr.active ?? true,
+      dataType: attr.data_type || attr.dataType || 'text_short',
+      isGloballyRequired: Boolean(attr.is_globally_required ?? attr.isGloballyRequired),
+      unit: attr.unit || '',
       options: values
         .filter((v: any) => String(v.attribute_id) === String(attr.id))
         .map((v: any) => ({
@@ -41,17 +47,28 @@ export const fetchMobileAttributes = async (): Promise<MobileAttribute[]> => {
   }
 };
 
-export const saveMobileAttribute = async (name: string, id?: string): Promise<string | null> => {
+export const saveMobileAttribute = async (name: string, id?: string, metadata?: Partial<MobileAttribute>): Promise<string | null> => {
   const trimmed = name.trim();
   if (!trimmed) return null;
 
   if (id) {
-    const { error } = await supabase.from('attributes').update({ name: trimmed }).eq('id', id);
+    const { error } = await supabase.from('attributes').update({
+      name: trimmed,
+      ...(metadata?.dataType ? { data_type: metadata.dataType } : {}),
+      ...(metadata?.unit !== undefined ? { unit: metadata.unit || null } : {}),
+      ...(metadata?.isGloballyRequired !== undefined ? { is_globally_required: metadata.isGloballyRequired } : {}),
+    }).eq('id', id);
     if (error) throw error;
     return id;
   }
 
-  const { data, error } = await supabase.from('attributes').insert([{ name: trimmed }]).select('id').single();
+  const { data, error } = await supabase.from('attributes').insert([{
+    name: trimmed,
+    data_type: metadata?.dataType || 'text_short',
+    unit: metadata?.unit || null,
+    is_globally_required: Boolean(metadata?.isGloballyRequired),
+    active: metadata?.active !== false,
+  }]).select('id').single();
   if (error) throw error;
   return data?.id || null;
 };

@@ -8,13 +8,18 @@ import { InventoryProductSearchModal } from '../components/InventoryProductSearc
 import type { SearchableProduct } from '../components/InventoryProductSearchModal';
 import type { AuditItem } from '../hooks/useInventoryAuditWorkflow';
 
+import type { InventorySession } from '../../types/stock.types';
+import { Alert } from 'react-native';
+
 interface Props {
     isDarkMode: boolean;
     userProfile: { id: string; full_name?: string } | null;
+    initialSession?: InventorySession | null;
+    copiedItems?: any[] | null;
     onClose: () => void;
 }
 
-export const InventoryAuditFlow: React.FC<Props> = ({ isDarkMode, userProfile, onClose }) => {
+export const InventoryAuditFlow: React.FC<Props> = ({ isDarkMode, userProfile, initialSession, copiedItems, onClose }) => {
     const [isProductSearchOpen, setIsProductSearchOpen] = useState(false);
     const [searchTargetItemId, setSearchTargetItemId] = useState<string | null>(null);
 
@@ -27,8 +32,9 @@ export const InventoryAuditFlow: React.FC<Props> = ({ isDarkMode, userProfile, o
         draftRef,
         isSaving,
         handleConfirmScope,
+        handleSaveDraft,
         handleFinalize,
-    } = useInventoryAuditWorkflow(userProfile, onClose);
+    } = useInventoryAuditWorkflow(userProfile, onClose, initialSession, copiedItems);
 
     const bg = isDarkMode ? '#0f172a' : '#f8fafc';
 
@@ -117,7 +123,25 @@ export const InventoryAuditFlow: React.FC<Props> = ({ isDarkMode, userProfile, o
                         setIsProductSearchOpen(true);
                     }}
                     onReview={() => setView('review')}
-                    onCancel={() => setView('scope')}
+                    onSaveDraft={() => void handleSaveDraft(false)}
+                    onCancel={() => {
+                        Alert.alert(
+                            'Sair da contagem',
+                            'Deseja salvar o progresso como rascunho antes de sair?',
+                            [
+                                { text: 'Continuar contando', style: 'cancel' },
+                                { 
+                                    text: 'Sair sem salvar', 
+                                    style: 'destructive',
+                                    onPress: onClose 
+                                },
+                                { 
+                                    text: 'Salvar e sair', 
+                                    onPress: () => void handleSaveDraft(true) 
+                                }
+                            ]
+                        );
+                    }}
                 />
             )}
 

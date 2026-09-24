@@ -20,7 +20,9 @@ export function useMobileOrders() {
     try {
       // 1. Tenta carregar dados do cache de trabalho local primeiro para exibição imediata
       if (!pull) {
-        const cached = await OrderRepository.list();
+        const cached = (await OrderRepository.list()).filter((order) =>
+          order.orderType !== 'budget' && order.orderData?.orderType !== 'budget' && order.orderData?.order_type !== 'budget'
+        );
         if (cached.length > 0) {
           const localItems = cached.map((order) => ({ id: order.id, order_number: String(order.orderData.orderIndex ?? ''), created_at: String(order.orderData.createdAt || order.orderData.date || ''),
             status: order.status, order_type: order.orderType ?? 'sale', customer_name: order.customerName ?? '', total_value: order.totalAmount ?? 0,

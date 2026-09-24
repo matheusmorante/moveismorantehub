@@ -6,6 +6,7 @@ import {
   TextInput,
   TouchableOpacity,
   View,
+  ScrollView,
 } from 'react-native';
 import {
   Search,
@@ -13,9 +14,12 @@ import {
   PlusCircle,
   Settings,
   X,
+  Tag,
 } from 'lucide-react-native';
 
 interface Props {
+  mode?: 'standard' | 'composition' | 'categories';
+  onModeChange?: (mode: 'standard' | 'composition' | 'categories') => void;
   dark: boolean;
   search: string;
   totalCount: number;
@@ -27,9 +31,18 @@ interface Props {
   showMerged: boolean;
   onToggleDeactivated: () => void;
   onToggleMerged: () => void;
+  categories: any[];
+  statusFilter: 'all' | 'active' | 'disabled' | 'draft';
+  categoryFilter: string;
+  catalogStatusFilter: 'all' | 'published' | 'hidden';
+  onStatusFilterChange: (value: 'all' | 'active' | 'disabled' | 'draft') => void;
+  onCategoryFilterChange: (value: string) => void;
+  onCatalogStatusFilterChange: (value: 'all' | 'published' | 'hidden') => void;
 }
 
 export function ProductsHeader({
+  mode = 'standard',
+  onModeChange,
   dark,
   search,
   totalCount,
@@ -41,8 +54,16 @@ export function ProductsHeader({
   showMerged,
   onToggleDeactivated,
   onToggleMerged,
+  categories,
+  statusFilter,
+  categoryFilter,
+  catalogStatusFilter,
+  onStatusFilterChange,
+  onCategoryFilterChange,
+  onCatalogStatusFilterChange,
 }: Props) {
   const [showMenu, setShowMenu] = useState(false);
+  const [showFilters, setShowFilters] = useState(false);
   const [menuAnchor, setMenuAnchor] = useState<{ top: number; right: number } | null>(null);
   const menuBtnRef = useRef<View>(null);
 
@@ -59,15 +80,17 @@ export function ProductsHeader({
       {/* Topo com Título, Contador e Menu de 3 Pontinhos */}
       <View style={styles.topRow}>
         <View style={styles.titleArea}>
-          <Text style={[styles.title, dark && styles.light]}>Produtos</Text>
-          <View style={styles.counterBadge}>
-            <Text style={styles.counterText}>{totalCount}</Text>
+          <Text style={[styles.title, dark && styles.light]}>{mode === 'composition' ? 'Composições' : mode === 'categories' ? 'Ambientes e Categorias' : 'Produtos'}</Text>
+          <View style={[styles.counterBadge, mode === 'categories' && { display: 'none' }]}>
+            {mode !== 'categories' && <Text style={styles.counterText}>{totalCount}</Text>}
           </View>
         </View>
 
         <TouchableOpacity
           ref={menuBtnRef as any}
           onPress={handleOpenMenu}
+          accessibilityRole="button"
+          accessibilityLabel="Opções de produtos"
           style={[styles.menuBtn, dark && styles.darkMenuBtn]}
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
         >
@@ -75,13 +98,31 @@ export function ProductsHeader({
         </TouchableOpacity>
       </View>
 
-      {/* Barra de Pesquisa / Busca de Produtos */}
+      {onModeChange && (
+        <View style={styles.modeRow}>
+          {([
+            { key: 'standard', label: 'Produtos' },
+            { key: 'composition', label: 'Composições' },
+            { key: 'categories', label: 'Ambientes e Categorias' },
+          ] as const).map(({ key, label }) => (
+            <TouchableOpacity key={key} onPress={() => onModeChange(key)} style={[styles.modeButton, mode === key && styles.modeButtonActive]}>
+              <Text style={[styles.modeText, mode === key && styles.modeTextActive]}>
+                {label}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      )}
+
+      {mode !== 'categories' && (
+        <>
+          {/* Barra de Pesquisa / Busca de Produtos */}
       <View style={[styles.searchBox, dark && styles.darkSearch]}>
         <Search size={16} color="#94a3b8" />
         <TextInput
           value={search}
           onChangeText={onSearch}
-          placeholder="Buscar por nome, código, SKU..."
+          placeholder={mode === 'composition' ? 'Buscar composições...' : 'Buscar por nome, código, SKU...'}
           placeholderTextColor="#94a3b8"
           style={[styles.input, dark && styles.light, { outlineStyle: 'none' } as any]}
         />
@@ -101,15 +142,9 @@ export function ProductsHeader({
             {showDeactivated ? '☑' : '☐'} Mostrar desativados
           </Text>
         </TouchableOpacity>
-        <TouchableOpacity
-          onPress={onToggleMerged}
-          style={[styles.visibilityButton, dark && styles.darkVisibilityButton, showMerged && styles.mergedSelected]}
-        >
-          <Text style={[styles.visibilityText, dark && styles.light, showMerged && styles.selectedVisibilityText]}>
-            {showMerged ? '☑' : '☐'} Mostrar fundidos
-          </Text>
-        </TouchableOpacity>
       </View>
+        </>
+      )}
 
       {/* Dropdown ancorado ao botão — NÃO bloqueia a tela */}
       <Modal
@@ -134,13 +169,17 @@ export function ProductsHeader({
             >
               <TouchableOpacity
                 style={styles.menuItem}
-                onPress={() => { setShowMenu(false); onNewProduct(); }}
+                onPress={() => {
+                  setShowMenu(false);
+                  if (mode === 'composition' && onNewComposition) onNewComposition();
+                  else onNewProduct();
+                }}
               >
                 <PlusCircle size={18} color="#2563eb" />
-                <Text style={[styles.menuItemText, dark && styles.light]}>Novo Produto</Text>
+                <Text style={[styles.menuItemText, dark && styles.light]}>{mode === 'composition' ? 'Nova Composição' : 'Novo Produto'}</Text>
               </TouchableOpacity>
 
-              {onNewComposition && (
+              {onNewComposition && mode === 'standard' && (
                 <TouchableOpacity
                   style={styles.menuItem}
                   onPress={() => { setShowMenu(false); onNewComposition(); }}
@@ -152,6 +191,19 @@ export function ProductsHeader({
 
               <View style={styles.menuDivider} />
 
+              {onModeChange && (
+                <TouchableOpacity
+                  style={styles.menuItem}
+                  onPress={() => {
+                    setShowMenu(false);
+                    onModeChange('categories');
+                  }}
+                >
+                  <Tag size={18} color="#2563eb" />
+                  <Text style={[styles.menuItemText, dark && styles.light]}>Ambientes e Categorias</Text>
+                </TouchableOpacity>
+              )}
+
               <TouchableOpacity
                 style={styles.menuItem}
                 onPress={() => { setShowMenu(false); onOpenConfigs(); }}
@@ -159,15 +211,68 @@ export function ProductsHeader({
                 <Settings size={18} color="#475569" />
                 <Text style={[styles.menuItemText, dark && styles.light]}>Configurações de Produto</Text>
               </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.menuItem}
+                onPress={() => { setShowMenu(false); setShowFilters(true); }}
+              >
+                <Settings size={18} color="#2563eb" />
+                <Text style={[styles.menuItemText, dark && styles.light]}>Filtros avançados</Text>
+              </TouchableOpacity>
             </View>
           )}
         </TouchableOpacity>
+      </Modal>
+
+      <Modal visible={showFilters} transparent animationType="slide" onRequestClose={() => setShowFilters(false)}>
+        <View style={styles.filterBackdrop}>
+          <View style={[styles.filterSheet, dark && styles.darkMenu]}>
+            <View style={styles.filterHeader}>
+              <Text style={[styles.filterTitle, dark && styles.light]}>Filtros de produtos</Text>
+              <TouchableOpacity onPress={() => setShowFilters(false)}><X size={20} color={dark ? '#cbd5e1' : '#475569'} /></TouchableOpacity>
+            </View>
+            <Text style={[styles.filterLabel, dark && styles.light]}>Situação no ERP</Text>
+            <View style={styles.choiceRow}>
+              {([
+                ['all', 'Todos'], ['active', 'Ativos'], ['disabled', 'Desativados'], ['draft', 'Rascunhos'],
+              ] as const).map(([value, label]) => (
+                <TouchableOpacity key={value} onPress={() => onStatusFilterChange(value)} style={[styles.choice, statusFilter === value && styles.choiceActive]}>
+                  <Text style={[styles.choiceText, statusFilter === value && styles.choiceTextActive]}>{label}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+            <Text style={[styles.filterLabel, dark && styles.light]}>Catálogo digital</Text>
+            <View style={styles.choiceRow}>
+              {([
+                ['all', 'Todos'], ['published', 'Publicados'], ['hidden', 'Ocultados'],
+              ] as const).map(([value, label]) => (
+                <TouchableOpacity key={value} onPress={() => onCatalogStatusFilterChange(value)} style={[styles.choice, catalogStatusFilter === value && styles.choiceActive]}>
+                  <Text style={[styles.choiceText, catalogStatusFilter === value && styles.choiceTextActive]}>{label}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+            <Text style={[styles.filterLabel, dark && styles.light]}>Categoria</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.choiceRow}>
+              <TouchableOpacity onPress={() => onCategoryFilterChange('')} style={[styles.choice, !categoryFilter && styles.choiceActive]}><Text style={[styles.choiceText, !categoryFilter && styles.choiceTextActive]}>Todas</Text></TouchableOpacity>
+              {categories.map(category => (
+                <TouchableOpacity key={category.id} onPress={() => onCategoryFilterChange(String(category.id))} style={[styles.choice, categoryFilter === String(category.id) && styles.choiceActive]}>
+                  <Text style={[styles.choiceText, categoryFilter === String(category.id) && styles.choiceTextActive]}>{category.name}</Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+            <TouchableOpacity style={styles.applyButton} onPress={() => setShowFilters(false)}><Text style={styles.applyButtonText}>Aplicar filtros</Text></TouchableOpacity>
+          </View>
+        </View>
       </Modal>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
+  modeRow: { flexDirection: 'row', gap: 8, marginBottom: 4 },
+  modeButton: { flex: 1, minHeight: 36, borderRadius: 10, borderWidth: 1, borderColor: '#cbd5e1', alignItems: 'center', justifyContent: 'center', backgroundColor: '#ffffff' },
+  modeButtonActive: { borderColor: '#2563eb', backgroundColor: '#eff6ff' },
+  modeText: { fontSize: 12, fontWeight: '800', color: '#64748b' },
+  modeTextActive: { color: '#2563eb' },
   container: {
     paddingVertical: 6,
     gap: 10,
@@ -274,4 +379,32 @@ const styles = StyleSheet.create({
     marginVertical: 4,
     marginHorizontal: 8,
   },
+  filterBackdrop: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(15, 23, 42, 0.45)',
+  },
+  filterSheet: {
+    backgroundColor: '#ffffff',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    padding: 20,
+    gap: 12,
+    maxHeight: '82%',
+  },
+  filterHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingBottom: 8,
+  },
+  filterTitle: { fontSize: 17, fontWeight: '900', color: '#0f172a' },
+  filterLabel: { fontSize: 11, fontWeight: '900', color: '#64748b', textTransform: 'uppercase', letterSpacing: 0.8 },
+  choiceRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  choice: { borderWidth: 1, borderColor: '#e2e8f0', borderRadius: 10, paddingHorizontal: 11, paddingVertical: 9, backgroundColor: '#f8fafc' },
+  choiceActive: { borderColor: '#2563eb', backgroundColor: '#eff6ff' },
+  choiceText: { fontSize: 12, fontWeight: '700', color: '#475569' },
+  choiceTextActive: { color: '#1d4ed8' },
+  applyButton: { alignItems: 'center', backgroundColor: '#2563eb', borderRadius: 12, paddingVertical: 13, marginTop: 4 },
+  applyButtonText: { color: '#fff', fontSize: 12, fontWeight: '900', textTransform: 'uppercase', letterSpacing: 0.8 },
 });

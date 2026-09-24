@@ -73,12 +73,19 @@ export const mapInventoryMoveFromDB = (data: any): InventoryMove => {
     const normalizedStatus = isReversed ? 'reversed' : 'effective';
     const reversalReason = data.reversal_reason || meta.reversalReason || (isReversed ? data.reason : undefined);
     const reversedAt = data.reversed_at || meta.reversedAt;
+    const variationRecord = Array.isArray(data.product_variations)
+        ? data.product_variations[0]
+        : data.product_variations;
+    const variationName = variationRecord?.name || data.variation_name;
 
     return {
         id: String(data.id),
         productId: data.product_id,
         variationId: data.variation_id,
-        productDescription: data.product_description,
+        // O pai é apenas agrupador. A descrição operacional da movimentação
+        // deve ser a variação, quando disponível.
+        productName: variationName || undefined,
+        productDescription: variationName || data.product_description,
         type: normalizedType,
         quantity: Number(data.quantity),
         date: data.date,

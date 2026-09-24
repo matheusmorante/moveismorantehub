@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Modal, TouchableWithoutFeedback } from 'react-native';
-import { Download, Link2, Trash2 } from 'lucide-react-native';
+import { Download, Link2, Trash2, CloudDownload } from 'lucide-react-native';
 import { Invoice } from '../../types/stock.types';
 
 interface Props {
@@ -10,11 +10,13 @@ interface Props {
   onClose: () => void;
   onDownloadXML?: (invoice: Invoice) => void;
   onManageMappings?: (invoice: Invoice) => void;
+  onFetchXml?: (invoice: Invoice) => void;
   onDelete?: (invoice: Invoice) => void;
 }
 
-export const InvoiceActionModal: React.FC<Props> = ({ visible, isDarkMode, activeInvoice, onClose, onDownloadXML, onManageMappings, onDelete }) => {
+export const InvoiceActionModal: React.FC<Props> = ({ visible, isDarkMode, activeInvoice, onClose, onDownloadXML, onManageMappings, onFetchXml, onDelete }) => {
   if (!activeInvoice) return null;
+  const isSummaryOnly = activeInvoice.itemsCount === 0;
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
@@ -27,10 +29,17 @@ export const InvoiceActionModal: React.FC<Props> = ({ visible, isDarkMode, activ
                 NF-e {activeInvoice.number}
               </Text>
 
-              <TouchableOpacity style={styles.bsActionBtn} onPress={() => { onManageMappings?.(activeInvoice); onClose(); }}>
-                <Link2 size={20} color={isDarkMode ? '#60a5fa' : '#3b82f6'} />
-                <Text style={[styles.bsActionText, { color: isDarkMode ? '#60a5fa' : '#3b82f6' }]}>Gerenciar vínculos</Text>
-              </TouchableOpacity>
+              {isSummaryOnly ? (
+                <TouchableOpacity style={styles.bsActionBtn} onPress={() => { onFetchXml?.(activeInvoice); onClose(); }}>
+                  <CloudDownload size={20} color={isDarkMode ? '#60a5fa' : '#3b82f6'} />
+                  <Text style={[styles.bsActionText, { color: isDarkMode ? '#60a5fa' : '#3b82f6' }]}>Obter XML da SEFAZ</Text>
+                </TouchableOpacity>
+              ) : (
+                <TouchableOpacity style={styles.bsActionBtn} onPress={() => { onManageMappings?.(activeInvoice); onClose(); }}>
+                  <Link2 size={20} color={isDarkMode ? '#60a5fa' : '#3b82f6'} />
+                  <Text style={[styles.bsActionText, { color: isDarkMode ? '#60a5fa' : '#3b82f6' }]}>Gerenciar vínculos</Text>
+                </TouchableOpacity>
+              )}
               
               <TouchableOpacity style={styles.bsActionBtn} onPress={() => { onDownloadXML?.(activeInvoice); onClose(); }}>
                 <Download size={20} color={isDarkMode ? '#60a5fa' : '#3b82f6'} />

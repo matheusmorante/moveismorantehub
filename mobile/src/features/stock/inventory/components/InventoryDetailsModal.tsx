@@ -53,7 +53,7 @@ export const InventoryDetailsModal: React.FC<Props> = ({ session, isDarkMode, on
                         <Text style={{ color: muted, fontSize: 12 }}>Contado: <Text style={{ fontWeight: '700', color: textPrimary }}>{counted !== null && counted !== undefined ? counted : '-'}</Text></Text>
                     </View>
                 </View>
-                {counted !== null && counted !== undefined && (
+                {counted !== null && counted !== undefined ? (
                     <View style={{ alignItems: 'flex-end', justifyContent: 'center' }}>
                         {hasDiff ? (
                             <View style={[styles.diffBadge, { backgroundColor: diff > 0 ? '#d1fae5' : '#fee2e2' }]}>
@@ -68,6 +68,12 @@ export const InventoryDetailsModal: React.FC<Props> = ({ session, isDarkMode, on
                                 <Text style={{ color: '#059669', fontWeight: '800', marginLeft: 4 }}>OK</Text>
                             </View>
                         )}
+                    </View>
+                ) : (
+                    <View style={{ alignItems: 'flex-end', justifyContent: 'center' }}>
+                        <View style={[styles.diffBadge, { backgroundColor: isDarkMode ? '#1e293b' : '#f1f5f9' }]}>
+                            <Text style={{ color: muted, fontWeight: '700', fontSize: 11 }}>Não contado</Text>
+                        </View>
                     </View>
                 )}
             </View>

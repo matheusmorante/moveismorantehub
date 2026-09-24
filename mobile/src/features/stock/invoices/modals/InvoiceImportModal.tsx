@@ -1,23 +1,26 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, TextInput, Modal, KeyboardAvoidingView, Platform, ScrollView, Alert, ActivityIndicator } from 'react-native';
-import { X, UploadCloud, Search, ScanBarcode } from 'lucide-react-native';
+import { X, UploadCloud, Search, ScanBarcode, CloudDownload, ExternalLink } from 'lucide-react-native';
 import * as DocumentPicker from 'expo-document-picker';
 import type { DocumentPickerAsset } from 'expo-document-picker';
 import { InventoryScannerScreen } from '../../inventory/screens/InventoryScannerScreen';
 import { extractNfeAccessKey } from '../utils/accessKey';
+import * as stockService from '../../../../services/stockService';
 
 interface Props {
     visible: boolean;
     isDarkMode: boolean;
     onClose: () => void;
     onConsultSefaz?: (accessKey: string) => void;
+    onDirectSyncSuccess?: () => void;
     onUploadXml?: (file: DocumentPickerAsset) => void | Promise<void>;
 }
 
-export const InvoiceImportModal: React.FC<Props> = ({ visible, isDarkMode, onClose, onConsultSefaz, onUploadXml }) => {
+export const InvoiceImportModal: React.FC<Props> = ({ visible, isDarkMode, onClose, onConsultSefaz, onDirectSyncSuccess, onUploadXml }) => {
     const [accessKey, setAccessKey] = useState('');
     const [showScanner, setShowScanner] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
+    const [isDirectSyncing, setIsDirectSyncing] = useState(false);
 
     const handlePickDocument = async () => {
         try {
@@ -40,6 +43,38 @@ export const InvoiceImportModal: React.FC<Props> = ({ visible, isDarkMode, onClo
     };
 
     const isAccessKeyValid = accessKey.replace(/\D/g, '').length === 44;
+
+    const handleDirectSefazQuery = async () => {
+        if (!isAccessKeyValid || isDirectSyncing || isLoading) return;
+        setIsDirectSyncing(true);
+        try {
+            const res = await stockService.consultSefazByAccessKey(accessKey);
+            const data = res?.data;
+            if (data?.success) {
+                Alert.alert(
+                    'NF-e Localizada!',
+                    data.message || 'Nota fiscal sincronizada com sucesso a partir do Ambiente Nacional.',
+                    [
+                        {
+                            text: 'OK',
+                            onPress: () => {
+                                onClose();
+                                if (onDirectSyncSuccess) onDirectSyncSuccess();
+                            }
+                        }
+                    ]
+                );
+            } else {
+                const msg = data?.message || res?.error?.message || 'A SEFAZ não retornou o documento para a chave informada.';
+                Alert.alert('Consulta SEFAZ', msg);
+            }
+        } catch (err: any) {
+            console.error('Falha na consulta SEFAZ direta:', err);
+            Alert.alert('Erro na Consulta', err?.message || 'Falha ao comunicar com o Web Service da SEFAZ.');
+        } finally {
+            setIsDirectSyncing(false);
+        }
+    };
     const handleScan = (value: string) => {
         const key = extractNfeAccessKey(value);
         setShowScanner(false);
@@ -69,7 +104,7 @@ export const InvoiceImportModal: React.FC<Props> = ({ visible, isDarkMode, onClo
                         </View>
                         <View style={styles.headerCopy}>
                             <Text style={[styles.title, isDarkMode && styles.textDark]}>Importar XML da NF-e</Text>
-                            <Text style={[styles.subtitle, isDarkMode && styles.textMutedDark]}>Importe o arquivo XML ou consulte a chave.</Text>
+                            <Text style={[styles.subtitle, isDarkMode && styles.textMutedDark]}>Importe o arquivo XML da nota fiscal para conferência e entrada no estoque.</Text>
                         </View>
                     </View>
                     <TouchableOpacity onPress={onClose} style={styles.closeBtn} disabled={isLoading}>
@@ -118,24 +153,49 @@ export const InvoiceImportModal: React.FC<Props> = ({ visible, isDarkMode, onClo
                             </View>
                         </View>
 
-                        <TouchableOpacity 
-                            style={[
-                                styles.consultBtn, 
-                                isAccessKeyValid ? styles.consultBtnActive : styles.consultBtnDisabled,
-                                isDarkMode && !isAccessKeyValid && styles.consultBtnDisabledDark
-                            ]}
-                            disabled={!isAccessKeyValid}
-                            onPress={() => onConsultSefaz && onConsultSefaz(accessKey)}
-                        >
-                            <Search size={18} color={isAccessKeyValid ? '#ffffff' : (isDarkMode ? '#64748b' : '#94a3b8')} />
-                            <Text style={[
-                                styles.consultBtnText, 
-                                isAccessKeyValid ? styles.consultBtnTextActive : styles.consultBtnTextDisabled,
-                                isDarkMode && !isAccessKeyValid && styles.consultBtnTextDisabledDark
-                            ]}>
-                                Consultar no SEFAZ
-                            </Text>
-                        </TouchableOpacity>
+                        <View style={styles.actionButtonsRow}>
+                            <TouchableOpacity
+                                style={[
+                                    styles.directSyncBtn,
+                                    isAccessKeyValid && !isDirectSyncing && !isLoading ? styles.directSyncBtnActive : styles.directSyncBtnDisabled,
+                                    isDarkMode && (!isAccessKeyValid || isDirectSyncing || isLoading) && styles.directSyncBtnDisabledDark
+                                ]}
+                                disabled={!isAccessKeyValid || isDirectSyncing || isLoading}
+                                onPress={handleDirectSefazQuery}
+                            >
+                                {isDirectSyncing ? (
+                                    <ActivityIndicator size="small" color="#ffffff" />
+                                ) : (
+                                    <CloudDownload size={17} color={isAccessKeyValid ? '#ffffff' : (isDarkMode ? '#64748b' : '#94a3b8')} />
+                                )}
+                                <Text style={[
+                                    styles.directSyncBtnText,
+                                    isAccessKeyValid && !isDirectSyncing ? styles.directSyncBtnTextActive : styles.directSyncBtnTextDisabled,
+                                    isDarkMode && (!isAccessKeyValid || isDirectSyncing) && styles.directSyncBtnTextDisabledDark
+                                ]}>
+                                    {isDirectSyncing ? 'Buscando...' : 'Buscar SEFAZ Direto'}
+                                </Text>
+                            </TouchableOpacity>
+
+                            <TouchableOpacity
+                                style={[
+                                    styles.portalBtn,
+                                    isDarkMode && styles.portalBtnDark,
+                                    !isAccessKeyValid && styles.portalBtnDisabled
+                                ]}
+                                disabled={!isAccessKeyValid || isLoading}
+                                onPress={() => onConsultSefaz && onConsultSefaz(accessKey)}
+                            >
+                                <ExternalLink size={15} color={isAccessKeyValid ? (isDarkMode ? '#cbd5e1' : '#475569') : (isDarkMode ? '#64748b' : '#94a3b8')} />
+                                <Text style={[
+                                    styles.portalBtnText,
+                                    isDarkMode && styles.textDark,
+                                    !isAccessKeyValid && styles.portalBtnTextDisabled
+                                ]}>
+                                    Consultar no Portal
+                                </Text>
+                            </TouchableOpacity>
+                        </View>
                     </View>
 
                     <View style={styles.sectionHeaderSpacing}>
@@ -209,14 +269,20 @@ const styles = StyleSheet.create({
     inputWrapperDark: { borderColor: '#475569', backgroundColor: '#0f172a' },
     input: { flex: 1, height: '100%', paddingHorizontal: 16, fontSize: 15, color: '#0f172a' },
     scanBtn: { paddingHorizontal: 14, height: '100%', justifyContent: 'center', alignItems: 'center', borderLeftWidth: 1, borderLeftColor: '#e2e8f0' },
-    consultBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', height: 48, borderRadius: 12, gap: 8 },
-    consultBtnActive: { backgroundColor: '#2563eb' },
-    consultBtnDisabled: { backgroundColor: '#e2e8f0' },
-    consultBtnDisabledDark: { backgroundColor: '#334155' },
-    consultBtnText: { fontSize: 15, fontWeight: '700' },
-    consultBtnTextActive: { color: '#ffffff' },
-    consultBtnTextDisabled: { color: '#94a3b8' },
-    consultBtnTextDisabledDark: { color: '#64748b' },
+    actionButtonsRow: { flexDirection: 'row', gap: 10, alignItems: 'center' },
+    directSyncBtn: { flex: 1.3, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', height: 46, borderRadius: 12, gap: 7, paddingHorizontal: 10 },
+    directSyncBtnActive: { backgroundColor: '#2563eb' },
+    directSyncBtnDisabled: { backgroundColor: '#e2e8f0' },
+    directSyncBtnDisabledDark: { backgroundColor: '#334155' },
+    directSyncBtnText: { fontSize: 13, fontWeight: '700' },
+    directSyncBtnTextActive: { color: '#ffffff' },
+    directSyncBtnTextDisabled: { color: '#94a3b8' },
+    directSyncBtnTextDisabledDark: { color: '#64748b' },
+    portalBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', height: 46, borderRadius: 12, borderWidth: 1, borderColor: '#cbd5e1', backgroundColor: '#ffffff', gap: 6, paddingHorizontal: 10 },
+    portalBtnDark: { backgroundColor: '#1e293b', borderColor: '#475569' },
+    portalBtnDisabled: { opacity: 0.5 },
+    portalBtnText: { fontSize: 13, fontWeight: '700', color: '#334155' },
+    portalBtnTextDisabled: { color: '#94a3b8' },
     uploadArea: { borderWidth: 2, borderColor: '#cbd5e1', borderStyle: 'dashed', borderRadius: 16, backgroundColor: '#ffffff', padding: 32, alignItems: 'center', justifyContent: 'center' },
     uploadAreaDark: { borderColor: '#475569', backgroundColor: '#1e293b' },
     uploadIconCircle: { width: 64, height: 64, borderRadius: 32, backgroundColor: '#eff6ff', alignItems: 'center', justifyContent: 'center', marginBottom: 16 },

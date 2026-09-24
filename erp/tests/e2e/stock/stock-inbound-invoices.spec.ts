@@ -3,7 +3,7 @@
  * Morante Hub ERP
  *
  * Cobertura:
- * 1. Renderização de /stock/inbound-invoices com cabeçalho e filtros operacionais
+ * 1. Renderização de /estoque/notas-fiscais-entrada com cabeçalho e filtros operacionais
  * 2. Exibição e verificação do componente GeminiQuotaWarningBanner no topo da tela
  * 3. Abertura do modal de Importação de NF-e (InboundDocumentImportModal)
  * 4. Validação dos campos do modal (Chave de 44 dígitos, Upload de XML, Aviso Gemini)
@@ -47,7 +47,7 @@ test.describe('Módulo de Estoque - Notas Fiscais de Entrada e Importação', ()
     });
 
     test('1. Renderização de /stock/inbound-invoices com cabeçalho e botão de adicionar nota', async ({ page }) => {
-        await page.goto(`/stock/inbound-invoices?${AUTH_QUERY}`, { waitUntil: 'domcontentloaded' });
+        await page.goto(`/estoque/notas-fiscais-entrada?${AUTH_QUERY}`, { waitUntil: 'domcontentloaded' });
         await page.waitForLoadState('networkidle').catch(() => {});
 
         // Validar título da página
@@ -55,7 +55,7 @@ test.describe('Módulo de Estoque - Notas Fiscais de Entrada e Importação', ()
         await expect(title).toBeVisible({ timeout: 15000 });
 
         // Validar botão de adicionar nota fiscal de entrada
-        const addBtn = page.locator('button:has-text("Adicionar Nota Fiscal de Entrada")');
+        const addBtn = page.locator('button:has-text("Importar XML da NF-e")');
         await expect(addBtn).toBeVisible();
 
         // Validar seletor de período
@@ -64,27 +64,27 @@ test.describe('Módulo de Estoque - Notas Fiscais de Entrada e Importação', ()
     });
 
     test('2. Abertura do modal de importação e validação do campo de Chave de Acesso e Upload', async ({ page }) => {
-        await page.goto(`/stock/inbound-invoices?${AUTH_QUERY}`, { waitUntil: 'domcontentloaded' });
+        await page.goto(`/estoque/notas-fiscais-entrada?${AUTH_QUERY}`, { waitUntil: 'domcontentloaded' });
         await page.waitForLoadState('networkidle').catch(() => {});
 
         // Clicar no botão para abrir modal de importação
-        const addBtn = page.locator('button:has-text("Adicionar Nota Fiscal de Entrada")');
+        const addBtn = page.locator('button:has-text("Importar XML da NF-e")');
         await addBtn.click();
 
         // Modal deve abrir com título correto
-        const modalTitle = page.locator('h2:has-text("Adicionar Nota Fiscal de Entrada")');
+        const modalTitle = page.locator('h2:has-text("Importar XML da NF-e")');
         await expect(modalTitle).toBeVisible({ timeout: 8000 });
 
         // Campo de chave de acesso de 44 dígitos deve estar presente
-        const accessKeyInput = page.locator('#inbound-nfe-access-key');
+        const accessKeyInput = page.locator('#accessKey');
         await expect(accessKeyInput).toBeVisible();
 
         // Botão de upload de XML/documento deve estar visível
-        const uploadArea = page.locator('button:has-text("Adicionar foto, documento ou XML")');
+        const uploadArea = page.locator('button:has-text("Clique para escolher ou arraste o arquivo aqui")');
         await expect(uploadArea).toBeVisible();
 
         // Fechar modal pelo botão X
-        const closeBtn = page.locator('button[aria-label="Fechar importação de documento"]').first();
+        const closeBtn = page.locator('button[aria-label="Fechar modal"]').first();
         await expect(closeBtn).toBeVisible();
         await closeBtn.click();
 
@@ -93,7 +93,7 @@ test.describe('Módulo de Estoque - Notas Fiscais de Entrada e Importação', ()
     });
 
     test('3. Validação da Tabela de Notas Fiscais e Alternância de Filtros', async ({ page }) => {
-        await page.goto(`/stock/inbound-invoices?${AUTH_QUERY}`, { waitUntil: 'domcontentloaded' });
+        await page.goto(`/estoque/notas-fiscais-entrada?${AUTH_QUERY}`, { waitUntil: 'domcontentloaded' });
         await page.waitForLoadState('networkidle').catch(() => {});
 
         // Alterar filtro de período para "Este Ano"
@@ -104,7 +104,7 @@ test.describe('Módulo de Estoque - Notas Fiscais de Entrada e Importação', ()
         }
 
         // Se houver notas renderizadas ou estado vazio informativo
-        const bodyContent = page.locator('main, table, tbody');
+        const bodyContent = page.locator('header, table, [role="dialog"]');
         await expect(bodyContent.first()).toBeVisible();
     });
 });

@@ -5,6 +5,7 @@ import * as Linking from 'expo-linking';
 import * as FileSystem from 'expo-file-system/legacy';
 import { useInvoices } from '../hooks/useInvoices';
 import { InvoiceCard } from '../components/InvoiceCard';
+import { SefazSyncStatusBadge } from '../components/SefazSyncStatusBadge';
 import { InvoiceActionModal } from '../modals/InvoiceActionModal';
 import { InvoiceImportModal } from '../modals/InvoiceImportModal';
 import { InvoiceDetailsModal } from '../modals/InvoiceDetailsModal';
@@ -189,19 +190,23 @@ export const InvoicesScreen: React.FC<Props> = ({ isDarkMode, onBack, renderHead
       </View>
 
       <View style={styles.filtersContainer}>
-        <TouchableOpacity
-          style={[styles.periodBtn, isDarkMode && styles.periodBtnDark]}
-          onPress={() => setShowPeriodModal(true)}
-          accessibilityRole="button"
-          accessibilityLabel={`Período: ${periodLabel}`}
-        >
-          <Calendar size={17} color={isDarkMode ? '#60a5fa' : '#2563eb'} />
-          <Text style={[styles.periodLabel, isDarkMode && styles.textMutedDark]}>Período:</Text>
-          <View style={[styles.periodValueWrapper, isDarkMode && styles.periodValueWrapperDark]}>
-            <Text style={[styles.periodValue, isDarkMode && styles.textDark]}>{periodLabel}</Text>
-            <ChevronDown size={15} color={isDarkMode ? '#94a3b8' : '#64748b'} />
-          </View>
-        </TouchableOpacity>
+        <View style={styles.periodRow}>
+          <TouchableOpacity
+            style={[styles.periodBtn, isDarkMode && styles.periodBtnDark]}
+            onPress={() => setShowPeriodModal(true)}
+            accessibilityRole="button"
+            accessibilityLabel={`Período: ${periodLabel}`}
+          >
+            <Calendar size={17} color={isDarkMode ? '#60a5fa' : '#2563eb'} />
+            <Text style={[styles.periodLabel, isDarkMode && styles.textMutedDark]}>Período:</Text>
+            <View style={[styles.periodValueWrapper, isDarkMode && styles.periodValueWrapperDark]}>
+              <Text style={[styles.periodValue, isDarkMode && styles.textDark]}>{periodLabel}</Text>
+              <ChevronDown size={15} color={isDarkMode ? '#94a3b8' : '#64748b'} />
+            </View>
+          </TouchableOpacity>
+
+          <SefazSyncStatusBadge isDarkMode={isDarkMode} onSyncSuccess={reload} />
+        </View>
 
         {dateFilter.mode === 'custom_month' && (
           <TextInput
@@ -243,6 +248,32 @@ export const InvoicesScreen: React.FC<Props> = ({ isDarkMode, onBack, renderHead
     </View>
   );
 
+  const handleFetchXml = async (invoice: Invoice) => {
+    if (!invoice.accessKey) {
+      Alert.alert('Chave indisponível', 'Esta nota não possui chave de acesso válida cadastrada.');
+      return;
+    }
+    try {
+      const res = await stockService.consultSefazByAccessKey(invoice.accessKey);
+      const data = res?.data;
+      if (data?.success && data?.document?.xml) {
+        Alert.alert('Sucesso', 'XML completo obtido com sucesso da SEFAZ!');
+        reload();
+      } else if (data?.success) {
+        Alert.alert(
+          'Consulta Realizada',
+          'A SEFAZ ainda disponibiliza apenas o resumo para este documento. Se necessário, importe o XML oficial do fornecedor manualmente.'
+        );
+        reload();
+      } else {
+        Alert.alert('Consulta SEFAZ', data?.message || res?.error?.message || 'Não foi possível obter o XML completo neste momento.');
+      }
+    } catch (err: any) {
+      console.error('Falha ao obter XML da SEFAZ:', err);
+      Alert.alert('Erro ao consultar SEFAZ', err?.message || 'Falha ao comunicar com o servidor da SEFAZ.');
+    }
+  };
+
   const rows: InvoiceListRow[] = [
     { type: 'module', id: 'module-header' },
     { type: 'page', id: 'page-header' },
@@ -272,7 +303,13 @@ export const InvoicesScreen: React.FC<Props> = ({ isDarkMode, onBack, renderHead
 
           return (
             <View style={styles.cardContainer}>
-              <InvoiceCard item={item.invoice!} isDarkMode={isDarkMode} onMenuPress={setActiveInvoice} onPress={(invoice) => { void loadInvoiceDetails(invoice); }} />
+              <InvoiceCard
+                item={item.invoice!}
+                isDarkMode={isDarkMode}
+                onMenuPress={setActiveInvoice}
+                onPress={(invoice) => { void loadInvoiceDetails(invoice); }}
+                onFetchXml={(invoice) => { void handleFetchXml(invoice); }}
+              />
             </View>
           );
         }}
@@ -304,6 +341,7 @@ export const InvoicesScreen: React.FC<Props> = ({ isDarkMode, onBack, renderHead
         onClose={() => setActiveInvoice(null)}
         onDownloadXML={(invoice) => { void downloadInvoiceXml(invoice); }}
         onManageMappings={setMappingInvoice}
+        onFetchXml={(invoice) => { void handleFetchXml(invoice); }}
         onDelete={confirmInvoiceDeletion}
       />
       <InvoiceDetailsModal
@@ -311,6 +349,7 @@ export const InvoicesScreen: React.FC<Props> = ({ isDarkMode, onBack, renderHead
         isDarkMode={isDarkMode}
         invoice={detailsInvoice}
         loading={detailsLoading}
+        onFetchXml={(invoice) => { void handleFetchXml(invoice); }}
         onClose={() => { setDetailsInvoice(null); setDetailsLoading(false); }}
       />
       <InboundInvoiceMappingsModal
@@ -325,6 +364,7 @@ export const InvoicesScreen: React.FC<Props> = ({ isDarkMode, onBack, renderHead
         isDarkMode={isDarkMode}
         onClose={() => setShowImportModal(false)}
         onConsultSefaz={(key) => { void consultSefaz(key); }}
+        onDirectSyncSuccess={reload}
         onUploadXml={importXml}
       />
 
@@ -365,6 +405,7 @@ const styles = StyleSheet.create({
   importBtnCompact: { alignSelf: 'stretch' },
   importBtnText: { color: '#fff', fontWeight: '800', fontSize: 11, flexShrink: 1 },
   filtersContainer: { gap: 10, paddingBottom: 12 },
+  periodRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 },
   periodBtn: { minHeight: 42, flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-start', gap: 7, paddingHorizontal: 10, borderRadius: 12, borderWidth: 1, borderColor: '#e2e8f0', backgroundColor: '#fff' },
   periodBtnDark: { backgroundColor: '#1e293b', borderColor: '#334155' },
   periodLabel: { color: '#64748b', fontSize: 12, fontWeight: '700' },

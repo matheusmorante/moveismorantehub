@@ -1,6 +1,17 @@
 import { supabase } from '../../../services/supabaseClient';
 import { getNextSequentialProductCode, generateVariationSku } from './mobileProductHelpers';
-import { resolveProductVariationName } from '../domain/productVariationName';
+import { ensureAtLeastOneOperationalVariation, resolveProductVariationName } from '../domain/productVariationName';
+
+const normalizeVariationSku = (sku?: string) => String(sku || '').trim().replace(/^(.*-\d{2})-[a-z0-9_-]+$/i, '$1');
+
+const normalizeComboItems = (items: unknown) => (Array.isArray(items) ? items : []).map((item: any) => ({
+  productId: item.productId ?? item.product_id,
+  variationId: item.variationId ?? item.variation_id ?? null,
+  quantity: Math.max(1, Number(item.quantity || 1)),
+  description: item.description || item.productName || item.name || '',
+  unitPrice: Number(item.unitPrice ?? item.unit_price ?? 0),
+  stock: Number(item.stock ?? item.currentStock ?? 0),
+}));
 
 export const toggleMobileProductCatalog = async (
   productId: string,
@@ -26,8 +37,16 @@ export const toggleMobileProductCatalog = async (
   return nextStatus;
 };
 
-export const toggleMobileProductActive = async (productId: string, currentActive: boolean) => {
+export const toggleMobileProductActive = async (productId: string, currentActive: boolean, isVariation = false, variationId?: string) => {
   const nextActive = !currentActive;
+  if (isVariation && variationId) {
+    const { error } = await supabase
+      .from('product_variations')
+      .update({ active: nextActive, updated_at: new Date().toISOString() })
+      .eq('id', variationId);
+    if (error) throw error;
+    return nextActive;
+  }
   const { error } = await supabase
     .from('products')
     .update({ active: nextActive, updated_at: new Date().toISOString() })
@@ -64,6 +83,10 @@ export const saveMobileProduct = async (productData: any) => {
   if (!productCode && !isEditing) {
     productCode = await getNextSequentialProductCode();
   }
+  const variationRows = ensureAtLeastOneOperationalVariation(productData, productCode);
+  const hasActiveVariation = variationRows.length > 0
+    ? variationRows.some((variation: any) => variation.active !== false)
+    : productData.active !== false;
 
   const payload: any = {
     name: productData.name?.trim(),
@@ -75,7 +98,16 @@ export const saveMobileProduct = async (productData: any) => {
     opportunity_id: productData.opportunityId || null,
     observations: productData.observations || null,
     slug: productData.slug || null,
+    title: productData.title || productData.marketplaceTitle || productData.name?.trim() || null,
+    marketplace_title: productData.marketplaceTitle || productData.title || productData.name?.trim() || null,
+    brand: productData.brand || null,
+    environment: productData.environment || null,
+    include_environment: productData.includeEnvironment !== false,
+    include_brand: productData.includeBrand !== false,
+    title_order: Array.isArray(productData.titleOrder) ? productData.titleOrder : undefined,
+    featured: Boolean(productData.featured),
     item_type: productData.itemType || 'product',
+    is_combo: productData.itemType === 'composition' || productData.isCombo === true,
     unit_price: Number(productData.unitPrice || 0),
     price: Number(productData.unitPrice || 0),
     promo_price: productData.promoPrice ? Number(productData.promoPrice) : null,
@@ -95,7 +127,7 @@ export const saveMobileProduct = async (productData: any) => {
       technicalValues: productData.technicalValues || productData.technical_specs?.technicalValues || {},
     },
     fiscal: productData.fiscal || {},
-    combo_items: Array.isArray(productData.comboItems) ? productData.comboItems : [],
+    combo_items: normalizeComboItems(productData.comboItems),
     ecommerce_description: productData.ecommerceDescription || null,
     whatsapp_description: productData.whatsappDescription || null,
     meta_title: productData.metaTitle || null,
@@ -105,7 +137,7 @@ export const saveMobileProduct = async (productData: any) => {
     width: productData.width ? String(productData.width) : null,
     height: productData.height ? String(productData.height) : null,
     depth: productData.depth ? String(productData.depth) : null,
-    active: productData.isDraft ? false : (productData.active ?? true),
+    active: productData.isDraft ? false : hasActiveVariation,
     is_draft: Boolean(productData.isDraft),
     status: productData.isDraft ? 'draft' : (productData.status || 'hidden'),
     supplier_id: productData.mainSupplierId || productData.supplierId || null,
@@ -113,7 +145,7 @@ export const saveMobileProduct = async (productData: any) => {
     supplier_ids: Array.isArray(productData.supplierIds) && productData.supplierIds.length > 0
       ? productData.supplierIds
       : (productData.mainSupplierId || productData.supplierId ? [productData.mainSupplierId || productData.supplierId] : []),
-    has_variations: Boolean(productData.hasVariations || (productData.variations && productData.variations.length > 1)),
+    has_variations: productData.itemType === 'service' ? false : true,
     updated_at: new Date().toISOString(),
   };
 
@@ -159,10 +191,23 @@ export const saveMobileProduct = async (productData: any) => {
   }
 
   // Persistir variações filhas se fornecidas ou se for uma composição
-  let variationsToSave = Array.isArray(productData.variations) ? [...productData.variations] : [];
+  let variationsToSave = [...variationRows];
 
   if (savedProductId && variationsToSave.length > 0) {
     const parentCode = (payload.code || '000000').trim();
+    const { data: existingVariations, error: existingVariationsError } = await supabase
+      .from('product_variations')
+      .select('id, sku')
+      .neq('product_id', savedProductId);
+    if (existingVariationsError) throw existingVariationsError;
+    const usedSkus = new Set((existingVariations || []).map((variation: any) => String(variation.sku || '').trim()).filter(Boolean));
+    const { data: currentVariations, error: currentVariationsError } = await supabase
+      .from('product_variations')
+      .select('id, sku')
+      .eq('product_id', savedProductId);
+    if (currentVariationsError) throw currentVariationsError;
+    const retainedVariationIds = new Set<string>();
+
     for (let vIdx = 0; vIdx < variationsToSave.length; vIdx++) {
       const v = variationsToSave[vIdx];
       const variationAttributes = Array.isArray(v.attributes)
@@ -174,8 +219,21 @@ export const saveMobileProduct = async (productData: any) => {
         : Object.entries(v.attributes || {})
             .filter(([, value]) => value !== null && value !== undefined && String(value).trim())
             .map(([name, value]) => ({ name, value: String(value), showName: true }));
-      // Garante SKU com sufixo sequencial gerado automaticamente na lógica do ERP
-      const resolvedSku = generateVariationSku(parentCode, vIdx);
+      const rawSku = normalizeVariationSku(v.sku);
+      const defaultSku = generateVariationSku(parentCode, vIdx);
+      let resolvedSku = rawSku || defaultSku;
+      if (usedSkus.has(resolvedSku)) {
+        if (rawSku && rawSku !== defaultSku && !productData.isDraft) {
+          throw new Error(`O SKU da variação "${resolvedSku}" já está em uso por outro produto.`);
+        }
+        let attempt = 0;
+        do {
+          const suffix = String(vIdx + 1).padStart(2, '0');
+          resolvedSku = `${parentCode}_${Date.now().toString().slice(-4)}${attempt ? `_${attempt}` : ''}-${suffix}`;
+          attempt += 1;
+        } while (usedSkus.has(resolvedSku) && attempt < 10);
+      }
+      usedSkus.add(resolvedSku);
       const varPayload: any = {
         product_id: savedProductId,
         name: resolveProductVariationName({
@@ -201,6 +259,7 @@ export const saveMobileProduct = async (productData: any) => {
         status: productData.isDraft ? 'draft' : (v.status || payload.status || 'hidden'),
         active: productData.isDraft ? false : (v.active ?? productData.active ?? true),
         attributes: variationAttributes,
+        combo_items: normalizeComboItems(v.comboItems),
         image_url: Array.isArray(v.images) && v.images.length > 0
           ? v.images.join(',')
           : (v.imageUrl || null),
@@ -219,12 +278,46 @@ export const saveMobileProduct = async (productData: any) => {
       if (variationId) {
         const { error } = await supabase.from('product_variations').update(varPayload).eq('id', variationId);
         if (error) throw error;
+        retainedVariationIds.add(String(variationId));
       } else {
-        const { error } = await supabase.from('product_variations').insert([varPayload]);
+        const { data: insertedVariation, error } = await supabase.from('product_variations').insert([varPayload]).select('id').single();
         if (error) throw error;
+        if (insertedVariation?.id) retainedVariationIds.add(String(insertedVariation.id));
       }
     }
+
+    const removedVariationIds = (currentVariations || [])
+      .map((variation: any) => String(variation.id))
+      .filter((variationId) => !retainedVariationIds.has(variationId));
+    if (removedVariationIds.length > 0) {
+      const { error } = await supabase.from('product_variations').delete().in('id', removedVariationIds);
+      if (error) throw error;
+    }
+  } else if (savedProductId) {
+    const { error } = await supabase.from('product_variations').delete().eq('product_id', savedProductId);
+    if (error) throw error;
   }
 
   return savedProductId;
+};
+
+export const duplicateMobileProduct = async (product: any) => {
+  const copy = {
+    ...product,
+    id: undefined,
+    name: `${product.name || 'Produto'} (Cópia)`,
+    code: undefined,
+    sku: undefined,
+    status: 'hidden',
+    isDraft: true,
+    active: false,
+    variations: (product.allVariations || product.variations || []).map((variation: any) => ({
+      ...variation,
+      id: undefined,
+      sku: undefined,
+      status: 'draft',
+      active: false,
+    })),
+  };
+  return saveMobileProduct(copy);
 };

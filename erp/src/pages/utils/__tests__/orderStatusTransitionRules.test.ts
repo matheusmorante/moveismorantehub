@@ -128,11 +128,30 @@ describe('[MÓDULO 1 - Etapa 1.2] Ciclo de vida e transições de status do pedi
       expect(canCancelOrderDirectly({ status: 'cancelled', orderType: 'sale' })).toBe(false);
     });
 
-    it('autoriza desfazer atendimento apenas para pedidos fulfilled', () => {
+    it('autoriza desfazer atendimento apenas para pedidos fulfilled que não sejam devolução', () => {
+      expect(canUndoFulfillment({ status: 'fulfilled', orderType: 'sale' })).toBe(true);
+      expect(canUndoFulfillment({ status: 'fulfilled', orderType: 'showroom' })).toBe(true);
       expect(canUndoFulfillment({ status: 'fulfilled' })).toBe(true);
-      expect(canUndoFulfillment({ status: 'scheduled' })).toBe(false);
-      expect(canUndoFulfillment({ status: 'draft' })).toBe(false);
-      expect(canUndoFulfillment({ status: 'cancelled' })).toBe(false);
+      expect(canUndoFulfillment({ status: 'fulfilled', orderType: 'return' })).toBe(false);
+      expect(canUndoFulfillment({ status: 'scheduled', orderType: 'sale' })).toBe(false);
+      expect(canUndoFulfillment({ status: 'draft', orderType: 'sale' })).toBe(false);
+      expect(canUndoFulfillment({ status: 'cancelled', orderType: 'sale' })).toBe(false);
+    });
+
+    it('fluxo completo: pedido atendido deve primeiro desfazer atendimento antes de poder ser cancelado', () => {
+      const orderAtendido = { status: 'fulfilled' as Order['status'], orderType: 'sale' };
+      // 1. Não pode cancelar diretamente enquanto estiver atendido
+      expect(canCancelOrderDirectly(orderAtendido)).toBe(false);
+      // 2. Pode desfazer atendimento
+      expect(canUndoFulfillment(orderAtendido)).toBe(true);
+      expect(validateOrderStatusTransition(orderAtendido.status, 'scheduled')).toEqual({ allowed: true });
+
+      // 3. Após desfazer e voltar para scheduled
+      const orderAgendado = { status: 'scheduled' as Order['status'], orderType: 'sale' };
+      // 4. Agora sim pode cancelar diretamente
+      expect(canCancelOrderDirectly(orderAgendado)).toBe(true);
+      expect(canUndoFulfillment(orderAgendado)).toBe(false);
+      expect(validateOrderStatusTransition(orderAgendado.status, 'cancelled')).toEqual({ allowed: true });
     });
   });
 });

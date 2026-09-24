@@ -25,6 +25,11 @@ interface Props {
   onToggleCatalog: (productId: string, currentStatus: string, isVariation?: boolean, varId?: string) => void;
   onToggleActive: (productId: string, currentActive: boolean) => void;
   onDelete: (productId: string, isDraft?: boolean) => void;
+  onDuplicate?: (product: any) => void;
+  onShare?: (product: any) => void;
+  onLaunchStock?: (product: any) => void;
+  onShowHistory?: (product: any) => void;
+  onShowOrders?: (product: any) => void;
 }
 
 export const MobileProductCard: React.FC<Props> = ({
@@ -34,6 +39,11 @@ export const MobileProductCard: React.FC<Props> = ({
   onToggleCatalog,
   onToggleActive,
   onDelete,
+  onDuplicate,
+  onShare,
+  onLaunchStock,
+  onShowHistory,
+  onShowOrders,
 }) => {
   const [expanded, setExpanded] = useState(false);
   const [menuVisible, setMenuVisible] = useState(false);
@@ -105,6 +115,8 @@ export const MobileProductCard: React.FC<Props> = ({
               e.stopPropagation();
               onEdit(product);
             }}
+            accessibilityRole="button"
+            accessibilityLabel={`Editar ${product.name || 'produto'}`}
             style={[styles.actionIconBtn, dark && styles.darkBtn]}
             hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
           >
@@ -117,6 +129,8 @@ export const MobileProductCard: React.FC<Props> = ({
               e.stopPropagation();
               setMenuVisible(true);
             }}
+            accessibilityRole="button"
+            accessibilityLabel={`Opções de ${product.name || 'produto'}`}
             style={[styles.actionIconBtn, dark && styles.darkBtn]}
             hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
           >
@@ -191,6 +205,7 @@ export const MobileProductCard: React.FC<Props> = ({
         {/* Status de Canais Bipartido */}
         <MobileChannelBadges
           dark={dark}
+          isParent={isParent}
           isActive={isActive}
           isPublished={isPublished}
           isDraft={isDraft}
@@ -209,6 +224,10 @@ export const MobileProductCard: React.FC<Props> = ({
           isParentDraft={isDraft}
           onToggleCatalog={(varId, st) => onToggleCatalog(product.id, st, true, varId)}
           onToggleActive={(varId, act) => onToggleActive(varId, act)}
+          parentProduct={product}
+          onEdit={onEdit}
+          onShowHistory={onShowHistory}
+          onLaunchStock={onLaunchStock}
         />
       )}
 
@@ -223,6 +242,11 @@ export const MobileProductCard: React.FC<Props> = ({
         onEdit={onEdit}
         onToggleActive={onToggleActive}
         onDelete={onDelete}
+        onDuplicate={onDuplicate}
+        onShare={onShare}
+        onLaunchStock={onLaunchStock}
+        onShowHistory={onShowHistory}
+        onShowOrders={onShowOrders}
       />
     </TouchableOpacity>
   );

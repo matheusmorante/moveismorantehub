@@ -101,8 +101,27 @@ export const buildOrderPersistencePayload = (order: Order) => {
     const originalSoldTotal = order.originalSoldTotal ?? null;
     const returnKind = order.returnKind || null;
 
+    // Normalização segura de data agendada para o formato YYYY-MM-DD esperado pelo PostgreSQL
+    let normalizedScheduledDate: string | null = null;
+    if (scheduledDate) {
+        const rawDate = String(scheduledDate).trim();
+        if (/^\d{4}-\d{2}-\d{2}/.test(rawDate)) {
+            normalizedScheduledDate = rawDate.slice(0, 10);
+        } else if (/^\d{2}\/\d{2}\/\d{4}/.test(rawDate)) {
+            const [d, m, y] = rawDate.slice(0, 10).split('/');
+            normalizedScheduledDate = `${y}-${m}-${d}`;
+        }
+    }
+
+    // Normalização segura de order.date caso venha no formato brasileiro
+    const sanitizedOrder = { ...order };
+    if (sanitizedOrder.date && /^\d{2}\/\d{2}\/\d{4}/.test(sanitizedOrder.date)) {
+        const [d, m, y] = sanitizedOrder.date.slice(0, 10).split('/');
+        sanitizedOrder.date = `${y}-${m}-${d}T12:00:00.000Z`;
+    }
+
     return {
-        order_data: order,
+        order_data: sanitizedOrder,
         items: order.items || [],
         order_number: orderNumber,
         order_index: orderIndex,
@@ -113,7 +132,7 @@ export const buildOrderPersistencePayload = (order: Order) => {
         seller_id: sellerId,
         seller_name: sellerName,
         total_amount: totalAmount,
-        scheduled_date: scheduledDate ? String(scheduledDate).slice(0, 10) : null,
+        scheduled_date: normalizedScheduledDate,
         scheduled_start_time: scheduledStartTime,
         scheduled_end_time: scheduledEndTime,
         delivery_method: deliveryMethod,

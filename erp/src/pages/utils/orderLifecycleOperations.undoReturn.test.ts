@@ -113,8 +113,8 @@ describe("undoReturn - Desfazer Devolução com Estorno de Estoque", () => {
         expect(updateOrderFn).toHaveBeenCalledWith(
             "sale-201",
             {
-                returnOrderId: undefined,
-                returnKind: undefined,
+                returnOrderId: null,
+                returnKind: null,
             },
             expect.objectContaining({ id: "sale-201" })
         );
@@ -195,5 +195,46 @@ describe("undoReturn - Desfazer Devolução com Estorno de Estoque", () => {
         expect(itemWithSnapshot.returnedUnitPrice).toBe(350);
         expect(itemWithSnapshot.returnedTotalValue).toBe(700);
         expect(itemWithSnapshot.returnedQuantity).toBe(2);
+    });
+    it("deve ser idempotente quando a devolução já está cancelada — apenas limpa o vínculo na venda", async () => {
+        const updateOrderFn = vi.fn().mockResolvedValue(undefined);
+
+        const alreadyCancelledReturn: Order = {
+            id: "return-already-cancelled",
+            orderType: "return",
+            status: "cancelled", // já estava cancelada
+            orderIndex: 3003,
+            linkedOrderId: "sale-999",
+            customerData: { fullName: "Carlos Lima" } as any,
+            items: [],
+            payments: [],
+            paymentsSummary: {} as any,
+            shipping: {} as any,
+            itemsSummary: {} as any,
+            seller: "",
+            observation: "",
+            date: "2026-09-14",
+        };
+
+        mockSupabaseSelect.mockResolvedValueOnce({ data: {
+            id: "sale-999",
+            status: "fulfilled",
+            order_type: "sale",
+            order_index: 999,
+            order_data: { id: "sale-999", returnOrderId: "return-already-cancelled" },
+        }, error: null });
+
+        await undoReturn(alreadyCancelledReturn, updateOrderFn);
+
+        // Não deve cancelar movimentações de estoque (devolução já estava cancelada)
+        expect(mockCancelInventoryMovesByRelatedEntity).not.toHaveBeenCalled();
+
+        // Deve apenas limpar o vínculo na venda original
+        expect(updateOrderFn).toHaveBeenCalledTimes(1);
+        expect(updateOrderFn).toHaveBeenCalledWith(
+            "sale-999",
+            { returnOrderId: null, returnKind: null },
+            expect.objectContaining({ id: "sale-999" })
+        );
     });
 });

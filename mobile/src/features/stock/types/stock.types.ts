@@ -11,6 +11,8 @@ export interface Invoice {
     status: 'received' | 'manifested' | 'pending';
     hasPendingBindings: boolean;
     sefazStatus: 'authorized' | 'cancelled' | 'denied' | 'pending';
+    isSummaryOnly?: boolean;
+    rawXml?: string;
 }
 
 export type InvoiceDateFilterMode = 'current_month' | 'previous_month' | 'current_year' | 'previous_year' | 'custom_month' | 'custom_range';
@@ -81,6 +83,9 @@ export interface InventorySession {
 
 export interface StockMove {
     id: string;
+    productId?: string;
+    variationId?: string;
+    productName?: string;
     type: 'in' | 'out' | 'entry' | 'exit' | 'withdrawal' | 'adjustment' | 'balance';
     quantity: number;
     productDescription?: string;
@@ -92,4 +97,6 @@ export interface StockMove {
     created_at: string;
     observation?: string;
     reversalReason?: string;
+    relatedEntityType?: string;
+    relatedEntityId?: string;
 }

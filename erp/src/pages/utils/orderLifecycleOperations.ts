@@ -122,6 +122,14 @@ export const undoReturn = async (
             returnOrder = mapOrderFromDatabase(returnRow);
         }
 
+        // Se a devolução já foi cancelada anteriormente, apenas limpa o vínculo na venda (idempotente)
+        if (returnOrder.status === 'cancelled') {
+            if (originalOrder && originalOrder.id) {
+                await updateOrderFn(originalOrder.id, clearReturnLink(), originalOrder);
+            }
+            return;
+        }
+
         // Estornar a movimentação de entrada no estoque gerada por esta devolução
         const orderCode = formatOrderCode(returnOrder);
         const customerName = returnOrder.customerData?.fullName || (returnOrder as any).customerName || '';

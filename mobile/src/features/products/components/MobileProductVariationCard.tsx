@@ -1,7 +1,8 @@
 import React from 'react';
-import { Alert, Image, StyleSheet, Text, View } from 'react-native';
-import { Package } from 'lucide-react-native';
+import { Alert, Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { MoreVertical, Package } from 'lucide-react-native';
 import { MobileChannelBadges } from './MobileChannelBadges';
+import { MobileProductVariationActionsMenu } from './MobileProductVariationActionsMenu';
 
 interface MobileProductVariationCardProps {
   variation: any;
@@ -11,6 +12,10 @@ interface MobileProductVariationCardProps {
   isParentDraft?: boolean;
   onToggleActive?: (varId: string, currentActive: boolean) => void;
   onToggleCatalog: (varId: string, currentStatus: string) => void;
+  parentProduct?: any;
+  onEdit?: (product: any) => void;
+  onShowHistory?: (product: any) => void;
+  onLaunchStock?: (product: any) => void;
 }
 
 export const MobileProductVariationCard: React.FC<MobileProductVariationCardProps> = ({
@@ -21,7 +26,12 @@ export const MobileProductVariationCard: React.FC<MobileProductVariationCardProp
   isParentDraft = false,
   onToggleActive,
   onToggleCatalog,
+  parentProduct,
+  onEdit,
+  onShowHistory,
+  onLaunchStock,
 }) => {
+  const [menuVisible, setMenuVisible] = React.useState(false);
   let varName = '';
   if (v.attributes && Array.isArray(v.attributes)) {
     varName = v.attributes.map((a: any) => a.value).filter(Boolean).join(' · ');
@@ -32,6 +42,7 @@ export const MobileProductVariationCard: React.FC<MobileProductVariationCardProp
 
   const isPublished = v.status === 'published';
   const isActive = v.active !== false;
+  const isMerged = Boolean(v.merged_to_variation_id || v.mergedToVariationId);
   const imgUrl = Array.isArray(v.images) && v.images[0] ? v.images[0] : (v.imageUrl || parentImage || null);
   const normalPrice = Number(v.price ?? v.unit_price ?? 0);
   const promoPrice = Number(v.promo_price ?? v.promoPrice ?? 0);
@@ -63,6 +74,8 @@ export const MobileProductVariationCard: React.FC<MobileProductVariationCardProp
     onToggleCatalog(v.id, v.status || 'published');
   };
 
+  const variationProduct = { ...(parentProduct || {}), selectedVariationId: v.id, selectedVariation: v };
+
   return (
     <View style={[styles.varCard, dark && styles.darkVarCard]}>
       {/* Linha Superior: Foto e Informações */}
@@ -80,9 +93,10 @@ export const MobileProductVariationCard: React.FC<MobileProductVariationCardProp
             {varName}
           </Text>
 
-          <Text style={styles.sku}>
-            SKU: {v.sku && String(v.sku).includes('-') ? v.sku : (v.sku ? `${v.sku}-${String(index + 1).padStart(2, '0')}` : '-')}
-          </Text>
+           <Text style={styles.sku}>
+             SKU: {v.sku && String(v.sku).includes('-') ? v.sku : (v.sku ? `${v.sku}-${String(index + 1).padStart(2, '0')}` : '-')}
+           </Text>
+           {isMerged && <Text style={styles.mergedBadge}>Mesclado — somente histórico</Text>}
 
           <View style={styles.priceStockRow}>
             {hasPromo && (
@@ -99,7 +113,19 @@ export const MobileProductVariationCard: React.FC<MobileProductVariationCardProp
             </View>
           </View>
         </View>
+        <TouchableOpacity disabled={isMerged} style={styles.menuButton} onPress={() => setMenuVisible(true)} accessibilityRole="button" accessibilityLabel={`Ações da variação ${varName}`}>
+          <MoreVertical size={17} color={dark ? '#cbd5e1' : '#64748b'} />
+        </TouchableOpacity>
       </View>
+      <MobileProductVariationActionsMenu
+        visible={menuVisible && !isMerged}
+        dark={dark}
+        variationName={varName}
+        onClose={() => setMenuVisible(false)}
+        onEdit={onEdit ? () => onEdit(variationProduct) : () => setMenuVisible(false)}
+        onHistory={onShowHistory ? () => onShowHistory(variationProduct) : undefined}
+        onStock={onLaunchStock ? () => onLaunchStock(variationProduct) : undefined}
+      />
 
       {/* Linha Inferior: Status de Canais Bipartido */}
       <View style={styles.channelsRow}>
@@ -108,6 +134,7 @@ export const MobileProductVariationCard: React.FC<MobileProductVariationCardProp
           isActive={isActive && !isParentDraft}
           isPublished={isPublished && !isParentDraft}
           isDraft={isParentDraft}
+          disabled={isMerged}
           showCatalog={true}
           onToggleActive={handleToggleActive}
           onToggleCatalog={handleToggleCatalog}
@@ -155,6 +182,13 @@ const styles = StyleSheet.create({
   infoCol: {
     flex: 1,
   },
+  menuButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 9,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   name: {
     fontSize: 12,
     fontWeight: '700',
@@ -165,6 +199,12 @@ const styles = StyleSheet.create({
     color: '#64748b',
     fontWeight: '600',
     marginTop: 1,
+  },
+  mergedBadge: {
+    color: '#b91c1c',
+    fontSize: 9,
+    fontWeight: '800',
+    marginTop: 2,
   },
   priceStockRow: {
     flexDirection: 'row',

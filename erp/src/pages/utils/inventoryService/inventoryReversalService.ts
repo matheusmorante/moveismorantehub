@@ -93,7 +93,7 @@ export const cancelInventoryMovesByRelatedEntity = async (
         const searchPattern = `%${relatedEntityId}%`;
         const { data: moves, error } = await supabase
             .from(INVENTORY_TABLE_NAME)
-            .select('id, observation, reason')
+            .select('id, type, observation, reason, label, order_id')
             .or(`order_id.eq.${relatedEntityId},observation.ilike.${searchPattern},label.ilike.${searchPattern}`);
 
         if (error) throw error;

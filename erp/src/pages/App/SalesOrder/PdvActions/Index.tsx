@@ -1,6 +1,5 @@
 import React, { useState } from "react";
 import Order, { OrderAction, IsButtonsClicked } from "../../../types/order.type";
-import { dateNow } from "../../../utils/formatters";
 import { buttons, actionsMap } from "../OrderActions/orderActionsConfig";
 import { validateOrder, validateAssistanceOrder } from "../../../utils/validations";
 import { toast } from "react-toastify";
@@ -29,7 +28,7 @@ const OrderActions = ({ order }: { order: Order }) => {
   }
 
   function handleAction(action: OrderAction) {
-    const updated = { ...order, date: dateNow() };
+    const updated = { ...order, date: order.date || new Date().toISOString() };
     sessionStorage.setItem("order", JSON.stringify(updated));
     if (actionsMap[action]) {
       actionsMap[action](updated);

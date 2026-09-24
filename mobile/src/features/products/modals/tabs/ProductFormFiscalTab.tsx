@@ -124,6 +124,19 @@ export const ProductFormFiscalTab: React.FC<Props> = ({ formData, setFormData, d
         </View>
 
         <View style={styles.field}>
+          {formData.itemType === 'service' && (
+            <>
+              <Text style={[styles.label, dark && styles.dimText]}>Código Municipal / Serviço (LC 116/03) *</Text>
+              <TextInput
+                value={fiscal.codigoServico || ''}
+                onChangeText={value => setFiscalField('codigoServico', value.replace(/\D/g, '').slice(0, 8))}
+                keyboardType="numeric"
+                placeholder="Ex: 0101"
+                placeholderTextColor="#94a3b8"
+                style={[styles.input, dark && styles.darkInput, dark && styles.lightText]}
+              />
+            </>
+          )}
           <Text style={[styles.label, dark && styles.dimText]}>Código NCM (8 dígitos)</Text>
           <TextInput
             value={ncmSearch}
@@ -180,7 +193,7 @@ export const ProductFormFiscalTab: React.FC<Props> = ({ formData, setFormData, d
 
         {/* CFOP */}
         <View style={styles.field}>
-          <Text style={[styles.label, dark && styles.dimText]}>CFOP Padrão</Text>
+          <Text style={[styles.label, dark && styles.dimText]}>{formData.itemType === 'service' ? 'CFOP Padrão (Municipal)' : 'CFOP Padrão (Estadual)'}</Text>
           <TouchableOpacity
             onPress={() => setShowCfopPicker(!showCfopPicker)}
             style={[styles.selectBtn, dark && styles.darkInput]}
@@ -210,7 +223,7 @@ export const ProductFormFiscalTab: React.FC<Props> = ({ formData, setFormData, d
 
         {/* CSOSN / CST */}
         <View style={styles.field}>
-          <Text style={[styles.label, dark && styles.dimText]}>CSOSN / Situação Tributária (ICMS)</Text>
+          <Text style={[styles.label, dark && styles.dimText]}>{formData.itemType === 'service' ? 'CST / CSOSN ISSQN' : 'CST / CSOSN ICMS (Simples Nacional)'}</Text>
           <TouchableOpacity
             onPress={() => setShowCsosnPicker(!showCsosnPicker)}
             style={[styles.selectBtn, dark && styles.darkInput]}
@@ -271,10 +284,12 @@ export const ProductFormFiscalTab: React.FC<Props> = ({ formData, setFormData, d
 
         {/* ICMS % */}
         <View style={styles.field}>
-          <Text style={[styles.label, dark && styles.dimText]}>Alíquota ICMS (%)</Text>
+          <Text style={[styles.label, dark && styles.dimText]}>{formData.itemType === 'service' ? 'Alíquota ISS (%)' : 'Alíquota ICMS (%)'}</Text>
           <TextInput
-            value={fiscal.icmsPercent !== undefined ? String(fiscal.icmsPercent) : ''}
-            onChangeText={v => setFiscalField('icmsPercent', v)}
+            value={formData.itemType === 'service'
+              ? (fiscal.issPercent !== undefined ? String(fiscal.issPercent) : '')
+              : (fiscal.icmsPercent !== undefined ? String(fiscal.icmsPercent) : '')}
+            onChangeText={v => setFiscalField(formData.itemType === 'service' ? 'issPercent' : 'icmsPercent', v)}
             keyboardType="numeric"
             placeholder="0"
             placeholderTextColor="#94a3b8"

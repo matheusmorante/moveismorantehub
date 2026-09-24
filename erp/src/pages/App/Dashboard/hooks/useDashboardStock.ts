@@ -29,25 +29,49 @@ export const useDashboardStock = (): StockData => {
     useEffect(() => {
         const fetch = async () => {
             try {
+                // Inclui produtos legados (item_type NULL) e produtos físicos
                 const { data, error } = await supabase
                     .from('products')
-                    .select('id, description, stock, min_stock, has_variations, variations, active, deleted_at')
+                    .select('id, description, stock, min_stock, has_variations, active, deleted_at')
                     .is('deleted_at', null)
                     .eq('active', true)
-                    .eq('item_type', 'product');
+                    .or('item_type.eq.product,item_type.is.null');
 
                 if (error) throw error;
 
                 const products = data || [];
+
+                // Buscar variações ativas de produtos com variações
+                const productIdsWithVariations = products
+                    .filter(p => p.has_variations)
+                    .map(p => p.id);
+
+                let variationsByProductId: Record<string, any[]> = {};
+                if (productIdsWithVariations.length > 0) {
+                    const { data: variationRows } = await supabase
+                        .from('product_variations')
+                        .select('id, product_id, name, sku, stock, active')
+                        .in('product_id', productIdsWithVariations)
+                        .eq('active', true);
+
+                    for (const v of variationRows ?? []) {
+                        if (!variationsByProductId[v.product_id]) {
+                            variationsByProductId[v.product_id] = [];
+                        }
+                        variationsByProductId[v.product_id].push(v);
+                    }
+                }
+
                 const items: LowStockItem[] = [];
                 let zero = 0;
                 let low = 0;
 
                 for (const p of products) {
-                    if (p.has_variations && Array.isArray(p.variations) && p.variations.length > 0) {
-                        for (const v of p.variations) {
+                    const variations = variationsByProductId[p.id];
+                    if (p.has_variations && variations && variations.length > 0) {
+                        for (const v of variations) {
                             const stock = Number(v.stock ?? 0);
-                            const minStock = Number(v.min_stock ?? v.minStock ?? 0);
+                            const minStock = Number(p.min_stock ?? 0);
                             if (stock === 0) {
                                 zero++;
                                 items.push({ productId: p.id, variationId: v.id, name: `${p.description} — ${v.name || v.sku}`, stock, minStock, isZero: true });

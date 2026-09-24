@@ -8,7 +8,7 @@ interface Props {
 }
 
 const ShippingData = ({ shipping }: Props) => {
-    const shippingDate = shipping.scheduling.date;
+    const shippingDate = shipping?.scheduling?.date || (shipping as any)?.date || '';
 
     return (
         <section className="flex flex-col gap-4">

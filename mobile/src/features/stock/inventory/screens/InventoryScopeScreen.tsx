@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator, Alert } from 'react-native';
-import { X, Package, Users, Filter } from 'lucide-react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator, Alert, Switch } from 'react-native';
+import { X, Package, Users, Filter, EyeOff } from 'lucide-react-native';
 import { useAuth } from '../../../../contexts/AuthContext';
 import type { ScopeConfiguration, ScopeProduct, ScopeSupplier, InventoryScopeType } from '../hooks/useInventoryScopeBuilder';
 import { clearInventoryScopeCache, fetchInventoryScopeProducts, fetchInventoryScopeSuppliers } from '../../../../services/stockService';
@@ -20,6 +20,7 @@ export const InventoryScopeScreen: React.FC<Props> = ({ isDarkMode, onCancel, on
   const [selectedSupplierId, setSelectedSupplierId] = useState<string | null>(null);
   const [customProducts, setCustomProducts] = useState<SearchableProduct[]>([]);
   const [searchOpen, setSearchOpen] = useState(false);
+  const [blindCount, setBlindCount] = useState(false);
 
   // Load Initial Data
   useEffect(() => {
@@ -91,7 +92,7 @@ export const InventoryScopeScreen: React.FC<Props> = ({ isDarkMode, onCancel, on
     onConfirm({
         type,
         name,
-        blindCount: false, // Padrão no mobile para ser mais ágil
+        blindCount,
         hasStages: type === 'full',
         // A autoria do inventário no aplicativo sempre vem do usuário autenticado.
         responsibleId: userProfile?.id || '',
@@ -130,6 +131,25 @@ export const InventoryScopeScreen: React.FC<Props> = ({ isDarkMode, onCancel, on
       </View>
 
       <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 16 }}>
+          {/* Opção de Contagem Cega (Paridade com ERP) */}
+          <View style={[styles.blindCard, { backgroundColor: surface, borderColor: border }]}>
+            <View style={[styles.blindIcon, { backgroundColor: blindCount ? 'rgba(16, 185, 129, 0.15)' : (isDarkMode ? 'rgba(148, 163, 184, 0.1)' : '#f1f5f9') }]}>
+              <EyeOff size={20} color={blindCount ? '#10b981' : muted} />
+            </View>
+            <View style={{ flex: 1, paddingRight: 12 }}>
+              <Text style={[styles.blindTitle, { color: textPrimary }]}>Contagem Cega</Text>
+              <Text style={[styles.blindDesc, { color: muted }]}>
+                Oculta o saldo atual do sistema na contagem para auditoria imparcial.
+              </Text>
+            </View>
+            <Switch
+              value={blindCount}
+              onValueChange={setBlindCount}
+              trackColor={{ false: isDarkMode ? '#475569' : '#cbd5e1', true: '#10b981' }}
+              thumbColor="#ffffff"
+            />
+          </View>
+
           <View style={styles.optionsContainer}>
             <TouchableOpacity 
               style={[styles.typeOption, { backgroundColor: surface, borderColor: border }]} 
@@ -276,5 +296,23 @@ const styles = StyleSheet.create({
   },
   startSupplierButton: { alignItems: 'center', padding: 12, borderRadius: 12, marginTop: 14 },
   customAddButton: { alignItems: 'center', padding: 12, borderRadius: 12, backgroundColor: '#7c3aed', marginBottom: 8 },
+  blindCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 14,
+    borderWidth: 1,
+    borderRadius: 16,
+    marginBottom: 16,
+  },
+  blindIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  blindTitle: { fontSize: 15, fontWeight: '700', marginBottom: 2 },
+  blindDesc: { fontSize: 12, lineHeight: 16 },
 });
 
