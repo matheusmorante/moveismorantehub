@@ -16,6 +16,24 @@ export const getInvoiceYearBounds = (year: number) => ({
     end: `${year}-12-31T23:59:59.999Z`,
 });
 
+export const formatInvoiceDate = (value?: string | null) => {
+    if (!value) return '—';
+    if (/^\d{2}\/\d{2}\/\d{4}/.test(value)) return value;
+
+    const datePart = value.split('T')[0];
+    const isoDate = /^(\d{4})-(\d{2})-(\d{2})$/.exec(datePart);
+    if (isoDate) return `${isoDate[3]}/${isoDate[2]}/${isoDate[1]}`;
+
+    const parsed = new Date(value);
+    if (Number.isNaN(parsed.getTime())) return value;
+    return `${String(parsed.getDate()).padStart(2, '0')}/${String(parsed.getMonth() + 1).padStart(2, '0')}/${parsed.getFullYear()}`;
+};
+
+export const getInvoicePageRange = (zeroBasedPage: number, pageSize: number) => {
+    const from = zeroBasedPage * pageSize;
+    return { from, to: from + pageSize - 1 };
+};
+
 export const buildInboundInvoiceSearchFilter = (searchTerm: string): string | null => {
     const term = searchTerm.trim();
     if (!term) return null;
@@ -75,6 +93,9 @@ export const hasUnlinkedInvoiceItems = (items: unknown): boolean => {
     if (!Array.isArray(items)) return true;
     return items.some((item) => {
         const row = item as Record<string, any>;
-        return !(row.matchedProductId || row.matched_product_id || row.product_id || row.compositionLinks?.length);
+        const snapshot = row.item_snapshot && typeof row.item_snapshot === 'object'
+            ? row.item_snapshot as Record<string, any>
+            : {};
+        return !(snapshot.matchedProductId || snapshot.matched_product_id || row.matched_product_id || row.matchedProductId);
     });
 };

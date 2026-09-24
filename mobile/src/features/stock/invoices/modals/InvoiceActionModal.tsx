@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Modal, TouchableWithoutFeedback } from 'react-native';
-import { Download, FileText, Link2, Trash2 } from 'lucide-react-native';
+import { Download, Link2, Trash2 } from 'lucide-react-native';
 import { Invoice } from '../../types/stock.types';
 
 interface Props {
@@ -9,12 +9,11 @@ interface Props {
   activeInvoice: Invoice | null;
   onClose: () => void;
   onDownloadXML?: (invoice: Invoice) => void;
-  onViewDetails?: (invoice: Invoice) => void;
   onManageMappings?: (invoice: Invoice) => void;
   onDelete?: (invoice: Invoice) => void;
 }
 
-export const InvoiceActionModal: React.FC<Props> = ({ visible, isDarkMode, activeInvoice, onClose, onDownloadXML, onViewDetails, onManageMappings, onDelete }) => {
+export const InvoiceActionModal: React.FC<Props> = ({ visible, isDarkMode, activeInvoice, onClose, onDownloadXML, onManageMappings, onDelete }) => {
   if (!activeInvoice) return null;
 
   return (
@@ -35,12 +34,7 @@ export const InvoiceActionModal: React.FC<Props> = ({ visible, isDarkMode, activ
               
               <TouchableOpacity style={styles.bsActionBtn} onPress={() => { onDownloadXML?.(activeInvoice); onClose(); }}>
                 <Download size={20} color={isDarkMode ? '#60a5fa' : '#3b82f6'} />
-                <Text style={[styles.bsActionText, { color: isDarkMode ? '#60a5fa' : '#3b82f6' }]}>Download XML</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity style={styles.bsActionBtn} onPress={() => { onViewDetails?.(activeInvoice); onClose(); }}>
-                <FileText size={20} color={isDarkMode ? '#94a3b8' : '#64748b'} />
-                <Text style={[styles.bsActionText, isDarkMode && styles.textDark]}>Ver Detalhes completos</Text>
+                <Text style={[styles.bsActionText, { color: isDarkMode ? '#60a5fa' : '#3b82f6' }]}>Baixar XML</Text>
               </TouchableOpacity>
               <TouchableOpacity style={styles.bsActionBtn} onPress={() => { onDelete?.(activeInvoice); onClose(); }} accessibilityRole="button">
                 <Trash2 size={20} color="#dc2626" />

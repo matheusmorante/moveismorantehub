@@ -4,6 +4,7 @@ import { X, UploadCloud, Search, ScanBarcode } from 'lucide-react-native';
 import * as DocumentPicker from 'expo-document-picker';
 import type { DocumentPickerAsset } from 'expo-document-picker';
 import { InventoryScannerScreen } from '../../inventory/screens/InventoryScannerScreen';
+import { extractNfeAccessKey } from '../utils/accessKey';
 
 interface Props {
     visible: boolean;
@@ -40,12 +41,9 @@ export const InvoiceImportModal: React.FC<Props> = ({ visible, isDarkMode, onClo
 
     const isAccessKeyValid = accessKey.replace(/\D/g, '').length === 44;
     const handleScan = (value: string) => {
-        const directDigits = value.replace(/\D/g, '');
-        const key = directDigits.length === 44
-            ? directDigits
-            : value.match(/(?:^|\D)(\d{44})(?:\D|$)/)?.[1] ?? '';
+        const key = extractNfeAccessKey(value);
         setShowScanner(false);
-        if (key.length !== 44) {
+        if (!key) {
             Alert.alert('Código não reconhecido', 'A leitura precisa conter os 44 dígitos da chave de acesso da NF-e.');
             return;
         }

@@ -1,6 +1,6 @@
 import { supabase } from './supabaseClient';
 import type { InvoiceDateFilter } from '../features/stock/types/stock.types';
-import { buildInboundInvoiceSearchFilter, getInvoiceDateBounds, hasUnlinkedInvoiceItems, normalizeInvoiceStatus } from '../features/stock/invoices/utils/invoiceList';
+import { buildInboundInvoiceSearchFilter, getInvoiceDateBounds, getInvoicePageRange, hasUnlinkedInvoiceItems, normalizeInvoiceStatus } from '../features/stock/invoices/utils/invoiceList';
 import { parseInboundNfeXml } from '../features/stock/invoices/utils/inboundXmlParser';
 
 export const ITEMS_PER_PAGE = 15;
@@ -15,8 +15,7 @@ const getStockPeriod = (startDate?: string, endDate?: string) => ({
  * Movimentações de Estoque
  */
 export const fetchStockMoves = async (page: number, productId?: string, startDate?: string, endDate?: string) => {
-    const from = page * ITEMS_PER_PAGE;
-    const to = from + ITEMS_PER_PAGE - 1;
+    const { from, to } = getInvoicePageRange(page, ITEMS_PER_PAGE);
     const period = getStockPeriod(startDate, endDate);
     
     // In MoranteHub, inventory_moves usually has product details embedded or linked via productId
@@ -434,8 +433,9 @@ export const importInboundInvoiceXml = async (xml: string) => {
         .maybeSingle();
     if (duplicateCheckError) throw duplicateCheckError;
     if (existingInvoice) {
+        const formattedAccessKey = accessKey.match(/.{1,4}/g)?.join(' ') || accessKey;
         throw new Error(
-            `Nota Fiscal Já Cadastrada: NF-e #${existingInvoice.numero_nfe || 'S/N'} · Série ${existingInvoice.serie || '1'} — ${existingInvoice.emitente_nome || 'Emitente não informado'}. A nota existente foi preservada.`,
+            `Nota Fiscal Já Cadastrada: Chave de acesso ${formattedAccessKey}\nNF-e #${existingInvoice.numero_nfe || 'S/N'} · Série ${existingInvoice.serie || '1'} — ${existingInvoice.emitente_nome || 'Emitente não informado'}. A nota existente foi preservada.`,
         );
     }
 

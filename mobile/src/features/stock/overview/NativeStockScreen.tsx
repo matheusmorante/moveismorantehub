@@ -76,7 +76,7 @@ export const NativeStockScreen: React.FC<Props> = ({ isDarkMode, userProfile }) 
 
   const renderModuleHeader = () => (
     <View style={[styles.header, isDarkMode && styles.headerDark]}>
-      <View style={styles.tabsWrapper}>
+      <View>
         <View style={styles.tabsRow}>
         <View style={styles.tabArrowSlot}>
           {tabsScrollEdges.left && <TouchableOpacity
@@ -201,7 +201,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#0f172a',
   },
   header: {
-    paddingTop: 4,
+    paddingTop: 0,
     backgroundColor: '#ffffff',
     borderBottomWidth: 1,
     borderBottomColor: '#e2e8f0',
@@ -211,24 +211,20 @@ const styles = StyleSheet.create({
     borderBottomColor: '#1e293b',
   },
   textMutedDark: { color: '#94a3b8' },
-  tabsWrapper: {
-    borderTopWidth: 1,
-    borderTopColor: '#f1f5f9',
-  },
-  tabsRow: { flexDirection: 'row', alignItems: 'center', minHeight: 42 },
+  tabsRow: { flexDirection: 'row', alignItems: 'center', minHeight: 36 },
   tabsContainer: {
     paddingHorizontal: 2,
     alignItems: 'stretch',
   },
   tabsScrollView: { flex: 1, alignSelf: 'stretch' },
-  tabArrowSlot: { width: 34, alignItems: 'center', justifyContent: 'center' },
+  tabArrowSlot: { width: 40, alignItems: 'center', justifyContent: 'center' },
   tabArrow: {
     width: 24,
     height: 24,
     borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
-    marginHorizontal: 5,
+    marginHorizontal: 0,
     backgroundColor: '#eff6ff',
     elevation: 2,
     shadowColor: '#0f172a',
@@ -241,12 +237,12 @@ const styles = StyleSheet.create({
   tabArrowActiveDark: { backgroundColor: '#1d4ed8' },
   tabBtn: {
     width: 78,
-    minHeight: 38,
+    minHeight: 34,
     alignItems: 'center',
     justifyContent: 'center',
     gap: 1,
     paddingHorizontal: 2,
-    paddingVertical: 2,
+    paddingVertical: 0,
     position: 'relative',
     borderRadius: 12,
   },

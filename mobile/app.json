@@ -34,6 +34,13 @@
           "resizeMode": "contain"
         }
       ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Permitir que o App Morante acesse a câmera para escanear a chave da NF-e.",
+          "recordAudioAndroid": false
+        }
+      ],
       "expo-mlkit-ocr",
       "expo-sqlite",
       [
@@ -48,6 +55,7 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.morante.mobile",
       "infoPlist": {
+        "NSCameraUsageDescription": "Permitir que o App Morante acesse a câmera para escanear a chave da NF-e.",
         "ITSAppUsesNonExemptEncryption": false
       }
     },

@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity, Dimensions, Alert, Platform }
 import { CameraView, Camera } from 'expo-camera';
 import { X } from 'lucide-react-native';
 import { recognizeText } from 'expo-mlkit-ocr';
+import { extractNfeAccessKey } from '../../invoices/utils/accessKey';
 
 interface Props {
   isDarkMode: boolean;
@@ -60,8 +61,7 @@ export const InventoryScannerScreen: React.FC<Props> = ({
       } else {
         ({ text } = await recognizeText(photo.uri));
       }
-      const digits = text.replace(/\D/g, '');
-      const key = digits.length === 44 ? digits : text.match(/(?:^|\D)(\d{44})(?:\D|$)/)?.[1];
+      const key = extractNfeAccessKey(text);
       if (!key) {
         Alert.alert('Chave não reconhecida', 'Enquadre os 44 dígitos impressos e tente novamente.');
         return;

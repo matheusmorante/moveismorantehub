@@ -2,6 +2,7 @@ import React from 'react';
 import { Modal, View, Text, StyleSheet, ScrollView, TouchableOpacity, TouchableWithoutFeedback, useWindowDimensions } from 'react-native';
 import { X } from 'lucide-react-native';
 import type { InvoiceDetail } from '../../types/stock.types';
+import { formatInvoiceDate } from '../utils/invoiceList';
 
 interface Props {
   visible: boolean;
@@ -12,7 +13,6 @@ interface Props {
 }
 
 const money = (value: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value || 0);
-const date = (value?: string) => value && !Number.isNaN(new Date(value).getTime()) ? new Date(value).toLocaleDateString('pt-BR') : '—';
 const fiscalDate = (value?: string) => {
   if (!value) return '—';
   const parsed = new Date(value);
@@ -45,7 +45,7 @@ export const InvoiceDetailsModal: React.FC<Props> = ({ visible, isDarkMode, invo
                   )}
                 </View>
                 {invoice && <Text style={styles.keyText}>{invoice.accessKey || 'Chave de acesso não informada'}</Text>}
-                {invoice && <Text style={styles.metaText}>Emissão: {date(invoice.issueDate)} · Recebida em: {date(invoice.receivedAt)}</Text>}
+                {invoice && <Text style={styles.metaText}>Emissão: {formatInvoiceDate(invoice.issueDate)} · Recebida em: {formatInvoiceDate(invoice.receivedAt)}</Text>}
               </View>
               <TouchableOpacity onPress={onClose} accessibilityRole="button" accessibilityLabel="Fechar detalhes" style={styles.closeBtn}><X size={22} color={isDarkMode ? '#cbd5e1' : '#64748b'} /></TouchableOpacity>
             </View>
@@ -153,20 +153,20 @@ const styles = StyleSheet.create({
   statusTextManifestedDark: { color: '#93c5fd' },
   statusTextPendingDark: { color: '#fcd34d' },
   keyText: { color: '#94a3b8', fontFamily: 'monospace', fontSize: 10, marginTop: 4 },
-  metaText: { color: '#64748b', fontSize: 10, marginTop: 3 },
+  metaText: { color: '#64748b', fontSize: 11, marginTop: 3 },
   closeBtn: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
   body: { flexGrow: 0 },
   bodyContent: { padding: 16, gap: 14 },
   parties: { flexDirection: 'row', flexWrap: 'wrap', gap: 16, borderRadius: 16, padding: 14, backgroundColor: '#f8fafc' },
   fiscalSection: { gap: 10, borderRadius: 16, padding: 14, backgroundColor: '#f8fafc' },
   fiscalGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  fiscalText: { color: '#64748b', fontSize: 10, width: '48%' },
+  fiscalText: { color: '#64748b', fontSize: 11, width: '48%' },
   fiscalTextCompact: { width: '100%' },
-  additionalInfo: { color: '#64748b', fontSize: 10, lineHeight: 15 },
+  additionalInfo: { color: '#64748b', fontSize: 11, lineHeight: 17 },
   sectionDark: { backgroundColor: '#1e293b' },
   party: { flex: 1, minWidth: 220 },
-  sectionLabel: { color: '#94a3b8', fontSize: 10, fontWeight: '900', textTransform: 'uppercase' },
-  partyName: { color: '#1e293b', fontSize: 13, fontWeight: '800', marginTop: 4 },
+  sectionLabel: { color: '#94a3b8', fontSize: 11, fontWeight: '900', textTransform: 'uppercase' },
+  partyName: { color: '#1e293b', fontSize: 14, fontWeight: '800', marginTop: 4 },
   itemSection: { borderWidth: 1, borderColor: '#e2e8f0', borderRadius: 16, overflow: 'hidden' },
   itemSectionDark: { borderColor: '#1e293b' },
   itemsHeader: { backgroundColor: '#f1f5f9', color: '#475569', paddingHorizontal: 14, paddingVertical: 11, fontSize: 11, fontWeight: '900', textTransform: 'uppercase' },
@@ -174,8 +174,8 @@ const styles = StyleSheet.create({
   itemDark: { borderTopColor: '#1e293b' },
   itemDescription: { flex: 1, minWidth: 150 },
   itemValue: { flex: 1, minWidth: 180, alignItems: 'flex-end' },
-  itemTitle: { color: '#1e293b', fontSize: 11, fontWeight: '800' },
-  itemMeta: { color: '#94a3b8', fontSize: 9, marginTop: 3 },
+  itemTitle: { color: '#1e293b', fontSize: 12, fontWeight: '800' },
+  itemMeta: { color: '#94a3b8', fontSize: 10, marginTop: 3 },
   totalItem: { color: '#059669', fontSize: 11, fontWeight: '900', marginTop: 3 },
   emptyText: { textAlign: 'center', color: '#94a3b8', fontSize: 11, padding: 18 },
   totalBox: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 8, padding: 14, borderRadius: 16, borderWidth: 1, borderColor: '#a7f3d0', backgroundColor: '#ecfdf5' },

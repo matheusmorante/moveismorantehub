@@ -303,7 +303,6 @@ export const InvoicesScreen: React.FC<Props> = ({ isDarkMode, onBack, renderHead
         activeInvoice={activeInvoice}
         onClose={() => setActiveInvoice(null)}
         onDownloadXML={(invoice) => { void downloadInvoiceXml(invoice); }}
-        onViewDetails={(invoice) => { void loadInvoiceDetails(invoice); }}
         onManageMappings={setMappingInvoice}
         onDelete={confirmInvoiceDeletion}
       />
