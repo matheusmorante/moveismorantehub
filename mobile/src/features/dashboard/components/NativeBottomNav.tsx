@@ -153,7 +153,7 @@ export const NativeBottomNav: React.FC<Props> = ({
             >
               {isAgent ? (
                 <View style={styles.agentAvatarPrimaryFrame}>
-                  <Image source={require('../../../../assets/lizandro.png')} style={styles.agentAvatarPrimary} />
+                  <Image source={require('../../../../assets/lizandro-small.png')} style={styles.agentAvatarPrimary} />
                 </View>
               ) : (
                 <IconComponent
@@ -252,7 +252,7 @@ export const NativeBottomNav: React.FC<Props> = ({
                     >
                       {tab.key === 'agente' ? (
                         <View style={styles.agentAvatarFrame}>
-                          <Image source={require('../../../../assets/lizandro.png')} style={styles.agentAvatar} />
+                          <Image source={require('../../../../assets/lizandro-small.png')} style={styles.agentAvatar} />
                         </View>
                       ) : (
                         <View style={[

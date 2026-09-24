@@ -16,6 +16,7 @@ interface QRScannerModalProps {
     onScan: (decodedText: string) => void;
     title?: string;
     closeOnScan?: boolean;
+    accessKeyMode?: boolean;
 }
 
 const QRScannerModal: React.FC<QRScannerModalProps> = ({ 
@@ -23,13 +24,15 @@ const QRScannerModal: React.FC<QRScannerModalProps> = ({
     onClose: parentOnClose, 
     onScan: parentOnScan, 
     title = "Escanear Código",
-    closeOnScan = true
+    closeOnScan = true,
+    accessKeyMode = false,
 }) => {
     const [error, setError] = useState<string | null>(null);
     const [step, setStep] = useState<string>("Iniciando...");
     const [isInitializing, setIsInitializing] = useState(false);
     const [showManualInput, setShowManualInput] = useState(false);
     const [manualCode, setManualCode] = useState("");
+    const [isRecognizingText, setIsRecognizingText] = useState(false);
     
     // Configurações dinâmicas
     const configSettings = getSettings().scannerConfig;
@@ -171,6 +174,45 @@ const QRScannerModal: React.FC<QRScannerModalProps> = ({
         if (closeOnScan) handleClose();
     };
 
+    const recognizeAccessKey = async () => {
+        const video = document.querySelector<HTMLVideoElement>(`#${mountPointId} video`);
+        if (!video || !video.videoWidth || isRecognizingText) return;
+
+        setIsRecognizingText(true);
+        setStep("Lendo texto impresso...");
+        try {
+            const canvas = document.createElement("canvas");
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            canvas.getContext("2d")?.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+            const { createWorker, PSM } = await import("tesseract.js");
+            const worker = await createWorker("eng", undefined, { logger: (message) => {
+                if (message.status) setStep(`OCR: ${message.status}`);
+            } });
+            try {
+                await worker.setParameters({ tessedit_char_whitelist: "0123456789", tessedit_pageseg_mode: PSM.SINGLE_BLOCK });
+                const { data: { text } } = await worker.recognize(canvas);
+                const key = text.split(/\r?\n/).map((line) => line.replace(/\D/g, ""))
+                    .find((line) => line.length === 44)
+                    ?? text.match(/(?:^|\D)(\d{44})(?:\D|$)/)?.[1];
+                if (!key) {
+                    setStep("Chave não reconhecida. Ajuste o enquadramento e tente novamente.");
+                    return;
+                }
+                parentOnScan(key);
+                if (closeOnScan) await handleClose();
+            } finally {
+                await worker.terminate();
+            }
+        } catch (error) {
+            console.error("[NF-e access-key OCR]", error);
+            setStep("Falha na leitura. Tente novamente ou digite a chave.");
+        } finally {
+            setIsRecognizingText(false);
+        }
+    };
+
     const handleClose = async () => {
         await stopScanner();
         parentOnClose();
@@ -243,9 +285,20 @@ const QRScannerModal: React.FC<QRScannerModalProps> = ({
                                 )}
                             </div>
 
+                            {accessKeyMode && (
+                                <button
+                                    type="button"
+                                    onClick={() => void recognizeAccessKey()}
+                                    disabled={isRecognizingText}
+                                    className="mb-3 w-full py-4 bg-blue-600 text-white rounded-2xl font-black uppercase tracking-widest text-[10px] flex items-center justify-center gap-2 hover:bg-blue-700 disabled:opacity-60"
+                                >
+                                    <i className="bi bi-fonts text-base" />
+                                    {isRecognizingText ? "Lendo chave impressa..." : "Ler chave impressa (OCR)"}
+                                </button>
+                            )}
                             <div className="grid grid-cols-2 gap-3">
                                 <button onClick={() => setShowManualInput(true)} className="py-4 bg-slate-50 dark:bg-slate-800/50 text-slate-500 rounded-2xl font-black uppercase tracking-widest text-[9px] flex items-center justify-center gap-2 hover:bg-slate-100 transition-colors">
-                                    <i className="bi bi-keyboard text-base" /> Digitar SKU
+                                    <i className="bi bi-keyboard text-base" /> {accessKeyMode ? "Digitar chave" : "Digitar SKU"}
                                 </button>
                                 <button onClick={handleClose} className="py-4 bg-rose-50 text-rose-500 rounded-2xl font-black uppercase tracking-widest text-[9px] flex items-center justify-center gap-2 hover:bg-rose-100 transition-colors">
                                     <i className="bi bi-x-circle text-base" /> Cancelar

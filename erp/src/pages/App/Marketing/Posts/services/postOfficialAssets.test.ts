@@ -170,8 +170,9 @@ describe('Assets Oficiais Móveis Morante & Selos de Oportunidade', () => {
 
   it('5. URLs públicas oficiais são absolutas HTTPS sem prefixos relativos', () => {
     expect(normalizeOfficialAssetUrl('/images/logo-morante.png')).toBe(OFFICIAL_MORANTE_LOGO_URL);
+    expect(normalizeOfficialAssetUrl('/images/logo-morante.svg')).toBe(OFFICIAL_MORANTE_LOGO_URL);
     expect(normalizeOfficialAssetUrl('/assets/queima-salvados-original.png')).toBe(OFFICIAL_QUEIMA_BADGE_URL);
-    expect(OFFICIAL_MORANTE_LOGO_URL).toBe('https://www.moveismorante.com.br/logo-morante.png');
+    expect(OFFICIAL_MORANTE_LOGO_URL).toBe('https://www.moveismorante.com.br/logo-morante.svg');
     expect(OFFICIAL_QUEIMA_BADGE_URL.startsWith('https://')).toBe(true);
   });
 

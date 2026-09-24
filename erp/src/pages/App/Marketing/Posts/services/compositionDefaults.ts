@@ -14,7 +14,7 @@ const text = (id: string, role: SemanticRole, binding: string, x: number, y: num
 
 export const compositionLayers: Layer[] = [
   { ...base('Foto principal', 'main', 0, 0, 1, 1), type: 'PRODUCT_MAIN_IMAGE', zIndex: 0 },
-  { ...base('Marca', 'brand', .04, .035, .38, .10), type: 'ASSET', assetId: 'brand', assetUrl: '/images/logo-morante.png' },
+  { ...base('Marca', 'brand', .04, .035, .38, .10), type: 'ASSET', assetId: 'brand', assetUrl: '/images/logo-morante.svg' },
   { ...base('Selo de oportunidade', 'badge', .53, .025, .44, .25), type: 'ASSET',
     assetId: 'asset-queima-salvados-badge', assetUrl: '/assets/queima-salvados-original.png', visible: false },
   text('Nome completo', 'title', '{{product.name}}', .65, .31, .32, .105, .041),

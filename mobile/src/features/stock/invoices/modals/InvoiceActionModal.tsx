@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Modal, TouchableWithoutFeedback } from 'react-native';
-import { Download, FileText, Link2 } from 'lucide-react-native';
+import { Download, FileText, Link2, Trash2 } from 'lucide-react-native';
 import { Invoice } from '../../types/stock.types';
 
 interface Props {
@@ -11,9 +11,10 @@ interface Props {
   onDownloadXML?: (invoice: Invoice) => void;
   onViewDetails?: (invoice: Invoice) => void;
   onManageMappings?: (invoice: Invoice) => void;
+  onDelete?: (invoice: Invoice) => void;
 }
 
-export const InvoiceActionModal: React.FC<Props> = ({ visible, isDarkMode, activeInvoice, onClose, onDownloadXML, onViewDetails, onManageMappings }) => {
+export const InvoiceActionModal: React.FC<Props> = ({ visible, isDarkMode, activeInvoice, onClose, onDownloadXML, onViewDetails, onManageMappings, onDelete }) => {
   if (!activeInvoice) return null;
 
   return (
@@ -41,6 +42,10 @@ export const InvoiceActionModal: React.FC<Props> = ({ visible, isDarkMode, activ
                 <FileText size={20} color={isDarkMode ? '#94a3b8' : '#64748b'} />
                 <Text style={[styles.bsActionText, isDarkMode && styles.textDark]}>Ver Detalhes completos</Text>
               </TouchableOpacity>
+              <TouchableOpacity style={styles.bsActionBtn} onPress={() => { onDelete?.(activeInvoice); onClose(); }} accessibilityRole="button">
+                <Trash2 size={20} color="#dc2626" />
+                <Text style={[styles.bsActionText, styles.deleteText]}>Remover nota fiscal</Text>
+              </TouchableOpacity>
             </View>
           </TouchableWithoutFeedback>
         </View>
@@ -57,5 +62,6 @@ const styles = StyleSheet.create({
   bsTitle: { fontSize: 16, fontWeight: '700', color: '#0f172a', marginBottom: 16 },
   bsActionBtn: { flexDirection: 'row', alignItems: 'center', paddingVertical: 14, gap: 12 },
   bsActionText: { fontSize: 16, fontWeight: '600', color: '#334155' },
-  textDark: { color: '#f8fafc' }
+  textDark: { color: '#f8fafc' },
+  deleteText: { color: '#dc2626' }
 });

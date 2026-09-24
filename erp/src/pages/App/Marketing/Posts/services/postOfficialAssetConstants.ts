@@ -7,7 +7,7 @@
  *   preservado fielmente, sem redesenho, recriação ou estilização pela IA.
  */
 
-export const OFFICIAL_MORANTE_LOGO_URL = 'https://www.moveismorante.com.br/logo-morante.png';
+export const OFFICIAL_MORANTE_LOGO_URL = 'https://www.moveismorante.com.br/logo-morante.svg';
 
 export const OFFICIAL_QUEIMA_BADGE_URL =
   'https://hkoxhourxwlddgsfdgws.supabase.co/storage/v1/object/public/products/marketing/seals/queima-salvados-oficial-fogo.png';
@@ -106,7 +106,7 @@ export function normalizeOfficialAssetUrl(rawUrl: string): string {
   const trimmed = rawUrl.trim();
 
   // Caso específico do logo Morante
-  if (trimmed.includes('logo-morante.png') || trimmed.endsWith('/logo.png')) {
+  if (trimmed.includes('logo-morante.png') || trimmed.includes('logo-morante.svg') || trimmed.endsWith('/logo.png')) {
     return OFFICIAL_MORANTE_LOGO_URL;
   }
 

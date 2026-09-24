@@ -1,5 +1,6 @@
 import React, { useState, useRef } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Animated } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
+import { ChevronLeft, ChevronRight } from 'lucide-react-native';
 import PagerView from '../../../components/Pager';
 
 import { StockSummaryScreen } from '../overview/StockSummaryScreen';
@@ -29,7 +30,40 @@ export const NativeStockScreen: React.FC<Props> = ({ isDarkMode, userProfile }) 
   const [tabIndex, setTabIndex] = useState(0);
   const pagerRef = useRef<PagerView>(null);
   const scrollViewRef = useRef<ScrollView>(null);
+  const tabsScrollMetrics = useRef({ viewport: 0, content: 0, offset: 0 });
+  const tabLayouts = useRef<Partial<Record<number, { x: number; width: number }>>>({});
+  const [tabsScrollEdges, setTabsScrollEdges] = useState({ left: false, right: false });
+  const [tabWidth, setTabWidth] = useState(78);
   const [loadedTabs, setLoadedTabs] = useState<number[]>([0]);
+
+  const updateTabsScrollMetrics = (update: Partial<typeof tabsScrollMetrics.current>) => {
+    const metrics = { ...tabsScrollMetrics.current, ...update };
+    tabsScrollMetrics.current = metrics;
+    const maxOffset = Math.max(0, metrics.content - metrics.viewport);
+    const edges = { left: metrics.offset > 1, right: maxOffset > 1 && metrics.offset < maxOffset - 1 };
+    setTabsScrollEdges(current => current.left === edges.left && current.right === edges.right ? current : edges);
+  };
+
+  const scrollTabIntoView = (index: number) => {
+    const layout = tabLayouts.current[index];
+    const { viewport, offset } = tabsScrollMetrics.current;
+    if (!layout || !viewport) return;
+
+    if (layout.x < offset) {
+      scrollViewRef.current?.scrollTo({ x: Math.max(0, layout.x - 8), animated: true });
+    } else if (layout.x + layout.width > offset + viewport) {
+      scrollViewRef.current?.scrollTo({ x: layout.x + layout.width - viewport + 8, animated: true });
+    }
+  };
+
+  const scrollTabs = (direction: -1 | 1) => {
+    const { viewport, content, offset } = tabsScrollMetrics.current;
+    const maxOffset = Math.max(0, content - viewport);
+    const nextOffset = direction > 0
+      ? Math.min(maxOffset, offset + Math.max(120, viewport * 0.75))
+      : Math.max(0, offset - Math.max(120, viewport * 0.75));
+    scrollViewRef.current?.scrollTo({ x: nextOffset, animated: true });
+  };
 
   const handleTabPress = (index: number) => {
     setTabIndex(index);
@@ -37,28 +71,49 @@ export const NativeStockScreen: React.FC<Props> = ({ isDarkMode, userProfile }) 
     if (!loadedTabs.includes(index)) {
       setLoadedTabs(prev => [...prev, index]);
     }
-    if (scrollViewRef.current) {
-      scrollViewRef.current.scrollTo({ x: index * 100 - 50, animated: true });
-    }
+    scrollTabIntoView(index);
   };
 
   const renderModuleHeader = () => (
     <View style={[styles.header, isDarkMode && styles.headerDark]}>
-      <Text style={[styles.mainTitle, isDarkMode && styles.textDark]}>Estoque</Text>
-      
       <View style={styles.tabsWrapper}>
+        <View style={styles.tabsRow}>
+        <View style={styles.tabArrowSlot}>
+          {tabsScrollEdges.left && <TouchableOpacity
+              style={[styles.tabArrow, isDarkMode && styles.tabArrowDark]}
+              onPress={() => scrollTabs(-1)}
+              accessibilityRole="button"
+              accessibilityLabel="Rolar abas para a esquerda"
+              hitSlop={6}
+            >
+              <ChevronLeft size={18} color={isDarkMode ? '#e2e8f0' : '#2563eb'} />
+            </TouchableOpacity>}
+        </View>
         <ScrollView 
           ref={scrollViewRef}
+          style={styles.tabsScrollView}
           horizontal 
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.tabsContainer}
+          onLayout={({ nativeEvent }) => {
+            const width = nativeEvent.layout.width;
+            setTabWidth(width / 3);
+            updateTabsScrollMetrics({ viewport: width });
+          }}
+          onContentSizeChange={(content) => updateTabsScrollMetrics({ content })}
+          onScroll={({ nativeEvent }) => updateTabsScrollMetrics({ offset: nativeEvent.contentOffset.x })}
+          scrollEventThrottle={32}
         >
           {TABS.map((tab, idx) => {
             const isActive = idx === tabIndex;
             return (
               <TouchableOpacity 
                 key={tab.key} 
-                style={styles.tabBtn}
+                style={[styles.tabBtn, { width: tabWidth }, isActive && styles.tabBtnActive, isActive && isDarkMode && styles.tabBtnActiveDark]}
+                onLayout={({ nativeEvent }) => {
+                  tabLayouts.current[idx] = { x: nativeEvent.layout.x, width: nativeEvent.layout.width };
+                  if (idx === tabIndex) requestAnimationFrame(() => scrollTabIntoView(idx));
+                }}
                 onPress={() => handleTabPress(idx)}
                 testID={`tab-${tab.key}`}
               >
@@ -75,6 +130,18 @@ export const NativeStockScreen: React.FC<Props> = ({ isDarkMode, userProfile }) 
             );
           })}
         </ScrollView>
+        <View style={styles.tabArrowSlot}>
+          {tabsScrollEdges.right && <TouchableOpacity
+              style={[styles.tabArrow, styles.tabArrowActive, isDarkMode && styles.tabArrowActiveDark]}
+              onPress={() => scrollTabs(1)}
+              accessibilityRole="button"
+              accessibilityLabel="Rolar abas para a direita"
+              hitSlop={6}
+            >
+              <ChevronRight size={18} color={isDarkMode ? '#ffffff' : '#2563eb'} />
+            </TouchableOpacity>}
+        </View>
+        </View>
       </View>
     </View>
   );
@@ -109,11 +176,9 @@ export const NativeStockScreen: React.FC<Props> = ({ isDarkMode, userProfile }) 
         onPageSelected={(e) => {
             const pos = e.nativeEvent.position;
             setTabIndex(pos);
+            scrollTabIntoView(pos);
             if (!loadedTabs.includes(pos)) {
                 setLoadedTabs(prev => [...prev, pos]);
-            }
-            if (scrollViewRef.current) {
-                scrollViewRef.current.scrollTo({ x: pos * 100 - 50, animated: true });
             }
         }}
       >
@@ -136,7 +201,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#0f172a',
   },
   header: {
-    paddingTop: 8,
+    paddingTop: 4,
     backgroundColor: '#ffffff',
     borderBottomWidth: 1,
     borderBottomColor: '#e2e8f0',
@@ -145,31 +210,53 @@ const styles = StyleSheet.create({
     backgroundColor: '#0f172a',
     borderBottomColor: '#1e293b',
   },
-  mainTitle: {
-    fontSize: 20,
-    fontWeight: '900',
-    color: '#0f172a',
-    paddingHorizontal: 16,
-    marginBottom: 8,
-  },
-  textDark: { color: '#f8fafc' },
   textMutedDark: { color: '#94a3b8' },
   tabsWrapper: {
     borderTopWidth: 1,
     borderTopColor: '#f1f5f9',
   },
+  tabsRow: { flexDirection: 'row', alignItems: 'center', minHeight: 42 },
   tabsContainer: {
-    paddingHorizontal: 8,
+    paddingHorizontal: 2,
+    alignItems: 'stretch',
   },
+  tabsScrollView: { flex: 1, alignSelf: 'stretch' },
+  tabArrowSlot: { width: 34, alignItems: 'center', justifyContent: 'center' },
+  tabArrow: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginHorizontal: 5,
+    backgroundColor: '#eff6ff',
+    elevation: 2,
+    shadowColor: '#0f172a',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.12,
+    shadowRadius: 3,
+  },
+  tabArrowDark: { backgroundColor: '#1e293b' },
+  tabArrowActive: { backgroundColor: '#dbeafe' },
+  tabArrowActiveDark: { backgroundColor: '#1d4ed8' },
   tabBtn: {
-    paddingHorizontal: 16,
-    paddingVertical: 10,
+    width: 78,
+    minHeight: 38,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 1,
+    paddingHorizontal: 2,
+    paddingVertical: 2,
     position: 'relative',
+    borderRadius: 12,
   },
+  tabBtnActive: { backgroundColor: '#eff6ff' },
+  tabBtnActiveDark: { backgroundColor: '#172554' },
   tabText: {
-    fontSize: 14,
+    fontSize: 11,
     color: '#64748b',
     fontWeight: '600',
+    textAlign: 'center',
   },
   tabTextDark: { color: '#94a3b8' },
   tabTextActive: {

@@ -1,4 +1,7 @@
 import { supabase } from './supabaseClient';
+import type { InvoiceDateFilter } from '../features/stock/types/stock.types';
+import { buildInboundInvoiceSearchFilter, getInvoiceDateBounds, hasUnlinkedInvoiceItems, normalizeInvoiceStatus } from '../features/stock/invoices/utils/invoiceList';
+import { parseInboundNfeXml } from '../features/stock/invoices/utils/inboundXmlParser';
 
 export const ITEMS_PER_PAGE = 15;
 const INVENTORY_SCOPE_PAGE_SIZE = 100;
@@ -237,6 +240,327 @@ export const fetchInboundInvoices = async (page: number) => {
         return [];
     }
     return data;
+};
+
+export const fetchInboundInvoicesPage = async ({ page, searchTerm, dateFilter }: {
+    page: number;
+    searchTerm: string;
+    dateFilter: InvoiceDateFilter;
+}) => {
+    const trimmedSearch = searchTerm.trim();
+    const cleanNumber = trimmedSearch.replace(/\D/g, '');
+    const isAccessKey = cleanNumber.length === 44;
+    const dateBounds = getInvoiceDateBounds(dateFilter);
+    const from = page * ITEMS_PER_PAGE;
+    const to = from + ITEMS_PER_PAGE - 1;
+
+    let query = supabase
+        .from('inbound_invoices')
+        .select('id,numero_nfe,serie,chave_acesso,emitente_nome,emitente_cnpj,data_emissao,valor_total,status_recebimento,itens,inbound_invoice_items(*)', { count: 'exact' });
+
+    if (!isAccessKey && dateBounds) {
+        query = query.gte('data_emissao', dateBounds.start).lte('data_emissao', dateBounds.end);
+    }
+
+    if (trimmedSearch) {
+        if (isAccessKey) {
+            query = query.eq('chave_acesso', cleanNumber);
+        } else {
+            const searchFilter = buildInboundInvoiceSearchFilter(trimmedSearch);
+            if (searchFilter) query = query.or(searchFilter);
+        }
+    }
+
+    const { data, error, count } = await query
+        .order('data_emissao', { ascending: false })
+        .range(from, to);
+
+    if (error) throw error;
+
+    const invoices = (data || []).map((row: any) => {
+        const linkedItems = Array.isArray(row.inbound_invoice_items)
+            ? row.inbound_invoice_items.map((item: any) => ({ ...item.raw_item, ...item }))
+            : [];
+        const legacyItems = Array.isArray(row.itens) ? row.itens : [];
+        const items = linkedItems.length ? linkedItems : legacyItems;
+
+        return {
+            id: row.id,
+            number: String(row.numero_nfe || ''),
+            series: String(row.serie || '1'),
+            accessKey: row.chave_acesso || '',
+            supplierName: row.emitente_nome || 'Fornecedor Desconhecido',
+            supplierCnpj: row.emitente_cnpj || '',
+            issueDate: row.data_emissao || '',
+            totalValue: Number(row.valor_total || 0),
+            itemsCount: items.length,
+            status: normalizeInvoiceStatus(row.status_recebimento),
+            hasPendingBindings: hasUnlinkedInvoiceItems(items),
+            sefazStatus: 'pending' as const,
+        };
+    });
+
+    return { invoices, totalCount: count || 0, totalPages: Math.max(1, Math.ceil((count || 0) / ITEMS_PER_PAGE)) };
+};
+
+export const fetchInboundInvoiceDetails = async (invoiceId: string) => {
+    const { data, error } = await supabase
+        .from('inbound_invoices')
+        .select('id,numero_nfe,serie,chave_acesso,emitente_nome,emitente_cnpj,emitente_ie,destinatario_nome,destinatario_cnpj,data_emissao,data_saida_entrada,natureza_operacao,modelo,protocolo,informacoes_adicionais,valor_produtos,valor_frete,valor_ipi,valor_desconto,valor_seguro,outras_despesas,valor_icms,valor_icms_st,valor_total,status_recebimento,xml_conteudo,updated_at,itens,inbound_invoice_items(*)')
+        .eq('id', invoiceId)
+        .maybeSingle();
+
+    if (error) throw error;
+    if (!data) throw new Error('Nota fiscal de entrada não encontrada.');
+
+    const rows = Array.isArray(data.inbound_invoice_items) ? data.inbound_invoice_items : [];
+    const legacyItems = Array.isArray(data.itens) ? data.itens : [];
+    const sourceItems = rows.length
+        ? rows.map((item: any) => ({ ...(item.raw_item || {}), ...item }))
+        : legacyItems;
+    const items = sourceItems.map((item: any) => ({
+        description: item.product_description || item.productDescription || item.descricao || item.xProd || 'Item sem descrição',
+        productCode: String(item.product_code || item.productCode || item.codigo_produto || item.cProd || ''),
+        ean: String(item.ean || item.gtin || ''),
+        ncm: String(item.ncm || ''),
+        cest: String(item.cest || ''),
+        cfop: String(item.cfop || ''),
+        unit: String(item.unit || item.unidade || 'UN'),
+        quantity: Number(item.quantity ?? item.quantidade ?? 0),
+        unitCost: Number(item.unit_cost ?? item.unitCost ?? item.valor_unitario ?? 0),
+        totalCost: Number(item.total_cost ?? item.totalCost ?? item.valor_total ?? 0),
+        freightValue: Number(item.freight_value ?? item.freightValue ?? item.valor_frete ?? 0),
+        ipiValue: Number(item.ipi_value ?? item.ipiValue ?? item.valor_ipi ?? 0),
+        ipiPercent: Number(item.ipi_percent ?? item.ipiPercent ?? 0),
+        icmsValue: Number(item.icms_value ?? item.icmsValue ?? item.valor_icms ?? 0),
+        icmsPercent: Number(item.icms_percent ?? item.icmsPercent ?? 0),
+        icmsStValue: Number(item.icms_st_value ?? item.icmsStValue ?? item.valor_icms_st ?? 0),
+    }));
+
+    return {
+        id: data.id,
+        number: String(data.numero_nfe || ''),
+        series: String(data.serie || '1'),
+        accessKey: data.chave_acesso || '',
+        supplierName: data.emitente_nome || 'Fornecedor Desconhecido',
+        supplierCnpj: data.emitente_cnpj || '',
+        emitterIe: data.emitente_ie || undefined,
+        issueDate: data.data_emissao || '',
+        totalValue: Number(data.valor_total || 0),
+        itemsCount: items.length,
+        status: normalizeInvoiceStatus(data.status_recebimento),
+        hasPendingBindings: hasUnlinkedInvoiceItems(sourceItems),
+        sefazStatus: 'pending' as const,
+        recipientName: data.destinatario_nome || '',
+        recipientCnpj: data.destinatario_cnpj || '',
+        receivedAt: data.updated_at || undefined,
+        totalProducts: Number(data.valor_produtos || 0),
+        totalFreight: Number(data.valor_frete || 0),
+        totalIpi: Number(data.valor_ipi || 0),
+        totalDiscount: Number(data.valor_desconto || 0),
+        totalInsurance: Number(data.valor_seguro || 0),
+        totalOtherExpenses: Number(data.outras_despesas || 0),
+        totalIcms: Number(data.valor_icms || 0),
+        totalIcmsSt: Number(data.valor_icms_st || 0),
+        model: data.modelo || undefined,
+        protocol: data.protocolo || undefined,
+        entryExitAt: data.data_saida_entrada || undefined,
+        operationNature: data.natureza_operacao || undefined,
+        additionalInfo: data.informacoes_adicionais || undefined,
+        freightPercent: Number(data.valor_produtos || 0) > 0 ? Number((Number(data.valor_frete || 0) / Number(data.valor_produtos || 0) * 100).toFixed(4)) : 0,
+        ipiPercent: Number(data.valor_produtos || 0) > 0 ? Number((Number(data.valor_ipi || 0) / Number(data.valor_produtos || 0) * 100).toFixed(4)) : 0,
+        rawXml: data.xml_conteudo || undefined,
+        items,
+    };
+};
+
+export const deleteInboundInvoice = async (invoiceId: string) => {
+    const { error } = await supabase
+        .from('inbound_invoices')
+        .delete()
+        .eq('id', invoiceId);
+    if (error) throw error;
+};
+
+const normalizeTaxId = (value: unknown) => String(value || '').replace(/\D/g, '');
+
+const formatTaxId = (digits: string) => digits.length === 14
+    ? digits.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, '$1.$2.$3/$4-$5')
+    : digits.length === 11
+        ? digits.replace(/^(\d{3})(\d{3})(\d{3})(\d{2})$/, '$1.$2.$3-$4')
+        : digits;
+
+export const findInboundInvoiceSupplier = async (taxId: string, name: string) => {
+    const digits = normalizeTaxId(taxId);
+    const supplierTypeFilter = 'person_type.ilike.suppliers,person_type.ilike.supplier';
+
+    if (digits.length === 11 || digits.length === 14) {
+        const formatted = formatTaxId(digits);
+        const { data, error } = await supabase.from('people')
+            .select('id, full_name, cpf_cnpj')
+            .or(supplierTypeFilter)
+            .in('cpf_cnpj', [digits, formatted])
+            .order('full_name')
+            .limit(20);
+        if (error) throw error;
+        const exactMatch = (data || []).find((person: any) => normalizeTaxId(person.cpf_cnpj) === digits);
+        if (exactMatch) return exactMatch;
+    }
+
+    const normalizedName = name.trim();
+    if (!normalizedName) return null;
+    const { data, error } = await supabase.from('people')
+        .select('id, full_name, cpf_cnpj')
+        .or(supplierTypeFilter)
+        .ilike('full_name', normalizedName)
+        .order('full_name')
+        .limit(20);
+    if (error) throw error;
+    return (data || []).find((person: any) => String(person.full_name || '').trim().toLocaleLowerCase('pt-BR') === normalizedName.toLocaleLowerCase('pt-BR')) || null;
+};
+
+export const importInboundInvoiceXml = async (xml: string) => {
+    const invoice = parseInboundNfeXml(xml);
+    const accessKey = String(invoice.nfeKey || '').replace(/\D/g, '');
+    if (accessKey.length !== 44) throw new Error('Chave de acesso da NF-e inválida.');
+    if (String(invoice.model || '').replace(/\D/g, '') === '65') {
+        throw new Error('NFC-e (modelo 65) não pode ser cadastrada como NF de Entrada.');
+    }
+
+    const { data: existingInvoice, error: duplicateCheckError } = await supabase
+        .from('inbound_invoices')
+        .select('numero_nfe,serie,emitente_nome')
+        .eq('chave_acesso', accessKey)
+        .maybeSingle();
+    if (duplicateCheckError) throw duplicateCheckError;
+    if (existingInvoice) {
+        throw new Error(
+            `Nota Fiscal Já Cadastrada: NF-e #${existingInvoice.numero_nfe || 'S/N'} · Série ${existingInvoice.serie || '1'} — ${existingInvoice.emitente_nome || 'Emitente não informado'}. A nota existente foi preservada.`,
+        );
+    }
+
+    let supplierId = invoice.supplierId || null;
+    let items = Array.isArray(invoice.items) ? invoice.items : [];
+    try {
+        const supplier = await findInboundInvoiceSupplier(invoice.emitterCnpj || '', invoice.emitterName || '');
+        supplierId = supplier?.id || supplierId;
+    } catch (supplierError) {
+        console.warn('[importInboundInvoiceXml] Não foi possível localizar o fornecedor; a NF será salva sem associação.', supplierError);
+    }
+
+    if (supplierId && items.length) {
+        try {
+            const mappings = await findInboundSupplierProductCodes(
+                supplierId,
+                items.map((item: any) => String(item.productCode || '')),
+            );
+            if (mappings.size) {
+                items = items.map((item: any) => {
+                    const code = String(item.productCode || '').trim().toLocaleUpperCase('pt-BR');
+                    const mapping = mappings.get(code);
+                    return mapping ? {
+                        ...item,
+                        matchedProductId: mapping.productId,
+                        matchedVariationId: mapping.variationId,
+                        productErpName: mapping.name,
+                        linkedProductCode: mapping.sku,
+                    } : item;
+                });
+            }
+        } catch (mappingError) {
+            console.warn('[importInboundInvoiceXml] Não foi possível reaproveitar vínculos anteriores; a NF será salva sem esses vínculos.', mappingError);
+        }
+    }
+
+    const payload = {
+        chave_acesso: accessKey,
+        numero_nfe: Number(String(invoice.nfeNumber || '').replace(/\D/g, '')) || 0,
+        serie: invoice.series || '1',
+        data_emissao: invoice.issuedAt,
+        emitente_cnpj: invoice.emitterCnpj || '',
+        emitente_nome: invoice.emitterName || '',
+        emitente_fantasia: invoice.emitterTradeName || null,
+        emitente_ie: invoice.emitterIe || null,
+        emitente_endereco: invoice.emitterAddress || {},
+        supplier_id: supplierId,
+        destinatario_cnpj: invoice.recipientCnpj || '',
+        destinatario_nome: invoice.recipientName || '',
+        valor_produtos: invoice.totalProducts || 0,
+        valor_frete: invoice.totalFreight || 0,
+        valor_ipi: invoice.totalIpi || 0,
+        valor_desconto: invoice.totalDiscount || 0,
+        valor_seguro: invoice.totalInsurance || 0,
+        outras_despesas: invoice.totalOtherExpenses || 0,
+        valor_icms: invoice.totalIcms || 0,
+        valor_icms_st: invoice.totalIcmsSt || 0,
+        data_saida_entrada: invoice.entryExitAt || null,
+        natureza_operacao: invoice.operationNature || null,
+        modelo: invoice.model || null,
+        protocolo: invoice.protocol || null,
+        informacoes_adicionais: invoice.additionalInfo || null,
+        valor_total: invoice.totalInvoice || 0,
+        status_recebimento: 'pendente',
+        xml_conteudo: xml,
+        itens: items,
+        origem_importacao: 'xml',
+        updated_at: new Date().toISOString(),
+    };
+
+    const { data, error } = await supabase
+        .from('inbound_invoices')
+        .upsert(payload, { onConflict: 'chave_acesso' })
+        .select('id')
+        .single();
+    if (error) throw error;
+
+    const itemRows = items.map((item: any, index: number) => ({
+        invoice_id: data.id,
+        item_number: Number(item.itemNumber) || index + 1,
+        product_code: String(item.productCode || ''),
+        product_description: String(item.productDescription || 'Item sem descrição'),
+        ean: item.ean || null,
+        ncm: item.ncm || null,
+        cfop: item.cfop || null,
+        cest: item.cest || null,
+        unit: item.unit || 'UN',
+        quantity: Number(item.quantity) || 0,
+        unit_cost: Number(item.unitCost) || 0,
+        total_cost: Number(item.totalCost) || 0,
+        ipi_percent: Number(item.ipiPercent) || 0,
+        ipi_value: Number(item.ipiValue) || 0,
+        icms_percent: Number(item.icmsPercent) || 0,
+        icms_value: Number(item.icmsValue) || 0,
+        icms_base_value: Number(item.icmsBaseValue) || 0,
+        icms_st_percent: Number(item.icmsStPercent) || 0,
+        icms_st_value: Number(item.icmsStValue) || 0,
+        icms_st_base_value: Number(item.icmsStBaseValue) || 0,
+        freight_value: Number(item.freightValue) || 0,
+        insurance_value: Number(item.insuranceValue) || 0,
+        discount_value: Number(item.discountValue) || 0,
+        other_expenses_value: Number(item.otherExpensesValue) || 0,
+        product_id: item.matchedProductId || null,
+        variation_id: item.matchedVariationId || null,
+        raw_item: item,
+    }));
+
+    if (itemRows.length) {
+        const { error: itemsError } = await supabase
+            .from('inbound_invoice_items')
+            .upsert(itemRows, { onConflict: 'invoice_id,item_number' });
+        if (itemsError) throw itemsError;
+    }
+
+    return {
+        id: data.id,
+        number: String(invoice.nfeNumber || ''),
+        series: String(invoice.series || '1'),
+        accessKey,
+        supplierName: invoice.emitterTradeName || invoice.emitterName || 'Fornecedor Desconhecido',
+        supplierCnpj: invoice.emitterCnpj || '',
+        issueDate: invoice.issuedAt || '',
+        totalValue: Number(invoice.totalInvoice || 0),
+        itemsCount: itemRows.length,
+    };
 };
 
 export const fetchInboundInvoiceForMappings = async (invoiceId: string) => {

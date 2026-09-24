@@ -1,136 +1,129 @@
-import React from 'react';
-import { View, Text, TouchableOpacity, Image, Platform, StatusBar } from 'react-native';
+import React, { useState } from 'react';
+import { Image, Modal, Platform, Pressable, StatusBar, Text, TouchableOpacity, View } from 'react-native';
+import { Bell, ChevronRight, LogOut, MoreVertical, Moon, Settings, Sun } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Bell, Moon, Sun } from 'lucide-react-native';
-
-const MORANTE_LOGO = require('../../../../assets/logo-morante.png');
+import { SvgXml } from 'react-native-svg';
+import { MORANTE_BRAND_MARK_SVG } from '../../../assets/moranteBrandMarkSvg';
 
 interface Props {
   isDarkMode: boolean;
   setIsDarkMode: (val: boolean | ((prev: boolean) => boolean)) => void;
-  userProfile: any;
   setShowProfileModal: (val: boolean) => void;
   handleOpenNotificationsModal: () => void;
   unreadCount: number;
+  title: string;
+  onOpenSettings: () => void;
+  onLogout: () => void;
 }
 
 export const DashboardHeader: React.FC<Props> = ({
   isDarkMode,
   setIsDarkMode,
-  userProfile,
   setShowProfileModal,
   handleOpenNotificationsModal,
   unreadCount,
+  title,
+  onOpenSettings,
+  onLogout,
 }) => {
+  const [menuVisible, setMenuVisible] = useState(false);
   const insets = useSafeAreaInsets();
-  const topInset = Math.max(insets.top, Platform.OS === 'android' ? (StatusBar.currentHeight || 24) : 0) + 8;
+  const menuTop = Math.max(insets.top, Platform.OS === 'android' ? (StatusBar.currentHeight || 24) : 0) + 62;
+  const surface = isDarkMode ? '#1e293b' : '#ffffff';
+  const text = isDarkMode ? '#f8fafc' : '#0f172a';
+  const muted = isDarkMode ? '#94a3b8' : '#64748b';
+  const border = isDarkMode ? '#334155' : '#e2e8f0';
+
+  const closeMenu = () => setMenuVisible(false);
+  const runMenuAction = (action: () => void) => {
+    closeMenu();
+    action();
+  };
 
   return (
-    <View style={{
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-      paddingHorizontal: 16,
-      paddingTop: topInset,
-      paddingBottom: 12,
-      backgroundColor: isDarkMode ? '#0f172a' : '#f8fafc',
-    }}>
-      {/* Marca da empresa */}
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-        <View style={{
-          width: 92,
-          height: 52,
-          overflow: 'hidden',
-        }}>
-          <Image
-            source={MORANTE_LOGO}
-            style={{ width: '100%', height: '100%' }}
-            resizeMode="cover"
-          />
+    <>
+      <View style={{
+        height: 54,
+        paddingHorizontal: 16,
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: '#0b2b53',
+      }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1, minWidth: 0 }}>
+          <SvgXml xml={MORANTE_BRAND_MARK_SVG} width={30} height={30} />
+          <Text numberOfLines={1} style={{ color: '#ffffff', fontSize: 17, fontWeight: '700', marginLeft: 12, flexShrink: 1 }}>
+            {title}
+          </Text>
+        </View>
+
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+          <TouchableOpacity
+            onPress={handleOpenNotificationsModal}
+            accessibilityRole="button"
+            accessibilityLabel={`Notificações${unreadCount ? `, ${unreadCount} não lidas` : ''}`}
+            style={{ width: 36, height: 40, alignItems: 'center', justifyContent: 'center', position: 'relative' }}
+          >
+            <Bell size={21} color="#ffffff" />
+            {unreadCount > 0 && <View style={{ position: 'absolute', top: 3, right: 1, minWidth: 15, height: 15, borderRadius: 8, backgroundColor: '#ef4444', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 3 }}>
+              <Text style={{ color: '#ffffff', fontSize: 9, fontWeight: '800' }}>{unreadCount > 99 ? '99+' : unreadCount}</Text>
+            </View>}
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => setMenuVisible(true)}
+            accessibilityRole="button"
+            accessibilityLabel="Abrir menu da conta"
+            style={{ width: 32, height: 40, alignItems: 'center', justifyContent: 'center' }}
+          >
+            <MoreVertical size={22} color="#ffffff" />
+          </TouchableOpacity>
         </View>
       </View>
 
-      {/* Lado Direito: Dark Mode, Notificações e Botão de Perfil */}
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-        {/* Toggle Dark Mode */}
-        <TouchableOpacity
-          onPress={() => setIsDarkMode(prev => !prev)}
-          style={{
-            width: 38,
-            height: 38,
-            borderRadius: 19,
-            backgroundColor: isDarkMode ? '#1e293b' : '#ffffff',
-            alignItems: 'center',
-            justifyContent: 'center',
-            borderWidth: 1,
-            borderColor: isDarkMode ? '#334155' : '#cbd5e1',
-            elevation: 1
-          }}
-        >
-          {isDarkMode ? <Sun size={18} color="#f59e0b" /> : <Moon size={18} color="#64748b" />}
-        </TouchableOpacity>
+      <Modal visible={menuVisible} transparent animationType="fade" onRequestClose={closeMenu}>
+        <Pressable onPress={closeMenu} style={{ flex: 1, backgroundColor: 'rgba(15, 23, 42, 0.18)' }}>
+          <Pressable
+            onPress={event => event.stopPropagation()}
+            style={{ position: 'absolute', top: menuTop, right: 12, left: 12, maxWidth: 380, alignSelf: 'flex-end', borderRadius: 16, backgroundColor: surface, borderWidth: 1, borderColor: border, paddingHorizontal: 8, paddingVertical: 6, elevation: 12, shadowColor: '#0f172a', shadowOpacity: 0.18, shadowRadius: 18, shadowOffset: { width: 0, height: 8 } }}
+          >
+            <TouchableOpacity
+              onPress={() => runMenuAction(() => setShowProfileModal(true))}
+              accessibilityRole="button"
+              style={{ flexDirection: 'row', alignItems: 'center', minHeight: 66, paddingHorizontal: 8, borderBottomWidth: 1, borderBottomColor: border }}
+            >
+              <Image source={require('../../../../assets/lizandro-small.png')} style={{ width: 42, height: 42, borderRadius: 21, borderWidth: 2, borderColor: '#2563eb', marginRight: 12 }} />
+              <View style={{ flex: 1 }}>
+                <Text style={{ color: text, fontSize: 14, fontWeight: '700' }}>Minha conta</Text>
+                <Text style={{ color: muted, fontSize: 12, marginTop: 2 }}>Ver e editar meu perfil</Text>
+              </View>
+              <ChevronRight size={18} color={muted} />
+            </TouchableOpacity>
 
-        {/* Notificações Bell Icon */}
-        <TouchableOpacity
-          onPress={handleOpenNotificationsModal}
-          style={{
-            width: 38,
-            height: 38,
-            borderRadius: 19,
-            backgroundColor: isDarkMode ? '#1e293b' : '#ffffff',
-            alignItems: 'center',
-            justifyContent: 'center',
-            borderWidth: 1,
-            borderColor: isDarkMode ? '#334155' : '#cbd5e1',
-            elevation: 1,
-            position: 'relative'
-          }}
-        >
-          <Bell size={18} color={isDarkMode ? '#cbd5e1' : '#475569'} />
-          {unreadCount > 0 && (
-            <View style={{
-              position: 'absolute',
-              top: -2,
-              right: -2,
-              backgroundColor: '#ef4444',
-              borderRadius: 10,
-              minWidth: 18,
-              height: 18,
-              alignItems: 'center',
-              justifyContent: 'center',
-              paddingHorizontal: 4,
-              borderWidth: 2,
-              borderColor: isDarkMode ? '#0f172a' : '#f8fafc'
-            }}>
-              <Text style={{ fontSize: 9, fontWeight: '900', color: '#ffffff' }}>
-                {unreadCount > 99 ? '99+' : unreadCount}
-              </Text>
-            </View>
-          )}
-        </TouchableOpacity>
-
-        {/* Botão de Perfil do Lado Direito */}
-        <TouchableOpacity
-          style={{
-            width: 38,
-            height: 38,
-            borderRadius: 19,
-            backgroundColor: '#2563eb',
-            alignItems: 'center',
-            justifyContent: 'center',
-            elevation: 2,
-            shadowColor: '#2563eb',
-            shadowOffset: { width: 0, height: 2 },
-            shadowOpacity: 0.25,
-            shadowRadius: 4
-          }}
-          onPress={() => setShowProfileModal(true)}
-        >
-          <Text style={{ fontSize: 15, fontWeight: '900', color: '#ffffff' }}>
-            {(userProfile?.fullName || 'M')[0].toUpperCase()}
-          </Text>
-        </TouchableOpacity>
-      </View>
-    </View>
+            <MenuRow icon={<Settings size={19} color={isDarkMode ? '#93c5fd' : '#2563eb'} />} title="Configurações" text={text} border={border} onPress={() => runMenuAction(onOpenSettings)} />
+            <TouchableOpacity
+              onPress={() => setIsDarkMode(previous => !previous)}
+              accessibilityRole="button"
+              accessibilityLabel={`Tema ${isDarkMode ? 'escuro' : 'claro'}, tocar para alternar`}
+              style={{ flexDirection: 'row', alignItems: 'center', minHeight: 48, paddingHorizontal: 10, borderBottomWidth: 1, borderBottomColor: border }}
+            >
+              {isDarkMode ? <Moon size={19} color="#818cf8" /> : <Sun size={19} color="#f59e0b" />}
+              <Text style={{ flex: 1, color: text, fontSize: 14, marginLeft: 14 }}>Tema</Text>
+              <Text style={{ color: muted, fontSize: 13, marginRight: 5 }}>{isDarkMode ? 'Escuro' : 'Claro'}</Text>
+              <ChevronRight size={17} color={muted} />
+            </TouchableOpacity>
+            <MenuRow icon={<Bell size={19} color={isDarkMode ? '#cbd5e1' : '#475569'} />} title="Notificações" text={text} border={border} onPress={() => runMenuAction(handleOpenNotificationsModal)} />
+            <MenuRow icon={<LogOut size={19} color="#ef4444" />} title="Sair" text="#ef4444" border="transparent" onPress={() => runMenuAction(onLogout)} />
+          </Pressable>
+        </Pressable>
+      </Modal>
+    </>
   );
 };
+
+function MenuRow({ icon, title, text, border, onPress }: { icon: React.ReactNode; title: string; text: string; border: string; onPress: () => void }) {
+  return (
+    <TouchableOpacity onPress={onPress} accessibilityRole="button" style={{ flexDirection: 'row', alignItems: 'center', minHeight: 48, paddingHorizontal: 10, borderBottomWidth: 1, borderBottomColor: border }}>
+      {icon}
+      <Text style={{ color: text, fontSize: 14, marginLeft: 14 }}>{title}</Text>
+    </TouchableOpacity>
+  );
+}

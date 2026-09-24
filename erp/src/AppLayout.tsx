@@ -13,7 +13,8 @@ import { redeConciliationService } from '@/pages/services/redeConciliationServic
 import FloatingActionsHub from "./components/shared/FloatingActionsHub";
 import AIChatAssistant from "./components/shared/AIChatAssistant";
 import AiQuotaHeaderNotice from "./components/shared/AiQuotaHeaderNotice";
-import logoMorante from "./assets/logo.jpeg";
+import logoMoranteHorizontal from "./assets/logo-morante-horizontal.svg";
+import logoMoranteMark from "./assets/brand-mark.svg";
 
 export type MenuKey = 'products' | 'stock' | 'salesOrder' | 'fiscal' | 'logistics' | 'registrations' | 'finance' | 'marketing' | 'assembly' | null;
 
@@ -155,7 +156,10 @@ export default function AppLayout() {
             </button>
 
             <Link to="/" className="flex items-center gap-2 lg:gap-3 flex-shrink-0 group h-full overflow-visible">
-              <img src={logoMorante} alt="ERP Móveis Morante" className="h-[150%] max-h-none w-auto object-contain drop-shadow-sm group-hover:scale-110 transition-transform duration-300 pointer-events-auto" />
+              <picture>
+                <source media="(max-width: 639px)" srcSet={logoMoranteMark} />
+                <img src={logoMoranteHorizontal} alt="ERP Móveis Morante" className="h-10 md:h-12 w-auto max-w-[240px] object-contain drop-shadow-sm group-hover:scale-105 transition-transform duration-300 pointer-events-auto" />
+              </picture>
             </Link>
 
             <DesktopNav activeMenu={activeMenu} setActiveMenu={setActiveMenu} />

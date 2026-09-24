@@ -3,7 +3,7 @@ import { View, Text, TouchableOpacity, StyleSheet, Image } from 'react-native';
 import { Fuel, ArrowDownLeft, FileCheck, Layers, ChevronRight, Package, Truck, Wrench, RotateCcw } from 'lucide-react-native';
 import { FinanceExamplesModal } from './FinanceExamplesModal';
 
-const SEU_LIZANDRO_IMG = require('../../../../assets/lizandro.png');
+const SEU_LIZANDRO_IMG = require('../../../../assets/lizandro-small.png');
 
 interface Props {
   isDarkMode?: boolean;

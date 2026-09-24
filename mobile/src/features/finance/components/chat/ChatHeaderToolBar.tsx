@@ -2,7 +2,7 @@ import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Image } from 'react-native';
 import { Trash2 } from 'lucide-react-native';
 
-const SEU_LIZANDRO_IMG = require('../../../../../assets/lizandro.png');
+const SEU_LIZANDRO_IMG = require('../../../../../assets/lizandro-small.png');
 
 interface Props {
   onClearChat: () => void;

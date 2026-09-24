@@ -2,6 +2,7 @@ import React, { useRef, useState } from 'react';
 import { InboundInvoice } from '@/pages/utils/inboundNfe/inboundNfeTypes';
 import { InboundDuplicateKeyAlertModal } from './InboundDuplicateKeyAlertModal';
 import { useInboundDocumentImport } from '../hooks/useInboundDocumentImport';
+import QRScannerModal from '@/components/shared/QRScannerModal';
 
 interface InboundDocumentImportModalProps {
     readonly isOpen: boolean;
@@ -20,6 +21,7 @@ export const InboundDocumentImportModal: React.FC<InboundDocumentImportModalProp
 }) => {
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [accessKey, setAccessKey] = useState('');
+    const [isScannerOpen, setIsScannerOpen] = useState(false);
     const {
         isLoading,
         statusMessage,
@@ -33,6 +35,13 @@ export const InboundDocumentImportModal: React.FC<InboundDocumentImportModalProp
     } = useInboundDocumentImport({ isOpen, onClose, onImportSuccess, initialFile });
 
     if (!isOpen) return null;
+
+    const handleScan = (value: string) => {
+        const digits = value.replace(/\D/g, '');
+        const key = digits.length === 44 ? digits : value.match(/(?:^|\D)(\d{44})(?:\D|$)/)?.[1];
+        setIsScannerOpen(false);
+        if (key) setAccessKey(key);
+    };
 
     return (
         <>
@@ -106,6 +115,15 @@ export const InboundDocumentImportModal: React.FC<InboundDocumentImportModalProp
                                         maxLength={44}
                                         className="flex-1 rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-medium text-slate-700 placeholder:text-slate-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:placeholder:text-slate-500"
                                     />
+                                    <button
+                                        type="button"
+                                        onClick={() => setIsScannerOpen(true)}
+                                        aria-label="Escanear QR Code ou código de barras da chave NF-e"
+                                        title="Escanear chave da NF-e"
+                                        className="inline-flex h-9 w-10 shrink-0 items-center justify-center rounded-lg border border-slate-300 bg-white text-slate-600 hover:border-blue-400 hover:text-blue-600 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-300"
+                                    >
+                                        <i className="bi bi-upc-scan" aria-hidden="true" />
+                                    </button>
                                     <a
                                         href={`https://www.nfe.fazenda.gov.br/portal/consultaRecaptcha.aspx?tipoConsulta=resumo&nfe=${accessKey}`}
                                         target="_blank"
@@ -191,6 +209,13 @@ export const InboundDocumentImportModal: React.FC<InboundDocumentImportModalProp
                 duplicateKey={duplicateKey}
                 existingInvoice={duplicateExistingInvoice}
                 onClose={() => setDuplicateAlertOpen(false)}
+            />
+            <QRScannerModal
+                isOpen={isScannerOpen}
+                onClose={() => setIsScannerOpen(false)}
+                onScan={handleScan}
+                title="Escanear chave da NF-e"
+                accessKeyMode
             />
         </>
     );

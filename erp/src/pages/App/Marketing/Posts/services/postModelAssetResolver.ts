@@ -75,7 +75,7 @@ export function resolveModelAssets(template: PostTemplate, opportunityName?: str
       id: 'default-morante-logo',
       name: 'Logo Oficial Móveis Morante',
       description: 'Asset oficial da marca. Não redesenhar nem alterar.',
-      fileUrl: '/images/logo-morante.png',
+      fileUrl: '/images/logo-morante.svg',
       mimeType: 'image/png',
     };
   }

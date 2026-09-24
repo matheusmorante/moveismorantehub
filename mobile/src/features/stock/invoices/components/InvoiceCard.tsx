@@ -7,11 +7,21 @@ interface Props {
     item: Invoice;
     isDarkMode: boolean;
     onMenuPress: (item: Invoice) => void;
+    onPress: (item: Invoice) => void;
 }
 
-export const InvoiceCard: React.FC<Props> = ({ item, isDarkMode, onMenuPress }) => {
+export const InvoiceCard: React.FC<Props> = ({ item, isDarkMode, onMenuPress, onPress }) => {
+    const isReceived = item.status === 'received';
+    const hasCompleteBindings = item.itemsCount > 0 && !item.hasPendingBindings;
+    const statusLabel = isReceived ? 'RECEBIDA' : 'DISPONÍVEL';
+    const statusColor = isReceived ? (isDarkMode ? '#064e3b' : '#d1fae5') : (isDarkMode ? '#1e3a8a' : '#dbeafe');
+    const statusTextColor = isReceived ? (isDarkMode ? '#6ee7b7' : '#047857') : (isDarkMode ? '#93c5fd' : '#1d4ed8');
+    const formattedDate = item.issueDate && !Number.isNaN(new Date(item.issueDate).getTime())
+        ? new Date(item.issueDate).toLocaleDateString('pt-BR')
+        : 'Data não informada';
+
     return (
-        <View style={[styles.card, isDarkMode && styles.cardDark]}>
+        <TouchableOpacity style={[styles.card, isDarkMode && styles.cardDark]} activeOpacity={0.9} onPress={() => onPress(item)}>
             <View style={styles.cardHeader}>
                 <View style={styles.headerLeft}>
                     <Text style={[styles.invoiceNumber, isDarkMode && styles.textDark]}>
@@ -21,24 +31,29 @@ export const InvoiceCard: React.FC<Props> = ({ item, isDarkMode, onMenuPress }) 
                         série {item.series}
                     </Text>
                     
-                    {item.status === 'available' || true ? (
-                        <View style={[styles.badge, { backgroundColor: isDarkMode ? '#1e3a8a' : '#dbeafe' }]}>
-                            <Text style={[styles.badgeText, { color: isDarkMode ? '#93c5fd' : '#1d4ed8' }]}>
-                                DISPONÍVEL
-                            </Text>
-                        </View>
-                    ) : null}
+                    <View style={[styles.badge, { backgroundColor: statusColor }]}>
+                        <Text style={[styles.badgeText, { color: statusTextColor }]}>
+                            {statusLabel}
+                        </Text>
+                    </View>
 
-                    {item.hasPendingBindings && (
+                    {!hasCompleteBindings && (
                         <View style={[styles.badge, { backgroundColor: isDarkMode ? '#451a03' : '#fef3c7' }]}>
                             <Text style={[styles.badgeText, { color: isDarkMode ? '#fcd34d' : '#b45309' }]}>
-                                VINC. PENDENTES
+                                VINCULAÇÕES PENDENTES
+                            </Text>
+                        </View>
+                    )}
+                    {hasCompleteBindings && (
+                        <View style={[styles.badge, { backgroundColor: isDarkMode ? '#064e3b' : '#d1fae5' }]}>
+                            <Text style={[styles.badgeText, { color: isDarkMode ? '#6ee7b7' : '#047857' }]}>
+                                VINCULAÇÃO COMPLETA
                             </Text>
                         </View>
                     )}
                 </View>
 
-                <TouchableOpacity onPress={() => onMenuPress(item)} style={styles.menuBtn} hitSlop={{ top: 10, right: 10, bottom: 10, left: 10 }}>
+                <TouchableOpacity onPress={(event) => { event.stopPropagation(); onMenuPress(item); }} style={styles.menuBtn} hitSlop={{ top: 10, right: 10, bottom: 10, left: 10 }}>
                     <MoreVertical size={20} color={isDarkMode ? '#94a3b8' : '#64748b'} />
                 </TouchableOpacity>
             </View>
@@ -52,6 +67,7 @@ export const InvoiceCard: React.FC<Props> = ({ item, isDarkMode, onMenuPress }) 
                         CNPJ: {item.supplierCnpj}
                     </Text>
                 ) : null}
+                <Text style={[styles.issueDate, isDarkMode && styles.textMutedDark]}>{formattedDate}</Text>
             </View>
             
             <View style={[styles.divider, isDarkMode && styles.dividerDark]} />
@@ -61,10 +77,10 @@ export const InvoiceCard: React.FC<Props> = ({ item, isDarkMode, onMenuPress }) 
                     {item.itemsCount} {item.itemsCount === 1 ? 'item' : 'itens'}
                 </Text>
                 <Text style={[styles.valueText, isDarkMode && { color: '#34d399' }]}>
-                    R$ {item.totalValue.toFixed(2).replace('.', ',')}
+                    {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(item.totalValue)}
                 </Text>
             </View>
-        </View>
+        </TouchableOpacity>
     );
 };
 
@@ -128,6 +144,11 @@ const styles = StyleSheet.create({
         color: '#334155',
         marginBottom: 4,
         textTransform: 'uppercase',
+    },
+    issueDate: {
+        fontSize: 11,
+        color: '#64748b',
+        marginTop: 4,
     },
     cnpj: {
         fontSize: 12,

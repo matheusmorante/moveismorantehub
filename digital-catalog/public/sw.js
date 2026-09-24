@@ -1,8 +1,10 @@
-const CACHE_NAME = 'morante-cache-v2';
+const CACHE_NAME = 'morante-cache-v3';
 const urlsToCache = [
   '/',
   '/manifest.json',
-  '/images/avatar-morante.png'
+  '/images/avatar-morante.png',
+  '/images/morante-mark-192.png',
+  '/images/morante-mark-512.png'
 ];
 
 self.addEventListener('install', event => {

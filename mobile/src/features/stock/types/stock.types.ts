@@ -8,9 +8,61 @@ export interface Invoice {
     issueDate: string;
     totalValue: number;
     itemsCount: number;
-    status: 'available' | 'processed';
+    status: 'received' | 'manifested' | 'pending';
     hasPendingBindings: boolean;
     sefazStatus: 'authorized' | 'cancelled' | 'denied' | 'pending';
+}
+
+export type InvoiceDateFilterMode = 'current_month' | 'previous_month' | 'current_year' | 'previous_year' | 'custom_month' | 'custom_range';
+
+export interface InvoiceDateFilter {
+    mode: InvoiceDateFilterMode;
+    customMonth: string;
+    startMonth: string;
+    endMonth: string;
+}
+
+export interface InvoiceDetail extends Invoice {
+    recipientName: string;
+    recipientCnpj: string;
+    receivedAt?: string;
+    totalProducts: number;
+    totalFreight: number;
+    totalIpi: number;
+    totalDiscount: number;
+    totalInsurance: number;
+    totalOtherExpenses: number;
+    totalIcms: number;
+    totalIcmsSt: number;
+    emitterIe?: string;
+    model?: string;
+    protocol?: string;
+    entryExitAt?: string;
+    operationNature?: string;
+    additionalInfo?: string;
+    freightPercent: number;
+    ipiPercent: number;
+    rawXml?: string;
+    items: InvoiceDetailItem[];
+}
+
+export interface InvoiceDetailItem {
+    description: string;
+    productCode: string;
+    ean: string;
+    ncm: string;
+    cest: string;
+    cfop: string;
+    unit: string;
+    quantity: number;
+    unitCost: number;
+    totalCost: number;
+    freightValue: number;
+    ipiValue: number;
+    ipiPercent: number;
+    icmsValue: number;
+    icmsPercent: number;
+    icmsStValue: number;
 }
 
 export interface InventorySession {

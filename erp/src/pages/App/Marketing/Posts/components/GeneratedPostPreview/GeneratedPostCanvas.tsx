@@ -73,7 +73,7 @@ export const GeneratedPostCanvas = forwardRef<HTMLDivElement, GeneratedPostCanva
     const openViewImg = productImages?.openView?.url || null;
     const variationImages = (productImages?.variations || []).filter(v => v.url && v.url !== primaryImg);
 
-    const logoUrl = officialAssets?.logo?.url || '/images/logo-morante.png';
+    const logoUrl = officialAssets?.logo?.url || '/images/logo-morante.svg';
     const badgeUrl = officialAssets?.badge?.url || null;
 
     return (

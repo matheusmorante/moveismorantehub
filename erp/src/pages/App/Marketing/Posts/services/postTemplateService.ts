@@ -47,7 +47,7 @@ const defaultQueima: PostTemplate = {
   formats: ['4:5', '9:16'],
   imagePrompt: `Crie um post promocional profissional para loja de móveis. Use {{product.name}} como produto principal, grande, fiel e facilmente identificável. Fundo escuro e quente, com marrom/preto, iluminação comercial e detalhes em vermelho, amarelo, laranja e branco. Preserve integralmente geometria, cor, material, portas, gavetas, puxadores, pés e proporções. Não gere textos, preços, logos, cartões ou selos: estes devem usar os assets fornecidos. Para 4:5, deixe produto à esquerda/centro e área comercial à direita; para 9:16, adapte verticalmente sem esticar o feed. Quando houver ambiente, seja residencial e coerente com a categoria do produto.`,
   assets: [
-    { id: 'morante-logo', name: 'Logo Móveis Morante', description: 'Usar no topo esquerdo, sem redesenho.', fileUrl: '/images/logo-morante.png', mimeType: 'image/png' },
+    { id: 'morante-logo', name: 'Logo Móveis Morante', description: 'Usar no topo esquerdo, sem redesenho.', fileUrl: '/images/logo-morante.svg', mimeType: 'image/svg+xml' },
     { id: 'queima-badge', name: 'Selo Queima dos Salvados', description: 'Usar no topo direito como referência e asset oficial.', fileUrl: '/assets/queima-salvados-original.png', mimeType: 'image/png' },
   ],
   extras: [

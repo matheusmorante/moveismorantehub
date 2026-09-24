@@ -1,4 +1,4 @@
-import logo from '../../assets/logo.jpeg';
+import logo from '../../assets/logo-morante.svg';
 import { getSettings } from '@/pages/utils/settingsService';
 
 interface Props {

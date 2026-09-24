@@ -125,7 +125,7 @@ export class McpPostContextService {
           name: img.variationName || 'Cor Alternativa',
           url: img.url,
         })),
-        officialLogoUrl: logoAsset?.url || 'https://www.moveismorante.com.br/logo-morante.png',
+        officialLogoUrl: logoAsset?.url || 'https://www.moveismorante.com.br/logo-morante.svg',
         officialBadgeUrl: badgeAsset?.url || null,
         referencePostImages: context.generatedReferences.map(r => r.url),
       },

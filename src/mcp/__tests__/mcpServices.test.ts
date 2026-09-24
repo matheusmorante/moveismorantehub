@@ -36,7 +36,7 @@ describe('MCP Specialized Services', () => {
 
     const logo = assets.find(a => a.category === 'logo');
     expect(logo).toBeDefined();
-    expect(logo?.url).toBe('https://www.moveismorante.com.br/logo-morante.png');
+    expect(logo?.url).toBe('https://www.moveismorante.com.br/logo-morante.svg');
     expect(logo?.strictInstructions).toContain('REGRA INVIOLÁVEL');
 
     const queimaBadge = await mcpAssetService.resolveBadgeForOpportunity('Queima dos Salvados');

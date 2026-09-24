@@ -1,6 +1,6 @@
 import React, { useEffect } from "react";
 import Order from "../types/order.type";
-import logoMorante from "../../assets/logo.jpeg";
+import logoMorante from "../../assets/brand-mark.svg";
 import { formatOrderCode } from '../utils/orderCode';
 
 const ShippingLabelPage = () => {

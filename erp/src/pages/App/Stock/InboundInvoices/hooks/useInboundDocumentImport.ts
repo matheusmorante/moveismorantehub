@@ -3,7 +3,6 @@ import { toast } from 'react-toastify';
 import {
     saveInboundInvoice,
     checkInboundInvoiceKeyExists,
-    consultInboundInvoiceByAccessKey,
 } from '@/pages/utils/inboundNfe/inboundInvoicesService';
 import { parseInboundNfeXml } from '@/pages/utils/inboundNfe/inboundXmlParser';
 import { InboundInvoice } from '@/pages/utils/inboundNfe/inboundNfeTypes';
@@ -49,7 +48,6 @@ export interface UseInboundDocumentImportProps {
 }
 
 export function useInboundDocumentImport({ isOpen, onClose, onImportSuccess, initialFile }: UseInboundDocumentImportProps) {
-    const [accessKeyInput, setAccessKeyInput] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     const [statusMessage, setStatusMessage] = useState('');
     const [isDraggingFile, setIsDraggingFile] = useState(false);
@@ -158,74 +156,8 @@ export function useInboundDocumentImport({ isOpen, onClose, onImportSuccess, ini
         }
     };
 
-    /**
-     * Consulta a nota diretamente pela chave de acesso de 44 dígitos
-     */
-    const handleConsultAccessKey = async () => {
-        const cleanKey = accessKeyInput.replace(/\D/g, '');
-        if (cleanKey.length !== 44) {
-            toast.warning('A chave de acesso deve conter exatamente 44 dígitos.');
-            return;
-        }
-
-        try {
-            setIsLoading(true);
-            setStatusMessage('Consultando chave de acesso...');
-
-            const { fetchInboundInvoicesPage } = await import('@/pages/utils/inboundNfe/inboundInvoicesService');
-
-            const res = await fetchInboundInvoicesPage({
-                page: 1,
-                pageSize: 1,
-                searchTerm: cleanKey,
-                dateFilter: { mode: 'custom_range', startMonth: '', endMonth: '', customMonth: '' }
-            });
-            const foundInvoice = res.invoices.find((candidate) => candidate.nfeKey === cleanKey);
-
-            if (foundInvoice) {
-                toast.success('Nota Fiscal encontrada e importada com sucesso!');
-                onImportSuccess(foundInvoice);
-                onClose();
-                return;
-            }
-
-            // Fallback (se não achou na listagem)
-            const result = await consultInboundInvoiceByAccessKey(cleanKey);
-
-            if (result.invoice) {
-                toast.success('NF-e encontrada. Dados importados da SEFAZ.');
-                await persistAndFinish(result.invoice);
-                return;
-            }
-
-            toast.info(
-                result.message ||
-                    'Não foi possível obter automaticamente o XML desta NF-e pela SEFAZ.'
-            );
-        } catch (error: any) {
-            console.error('[useInboundDocumentImport] Erro ao consultar chave:', error);
-            
-            let msg = 'Não foi possível consultar a nota fiscal pela chave informada.';
-            if (error.message) {
-                const text = error.message.toLowerCase();
-                if (text.includes('656') || text.includes('consumo indevido') || text.includes('bloqueou temporariamente')) {
-                    msg = 'A SEFAZ bloqueou temporariamente novas consultas. Aguarde o período indicado antes de tentar novamente.';
-                } else if (text.includes('fetch') || text.includes('network') || text.includes('failed to fetch') || text.includes('indisponível')) {
-                    msg = 'Sem conexão ou SEFAZ indisponível no momento. Verifique sua rede e tente novamente.';
-                } else {
-                    msg = error.message;
-                }
-            }
-            toast.error(msg);
-        } finally {
-            setIsLoading(false);
-            setStatusMessage('');
-        }
-    };
-
     useEffect(() => {
         if (!isOpen) {
-            setAccessKeyInput('');
             setIsLoading(false);
             setStatusMessage('');
             setIsDraggingFile(false);
@@ -240,8 +172,6 @@ export function useInboundDocumentImport({ isOpen, onClose, onImportSuccess, ini
     }, [isOpen, initialFile]);
 
     return {
-        accessKeyInput,
-        setAccessKeyInput,
         isLoading,
         statusMessage,
         isDraggingFile,
@@ -251,6 +181,5 @@ export function useInboundDocumentImport({ isOpen, onClose, onImportSuccess, ini
         duplicateKey,
         duplicateExistingInvoice,
         handleFile,
-        handleConsultAccessKey,
     };
 }

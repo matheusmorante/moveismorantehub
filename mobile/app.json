@@ -28,9 +28,13 @@
       [
         "expo-splash-screen",
         {
-          "backgroundColor": "#ffffff"
+          "backgroundColor": "#ffffff",
+          "image": "./assets/splash-logo.png",
+          "imageWidth": 250,
+          "resizeMode": "contain"
         }
       ],
+      "expo-mlkit-ocr",
       "expo-sqlite",
       [
         "expo-web-browser",
@@ -38,8 +42,7 @@
           "experimentalLauncherActivity": true
         }
       ],
-      "expo-status-bar",
-      "expo-splash-screen"
+      "expo-status-bar"
     ],
     "ios": {
       "supportsTablet": true,
@@ -65,7 +68,9 @@
         "ACCESS_FINE_LOCATION"
       ]
     },
-    "web": {},
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
     "updates": {
       "url": "https://u.expo.dev/dd556f93-9a32-4219-84a2-378b626f09ae",
       "checkAutomatically": "ON_LOAD",

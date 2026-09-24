@@ -7,5 +7,4 @@ export * from './inboundInvoicesCache';
 export * from './inboundInvoicesMapper';
 export * from './inboundInvoicesQueryService';
 export * from './inboundInvoicesMutationService';
-export * from './inboundInvoicesSefazService';
 export * from './inboundInvoicesAttachmentService';

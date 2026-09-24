@@ -55,7 +55,7 @@ Não combine características de variações diferentes.
 A ambientação pode ser criada pela IA.
 O PRODUTO NÃO.`;
 
-export const OFFICIAL_MORANTE_LOGO_URL = 'https://www.moveismorante.com.br/logo-morante.png';
+export const OFFICIAL_MORANTE_LOGO_URL = 'https://www.moveismorante.com.br/logo-morante.svg';
 
 export const OFFICIAL_QUEIMA_BADGE_URL =
   'https://hkoxhourxwlddgsfdgws.supabase.co/storage/v1/object/public/products/marketing/seals/9d8bedae-b366-4f8c-ac49-74b85b882bde-1787790409290.png';

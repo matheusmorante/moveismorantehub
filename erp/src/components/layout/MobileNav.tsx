@@ -1,5 +1,5 @@
 import { Link, useNavigate } from "react-router-dom";
-import logoMorante from "../../assets/logo.jpeg";
+import logoMorante from "../../assets/brand-mark.svg";
 import { MenuKey } from "../../AppLayout";
 import { useAuth } from "../../context/AuthContext";
 

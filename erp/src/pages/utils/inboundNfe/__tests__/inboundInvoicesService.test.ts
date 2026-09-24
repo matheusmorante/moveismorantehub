@@ -21,7 +21,6 @@ vi.mock('../../supabaseConfig', () => {
 import {
     fetchInboundInvoices,
     saveInboundInvoice,
-    syncSefazDfe,
     markInvoiceAsReceived
 } from '../inboundInvoicesService';
 import { InboundInvoice } from '../inboundNfeTypes';
@@ -96,11 +95,4 @@ describe('Inbound Invoices Service', () => {
         expect(updated?.receivedAt).toBeDefined();
     });
 
-    it('syncSefazDfe imports new SEFAZ DF-e mock invoice when not present', async () => {
-        const result = await syncSefazDfe();
-
-        expect(result.newInvoicesCount).toBeGreaterThanOrEqual(0);
-        const list = await fetchInboundInvoices();
-        expect(list.length).toBeGreaterThanOrEqual(0);
-    });
 });

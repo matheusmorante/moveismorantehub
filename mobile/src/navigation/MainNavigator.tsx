@@ -60,6 +60,20 @@ export const MainNavigator: React.FC<MainNavigatorProps> = ({ isDarkMode, setIsD
     setCurrentTab(newTab);
   };
 
+  const headerTitle = currentTab === 'entregas' || currentTab === 'montagens'
+    ? 'Operações'
+    : currentTab === 'agenda' || currentTab === 'logistica' || currentTab === 'cronograma'
+      ? 'Agenda'
+      : ({
+          agente: 'Assistente',
+          financeiro: 'Financeiro',
+          pedidos: 'Pedidos',
+          produtos: 'Produtos',
+          configuracoes: 'Configurações',
+          estoque: 'Estoque',
+          relatorios: 'Relatórios',
+        } as Record<string, string>)[currentTab] || 'Morante';
+
   const handleSelectNotificationOrderWrapper = async (order: any) => {
     if (!order?.__notificationOrderReference) {
       setAppSelectedOrder(order);
@@ -85,8 +99,10 @@ export const MainNavigator: React.FC<MainNavigatorProps> = ({ isDarkMode, setIsD
       <DashboardHeader
         isDarkMode={isDarkMode}
         setIsDarkMode={setIsDarkMode}
-        userProfile={userProfile}
         setShowProfileModal={setShowProfileModal}
+        title={headerTitle}
+        onOpenSettings={() => handleTabChange('configuracoes', `${WEB_URL}/settings`)}
+        onLogout={handleLogout}
         handleOpenNotificationsModal={() => {
           setShowNotificationsModal(true);
           handleOpenNotificationsModal();

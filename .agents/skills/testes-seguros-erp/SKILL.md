@@ -1,27 +1,23 @@
 ---
 name: testes-seguros-erp
-description: Planeje e execute testes seguros do ERP e App Mobile em alterações de regras de negócio, banco, estoque, vendas, recebimentos, devoluções, custos, relatórios ou integrações, sem tocar dados reais, com suporte a roadmap cíclico contínuo e Docker.
+description: Planeje e execute testes seguros do ERP e App Mobile em alterações de regras de negócio, banco, estoque, vendas, recebimentos, devoluções, custos, relatórios ou integrações, sem tocar dados reais, com suporte a roadmap cíclico contínuo e ambientes sem Docker.
 ---
 
 # Testes Seguros do ERP & App Mobile
 
 Use esta skill sempre que a mudança puder alterar regras de negócio, persistência, interface ou efeitos entre módulos. Também utilize-a como guia mestre para executar e continuar o **Roadmap Cíclico de Testes Contínuos** do Morante Hub.
 
-## Regra de execução sob demanda
+## Política incremental de validação
 
-Esta skill é principalmente uma orientação de planejamento e segurança. **Não execute Vitest, Playwright, testes E2E, testes de integração, typecheck ou qualquer outra bateria automaticamente.**
+Ao alterar código, a própria alteração autoriza a validação mínima necessária antes do commit. Use `git diff` para delimitar arquivos e módulos e rode primeiro somente o teste focado do módulo alterado. Se ele passar, execute TypeScript/compilação e lint apenas no escopo aplicável. Não rode baterias amplas por padrão.
 
-Só execute testes quando o usuário solicitar explicitamente, por exemplo: “rode os testes”, “execute o Vitest”, “valide com Playwright” ou equivalente.
+Para mudança apenas de texto ou CSS, faça somente as verificações mínimas aplicáveis; use validação visual apenas quando ela comprovar algo que as verificações automáticas não cobrem.
 
-Durante uma alteração, registre os testes recomendados e o comando focalizado que deveria ser usado, mas aguarde autorização para executá-los. Não interprete iniciar o ambiente Dev, editar código, fazer pull ou abrir o Dashboard como autorização para testar.
+Escale para integração ou Playwright/E2E apenas depois de as verificações focadas anteriores passarem e quando a natureza da mudança justificar. Integração é indicada para alterações em Supabase/PostgreSQL, RPC, Edge Functions, API, autenticação, permissões, persistência, sincronização ou contratos entre serviços. Playwright deve cobrir somente os fluxos de usuário afetados; navegador/computer use fica para problemas visuais ou de interação que não possam ser esclarecidos por validações automatizadas.
 
-Quando houver solicitação explícita, prefira nesta ordem:
+Para replicação/sincronização ERP ↔ App Mobile, rode o teste unitário focado da fila, transformação ou serviço alterado. Se o contrato ou a persistência entre os dois lados mudar, acrescente integração isolada que verifique idempotência, estados de sync e autoridade do backend, sem usar dados reais. E2E só é necessário quando a mudança alcançar um fluxo de usuário que unitário e integração não cubram.
 
-1. teste diretamente afetado;
-2. teste de regressão relacionado;
-3. suíte mais ampla somente se o usuário também solicitar ou se houver uma necessidade técnica clara a ser comunicada antes.
-
-Não inicie watchers, retries, Playwright, Vitest ou suítes em background sem solicitação explícita.
+Se uma camada falhar, interrompa a escalada, investigue e corrija antes de prosseguir. Não repita validações aprovadas sem mudança relevante; filtre logs extensos e reporte apenas o resultado útil. A suíte completa é prioritariamente responsabilidade do CI no push/PR. Rode-a localmente apenas para mudança transversal, risco concreto de regressão ampla ou pedido explícito do usuário. Não crie watchers ou retries em background como padrão.
 
 ---
 
@@ -38,22 +34,15 @@ Não inicie watchers, retries, Playwright, Vitest ou suítes em background sem s
 
 ---
 
-## 2. Uso de Docker no Ambiente de Testes
+## 2. Ambientes de Teste sem Docker
 
-> [!IMPORTANT]
-> **Detecção Automática do Docker**: Se o Docker estiver ligado e em execução no sistema, ele **DEVE SER UTILIZADO** como ambiente preferencial para isolamento total dos testes de integração e banco de dados.
+Docker não faz parte do fluxo de desenvolvimento ou validação deste projeto. Escolha a opção mais simples e segura para o escopo:
 
-### Protocolo de Detecção e Seleção de Runtime:
-1. **Verificar se o Docker está ativo**:
-   Executar comando de checagem: `docker ps` ou `docker compose ps`.
-2. **Se o Docker ESTIVER ATIVO**:
-   - Suba/utilize o contêiner dedicado de testes do PostgreSQL/Supabase local (`docker compose -f docker-compose.test.yml up -d` ou contêiner existente de testes).
-   - Execute as migrations de teste no contêiner isolado.
-   - Conecte a suíte de testes de integração à porta do contêiner Docker.
-   - Ao final dos testes destrutivos ou do ciclo, limpe o estado do contêiner ou execute `down -v` se aplicável.
-3. **Se o Docker NÃO ESTIVER ATIVO (ou não instalado)**:
-   - Recorra ao ambiente de testes seguro local com mocks em memória (`vitest`), transações de banco com `ROLLBACK` automático no Supabase dev/staging, ou factories controladas com `testRunId` e limpeza explícita no `finally`.
-   - Nunca interrompa o processo de testes apenas pela ausência do Docker; use o fallback seguro.
+1. **Teste focado**: prefira Vitest/Jest com mocks, fixtures e estado em memória para validar a unidade alterada.
+2. **Integração necessária**: use serviços locais já disponíveis sem Docker ou staging explicitamente isolado, com `testRunId`, dados descartáveis e limpeza garantida. Nunca aponte testes com escrita para produção.
+3. **Sem ambiente de integração seguro**: não improvise conexão com banco compartilhado; cubra o contrato com mocks/testes focados e registre a limitação.
+4. **Fluxo de usuário ou validação visual necessária**: depois dos testes focados passarem, use Playwright ou o navegador local já aberto somente para o fluxo afetado. Para o preview mobile, use endereço `localhost` (nunca LAN); em autenticação local, use a porta 80 ou 81, não a 82.
+5. **Escalonamento**: não rode Playwright, navegador ou integração por padrão. Faça isso somente se a mudança afetar comportamento, persistência, navegação ou apresentação que os testes focados não provem.
 
 ---
 
@@ -64,7 +53,7 @@ A suíte do Morante Hub engloba **todos os tipos possíveis de teste** para asse
 | Tipo de Teste | Escopo | Ferramentas / Métodos |
 |---|---|---|
 | **Testes Unitários** | Funções puras, cálculos de CMPM, CMV, frete, descontos, transições de status, máscaras de moeda, formatação de endereço, slots de horário. | Vitest (`npm --prefix erp run test:unit`), Jest. Execução em memória sem dependências externas. |
-| **Testes de Integração** | Serviços de Venda, Estoque, Movimentações, Conciliação Financeira, APIs externas (Google Maps, SEFAZ schemas). | Vitest com banco isolado (Docker se ativo / staging isolado com `testRunId`). |
+| **Testes de Integração** | Serviços de Venda, Estoque, Movimentações, Conciliação Financeira, APIs externas (Google Maps, SEFAZ schemas). | Vitest com serviços locais sem Docker ou staging isolado com `testRunId`; mocks quando não houver ambiente seguro. |
 | **Testes E2E / Interface / Visual** | Navegação, telas full screen, tabelas, cards responsivos (<1280px vs >=1280px), formulários, bottom sheets, modais. | Browser Subagent, Playwright, Chrome DevTools. Validação visual de renderização e fluxos de clique/input. |
 | **Testes de Tipagem & Contratos** | Conformidade TypeScript, integridade de propriedades herdadas, schemas tributários, eventos mobile. | `node mobile/node_modules/typescript/bin/tsc --noEmit`, `npm --prefix erp run typecheck`. |
 | **Testes Mobile Offline-First** | Registro de eventos operacionais, ciclo de 4 estados (`PENDING` → `SYNCING` → `CONFIRMED` / `REJECTED`), fila de sync e autoridade do backend. | Mocks de AsyncStorage/NetInfo, testes dos hooks de rotas e sincronização. |
@@ -112,8 +101,8 @@ Os testes devem seguir rigorosamente a **ordem de criticidade do negócio**:
    - `Ciclo Atual` (ex: Ciclo 1)
    - `Módulo Atual` (ex: Módulo 3 - Logística)
    - `Próxima Etapa / Goal` (ex: Etapa 3.2 - Teste da Tela de Etapas da Entrega)
-2. **Detecção de Ambiente**:
-   Cheque se Docker está rodando. Se sim, use Docker. Se não, use o ambiente seguro in-memory / local dev.
+2. **Seleção de Ambiente sem Docker**:
+   Prefira testes focados com mocks/fixtures em memória. Para integração indispensável, use serviço local já disponível ou staging isolado com `testRunId`; sem isolamento comprovável, não faça escritas e registre a limitação.
 3. **Execução da Etapa Atual**:
    - Execute os testes correspondentes (unitários, integração, tipo ou interface).
    - Se envolver persistência, gere `testRunId`, crie dados com `[TESTE_AUT]`, valide os resultados e faça o teardown completo.

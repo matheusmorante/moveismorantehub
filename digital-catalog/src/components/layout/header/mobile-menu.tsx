@@ -33,7 +33,7 @@ function DrawerHeader() {
     <div className="p-6 border-b bg-gray-50/50 flex items-center gap-3">
       <div className="h-10 w-10 bg-primary/10 rounded-xl flex items-center justify-center">
         <Image
-          src="/images/avatar-morante.png"
+          src="/images/morante-mark-192.png"
           alt="Morante"
           width={32}
           height={32}

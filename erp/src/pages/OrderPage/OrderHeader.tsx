@@ -1,6 +1,6 @@
 import { formatToBRDate } from "../utils/formatters";
 import { formatOrderCode } from "../utils/orderCode";
-import logoMorante from "../../assets/logo.jpeg";
+import logoMorante from "../../assets/logo-morante.svg";
 
 interface OrderHeaderProps {
     order: any;

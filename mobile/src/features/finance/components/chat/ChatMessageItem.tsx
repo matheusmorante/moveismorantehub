@@ -3,7 +3,7 @@ import { View, Text, TouchableOpacity, TextInput, StyleSheet, Image } from 'reac
 import { Check, Copy, Edit2 } from 'lucide-react-native';
 import { ChatMessage } from '../../../../services/financialAiAssistantService';
 
-const SEU_LIZANDRO_IMG = require('../../../../../assets/lizandro.png');
+const SEU_LIZANDRO_IMG = require('../../../../../assets/lizandro-small.png');
 
 interface Props {
   msg: ChatMessage;

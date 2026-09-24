@@ -7,8 +7,8 @@ export const OFFICIAL_STORE_ASSETS: McpStoreAsset[] = [
     name: 'Logo Oficial Móveis Morante',
     kind: 'asset',
     category: 'logo',
-    url: 'https://www.moveismorante.com.br/logo-morante.png',
-    mimeType: 'image/png',
+    url: 'https://www.moveismorante.com.br/logo-morante.svg',
+    mimeType: 'image/svg+xml',
     strictInstructions:
       'REGRA INVIOLÁVEL: Arquivo gráfico oficial da marca. É PROIBIDO redesenhar, recriar, trocar tipografia ou alterar cores. Utilizar exatamente este arquivo no rodapé/topo.',
   },

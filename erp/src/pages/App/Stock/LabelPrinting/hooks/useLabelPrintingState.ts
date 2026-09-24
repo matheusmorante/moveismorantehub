@@ -10,7 +10,7 @@ import LabelGrid, { LabelItemConfig, LogoItemConfig } from '../components/LabelG
 import LabelGridModelModal, { GridModel } from '../modals/LabelGridModelModal';
 import { formatCurrency } from '../../../../utils/formatters';
 import labelMdf from '../../../../../assets/label_mdf.png';
-import logoMorante from '../../../../../assets/logo.jpeg';
+import logoMorante from '../../../../../assets/logo-morante.svg';
 import LabelQueue from '../components/LabelQueue';
 import ProductSearchInput from '../components/ProductSearchInput';
 import LabelImageModal from '../modals/LabelImageModal';

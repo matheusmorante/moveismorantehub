@@ -40,7 +40,7 @@ describe('PostCreator Responsive UI Logic & Grouping Integrity', () => {
     expect(spec.formats.length).toBeGreaterThanOrEqual(2);
     expect(spec.formats.some(f => f.aspectRatio === '4:5')).toBe(true);
     expect(spec.formats.some(f => f.aspectRatio === '9:16')).toBe(true);
-    expect(spec.officialAssets?.logo?.url).toBe('https://www.moveismorante.com.br/logo-morante.png');
+    expect(spec.officialAssets?.logo?.url).toBe('https://www.moveismorante.com.br/logo-morante.svg');
 
     const prompt = renderSpecificationAsPrompt(spec);
     expect(prompt).toContain('4:5');

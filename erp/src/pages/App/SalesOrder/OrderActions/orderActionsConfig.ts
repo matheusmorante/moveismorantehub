@@ -277,7 +277,7 @@ export const actionsMap: Record<OrderAction, (order: Order) => void> = {
                         <div class="header" style="background: #d97706; color: white; padding: 30px; border-radius: 15px; display: flex; align-items: center; -webkit-print-color-adjust: exact; print-color-adjust: exact; margin-bottom: 30px;">
                             <div style="display: flex; gap: 20px; align-items: center;">
                                 <div style="width: 256px; height: 256px; flex: 0 0 256px; display: flex; align-items: center; justify-content: center; border-radius: 24px; background: white; padding: 12px; box-sizing: border-box;">
-                                    <img src="/images/logo-morante.png" style="width: 100%; height: 100%; object-fit: contain; border-radius: 18px;" />
+                                    <img src="/images/logo-morante.svg" style="width: 100%; height: 100%; object-fit: contain; border-radius: 18px;" />
                                 </div>
                                 <div>
                                     <h1 style="color: white; margin: 0; font-size: 24px; font-weight: 900; text-transform: uppercase; letter-spacing: -1px;">OS de Coleta (Devolução)</h1>
