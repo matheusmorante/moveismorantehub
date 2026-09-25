@@ -7,11 +7,23 @@ import { extractNfeAccessKey } from '../../invoices/utils/accessKey';
 
 interface Props {
   isDarkMode: boolean;
-  onScan: (data: string) => void;
+  onScan: (data: string) => void | Promise<void | InventoryScanFeedback>;
   onClose: () => void;
   title?: string;
+  subtitle?: string;
   description?: string;
   accessKeyMode?: boolean;
+  continuous?: boolean;
+}
+
+export interface InventoryScanFeedback {
+  kind: 'success' | 'error';
+  title: string;
+  message?: string;
+  sku?: string;
+  supplier?: string;
+  quantity?: number;
+  itemId?: string;
 }
 
 export const InventoryScannerScreen: React.FC<Props> = ({
@@ -19,12 +31,19 @@ export const InventoryScannerScreen: React.FC<Props> = ({
   onScan,
   onClose,
   title = 'Scanear Produto',
+  subtitle,
   description = 'Aponte a câmera para o QR Code ou Código de Barras do produto.',
   accessKeyMode = false,
+  continuous = false,
 }) => {
   const [hasPermission, setHasPermission] = useState<boolean | null>(null);
   const [scanned, setScanned] = useState(false);
   const [isReadingText, setIsReadingText] = useState(false);
+  const [lastFeedback, setLastFeedback] = useState<InventoryScanFeedback | null>(null);
+  const [unitsRead, setUnitsRead] = useState(0);
+  const [productsRead, setProductsRead] = useState<Set<string>>(new Set());
+  const processingRef = useRef(false);
+  const recentScanRef = useRef<{ data: string; at: number }>({ data: '', at: 0 });
   const cameraRef = useRef<CameraView>(null);
 
   useEffect(() => {
@@ -35,10 +54,33 @@ export const InventoryScannerScreen: React.FC<Props> = ({
     void getCameraPermissions();
   }, []);
 
-  const handleBarCodeScanned = ({ type, data }: { type: string; data: string }) => {
-    if (scanned) return;
+  const handleBarCodeScanned = async ({ data }: { type: string; data: string }) => {
+    if (processingRef.current || (!continuous && scanned)) return;
+    if (continuous && data === recentScanRef.current.data && Date.now() - recentScanRef.current.at < 1500) return;
+    processingRef.current = true;
     setScanned(true);
-    onScan(data);
+    try {
+      const result = await onScan(data);
+      if (result) {
+        setLastFeedback(result);
+        if (result.kind === 'error') {
+          setTimeout(() => setLastFeedback(current => current === result ? null : current), 1800);
+        }
+        if (result.kind === 'success') {
+          setUnitsRead(count => count + 1);
+          if (result.itemId) setProductsRead(previous => new Set(previous).add(result.itemId!));
+        }
+      }
+    } catch (error) {
+      console.error('[Scanner] Falha ao processar leitura:', error);
+      setLastFeedback({ kind: 'error', title: 'Falha na leitura', message: 'Tente novamente.' });
+    } finally {
+      if (continuous) {
+        recentScanRef.current = { data, at: Date.now() };
+        processingRef.current = false;
+        setScanned(false);
+      }
+    }
   };
 
   const handleReadText = async () => {
@@ -101,7 +143,7 @@ export const InventoryScannerScreen: React.FC<Props> = ({
         ref={cameraRef}
         onBarcodeScanned={scanned ? undefined : handleBarCodeScanned}
         barcodeScannerSettings={{
-          barcodeTypes: ["qr", "ean13", "ean8", "code128", "code39", "upc_e", "upc_a"],
+          barcodeTypes: continuous ? ['qr'] : ["qr", "ean13", "ean8", "code128", "code39", "upc_e", "upc_a"],
         }}
         style={StyleSheet.absoluteFill}
       />
@@ -109,10 +151,13 @@ export const InventoryScannerScreen: React.FC<Props> = ({
       {/* Overlay */}
       <View style={styles.overlay}>
         <View style={styles.header}>
-          <TouchableOpacity onPress={onClose} style={styles.iconButton}>
+          <TouchableOpacity onPress={onClose} style={styles.iconButton} disabled={continuous && scanned}>
             <X size={24} color="#ffffff" />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>{title}</Text>
+          <View style={{ flex: 1, alignItems: 'center' }}>
+            <Text style={styles.headerTitle}>{title}</Text>
+            {subtitle && <Text style={styles.subtitle}>{subtitle}</Text>}
+          </View>
           <View style={{ width: 40 }} />
         </View>
 
@@ -122,6 +167,24 @@ export const InventoryScannerScreen: React.FC<Props> = ({
 
         <View style={styles.footer}>
           <Text style={styles.footerText}>{description}</Text>
+          {continuous && (
+            <>
+              {lastFeedback && (
+                <View style={[styles.feedback, lastFeedback.kind === 'error' ? styles.feedbackError : styles.feedbackSuccess]}>
+                  <Text style={styles.feedbackTitle}>{lastFeedback.kind === 'success' ? 'ÚLTIMA LEITURA' : lastFeedback.title}</Text>
+                  {lastFeedback.kind === 'success' && <Text style={styles.feedbackText}>{lastFeedback.title}</Text>}
+                  {lastFeedback.sku && <Text style={styles.feedbackText}>SKU: {lastFeedback.sku}</Text>}
+                  {lastFeedback.supplier && <Text style={styles.feedbackText}>Fornecedor: {lastFeedback.supplier}</Text>}
+                  {lastFeedback.quantity !== undefined && <Text style={styles.feedbackText}>Quantidade contada: {lastFeedback.quantity}</Text>}
+                  {lastFeedback.message && <Text style={styles.feedbackText}>{lastFeedback.message}</Text>}
+                </View>
+              )}
+              <Text style={styles.sessionText}>{unitsRead} {unitsRead === 1 ? 'unidade lida' : 'unidades lidas'} · {productsRead.size} {productsRead.size === 1 ? 'produto' : 'produtos'}</Text>
+              <TouchableOpacity style={styles.finishButton} onPress={onClose} disabled={scanned}>
+                <Text style={styles.finishButtonText}>FINALIZAR LEITURA</Text>
+              </TouchableOpacity>
+            </>
+          )}
           {accessKeyMode && (
             <TouchableOpacity style={styles.captureButton} onPress={handleReadText} disabled={isReadingText}>
               <Text style={styles.captureButtonText}>{isReadingText ? 'Lendo texto…' : 'Capturar chave impressa'}</Text>
@@ -189,6 +252,7 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '700',
   },
+  subtitle: { color: '#cbd5e1', fontSize: 12, marginTop: 2, textAlign: 'center' },
   scannerArea: {
     flex: 1,
     alignItems: 'center',
@@ -218,6 +282,14 @@ const styles = StyleSheet.create({
     fontSize: 14,
     textAlign: 'center',
   },
+  feedback: { width: '100%', borderRadius: 12, padding: 12, marginTop: 14 },
+  feedbackError: { backgroundColor: '#7f1d1d' },
+  feedbackSuccess: { backgroundColor: '#064e3b' },
+  feedbackTitle: { color: '#fff', fontSize: 11, fontWeight: '800' },
+  feedbackText: { color: '#fff', fontSize: 13, marginTop: 3 },
+  sessionText: { color: '#fff', fontSize: 12, marginTop: 12, fontWeight: '700' },
+  finishButton: { backgroundColor: '#2563eb', borderRadius: 12, paddingVertical: 13, paddingHorizontal: 24, marginTop: 12, width: '100%', alignItems: 'center' },
+  finishButtonText: { color: '#fff', fontSize: 13, fontWeight: '800' },
   captureButton: {
     marginTop: 16,
     backgroundColor: '#2563eb',

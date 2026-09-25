@@ -25,6 +25,7 @@ export interface AuditItem {
     sku?: string;
     code?: string;
     barcode?: string;
+    isActive?: boolean;
 }
 
 interface InventoryAuditModalProps {
@@ -52,6 +53,8 @@ export const InventoryAuditModal: React.FC<InventoryAuditModalProps> = ({
         draftRef,
         handleConfirmScope,
         handleFinalize,
+        incrementScannedItem,
+        catalogSyncedAt,
         saveDraft,
         hasChanges,
     } = useInventoryAuditWorkflow(isOpen, onClose, editingSession, copiedItems);
@@ -116,6 +119,9 @@ export const InventoryAuditModal: React.FC<InventoryAuditModalProps> = ({
             assignedSupplier: supplierNames.split(' / ')[0] || 'Sem fornecedor',
             systemStock,
             unit: product.unit || 'UN',
+            sku: variation?.sku || (product as any).sku || product.code || '',
+            code: product.code || '',
+            barcode: variation?.barcode || (product as any).barcode || '',
         };
 
         setItems(prev => prev.map(item => item.id === itemId ? { ...item, ...updatedData } : item));
@@ -134,7 +140,8 @@ export const InventoryAuditModal: React.FC<InventoryAuditModalProps> = ({
                     <InventoryScopeModal
                         allProducts={allProducts}
                         suppliers={suppliers}
-                        employees={employees}
+                    employees={employees}
+                    catalogSyncedAt={catalogSyncedAt}
                         onCancel={() => {
                             if (items.length > 0) setView('operation');
                             else onClose();
@@ -155,6 +162,7 @@ export const InventoryAuditModal: React.FC<InventoryAuditModalProps> = ({
                                     prev.map((item) => (item.id === id ? { ...item, physicalCount: count } : item))
                                 );
                             }}
+                            onIncrementScannedItem={incrementScannedItem}
                             onAddManualItem={handleAddBlankItem}
                             onUpdateItemProduct={handleUpdateItemProduct}
                             onReview={() => setView('review')}
@@ -180,11 +188,9 @@ export const InventoryAuditModal: React.FC<InventoryAuditModalProps> = ({
                     <div className="absolute inset-0 bg-slate-950/60 backdrop-blur-sm" onClick={() => setShowExitWarning(false)} />
                     <div className="relative bg-white dark:bg-slate-900 rounded-2xl shadow-xl w-full max-w-sm p-6 text-center animate-in fade-in zoom-in-95 duration-200">
                         <i className="bi bi-file-earmark-text text-amber-500 text-4xl mb-4 block" />
-                        <h3 className="text-xl font-black text-slate-800 dark:text-slate-100 mb-2">
-                            Deseja salvar como rascunho?
-                        </h3>
+                        <h3 className="text-xl font-black text-slate-800 dark:text-slate-100 mb-2">Continuar depois?</h3>
                         <p className="text-sm text-slate-500 dark:text-slate-400 mb-6">
-                            Você fez alterações na contagem. Deseja salvá-las como rascunho para continuar depois?
+                            Sua contagem fica salva neste navegador e continua em andamento.
                         </p>
                         <div className="flex flex-col gap-2">
                             <button 
@@ -194,16 +200,7 @@ export const InventoryAuditModal: React.FC<InventoryAuditModalProps> = ({
                                 }}
                                 className="w-full px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold transition-colors"
                             >
-                                Sim, salvar rascunho
-                            </button>
-                            <button 
-                                onClick={() => {
-                                    setShowExitWarning(false);
-                                    onClose();
-                                }}
-                                className="w-full px-4 py-2 bg-rose-50 text-rose-600 hover:bg-rose-100 dark:bg-rose-950/30 dark:hover:bg-rose-950/50 dark:text-rose-400 rounded-xl font-bold transition-colors"
-                            >
-                                Não, descartar contagem
+                                Fechar e continuar depois
                             </button>
                             <button 
                                 onClick={() => setShowExitWarning(false)}

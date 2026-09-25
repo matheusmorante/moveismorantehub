@@ -1,7 +1,6 @@
 import { Alert, Platform } from 'react-native';
 import { supabase } from '../../../../services/supabaseClient';
 import { deleteLocalInventoryDraft, markLocalDraftPendingSync } from '../../../../services/sqlite/inventoryDrafts';
-import { recalculateInventoryAuditBalance } from '../../../../services/stock/stockInventoryService';
 import { connectivityService } from '../../../../services/offline/connectivityService';
 import type { AuditItem, AuditDraftState, FinalizeAdjustmentItem } from '../types/inventoryWorkflow.types';
 
@@ -47,6 +46,11 @@ export const executeInventoryFinalization = async ({
         return false;
     }
 
+    if (itemsWithAdjustment.some(item => !item.variationId)) {
+        Alert.alert('Variação pendente', 'Selecione a variação dos produtos com ajuste antes de concluir o inventário.');
+        return false;
+    }
+
     // 2. Verificação prévia de conectividade antes do commit
     const isOnline = connectivityService.connected && (typeof navigator === 'undefined' || navigator.onLine !== false);
     if (!isOnline) {
@@ -77,84 +81,22 @@ export const executeInventoryFinalization = async ({
             })),
         };
 
-        const completionDate = new Date().toISOString();
-        const auditMarker = items[0];
-        const markerPayload = {
-            product_id: auditMarker?.productId || null,
-            variation_id: auditMarker?.variationId || null,
-            product_description: 'Sessão de inventário',
-            type: 'adjustment',
-            quantity: 0,
-            date: completionDate,
-            label: `Inventário #${code} (Concluído)`,
-            observation: JSON.stringify({
-                ...auditObservation,
-                auditId,
-            }),
-            created_at: completionDate,
-        };
-
-        if (draftRef.current.markerMoveId) {
-            const { error: updateErr } = await supabase
-                .from('inventory_moves')
-                .update({
-                    label: `Inventário #${code} (Concluído)`,
-                    observation: JSON.stringify({
-                        ...auditObservation,
-                        auditId,
-                    }),
-                    date: completionDate,
-                })
-                .eq('id', draftRef.current.markerMoveId);
-
-            if (updateErr) {
-                console.warn('[Finalize] Falha ao atualizar marker move, criando novo:', updateErr);
-                const { error: insertErr } = await supabase
-                    .from('inventory_moves')
-                    .insert([markerPayload]);
-                if (insertErr) throw insertErr;
-            }
-        } else {
-            const { error: insertErr } = await supabase
-                .from('inventory_moves')
-                .insert([markerPayload]);
-            if (insertErr) throw insertErr;
-        }
-
-        // Criar movimentações de ajuste para itens com divergência
-        if (itemsWithAdjustment.length > 0) {
-            const adjustmentMoves = itemsWithAdjustment.map(item => ({
-                product_id: item.productId,
-                variation_id: item.variationId || null,
-                product_description: item.name,
-                type: 'adjustment',
-                quantity: 0,
-                date: completionDate,
-                label: `Ajuste lançado pelo inventário #${code}`,
-                observation: JSON.stringify({
-                    note: `Saldo definido pelo inventário #${code}`,
-                    targetStock: item.physicalCount,
-                    source: 'inventory_audit',
-                    status: 'effective',
-                    auditId,
-                }),
-                created_at: completionDate,
-            }));
-
-            const { error: adjErr } = await supabase
-                .from('inventory_moves')
-                .insert(adjustmentMoves);
-            if (adjErr) throw adjErr;
-
-            // Recalcular saldo de estoque no banco para produtos afetados
-            const affectedProductIds = Array.from(new Set(itemsWithAdjustment.map(i => i.productId)));
-            for (const productId of affectedProductIds) {
-                try {
-                    await recalculateInventoryAuditBalance(productId);
-                } catch (e) {
-                    console.warn(`[Finalize] Erro ao recalcular saldo do produto ${productId}:`, e);
-                }
-            }
+        const { data, error } = await supabase.rpc('finalize_inventory_transaction', {
+            p_audit_id: auditId,
+            p_code: code,
+            p_observation: auditObservation,
+            p_items: itemsWithAdjustment.map(item => ({
+                productId: item.productId,
+                variationId: item.variationId || null,
+                name: item.name,
+                physicalCount: item.physicalCount,
+                previousStock: item.reconciledExpected,
+            })),
+            p_responsible_name: auditObservation.responsibleName,
+        });
+        if (error) throw error;
+        if (data?.auditId !== auditId || !['processed', 'already_processed'].includes(data?.status)) {
+            throw new Error('O servidor não confirmou a conclusão do inventário.');
         }
 
         // Somente após confirmação de sucesso pelo Supabase, limpa o SQLite local

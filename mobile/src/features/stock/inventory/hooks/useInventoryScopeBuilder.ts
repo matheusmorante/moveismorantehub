@@ -10,6 +10,7 @@ export interface ScopeProduct {
     sku?: string;
     code?: string;
     barcode?: string;
+    active?: boolean;
     main_supplier_id?: string;
     supplier_id?: string;
     supplier_ids?: string[];
@@ -39,6 +40,7 @@ export interface ScopeConfiguration {
         sku?: string;
         code?: string;
         barcode?: string;
+        isActive?: boolean;
     }>;
 }
 
@@ -83,6 +85,7 @@ export const useInventoryScopeBuilder = (
                 sku: product.sku || product.code || '',
                 code: product.code || '',
                 barcode: product.barcode || '',
+                isActive: product.active !== false,
             });
         };
 

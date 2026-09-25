@@ -11,12 +11,11 @@ Use esta skill sempre que a mudança puder alterar regras de negócio, persistê
 
 - Ao implementar, classificar, executar ou migrar testes unitários, de integração ou E2E do ERP/App Mobile.
 - Quando testes puderem acessar Supabase, autenticação, pedidos, produtos, variações, composição, estoque ou inventário.
-- Ao configurar Maestro e automação no Android físico via USB.
 
 ## Quando NÃO aplicar
 
 - Para alterações de interface ou lógica sem impacto de teste, dados, persistência ou fluxo entre módulos.
-- Para tentar automatizar Android por emulador neste projeto: emuladores/AVDs são proibidos pela estratégia definida.
+- Para automação de interface nativa por Maestro, ADB, Expo MCP, emulador/AVD ou aparelho físico: essa validação cabe ao usuário no APK.
 
 ## Política incremental de validação
 
@@ -24,7 +23,7 @@ Ao alterar código, a própria alteração autoriza a validação mínima necess
 
 Para mudança apenas de texto ou CSS, faça somente as verificações mínimas aplicáveis; use validação visual apenas quando ela comprovar algo que as verificações automáticas não cobrem.
 
-Escale para integração ou E2E apenas depois de as verificações focadas anteriores passarem e quando a natureza da mudança justificar. Integração é indicada para alterações em Supabase/PostgreSQL, RPC, Edge Functions, API, autenticação, permissões, persistência, sincronização ou contratos entre serviços. Use Playwright para ERP React/Web e, complementarmente, Expo Web. Use Maestro para E2E Android nativo exclusivamente em aparelho físico ligado por USB e autorizado no ADB; não instale, configure, inicie ou use emulador/AVD. Viewport mobile no Playwright não o transforma em teste nativo. Navegador/computer use fica para problemas visuais ou de interação que não possam ser esclarecidos por validações automatizadas.
+Escale para integração ou E2E apenas depois de as verificações focadas anteriores passarem e quando a natureza da mudança justificar. Integração é indicada para alterações em Supabase/PostgreSQL, RPC, Edge Functions, API, autenticação, permissões, persistência, sincronização ou contratos entre serviços. Playwright é a única automação de interface/E2E: use-o no ERP React/Web e no Expo Web quando suportado. Viewport mobile continua sendo navegador, não valida comportamento nativo. Não executar Maestro, ADB, Expo MCP, emulador/AVD nem automação em aparelho físico. Para APIs ou fluxos exclusivos do React Native, faça apenas validações focadas que não dependam do runtime nativo; a validação nativa fica com o usuário no APK. Quando necessária, prepare e entregue o APK sem instalá-lo ou executá-lo.
 
 Para replicação/sincronização ERP ↔ App Mobile, rode o teste unitário focado da fila, transformação ou serviço alterado. Se o contrato ou a persistência entre os dois lados mudar, acrescente integração isolada que verifique idempotência, estados de sync e autoridade do backend, sem usar dados reais. E2E só é necessário quando a mudança alcançar um fluxo de usuário que unitário e integração não cubram.
 
@@ -68,12 +67,12 @@ A suíte do Morante Hub engloba **todos os tipos possíveis de teste** para asse
 |---|---|---|
 | **Testes Unitários** | Funções puras, cálculos de CMPM, CMV, frete, descontos, transições de status, máscaras de moeda, formatação de endereço, slots de horário. | Vitest (`npm --prefix erp run test:unit`), Jest. Execução em memória sem dependências externas. |
 | **Testes de Integração** | Serviços de Venda, Estoque, Movimentações, Conciliação Financeira, APIs externas (Google Maps, SEFAZ schemas). | Vitest com serviços locais sem Docker ou staging isolado com `testRunId`; mocks quando não houver ambiente seguro. |
-| **E2E ERP React/Web e Expo Web** | Navegação web, telas, tabelas, responsividade, formulários e modais no navegador. | Playwright; Chrome DevTools complementa diagnóstico, não substitui asserções funcionais. Viewport mobile ainda é navegador. |
-| **E2E React Native/Expo Android nativo** | Navegação, modais, teclado, botão voltar, lifecycle, offline/online, SQLite, permissões, câmera e persistência nativa. | Maestro em aparelho físico via USB/ADB somente. Não usar emulador/AVD. Migrar caso por caso; manter Playwright Web complementar e não remover o antigo antes da equivalência nativa executar e validar. |
+| **E2E Web (ERP e Expo Web)** | Navegação, telas, responsividade, formulários e modais disponíveis no navegador. | Playwright; Chrome DevTools complementa diagnóstico. Viewport mobile continua sendo navegador. |
+| **Comportamento exclusivo do React Native** | Câmera, permissões, lifecycle, SQLite e APIs nativas não disponíveis no browser. | Não automatizar em dispositivo/emulador. Fazer validações estáticas/focadas quando úteis e entregar APK para validação manual do usuário quando necessário. |
 | **Testes de Tipagem & Contratos** | Conformidade TypeScript, integridade de propriedades herdadas, schemas tributários, eventos mobile. | `node mobile/node_modules/typescript/bin/tsc --noEmit`, `npm --prefix erp run typecheck`. |
-| **Testes Mobile Offline-First** | Registro de eventos operacionais, ciclo de 4 estados (`PENDING` → `SYNCING` → `CONFIRMED` / `REJECTED`), fila de sync e autoridade do backend. | Mocks de AsyncStorage/NetInfo, testes dos hooks de rotas e sincronização. |
+| **Lógica Offline-First Mobile** | Transformações, idempotência, ciclo de eventos e regras de sincronização independentes do runtime nativo. | Vitest com fixtures/mocks para lógica isolada; não usar isso como evidência de que AsyncStorage, NetInfo, câmera, permissões ou SQLite nativo funcionam. A validação nativa é manual do usuário no APK. |
 
-Nos E2E com backend real, tanto Playwright quanto Maestro seguem a regra de propriedade da seção 1: criar somente dados próprios e identificáveis, guardar IDs exatos, editar/excluir apenas esses IDs e limpar de forma restrita. Não use limpeza por prefixo/`LIKE` nem selecione registros operacionais existentes como massa mutável.
+Nos E2E Playwright com backend real, siga a regra de propriedade da seção 1: criar somente dados próprios e identificáveis, guardar IDs exatos, editar/excluir apenas esses IDs e limpar de forma restrita. Não use limpeza por prefixo/`LIKE` nem selecione registros operacionais existentes como massa mutável.
 
 ---
 
@@ -223,6 +222,4 @@ CAUSA RAIZ (qual regra, contrato, fluxo ou fonte da verdade originou a inconsist
 
 ## Referências e Fonte Canônica de Documentação
 
-- [Maestro — instalação da CLI (Windows/macOS/Linux)](https://docs.maestro.dev/maestro-cli/how-to-install-maestro-cli)
-- [Maestro — QuickStart](https://docs.maestro.dev/get-started/quickstart)
 - [Playwright — projetos e emulação de dispositivos](https://playwright.dev/docs/emulation)

@@ -1,121 +1,27 @@
 import { supabase } from '../supabaseClient';
 import { ITEMS_PER_PAGE, getStockPeriod } from './stockMovesService';
-
-export const INVENTORY_SCOPE_PAGE_SIZE = 100;
-const inventoryScopeCache = new Map<string, any[]>();
+import { clearOfflineInventoryCatalogCache, ensureOfflineInventoryCatalogSynced, getOfflineInventoryCatalog, getOfflineInventoryScopeProducts } from '../../features/stock/inventory/services/offlineInventoryCatalog';
 
 export const fetchInventoryScopeSuppliers = async () => {
-    const { data, error } = await supabase
-        .from('people')
-        .select('id, full_name')
-        .eq('person_type', 'suppliers')
-        .eq('deleted', false)
-        .order('full_name', { ascending: true })
-        .range(0, 99);
-    if (error) throw error;
-    return data || [];
+    await ensureOfflineInventoryCatalogSynced();
+    const catalog = await getOfflineInventoryCatalog();
+    return Object.values(catalog.suppliers)
+        .filter(supplier => !supplier.deleted)
+        .map(supplier => ({ id: supplier.id, full_name: supplier.social_name || supplier.full_name || supplier.nickname || '' }))
+        .sort((left, right) => left.full_name.localeCompare(right.full_name));
 };
 
 export const fetchInventoryScopeProducts = async (_scope: 'full' | 'supplier', _supplierId?: string) => {
-    const cacheKey = 'inventory-scope:all';
-    const cached = inventoryScopeCache.get(cacheKey);
-    if (cached) return cached;
-
-    const products: any[] = [];
-    let page = 0;
-    while (true) {
-        const from = page * INVENTORY_SCOPE_PAGE_SIZE;
-        const query = supabase
-            .from('products')
-            .select('id, name, description, sku, code, barcode, stock, unit, main_supplier_id, supplier_id, supplier_ids')
-            .eq('deleted', false)
-            .eq('active', true)
-            .eq('item_type', 'product')
-            .order('name', { ascending: true })
-            .range(from, from + INVENTORY_SCOPE_PAGE_SIZE - 1);
-
-        const { data, error } = await query;
-        if (error) throw error;
-        products.push(...(data || []));
-        if (!data || data.length < INVENTORY_SCOPE_PAGE_SIZE) break;
-        page += 1;
-    }
-
-    const productIds = products.map((product) => product.id);
-    const variationRows: any[] = [];
-    for (let offset = 0; offset < productIds.length; offset += INVENTORY_SCOPE_PAGE_SIZE) {
-        const ids = productIds.slice(offset, offset + INVENTORY_SCOPE_PAGE_SIZE);
-        let variationPage = 0;
-        while (true) {
-            const from = variationPage * INVENTORY_SCOPE_PAGE_SIZE;
-            const { data, error } = await supabase
-                .from('product_variations')
-                .select('id, product_id, name, sku, barcode, stock')
-                .in('product_id', ids)
-                .order('name', { ascending: true })
-                .range(from, from + INVENTORY_SCOPE_PAGE_SIZE - 1);
-            if (error) throw error;
-            variationRows.push(...(data || []));
-            if (!data || data.length < INVENTORY_SCOPE_PAGE_SIZE) break;
-            variationPage += 1;
-        }
-    }
-
-    const variationsByProduct = new Map<string, any[]>();
-    for (const variation of variationRows) {
-        const key = String(variation.product_id);
-        variationsByProduct.set(key, [...(variationsByProduct.get(key) || []), variation]);
-    }
-
-    const scopedProducts = products.flatMap((product) => {
-        const productVariations = variationsByProduct.get(String(product.id)) || [];
-        // Produto pai sem variação é inconsistência de cadastro, não um item
-        // operacional de estoque. Não reintroduzir o pai como se fosse SKU.
-        if (!productVariations.length) return [];
-        return productVariations.map((variation) => ({
-            ...product,
-            id: product.id,
-            variation_id: String(variation.id),
-            name: variation.name || product.name || product.description,
-            stock: variation.stock ?? 0,
-            sku: variation.sku || product.sku || product.code || '',
-            code: product.code || '',
-            barcode: variation.barcode || product.barcode || '',
-        }));
-    });
-
-    inventoryScopeCache.set(cacheKey, scopedProducts);
-    return scopedProducts;
+    await ensureOfflineInventoryCatalogSynced();
+    return getOfflineInventoryScopeProducts();
 };
 
-export const clearInventoryScopeCache = () => inventoryScopeCache.clear();
+export const clearInventoryScopeCache = () => clearOfflineInventoryCatalogCache();
 
 /**
  * Consulta o registro de uma etiqueta física UUID na tabela inventory_labels
  * para associar a unidade escaneada ao seu produto e variação de destino.
  */
-export const fetchInventoryLabelRecord = async (labelId: string): Promise<{
-    id: string;
-    product_id: string;
-    variation_id?: string | null;
-    sku?: string | null;
-    barcode?: string | null;
-} | null> => {
-    if (!labelId) return null;
-    try {
-        const { data, error } = await supabase
-            .from('inventory_labels')
-            .select('id, product_id, variation_id, sku, barcode')
-            .eq('id', labelId)
-            .maybeSingle();
-
-        if (error || !data) return null;
-        return data;
-    } catch {
-        return null;
-    }
-};
-
 /**
  * Sessões de Inventário
  */

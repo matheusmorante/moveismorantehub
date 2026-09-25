@@ -1,14 +1,13 @@
 import React, { useState, useMemo, useRef } from 'react';
 import type { AuditItem } from "../modals/InventoryAuditModal";
 import { InventoryOperationHeader } from './InventoryOperationHeader';
-import { InventoryScannerMode } from './InventoryScannerMode';
 import { InventoryManualMode } from './InventoryManualMode';
 import { InventoryStagesView } from './InventoryStagesView';
 import { useInventoryOperation } from "../../hooks/useInventoryOperation";
 import type { InventoryScopeType } from '../modals/InventoryScopeModal';
 import QRScannerModal from '@/components/shared/QRScannerModal';
-import { toast } from 'react-toastify';
 import { matchScannedProductItem, extractLabelIdentity } from '@/pages/utils/barcodeScannerUtils';
+import { ensureOfflineInventoryCatalogSynced, findOfflineInventoryMatch, type OfflineInventoryMatch } from '../services/offlineInventoryCatalog';
 
 interface InventoryOperationScreenProps {
     readonly items: AuditItem[];
@@ -16,6 +15,7 @@ interface InventoryOperationScreenProps {
     readonly inventoryName: string;
     readonly scopeType?: InventoryScopeType | null;
     readonly onUpdateCount: (id: string, count: number | null) => void;
+    readonly onIncrementScannedItem: (id: string, labelId?: string) => Promise<number | null>;
     readonly onAddManualItem: () => void;
     readonly onUpdateItemProduct?: (itemId: string, product: any, variation?: any) => void;
     readonly onReview: () => void;
@@ -29,6 +29,7 @@ export const InventoryOperationScreen: React.FC<InventoryOperationScreenProps> =
     inventoryName,
     scopeType,
     onUpdateCount,
+    onIncrementScannedItem,
     onAddManualItem,
     onUpdateItemProduct,
     onReview,
@@ -37,7 +38,12 @@ export const InventoryOperationScreen: React.FC<InventoryOperationScreenProps> =
 }) => {
     const [mode, setMode] = useState<'scanner' | 'manual'>('manual');
     const [isQrScannerOpen, setIsQrScannerOpen] = useState(false);
+    const [isScanProcessing, setIsScanProcessing] = useState(false);
     const [activeStage, setActiveStage] = useState<string | null>(null);
+    const [sessionUnitsRead, setSessionUnitsRead] = useState(0);
+    const [scannedProductIds, setScannedProductIds] = useState<Set<string>>(new Set());
+    const [lastRead, setLastRead] = useState<{ item: AuditItem; quantity: number } | null>(null);
+    const [scanFeedback, setScanFeedback] = useState<{ type: 'error'; title: string; detail?: string } | null>(null);
     
     // Filtramos os itens pelo fornecedor ativo, ou usamos todos se não tiver etapas
     const activeItems = useMemo(() => {
@@ -58,34 +64,70 @@ export const InventoryOperationScreen: React.FC<InventoryOperationScreenProps> =
     const isShowingStages = hasStages && !activeStage;
     const isCustom = scopeType === 'custom';
 
-    const scannedLabelsRef = useRef<Set<string>>(new Set());
+    const feedbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const isSupplierScanner = Boolean(hasStages && activeStage);
 
-    const handleQrScan = (rawCode: string) => {
-        const item = scannerItems.find((candidate) => matchScannedProductItem(candidate, rawCode));
+    const openScanner = () => {
+        setSessionUnitsRead(0);
+        setScannedProductIds(new Set());
+        setLastRead(null);
+        setScanFeedback(null);
+        setIsScanProcessing(false);
+        setIsQrScannerOpen(true);
+    };
 
-        if (!item) {
-            toast.warn('O código lido não corresponde a nenhum produto neste inventário.');
-            setIsQrScannerOpen(false);
-            return;
-        }
+    const showErrorFeedback = (title: string, detail?: string) => {
+        setLastRead(null);
+        setScanFeedback({ type: 'error', title, detail });
+        if (feedbackTimerRef.current) clearTimeout(feedbackTimerRef.current);
+        feedbackTimerRef.current = setTimeout(() => setScanFeedback(null), 2200);
+    };
 
+    const handleQrScan = async (rawCode: string) => {
+        try { await ensureOfflineInventoryCatalogSynced(); }
+        catch (error) { console.warn('[Inventory] Índice offline indisponível; usando os itens da sessão:', error); }
         const { labelId } = extractLabelIdentity(rawCode);
+        let directScopedItem = scannerItems.find(candidate => matchScannedProductItem(candidate, rawCode));
+        let directOtherItem = !directScopedItem && isSupplierScanner
+            ? items.find(candidate => matchScannedProductItem(candidate, rawCode)) : undefined;
+        let catalogItem: OfflineInventoryMatch | null = null;
+        if (!directScopedItem && !directOtherItem) {
+            try { catalogItem = await findOfflineInventoryMatch(rawCode); }
+            catch (error) { console.warn('[Inventory] Falha ao consultar índice offline:', error); }
+        }
+        if (catalogItem) {
+            const matchesCatalog = (candidate: AuditItem) => String(candidate.variationId || '') === catalogItem.variationId
+                || (String(candidate.productId) === catalogItem.productId && !candidate.variationId);
+            directScopedItem = scannerItems.find(matchesCatalog);
+            if (!directScopedItem && isSupplierScanner) directOtherItem = items.find(matchesCatalog);
+        }
+        const scopedItem = directScopedItem;
 
-        // Bloqueio de duplicidade da mesma unidade física
-        if (labelId && scannedLabelsRef.current.has(labelId)) {
-            toast.warn(`Esta unidade física (${item.name}) já foi contabilizada neste inventário.`);
-            setIsQrScannerOpen(false);
+        if (!scopedItem) {
+            const otherSupplierItem = directOtherItem;
+            if (otherSupplierItem) {
+                showErrorFeedback('Produto de outro fornecedor', `Produto: ${otherSupplierItem.name} · Fornecedor: ${otherSupplierItem.assignedSupplier || 'Sem fornecedor'}. Nenhuma quantidade foi alterada.`);
+                return;
+            }
+            showErrorFeedback('Produto não pertence a este inventário');
             return;
         }
 
-        if (labelId) {
-            scannedLabelsRef.current.add(labelId);
+        try {
+            const physicalLabelId = labelId && ![scopedItem.productId, scopedItem.variationId].includes(labelId) ? labelId : undefined;
+            const nextCount = await onIncrementScannedItem(scopedItem.id, physicalLabelId);
+            if (nextCount === null) {
+                showErrorFeedback('Unidade física já contabilizada', scopedItem.name);
+                return;
+            }
+            setSessionUnitsRead(count => count + 1);
+            setScannedProductIds(previous => new Set(previous).add(scopedItem.id));
+            setLastRead({ item: scopedItem, quantity: nextCount });
+            setScanFeedback(null);
+            if (navigator.vibrate) navigator.vibrate(80);
+        } catch {
+            showErrorFeedback('Falha ao salvar a contagem local', 'Verifique o armazenamento do navegador antes de continuar.');
         }
-
-        const nextCount = (item.physicalCount ?? 0) + 1;
-        onUpdateCount(item.id, nextCount);
-        toast.success(`${item.name}: contagem +1 (${nextCount} ${item.unit || 'UN'})`);
-        setIsQrScannerOpen(false);
     };
 
     return (
@@ -96,7 +138,7 @@ export const InventoryOperationScreen: React.FC<InventoryOperationScreenProps> =
                     items={scannerItems}
                     mode={mode}
                     setMode={setMode}
-                    onOpenQrScanner={() => setIsQrScannerOpen(true)}
+                    onOpenQrScanner={openScanner}
                     onClose={onClose}
                 />
             )}
@@ -122,12 +164,6 @@ export const InventoryOperationScreen: React.FC<InventoryOperationScreenProps> =
                             items={items}
                             onSelectStage={(supplierName) => setActiveStage(supplierName)}
                             onCancel={onClose}
-                        />
-                    ) : mode === 'scanner' ? (
-                        <InventoryScannerMode
-                            items={scannerItems}
-                            onUpdateCount={onUpdateCount}
-                            onSwitchToManual={() => setMode('manual')}
                         />
                     ) : (
                         <InventoryManualMode
@@ -172,8 +208,39 @@ export const InventoryOperationScreen: React.FC<InventoryOperationScreenProps> =
             <QRScannerModal
                 isOpen={isQrScannerOpen}
                 onClose={() => setIsQrScannerOpen(false)}
-                onScan={handleQrScan}
-                title="Escanear produto"
+                onScan={(code) => {
+                    setIsScanProcessing(true);
+                    return handleQrScan(code).finally(() => setIsScanProcessing(false));
+                }}
+                title={isSupplierScanner ? `Contagem — ${activeStage}` : 'Contagem geral'}
+                subtitle={isSupplierScanner ? 'Somente produtos deste fornecedor' : 'Produtos de todos os fornecedores'}
+                qrCodeOnly
+                allowManualInput={false}
+                showScannerStatus={false}
+                feedbackOnDetection={false}
+                closeOnScan={false}
+                scanInstruction="Aponte para o QR Code da etiqueta"
+                footerContent={(
+                    <div className="space-y-3">
+                        {scanFeedback ? (
+                            <div role="status" className="rounded-2xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-700 dark:border-rose-900 dark:bg-rose-950/40 dark:text-rose-300">
+                                <p className="font-bold">{scanFeedback.title}</p>
+                                {scanFeedback.detail && <p className="mt-1 text-xs">{scanFeedback.detail}</p>}
+                            </div>
+                        ) : lastRead ? (
+                            <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-3 dark:border-emerald-900 dark:bg-emerald-950/30">
+                                <p className="mb-1 text-[10px] font-black uppercase tracking-wider text-emerald-700 dark:text-emerald-300">Última leitura</p>
+                                <p className="truncate text-sm font-bold text-slate-800 dark:text-slate-100">{lastRead.item.name}</p>
+                                {lastRead.item.isActive === false && <p className="text-xs font-bold text-amber-700 dark:text-amber-300">Produto desativado — {lastRead.quantity} {lastRead.quantity === 1 ? 'unidade encontrada' : 'unidades encontradas'}</p>}
+                                <p className="text-xs text-slate-500 dark:text-slate-400">SKU: {lastRead.item.sku || lastRead.item.code || lastRead.item.barcode || '—'}</p>
+                                {!isSupplierScanner && <p className="text-xs text-slate-500 dark:text-slate-400">Fornecedor: {lastRead.item.assignedSupplier || 'Sem fornecedor'}</p>}
+                                <p className="mt-1 text-xs font-semibold text-slate-600 dark:text-slate-300">Quantidade contada: {lastRead.quantity}</p>
+                            </div>
+                        ) : null}
+                        <p className="text-center text-xs font-semibold text-slate-600 dark:text-slate-300">{sessionUnitsRead} {sessionUnitsRead === 1 ? 'unidade lida' : 'unidades lidas'} · {scannedProductIds.size} {scannedProductIds.size === 1 ? 'produto' : 'produtos'}</p>
+                        <button type="button" onClick={() => setIsQrScannerOpen(false)} disabled={isScanProcessing} className="w-full rounded-2xl bg-blue-600 py-3 text-sm font-black uppercase tracking-wider text-white hover:bg-blue-700 disabled:opacity-50">Finalizar leitura</button>
+                    </div>
+                )}
             />
         </div>
     );

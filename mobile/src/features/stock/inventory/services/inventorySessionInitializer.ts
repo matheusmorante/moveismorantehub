@@ -104,7 +104,11 @@ export const duplicateInventorySession = async (
     copiedItems: any[],
     userProfileId?: string
 ): Promise<InitializedInventoryData> => {
-    const code = await getNextInventoryCode();
+    const id = generateInventoryUUID();
+    let code: string;
+    try { code = await getNextInventoryCode(); }
+    catch { code = `LOCAL-${id.slice(0, 8)}`; }
+    if (!code) code = `LOCAL-${id.slice(0, 8)}`;
     const duplicatedItems: AuditItem[] = copiedItems.map((it: any) => ({
         id: createInventoryItemId(),
         key: `${it.productId}-${it.variationId || 'main'}`,
@@ -123,7 +127,7 @@ export const duplicateInventorySession = async (
 
     return {
         draft: {
-            id: generateInventoryUUID(),
+            id,
             code,
             date: new Date().toISOString(),
         },

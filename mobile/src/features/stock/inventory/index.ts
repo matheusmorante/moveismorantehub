@@ -14,4 +14,4 @@ export * from './components';
 export * from './hooks/useInventory';
 export * from './hooks/useInventoryAuditWorkflow';
 export * from './hooks/useInventoryScopeBuilder';
-export * from './services/inventoryFinalizationService';
+export * from './services/inventoryFinalizer';

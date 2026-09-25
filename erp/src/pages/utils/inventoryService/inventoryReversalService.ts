@@ -36,6 +36,53 @@ export const reverseInventoryMove = async (
             existingMeta = { note: moveData.observation };
         }
 
+        if (existingMeta.source === 'inventory_audit' && (existingMeta.previousStock == null || !Number.isFinite(Number(existingMeta.previousStock)))) {
+            const { data: markers, error: markerError } = await supabase
+                .from(INVENTORY_TABLE_NAME)
+                .select('date, observation')
+                .eq('order_id', moveData.order_id)
+                .ilike('label', 'Inventário #%')
+                .limit(1);
+            if (markerError) throw markerError;
+            const marker = markers?.[0];
+            if (!marker) throw new Error('Não foi possível localizar o snapshot original deste inventário para recompor o saldo.');
+            try {
+                const snapshot = JSON.parse(marker.observation || '{}');
+                const item = Array.isArray(snapshot.items) ? snapshot.items.find((candidate: any) =>
+                    String(candidate.productId) === String(move.productId)
+                    && String(candidate.variationId || '') === String(move.variationId || '')
+                ) : null;
+                if (item && Number.isFinite(Number(item.systemStock))) {
+                    const { data: interveningMoves, error: timelineError } = await supabase
+                        .from(INVENTORY_TABLE_NAME)
+                        .select('type, quantity, variation_id, observation, status, date')
+                        .eq('product_id', move.productId)
+                        .gte('date', marker.date)
+                        .lte('date', moveData.date)
+                        .order('date', { ascending: true });
+                    if (timelineError) throw timelineError;
+                    let delta = 0;
+                    for (const intervening of interveningMoves || []) {
+                        if (String(intervening.variation_id || '') !== String(move.variationId || '')) continue;
+                        let meta: any = {};
+                        try { meta = JSON.parse(intervening.observation || '{}'); } catch { /* legacy observation */ }
+                        if (intervening.status === 'reversed' || intervening.status === 'cancelled' || meta.status === 'reversed' || meta.status === 'cancelled') continue;
+                        if (intervening.type === 'entry') delta += Number(intervening.quantity || 0);
+                        else if (intervening.type === 'exit') delta -= Number(intervening.quantity || 0);
+                    }
+                    existingMeta.previousStock = Number(item.systemStock) + delta;
+                } else {
+                    throw new Error('O snapshot original não contém o item necessário para recompor o saldo.');
+                }
+            } catch (snapshotError) {
+                console.warn('[Inventory reversal] Could not derive the pre-audit stock baseline:', snapshotError);
+                throw snapshotError;
+            }
+            if (existingMeta.previousStock == null || !Number.isFinite(Number(existingMeta.previousStock))) {
+                throw new Error('Não foi possível determinar o saldo anterior do ajuste de inventário.');
+            }
+        }
+
         const updatedObservation = JSON.stringify({
             ...existingMeta,
             status: 'reversed',

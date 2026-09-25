@@ -39,7 +39,12 @@ class InMemoryDatabaseDriver implements DatabaseDriver {
           cols.forEach((col, idx) => {
             row[col] = params[idx];
           });
-          this.tables[tableName].push(row);
+          const existingIndex = this.tables[tableName].findIndex(existing => existing.id === row.id);
+          if (trimmed.toUpperCase().includes('ON CONFLICT(ID)') && existingIndex >= 0) {
+            this.tables[tableName][existingIndex] = row;
+          } else {
+            this.tables[tableName].push(row);
+          }
           return { changes: 1, lastInsertRowId: this.tables[tableName].length };
         }
       }
@@ -53,6 +58,7 @@ class InMemoryDatabaseDriver implements DatabaseDriver {
         rows.forEach(r => {
           if (r.id === targetId) {
             changes++;
+            if (trimmed.includes("status = 'pending_sync'")) r.status = 'pending_sync';
           }
         });
         return { changes: changes || 1, lastInsertRowId: 0 };
@@ -81,6 +87,7 @@ class InMemoryDatabaseDriver implements DatabaseDriver {
       if (sql.includes('WHERE id =') && params.length > 0) {
         return rows.filter((r) => r.id === params[0]) as T[];
       }
+      if (sql.includes("status != 'completed'")) return rows.filter(r => r.status !== 'completed') as T[];
       return rows as T[];
     }
     return [];
@@ -106,11 +113,10 @@ export const getSQLiteDatabase = async (): Promise<DatabaseDriver> => {
     // Carregamento dinâmico de expo-sqlite para ambiente nativo
     const SQLite = require('expo-sqlite');
     const nativeDb = await SQLite.openDatabaseAsync('morantehub.db');
-    dbInstance = nativeDb;
+    dbInstance = nativeDb as DatabaseDriver;
     return dbInstance;
   } catch (e) {
-    console.warn('[SQLite] Fallback para InMemoryDriver devido a ausência do expo-sqlite nativo:', e);
-    dbInstance = new InMemoryDatabaseDriver();
-    return dbInstance;
+    console.error('[SQLite] Banco nativo indisponível:', e);
+    throw new Error('O armazenamento local do aparelho está indisponível. Não é seguro iniciar a contagem.');
   }
 };

@@ -13,10 +13,17 @@ import { getSettings } from "@/pages/utils/settingsService";
 interface QRScannerModalProps {
     isOpen: boolean;
     onClose: () => void;
-    onScan: (decodedText: string) => void;
+    onScan: (decodedText: string) => void | Promise<void>;
     title?: string;
     closeOnScan?: boolean;
     accessKeyMode?: boolean;
+    qrCodeOnly?: boolean;
+    allowManualInput?: boolean;
+    showScannerStatus?: boolean;
+    subtitle?: string;
+    scanInstruction?: string;
+    footerContent?: React.ReactNode;
+    feedbackOnDetection?: boolean;
 }
 
 const QRScannerModal: React.FC<QRScannerModalProps> = ({ 
@@ -26,6 +33,13 @@ const QRScannerModal: React.FC<QRScannerModalProps> = ({
     title = "Escanear Código",
     closeOnScan = true,
     accessKeyMode = false,
+    qrCodeOnly = false,
+    allowManualInput = true,
+    showScannerStatus = true,
+    subtitle,
+    scanInstruction,
+    footerContent,
+    feedbackOnDetection = true,
 }) => {
     const [error, setError] = useState<string | null>(null);
     const [step, setStep] = useState<string>("Iniciando...");
@@ -33,12 +47,15 @@ const QRScannerModal: React.FC<QRScannerModalProps> = ({
     const [showManualInput, setShowManualInput] = useState(false);
     const [manualCode, setManualCode] = useState("");
     const [isRecognizingText, setIsRecognizingText] = useState(false);
+    const [isProcessingScan, setIsProcessingScan] = useState(false);
     
     // Configurações dinâmicas
     const configSettings = getSettings().scannerConfig;
     
     const scannerRef = useRef<Html5Qrcode | null>(null);
+    const processingScanRef = useRef(false);
     const lastScanTimeRef = useRef<number>(0); // Para controlar o delay de 500ms
+    const lastScanTextRef = useRef<string>('');
     const mountPointId = "barcode-scanner-v7";
 
     // Função para gerar o som de "Bip" (Pibe) usando Web Audio API
@@ -96,7 +113,7 @@ const QRScannerModal: React.FC<QRScannerModalProps> = ({
             setStep("Buscando Câmeras...");
             const cameras = await Html5Qrcode.getCameras().catch(() => []);
 
-            const formats = [
+            const formats = qrCodeOnly ? [Html5QrcodeSupportedFormats.QR_CODE] : [
                 Html5QrcodeSupportedFormats.EAN_13, // Prioridade 1
                 Html5QrcodeSupportedFormats.CODE_128,
                 Html5QrcodeSupportedFormats.EAN_8,
@@ -105,10 +122,9 @@ const QRScannerModal: React.FC<QRScannerModalProps> = ({
 
             const config = { 
                 fps: 25, 
-                qrbox: (w: number, h: number) => ({ 
-                    width: Math.floor(w * 0.95), 
-                    height: Math.floor(h * 0.3) 
-                }),
+                qrbox: (w: number, h: number) => qrCodeOnly
+                    ? { width: Math.floor(Math.min(w, h) * 0.7), height: Math.floor(Math.min(w, h) * 0.7) }
+                    : { width: Math.floor(w * 0.95), height: Math.floor(h * 0.3) },
                 aspectRatio: 1.7777778, 
                 experimentalFeatures: {
                     useBarCodeDetectorIfSupported: true 
@@ -148,30 +164,41 @@ const QRScannerModal: React.FC<QRScannerModalProps> = ({
         } finally {
             setIsInitializing(false);
         }
-    }, [isOpen]);
+    }, [isOpen, qrCodeOnly]);
 
-    const onSuccess = (text: string) => {
+    const onSuccess = async (text: string) => {
+        if (processingScanRef.current) return;
         const now = Date.now();
         const scanDelay = configSettings?.delay || 1500;
         
         // Delay configurável para evitar dupla leitura
-        if (now - lastScanTimeRef.current < scanDelay) return;
+        if (text === lastScanTextRef.current && now - lastScanTimeRef.current < scanDelay) return;
         
         lastScanTimeRef.current = now;
+        lastScanTextRef.current = text;
+        processingScanRef.current = true;
+        setIsProcessingScan(true);
 
         // Bip de sucesso (Pibe!) se habilitado
-        if (configSettings?.enableBeep !== false) {
+        if (feedbackOnDetection && configSettings?.enableBeep !== false) {
             playBeep();
         }
 
         // Vibração (Feedback háptico) se habilitado
-        if (configSettings?.vibrate !== false && navigator.vibrate) {
+        if (feedbackOnDetection && configSettings?.vibrate !== false && navigator.vibrate) {
             try { navigator.vibrate(80); } catch (e) {}
         }
         
         console.log("[Scanner v7] Código detectado:", text);
-        parentOnScan(text);
-        if (closeOnScan) handleClose();
+        try {
+            await parentOnScan(text);
+            if (closeOnScan) await handleClose();
+        } catch (error) {
+            console.error('[Scanner] Falha ao processar leitura:', error);
+        } finally {
+            processingScanRef.current = false;
+            setIsProcessingScan(false);
+        }
     };
 
     const recognizeAccessKey = async () => {
@@ -237,12 +264,15 @@ const QRScannerModal: React.FC<QRScannerModalProps> = ({
                 <div className="px-6 pt-6 flex justify-between items-start">
                     <div>
                         <h3 className="text-xl font-black text-slate-800 dark:text-slate-100 uppercase italic tracking-tighter">{title}</h3>
-                        <p className="text-[10px] font-bold text-blue-500 uppercase tracking-widest mt-1">
-                            <span className="inline-block w-2 h-2 bg-blue-500 rounded-full animate-ping mr-2" />
-                            {step}
-                        </p>
+                        {subtitle && <p className="text-xs font-medium text-slate-500 dark:text-slate-400 mt-1">{subtitle}</p>}
+                        {showScannerStatus && (
+                            <p className="text-[10px] font-bold text-blue-500 uppercase tracking-widest mt-1">
+                                <span className="inline-block w-2 h-2 bg-blue-500 rounded-full animate-ping mr-2" />
+                                {step}
+                            </p>
+                        )}
                     </div>
-                    <button onClick={handleClose} className="p-3 bg-slate-100 dark:bg-slate-800 text-slate-500 rounded-2xl hover:text-rose-500 transition-colors">
+                    <button onClick={handleClose} disabled={isProcessingScan} className="p-3 bg-slate-100 dark:bg-slate-800 text-slate-500 rounded-2xl hover:text-rose-500 transition-colors disabled:opacity-50">
                         <i className="bi bi-x-lg" />
                     </button>
                 </div>
@@ -250,7 +280,7 @@ const QRScannerModal: React.FC<QRScannerModalProps> = ({
                 <div className="p-6">
                     {!showManualInput ? (
                         <div className="space-y-6">
-                            <div className="relative w-full aspect-video rounded-3xl overflow-hidden bg-black border border-slate-200 dark:border-slate-800 shadow-inner">
+                            <div className={`relative w-full ${qrCodeOnly ? 'aspect-square max-w-sm mx-auto' : 'aspect-video'} rounded-3xl overflow-hidden bg-black border border-slate-200 dark:border-slate-800 shadow-inner`}>
                                 <div id={mountPointId} className="w-full h-full" />
                                 
                                 {/* Scanner Overlay Effects */}
@@ -262,9 +292,11 @@ const QRScannerModal: React.FC<QRScannerModalProps> = ({
                                 </div>
 
                                 {/* Overlay Laser Line (Scanning Animation) */}
-                                <div className="absolute inset-x-0 h-full pointer-events-none overflow-hidden flex flex-col justify-center">
-                                    <div className="w-full h-0.5 bg-rose-500 shadow-[0_0_15px_rgba(244,63,94,1)] animate-sweep" />
-                                </div>
+                                {!qrCodeOnly && (
+                                    <div className="absolute inset-x-0 h-full pointer-events-none overflow-hidden flex flex-col justify-center">
+                                        <div className="w-full h-0.5 bg-rose-500 shadow-[0_0_15px_rgba(244,63,94,1)] animate-sweep" />
+                                    </div>
+                                )}
 
                                 {isInitializing && (
                                     <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-950 z-30 p-6 text-center">
@@ -296,18 +328,21 @@ const QRScannerModal: React.FC<QRScannerModalProps> = ({
                                     {isRecognizingText ? "Lendo chave impressa..." : "Ler chave impressa (OCR)"}
                                 </button>
                             )}
-                            <div className="grid grid-cols-2 gap-3">
-                                <button onClick={() => setShowManualInput(true)} className="py-4 bg-slate-50 dark:bg-slate-800/50 text-slate-500 rounded-2xl font-black uppercase tracking-widest text-[9px] flex items-center justify-center gap-2 hover:bg-slate-100 transition-colors">
-                                    <i className="bi bi-keyboard text-base" /> {accessKeyMode ? "Digitar chave" : "Digitar SKU"}
-                                </button>
-                                <button onClick={handleClose} className="py-4 bg-rose-50 text-rose-500 rounded-2xl font-black uppercase tracking-widest text-[9px] flex items-center justify-center gap-2 hover:bg-rose-100 transition-colors">
-                                    <i className="bi bi-x-circle text-base" /> Cancelar
-                                </button>
-                            </div>
+                            {allowManualInput && (
+                                <div className="grid grid-cols-2 gap-3">
+                                    <button onClick={() => setShowManualInput(true)} className="py-4 bg-slate-50 dark:bg-slate-800/50 text-slate-500 rounded-2xl font-black uppercase tracking-widest text-[9px] flex items-center justify-center gap-2 hover:bg-slate-100 transition-colors">
+                                        <i className="bi bi-keyboard text-base" /> {accessKeyMode ? "Digitar chave" : "Digitar SKU"}
+                                    </button>
+                                    <button onClick={handleClose} className="py-4 bg-rose-50 text-rose-500 rounded-2xl font-black uppercase tracking-widest text-[9px] flex items-center justify-center gap-2 hover:bg-rose-100 transition-colors">
+                                        <i className="bi bi-x-circle text-base" /> Cancelar
+                                    </button>
+                                </div>
+                            )}
 
-                            <p className="text-center text-[9px] font-bold text-slate-400 uppercase tracking-widest">
-                                Posicione o código no meio da linha
+                            <p className="text-center text-xs font-medium text-slate-500 dark:text-slate-400">
+                                {scanInstruction || (qrCodeOnly ? 'Posicione o QR Code dentro do quadro' : 'Posicione o código no meio da linha')}
                             </p>
+                            {footerContent}
                         </div>
                     ) : (
                         <form onSubmit={(e) => {

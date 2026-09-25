@@ -19,21 +19,28 @@ export const InventoryReviewModal: React.FC<InventoryReviewModalProps> = ({
     onConfirm,
 }) => {
     const [loading, setLoading] = useState(true);
+    const [reconcileError, setReconcileError] = useState(false);
     const [reconciledItems, setReconciledItems] = useState<Array<AuditItem & { reconciledExpected: number, difference: number }>>([]);
     const [uncountedCount, setUncountedCount] = useState(0);
 
     useEffect(() => {
         const reconcile = async () => {
+            setReconcileError(false);
             try {
-                // Fetch all effective moves since the inventory started
-                const { data: recentMoves, error } = await supabase
-                    .from('inventory_moves')
-                    .select('*')
-                    .gte('date', startDate);
-                
-                if (error) throw error;
-
-                const moves = recentMoves || [];
+                const moves: Array<{ product_id: string; variation_id: string | null; type: string; quantity: number | null; observation: string | null; status: string | null }> = [];
+                const productIds = [...new Set(items.map(item => item.productId).filter(Boolean))];
+                for (let offset = 0; offset < productIds.length; offset += 50) {
+                    const chunk = productIds.slice(offset, offset + 50);
+                    for (let from = 0; ; from += 200) {
+                        const { data, error } = await supabase.from('inventory_moves')
+                            .select('product_id, variation_id, type, quantity, observation, status')
+                            .in('product_id', chunk).gte('date', startDate)
+                            .order('date', { ascending: true }).range(from, from + 199);
+                        if (error) throw error;
+                        moves.push(...(data || []));
+                        if (!data || data.length < 200) break;
+                    }
+                }
                 let uncounted = 0;
 
                 const reconciled = items.map(item => {
@@ -50,10 +57,10 @@ export const InventoryReviewModal: React.FC<InventoryReviewModalProps> = ({
                     const validMoves = variationMoves.filter(m => {
                         try {
                             const meta = JSON.parse(m.observation || '{}');
-                            if (meta.status === 'reversed' || meta.status === 'cancelled') return false;
+                            if (m.status === 'reversed' || m.status === 'cancelled' || meta.status === 'reversed' || meta.status === 'cancelled') return false;
                             return !meta.inventoryAudit && m.type !== 'adjustment'; // we assume adjustments are absolute anchors, but let's stick to entry/exit
                         } catch {
-                            return m.type === 'entry' || m.type === 'exit';
+                            return m.status !== 'reversed' && m.status !== 'cancelled' && (m.type === 'entry' || m.type === 'exit');
                         }
                     });
 
@@ -77,6 +84,7 @@ export const InventoryReviewModal: React.FC<InventoryReviewModalProps> = ({
                 setReconciledItems(reconciled);
             } catch (error) {
                 console.error("Error reconciling inventory:", error);
+                setReconcileError(true);
             } finally {
                 setLoading(false);
             }
@@ -108,6 +116,7 @@ export const InventoryReviewModal: React.FC<InventoryReviewModalProps> = ({
                         </div>
                     ) : (
                         <div className="space-y-6">
+                            {reconcileError && <p role="alert" className="rounded-xl bg-rose-50 p-4 text-sm font-bold text-rose-700">Não foi possível validar as movimentações. A contagem está salva neste navegador; tente concluir quando a conexão voltar.</p>}
                             {uncountedCount > 0 && (
                                 <div className="bg-amber-50 dark:bg-amber-900/20 border-l-4 border-amber-500 p-4 rounded-r-xl">
                                     <div className="flex items-start gap-3">
@@ -177,7 +186,7 @@ export const InventoryReviewModal: React.FC<InventoryReviewModalProps> = ({
                     </button>
                     <button
                         onClick={() => onConfirm(itemsToAdjust)}
-                        disabled={loading || (hasStages && uncountedCount > 0)}
+                        disabled={loading || reconcileError || (hasStages && uncountedCount > 0)}
                         title={hasStages && uncountedCount > 0 ? "Finalize todas as etapas para confirmar o inventário." : ""}
                         className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-black rounded-lg shadow-sm transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                     >

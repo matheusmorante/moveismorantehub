@@ -70,8 +70,9 @@ export const InventoryOperationHeader: React.FC<InventoryOperationHeaderProps> =
                             Manual
                         </button>
                         <button
-                            onClick={() => setMode('scanner')}
+                            onClick={onOpenQrScanner}
                             className={`flex-1 md:flex-none flex items-center justify-center gap-2 px-6 py-2.5 rounded-lg font-bold text-sm transition-all ${mode === 'scanner' ? 'bg-white dark:bg-slate-800 text-emerald-600 dark:text-emerald-400 shadow-sm' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}
+                            aria-label="Abrir câmera para escanear código de barras"
                         >
                             <i className="bi bi-upc-scan text-lg"></i>
                             Scanner

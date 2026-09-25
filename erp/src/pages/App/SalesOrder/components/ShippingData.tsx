@@ -12,7 +12,6 @@ import { PatternFormat as PatternFormatBase } from "react-number-format";
 const PatternFormat = PatternFormatBase as any;
 import SmartInput from '@/components/SmartInput';
 import AddressVerificationMap from './AddressVerificationMap';
-import { toast } from 'react-toastify';
 
 interface Props {
     shipping: Shipping;
@@ -349,21 +348,7 @@ const ShippingData = ({ shipping, setShipping, customerData, isCalculatingDistan
                             routeUrl={route}
                             onChangeValue={onChangeShippingValue}
                             onChangeDistance={onChangeDistance}
-                            autoCalculateValue={shipping.autoCalculateValue}
-                            onToggleAutoCalculateValue={() => {
-                                const isCurrentlyAuto = shipping.autoCalculateValue !== false;
-                                const willBeAuto = !isCurrentlyAuto;
-                                if (willBeAuto && shipping.distance === undefined) {
-                                    toast.warn('Calcule ou informe a distância antes de ativar o frete automático.');
-                                    return;
-                                }
-                                setShipping(prev => {
-                                    const newShippingValue = willBeAuto && prev.distance !== undefined
-                                        ? calculateFreightByDistance(prev.distance)
-                                        : prev.value;
-                                    return { ...prev, autoCalculateValue: willBeAuto, value: newShippingValue };
-                                });
-                            }}
+                            onAutoCalculateDistance={onAutoCalculateDistance}
                             isCalculatingDistance={isCalculatingDistance}
                             errors={errors}
                         />

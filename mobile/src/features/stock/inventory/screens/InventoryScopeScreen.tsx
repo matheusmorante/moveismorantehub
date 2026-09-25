@@ -5,6 +5,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../../../../contexts/AuthContext';
 import type { ScopeConfiguration, ScopeProduct, ScopeSupplier, InventoryScopeType } from '../hooks/useInventoryScopeBuilder';
 import { fetchInventoryScopeProducts, fetchInventoryScopeSuppliers } from '../../../../services/stockService';
+import { getOfflineInventoryCatalog } from '../services/offlineInventoryCatalog';
 import { InventoryProductSearchModal, type SearchableProduct } from '../modals/InventoryProductSearchModal';
 import { InventoryScopeTypeSelector } from '../components/InventoryScopeTypeSelector';
 
@@ -18,6 +19,7 @@ export const InventoryScopeScreen: React.FC<Props> = ({ isDarkMode, onCancel, on
   const { userProfile } = useAuth();
   const [suppliers, setSuppliers] = useState<ScopeSupplier[]>([]);
   const [loadingData, setLoadingData] = useState(true);
+  const [catalogSyncedAt, setCatalogSyncedAt] = useState<string | null>(null);
   const [expandedType, setExpandedType] = useState<InventoryScopeType | null>(null);
   const [selectedSupplierId, setSelectedSupplierId] = useState<string | null>(null);
   const [customProducts, setCustomProducts] = useState<SearchableProduct[]>([]);
@@ -25,12 +27,13 @@ export const InventoryScopeScreen: React.FC<Props> = ({ isDarkMode, onCancel, on
 
   // Load Initial Data
   useEffect(() => {
-    fetchInventoryScopeSuppliers()
-      .then(supplierData => {
-        setSuppliers(supplierData as ScopeSupplier[]);
-        setLoadingData(false);
-      })
-      .catch(() => setLoadingData(false));
+    void (async () => {
+      const supplierData = await fetchInventoryScopeSuppliers();
+      const catalog = await getOfflineInventoryCatalog();
+      setSuppliers(supplierData as ScopeSupplier[]);
+      setCatalogSyncedAt(catalog.syncedAt);
+      setLoadingData(false);
+    })().catch(() => setLoadingData(false));
   }, []);
 
   const bg = isDarkMode ? '#0f172a' : '#f8fafc';
@@ -84,6 +87,7 @@ export const InventoryScopeScreen: React.FC<Props> = ({ isDarkMode, onCancel, on
           sku: product.sku || product.code || '',
           code: product.code || '',
           barcode: product.barcode || '',
+          isActive: product.active !== false,
         });
       };
 
@@ -133,6 +137,11 @@ export const InventoryScopeScreen: React.FC<Props> = ({ isDarkMode, onCancel, on
         <View style={{ flex: 1 }}>
           <Text style={[styles.headerTitle, { color: textPrimary }]}>Novo Inventário</Text>
           <Text style={[styles.headerSubtitle, { color: muted }]}>O que você deseja inventariar?</Text>
+          <Text style={[styles.syncStatus, { color: muted }]}>
+            {catalogSyncedAt
+              ? `Índice offline atualizado em ${new Date(catalogSyncedAt).toLocaleString('pt-BR')}`
+              : 'Índice offline ainda não sincronizado neste dispositivo'}
+          </Text>
         </View>
         <TouchableOpacity onPress={onCancel} style={styles.closeBtn}>
           <X size={24} color={muted} />
@@ -183,5 +192,6 @@ const styles = StyleSheet.create({
   },
   headerTitle: { fontSize: 20, fontWeight: '800' },
   headerSubtitle: { fontSize: 13, marginTop: 2 },
+  syncStatus: { fontSize: 11, marginTop: 5 },
   closeBtn: { padding: 4 },
 });

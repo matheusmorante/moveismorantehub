@@ -32,10 +32,22 @@ export const InventoryAuditFlow: React.FC<Props> = ({ isDarkMode, userProfile, i
         isSaving,
         handleConfirmScope,
         handleUpdateCount,
+        incrementScannedItem,
+        flushLocalWrites,
         handleFinalize,
     } = useInventoryAuditWorkflow(userProfile, onClose, initialSession, copiedItems);
 
     const bg = isDarkMode ? '#0f172a' : '#f8fafc';
+
+    const closeAfterLocalSave = async () => {
+        try {
+            await flushLocalWrites();
+            onClose();
+        } catch (error) {
+            console.error('[Inventory] Falha ao salvar antes de sair:', error);
+            Alert.alert('Falha ao salvar', 'A contagem ainda não foi gravada no aparelho. Tente novamente antes de sair.');
+        }
+    };
 
     const handleAddBlankItem = () => {
         const newItem: AuditItem = {
@@ -103,7 +115,7 @@ export const InventoryAuditFlow: React.FC<Props> = ({ isDarkMode, userProfile, i
                     onCancel={() => {
                         const hasAnyCount = items.some(item => item.physicalCount !== null);
                         if (hasAnyCount) setView('operation');
-                        else onClose();
+                        else void closeAfterLocalSave();
                     }}
                     onConfirm={handleConfirmScope}
                 />
@@ -117,6 +129,8 @@ export const InventoryAuditFlow: React.FC<Props> = ({ isDarkMode, userProfile, i
                     items={items}
                     scopeType={scopeConfig.scopeType}
                     onUpdateCount={handleUpdateCount}
+                    onIncrementScannedItem={incrementScannedItem}
+                    onFlushLocalWrites={flushLocalWrites}
                     onAddManualItem={handleAddBlankItem}
                     onOpenProductSearch={(itemId) => {
                         if (itemId) setSearchTargetItemId(itemId);
@@ -152,7 +166,7 @@ export const InventoryAuditFlow: React.FC<Props> = ({ isDarkMode, userProfile, i
                                 { 
                                     text: 'Fechar inventário', 
                                     style: 'destructive',
-                                    onPress: onClose 
+                            onPress: () => { void closeAfterLocalSave(); }
                                 }
                             ]
                         );

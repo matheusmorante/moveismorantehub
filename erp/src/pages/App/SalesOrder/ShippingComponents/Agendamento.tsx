@@ -23,7 +23,7 @@ const Agendamento = ({ scheduling, onChangeScheduling, errors, isPickup, hideSch
     return (
         <div className="flex-1 flex flex-col min-w-0">
             <div className="flex items-center justify-between mb-4 ml-1">
-                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">
+                <label className="text-sm font-black uppercase tracking-widest text-slate-500 dark:text-slate-400">
                     {title || (isPickup ? 'Agendamento da Retirada' : 'Agendamento da Entrega')}
                 </label>
                 

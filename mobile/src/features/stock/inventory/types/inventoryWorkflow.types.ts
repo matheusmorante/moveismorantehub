@@ -12,6 +12,8 @@ export interface AuditItem {
     sku?: string;
     code?: string;
     barcode?: string;
+    isActive?: boolean;
+    countedLabelIds?: string[];
 }
 
 export interface AuditDraftState {

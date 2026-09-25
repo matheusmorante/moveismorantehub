@@ -61,6 +61,7 @@ export function useOrderDistanceCalculator(
                 setShipping(prev => ({
                     ...prev,
                     distance,
+                    autoCalculateValue: true,
                     durationMinutes: routeResult?.durationMinutes,
                     destinationCoords: routeResult?.destinationCoords,
                     routeGeoJSON: routeResult?.routeGeoJSON,
@@ -70,12 +71,17 @@ export function useOrderDistanceCalculator(
                     toast.success(`Distância calculada: ${distance.toFixed(1)} km (Frete: R$ ${calculatedFreight.toFixed(2)})`);
                 }
             } else {
-                toast.error(failureReason || "Não foi possível calcular a rota para o endereço informado.");
+                const requiresManualDistance = /quota|limit|over_query_limit|over_daily_limit|bloquead|cota/i.test(failureReason);
+                toast.warn(
+                    requiresManualDistance
+                        ? "Não foi possível calcular automaticamente. Consulte a distância manualmente e informe a distância e o valor do frete na aba Logística."
+                        : "Não foi possível calcular a rota automaticamente. Confira o endereço ou informe a distância manualmente na aba Logística."
+                );
             }
         } catch (error) {
             if (requestId !== requestIdRef.current) return;
             console.error("Erro ao calcular distância:", error);
-            toast.error("Erro ao calcular a distância da rota.");
+            toast.warn("Não foi possível calcular a rota automaticamente. Consulte a distância manualmente e informe a distância e o valor do frete na aba Logística.");
         } finally {
             if (calculatingAddressRef.current === addressKey) calculatingAddressRef.current = "";
             if (requestId === requestIdRef.current) setIsCalculatingDistance(false);

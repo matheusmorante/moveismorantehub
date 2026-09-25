@@ -119,6 +119,13 @@ export interface GeocodeResponse {
     isPrecision: boolean;
 }
 
+const geocodeCache = new Map<string, GeocodeResponse>();
+
+const isGoogleQuotaError = (status: unknown) => {
+    const normalized = String(status || '').toUpperCase();
+    return normalized.includes('OVER_QUERY_LIMIT') || normalized.includes('OVER_DAILY_LIMIT');
+};
+
 export const geocodeAddress = async (address: CustomerData['fullAddress'] | string | any, onFailure?: (reason: string) => void): Promise<GeocodeResponse | null> => {
     let street = '', neighborhood = '', city = '', number = '', state = 'PR';
     
@@ -168,6 +175,9 @@ export const geocodeAddress = async (address: CustomerData['fullAddress'] | stri
         'Brasil'
     ].filter(Boolean).join(', ');
 
+    const cachedGeocode = geocodeCache.get(queryPrimary) || geocodeCache.get(queryFallback);
+    if (cachedGeocode) return cachedGeocode;
+
     // Verificar limites operacionais (Usage Guard)
     const guard = await ApiUsageGuard.check('google_geocoding');
     if (!guard.allowed) {
@@ -198,7 +208,8 @@ export const geocodeAddress = async (address: CustomerData['fullAddress'] | stri
             isPrimarySuccess = true;
         } catch (errPrimary) {
             lastGeocodeStatus = String(errPrimary);
-            if (queryFallback !== queryPrimary) {
+            // Quota/authentication errors will not be fixed by shortening the query.
+            if (queryFallback !== queryPrimary && !isGoogleQuotaError(errPrimary)) {
                 console.warn("[geocodeAddress] Falha na query primária, tentando fallback:", queryFallback, errPrimary);
                 try {
                     r = await runGeocode(queryFallback);
@@ -220,10 +231,12 @@ export const geocodeAddress = async (address: CustomerData['fullAddress'] | stri
                 response_time_ms: Date.now() - startTime,
                 module_source: 'sales_order',
             });
-            return {
+            const result = {
                 coords: [r.geometry.location.lng(), r.geometry.location.lat()] as [number, number],
                 isPrecision: isPrimarySuccess
             };
+            geocodeCache.set(isPrimarySuccess ? queryPrimary : queryFallback, result);
+            return result;
         }
     } catch (e) {
         console.error("Google Maps Geocoder error:", e);
@@ -243,7 +256,11 @@ export const geocodeAddress = async (address: CustomerData['fullAddress'] | stri
 
     // Se a geocodificação direta falhar, não aplicar fallback cego de bairro/cidade
     // para evitar que entregas sejam marcadas em localizações incorretas.
-    onFailure?.(`O Google Maps não localizou o endereço informado${lastGeocodeStatus ? ` (${lastGeocodeStatus})` : ''}. Confira rua, número, bairro, cidade e UF.`);
+    if (isGoogleQuotaError(lastGeocodeStatus)) {
+        onFailure?.('A cota diária do Google Maps foi atingida. O pedido pode ser salvo, mas a localização e o cálculo da rota ficarão pendentes até a cota ser renovada.');
+    } else {
+        onFailure?.(`O Google Maps não localizou o endereço informado${lastGeocodeStatus ? ` (${lastGeocodeStatus})` : ''}. Confira rua, número, bairro, cidade e UF.`);
+    }
     return null;
 };
 

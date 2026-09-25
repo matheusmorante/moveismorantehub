@@ -19,9 +19,9 @@ const OrderHeader = ({ order, isBudget }: OrderHeaderProps) => {
         : (isAssistance ? 'ORDEM DE SERVIÇO' : (isPickup ? 'PEDIDO DE RETIRADA' : 'PEDIDO DE ENTREGA'));
 
     return (
-        <div className={`flex justify-between items-center p-6 rounded-3xl mb-4 ${headerColor} text-white print-exact-bg shadow-xl`}>
+        <div className={`flex justify-between items-center p-2.5 rounded-xl mb-2 ${headerColor} text-white print-exact-bg shadow-md`}>
             <div className="flex items-center">
-                <div className="header-logo-container w-56 h-56 sm:w-64 sm:h-64 bg-white rounded-3xl p-3 border-0 shadow-none flex items-center justify-center shrink-0">
+                <div className="header-logo-container w-24 h-24 sm:w-28 sm:h-28 bg-white rounded-xl p-1 border-0 shadow-none flex items-center justify-center shrink-0">
                     <img src={logoMorante} alt="Móveis Morante" className="w-full h-full object-contain rounded-2xl" />
                 </div>
             </div>

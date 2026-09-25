@@ -8,6 +8,7 @@ export interface InventorySnapshotItem {
     readonly sku?: string;
     readonly code?: string;
     readonly barcode?: string;
+    readonly isActive?: boolean;
 }
 
 export interface InventoryAuditSession {
@@ -40,4 +41,5 @@ export interface AuditItem {
     sku?: string;
     code?: string;
     barcode?: string;
+    isActive?: boolean;
 }

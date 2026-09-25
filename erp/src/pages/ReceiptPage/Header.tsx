@@ -13,20 +13,20 @@ const Header = ({ seller }: Props) => {
     const companyPhone = settings.companyPhone || "41997493547 | 41992244631";
 
     return (
-        <header className='flex justify-between items-start pb-4 border-b-2 border-slate-100 text-slate-800 transition-colors duration-300 shrink-0'>
+        <header className='flex justify-between items-start pb-2 border-b border-slate-100 text-slate-800 transition-colors duration-300 shrink-0'>
             <div className="flex items-center">
-                <div className="header-logo-container w-56 h-56 sm:w-64 sm:h-64 bg-white rounded-3xl p-3 border-0 shadow-none overflow-hidden flex items-center justify-center shrink-0">
+                <div className="header-logo-container w-24 h-24 sm:w-28 sm:h-28 bg-white rounded-xl p-1 border-0 shadow-none overflow-hidden flex items-center justify-center shrink-0">
                     <img src={logo} alt={`Logo ${companyName}`} className='w-full h-full object-contain rounded-2xl' />
                 </div>
             </div>
             
-            <div className='flex flex-col items-end text-right gap-1 max-w-[50%]'>
-                <div className="bg-slate-50 px-4 py-2 rounded-2xl border border-slate-100 mb-2">
-                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Responsável</p>
+            <div className='flex flex-col items-end text-right gap-0.5 max-w-[50%]'>
+                <div className="bg-slate-50 px-3 py-1 rounded-xl border border-slate-100 mb-1">
+                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest leading-none mb-0.5">Responsável</p>
                     <p className="text-xs font-black text-blue-600 uppercase tracking-tight">{seller}</p>
                 </div>
                 
-                <div className="space-y-0.5 mt-1">
+                <div className="space-y-0 mt-0.5">
                     <p className="text-[10px] text-slate-500 font-medium">
                         <span className="font-black text-slate-800 uppercase tracking-tighter mr-1">CNPJ:</span> {companyCnpj}
                     </p>

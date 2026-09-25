@@ -41,7 +41,8 @@ const AddressVerificationMap = ({ address }: AddressVerificationMapProps) => {
         const timer = setTimeout(async () => {
             setLoading(true);
             try {
-                const routeResult = await autoCalculateRouteDistance(address as any);
+                let failureReason = '';
+                const routeResult = await autoCalculateRouteDistance(address as any, reason => { failureReason = reason; });
                 if (routeResult) {
                     setCoords(routeResult.destinationCoords);
                     setIsPrecision(true);
@@ -86,7 +87,10 @@ const AddressVerificationMap = ({ address }: AddressVerificationMapProps) => {
                         }
                     }
                 } else {
-                    const geoResult = await geocodeAddress(address as any);
+                    // Não repetir a chamada quando o Google já informou quota/auth limit.
+                    const geoResult = /quota|limit|over_query_limit|over_daily_limit|bloquead|cota/i.test(failureReason)
+                        ? null
+                        : await geocodeAddress(address as any);
                     if (geoResult) {
                         setCoords(geoResult.coords);
                         setIsPrecision(geoResult.isPrecision);

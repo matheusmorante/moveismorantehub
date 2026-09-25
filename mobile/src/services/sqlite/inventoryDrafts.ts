@@ -27,7 +27,7 @@ interface LocalInventoryDraftRow {
 
 /**
  * Salva ou atualiza um rascunho de inventário localmente no SQLite.
- * Só deve ser salvo se houver pelo menos uma contagem realizada.
+ * Inclui o escopo mesmo antes da primeira leitura para permitir retomada offline.
  */
 export const saveLocalInventoryDraft = async (draft: {
   id: string;
@@ -45,12 +45,13 @@ export const saveLocalInventoryDraft = async (draft: {
   const hasStagesInt = draft.hasStages ? 1 : 0;
   const status = draft.status || 'in_progress';
 
-  // Deleta versão anterior com mesmo id para garantir idempotência em qualquer driver
-  await db.runAsync(`DELETE FROM inventory_drafts_local WHERE id = ?;`, [draft.id]);
-
   await db.runAsync(
     `INSERT INTO inventory_drafts_local (id, code, scope_type, name, responsible_id, has_stages, status, items_json, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);`,
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+     ON CONFLICT(id) DO UPDATE SET
+       code = excluded.code, scope_type = excluded.scope_type, name = excluded.name,
+       responsible_id = excluded.responsible_id, has_stages = excluded.has_stages,
+       status = excluded.status, items_json = excluded.items_json, updated_at = excluded.updated_at;`,
     [
       draft.id,
       draft.code,

@@ -133,4 +133,12 @@ export const runMigrations = async (db?: DatabaseDriver): Promise<void> => {
     );
   `);
   await driver.execAsync(`CREATE INDEX IF NOT EXISTS idx_inventory_drafts_local_updated ON inventory_drafts_local(updated_at);`);
+
+  await driver.execAsync(`
+    CREATE TABLE IF NOT EXISTS inventory_catalog_local (
+      id TEXT PRIMARY KEY,
+      snapshot_json TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
+  `);
 };

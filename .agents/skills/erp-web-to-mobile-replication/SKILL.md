@@ -73,7 +73,7 @@ Se ambas executam a mesma regra, a regra deve ser única e centralizada.
 ## Fontes de Verdade e Paridade ERP → Shared → App
 
 - **Código do ERP:** Referência canônica de comportamento, estados, regras, validações e fluxos consolidados.
-- **Navegador e App Mobile:** Referência de validação visual e interativa.
+- **Navegador (ERP Web e Expo Web):** Referência de validação visual e interativa automatizada via Playwright. O layout mobile no browser não comprova comportamento nativo.
 - Não implemente de memória. Mapeie a paridade ponta a ponta:
 
 ```text
@@ -99,17 +99,11 @@ Para cada tela, estado ou ação, confira a cadeia de paridade:
 
 ## Processo de Execução: Uma Aba e um Estado por Vez
 
-### Verificação com Expo MCP (quando disponível)
+### Validação no navegador e entrega para validação nativa
 
-No projeto `mobile/`, use o Expo MCP local para observar e interagir com o app real sempre que a tarefa alterar uma tela ou fluxo e houver dispositivo/emulador compatível:
+Use Playwright como única automação de interface: valide o ERP Web e, quando suportado, a aplicação em Expo Web no navegador. Use viewport mobile para avaliar layout responsivo, deixando explícito que isso valida o browser, não o runtime nativo.
 
-1. Inicie o Metro com `EXPO_UNSTABLE_MCP_SERVER=1` (PowerShell: `$env:EXPO_UNSTABLE_MCP_SERVER='1'; npm start`) e conecte/reinicie a sessão MCP se o servidor Expo acabou de iniciar.
-2. Prefira `testID` estável para localizar e tocar controles; evite coordenadas quando houver identificadores acessíveis.
-3. Capture screenshot do estado relevante e confira loading, vazio, erro, sucesso/modal e resultado da interação conforme o escopo alterado.
-4. Colete logs apenas numa janela curta e para investigar erro concreto; nunca registre ou compartilhe tokens, cookies, chaves ou payloads pessoais.
-5. Trate screenshot/interação MCP como evidência complementar, não substituta dos testes focados nem da comparação ERP × Mobile.
-
-As capacidades locais requerem Expo SDK 54+ e `expo-mcp` instalado como dependência de desenvolvimento. No Windows, priorize Android, mas faça um smoke test de descoberta do emulador e captura antes de depender das ferramentas: há um relato aberto de falhas com Windows 11 + Git Bash + emulador Android. Automação de iOS Simulator exige host macOS. Se dispositivo, emulador, conta ou conexão não estiverem disponíveis, registre a limitação e continue com testes focados sem alegar validação visual.
+Não instale/configure/inicie Maestro, ADB, Expo MCP, emulador/AVD nem automatize aparelho físico. Câmera, permissões, lifecycle, SQLite nativo e demais integrações exclusivas do React Native não são comprovadas por Playwright. Faça as validações focadas e estáticas possíveis; quando a mudança exigir confirmação nativa, prepare um APK para o usuário testar manualmente, sem instalar ou executar o APK.
 
 Trabalhe em uma aba de cada vez e, dentro dela, em um estado por vez. Não replique o módulo inteiro antes de comparar.
 
@@ -128,7 +122,7 @@ Justificativa técnica de qualquer duplicação (se estritamente inevitável): [
 ### 3. Replicar e Comparar o Estado Principal
 - Implemente primeiro o estado principal da aba conectando a lógica pura mapeada.
 - Preserve a identidade visual — cores, hierarquia, tipografia, ícones equivalentes (Lucide RN), bordas, espaçamentos, badges e estados — adaptando dimensões e área de toque para celular.
-- Compare visualmente e funcionalmente com o ERP.
+- Compare visualmente e funcionalmente com o ERP usando Playwright no navegador, incluindo Expo Web quando suportado; registre limitações de paridade nativa.
 
 ### 4. Percorrer Estados Alternativos
 - Valide na mesma aba: vazio, carregando, erro, sem resultados de busca, formulário inválido, modal aberto, seleção múltipla e confirmação de exclusão.
@@ -137,6 +131,7 @@ Justificativa técnica de qualquer duplicação (se estritamente inevitável): [
 ### 5. Validar com Menor Custo
 - Execute primeiro testes focados do módulo alterado.
 - Execute verificação estática de tipos (TypeScript) no mobile/ERP sem rodar suítes pesadas desnecessariamente.
+- Use Playwright para os fluxos de interface disponíveis no navegador. Integrações exclusivamente nativas ficam para validação manual do usuário no APK.
 
 ---
 
@@ -166,16 +161,15 @@ Quando qualquer funcionalidade do ERP for alterada futuramente:
 
 **Plataforma Mobile**
 - [ ] Área de toque adequada (mínimo 44x44px em botões críticos).
-- [ ] Feedback tátil/nativos (Alert.alert, modais fluidos, RefreshControl).
+- [ ] Feedback nativo (Alert, haptics, modais, RefreshControl) está implementado e coberto por validações focadas possíveis; comportamento real será conferido pelo usuário no APK.
 
 ---
 
 ## Critério de Conclusão
 
-A replicação só é considerada concluída quando a lógica de negócio do ERP estiver preservada e reutilizada com o menor índice possível de duplicação, os estados e fluxos estiverem equivalentes e o App Mobile oferecer a mesma confiabilidade operacional do ERP Web.
+A implementação está pronta para validação quando a lógica e os fluxos suportados pelo navegador tiverem paridade comprovada via Playwright e as verificações focadas passarem. Comportamentos exclusivamente nativos devem ser identificados como pendentes de validação manual do usuário no APK; não declarar equivalência nativa com base em Expo Web.
 
 ## Referências e Fonte Canônica de Documentação
 
-- Expo MCP, configuração e capacidades: https://docs.expo.dev/mcp/
-- Relato de compatibilidade Windows para automação local: https://github.com/expo/expo-mcp/issues/17
+- Playwright — emulação de viewports e dispositivos no navegador: https://playwright.dev/docs/emulation
 - Contratos e regras de negócio: código ERP e módulos compartilhados atuais; esta Skill define o processo de paridade, não substitui a fonte canônica do domínio.

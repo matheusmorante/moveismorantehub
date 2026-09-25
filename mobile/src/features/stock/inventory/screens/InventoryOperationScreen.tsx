@@ -2,8 +2,8 @@ import React, { useState } from 'react';
 import { View, Text, StyleSheet, FlatList, KeyboardAvoidingView, Platform, Modal, Alert } from 'react-native';
 import { useInventoryOperation } from '../hooks/useInventoryOperation';
 import { matchScannedProductItem, extractLabelIdentity } from '../../../../utils/barcodeScannerUtils';
-import { addInventoryScan } from '../../../../services/sqlite/inventoryScans';
-import { InventoryScannerScreen } from './InventoryScannerScreen';
+import { ensureOfflineInventoryCatalogSynced, findOfflineInventoryMatch, type OfflineInventoryMatch } from '../services/offlineInventoryCatalog';
+import { InventoryScannerScreen, type InventoryScanFeedback } from './InventoryScannerScreen';
 import { InventoryStagesView } from '../components/InventoryStagesView';
 import { InventoryFocusMode } from '../components/InventoryFocusMode';
 import { InventoryOperationHeader } from '../components/InventoryOperationHeader';
@@ -11,7 +11,6 @@ import { InventoryOperationFilterBar } from '../components/InventoryOperationFil
 import { InventoryOperationItemCard } from '../components/InventoryOperationItemCard';
 import { InventoryOperationFooter } from '../components/InventoryOperationFooter';
 
-import { fetchInventoryLabelRecord } from '../../../../services/stock/stockInventoryService';
 import type { AuditItem } from '../types/inventoryWorkflow.types';
 
 interface Props {
@@ -21,6 +20,8 @@ interface Props {
   items: AuditItem[];
   scopeType?: string | null;
   onUpdateCount: (id: string, count: number | null) => void;
+  onIncrementScannedItem: (id: string, labelId?: string) => Promise<number | null>;
+  onFlushLocalWrites: () => Promise<void>;
   onAddManualItem: () => void;
   onOpenProductSearch?: (itemId: string) => void;
   onReview: () => void;
@@ -34,6 +35,8 @@ export const InventoryOperationScreen: React.FC<Props> = ({
   items,
   scopeType,
   onUpdateCount,
+  onIncrementScannedItem,
+  onFlushLocalWrites,
   onAddManualItem,
   onOpenProductSearch,
   onReview,
@@ -59,60 +62,42 @@ export const InventoryOperationScreen: React.FC<Props> = ({
   const progressPercent = activeItems.length > 0 ? Math.round((countedItems.length / activeItems.length) * 100) : 0;
   const isShowingStages = scopeType === 'full' && !activeStage;
 
-  const handleScan = async (data: string) => {
-    let item = scannerItems.find(i => matchScannedProductItem(i, data));
+  const handleScan = async (data: string): Promise<InventoryScanFeedback> => {
+    try { await ensureOfflineInventoryCatalogSynced(); }
+    catch (error) { console.warn('[Inventory] Índice offline indisponível; usando os itens da sessão:', error); }
+    const findDirect = (source: AuditItem[]) => source.find(i => matchScannedProductItem(i, data));
+    let item = findDirect(scannerItems);
+    let otherSupplierItem = !item && activeStage ? findDirect(items) : undefined;
 
-    // Se não encontrou pelo código direto e possui labelId ou UUID, tenta buscar no cadastro de etiquetas físicas
-    if (!item) {
-      const { labelId } = extractLabelIdentity(data);
-      if (labelId) {
-        const labelRecord = await fetchInventoryLabelRecord(labelId);
-        if (labelRecord) {
-          const normStr = (val?: string | null) => (val ? String(val).trim().toLowerCase() : '');
-          item = scannerItems.find(i => {
-            if (labelRecord.variation_id && String(i.variationId) === String(labelRecord.variation_id)) return true;
-            if (labelRecord.product_id && String(i.productId) === String(labelRecord.product_id) && (!labelRecord.variation_id || !i.variationId)) return true;
-            if (labelRecord.sku && normStr(i.sku) === normStr(labelRecord.sku)) return true;
-            if (labelRecord.barcode && normStr(i.barcode) === normStr(labelRecord.barcode)) return true;
-            return false;
-          });
-        }
-      }
+    let catalogItem: OfflineInventoryMatch | null = null;
+    if (!item && !otherSupplierItem) {
+      try { catalogItem = await findOfflineInventoryMatch(data); }
+      catch (error) { console.warn('[Inventory] Falha ao consultar índice offline:', error); }
+    }
+    if (catalogItem) {
+      const matchesCatalog = (candidate: AuditItem) => String(candidate.variationId || '') === catalogItem.variationId
+        || (String(candidate.productId) === catalogItem.productId && !candidate.variationId);
+      item = scannerItems.find(matchesCatalog);
+      if (!item && activeStage) otherSupplierItem = items.find(matchesCatalog);
     }
 
     if (!item) {
-      Alert.alert('Não encontrado', 'O código lido não corresponde a nenhum produto nesta lista.');
-      setShowScanner(false);
-      return;
+      if (otherSupplierItem) return { kind: 'error', title: 'Produto de outro fornecedor', message: `Produto: ${otherSupplierItem.name}\nFornecedor: ${otherSupplierItem.assignedSupplier || 'Sem fornecedor'}\nNenhuma quantidade foi alterada.` };
+      return { kind: 'error', title: 'Produto não pertence a este inventário' };
     }
 
     const { labelId } = extractLabelIdentity(data);
-
-    // Se o QR possui um labelId UUID de unidade física, valida duplicidade local no SQLite
-    if (labelId) {
-      const scanResult = await addInventoryScan(
-        inventoryId || 'default-inventory',
-        String(item.productId),
-        item.variationId ? String(item.variationId) : null,
-        labelId
-      );
-
-      if (!scanResult.success && scanResult.error === 'duplicate') {
-        Alert.alert(
-          'Unidade já contabilizada',
-          `Esta unidade física (${item.name}) já foi escaneada e contabilizada neste inventário.`
-        );
-        setShowScanner(false);
-        return;
-      }
+    try {
+      const physicalLabelId = labelId && ![item.productId, item.variationId].includes(labelId) ? labelId : undefined;
+      const nextCount = await onIncrementScannedItem(item.id, physicalLabelId);
+      if (nextCount === null) return { kind: 'error', title: 'Unidade física já contabilizada', message: item.name };
+      return { kind: 'success', title: item.name, sku: item.sku || item.code || item.barcode || '—',
+        supplier: activeStage ? undefined : item.assignedSupplier || 'Sem fornecedor', quantity: nextCount, itemId: item.id,
+        message: item.isActive === false ? `Produto desativado — ${nextCount} ${nextCount === 1 ? 'unidade encontrada' : 'unidades encontradas'}` : undefined };
+    } catch (error) {
+      console.error('[Inventory] Falha ao salvar leitura:', error);
+      return { kind: 'error', title: 'Falha ao salvar a contagem local', message: 'Verifique o armazenamento do aparelho antes de continuar.' };
     }
-
-    const currentCount = item.physicalCount === null ? 0 : item.physicalCount;
-    const nextCount = currentCount + 1;
-    // Atualização unificada: salva no SQLite local
-    onUpdateCount(item.id, nextCount);
-    Alert.alert('Produto escaneado', `${item.name}\nContagem atualizada: ${nextCount} ${item.unit || 'UN'}`);
-    setShowScanner(false);
   };
 
   return (
@@ -180,11 +165,15 @@ export const InventoryOperationScreen: React.FC<Props> = ({
         onReview={onReview}
       />
 
-      <Modal visible={showScanner} animationType="slide" onRequestClose={() => setShowScanner(false)}>
+      <Modal visible={showScanner} animationType="slide" onRequestClose={() => { void onFlushLocalWrites().then(() => setShowScanner(false)).catch(() => Alert.alert('Falha ao salvar', 'Aguarde a contagem ser gravada antes de sair.')); }}>
         <InventoryScannerScreen
           isDarkMode={isDarkMode}
-          onClose={() => setShowScanner(false)}
+          onClose={() => { void onFlushLocalWrites().then(() => setShowScanner(false)).catch(() => Alert.alert('Falha ao salvar', 'Aguarde a contagem ser gravada antes de sair.')); }}
           onScan={handleScan}
+          continuous
+          title={activeStage ? `Contagem — ${activeStage}` : 'Contagem geral'}
+          subtitle={activeStage ? 'Somente produtos deste fornecedor' : 'Produtos de todos os fornecedores'}
+          description="Aponte para o QR Code da etiqueta"
         />
       </Modal>
 

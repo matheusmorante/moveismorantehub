@@ -6,7 +6,6 @@ export * from './InventoryManualMode';
 export * from './InventoryOperationHeader';
 export * from './InventoryOperationScreen';
 export * from './InventoryResponsibleSelect';
-export * from './InventoryScannerMode';
 export * from './InventoryScopeConfigForm';
 export * from './InventoryScopeTypeSelector';
 export * from './InventoryStagesView';

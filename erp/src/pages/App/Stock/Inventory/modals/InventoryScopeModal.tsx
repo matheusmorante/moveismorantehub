@@ -25,6 +25,7 @@ export interface ScopeConfiguration {
         sku?: string;
         code?: string;
         barcode?: string;
+        isActive?: boolean;
     }>;
 }
 
@@ -32,6 +33,7 @@ interface InventoryScopeModalProps {
     readonly allProducts: readonly Product[];
     readonly suppliers: readonly Person[];
     readonly employees: readonly Person[];
+    readonly catalogSyncedAt?: string | null;
     readonly onCancel: () => void;
     readonly onConfirm: (config: ScopeConfiguration) => void;
 }
@@ -40,6 +42,7 @@ export const InventoryScopeModal: React.FC<InventoryScopeModalProps> = ({
     allProducts,
     suppliers,
     employees,
+    catalogSyncedAt,
     onCancel,
     onConfirm,
 }) => {
@@ -86,6 +89,9 @@ export const InventoryScopeModal: React.FC<InventoryScopeModalProps> = ({
                     <h2 className="text-xl font-black tracking-tight text-slate-800 dark:text-slate-100">Novo Inventário</h2>
                     <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5 font-medium">
                         {step === 1 ? 'O que você deseja inventariar?' : 'Configuração do Escopo'}
+                    </p>
+                    <p className="mt-1 text-[11px] text-slate-400" role="status">
+                        {catalogSyncedAt ? `Índice offline sincronizado em ${new Date(catalogSyncedAt).toLocaleString('pt-BR')}` : 'Índice offline ainda não sincronizado neste navegador'}
                     </p>
                 </div>
                 <button

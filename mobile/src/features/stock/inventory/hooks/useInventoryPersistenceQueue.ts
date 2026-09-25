@@ -1,7 +1,6 @@
 import { useRef, useCallback } from 'react';
 import { 
-    saveLocalInventoryDraft, 
-    deleteLocalInventoryDraft 
+    saveLocalInventoryDraft,
 } from '../../../../services/sqlite/inventoryDrafts';
 import type { AuditItem, AuditDraftState } from '../types/inventoryWorkflow.types';
 
@@ -22,37 +21,38 @@ export const useInventoryPersistenceQueue = (
     userProfileId?: string
 ) => {
     const saveQueueRef = useRef<Promise<void>>(Promise.resolve());
+    const lastErrorRef = useRef<unknown>(null);
 
-    const persistToSQLite = useCallback((itemsToPersist: AuditItem[]) => {
+    const persistToSQLite = useCallback((itemsToPersist: AuditItem[], scopeOverride?: ScopeConfigSnapshot): Promise<void> => {
         const auditId = draftRef.current.id;
         const code = draftRef.current.code;
-        if (!auditId || !code) return;
+        if (!auditId || !code) return Promise.reject(new Error('Inventário local sem identificador.'));
+        const savedScope = scopeOverride || scopeConfig;
 
-        const hasAnyCount = itemsToPersist.some(i => i.physicalCount !== null);
-
-        saveQueueRef.current = saveQueueRef.current.then(async () => {
-            if (!hasAnyCount) {
-                await deleteLocalInventoryDraft(auditId).catch(() => {});
-                return;
-            }
-
+        const write = saveQueueRef.current.then(async () => {
             await saveLocalInventoryDraft({
                 id: auditId,
                 code,
-                scopeType: scopeConfig?.scopeType,
-                name: scopeConfig?.name || `Inventário #${code}`,
-                responsibleId: scopeConfig?.responsibleId || userProfileId,
-                hasStages: scopeConfig?.hasStages ?? false,
+                scopeType: savedScope?.scopeType,
+                name: savedScope?.name || `Inventário #${code}`,
+                responsibleId: savedScope?.responsibleId || userProfileId,
+                hasStages: savedScope?.hasStages ?? false,
                 status: 'in_progress',
                 items: itemsToPersist,
             });
-        }).catch(err => {
-            console.warn('[SQLite] Erro ao persistir contagem no SQLite:', err);
         });
+        saveQueueRef.current = write.then(() => { lastErrorRef.current = null; }, error => {
+            lastErrorRef.current = error;
+            console.error('[SQLite] Falha ao persistir inventário:', error);
+        });
+        return write;
     }, [draftRef, scopeConfig, userProfileId]);
 
     return {
         persistToSQLite,
-        saveQueueRef,
+        flush: async () => {
+            await saveQueueRef.current;
+            if (lastErrorRef.current) throw lastErrorRef.current;
+        },
     };
 };

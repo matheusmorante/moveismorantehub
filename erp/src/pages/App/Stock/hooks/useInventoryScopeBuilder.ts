@@ -67,9 +67,11 @@ export const useInventoryScopeBuilder = (
                     sku: specificVariation.sku || product.code || '',
                     code: product.code || '',
                     barcode: (specificVariation as any).barcode || product.barcode || '',
+                    isActive: product.active !== false && specificVariation.active !== false
+                        && !['hidden', 'draft'].includes(String(specificVariation.status || '').toLowerCase()),
                 });
             } else if (product.variations && product.variations.length > 0) {
-                for (const variation of product.variations) {
+                for (const variation of product.variations.filter(item => !item.mergedToVariationId)) {
                     items.push({
                         productId: String(product.id),
                         variationId: String(variation.id),
@@ -81,6 +83,8 @@ export const useInventoryScopeBuilder = (
                         sku: variation.sku || product.code || '',
                         code: product.code || '',
                         barcode: (variation as any).barcode || product.barcode || '',
+                        isActive: product.active !== false && variation.active !== false
+                            && !['hidden', 'draft'].includes(String(variation.status || '').toLowerCase()),
                     });
                 }
             } else {
@@ -94,6 +98,7 @@ export const useInventoryScopeBuilder = (
                     sku: product.sku || product.code || '',
                     code: product.code || '',
                     barcode: product.barcode || '',
+                    isActive: product.active !== false,
                 });
             }
         };

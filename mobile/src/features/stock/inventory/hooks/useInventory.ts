@@ -38,6 +38,8 @@ export const useInventory = () => {
                     inventoryCode: d.code,
                     responsibleName: 'Armazenado no aparelho',
                 }));
+                setSessions(localDraftSessions);
+                setLoading(false);
             } catch (e) {
                 console.warn('[SQLite] Erro ao listar rascunhos locais:', e);
             }
@@ -62,9 +64,10 @@ export const useInventory = () => {
 
             if (isRefresh || pageNum === 0) {
                 // Mescla rascunhos locais no topo, deduplicando por ID
-                const existingRemoteIds = new Set(formattedData.map((s: any) => s.id));
-                const uniqueLocal = localDraftSessions.filter(d => !existingRemoteIds.has(d.id));
-                setSessions([...uniqueLocal, ...formattedData]);
+                const completedRemoteIds = new Set(formattedData.filter((s: any) => s.status === 'completed').map((s: any) => s.id));
+                const localIds = new Set(localDraftSessions.map(s => s.id));
+                const activeLocal = localDraftSessions.filter(d => !completedRemoteIds.has(d.id));
+                setSessions([...activeLocal, ...formattedData.filter((s: any) => s.status === 'completed' || !localIds.has(s.id))]);
             } else {
                 setSessions(prev => [...prev, ...formattedData]);
             }
