@@ -444,6 +444,13 @@ describe('Paridade de Inventário de Estoque (ERP Web x App Mobile)', () => {
 
         // 7. Novo formato canônico MH:L:<uuid>|<sku>
         expect(matchScannedProductItem(item, 'MH:L:12345678-1234-4234-8234-123456789abc|CADEIRA-PRETA-01')).toBe(true);
+
+        // 8. Etiqueta gerada na tela antes da impressão (placeholder 000XXX)
+        expect(matchScannedProductItem(item, 'MH:L:000XXX|CADEIRA-PRETA-01')).toBe(true);
+
+        // 9. Match direto por variationId e productId
+        expect(matchScannedProductItem(item, 'MH:L:12345678-1234-4234-8234-123456789abc|var-uuid-10')).toBe(true);
+        expect(matchScannedProductItem(item, 'MH:L:000XXX|prod-uuid-10')).toBe(true);
     });
 
     it('extrai corretamente a identidade da etiqueta física (MH:L e UUID) e impede duplicidade local no inventário', () => {
@@ -461,5 +468,11 @@ describe('Paridade de Inventário de Estoque (ERP Web x App Mobile)', () => {
         const identitySimple = extractLabelIdentity(qrSimple);
         expect(identitySimple.labelId).toBeUndefined();
         expect(identitySimple.code).toBe('SOFA-RET');
+
+        // Etiqueta com placeholder 000XXX na tela não deve assumir 000XXX como o código do produto
+        const qrPlaceholder = 'MH:L:000XXX|CADEIRA-PRETA-01';
+        const identityPlaceholder = extractLabelIdentity(qrPlaceholder);
+        expect(identityPlaceholder.labelId).toBeUndefined();
+        expect(identityPlaceholder.code).toBe('CADEIRA-PRETA-01');
     });
 });

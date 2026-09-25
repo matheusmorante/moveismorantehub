@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, ActivityIndicator, StyleSheet } from 'react-native';
 import { Sliders, Check } from 'lucide-react-native';
 import { fetchMobileAttributes, MobileAttribute } from '../../services/mobileAttributeService';
+import { toggleCategoryAttribute } from '../domain/categoryEnvironmentRules';
 
 interface Props {
   dark: boolean;
@@ -35,11 +36,7 @@ export const CategoryAttributesPicker: React.FC<Props> = ({
   }, []);
 
   const toggleAttribute = (attr: { id: string; name: string }) => {
-    setSelectedAttributes(prev => {
-      const exists = prev.some(a => a.id === attr.id);
-      if (exists) return prev.filter(a => a.id !== attr.id);
-      return [...prev, attr];
-    });
+    setSelectedAttributes(prev => toggleCategoryAttribute(prev, attr));
   };
 
   return (

@@ -115,7 +115,6 @@ const DesktopNav = ({ activeMenu, setActiveMenu }: DesktopNavProps) => {
                         <DropdownItem to="/estoque/movimentacoes" icon="bi-arrow-left-right" title="Movimentações" description="Entradas e saídas manuais" onClick={() => setActiveMenu(null)} />
                         <DropdownItem to="/estoque/inventarios" icon="bi-journal-check" title="Inventário" description="Contagem e ajustes" onClick={() => setActiveMenu(null)} />
                         <DropdownItem to="/estoque/recebimentos" icon="bi-clipboard-check" title="Recebimentos" description="Conferência de mercadorias" onClick={() => setActiveMenu(null)} />
-                        <DropdownItem to="/settings/stock" icon="bi-gear-fill" title="Configurações de estoque" description="Ajustes do leitor de código" onClick={() => setActiveMenu(null)} />
 
                         <DropdownSeparator />
 
@@ -170,7 +169,6 @@ const DesktopNav = ({ activeMenu, setActiveMenu }: DesktopNavProps) => {
                         <DropdownItem to="/budgets" icon="bi-file-text" title="Orçamentos" description="Propostas e negociações" onClick={() => setActiveMenu(null)} />
                         <DropdownItem to="/assistance-orders" icon="bi-tools" title="Assistências" description="Garantias e reparos" onClick={() => setActiveMenu(null)} />
                         <DropdownItem to="/returns" icon="bi-arrow-return-left" title="Devoluções" description="Trocas e devoluções" onClick={() => setActiveMenu(null)} />
-                        <DropdownItem to="/settings/sales" icon="bi-gear-fill" title="Configurações de vendas" description="Bandeiras e juros por parcela" onClick={() => setActiveMenu(null)} />
 
                         <DropdownSeparator />
 
@@ -192,9 +190,6 @@ const DesktopNav = ({ activeMenu, setActiveMenu }: DesktopNavProps) => {
                         <DropdownItem to="/fiscal-documents" icon="bi-receipt" title="Notas fiscais de saída" description="NF-e e NFC-e" onClick={() => setActiveMenu(null)} />
                         <DropdownItem to="/estoque/notas-fiscais-entrada" icon="bi-receipt-cutoff" title="Notas de entrada" description="Manifestação e importação XML" onClick={() => setActiveMenu(null)} />
                         <DropdownItem to="/estoque/ncm" icon="bi-journal-text" title="NCM" description="Tabela oficial e revisão de produtos" onClick={() => setActiveMenu(null)} />
-                        <DropdownSeparator />
-                        <DropdownGroup title="Configurações" />
-                        <DropdownItem to="/settings/fiscal" icon="bi-gear-fill" title="Configurações fiscais" description="Parâmetros fiscais da empresa" onClick={() => setActiveMenu(null)} />
                     </div>
                 )}
             </div>
@@ -216,12 +211,11 @@ const DesktopNav = ({ activeMenu, setActiveMenu }: DesktopNavProps) => {
                         <DropdownItem to="/delivery-schedule" icon="bi-calendar-event" title="Agenda" description="Cronograma de entregas" onClick={() => setActiveMenu(null)} />
                         <DropdownItem to="/logistics/assembly-list" icon="bi-list-check" title="Lista de montagem" description="Roteiro de montadores" onClick={() => setActiveMenu(null)} />
                         <DropdownItem to="/sales-order/freight-calculation" icon="bi-calculator" title="Cálculo de frete" description="Simulação de custos" onClick={() => setActiveMenu(null)} />
-                        <DropdownItem to="/settings/logistics" icon="bi-gear-fill" title="Configurações de logística" description="Frete, mapas, manuseio e montagem" onClick={() => setActiveMenu(null)} />
 
                         <DropdownSeparator />
 
                         <DropdownGroup title="Mobile" />
-                        <DropdownItem href="https://expo.dev/artifacts/eas/c6GuI7KSgOnw0kSY-zI9S_5dxaFMuc9lCT37XL-ynYE.apk" icon="bi-android2" title="Baixar App Android" description="Instalação via APK" />
+                        <DropdownItem href="https://drive.google.com/file/d/1UfEAzpIbgAYA6hG-fx7w7Ja73uXEVE74/view?usp=sharing" icon="bi-android2" title="Baixar App Android" description="Instalação via APK" />
                     </div>
                 )}
             </div>

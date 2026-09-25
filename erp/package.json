@@ -50,7 +50,7 @@
     "test": "vitest",
     "test:unit": "vitest run --config vitest.config.ts",
     "test:unit:watch": "vitest --config vitest.config.ts",
-    "test:unit:mobile": "vitest run --config ../mobile/vitest.config.ts",
+    "test:unit:mobile": "vitest run --config vitest.mobile.config.ts",
     "test:unit:mcp": "vitest run --config ../src/mcp/vitest.config.ts",
     "test:agent": "vitest run src/services/aiAgent/__tests__/evaluation/agentDeterministic.test.ts",
     "test:agent:live": "vitest run src/services/aiAgent/__tests__/evaluation/agentLiveAi.test.ts",

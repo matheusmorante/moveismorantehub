@@ -27,7 +27,7 @@ export const fetchInventoryScopeProducts = async (_scope: 'full' | 'supplier', _
         const from = page * INVENTORY_SCOPE_PAGE_SIZE;
         const query = supabase
             .from('products')
-            .select('id, name, description, stock, unit, main_supplier_id, supplier_id, supplier_ids')
+            .select('id, name, description, sku, code, barcode, stock, unit, main_supplier_id, supplier_id, supplier_ids')
             .eq('deleted', false)
             .eq('active', true)
             .eq('item_type', 'product')
@@ -50,7 +50,7 @@ export const fetchInventoryScopeProducts = async (_scope: 'full' | 'supplier', _
             const from = variationPage * INVENTORY_SCOPE_PAGE_SIZE;
             const { data, error } = await supabase
                 .from('product_variations')
-                .select('id, product_id, name, stock')
+                .select('id, product_id, name, sku, barcode, stock')
                 .in('product_id', ids)
                 .order('name', { ascending: true })
                 .range(from, from + INVENTORY_SCOPE_PAGE_SIZE - 1);
@@ -78,6 +78,9 @@ export const fetchInventoryScopeProducts = async (_scope: 'full' | 'supplier', _
             variation_id: String(variation.id),
             name: variation.name || product.name || product.description,
             stock: variation.stock ?? 0,
+            sku: variation.sku || product.sku || product.code || '',
+            code: product.code || '',
+            barcode: variation.barcode || product.barcode || '',
         }));
     });
 
@@ -86,6 +89,32 @@ export const fetchInventoryScopeProducts = async (_scope: 'full' | 'supplier', _
 };
 
 export const clearInventoryScopeCache = () => inventoryScopeCache.clear();
+
+/**
+ * Consulta o registro de uma etiqueta física UUID na tabela inventory_labels
+ * para associar a unidade escaneada ao seu produto e variação de destino.
+ */
+export const fetchInventoryLabelRecord = async (labelId: string): Promise<{
+    id: string;
+    product_id: string;
+    variation_id?: string | null;
+    sku?: string | null;
+    barcode?: string | null;
+} | null> => {
+    if (!labelId) return null;
+    try {
+        const { data, error } = await supabase
+            .from('inventory_labels')
+            .select('id, product_id, variation_id, sku, barcode')
+            .eq('id', labelId)
+            .maybeSingle();
+
+        if (error || !data) return null;
+        return data;
+    } catch {
+        return null;
+    }
+};
 
 /**
  * Sessões de Inventário

@@ -4,10 +4,17 @@
   "main": "node_modules/expo/AppEntry.js",
   "scripts": {
     "start": "node --use-system-ca ./node_modules/expo/bin/cli start --go",
+    "start:dev-client": "expo start --dev-client --localhost",
     "android": "expo run:android",
     "ios": "expo run:ios",
     "web": "expo start --web",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "test:e2e:web": "playwright test",
+    "test:mobile:device": "node scripts/maestro-device.mjs check",
+    "test:mobile:build": "node scripts/maestro-device.mjs build",
+    "test:mobile:start": "node scripts/maestro-device.mjs start",
+    "test:mobile:smoke": "node scripts/maestro-device.mjs smoke",
+    "test:mobile:maestro": "node scripts/maestro-device.mjs suite"
   },
   "dependencies": {
     "@react-native-async-storage/async-storage": "2.2.0",
@@ -50,7 +57,8 @@
   },
   "devDependencies": {
     "@babel/core": "^7.20.0",
-    "@playwright/test": "^1.63.0"
+    "@playwright/test": "^1.63.0",
+    "expo-mcp": "~0.2.1"
   },
   "private": true
 }

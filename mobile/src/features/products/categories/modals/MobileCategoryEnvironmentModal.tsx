@@ -19,6 +19,7 @@ import {
   ModalType,
   EditingNode,
 } from '../types/mobileCategory.types';
+import { canDeleteEnvironment, canDeleteCategory } from '../domain/categoryEnvironmentRules';
 import { CategoryAttributesPicker, CategoryLinksPicker } from '../components';
 
 interface Props {
@@ -66,32 +67,30 @@ export const MobileCategoryEnvironmentModal: React.FC<Props> = ({
   const isEditing = Boolean(editingNode?.id);
   const title = isEditing
     ? `Editar ${isEnv ? 'Ambiente' : 'Categoria'}`
-    : `Novo ${isEnv ? 'Ambiente' : 'Categoria'}`;
+    : isEnv
+    ? 'Novo Ambiente'
+    : 'Nova Categoria';
 
   const handleDeletePress = () => {
     if (!editingNode?.id || !onDelete) return;
 
     if (isEnv) {
       const currentEnv = environments.find(e => e.id === editingNode.id);
-      if (
-        currentEnv &&
-        (Number(currentEnv.categoryCount || 0) > 0 ||
-          (currentEnv.categories && currentEnv.categories.length > 0))
-      ) {
-        Alert.alert(
-          'Exclusão bloqueada',
-          'Este ambiente possui categorias vinculadas. Desvincule ou remova as categorias antes de excluir.'
-        );
-        return;
+      if (currentEnv) {
+        const check = canDeleteEnvironment(currentEnv, categories);
+        if (!check.canDelete) {
+          Alert.alert('Exclusão bloqueada', check.reason || 'Este ambiente possui categorias vinculadas.');
+          return;
+        }
       }
     } else {
       const currentCat = categories.find(c => c.id === editingNode.id);
-      if (currentCat && Number(currentCat.productCount || 0) > 0) {
-        Alert.alert(
-          'Exclusão bloqueada',
-          'Esta categoria possui produtos vinculados. Remova os vínculos dos produtos antes de excluir.'
-        );
-        return;
+      if (currentCat) {
+        const check = canDeleteCategory(currentCat);
+        if (!check.canDelete) {
+          Alert.alert('Exclusão bloqueada', check.reason || 'Esta categoria possui produtos vinculados.');
+          return;
+        }
       }
     }
 

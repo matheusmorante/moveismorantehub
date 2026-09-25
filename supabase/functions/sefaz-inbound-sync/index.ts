@@ -178,6 +178,10 @@ serve(async (req) => {
     }
 
     let totalPersisted = 0;
+    let totalPersistenceErrors = 0;
+    let totalDocumentProcessingErrors = 0;
+    let firstPersistenceError: string | null = null;
+    let firstDocumentProcessingError: string | null = null;
     let keepConsuming = true;
     let iteration = 0;
     const MAX_ITERATIONS = 20; // limite de segurança por rodada
@@ -193,7 +197,6 @@ serve(async (req) => {
       iteration++;
       const soapEnvelope = buildSoapEnvelope(cleanCnpj, currentUltNsu, tpAmb, accessKey || undefined);
 
-      console.log(`[sefaz-inbound-sync] Iteração ${iteration}: Delegando mTLS para serviço Node.js...`);
       const bridgeResponse = await fetch(nodeBridgeUrl, {
         method: "POST",
         headers: {
@@ -232,8 +235,6 @@ serve(async (req) => {
       finalCStat = cStat;
       finalXMotivo = xMotivo;
 
-      console.log(`[sefaz-inbound-sync] Iteração ${iteration}: cStat=${cStat}, xMotivo="${xMotivo}", ultNSU=${ultNsuRetornado}, maxNSU=${maxNsuRetornado}`);
-
       // cStat 138: Documento localizado para o NSU
       // cStat 137: Nenhum documento localizado para o NSU solicitado
       // cStat 656: Consumo indevido (deve aguardar 1 hora)
@@ -252,8 +253,6 @@ serve(async (req) => {
 
       // Processar os pacotes docZip
       const docZipBlocks = extractAllXmlTags(responseXml, "docZip");
-      console.log(`[sefaz-inbound-sync] Lote contém ${docZipBlocks.length} documento(s) compactado(s).`);
-
       for (const docB64 of docZipBlocks) {
         try {
           const unzippedXml = await decompressGzipBase64(docB64);
@@ -277,11 +276,13 @@ serve(async (req) => {
             if (!upsertErr) {
               totalPersisted++;
             } else {
-              console.warn(`[sefaz-inbound-sync] Erro ao persistir nota ${parsed.chave_acesso}:`, upsertErr.message);
+              totalPersistenceErrors++;
+              firstPersistenceError ??= upsertErr.message.slice(0, 200);
             }
           }
-        } catch (docErr: any) {
-          console.error(`[sefaz-inbound-sync] Erro ao descompactar ou processar docZip:`, docErr.message);
+        } catch (docErr: unknown) {
+          totalDocumentProcessingErrors++;
+          firstDocumentProcessingError ??= (docErr instanceof Error ? docErr.message : String(docErr)).slice(0, 200);
         }
       }
 
@@ -341,7 +342,7 @@ serve(async (req) => {
         message: "A SEFAZ bloqueou novas consultas por consumo indevido. Tente novamente após uma hora.",
       }), { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 });
     }
-    console.log(`[sefaz-inbound-sync] Ciclo finalizado em ${durationMs}ms. cStat=${finalCStat}, xMotivo="${finalXMotivo}", ultNSU=${currentUltNsu}, maxNSU=${currentMaxNsu}, notas_persistidas=${totalPersisted}`);
+    console.log(`[sefaz-inbound-sync] Ciclo finalizado em ${durationMs}ms. iterações=${iteration}, cStat=${finalCStat}, ultNSU=${currentUltNsu}, maxNSU=${currentMaxNsu}, notas_persistidas=${totalPersisted}, erros_persistencia=${totalPersistenceErrors}, erro_persistencia_amostra=${firstPersistenceError ?? "nenhum"}, erros_processamento=${totalDocumentProcessingErrors}, erro_processamento_amostra=${firstDocumentProcessingError ?? "nenhum"}`);
 
     return new Response(
       JSON.stringify({

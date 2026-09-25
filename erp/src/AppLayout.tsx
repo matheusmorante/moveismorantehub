@@ -263,7 +263,7 @@ export default function AppLayout() {
                         </Link>
                         
                         <a
-                          href="https://expo.dev/artifacts/eas/c6GuI7KSgOnw0kSY-zI9S_5dxaFMuc9lCT37XL-ynYE.apk"
+                          href="https://drive.google.com/file/d/1UfEAzpIbgAYA6hG-fx7w7Ja73uXEVE74/view?usp=sharing"
                           target="_blank"
                           rel="noopener noreferrer"
                           onClick={() => setIsProfileMenuOpen(false)}

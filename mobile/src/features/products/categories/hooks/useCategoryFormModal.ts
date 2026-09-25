@@ -11,6 +11,7 @@ import {
   ModalType,
   EditingNode,
 } from '../types/mobileCategory.types';
+import { validateNodeName, toggleNodeLink } from '../domain/categoryEnvironmentRules';
 
 interface Props {
   environments: EnvironmentNode[];
@@ -78,34 +79,27 @@ export function useCategoryFormModal({ environments, categories, onSuccess }: Pr
   }, []);
 
   const toggleLink = useCallback((id: string) => {
-    setSelectedLinks(prev =>
-      prev.includes(id) ? prev.filter(item => item !== id) : [...prev, id]
-    );
+    setSelectedLinks(prev => toggleNodeLink(prev, id));
   }, []);
 
   const handleSave = useCallback(async () => {
-    const formattedName = nameInput.trim().toUpperCase();
-    if (!formattedName) {
-      Alert.alert('Nome obrigatório', 'O nome não pode estar vazio.');
-      return;
-    }
-
     const isEnv = showModal === 'ambiente';
-    const duplicate = isEnv
-      ? environments.find(
-          e => e.name.trim().toUpperCase() === formattedName && e.id !== editingNode?.id
-        )
-      : categories.find(
-          c => c.name.trim().toUpperCase() === formattedName && c.id !== editingNode?.id
-        );
+    const validation = validateNodeName(
+      nameInput,
+      isEnv ? environments : categories,
+      editingNode?.id,
+      isEnv ? 'Ambiente' : 'Categoria'
+    );
 
-    if (duplicate) {
+    if (!validation.valid) {
       Alert.alert(
-        'Nome duplicado',
-        `Já existe um ${isEnv ? 'Ambiente' : 'Categoria'} com o nome "${formattedName}".`
+        validation.error?.includes('vazio') ? 'Nome obrigatório' : 'Nome duplicado',
+        validation.error || 'Nome inválido.'
       );
       return;
     }
+
+    const formattedName = validation.formattedName!;
 
     setIsSubmitting(true);
     try {

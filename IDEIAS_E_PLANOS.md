@@ -4,6 +4,120 @@ Este arquivo centraliza planos, ideias e tarefas pendentes do projeto Morante Hu
 
 ---
 
+## 0. Correção do Botão de Imprimir Pedido e Recibo no ERP (Impressão Direta & Fallback do Navegador)
+- **Status**: Concluído e 100% Validado! 🖨️📄✨✅
+- **Data**: 25/09/2026
+- **Problema Reportado**: Ao clicar no botão de imprimir pedido (ou recibo) no ERP, a ação não funcionava e exibia a mensagem de erro *"Não foi possível imprimir"* / *"Não foi possível imprimir diretamente. O agente de impressão local está desconectado."*.
+- **Causas Raízes Identificadas e Resolvidas**:
+  1. **Ausência de Fallback Automático no `printService.ts`**:
+     - O serviço de impressão tentava se comunicar exclusivamente com o agente de impressão local do Windows (`http://127.0.0.1:40405`).
+     - Quando o agente local estava desconectado (ou o ERP era acessado em navegadores/máquinas sem o executável ativo em segundo plano), os métodos `printSalesOrder`, `printReceipt` e `printDanfe` bloqueavam o fluxo e disparavam erro fatal no toast em vez de acionar a impressão tradicional do navegador.
+     - **Solução**: Implementado `autoFallback: true` (habilitado por padrão em todos os fluxos de impressão). Agora, se o agente local estiver offline ou ocorrer qualquer falha no spooler, o sistema aciona automaticamente `executePrintFallback`, garantindo que a impressão sempre aconteça no navegador sem travar o operador.
+  2. **Erro de Execução (ReferenceError) em `OrderPage/index.tsx`**:
+     - A página de impressão `/order` possuía variáveis soltas copiadas com chamadas a `splitNoticeTags(order.observation)` sem o devido import da função.
+     - Caso o fallback convencional fosse acionado, a renderização da página crashava em runtime com `ReferenceError: splitNoticeTags is not defined`.
+     - **Solução**: Código residual removido (a lógica já é tratada de forma encapsulada dentro de `OrderPrintDocument.tsx`), e adicionada tela defensiva amigável caso não haja pedido em `sessionStorage`.
+  3. **Validação e Testes**:
+     - Criados/atualizados testes em `erp/src/pages/utils/printing/__tests__/printService.test.ts` validando o acionamento automático do fallback e a opção `autoFallback: false` explícita.
+     - Todos os 18 testes da suíte de impressão (`printService`, `printStorage`, `physicalLabelUniqueness`) aprovados com 100% de sucesso.
+
+---
+
+## 0. Organização de Arquivos, Pastas e Princípios de Programação do Módulo de Inventário (Mobile & ERP)
+- **Status**: Concluído e 100% Validado! 📁🧹🏗️✅
+- **Data**: 25/09/2026
+- **Objetivo**: Aplicar os princípios de organização de arquivos e pastas (`organizacao-arquivos-diretorios`) e de modularização e código limpo (`modularizacao_codigo`) em todos os arquivos e pastas do módulo de inventário tanto no Mobile quanto no ERP.
+- **Estruturação Aplicada**:
+  1. **Separação Semântica Canônica de Pastas**:
+     - `components/`: Componentes visuais atômicos e cartões reutilizáveis (`InventoryCard`, `InventoryFilterBar`, `InventoryOperationFilterBar`, `InventoryItemCard`, `InventoryReviewTab`, `InventoryEmptyState`, `InventoryScopeTypeSelector`, `InventoryFocusItemCard`, etc.).
+     - `modals/`: Diálogos, popups e overlays modais (`InventoryDetailsModal`, `InventoryProductSearchModal`, `InventoryOptionsMenuModal`, `InventoryFocusModeModal`, `ActionConfirmModal`, `InventoryAuditModal`, `InventoryReviewModal`, `InventoryScopeModal`).
+     - `screens/`: Telas e fluxos de navegação completos (`InventoryScreen`, `InventoryScopeScreen`, `InventoryOperationScreen`, `InventoryScannerScreen`, `InventoryAuditFlow`).
+     - `hooks/`: Hooks orquestradores de estado, fluxo e ciclo de vida (`useInventory`, `useInventoryAuditWorkflow`, `useInventoryScopeBuilder`, `useInventoryAuditSessions`, `useInventoryAuditData`).
+     - `services/`: Serviços de persistência, regras de finalização e SQLite (`inventoryFinalizationService`, `inventorySessionInitializer`, `stockInventoryService`).
+     - `types/` & `utils/`: Tipagem TypeScript estrita e utilitários de snapshot e busca.
+  2. **Modularização e Princípios de Programação (SOLID / Clean Code)**:
+     - **Tamanho e Coesão**: Todos os arquivos mantidos na faixa ideal (30–150 linhas), eliminando blocos de JSX inline monolíticos de 70–90 linhas.
+     - **`InventoryOptionsMenuModal.tsx`**: Extraído de `InventoryScreen.tsx` (que tinha modal inline com opções de duplicar, cancelar, zerar e ajuda, economizando 85 linhas e separando responsabilidades).
+     - **`InventoryScopeTypeSelector.tsx`**: Extraído de `InventoryScopeScreen.tsx` (cartões de escopo Completo, Por Fornecedor e Personalizado), reduzindo `InventoryScopeScreen.tsx` de 311 para 145 linhas coesas.
+     - **`InventoryFocusItemCard.tsx`**: Extraído de `InventoryFocusMode.tsx` para renderizar de forma isolada os dados do produto, botões de incremento/decremento e input numérico.
+     - **`InventoryFocusModeModal.tsx`**: Movido para a pasta semântica oficial `modals/`.
+  3. **Preservação Absoluta de Retrocompatibilidade (Barrels Reexportadores)**:
+     - Para zero quebra de imports em qualquer consumidor antigo, foram criados barrels reexportadores em `components/InventoryDetailsModal.tsx`, `components/InventoryProductSearchModal.tsx` e `components/InventoryFocusMode.tsx`.
+     - Criados barrels centrais de agregação:
+       - `mobile/src/features/stock/inventory/modals/index.ts`
+       - `mobile/src/features/stock/inventory/components/index.ts`
+       - `mobile/src/features/stock/inventory/index.ts` (exportando screens, modals, components, hooks e services)
+       - `erp/src/pages/App/Stock/Inventory/modals/index.ts`
+       - `erp/src/pages/App/Stock/Inventory/components/index.ts`
+       - `erp/src/pages/App/Stock/Inventory/hooks/index.ts`
+       - `erp/src/pages/App/Stock/Inventory/index.ts` (exportando `InventoryAudit`, componentes, hooks, modais, tipos e utilitários).
+  4. **Validações e Testes Executados**:
+     - Mobile: `npm run test:unit:mobile --prefix erp -- inventory` (26 testes passando em 1.4s).
+     - ERP: `npm run test:unit --prefix erp -- inventory` (19 testes passando em 3.0s).
+     - Rastreabilidade de Etiquetas e QR Code: `npm run test:unit --prefix erp -- physicalLabelUniqueness` (6 testes passando em 2.2s).
+     - Total: **51 testes aprovados sem nenhuma regressão**!
+
+---
+
+## 0. Correção de Escaneamento de QR Code no Inventário e Etiquetas de Identificação (Mobile & ERP)
+- **Status**: Concluído e 100% Validado! 📱📦🏷️✅
+- **Data**: 25/09/2026
+- **Problema Reportado**: Ao escanear o QR Code no inventário pelo celular (ou no ERP), o sistema acusava: *"O código lido não corresponde a nenhum produto nesta lista."*
+- **Causas Raízes Identificadas e Resolvidas**:
+  1. **Ausência de `sku`, `code` e `barcode` nos Itens do Escopo**:
+     - `fetchInventoryScopeProducts` no Mobile não selecionava `sku`, `code` nem `barcode` das tabelas `products` e `product_variations` no Supabase, e `scopedProducts` não propagava esses campos.
+     - `confirmDirectly` de `InventoryScopeScreen.tsx` não repassava `sku`, `code` e `barcode` no snapshot.
+     - `restoreInventorySession` e `duplicateInventorySession` descartavam `sku`, `code` e `barcode` na restauração.
+     - Como os itens em memória do inventário ficavam com `sku: undefined`, qualquer leitura de QR Code contendo SKU/código de barras falhava no match.
+  2. **Truncamento de Código na Leitura de Prévia da Tela (`000XXX`)**:
+     - As etiquetas na tela exibem o placeholder `000XXX` antes do bulk insert de UUIDs no banco.
+     - O utilitário `extractLabelIdentity` extraía `000XXX` como sendo o código do produto em vez de capturar o SKU real da unidade, e `extractScannedCodes` incluía `000XXX` como candidato.
+     - Tratado em `mobile/src/utils/barcodeScannerUtils.ts` e `erp/src/pages/utils/barcodeScannerUtils.ts` para ignorar o placeholder `000XXX` e priorizar o SKU real da peça.
+  3. **Fallback Canônico de Identificador nas Etiquetas de Identificação**:
+     - Em [`LabelItem.tsx`](file:///c:/Users/Rosilene/Desktop/morantehub/erp/src/pages/App/Stock/LabelPrinting/components/LabelItem.tsx), produtos sem SKU ou código de barras cadastrados geravam o QR Code com texto vazio após o pipe (`MH:L:<uuid>|`).
+     - Agora há fallback multinível: `config.sku || config.barcode || config.code || config.variationId || config.productId`. O QR Code nunca mais é gerado sem código de produto.
+     - Em [`useLabelQueue.ts`](file:///c:/Users/Rosilene/Desktop/morantehub/erp/src/pages/App/Stock/LabelPrinting/hooks/useLabelQueue.ts), adicionados `barcode` e `code` na montagem do item.
+  4. **Resolução Inteligente de Unidades Físicas UUID (`inventory_labels`)**:
+     - Se o QR Code lido contiver apenas o UUID da etiqueta de identificação (`MH:L:<uuid>` ou UUID simples), tanto o Mobile ([`InventoryOperationScreen.tsx`](file:///c:/Users/Rosilene/Desktop/morantehub/mobile/src/features/stock/inventory/screens/InventoryOperationScreen.tsx)) quanto o ERP ([`InventoryScannerMode.tsx`](file:///c:/Users/Rosilene/Desktop/morantehub/erp/src/pages/App/Stock/Inventory/components/InventoryScannerMode.tsx)) agora realizam uma consulta rápida na tabela `inventory_labels` via `fetchInventoryLabelRecord` para recuperar o `product_id`, `variation_id`, `sku` ou `barcode` e localizar o produto com precisão na lista de inventário.
+
+---
+
+## 0. Build Local de Produção Android (APK Release v1.6.0)
+- **Status**: Concluído e Gerado com Sucesso Localmente! 📱🚀✨
+- **Data**: 25/09/2026
+- **Arquivo Gerado**:
+  - Caminho na raiz do projeto: [`morantehub-v1.6.0.apk`](file:///c:/Users/Rosilene/Desktop/morantehub/morantehub-v1.6.0.apk) (104.8 MB)
+  - Caminho nativo do Gradle: [`mobile/android/app/build/outputs/apk/release/app-release.apk`](file:///c:/Users/Rosilene/Desktop/morantehub/mobile/android/app/build/outputs/apk/release/app-release.apk)
+- **Ambiente & Ferramentas Configuradas**:
+  - OpenJDK 17 Temurin configurado como `JAVA_HOME`.
+  - Android SDK em `C:\Users\Rosilene\AppData\Local\Android\Sdk` com licenças aceitas e `local.properties` apontando corretamente.
+  - Instalação automatizada via Gradle dos NDKs **27.1.12297006** e **27.0.12077973**, CMake 3.22.1, Build-Tools 35/36 e Platform-Tools 37.
+  - `GOOGLE_MAPS_ANDROID_API_KEY` integrada com sucesso a partir de `mobile/.env`.
+- **Desafios e Correções Críticas Realizadas Durante o Build**:
+  1. **Ausência de Metadados Maven no Pacote `expo-audio@57.0.5`**: O pacote no npm veio sem os arquivos `.pom` e `.module`. Os 25 arquivos de metadados foram extraídos e restaurados diretamente no repositório Maven local (`local-maven-repo`).
+  2. **Erro de PATH no Script `download-prebuilt-binaries.sh`**: Corrigido com inclusão explícita de `/usr/bin:/bin` no PATH do Git Bash e download preventivo dos binários de áudio C++.
+  3. **Estouro de MAX_PATH (260 caracteres) no Windows com Ninja e C++**: Corrigido criando uma junção de diretório NTFS (`mklink /J`) interna no módulo `react-native-audio-api` e apontando `COMMON_CPP_DIR` para caminho relativo curto.
+  4. **Foco em Arquiteturas Físicas Móveis (`arm64-v8a` e `armeabi-v7a`)**: Ajustado `reactNativeArchitectures` para celulares Android reais, eliminando emuladores de 32-bit x86 que apresentavam incompatibilidade com o Clang moderno.
+  5. **Conflito de Cache do Metro no Windows (`ENOTEMPTY`)**: Finalizado o servidor Metro de desenvolvimento antigo que estava retendo arquivos temporários em disco.
+
+---
+
+## 0. Auditoria e Rastreabilidade: Menu de Categorias e Características (Mobile)
+- **Status**: Concluído e 100% Validado nos Dois Roteiros (35 Vitest + 6 Playwright E2E Aprovados)! 🎯🏷️✨
+- **Data**: 25/09/2026
+- **Escopo e Rastreabilidade**:
+  - Mapeamento e automação dos 28 cenários formais das Matrizes D (`AC-01` a `AC-16`) e E (`AT-01` a `AT-12`).
+  - **Distinção Arquitetural de Cobertura**:
+    - **Regras de Domínio e Validações Puras (Vitest - 18 testes)**: [`categoryEnvironmentRules.test.ts`](file:///c:/Users/Rosilene/Desktop/morantehub/mobile/src/features/products/categories/domain/categoryEnvironmentRules.test.ts) cobrindo normalização UPPERCASE, validação de unicidade, bloqueios relacionais de exclusão (ambiente com categorias, categoria com produtos), integridade de listas, ordenação, tipos de atributos e desvinculação atômica.
+    - **Serviços de Persistência e Contratos com Backend (Vitest - 17 testes)**: [`categoryEnvironmentServices.test.ts`](file:///c:/Users/Rosilene/Desktop/morantehub/mobile/src/features/products/categories/domain/categoryEnvironmentServices.test.ts) validando as operações de CRUD, upsert de categorias/ambientes, integridade relacional em cascata (`category_relationships`, `category_attributes`), contagem real de vínculos e resiliência a falhas de rede (`AT-12`).
+    - **Interface, Navegação e Prevenção de Dirty State (Playwright - 5 testes)**: [`categories-characteristics.spec.ts`](file:///c:/Users/Rosilene/Desktop/morantehub/mobile/e2e/categories-characteristics.spec.ts) validando alternância de visualização ("Por ambiente" / "Por categoria"), filtro de categorias órfãs ("Sem ambiente"), busca em tempo real, cancelamento sem mutação do estado e renderização visual do gerenciador de características globais.
+    - **Ciclo Completo de CRUD Real com Teardown no Playwright (1 teste abrangente)**: Teste 6 executando via interface o ciclo de vida completo: criação de ambiente via UI -> criação de categoria e vinculação ao ambiente via UI -> conferência visual do chip de vínculo -> edição do nome via UI e validação da mutação -> exclusão com diálogo nativo de confirmação -> exclusão do ambiente vazio -> teardown defensivo.
+  - **Correções Críticas Identificadas e Resolvidas Durante a Auditoria**:
+    1. **Incompatibilidade de Schema com Supabase**: `saveMobileEnvironment` e `saveMobileCategory` tentavam gravar colunas `active` e `updated_at` inexistentes na tabela `categories`. Removidas com sucesso, alinhando com a tabela real do Supabase e o serviço do ERP.
+    2. **Bug de Concordância no Modal**: Corrigido título do modal de criação em [`MobileCategoryEnvironmentModal.tsx`](file:///c:/Users/Rosilene/Desktop/morantehub/mobile/src/features/products/categories/modals/MobileCategoryEnvironmentModal.tsx) ("Nova Categoria" em vez de "Novo Categoria").
+    3. **Polyfill de Confirmação Web (`Alert.alert`)**: No React Native Web, `Alert.alert` padrão é um no-op vazio. Criado [`alertPolyfill.ts`](file:///c:/Users/Rosilene/Desktop/morantehub/mobile/src/utils/alertPolyfill.ts) conectando `Alert.alert` a `window.confirm` e `window.alert` no web, viabilizando execução de callbacks `onPress` e diálogos nativos.
+
+
 ## 0. Persistência de Impressoras por Computador Físico (`C:\ProgramData\MoranteHub\print-config.json`)
 - **Status**: Concluído e Validado no Windows! 🏢💻🖨️
 - **Data**: 24/09/2026

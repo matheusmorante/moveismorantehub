@@ -8,6 +8,8 @@ class QueryGuard {
   private circuitBreaker: CircuitBreaker;
   private telemetryBuffer: TelemetryBuffer;
   private anomalyDetector: AnomalyDetector;
+  private flushFailureCount = 0;
+  private nextFlushAt = 0;
   
   private flushInterval: ReturnType<typeof setInterval> | null = null;
   private anomalyInterval: ReturnType<typeof setInterval> | null = null;
@@ -53,6 +55,8 @@ class QueryGuard {
   }
 
   public async flush() {
+    if (Date.now() < this.nextFlushAt) return;
+
     const metricsToSave = this.telemetryBuffer.getAndClear();
     if (metricsToSave.length === 0) return;
 
@@ -89,15 +93,26 @@ class QueryGuard {
         });
         if (!response.ok) {
           this.telemetryBuffer.merge(metricsToSave);
+          this.scheduleFlushBackoff();
           console.error(`[SupabaseMonitor] Falha ao salvar telemetria (HTTP ${response.status}); lote mantido para nova tentativa.`);
+        } else {
+          this.flushFailureCount = 0;
+          this.nextFlushAt = 0;
         }
       } else {
         this.telemetryBuffer.merge(metricsToSave);
       }
     } catch (err) {
       this.telemetryBuffer.merge(metricsToSave);
+      this.scheduleFlushBackoff();
       console.error('[SupabaseMonitor] Falha ao enviar telemetria:', err);
     }
+  }
+
+  private scheduleFlushBackoff() {
+    this.flushFailureCount += 1;
+    const delayMs = Math.min(5 * 60_000 * (2 ** (this.flushFailureCount - 1)), 60 * 60_000);
+    this.nextFlushAt = Date.now() + delayMs;
   }
 
   private getFingerprint(input: RequestInfo | URL, init?: RequestInit): string {

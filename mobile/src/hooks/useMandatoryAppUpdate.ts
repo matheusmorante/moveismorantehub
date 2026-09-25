@@ -36,7 +36,7 @@ export function useMandatoryAppUpdate(): RequiredUpdate {
 
         const config = data?.data?.mobileSettings;
         const requiredBuild = Number(config?.requiredAndroidBuild || config?.minimumAndroidBuild || TARGET_OFFICIAL_BUILD);
-        const url = config?.androidUpdateUrl || 'https://expo.dev/artifacts/eas/c6GuI7KSgOnw0kSY-zI9S_5dxaFMuc9lCT37XL-ynYE.apk';
+        const url = config?.androidUpdateUrl || 'https://drive.google.com/uc?export=download&id=1UfEAzpIbgAYA6hG-fx7w7Ja73uXEVE74';
         const installedBuild = getInstalledAndroidBuild();
 
         // A configuração representa a build mínima compatível; builds mais novas continuam válidas.

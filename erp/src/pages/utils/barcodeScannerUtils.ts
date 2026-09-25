@@ -40,13 +40,16 @@ export function extractLabelIdentity(rawCode: string): LabelIdentity {
         if (withoutPrefix.includes('|')) {
             const parts = withoutPrefix.split('|').map(p => p.trim()).filter(Boolean);
             const uuidPart = parts.find(p => UUID_REGEX.test(p));
-            const codePart = parts.find(p => !UUID_REGEX.test(p));
+            const codePart = parts.find(p => !UUID_REGEX.test(p) && p !== '000XXX');
             return { labelId: uuidPart, code: codePart };
         }
         if (UUID_REGEX.test(withoutPrefix)) {
             return { labelId: withoutPrefix };
         }
-        return { code: withoutPrefix };
+        if (withoutPrefix !== '000XXX') {
+            return { code: withoutPrefix };
+        }
+        return {};
     }
 
     // 2. Formato com pipe: SKU|UUID ou BARCODE|UUID
@@ -54,11 +57,11 @@ export function extractLabelIdentity(rawCode: string): LabelIdentity {
         const parts = trimmed.split('|').map(p => p.trim()).filter(Boolean);
         const uuidPart = parts.find(p => UUID_REGEX.test(p) || (p.startsWith('MH:L:') && UUID_REGEX.test(p.substring(5).trim())));
         const cleanUuid = uuidPart ? (uuidPart.startsWith('MH:L:') ? uuidPart.substring(5).trim() : uuidPart) : undefined;
-        const codePart = parts.find(p => !UUID_REGEX.test(p) && !p.startsWith('MH:L:'));
+        const codePart = parts.find(p => !UUID_REGEX.test(p) && !p.startsWith('MH:L:') && p !== '000XXX');
         if (cleanUuid) {
             return { labelId: cleanUuid, code: codePart };
         }
-        return { code: parts[0] };
+        return { code: codePart || (parts[0] !== '000XXX' ? parts[0] : parts[1]) };
     }
 
     // 3. UUID direto
@@ -79,12 +82,16 @@ export function extractScannedCodes(rawCode: string): string[] {
     if (!trimmed) return [];
 
     const candidates = new Set<string>();
-    candidates.add(trimmed);
+    if (trimmed !== '000XXX') {
+        candidates.add(trimmed);
+    }
 
     // Se tiver prefixo MH:L:
     if (trimmed.startsWith('MH:L:')) {
         const clean = trimmed.substring(5).trim();
-        candidates.add(clean);
+        if (clean !== '000XXX') {
+            candidates.add(clean);
+        }
     }
 
     // 1. Tentar parsear JSON
@@ -94,7 +101,7 @@ export function extractScannedCodes(rawCode: string): string[] {
             if (typeof parsed === 'object' && parsed !== null) {
                 const keys = ['sku', 'code', 'barcode', 'productId', 'variationId', 'scanId', 'id', 'product_id', 'variation_id', 'labelId', 'label_id'];
                 for (const k of keys) {
-                    if (parsed[k]) {
+                    if (parsed[k] && String(parsed[k]).trim() !== '000XXX') {
                         candidates.add(String(parsed[k]).trim());
                     }
                 }
@@ -108,9 +115,14 @@ export function extractScannedCodes(rawCode: string): string[] {
     if (trimmed.includes('|')) {
         const parts = trimmed.split('|').map((p) => p.trim()).filter(Boolean);
         for (const part of parts) {
-            candidates.add(part);
+            if (part !== '000XXX') {
+                candidates.add(part);
+            }
             if (part.startsWith('MH:L:')) {
-                candidates.add(part.substring(5).trim());
+                const sub = part.substring(5).trim();
+                if (sub !== '000XXX') {
+                    candidates.add(sub);
+                }
             }
         }
     }

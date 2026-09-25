@@ -11,6 +11,9 @@ import { InventoryOperationFilterBar } from '../components/InventoryOperationFil
 import { InventoryOperationItemCard } from '../components/InventoryOperationItemCard';
 import { InventoryOperationFooter } from '../components/InventoryOperationFooter';
 
+import { fetchInventoryLabelRecord } from '../../../../services/stock/stockInventoryService';
+import type { AuditItem } from '../types/inventoryWorkflow.types';
+
 interface Props {
   isDarkMode: boolean;
   inventoryId: string;
@@ -56,7 +59,25 @@ export const InventoryOperationScreen: React.FC<Props> = ({
   const isShowingStages = scopeType === 'full' && !activeStage;
 
   const handleScan = async (data: string) => {
-    const item = items.find(i => matchScannedProductItem(i, data));
+    let item = items.find(i => matchScannedProductItem(i, data));
+
+    // Se não encontrou pelo código direto e possui labelId ou UUID, tenta buscar no cadastro de etiquetas físicas
+    if (!item) {
+      const { labelId } = extractLabelIdentity(data);
+      if (labelId) {
+        const labelRecord = await fetchInventoryLabelRecord(labelId);
+        if (labelRecord) {
+          const normStr = (val?: string | null) => (val ? String(val).trim().toLowerCase() : '');
+          item = items.find(i => {
+            if (labelRecord.variation_id && String(i.variationId) === String(labelRecord.variation_id)) return true;
+            if (labelRecord.product_id && String(i.productId) === String(labelRecord.product_id) && (!labelRecord.variation_id || !i.variationId)) return true;
+            if (labelRecord.sku && normStr(i.sku) === normStr(labelRecord.sku)) return true;
+            if (labelRecord.barcode && normStr(i.barcode) === normStr(labelRecord.barcode)) return true;
+            return false;
+          });
+        }
+      }
+    }
 
     if (!item) {
       Alert.alert('Não encontrado', 'O código lido não corresponde a nenhum produto nesta lista.');

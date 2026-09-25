@@ -99,6 +99,18 @@ Para cada tela, estado ou ação, confira a cadeia de paridade:
 
 ## Processo de Execução: Uma Aba e um Estado por Vez
 
+### Verificação com Expo MCP (quando disponível)
+
+No projeto `mobile/`, use o Expo MCP local para observar e interagir com o app real sempre que a tarefa alterar uma tela ou fluxo e houver dispositivo/emulador compatível:
+
+1. Inicie o Metro com `EXPO_UNSTABLE_MCP_SERVER=1` (PowerShell: `$env:EXPO_UNSTABLE_MCP_SERVER='1'; npm start`) e conecte/reinicie a sessão MCP se o servidor Expo acabou de iniciar.
+2. Prefira `testID` estável para localizar e tocar controles; evite coordenadas quando houver identificadores acessíveis.
+3. Capture screenshot do estado relevante e confira loading, vazio, erro, sucesso/modal e resultado da interação conforme o escopo alterado.
+4. Colete logs apenas numa janela curta e para investigar erro concreto; nunca registre ou compartilhe tokens, cookies, chaves ou payloads pessoais.
+5. Trate screenshot/interação MCP como evidência complementar, não substituta dos testes focados nem da comparação ERP × Mobile.
+
+As capacidades locais requerem Expo SDK 54+ e `expo-mcp` instalado como dependência de desenvolvimento. No Windows, priorize Android, mas faça um smoke test de descoberta do emulador e captura antes de depender das ferramentas: há um relato aberto de falhas com Windows 11 + Git Bash + emulador Android. Automação de iOS Simulator exige host macOS. Se dispositivo, emulador, conta ou conexão não estiverem disponíveis, registre a limitação e continue com testes focados sem alegar validação visual.
+
 Trabalhe em uma aba de cada vez e, dentro dela, em um estado por vez. Não replique o módulo inteiro antes de comparar.
 
 ### 1. Inspecionar o ERP Original
@@ -161,3 +173,9 @@ Quando qualquer funcionalidade do ERP for alterada futuramente:
 ## Critério de Conclusão
 
 A replicação só é considerada concluída quando a lógica de negócio do ERP estiver preservada e reutilizada com o menor índice possível de duplicação, os estados e fluxos estiverem equivalentes e o App Mobile oferecer a mesma confiabilidade operacional do ERP Web.
+
+## Referências e Fonte Canônica de Documentação
+
+- Expo MCP, configuração e capacidades: https://docs.expo.dev/mcp/
+- Relato de compatibilidade Windows para automação local: https://github.com/expo/expo-mcp/issues/17
+- Contratos e regras de negócio: código ERP e módulos compartilhados atuais; esta Skill define o processo de paridade, não substitui a fonte canônica do domínio.

@@ -170,10 +170,10 @@ function Router() {
             <Route path='/warranty-term' element={<WarrantyTermPage />} />
             <Route path='/delivery-schedule' element={<DeliverySchedule />} />
             <Route path='/settings' element={<AdminRoute><Settings /></AdminRoute>} />
-            <Route path='/settings/fiscal' element={<AdminRoute><Settings module="fiscal" /></AdminRoute>} />
-            <Route path='/settings/stock' element={<AdminRoute><Settings module="stock" /></AdminRoute>} />
-            <Route path='/settings/sales' element={<AdminRoute><Settings module="sales" /></AdminRoute>} />
-            <Route path='/settings/logistics' element={<AdminRoute><Settings module="logistics" /></AdminRoute>} />
+            <Route path='/settings/fiscal' element={<AdminRoute><Navigate to="/settings#fiscal" replace /></AdminRoute>} />
+            <Route path='/settings/stock' element={<AdminRoute><Navigate to="/settings#scanner" replace /></AdminRoute>} />
+            <Route path='/settings/sales' element={<AdminRoute><Navigate to="/settings#bandeiras" replace /></AdminRoute>} />
+            <Route path='/settings/logistics' element={<AdminRoute><Navigate to="/settings#logistica" replace /></AdminRoute>} />
             <Route path='/settings/supabase-monitor' element={<AdminRoute><SupabaseMonitorDashboard /></AdminRoute>} />
             <Route path='/api-usage' element={<AdminRoute><ApiUsagePage /></AdminRoute>} />
 

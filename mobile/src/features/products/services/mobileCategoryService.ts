@@ -30,11 +30,11 @@ export const saveMobileEnvironment = async (name: string, categoryIds: string[],
   if (!trimmed) return null;
   let environmentId = id;
   if (id) {
-    const { data, error } = await supabase.from('categories').update({ name: trimmed, type: 'environment', updated_at: new Date().toISOString() }).eq('id', id).select('*').single();
+    const { data, error } = await supabase.from('categories').update({ name: trimmed, type: 'environment' }).eq('id', id).select('*').single();
     if (error) throw error;
     environmentId = data.id;
   } else {
-    const { data, error } = await supabase.from('categories').insert([{ name: trimmed, type: 'environment', active: true }]).select('*').single();
+    const { data, error } = await supabase.from('categories').insert([{ name: trimmed, type: 'environment' }]).select('*').single();
     if (error) throw error;
     environmentId = data.id;
   }
@@ -182,7 +182,7 @@ export const saveMobileCategory = async (
   if (actualId) {
     const { data, error } = await supabase
       .from('categories')
-      .update({ name: trimmed, type: 'category', updated_at: new Date().toISOString() })
+      .update({ name: trimmed, type: 'category' })
       .eq('id', actualId)
       .select('*')
       .single();
@@ -191,7 +191,7 @@ export const saveMobileCategory = async (
   } else {
     const { data, error } = await supabase
       .from('categories')
-      .insert([{ name: trimmed, type: 'category', active: true, created_at: new Date().toISOString() }])
+      .insert([{ name: trimmed, type: 'category' }])
       .select('*')
       .single();
     if (error) throw error;
@@ -238,6 +238,10 @@ export const saveMobileCategory = async (
 };
 
 export const deleteMobileCategory = async (id: string): Promise<void> => {
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) {
+    throw new Error('Identificador de categoria inválido. Atualize a lista e tente novamente.');
+  }
+
   const [relationCheck, directCheck] = await Promise.all([
     supabase.from('product_categories').select('product_id', { count: 'exact', head: true }).eq('category_id', id),
     supabase.from('products').select('id', { count: 'exact', head: true }).eq('category_id', id),
@@ -264,4 +268,3 @@ export const deleteMobileCategory = async (id: string): Promise<void> => {
   const { error } = await supabase.from('categories').delete().eq('id', id);
   if (error) throw error;
 };
-

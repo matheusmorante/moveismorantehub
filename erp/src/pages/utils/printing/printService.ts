@@ -8,7 +8,7 @@ import {
     savePrintPresets, 
     fetchMachineConfig,
     saveMachineConfig,
-    sendDirectPrintJob,
+    sendDirectPrintJob, 
     sendDirectPrintTest 
 } from "./printAgentClient";
 import { executePrintFallback } from "./printFallbackHandler";
@@ -25,13 +25,18 @@ const generateJobId = (prefix: string): string => {
     return `job_${prefix}_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
 };
 
+interface PrintOptions {
+    printerName?: string;
+    autoFallback?: boolean;
+}
+
 /**
  * IMPRESSÃO DIRETA: Imprime o Recibo de Venda diretamente no Spooler do Windows via Print Agent.
- * ZERO abas, ZERO popups, ZERO window.print().
+ * Caso o agente local não esteja disponível ou ocorra falha, aciona automaticamente o fallback do navegador.
  */
 export const printReceipt = async (
     order: Order,
-    options?: { printerName?: string }
+    options?: PrintOptions
 ): Promise<PrintJobResult> => {
     if (!order.seller) {
         toast.error("Atendente obrigatório para imprimir recibo.");
@@ -43,12 +48,16 @@ export const printReceipt = async (
         return { success: false, status: 'error', message: 'Cliente não informado' };
     }
 
+    const autoFallback = options?.autoFallback ?? true;
     const toastId = toast.loading("Enviando para impressão...");
 
     try {
         const health = await checkPrintAgentHealth();
         if (!health.isOnline) {
             toast.dismiss(toastId);
+            if (autoFallback) {
+                return executePrintFallback('receipt', order);
+            }
             toast.error("Não foi possível imprimir diretamente. O agente de impressão local está desconectado.");
             return { success: false, status: 'error', message: 'Agente local de impressão offline' };
         }
@@ -73,11 +82,18 @@ export const printReceipt = async (
             return result;
         }
 
+        if (autoFallback) {
+            return executePrintFallback('receipt', order);
+        }
+
         toast.error(`Não foi possível imprimir diretamente: ${result.message || 'Erro no spooler'}`);
         return result;
     } catch (err: any) {
         toast.dismiss(toastId);
         console.error('[PrintService] Erro na impressão direta do recibo:', err);
+        if (autoFallback) {
+            return executePrintFallback('receipt', order);
+        }
         const isOffline = err.message?.includes('Failed to fetch') || err.name === 'AbortError';
         toast.error(isOffline ? "Não foi possível imprimir diretamente. O agente local está desconectado." : "Não foi possível imprimir diretamente.");
         return { success: false, status: 'error', message: err.message };
@@ -86,23 +102,27 @@ export const printReceipt = async (
 
 /**
  * IMPRESSÃO DIRETA: Imprime o Pedido de Venda diretamente no Spooler do Windows via Print Agent.
- * ZERO abas, ZERO popups, ZERO window.print().
+ * Caso o agente local não esteja disponível ou ocorra falha, aciona automaticamente o fallback do navegador.
  */
 export const printSalesOrder = async (
     order: Order,
-    options?: { printerName?: string }
+    options?: PrintOptions
 ): Promise<PrintJobResult> => {
     if (!order.seller) {
         toast.error("Atendente obrigatório para imprimir o pedido.");
         return { success: false, status: 'error', message: 'Atendente não informado' };
     }
 
+    const autoFallback = options?.autoFallback ?? true;
     const toastId = toast.loading("Enviando para impressão...");
 
     try {
         const health = await checkPrintAgentHealth();
         if (!health.isOnline) {
             toast.dismiss(toastId);
+            if (autoFallback) {
+                return executePrintFallback('sales_order', order);
+            }
             toast.error("Não foi possível imprimir diretamente. O agente de impressão local está desconectado.");
             return { success: false, status: 'error', message: 'Agente local de impressão offline' };
         }
@@ -127,11 +147,18 @@ export const printSalesOrder = async (
             return result;
         }
 
+        if (autoFallback) {
+            return executePrintFallback('sales_order', order);
+        }
+
         toast.error(`Não foi possível imprimir diretamente: ${result.message || 'Erro no spooler'}`);
         return result;
     } catch (err: any) {
         toast.dismiss(toastId);
         console.error('[PrintService] Erro na impressão direta do pedido:', err);
+        if (autoFallback) {
+            return executePrintFallback('sales_order', order);
+        }
         const isOffline = err.message?.includes('Failed to fetch') || err.name === 'AbortError';
         toast.error(isOffline ? "Não foi possível imprimir diretamente. O agente local está desconectado." : "Não foi possível imprimir diretamente.");
         return { success: false, status: 'error', message: err.message };
@@ -140,23 +167,27 @@ export const printSalesOrder = async (
 
 /**
  * IMPRESSÃO DIRETA: Imprime o DANFE oficial (NF-e ou NFC-e) diretamente via Print Agent.
- * ZERO abas, ZERO popups, ZERO window.print().
+ * Caso o agente local não esteja disponível ou ocorra falha, aciona automaticamente o fallback do navegador.
  */
 export const printDanfe = async (
     danfeData: DanfeData,
-    options?: { printerName?: string }
+    options?: PrintOptions
 ): Promise<PrintJobResult> => {
+    const autoFallback = options?.autoFallback ?? true;
     const toastId = toast.loading("Enviando para impressão...");
+    const html = buildDanfeHtml(danfeData);
 
     try {
         const health = await checkPrintAgentHealth();
         if (!health.isOnline) {
             toast.dismiss(toastId);
+            if (autoFallback) {
+                return executePrintFallback('danfe', danfeData.order, html);
+            }
             toast.error("Não foi possível imprimir diretamente. O agente de impressão local está desconectado.");
             return { success: false, status: 'error', message: 'Agente local de impressão offline' };
         }
 
-        const html = buildDanfeHtml(danfeData);
         const jobId = generateJobId('danfe');
         const targetPrinter = options?.printerName || getLocalSelectedPrinter() || undefined;
         const localQuality = getLocalDocumentQuality('danfe');
@@ -176,11 +207,18 @@ export const printDanfe = async (
             return result;
         }
 
+        if (autoFallback) {
+            return executePrintFallback('danfe', danfeData.order, html);
+        }
+
         toast.error(`Não foi possível imprimir diretamente: ${result.message || 'Erro no spooler'}`);
         return result;
     } catch (err: any) {
         toast.dismiss(toastId);
         console.error('[PrintService] Erro na impressão direta do DANFE:', err);
+        if (autoFallback) {
+            return executePrintFallback('danfe', danfeData.order, html);
+        }
         const isOffline = err.message?.includes('Failed to fetch') || err.name === 'AbortError';
         toast.error(isOffline ? "Não foi possível imprimir diretamente. O agente local está desconectado." : "Não foi possível imprimir diretamente.");
         return { success: false, status: 'error', message: err.message };

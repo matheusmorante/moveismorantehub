@@ -36,7 +36,6 @@ const menuItems: any[] = [
             { type: 'link', to: '/estoque/movimentacoes', icon: 'bi-arrow-left-right', iconColor: 'text-emerald-500', label: 'Movimentações' },
             { type: 'link', to: '/estoque/inventarios', icon: 'bi-journal-check', iconColor: 'text-emerald-600', label: 'Inventário' },
             { type: 'link', to: '/estoque/recebimentos', icon: 'bi-clipboard-check', iconColor: 'text-emerald-500', label: 'Recebimentos de Mercadorias', shortLabel: 'Recebimentos' },
-            { type: 'link', to: '/settings/stock', icon: 'bi-gear-fill', iconColor: 'text-slate-500', label: 'Configurações de Estoque' },
             { type: 'header', label: 'COMPRAS' },
             { type: 'link', to: '/estoque/pedidos-compra', icon: 'bi-cart-fill', iconColor: 'text-blue-500', label: 'Pedidos de Compra' },
             { type: 'link', to: '/estoque/fornecedores', icon: 'bi-truck', iconColor: 'text-amber-500', label: 'Fornecedores' },
@@ -64,7 +63,6 @@ const menuItems: any[] = [
         bg: 'bg-blue-50 dark:bg-blue-900/20',
         links: [
             { to: '/sales-order', icon: 'bi-receipt', iconColor: 'text-blue-500', label: 'Pedidos de Venda' },
-            { to: '/settings/sales', icon: 'bi-gear-fill', iconColor: 'text-slate-500', label: 'Configurações de Vendas' },
             { to: '/budgets', icon: 'bi-file-earmark-text-fill', iconColor: 'text-sky-500', label: 'Orçamentos' },
             { to: '/assistance-orders', icon: 'bi-tools', iconColor: 'text-orange-500', label: 'Assistências' },
             { to: '/returns', icon: 'bi-arrow-return-left', iconColor: 'text-rose-500', label: 'Devoluções' },
@@ -81,7 +79,6 @@ const menuItems: any[] = [
             { to: '/fiscal-documents', icon: 'bi-receipt', iconColor: 'text-emerald-500', label: 'Notas fiscais de saída (NF-e/NFC-e)' },
             { to: '/estoque/notas-fiscais-entrada', icon: 'bi-receipt-cutoff', iconColor: 'text-indigo-500', label: 'Notas de entrada' },
             { to: '/estoque/ncm', icon: 'bi-journal-text', iconColor: 'text-teal-600', label: 'NCM' },
-            { to: '/settings/fiscal', icon: 'bi-gear-fill', iconColor: 'text-slate-500', label: 'Configurações fiscais' },
         ]
     },
     {
@@ -94,7 +91,6 @@ const menuItems: any[] = [
             { to: '/delivery-schedule', icon: 'bi-calendar-check-fill', iconColor: 'text-cyan-500', label: 'Agenda' },
             { to: '/logistics/assembly-list', icon: 'bi-hammer', iconColor: 'text-amber-500', label: 'Lista de Montagem' },
             { to: '/sales-order/freight-calculation', icon: 'bi-calculator-fill', iconColor: 'text-teal-500', label: 'Cálculo de Frete' },
-            { to: '/settings/logistics', icon: 'bi-gear-fill', iconColor: 'text-slate-500', label: 'Configurações de Logística' },
         ]
     },
     {

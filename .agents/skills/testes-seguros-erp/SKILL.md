@@ -1,11 +1,22 @@
 ---
 name: testes-seguros-erp
-description: Planeje e execute testes seguros do ERP e App Mobile em alterações de regras de negócio, banco, estoque, vendas, recebimentos, devoluções, custos, relatórios ou integrações, sem tocar dados reais, com suporte a roadmap cíclico contínuo e ambientes sem Docker.
+description: Planeje e execute testes seguros do ERP e App Mobile em alterações de regras de negócio, banco, estoque, vendas, recebimentos, devoluções, custos, relatórios ou integrações, permitindo Supabase real somente com dados E2E próprios, rastreáveis e removidos por ID, com suporte a roadmap cíclico contínuo e ambientes sem Docker.
 ---
 
 # Testes Seguros do ERP & App Mobile
 
 Use esta skill sempre que a mudança puder alterar regras de negócio, persistência, interface ou efeitos entre módulos. Também utilize-a como guia mestre para executar e continuar o **Roadmap Cíclico de Testes Contínuos** do Morante Hub.
+
+## Quando aplicar esta Skill
+
+- Ao implementar, classificar, executar ou migrar testes unitários, de integração ou E2E do ERP/App Mobile.
+- Quando testes puderem acessar Supabase, autenticação, pedidos, produtos, variações, composição, estoque ou inventário.
+- Ao configurar Maestro e automação no Android físico via USB.
+
+## Quando NÃO aplicar
+
+- Para alterações de interface ou lógica sem impacto de teste, dados, persistência ou fluxo entre módulos.
+- Para tentar automatizar Android por emulador neste projeto: emuladores/AVDs são proibidos pela estratégia definida.
 
 ## Política incremental de validação
 
@@ -13,7 +24,7 @@ Ao alterar código, a própria alteração autoriza a validação mínima necess
 
 Para mudança apenas de texto ou CSS, faça somente as verificações mínimas aplicáveis; use validação visual apenas quando ela comprovar algo que as verificações automáticas não cobrem.
 
-Escale para integração ou Playwright/E2E apenas depois de as verificações focadas anteriores passarem e quando a natureza da mudança justificar. Integração é indicada para alterações em Supabase/PostgreSQL, RPC, Edge Functions, API, autenticação, permissões, persistência, sincronização ou contratos entre serviços. Playwright deve cobrir somente os fluxos de usuário afetados; navegador/computer use fica para problemas visuais ou de interação que não possam ser esclarecidos por validações automatizadas.
+Escale para integração ou E2E apenas depois de as verificações focadas anteriores passarem e quando a natureza da mudança justificar. Integração é indicada para alterações em Supabase/PostgreSQL, RPC, Edge Functions, API, autenticação, permissões, persistência, sincronização ou contratos entre serviços. Use Playwright para ERP React/Web e, complementarmente, Expo Web. Use Maestro para E2E Android nativo exclusivamente em aparelho físico ligado por USB e autorizado no ADB; não instale, configure, inicie ou use emulador/AVD. Viewport mobile no Playwright não o transforma em teste nativo. Navegador/computer use fica para problemas visuais ou de interação que não possam ser esclarecidos por validações automatizadas.
 
 Para replicação/sincronização ERP ↔ App Mobile, rode o teste unitário focado da fila, transformação ou serviço alterado. Se o contrato ou a persistência entre os dois lados mudar, acrescente integração isolada que verifique idempotência, estados de sync e autoridade do backend, sem usar dados reais. E2E só é necessário quando a mudança alcançar um fluxo de usuário que unitário e integração não cubram.
 
@@ -24,13 +35,16 @@ Se uma camada falhar, interrompa a escalada, investigue e corrija antes de pross
 ## 1. Regra de Ouro da Blindagem de Dados
 
 > [!CAUTION]
-> **NUNCA TOCAR DADOS REAIS DE PRODUÇÃO OU CLIENTES EXISTENTES.**
-> Teste regras reais com dados 100% isolados, reproduzíveis e descartáveis. Se for fazer adição, criação, edição ou remoção de qualquer dado no banco de dados, utilize **EXCLUSIVAMENTE DADOS DE TESTE** identificados com prefixo padronizado (`[TESTE_AUT]` ou `testRunId`).
+> **NUNCA ALTERAR OU EXCLUIR REGISTROS OPERACIONAIS EXISTENTES.**
+> Playwright pode usar o Supabase atualmente utilizado pelo sistema, inclusive o banco real, desde que crie, edite, valide e remova exclusivamente registros criados pela própria execução. Dados reais existentes nunca podem ser reutilizados como massa de teste.
 
-1. **Geração de `testRunId`**: Cada bateria gera um identificador único, ex: `TESTE_HUB_20260905_120000_F4A12`.
-2. **Campos Seguros**: O `testRunId` deve estar presente no nome do cliente (`Cliente Teste [TESTE_AUT]`), código de referência, SKU ou observações.
-3. **Limpeza Garantida (Teardown)**: Ao concluir cada teste ou suíte, execute a limpeza imediata de todos os registros contendo o `testRunId` em bloco `finally` ou hooks de pós-execução.
-4. **Ambiente Não-Produção**: Confirme que a execução ocorre em ambiente local, banco de testes ou staging isolado. Se não for possível garantir o isolamento, aborte qualquer operação que execute escrita ou mutação.
+1. **Geração de `testRunId`**: Cada bateria gera um identificador único, preferencialmente `E2E_<timestamp>_<uuid>`.
+2. **Identificação inequívoca**: O identificador deve aparecer no nome, SKU, código ou observação do registro. Use também metadata de origem somente quando o campo já existir ou fizer sentido arquiteturalmente; não altere o schema apenas para testes.
+3. **Registro de propriedade**: O harness deve guardar em memória os IDs criados pela execução e o tipo de cada registro. Todo helper de update/delete deve executar `assertOwnedByCurrentTest(record)` e falhar fechado se o ID não estiver registrado, se o `testRunId` não corresponder ou se houver qualquer dúvida.
+4. **Arrange / Act / Assert / Cleanup**: Crie todas as dependências da árvore do teste, execute o fluxo real, valide UI/persistência/relações após recarregar e remova apenas os IDs criados pela execução em `try/finally`, `afterEach` ou `afterAll`.
+5. **Ordem de limpeza**: Exclua filhos e relacionamentos antes dos pais, respeitando as foreign keys. Nunca use `DELETE` amplo, `LIKE 'E2E%'`, `truncate`, cascade não confirmado, reset de tabela ou cleanup global.
+6. **Supabase real**: A ausência de banco separado não bloqueia automaticamente Playwright. O banco atualmente usado pode ser alvo quando a execução puder provar propriedade, usar identificadores únicos e garantir teardown. Sem essa prova, não faça escrita.
+7. **Relatório obrigatório**: Registre `testRunId`, registros criados por tipo, quantidade removida, resíduos por falha de cleanup com IDs, aprovados, reprovados e a confirmação de que nenhum registro operacional real foi alterado.
 
 ---
 
@@ -39,8 +53,8 @@ Se uma camada falhar, interrompa a escalada, investigue e corrija antes de pross
 Docker não faz parte do fluxo de desenvolvimento ou validação deste projeto. Escolha a opção mais simples e segura para o escopo:
 
 1. **Teste focado**: prefira Vitest/Jest com mocks, fixtures e estado em memória para validar a unidade alterada.
-2. **Integração necessária**: use serviços locais já disponíveis sem Docker ou staging explicitamente isolado, com `testRunId`, dados descartáveis e limpeza garantida. Nunca aponte testes com escrita para produção.
-3. **Sem ambiente de integração seguro**: não improvise conexão com banco compartilhado; cubra o contrato com mocks/testes focados e registre a limitação.
+2. **Integração necessária**: use serviços locais já disponíveis sem Docker ou o Supabase atualmente utilizado, desde que a suíte crie dados próprios com `testRunId`, registre seus IDs, valide propriedade e faça limpeza garantida. O uso de banco real não autoriza tocar registros existentes.
+3. **Sem isolamento comprovável**: não faça escritas; cubra o contrato com mocks/testes focados e registre a limitação. “Banco real” sozinho não é motivo para bloquear, mas também não substitui a prova de propriedade.
 4. **Fluxo de usuário ou validação visual necessária**: depois dos testes focados passarem, use Playwright ou o navegador local já aberto somente para o fluxo afetado. Para o preview mobile, use endereço `localhost` (nunca LAN); em autenticação local, use a porta 80 ou 81, não a 82.
 5. **Escalonamento**: não rode Playwright, navegador ou integração por padrão. Faça isso somente se a mudança afetar comportamento, persistência, navegação ou apresentação que os testes focados não provem.
 
@@ -54,9 +68,12 @@ A suíte do Morante Hub engloba **todos os tipos possíveis de teste** para asse
 |---|---|---|
 | **Testes Unitários** | Funções puras, cálculos de CMPM, CMV, frete, descontos, transições de status, máscaras de moeda, formatação de endereço, slots de horário. | Vitest (`npm --prefix erp run test:unit`), Jest. Execução em memória sem dependências externas. |
 | **Testes de Integração** | Serviços de Venda, Estoque, Movimentações, Conciliação Financeira, APIs externas (Google Maps, SEFAZ schemas). | Vitest com serviços locais sem Docker ou staging isolado com `testRunId`; mocks quando não houver ambiente seguro. |
-| **Testes E2E / Interface / Visual** | Navegação, telas full screen, tabelas, cards responsivos (<1280px vs >=1280px), formulários, bottom sheets, modais. | Browser Subagent, Playwright, Chrome DevTools. Validação visual de renderização e fluxos de clique/input. |
+| **E2E ERP React/Web e Expo Web** | Navegação web, telas, tabelas, responsividade, formulários e modais no navegador. | Playwright; Chrome DevTools complementa diagnóstico, não substitui asserções funcionais. Viewport mobile ainda é navegador. |
+| **E2E React Native/Expo Android nativo** | Navegação, modais, teclado, botão voltar, lifecycle, offline/online, SQLite, permissões, câmera e persistência nativa. | Maestro em aparelho físico via USB/ADB somente. Não usar emulador/AVD. Migrar caso por caso; manter Playwright Web complementar e não remover o antigo antes da equivalência nativa executar e validar. |
 | **Testes de Tipagem & Contratos** | Conformidade TypeScript, integridade de propriedades herdadas, schemas tributários, eventos mobile. | `node mobile/node_modules/typescript/bin/tsc --noEmit`, `npm --prefix erp run typecheck`. |
 | **Testes Mobile Offline-First** | Registro de eventos operacionais, ciclo de 4 estados (`PENDING` → `SYNCING` → `CONFIRMED` / `REJECTED`), fila de sync e autoridade do backend. | Mocks de AsyncStorage/NetInfo, testes dos hooks de rotas e sincronização. |
+
+Nos E2E com backend real, tanto Playwright quanto Maestro seguem a regra de propriedade da seção 1: criar somente dados próprios e identificáveis, guardar IDs exatos, editar/excluir apenas esses IDs e limpar de forma restrita. Não use limpeza por prefixo/`LIKE` nem selecione registros operacionais existentes como massa mutável.
 
 ---
 
@@ -105,7 +122,7 @@ Os testes devem seguir rigorosamente a **ordem de criticidade do negócio**:
    Prefira testes focados com mocks/fixtures em memória. Para integração indispensável, use serviço local já disponível ou staging isolado com `testRunId`; sem isolamento comprovável, não faça escritas e registre a limitação.
 3. **Execução da Etapa Atual**:
    - Execute os testes correspondentes (unitários, integração, tipo ou interface).
-   - Se envolver persistência, gere `testRunId`, crie dados com `[TESTE_AUT]`, valide os resultados e faça o teardown completo.
+   - Se envolver persistência, gere `testRunId`, crie uma árvore exclusiva de dados, registre cada ID criado, valide a propriedade antes de qualquer update/delete e faça teardown completo em `finally`.
 4. **Registro de Resultados**:
    - Atualize `docs/ROTEIRO_TESTES_CICLICOS.md` com:
      - Status: `PASSOU`, `FALHOU` ou `AVISO`.
@@ -204,3 +221,8 @@ CAUSA RAIZ (qual regra, contrato, fluxo ou fonte da verdade originou a inconsist
 - **Testes de Regressão Obrigatórios**: Toda correção de bug deve ser acompanhada do teste automatizado específico que reproduza o cenário problemático antes da correção e comprove a estabilidade contínua após a correção.
 
 
+## Referências e Fonte Canônica de Documentação
+
+- [Maestro — instalação da CLI (Windows/macOS/Linux)](https://docs.maestro.dev/maestro-cli/how-to-install-maestro-cli)
+- [Maestro — QuickStart](https://docs.maestro.dev/get-started/quickstart)
+- [Playwright — projetos e emulação de dispositivos](https://playwright.dev/docs/emulation)

@@ -19,6 +19,7 @@ import {
   deleteMobileAttributeValue,
   MobileAttribute,
 } from '../services/mobileAttributeService';
+import { validateAttribute, validateAttributeOption } from '../categories/domain/categoryEnvironmentRules';
 
 interface Props {
   visible: boolean;
@@ -58,8 +59,16 @@ export const AttributesManagerModal: React.FC<Props> = ({ visible, dark, onClose
   }, [visible]);
 
   const handleAddAttr = async () => {
-    if (!newAttrName.trim()) return;
-    await saveMobileAttribute(newAttrName, undefined, { dataType: newDataType, unit: newUnit, isGloballyRequired: newRequired });
+    const validation = validateAttribute(newAttrName, attributes, undefined, newDataType);
+    if (!validation.valid) {
+      Alert.alert('Atenção', validation.error || 'Nome inválido.');
+      return;
+    }
+    await saveMobileAttribute(validation.formattedName!, undefined, {
+      dataType: newDataType,
+      unit: newUnit.trim(),
+      isGloballyRequired: newRequired,
+    });
     setNewAttrName('');
     setNewUnit('');
     setNewRequired(false);
@@ -81,8 +90,14 @@ export const AttributesManagerModal: React.FC<Props> = ({ visible, dark, onClose
   };
 
   const handleAddValue = async (attrId: string) => {
-    if (!newValText.trim()) return;
-    await addMobileAttributeValue(attrId, newValText);
+    const attr = attributes.find(a => a.id === attrId);
+    const existingOptions = (attr?.options || []).map(o => ({ id: o.id, value: o.value }));
+    const validation = validateAttributeOption(newValText, existingOptions);
+    if (!validation.valid) {
+      Alert.alert('Atenção', validation.error || 'Valor inválido.');
+      return;
+    }
+    await addMobileAttributeValue(attrId, validation.formattedName!);
     setNewValText('');
     load();
   };
@@ -93,9 +108,13 @@ export const AttributesManagerModal: React.FC<Props> = ({ visible, dark, onClose
   };
 
   const handleSaveEdit = async (id: string) => {
-    if (!editName.trim()) return;
+    const validation = validateAttribute(editName, attributes, id);
+    if (!validation.valid) {
+      Alert.alert('Atenção', validation.error || 'Nome inválido.');
+      return;
+    }
     const current = attributes.find(attribute => attribute.id === id);
-    await saveMobileAttribute(editName, id, {
+    await saveMobileAttribute(validation.formattedName!, id, {
       dataType: current?.dataType,
       unit: current?.unit,
       isGloballyRequired: current?.isGloballyRequired,

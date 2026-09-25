@@ -5,7 +5,8 @@ import { InventoryCard } from '../components/InventoryCard';
 import { useInventory } from '../hooks/useInventory';
 import { InventorySession } from '../../types/stock.types';
 import { InventoryAuditFlow } from './InventoryAuditFlow';
-import { InventoryDetailsModal } from '../components/InventoryDetailsModal';
+import { InventoryDetailsModal } from '../modals/InventoryDetailsModal';
+import { InventoryOptionsMenuModal } from '../modals/InventoryOptionsMenuModal';
 import {
   reverseInventorySession,
   unreverseInventorySession,
@@ -151,71 +152,6 @@ export const InventoryScreen: React.FC<Props> = ({ isDarkMode, userProfile, onBa
     );
   };
 
-  const renderOptionsModal = () => {
-    if (!selectedSession) return null;
-    const adjustmentsCount = selectedSession.adjustmentsCount || 0;
-    const reversedCount = selectedSession.reversedCount || 0;
-    const isInProgress = selectedSession.status === 'in_progress';
-    const canRevert = selectedSession.status === 'completed' && adjustmentsCount > 0 && reversedCount === 0;
-    const hasReverted = selectedSession.status === 'completed' && reversedCount > 0;
-
-    return (
-      <Modal visible={true} transparent animationType="fade" onRequestClose={() => setSelectedSession(null)}>
-        <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => setSelectedSession(null)}>
-          <View style={[styles.modalContent, isDarkMode && styles.modalContentDark]}>
-            <Text style={[styles.modalTitle, isDarkMode && styles.modalTitleDark]}>
-              Opções do Inventário #{selectedSession.inventoryCode || selectedSession.name?.replace('Inventário #', '') || selectedSession.id.split('-')[0]}
-            </Text>
-
-            {isInProgress ? (
-              <TouchableOpacity style={styles.modalOption} onPress={() => handleContinueInventory(selectedSession)}>
-                <Text style={[styles.modalOptionText, { color: '#059669' }]}>Continuar inventário</Text>
-              </TouchableOpacity>
-            ) : (
-              <TouchableOpacity
-                style={styles.modalOption}
-                onPress={() => {
-                  setSelectedSession(null);
-                  setTimeout(() => setViewDetailsSession(selectedSession), 300);
-                }}
-              >
-                <Text style={[styles.modalOptionText, isDarkMode && styles.modalOptionTextDark]}>Ver detalhes</Text>
-              </TouchableOpacity>
-            )}
-
-            <TouchableOpacity style={styles.modalOption} onPress={() => void handleDuplicateInventory(selectedSession)}>
-              <Text style={[styles.modalOptionText, isDarkMode && styles.modalOptionTextDark]}>Duplicar inventário</Text>
-            </TouchableOpacity>
-
-            {canRevert && (
-              <TouchableOpacity style={styles.modalOption} onPress={() => handleReverseInventory(selectedSession)}>
-                <Text style={styles.modalOptionTextDestructive}>Desfazer inventário</Text>
-              </TouchableOpacity>
-            )}
-
-            {hasReverted && (
-              <TouchableOpacity style={styles.modalOption} onPress={() => handleApplyAdjustments(selectedSession)}>
-                <Text style={[styles.modalOptionText, { color: '#059669' }]}>Aplicar ajuste</Text>
-              </TouchableOpacity>
-            )}
-
-            {isInProgress && (
-              <TouchableOpacity style={styles.modalOption} onPress={() => handleDeleteDraft(selectedSession)}>
-                <Text style={styles.modalOptionTextDestructive}>Excluir contagem</Text>
-              </TouchableOpacity>
-            )}
-
-            <View style={[styles.modalDivider, isDarkMode && styles.modalDividerDark]} />
-
-            <TouchableOpacity style={styles.modalOption} onPress={() => setSelectedSession(null)}>
-              <Text style={styles.modalOptionTextCancel}>Cancelar</Text>
-            </TouchableOpacity>
-          </View>
-        </TouchableOpacity>
-      </Modal>
-    );
-  };
-
   const PageHeader = () => (
     <View style={[styles.pageHeader, isDarkMode && styles.pageHeaderDark, { justifyContent: 'flex-end' }]}>
       <TouchableOpacity
@@ -284,7 +220,21 @@ export const InventoryScreen: React.FC<Props> = ({ isDarkMode, userProfile, onBa
             </>
         }
       />
-      {renderOptionsModal()}
+      <InventoryOptionsMenuModal
+        visible={Boolean(selectedSession)}
+        session={selectedSession}
+        isDarkMode={isDarkMode}
+        onClose={() => setSelectedSession(null)}
+        onContinue={handleContinueInventory}
+        onViewDetails={(s) => {
+          setSelectedSession(null);
+          setTimeout(() => setViewDetailsSession(s), 300);
+        }}
+        onDuplicate={(s) => void handleDuplicateInventory(s)}
+        onReverse={handleReverseInventory}
+        onApplyAdjustments={handleApplyAdjustments}
+        onDeleteDraft={handleDeleteDraft}
+      />
       {viewDetailsSession && (
         <InventoryDetailsModal
           session={viewDetailsSession}
@@ -312,16 +262,5 @@ const styles = StyleSheet.create({
   },
   startBtnText: { color: '#ffffff', fontWeight: '800', fontSize: 14 },
   cardContainer: { paddingHorizontal: 16, paddingTop: 12 },
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
-  modalContent: { backgroundColor: '#ffffff', borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 16, paddingBottom: 32 },
-  modalContentDark: { backgroundColor: '#1e293b' },
-  modalTitle: { fontSize: 14, fontWeight: '800', color: '#64748b', marginBottom: 16, textAlign: 'center' },
-  modalTitleDark: { color: '#94a3b8' },
-  modalOption: { paddingVertical: 16, alignItems: 'center' },
-  modalOptionText: { fontSize: 16, fontWeight: '700', color: '#0f172a' },
-  modalOptionTextDark: { color: '#f8fafc' },
-  modalOptionTextDestructive: { fontSize: 16, fontWeight: '700', color: '#ef4444' },
-  modalOptionTextCancel: { fontSize: 16, fontWeight: '700', color: '#3b82f6' },
-  modalDivider: { height: 1, backgroundColor: '#f1f5f9', marginVertical: 8 },
-  modalDividerDark: { backgroundColor: '#334155' },
 });
+

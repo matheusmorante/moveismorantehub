@@ -104,6 +104,8 @@ export const MobileEnvironmentsList: React.FC<Props> = ({
                   onPress={() => onEditEnvironment(env)}
                   style={[styles.iconButton, styles.editButton, dark && styles.editButtonDark]}
                   hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Editar ambiente ${env.name}`}
                 >
                   <Edit2 size={13} color="#2563eb" />
                 </TouchableOpacity>
@@ -117,6 +119,8 @@ export const MobileEnvironmentsList: React.FC<Props> = ({
                     !canDelete && styles.disabledButton,
                   ]}
                   hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Excluir ambiente ${env.name}`}
                 >
                   <Trash2 size={13} color={canDelete ? '#ef4444' : '#94a3b8'} />
                 </TouchableOpacity>

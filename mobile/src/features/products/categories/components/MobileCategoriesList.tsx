@@ -15,6 +15,7 @@ import {
   AlertTriangle,
 } from 'lucide-react-native';
 import { CategoryNode, EnvironmentNode, CategoryFilterType } from '../types/mobileCategory.types';
+import { filterCategories, getOrphanCategories } from '../domain/categoryEnvironmentRules';
 
 interface Props {
   dark: boolean;
@@ -39,23 +40,13 @@ export const MobileCategoriesList: React.FC<Props> = ({
 }) => {
   const counts = useMemo(() => {
     const total = categories.length;
-    const semAmbiente = categories.filter(c => !c.parents || c.parents.length === 0).length;
+    const semAmbiente = getOrphanCategories(categories).length;
     const comAmbiente = total - semAmbiente;
     return { total, comAmbiente, semAmbiente };
   }, [categories]);
 
   const filteredCategories = useMemo(() => {
-    return categories.filter(c => {
-      const hasEnv = c.parents && c.parents.length > 0;
-      if (filterType === 'com_ambiente' && !hasEnv) return false;
-      if (filterType === 'sem_ambiente' && hasEnv) return false;
-
-      if (searchTerm.trim()) {
-        const norm = searchTerm.toLowerCase();
-        return c.name.toLowerCase().includes(norm);
-      }
-      return true;
-    });
+    return filterCategories(categories, filterType, searchTerm);
   }, [categories, filterType, searchTerm]);
 
   return (
@@ -133,6 +124,8 @@ export const MobileCategoriesList: React.FC<Props> = ({
                   onPress={() => onEditCategory(cat)}
                   style={[styles.iconButton, styles.editButton, dark && styles.editButtonDark]}
                   hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Editar categoria ${cat.name}`}
                 >
                   <Edit2 size={13} color="#2563eb" />
                 </TouchableOpacity>
@@ -146,6 +139,8 @@ export const MobileCategoriesList: React.FC<Props> = ({
                     !canDelete && styles.disabledButton,
                   ]}
                   hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Excluir categoria ${cat.name}`}
                 >
                   <Trash2 size={13} color={canDelete ? '#ef4444' : '#94a3b8'} />
                 </TouchableOpacity>

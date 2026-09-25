@@ -392,7 +392,7 @@ export const LabelItem: React.FC<LabelItemProps> = ({ config, image, index, scal
 
     const renderModularElement = (el: any) => {
         if (el.isBarcode) {
-            const barcodeText = config.barcode || config.sku || config.code || '';
+            const barcodeText = config.barcode || config.sku || config.code || (config as any).variationId || (config as any).productId || '';
             if (!barcodeText) return null;
             
             if (config.category === 'identificacao') {
@@ -446,12 +446,12 @@ export const LabelItem: React.FC<LabelItemProps> = ({ config, image, index, scal
                             </div>
                             <div style={{ fontSize: '10px', color: '#64748b', fontWeight: 'bold', marginTop: '6px' }}>SKU</div>
                             <div style={{ fontSize: '12px', color: 'black', fontWeight: 'bold' }}>
-                                {config.sku || config.barcode || config.code || ''}
+                                {config.sku || config.barcode || config.code || (config as any).variationId || (config as any).productId || ''}
                             </div>
                         </div>
                         <div style={{ width: '36mm', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                             <div style={{ width: '30mm', height: '30mm', backgroundColor: 'white', padding: '2mm', boxSizing: 'border-box', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                <QRCodeCanvas text={uuid ? `MH:L:${uuid}|${config.sku || config.barcode || config.code || ''}` : (config.sku || config.barcode || config.code || '')} />
+                                <QRCodeCanvas text={uuid ? `MH:L:${uuid}|${config.sku || config.barcode || config.code || (config as any).variationId || (config as any).productId || ''}` : (config.sku || config.barcode || config.code || (config as any).variationId || (config as any).productId || '')} />
                             </div>
                         </div>
                     </div>

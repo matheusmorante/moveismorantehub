@@ -75,6 +75,9 @@ export const restoreInventorySession = async (
         systemStock: it.systemStock || 0,
         physicalCount: it.physicalCount !== undefined ? it.physicalCount : null,
         unit: it.unit || 'UN',
+        sku: it.sku || it.code || '',
+        code: it.code || '',
+        barcode: it.barcode || '',
     }));
 
     return {
@@ -113,6 +116,9 @@ export const duplicateInventorySession = async (
         systemStock: it.systemStock || 0,
         physicalCount: null, // Zerado para nova contagem
         unit: it.unit || 'UN',
+        sku: it.sku || it.code || '',
+        code: it.code || '',
+        barcode: it.barcode || '',
     }));
 
     return {

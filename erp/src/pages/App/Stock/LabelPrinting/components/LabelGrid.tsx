@@ -9,6 +9,8 @@ export interface LabelItemConfig {
     price: string;
     promoPrice?: string;
     sku?: string;
+    barcode?: string;
+    code?: string;
     quantity: number;
     image?: string;
     scale?: number;

@@ -128,6 +128,8 @@ export const useLabelQueue = ({ selectedCategory, config, printingMode }: UseLab
                         (product as any).promo_price ? formatCurrency((product as any).promo_price) : '',
             showPromoPrice: Boolean((product as any).promoPrice || (product as any).promo_price),
             sku: (product as any).sku || product.code || '',
+            barcode: (product as any).barcode || (product as any).ean || '',
+            code: product.code || '',
             quantity: Math.max(1, quantity),
             extraFields: config.extraFields ? JSON.parse(JSON.stringify(config.extraFields)) : [],
             opportunityId,

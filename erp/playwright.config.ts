@@ -1,10 +1,14 @@
+import 'dotenv/config';
 import { defineConfig, devices } from '@playwright/test';
 
-// Trava de segurança E2E: Impede execução de testes Playwright contra Supabase de produção
+// O projeto principal pode ser usado em E2E quando a suíte declara dados isolados.
 const supabaseUrl = process.env.VITE_SUPABASE_URL || '';
 const isProdSupabase = supabaseUrl.includes('wzpdfmihnwcrgkyagwkd') || supabaseUrl.includes('hkoxhourxwlddgsfdgws');
-if (isProdSupabase && process.env.VITE_APP_ENV !== 'local-test') {
-  throw new Error('E2E bloqueado: tentativa de executar testes contra Supabase de produção');
+if (isProdSupabase && process.env.E2E_ISOLATED_DATA !== '1') {
+  throw new Error(
+    'E2E exige E2E_ISOLATED_DATA=1 ao usar Supabase real, além de testRunId, ' +
+    'registro de IDs próprios e cleanup por ID.'
+  );
 }
 
 export default defineConfig({

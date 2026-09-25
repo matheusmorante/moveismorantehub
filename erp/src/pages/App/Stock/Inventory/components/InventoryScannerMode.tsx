@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import type { AuditItem } from "../modals/InventoryAuditModal";
 import { toast } from 'react-toastify';
 import { matchScannedProductItem, extractLabelIdentity } from '@/pages/utils/barcodeScannerUtils';
+import { supabase } from '@/pages/utils/supabaseConfig';
 
 interface InventoryScannerModeProps {
     readonly items: readonly AuditItem[];
@@ -25,12 +26,34 @@ export const InventoryScannerMode: React.FC<InventoryScannerModeProps> = ({
         }
     }, []);
 
-    const handleScannerSubmit = (e: React.FormEvent) => {
+    const handleScannerSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         const code = scannerInput.trim();
         if (!code) return;
 
-        const item = items.find((i) => matchScannedProductItem(i, code));
+        let item = items.find((i) => matchScannedProductItem(i, code));
+
+        if (!item) {
+            const { labelId } = extractLabelIdentity(code);
+            if (labelId) {
+                const { data: labelRecord } = await supabase
+                    .from('inventory_labels')
+                    .select('id, product_id, variation_id, sku, barcode')
+                    .eq('id', labelId)
+                    .maybeSingle();
+
+                if (labelRecord) {
+                    const normStr = (val?: string | null) => (val ? String(val).trim().toLowerCase() : '');
+                    item = items.find((i) => {
+                        if (labelRecord.variation_id && String(i.variationId) === String(labelRecord.variation_id)) return true;
+                        if (labelRecord.product_id && String(i.productId) === String(labelRecord.product_id) && (!labelRecord.variation_id || !i.variationId)) return true;
+                        if (labelRecord.sku && normStr(i.sku) === normStr(labelRecord.sku)) return true;
+                        if (labelRecord.barcode && normStr(i.barcode) === normStr(labelRecord.barcode)) return true;
+                        return false;
+                    });
+                }
+            }
+        }
 
         if (!item) {
             toast.warn(`Código "${code}" não corresponde a nenhum produto neste inventário.`);

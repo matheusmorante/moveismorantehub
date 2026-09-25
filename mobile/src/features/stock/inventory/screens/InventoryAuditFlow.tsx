@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, StyleSheet, ActivityIndicator } from 'react-native';
+import { View, StyleSheet, ActivityIndicator, Alert, Platform } from 'react-native';
 import { useInventoryAuditWorkflow } from '../hooks/useInventoryAuditWorkflow';
 import { InventoryScopeScreen } from './InventoryScopeScreen';
 import { InventoryOperationScreen } from './InventoryOperationScreen';
@@ -9,7 +9,6 @@ import type { SearchableProduct } from '../components/InventoryProductSearchModa
 import type { AuditItem } from '../hooks/useInventoryAuditWorkflow';
 
 import type { InventorySession } from '../../types/stock.types';
-import { Alert } from 'react-native';
 
 interface Props {
     isDarkMode: boolean;
@@ -73,6 +72,9 @@ export const InventoryAuditFlow: React.FC<Props> = ({ isDarkMode, userProfile, i
             systemStock: Number(product.stock ?? 0),
             unit: product.unit || 'UN',
             assignedSupplier: product.assignedSupplier || 'Sem fornecedor',
+            sku: product.sku || product.code || '',
+            code: product.code || '',
+            barcode: product.barcode || '',
         };
 
         if (searchTargetItemId) {

@@ -24,9 +24,7 @@ import PrintConfigSection from './components/PrintConfigSection';
 
 import { settingsCategories } from './components/settingsCategories';
 
-type SettingsModule = 'fiscal' | 'stock' | 'sales' | 'logistics';
-
-export default function Settings({ module }: { module?: SettingsModule }): any {
+export default function Settings(): any {
     const { theme, setTheme } = useTheme();
     const { isAdmin } = useAuth();
     const [settings, setSettings] = useState<AppSettings>(getSettings());
@@ -88,7 +86,7 @@ export default function Settings({ module }: { module?: SettingsModule }): any {
         if (!category) return false;
         
         // Se a categoria for exclusiva do sistema/admin e o usuário não for admin, oculta
-        if (category.group === 'system' && !isAdmin) {
+        if (category.group !== 'user' && !isAdmin) {
             return false;
         }
 
@@ -100,39 +98,8 @@ export default function Settings({ module }: { module?: SettingsModule }): any {
 
     const isAdminGroup = (id: string) => {
         const cat = settingsCategories.find(c => c.id === id);
-        return cat?.group === 'system';
+        return !!cat && cat.group !== 'user';
     };
-
-    if (module) {
-        const moduleTitles: Record<SettingsModule, { title: string; description: string }> = {
-            fiscal: { title: 'Configurações fiscais', description: 'Parâmetros fiscais padrão usados na emissão de NF-e e NFC-e.' },
-            stock: { title: 'Configurações de estoque', description: 'Ajustes do leitor usados nas operações de estoque.' },
-            sales: { title: 'Configurações de vendas', description: 'Bandeiras aceitas e taxas por parcela usadas no simulador de pagamento.' },
-            logistics: { title: 'Configurações de logística', description: 'Frete, mapas, manuseio e montagem da operação logística.' },
-        };
-        const page = moduleTitles[module];
-
-        return (
-            <div className="min-h-screen w-full max-w-4xl mx-auto px-2 sm:px-0">
-                <header className="mb-8 flex items-center gap-3">
-                    <div>
-                        <h1 className="text-2xl font-black tracking-tight text-slate-800 dark:text-slate-100">{page.title}</h1>
-                        <p className="mt-1 text-xs font-medium text-slate-400 dark:text-slate-500">{page.description}</p>
-                    </div>
-                    {isSaving && <span className="ml-auto flex items-center gap-2 rounded-full bg-blue-50 px-3 py-1 text-xs font-bold text-blue-500 dark:bg-blue-900/30"><i className="bi bi-cloud-arrow-up-fill" /> Salvando...</span>}
-                </header>
-                <div className="space-y-6">
-                    {module === 'fiscal' && <SettingsSection id="fiscal" title="Tributação padrão (NF-e/NFC-e)" icon="bi-file-earmark-spreadsheet-fill" isVisible isSearching={false} isAdminOnly><FiscalSettingsSection settings={settings} onChange={handleChange} /></SettingsSection>}
-                    {module === 'stock' && <SettingsSection id="scanner" title="Leitor de código de barras" icon="bi-qr-code-scan" isVisible isSearching={false} isAdminOnly><ScannerConfigSection settings={settings} onChange={handleChange} /></SettingsSection>}
-                    {module === 'sales' && <SettingsSection id="bandeiras" title="Bandeiras e juros de cartão" icon="bi-credit-card-2-front" isVisible isSearching={false} isAdminOnly><CardFlagSettings settings={settings} onChange={handleChange} /></SettingsSection>}
-                    {module === 'logistics' && <>
-                        <SettingsSection id="logistica" title="Frete e mapas" icon="bi-truck" isVisible isSearching={false} isAdminOnly><LogisticsSection settings={settings} onChange={handleChange} /></SettingsSection>
-                        <SettingsSection id="manuseio" title="Manuseio e montagem" icon="bi-hand-index-thumb" isVisible isSearching={false} isAdminOnly><HandlingSection settings={settings} onChange={handleChange} /></SettingsSection>
-                    </>}
-                </div>
-            </div>
-        );
-    }
 
     return (
         <div className="flex gap-8 relative min-h-screen">
@@ -176,6 +143,32 @@ export default function Settings({ module }: { module?: SettingsModule }): any {
 
                     <SettingsSection id="aparencia" title="Aparência" icon="bi-palette" isVisible={isVisible('aparencia')} isSearching={!!search.trim()} isAdminOnly={isAdminGroup('aparencia')}>
                         <AppearanceSection settings={settings} onChange={handleChange} />
+                    </SettingsSection>
+                </div>
+
+                <div className="bg-white dark:bg-slate-900/80 rounded-3xl border border-slate-200/80 dark:border-slate-800 p-6 shadow-xl shadow-slate-200/20 dark:shadow-none space-y-1">
+                    <div className="flex items-center justify-between px-3 mb-3">
+                        <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500">
+                            Operação
+                        </h3>
+                        <span className="bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300 px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-wider">
+                            ADMIN
+                        </span>
+                    </div>
+                    <SettingsSection id="scanner" title="Estoque · Leitor de código de barras" icon="bi-qr-code-scan" isVisible={isVisible('scanner')} isSearching={!!search.trim()} isAdminOnly={isAdminGroup('scanner')}>
+                        <ScannerConfigSection settings={settings} onChange={handleChange} />
+                    </SettingsSection>
+                    <SettingsSection id="fiscal" title="Fiscal · Tributação padrão (NF-e/NFC-e)" icon="bi-file-earmark-spreadsheet-fill" isVisible={isVisible('fiscal')} isSearching={!!search.trim()} isAdminOnly={isAdminGroup('fiscal')}>
+                        <FiscalSettingsSection settings={settings} onChange={handleChange} />
+                    </SettingsSection>
+                    <SettingsSection id="bandeiras" title="Vendas · Bandeiras e juros de cartão" icon="bi-credit-card-2-front" isVisible={isVisible('bandeiras')} isSearching={!!search.trim()} isAdminOnly={isAdminGroup('bandeiras')}>
+                        <CardFlagSettings settings={settings} onChange={handleChange} />
+                    </SettingsSection>
+                    <SettingsSection id="logistica" title="Logística · Frete e mapas" icon="bi-truck" isVisible={isVisible('logistica')} isSearching={!!search.trim()} isAdminOnly={isAdminGroup('logistica')}>
+                        <LogisticsSection settings={settings} onChange={handleChange} />
+                    </SettingsSection>
+                    <SettingsSection id="manuseio" title="Logística · Manuseio e montagem" icon="bi-hand-index-thumb" isVisible={isVisible('manuseio')} isSearching={!!search.trim()} isAdminOnly={isAdminGroup('manuseio')}>
+                        <HandlingSection settings={settings} onChange={handleChange} />
                     </SettingsSection>
                 </div>
 

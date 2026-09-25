@@ -8,23 +8,6 @@ const OrderPage = () => {
     const isBudget = queryParams.get('type') === 'budget' || order?.orderType === 'budget';
     const isSilent = queryParams.get('silent') === '1';
 
-    const allObs: string[] = [];
-    if (order?.observation) allObs.push(...splitNoticeTags(order.observation));
-    if (order?.shipping?.deliveryAddress?.observation) {
-        allObs.push(...splitNoticeTags(order.shipping.deliveryAddress.observation));
-    }
-    const tags = allObs.filter((t: string) => t.trim() !== "");
-
-    const addr = order?.customerData?.fullAddress || {};
-    const hasAnyAddress = !!(addr.street || addr.neighborhood || addr.city);
-    // Hide shipping data column if budget AND no address OR any shipping value/distance info
-    const showShippingColumn = !isBudget || 
-                               hasAnyAddress || 
-                               !!order.shipping?.distance || 
-                               (order.shipping?.value ?? 0) > 0;
-
-    const hasPayments = order?.payments && order.payments.length > 0;
-
     useEffect(() => {
         if (order && !isSilent) {
             const timer = setTimeout(() => window.print(), 500);
@@ -32,10 +15,23 @@ const OrderPage = () => {
         }
     }, [order, isSilent]);
 
-    if (!order) return null;
+    if (!order) {
+        return (
+            <div className="flex flex-col items-center justify-center min-h-screen p-10 text-center bg-white text-slate-800">
+                <i className="bi bi-exclamation-triangle-fill text-5xl text-amber-500 mb-4"></i>
+                <h1 className="text-2xl font-black italic">Nenhum pedido encontrado no armazenamento</h1>
+                <p className="text-slate-500 mt-2">Por favor, acesse através da lista de pedidos.</p>
+                <button
+                    onClick={() => window.close()}
+                    className="mt-6 px-6 py-3 bg-blue-600 text-white rounded-xl font-bold uppercase tracking-widest text-xs"
+                >
+                    Fechar Janela
+                </button>
+            </div>
+        );
+    }
 
     return <OrderPrintDocument order={order} isBudget={isBudget} />;
 };
 
 export default OrderPage;
-

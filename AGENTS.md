@@ -36,6 +36,13 @@
 - Git/PR: `caveman-commit`, `pr-triage`.
 - Identidade visual responsiva: `morante-responsive-logo-usage`.
 
+## Ferramentas de inspeção assistida
+
+- **Serena MCP:** no início de uma tarefa de código, consulte `initial_instructions` e confirme/ative o projeto/cwd atual. Prefira `get_symbols_overview`, `find_symbol` e `find_referencing_symbols` antes de abrir arquivos completos; leia somente as definições e consumidores necessários. Use busca textual quando o alvo não for símbolo ou Serena não estiver disponível. No contexto Codex, use as ferramentas nativas para editar/rodar comandos; Serena é prioritariamente navegação semântica.
+- **Chrome DevTools MCP:** para diagnóstico técnico do ERP no navegador, use Network/Console/Performance para confirmar requests, erros e comportamento real. Capture somente a interação/período relevante, não exporte ou exponha tokens, cookies, payloads pessoais ou dados sensíveis. Playwright continua sendo a ferramenta de automação funcional/E2E; DevTools complementa o diagnóstico, não o substitui.
+- **Roteamento de testes por plataforma:** Vitest para lógica e integração focada; Playwright para ERP React/Web e, como cobertura complementar, Expo Web; Maestro para E2E do React Native Android nativo exclusivamente em celular físico conectado por USB e autorizado no ADB. Neste ambiente, não instalar, configurar, iniciar ou usar emulador/AVD. Viewport mobile no Playwright continua sendo navegador, não E2E nativo. Migrar/remover um cenário só após equivalência executada e validada; preservar Playwright do ERP.
+- **Expo MCP:** em mudanças/replicações mobile, prefira validar o app em execução com `testID`, screenshot e interação real além dos testes focados. No projeto `mobile/`, use `expo-mcp` como dependência de desenvolvimento e inicie o Metro com `EXPO_UNSTABLE_MCP_SERVER=1` (PowerShell: `$env:EXPO_UNSTABLE_MCP_SERVER='1'; npm start`). As capacidades locais exigem SDK 54+ e o servidor Expo em execução; iOS Simulator exige host macOS. No Windows, faça um smoke test de descoberta do Android e screenshot antes de depender da automação: há relato aberto de falhas em Windows 11 + Git Bash + emulador. Expo MCP envia dados capturados localmente (por exemplo screenshots) pelo serviço MCP da Expo, então não o use para dados sensíveis sem avaliar a política de retenção aplicável.
+
 ## Acesso ao Supabase
 
 - Quando o acesso por CLI/token não estiver disponível, o usuário autorizou usar a sessão já autenticada do navegador para tarefas do Supabase solicitadas nesta conversa.

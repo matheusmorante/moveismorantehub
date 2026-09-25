@@ -14,6 +14,7 @@ import {
   ActiveViewType,
   CategoryFilterType,
 } from '../types/mobileCategory.types';
+import { getOrphanCategories } from '../domain/categoryEnvironmentRules';
 import { useCategoryFormModal } from './useCategoryFormModal';
 
 export function useMobileCategoriesAndEnvironments(onDataChanged?: () => void) {
@@ -138,7 +139,7 @@ export function useMobileCategoriesAndEnvironments(onDataChanged?: () => void) {
   const totalEnvironments = environments.length;
   const totalCategories = categories.length;
   const totalOrphans = useMemo(() => {
-    return categories.filter(c => !c.parents || c.parents.length === 0).length;
+    return getOrphanCategories(categories).length;
   }, [categories]);
 
   return {

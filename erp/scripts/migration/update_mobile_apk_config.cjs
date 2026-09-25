@@ -7,7 +7,7 @@ const client = new Client({
 async function run() {
     await client.connect();
 
-    const newApkUrl = 'https://expo.dev/artifacts/eas/VoGC59p8BCNpahUbSUGEQIpL0o14O9wj_5QYIFvcnqQ.apk';
+    const newApkUrl = 'https://drive.google.com/uc?export=download&id=1UfEAzpIbgAYA6hG-fx7w7Ja73uXEVE74';
     const newMinBuild = 19;
 
     console.log('--- ATUALIZANDO CONFIGURAÇÃO DE BUILD E APK NO SUPABASE ---');

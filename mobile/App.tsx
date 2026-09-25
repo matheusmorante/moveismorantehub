@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { View, SafeAreaView, StatusBar, ActivityIndicator, StyleSheet, Platform } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import * as WebBrowser from 'expo-web-browser';
+import './src/utils/alertPolyfill';
 
 import { AuthProvider, useAuth } from './src/contexts/AuthContext';
 import { NotificationProvider } from './src/contexts/NotificationContext';
@@ -22,7 +23,7 @@ const AppContent = () => {
   const mandatoryUpdate = useMandatoryAppUpdate();
 
   return (
-    <View style={{ flex: 1, backgroundColor: isDarkMode ? '#0f172a' : '#f8fafc' }}>
+    <View testID="app-root" style={{ flex: 1, backgroundColor: isDarkMode ? '#0f172a' : '#f8fafc' }}>
       <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} backgroundColor={isDarkMode ? '#0f172a' : '#f8fafc'} />
 
       {loadingProfile ? (

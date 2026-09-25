@@ -15,36 +15,39 @@ vi.mock('../../settingsService', () => ({
     saveSettings: vi.fn(),
 }));
 
-import { printSalesOrder, printReceipt, printDanfe, printConventional } from '../printService';
-import * as printAgentClient from '../printAgentClient';
-import * as printFallbackHandler from '../printFallbackHandler';
+vi.mock('react-toastify', () => ({
+    toast: {
+        loading: vi.fn().mockReturnValue('toast_1'),
+        dismiss: vi.fn(),
+        success: vi.fn(),
+        error: vi.fn(),
+        info: vi.fn(),
+        warn: vi.fn(),
+    }
+}));
+
 import Order from '@/pages/types/order.type';
 import { DanfeData } from '../../nfe/danfeGenerator';
+import * as printAgentClient from '../printAgentClient';
+import * as printFallbackHandler from '../printFallbackHandler';
+import { printSalesOrder, printReceipt, printDanfe, printConventional } from '../printService';
 
-describe('printService (ERP Windows Direct Print)', () => {
+describe('printService (ERP Windows Direct Print & Fallback)', () => {
     beforeEach(() => {
         vi.clearAllMocks();
-        // Blindagem estrita contra disparos de impressão física em testes (Skill: testes-seguros-erp)
-        vi.spyOn(printAgentClient, 'sendDirectPrintJob').mockResolvedValue({
-            success: true,
-            status: 'sent_to_spooler',
-            printer: 'EPSON L3250 Series'
-        });
-        vi.spyOn(printAgentClient, 'sendDirectPrintTest').mockResolvedValue({
-            success: true,
-            status: 'sent_to_spooler',
-            printer: 'EPSON L3250 Series'
-        });
     });
 
     const mockOrder: Order = {
         id: 'ord-123',
+        code: 101,
+        date: '2026-09-24T10:00:00Z',
+        orderType: 'sale',
+        status: 'pending',
         seller: 'Matheus Morante',
         customerData: {
-            fullName: 'Cliente de Teste',
-            cpfCnpj: '123.456.789-00',
-            phone: '44999999999',
-            fullAddress: { street: 'Rua das Flores', number: '123', city: 'Maringá' }
+            fullName: 'Carlos Eduardo',
+            phone: '41999998888',
+            cpfCnpj: '12345678900'
         },
         items: [
             { productId: 'p1', description: 'Sofá Retrátil 3 Lugares', quantity: 1, unitValue: 2500 } as any
@@ -65,14 +68,27 @@ describe('printService (ERP Windows Direct Print)', () => {
         expect(result.message).toContain('Atendente');
     });
 
-    it('deve rejeitar impressão direta e NÃO abrir popups se o agente local estiver offline', async () => {
+    it('deve acionar fallback automaticamente por padrão quando o agente local estiver offline', async () => {
+        vi.spyOn(printAgentClient, 'checkPrintAgentHealth').mockResolvedValue({ isOnline: false });
+        const fallbackSpy = vi.spyOn(printFallbackHandler, 'executePrintFallback').mockReturnValue({
+            success: true,
+            status: 'fallback_browser',
+            message: 'Aberto na janela de impressão do navegador'
+        });
+
+        const result = await printSalesOrder(mockOrder);
+        expect(fallbackSpy).toHaveBeenCalledWith('sales_order', mockOrder);
+        expect(result.success).toBe(true);
+        expect(result.status).toBe('fallback_browser');
+    });
+
+    it('deve respeitar autoFallback: false quando explicitamente configurado e não abrir abas', async () => {
         vi.spyOn(printAgentClient, 'checkPrintAgentHealth').mockResolvedValue({ isOnline: false });
         const fallbackSpy = vi.spyOn(printFallbackHandler, 'executePrintFallback');
 
-        const result = await printSalesOrder(mockOrder);
+        const result = await printSalesOrder(mockOrder, { autoFallback: false });
         expect(result.success).toBe(false);
         expect(result.status).toBe('error');
-        // Não deve disparar fallback automaticamente no fluxo direto
         expect(fallbackSpy).not.toHaveBeenCalled();
     });
 
@@ -83,19 +99,27 @@ describe('printService (ERP Windows Direct Print)', () => {
         expect(result.message).toContain('Cliente não informado');
     });
 
-    it('deve rejeitar impressão de recibo e NÃO abrir abas se o agente local estiver offline', async () => {
+    it('deve acionar fallback automaticamente no recibo quando o agente local estiver offline', async () => {
         vi.spyOn(printAgentClient, 'checkPrintAgentHealth').mockResolvedValue({ isOnline: false });
-        const fallbackSpy = vi.spyOn(printFallbackHandler, 'executePrintFallback');
+        const fallbackSpy = vi.spyOn(printFallbackHandler, 'executePrintFallback').mockReturnValue({
+            success: true,
+            status: 'fallback_browser',
+            message: 'Aberto na janela de impressão do navegador'
+        });
 
         const result = await printReceipt(mockOrder);
-        expect(result.success).toBe(false);
-        expect(result.status).toBe('error');
-        expect(fallbackSpy).not.toHaveBeenCalled();
+        expect(fallbackSpy).toHaveBeenCalledWith('receipt', mockOrder);
+        expect(result.success).toBe(true);
+        expect(result.status).toBe('fallback_browser');
     });
 
-    it('deve rejeitar impressão de DANFE e NÃO abrir abas se o agente local estiver offline', async () => {
+    it('deve acionar fallback automaticamente no DANFE quando o agente local estiver offline', async () => {
         vi.spyOn(printAgentClient, 'checkPrintAgentHealth').mockResolvedValue({ isOnline: false });
-        const fallbackSpy = vi.spyOn(printFallbackHandler, 'executePrintFallback');
+        const fallbackSpy = vi.spyOn(printFallbackHandler, 'executePrintFallback').mockReturnValue({
+            success: true,
+            status: 'fallback_browser',
+            message: 'Aberto na janela de impressão do navegador'
+        });
 
         const mockDanfeData: DanfeData = {
             order: mockOrder,
@@ -110,8 +134,9 @@ describe('printService (ERP Windows Direct Print)', () => {
         };
 
         const result = await printDanfe(mockDanfeData);
-        expect(result.success).toBe(false);
-        expect(fallbackSpy).not.toHaveBeenCalled();
+        expect(fallbackSpy).toHaveBeenCalledWith('danfe', mockOrder, expect.any(String));
+        expect(result.success).toBe(true);
+        expect(result.status).toBe('fallback_browser');
     });
 
     it('deve enviar para o agente local e retornar sent_to_spooler quando o agente responder com sucesso', async () => {

@@ -40,78 +40,69 @@ export const getNoticeFrequency = async (): Promise<Record<string, number>> => {
 
 /**
  * Busca todos os pedidos que contenham um determinado produto/variação.
- * Consulta prioritariamente a tabela normalizada order_items com fallback para o legado.
+ * Consulta exclusivamente a tabela normalizada order_items.
+ * O JSONB legado só pode ser usado pela migration de resgate, nunca nesta leitura.
  */
 export const getOrdersByProductId = async (productId: string, variationId?: string): Promise<Order[]> => {
     try {
         let orderIds: string[] = [];
 
-        // 1. Consulta prioritária na tabela normalizada order_items
+        // order_items é a única fonte operacional de vínculo entre pedido e produto.
         if (variationId) {
-            const { data: itemRows } = await supabase
+            const { data: itemRows, error } = await supabase
                 .from('order_items')
                 .select('order_id')
                 .eq('variation_id', String(variationId));
+            if (error) throw error;
             if (itemRows) {
                 orderIds = itemRows.map((r: any) => String(r.order_id));
             }
         } else if (productId) {
-            const { data: itemRows } = await supabase
+            const { data: itemRows, error } = await supabase
                 .from('order_items')
                 .select('order_id')
                 .eq('product_id', String(productId));
+            if (error) throw error;
             if (itemRows) {
                 orderIds = itemRows.map((r: any) => String(r.order_id));
             }
         }
 
-        // 2. Se encontrou pedidos via order_items, busca os pedidos diretamente
-        if (orderIds.length > 0) {
-            const uniqueIds = Array.from(new Set(orderIds));
-            const { data: ordersData, error } = await supabase
-                .from(TABLE_NAME)
-                .select('*')
-                .in('id', uniqueIds)
-                .eq('deleted', false)
-                .neq('order_type', 'budget')
-                .order('created_at', { ascending: false });
+        if (orderIds.length === 0) return [];
 
-            if (!error && ordersData && ordersData.length > 0) {
-                return ordersData.map((row: any) => mapOrderFromDatabase(row));
-            }
-        }
+        const uniqueIds = Array.from(new Set(orderIds));
+        const { data: ordersData, error } = await supabase
+            .from(TABLE_NAME)
+            .select(`
+                id, order_number, order_index, status, order_type,
+                customer_id, customer_name, customer_phone, customer_email,
+                seller_id, seller_name, total_amount, items_subtotal,
+                total_discount, total_cost, payment_method, channel, notes,
+                scheduled_date, scheduled_start_time, scheduled_end_time,
+                delivery_method, delivery_status, delivery_arrived_at,
+                delivery_started_at, delivery_finished_at, marketing_origin,
+                stock_processed, is_stock_checked, is_registered_in_bling,
+                deleted, deleted_at, return_order_id, linked_order_id,
+                returned_total_amount, original_sold_total, return_kind,
+                created_at, updated_at,
+                order_items (
+                    id, order_id, item_index, product_id, variation_id,
+                    code, description, quantity, unit_price, unit_discount,
+                    discount_type, cost_price, condition, handling_type,
+                    observation, is_temporary_product, item_snapshot
+                ),
+                order_payments (
+                    payment_index, payment_method, amount, fee, fee_type,
+                    status, installments, paid_at
+                )
+            `)
+            .in('id', uniqueIds)
+            .eq('deleted', false)
+            .neq('order_type', 'budget')
+            .order('created_at', { ascending: false });
 
-        // Fallback de segurança para assistências técnicas ou registros antigos
-        const queryPromises: any[] = [];
-        const baseQuery = () => supabase.from(TABLE_NAME).select('*').order('created_at', { ascending: false });
-
-        if (variationId) {
-            queryPromises.push(baseQuery().contains('order_data', { items: [{ variationId: String(variationId) }] }));
-            queryPromises.push(baseQuery().contains('order_data', { assistanceItems: [{ variationId: String(variationId) }] }));
-        } else if (productId) {
-            queryPromises.push(baseQuery().contains('order_data', { items: [{ productId: String(productId) }] }));
-            queryPromises.push(baseQuery().contains('order_data', { assistanceItems: [{ productId: String(productId) }] }));
-            queryPromises.push(baseQuery().contains('order_data', { assistanceItems: [{ id: String(productId) }] }));
-        }
-
-        if (queryPromises.length === 0) return [];
-
-        const results = await Promise.all(queryPromises);
-        const uniqueOrders = new Map<string, Order>();
-
-        results.forEach(res => {
-            if (res.data) {
-                res.data.forEach((row: any) => {
-                    const mapped = mapOrderFromDatabase(row);
-                    const isBudget = mapped.orderType === 'budget';
-                    if (!mapped.deleted && !isBudget && !uniqueOrders.has(mapped.id!)) {
-                        uniqueOrders.set(mapped.id!, mapped);
-                    }
-                });
-            }
-        });
-
-        return Array.from(uniqueOrders.values()).sort((a, b) => new Date(b.date || 0).getTime() - new Date(a.date || 0).getTime());
+        if (error) throw error;
+        return ordersData?.map((row: any) => mapOrderFromDatabase(row)) || [];
     } catch (error) {
         console.error("Erro ao buscar pedidos por produto:", error);
         return [];

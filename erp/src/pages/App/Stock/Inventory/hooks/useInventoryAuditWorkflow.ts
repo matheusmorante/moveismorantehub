@@ -49,6 +49,9 @@ export const useInventoryAuditWorkflow = (
                     systemStock: source.systemStock,
                     physicalCount: source.physicalCount,
                     unit: product?.unit || 'UN',
+                    sku: source.sku || (product as any)?.sku || product?.code || '',
+                    code: source.code || product?.code || '',
+                    barcode: source.barcode || (product as any)?.barcode || '',
                 } as AuditItem;
             });
 
