@@ -53,7 +53,7 @@ export const InventoryMoveEditModal: React.FC<InventoryMoveEditModalProps> = ({
 
       setType(initialType);
       setQuantity(String(Math.abs(Number(move.quantity || 0))));
-      const rawDate = move.created_at || (move as any).date;
+      const rawDate = move.created_at || move.date;
       setDate(rawDate ? new Date(rawDate).toISOString().slice(0, 10) : new Date().toISOString().slice(0, 10));
       setObservation(move.observation || move.label || '');
     }

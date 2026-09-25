@@ -230,10 +230,10 @@ const QRScannerModal: React.FC<QRScannerModalProps> = ({
     if (!isOpen) return null;
 
     return createPortal(
-        <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4 sm:p-6 overflow-hidden">
+        <div className="fixed inset-0 z-[10000000] flex items-center justify-center p-0 sm:p-6 overflow-hidden">
             <div className="absolute inset-0 bg-slate-950/95 backdrop-blur-md" onClick={handleClose} />
             
-            <div className="relative w-full max-w-lg bg-white dark:bg-slate-900 rounded-[2.5rem] shadow-2xl overflow-hidden animate-slide-up-custom border border-white/10">
+            <div className="relative w-full h-full sm:h-auto sm:max-h-[calc(100dvh-3rem)] max-w-lg bg-white dark:bg-slate-900 sm:rounded-[2.5rem] shadow-2xl overflow-y-auto animate-slide-up-custom border border-white/10">
                 <div className="px-6 pt-6 flex justify-between items-start">
                     <div>
                         <h3 className="text-xl font-black text-slate-800 dark:text-slate-100 uppercase italic tracking-tighter">{title}</h3>

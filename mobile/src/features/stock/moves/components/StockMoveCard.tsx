@@ -13,7 +13,7 @@ export const StockMoveCard = ({ move, isDarkMode, canManage, onReverse, onEdit }
     const isExit       = move.type === 'out' || move.type === 'exit' || move.type === 'withdrawal';
     const isReversed   = move.status === 'reversed';
     const isEffective  = move.status === 'effective' || move.status === 'active';
-    const isOrderLinked = checkIsOrderLinked(move as any);
+    const isOrderLinked = checkIsOrderLinked(move);
 
     let TypeIcon   = Scale;
     let typeText   = 'AJUSTE';
@@ -50,7 +50,9 @@ export const StockMoveCard = ({ move, isDarkMode, canManage, onReverse, onEdit }
         try {
             const p = JSON.parse(obsText);
             if (typeof (p.note || p.observation || p.reason) === 'string') obsText = p.note || p.observation || p.reason;
-        } catch { /* noop */ }
+        } catch {
+            obsText = move.observation || '';
+        }
     }
     const reasonText = move.reversalReason ||
         (isReversed && typeof move.observation === 'string' && !move.observation.startsWith('{') ? move.observation : '');

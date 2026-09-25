@@ -9,11 +9,12 @@ import {
 } from 'react-native';
 import { Search, X } from 'lucide-react-native';
 import { searchProducts } from '../../../../services/stockService';
+import type { StockProductSelection } from '../domain/stockMoveTypes';
 
 interface Props {
   isDarkMode: boolean;
   selectedProductName: string;
-  onSelectProduct: (product: any) => void;
+  onSelectProduct: (product: StockProductSelection) => void;
   onClearProduct: () => void;
 }
 
@@ -24,7 +25,7 @@ export const StockProductSearchFilter: React.FC<Props> = ({
   onClearProduct,
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
-  const [suggestions, setSuggestions] = useState<any[]>([]);
+  const [suggestions, setSuggestions] = useState<StockProductSelection[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [showSuggestions, setShowSuggestions] = useState(false);
 
@@ -50,7 +51,7 @@ export const StockProductSearchFilter: React.FC<Props> = ({
     return () => clearTimeout(timer);
   }, [searchQuery]);
 
-  const handleSelect = (item: any) => {
+  const handleSelect = (item: StockProductSelection) => {
     onSelectProduct(item);
     setSearchQuery('');
     setShowSuggestions(false);

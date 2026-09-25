@@ -2,11 +2,9 @@ import React, { useState } from 'react';
 import {
   View,
   Text,
-  StyleSheet,
   FlatList,
   TouchableOpacity,
   ActivityIndicator,
-  Alert,
 } from 'react-native';
 import {
   ChevronLeft,
@@ -15,10 +13,11 @@ import {
   ChevronDown,
 } from 'lucide-react-native';
 import { useStockMoves } from '../hooks/useStockMoves';
+import { useStockMoveActions } from '../hooks/useStockMoveActions';
+import { styles } from './stockMovesStyles';
+import type { StockProductSelection } from '../domain/stockMoveTypes';
 import { StockMove } from '../../types/stock.types';
 import { useAuth } from '../../../../contexts/AuthContext';
-import { reverseStockMove, updateStockMove } from '../../../../services/stock/stockMovesService';
-import { isOrderLinked } from '../domain/inventoryTimelineBalance';
 import {
   StockMoveCard,
   StockProductSearchFilter,
@@ -35,6 +34,11 @@ interface Props {
   onBack: () => void;
   renderHeader: () => React.ReactElement;
 }
+
+type StockMoveListItem =
+  | { type: 'MODULE_HEADER' | 'PAGE_HEADER' | 'EMPTY'; id: string }
+  | { type: 'ERROR'; id: string; message: string }
+  | { type: 'ITEM'; id: string; data: StockMove };
 
 export const StockMovesScreen: React.FC<Props> = ({ isDarkMode, onBack, renderHeader }) => {
   const {
@@ -53,11 +57,10 @@ export const StockMovesScreen: React.FC<Props> = ({ isDarkMode, onBack, renderHe
 
   const { canManageStock } = useAuth();
 
-  // Estados dos Modais
-  const [editingMove, setEditingMove] = useState<StockMove | null>(null);
-  const [savingEdit, setSavingEdit] = useState(false);
-  const [moveToDelete, setMoveToDelete] = useState<StockMove | null>(null);
-  const [isDeleting, setIsDeleting] = useState(false);
+  const {
+    editingMove, setEditingMove, savingEdit, moveToDelete, setMoveToDelete,
+    isDeleting, requestReverse, confirmReverse, saveEdit,
+  } = useStockMoveActions(() => goToPage(page));
 
   // Estados de Período
   const [showPeriodModal, setShowPeriodModal] = useState(false);
@@ -68,7 +71,7 @@ export const StockMovesScreen: React.FC<Props> = ({ isDarkMode, onBack, renderHe
   // Estado do Produto Selecionado
   const [selectedProductName, setSelectedProductName] = useState('');
 
-  const handleSelectProduct = (product: any) => {
+  const handleSelectProduct = (product: StockProductSelection) => {
     setProductId(product.id);
     setVariationId(product.variation_id);
     setSelectedProductName(product.variationName || product.name || 'Variação não identificada');
@@ -84,51 +87,6 @@ export const StockMovesScreen: React.FC<Props> = ({ isDarkMode, onBack, renderHe
     setCurrentStock(null);
   };
 
-  const handleRequestReverse = (move: StockMove) => {
-    if (isOrderLinked(move as any)) {
-      Alert.alert(
-        'Estorno bloqueado',
-        'Esta movimentação pertence a um pedido e seu estorno ocorre pelo status do pedido.'
-      );
-      return;
-    }
-    setMoveToDelete(move);
-  };
-
-  const handleConfirmReverse = async (reason: string) => {
-    if (!moveToDelete?.id) return;
-    setIsDeleting(true);
-    try {
-      await reverseStockMove(moveToDelete.id, reason);
-      Alert.alert('Sucesso', 'Movimentação estornada com sucesso.');
-      setMoveToDelete(null);
-      goToPage(page);
-    } catch (e) {
-      Alert.alert('Não foi possível estornar', e instanceof Error ? e.message : 'Tente novamente.');
-    } finally {
-      setIsDeleting(false);
-    }
-  };
-
-  const handleSaveEdit = async (updates: {
-    type: 'entry' | 'withdrawal' | 'balance';
-    quantity: number;
-    date: string;
-    observation: string;
-  }) => {
-    if (!editingMove) return;
-    setSavingEdit(true);
-    try {
-      await updateStockMove(editingMove.id, updates);
-      setEditingMove(null);
-      Alert.alert('Sucesso', 'Movimentação atualizada com sucesso.');
-      goToPage(page);
-    } catch (e) {
-      Alert.alert('Não foi possível salvar', e instanceof Error ? e.message : 'Tente novamente.');
-    } finally {
-      setSavingEdit(false);
-    }
-  };
 
   const PageHeader = () => (
     <View style={[styles.pageHeaderWrapper, isDarkMode && styles.pageHeaderWrapperDark]}>
@@ -162,13 +120,13 @@ export const StockMovesScreen: React.FC<Props> = ({ isDarkMode, onBack, renderHe
     </View>
   );
 
-  const data: any[] = [
+  const data: StockMoveListItem[] = [
     { type: 'MODULE_HEADER', id: 'MODULE_HEADER' },
     { type: 'PAGE_HEADER', id: 'PAGE_HEADER' },
-    ...(error ? [{ type: 'ERROR', id: 'ERROR', message: error }] : []),
-    ...(!error && !loading && moves.length === 0 ? [{ type: 'EMPTY', id: 'EMPTY' }] : []),
-    ...moves.map(m => ({ type: 'ITEM', id: m.id, data: m })),
   ];
+  if (error) data.push({ type: 'ERROR', id: 'ERROR', message: error });
+  if (!error && !loading && moves.length === 0) data.push({ type: 'EMPTY', id: 'EMPTY' });
+  data.push(...moves.map(move => ({ type: 'ITEM' as const, id: move.id, data: move })));
 
   return (
     <View style={[styles.container, isDarkMode && styles.containerDark]}>
@@ -197,14 +155,15 @@ export const StockMovesScreen: React.FC<Props> = ({ isDarkMode, onBack, renderHe
                 </Text>
               </View>
             );
+          if (item.type !== 'ITEM') return null;
           return (
             <View style={styles.cardContainer}>
               <StockMoveCard
-                move={item.data as StockMove}
+                move={item.data}
                 isDarkMode={isDarkMode}
                 canManage={canManageStock}
                 onEdit={setEditingMove}
-                onReverse={handleRequestReverse}
+                onReverse={requestReverse}
               />
             </View>
           );
@@ -294,7 +253,7 @@ export const StockMovesScreen: React.FC<Props> = ({ isDarkMode, onBack, renderHe
         isDarkMode={isDarkMode}
         isDeleting={isDeleting}
         onClose={() => !isDeleting && setMoveToDelete(null)}
-        onConfirm={handleConfirmReverse}
+        onConfirm={confirmReverse}
       />
 
       <InventoryMoveEditModal
@@ -303,89 +262,8 @@ export const StockMovesScreen: React.FC<Props> = ({ isDarkMode, onBack, renderHe
         isDarkMode={isDarkMode}
         isSaving={savingEdit}
         onClose={() => !savingEdit && setEditingMove(null)}
-        onSave={handleSaveEdit}
+        onSave={saveEdit}
       />
     </View>
   );
 };
-
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f8fafc' },
-  containerDark: { backgroundColor: '#0f172a' },
-  textDark: { color: '#f8fafc' },
-  textMutedDark: { color: '#94a3b8' },
-  cardContainer: { paddingHorizontal: 16, paddingTop: 10 },
-  pageHeaderWrapper: { backgroundColor: '#f8fafc', borderBottomWidth: 1, borderBottomColor: '#e2e8f0' },
-  pageHeaderWrapperDark: { backgroundColor: '#0f172a', borderBottomColor: '#1e293b' },
-  pageHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-  },
-  periodBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#ffffff',
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
-    borderRadius: 10,
-    paddingLeft: 12,
-    paddingRight: 8,
-    height: 38,
-    gap: 8,
-    flex: 1,
-  },
-  periodBtnDark: { backgroundColor: '#1e293b', borderColor: '#334155' },
-  periodBtnLeft: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  periodLabel: { fontSize: 12, fontWeight: '700', color: '#64748b' },
-  periodValueWrapper: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    backgroundColor: '#f1f5f9',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 6,
-    flex: 1,
-    justifyContent: 'flex-end',
-  },
-  periodValueWrapperDark: { backgroundColor: '#0f172a' },
-  periodValue: { fontSize: 12, fontWeight: '800', color: '#0f172a' },
-  filtersContainer: { paddingHorizontal: 16, paddingBottom: 14, gap: 10 },
-  paginationContainer: { paddingVertical: 20, alignItems: 'center', justifyContent: 'center' },
-  paginationContainerDark: { backgroundColor: '#0f172a' },
-  paginationRow: { flexDirection: 'row', alignItems: 'center', gap: 16 },
-  pageBtn: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    backgroundColor: '#ffffff',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 1,
-  },
-  pageBtnDark: { backgroundColor: '#1e293b', borderColor: '#334155' },
-  pageBtnDisabled: { opacity: 0.4, backgroundColor: '#f1f5f9' },
-  pageText: { fontSize: 13, fontWeight: '700', color: '#334155' },
-  emptyState: {
-    margin: 16,
-    padding: 24,
-    borderRadius: 16,
-    backgroundColor: '#fff7ed',
-    borderWidth: 1,
-    borderColor: '#fed7aa',
-  },
-  emptyStateDark: { backgroundColor: 'rgba(124,45,18,0.2)', borderColor: '#9a3412' },
-  errorTitle: { color: '#c2410c', fontSize: 14, fontWeight: '800', textAlign: 'center' },
-  errorMessage: { color: '#9a3412', fontSize: 12, marginTop: 6, textAlign: 'center' },
-  emptyTitle: { color: '#334155', fontSize: 14, fontWeight: '800', textAlign: 'center' },
-  emptyMessage: { color: '#64748b', fontSize: 12, marginTop: 6, textAlign: 'center' },
-});

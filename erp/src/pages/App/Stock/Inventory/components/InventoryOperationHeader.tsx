@@ -24,7 +24,7 @@ export const InventoryOperationHeader: React.FC<InventoryOperationHeaderProps> =
     return (
         <div className="sticky top-0 z-30 bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 p-4 shadow-sm">
             <div className="flex flex-col md:flex-row items-center justify-between gap-4 max-w-5xl mx-auto w-full">
-                <div className="flex items-center gap-4 w-full md:w-auto">
+                <div className="flex items-center gap-3 w-full md:w-auto">
                     <div className="hidden md:flex w-10 h-10 rounded-xl bg-emerald-100 dark:bg-emerald-900/40 text-emerald-600 dark:text-emerald-400 items-center justify-center shrink-0">
                         <i className="bi bi-clipboard-data text-xl"></i>
                     </div>
@@ -40,13 +40,22 @@ export const InventoryOperationHeader: React.FC<InventoryOperationHeaderProps> =
                             <div className="text-xs font-bold text-slate-400">{progressPercent}%</div>
                         </div>
                     </div>
+                    <button
+                        type="button"
+                        onClick={onOpenQrScanner}
+                        className="w-11 h-11 rounded-xl bg-blue-500 hover:bg-blue-600 text-white flex items-center justify-center shadow-lg shadow-blue-500/30 transition-transform active:scale-95 shrink-0 md:hidden"
+                        title="Iniciar escaneamento por QR Code"
+                        aria-label="Iniciar escaneamento por QR Code"
+                    >
+                        <i className="bi bi-qr-code-scan text-2xl" aria-hidden="true"></i>
+                    </button>
                 </div>
 
                 <div className="flex items-center gap-3 w-full md:w-auto">
                     <button
                         type="button"
                         onClick={onOpenQrScanner}
-                        className="w-12 h-12 rounded-full bg-emerald-500 hover:bg-emerald-600 text-white flex items-center justify-center shadow-lg shadow-emerald-500/30 transition-transform active:scale-95 shrink-0"
+                        className="hidden md:flex w-11 h-11 rounded-xl bg-blue-500 hover:bg-blue-600 text-white items-center justify-center shadow-lg shadow-blue-500/30 transition-transform active:scale-95 shrink-0"
                         title="Iniciar escaneamento por QR Code"
                         aria-label="Iniciar escaneamento por QR Code"
                     >

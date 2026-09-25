@@ -33,7 +33,7 @@ export const InventoryMoveDeleteModal: React.FC<InventoryMoveDeleteModalProps> =
 }) => {
   const [reason, setReason] = useState('');
 
-  const isPurchase = move ? isPurchaseEntry(move as any) : false;
+  const isPurchase = move ? isPurchaseEntry(move) : false;
 
   useEffect(() => {
     if (move && isOpen) {

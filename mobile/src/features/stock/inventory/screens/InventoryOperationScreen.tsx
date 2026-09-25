@@ -48,6 +48,7 @@ export const InventoryOperationScreen: React.FC<Props> = ({
     if (!activeStage) return [];
     return items.filter(item => (item.assignedSupplier || 'Sem fornecedor') === activeStage);
   }, [items, scopeType, activeStage]);
+  const scannerItems = scopeType === 'full' && activeStage ? activeItems : items;
 
   const { filter, setFilter, search, setSearch, filteredItems } = useInventoryOperation(activeItems);
 
@@ -59,7 +60,7 @@ export const InventoryOperationScreen: React.FC<Props> = ({
   const isShowingStages = scopeType === 'full' && !activeStage;
 
   const handleScan = async (data: string) => {
-    let item = items.find(i => matchScannedProductItem(i, data));
+    let item = scannerItems.find(i => matchScannedProductItem(i, data));
 
     // Se não encontrou pelo código direto e possui labelId ou UUID, tenta buscar no cadastro de etiquetas físicas
     if (!item) {
@@ -68,7 +69,7 @@ export const InventoryOperationScreen: React.FC<Props> = ({
         const labelRecord = await fetchInventoryLabelRecord(labelId);
         if (labelRecord) {
           const normStr = (val?: string | null) => (val ? String(val).trim().toLowerCase() : '');
-          item = items.find(i => {
+          item = scannerItems.find(i => {
             if (labelRecord.variation_id && String(i.variationId) === String(labelRecord.variation_id)) return true;
             if (labelRecord.product_id && String(i.productId) === String(labelRecord.product_id) && (!labelRecord.variation_id || !i.variationId)) return true;
             if (labelRecord.sku && normStr(i.sku) === normStr(labelRecord.sku)) return true;

@@ -35,23 +35,25 @@ export const useStockMoves = () => {
         );
 
         // Ignora marcadores de inventário com quantidade zero (idêntico ao ERP)
-        const rawRows = (data || []).filter((move: any) => !isInventoryAuditMarker(move));
+        const rawRows = data.filter(move => !isInventoryAuditMarker({
+          label: move.label || undefined,
+          quantity: move.quantity,
+        }));
 
-        const formattedData = rawRows.map((move: any) => {
+        const formattedData: StockMove[] = rawRows.map(move => {
           const metadata = parseObservationMetadata(move.observation);
           const cleanObservation = getCanonicalCleanObservation({
-            ...move,
-            label: move.label,
-            observation: move.observation,
-            relatedEntityType: move.related_entity_type || move.relatedEntityType,
-            relatedEntityId: move.related_entity_id || move.relatedEntityId,
+            label: move.label || undefined,
+            observation: move.observation || undefined,
+            relatedEntityType: move.related_entity_type || move.relatedEntityType || undefined,
+            relatedEntityId: move.related_entity_id || move.relatedEntityId || undefined,
           });
 
           return {
             id: move.id,
-            productId: move.product_id,
-            variationId: move.variation_id,
-            type: move.type || (move.quantity > 0 ? 'in' : 'out'),
+            productId: move.product_id || undefined,
+            variationId: move.variation_id || undefined,
+            type: toStockMoveType(move.type, move.quantity),
             quantity: Number(move.quantity || 0),
             productName:
               move.variation_name ||
@@ -72,15 +74,15 @@ export const useStockMoves = () => {
                 : move.type === 'withdrawal'
                 ? 'Saída'
                 : 'Movimentação'),
-            unitCost: move.unitCost || move.unit_cost,
-            unitPrice: move.unitPrice || move.unit_price,
+            unitCost: move.unitCost || move.unit_cost || undefined,
+            unitPrice: move.unitPrice || move.unit_price || undefined,
             status: move.status || metadata.status || 'effective',
-            reversedAt: move.reversedAt || move.reversed_at,
-            created_at: move.date || move.created_at,
+            reversedAt: move.reversedAt || move.reversed_at || undefined,
+            created_at: move.date || move.created_at || '',
             observation: cleanObservation,
             reversalReason: move.reversalReason || move.reversal_reason || metadata.reversalReason,
-            relatedEntityType: move.related_entity_type || move.relatedEntityType,
-            relatedEntityId: move.related_entity_id || move.relatedEntityId,
+            relatedEntityType: move.related_entity_type || move.relatedEntityType || undefined,
+            relatedEntityId: move.related_entity_id || move.relatedEntityId || undefined,
           };
         });
 
@@ -89,7 +91,7 @@ export const useStockMoves = () => {
         setTotalPages(Math.ceil(totalCount / stockService.ITEMS_PER_PAGE));
 
         if (pId) {
-          const timelineBal = calculateInventoryTimelineBalance(formattedData as any);
+          const timelineBal = calculateInventoryTimelineBalance(formattedData);
           if (timelineBal !== null) {
             setCurrentStock(timelineBal);
           }
@@ -149,13 +151,27 @@ export const useStockMoves = () => {
   };
 };
 
-const parseObservationMetadata = (observation: unknown): Record<string, any> => {
+const parseObservationMetadata = (observation: unknown): { status?: string; reversalReason?: string } => {
   if (typeof observation !== 'string' || !observation.trim().startsWith('{')) return {};
   try {
     const parsed = JSON.parse(observation);
-    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {};
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return {};
+    return {
+      status: typeof parsed.status === 'string' ? parsed.status : undefined,
+      reversalReason: typeof parsed.reversalReason === 'string' ? parsed.reversalReason : undefined,
+    };
   } catch {
     return {};
+  }
+};
+
+const toStockMoveType = (type: string, quantity: number): StockMove['type'] => {
+  switch (type) {
+    case 'in': case 'out': case 'entry': case 'exit':
+    case 'withdrawal': case 'adjustment': case 'balance':
+      return type;
+    default:
+      return quantity > 0 ? 'in' : 'out';
   }
 };
 

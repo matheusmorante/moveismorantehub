@@ -17,7 +17,13 @@ Este arquivo centraliza planos, ideias e tarefas pendentes do projeto Morante Hu
      - A página de impressão `/order` possuía variáveis soltas copiadas com chamadas a `splitNoticeTags(order.observation)` sem o devido import da função.
      - Caso o fallback convencional fosse acionado, a renderização da página crashava em runtime com `ReferenceError: splitNoticeTags is not defined`.
      - **Solução**: Código residual removido (a lógica já é tratada de forma encapsulada dentro de `OrderPrintDocument.tsx`), e adicionada tela defensiva amigável caso não haja pedido em `sessionStorage`.
-  3. **Validação e Testes**:
+  3. **Detecção e Inicialização do Agente de Impressão Direta (`desktop-print-agent`)**:
+     - O agente de impressão local não estava sendo detectado porque o processo Node.js na porta `40405` não havia sido iniciado no Windows.
+     - Criado script de execução em segundo plano sem janela CMD visível: [`desktop-print-agent/start-silent.vbs`](file:///c:/Users/Rosilene/Desktop/morantehub/desktop-print-agent/start-silent.vbs).
+     - Criado e instalado o atalho de inicialização automática no Windows: `%APPDATA%\Microsoft\Windows\Start Menu\Programs\Startup\MoranteHubPrintAgent.lnk`. Agora, toda vez que o Windows for ligado/reiniciado, o agente sobe em background automaticamente.
+     - Criados scripts de manutenção: [`install-startup.bat`](file:///c:/Users/Rosilene/Desktop/morantehub/desktop-print-agent/install-startup.bat) e [`stop-agent.bat`](file:///c:/Users/Rosilene/Desktop/morantehub/desktop-print-agent/stop-agent.bat).
+     - Confirmada detecção da impressora padrão da máquina (`EPSON L3250 Series` na porta `USB001`) via endpoint `http://127.0.0.1:40405/printers`.
+  4. **Validação e Testes**:
      - Criados/atualizados testes em `erp/src/pages/utils/printing/__tests__/printService.test.ts` validando o acionamento automático do fallback e a opção `autoFallback: false` explícita.
      - Todos os 18 testes da suíte de impressão (`printService`, `printStorage`, `physicalLabelUniqueness`) aprovados com 100% de sucesso.
 

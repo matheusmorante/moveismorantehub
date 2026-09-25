@@ -45,6 +45,7 @@ export const InventoryOperationScreen: React.FC<InventoryOperationScreenProps> =
         if (!activeStage) return [];
         return items.filter(item => (item.assignedSupplier || 'Sem fornecedor') === activeStage);
     }, [items, hasStages, activeStage]);
+    const scannerItems = hasStages && activeStage ? activeItems : items;
 
     const {
         filter,
@@ -60,7 +61,7 @@ export const InventoryOperationScreen: React.FC<InventoryOperationScreenProps> =
     const scannedLabelsRef = useRef<Set<string>>(new Set());
 
     const handleQrScan = (rawCode: string) => {
-        const item = items.find((candidate) => matchScannedProductItem(candidate, rawCode));
+        const item = scannerItems.find((candidate) => matchScannedProductItem(candidate, rawCode));
 
         if (!item) {
             toast.warn('O código lido não corresponde a nenhum produto neste inventário.');
@@ -89,10 +90,10 @@ export const InventoryOperationScreen: React.FC<InventoryOperationScreenProps> =
 
     return (
         <div className="flex flex-col h-full bg-slate-50 dark:bg-slate-900">
-            {!isShowingStages && (
+            {(
                 <InventoryOperationHeader
                     inventoryName={hasStages ? `${inventoryName} - ${activeStage}` : inventoryName}
-                    items={activeItems}
+                    items={scannerItems}
                     mode={mode}
                     setMode={setMode}
                     onOpenQrScanner={() => setIsQrScannerOpen(true)}
@@ -116,7 +117,7 @@ export const InventoryOperationScreen: React.FC<InventoryOperationScreenProps> =
                         </div>
                     )}
 
-                    {isShowingStages ? (
+                    {isShowingStages && mode === 'manual' ? (
                         <InventoryStagesView
                             items={items}
                             onSelectStage={(supplierName) => setActiveStage(supplierName)}
@@ -124,7 +125,7 @@ export const InventoryOperationScreen: React.FC<InventoryOperationScreenProps> =
                         />
                     ) : mode === 'scanner' ? (
                         <InventoryScannerMode
-                            items={activeItems}
+                            items={scannerItems}
                             onUpdateCount={onUpdateCount}
                             onSwitchToManual={() => setMode('manual')}
                         />

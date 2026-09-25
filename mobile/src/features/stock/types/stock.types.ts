@@ -83,6 +83,7 @@ export interface InventorySession {
 
 export interface StockMove {
     id: string;
+    date?: string;
     productId?: string;
     variationId?: string;
     productName?: string;
