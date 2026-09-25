@@ -28,7 +28,12 @@ export const DashboardHeader: React.FC<Props> = ({
 }) => {
   const [menuVisible, setMenuVisible] = useState(false);
   const insets = useSafeAreaInsets();
-  const menuTop = Math.max(insets.top, Platform.OS === 'android' ? (StatusBar.currentHeight || 24) : 0) + 62;
+  const topInset = Math.max(
+    insets.top,
+    Platform.OS === 'android' ? (StatusBar.currentHeight || 24) : 0
+  );
+  const totalHeaderHeight = 54 + topInset;
+  const menuTop = totalHeaderHeight + 8;
   const surface = isDarkMode ? '#1e293b' : '#ffffff';
   const text = isDarkMode ? '#f8fafc' : '#0f172a';
   const muted = isDarkMode ? '#94a3b8' : '#64748b';
@@ -42,8 +47,10 @@ export const DashboardHeader: React.FC<Props> = ({
 
   return (
     <>
+      <StatusBar barStyle="light-content" backgroundColor="#0b2b53" translucent />
       <View style={{
-        height: 54,
+        height: totalHeaderHeight,
+        paddingTop: topInset,
         paddingHorizontal: 16,
         flexDirection: 'row',
         alignItems: 'center',

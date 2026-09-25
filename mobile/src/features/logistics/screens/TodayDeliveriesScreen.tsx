@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, Alert } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, Alert, Platform, StatusBar } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Map, List, Sparkles, ArrowLeft, RefreshCw, AlertCircle } from 'lucide-react-native';
 import { useDeliveryRoute, DeliveryRouteItem, checkOutOfOrderRisk } from '../hooks/useDeliveryRoute';
@@ -28,6 +28,7 @@ export const TodayDeliveriesScreen: React.FC<Props> = ({
   onSelectOrder,
 }) => {
   const insets = useSafeAreaInsets();
+  const topInset = Math.max(insets.top, Platform.OS === 'android' ? (StatusBar.currentHeight || 24) : 12);
   const [viewMode, setViewMode] = useState<'map' | 'list'>('map');
   // Por padrão, nenhum card fica aberto na tela até que o motorista clique em um marcador
   const [selectedMarkerItem, setSelectedMarkerItem] = useState<DeliveryRouteItem | null>(null);
@@ -155,7 +156,7 @@ export const TodayDeliveriesScreen: React.FC<Props> = ({
   return (
     <View style={[styles.container, isDarkMode && styles.containerDark]}>
       {/* Barra de Topo */}
-      <View style={[styles.topBar, { paddingTop: Math.max(insets.top, 12) }, isDarkMode && styles.topBarDark]}>
+      <View style={[styles.topBar, { paddingTop: topInset }, isDarkMode && styles.topBarDark]}>
         <View style={styles.topRow}>
           {onBack && (
             <TouchableOpacity onPress={onBack} style={[styles.iconBtn, isDarkMode && styles.iconBtnDark]}>

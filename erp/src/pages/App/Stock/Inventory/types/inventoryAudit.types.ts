@@ -5,6 +5,9 @@ export interface InventorySnapshotItem {
     readonly systemStock: number;
     readonly physicalCount: number | null;
     readonly assignedSupplier?: string;
+    readonly sku?: string;
+    readonly code?: string;
+    readonly barcode?: string;
 }
 
 export interface InventoryAuditSession {
@@ -13,7 +16,6 @@ export interface InventoryAuditSession {
     readonly name?: string;
     readonly date: string;
     readonly status: 'in_progress' | 'completed';
-    readonly blindCount?: boolean;
     readonly hasStages?: boolean;
     readonly productsCount: number;
     readonly adjustmentsCount: number;
@@ -35,4 +37,7 @@ export interface AuditItem {
     systemStock: number;
     physicalCount: number | null;
     unit: string;
+    sku?: string;
+    code?: string;
+    barcode?: string;
 }

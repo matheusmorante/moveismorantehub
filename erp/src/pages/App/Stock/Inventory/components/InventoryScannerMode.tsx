@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import type { AuditItem } from "../modals/InventoryAuditModal";
+import { toast } from 'react-toastify';
+import { matchScannedProductItem, extractLabelIdentity } from '@/pages/utils/barcodeScannerUtils';
 
 interface InventoryScannerModeProps {
     readonly items: readonly AuditItem[];
@@ -15,6 +17,7 @@ export const InventoryScannerMode: React.FC<InventoryScannerModeProps> = ({
     const [scannerInput, setScannerInput] = useState('');
     const scannerInputRef = useRef<HTMLInputElement>(null);
     const [lastScanned, setLastScanned] = useState<{ item: AuditItem, timestamp: number } | null>(null);
+    const scannedLabelsRef = useRef<Set<string>>(new Set());
 
     useEffect(() => {
         if (scannerInputRef.current) {
@@ -27,19 +30,32 @@ export const InventoryScannerMode: React.FC<InventoryScannerModeProps> = ({
         const code = scannerInput.trim();
         if (!code) return;
 
-        const item = items.find(i => 
-            i.productId === code || 
-            i.variationId === code || 
-            i.name.toLowerCase().includes(code.toLowerCase())
-        );
+        const item = items.find((i) => matchScannedProductItem(i, code));
 
-        if (item) {
-            const currentCount = item.physicalCount === null ? 0 : item.physicalCount;
-            onUpdateCount(item.id, currentCount + 1);
-            setLastScanned({ item, timestamp: Date.now() });
-        } else {
-            // Error handling could be here
+        if (!item) {
+            toast.warn(`Código "${code}" não corresponde a nenhum produto neste inventário.`);
+            setScannerInput('');
+            return;
         }
+
+        const { labelId } = extractLabelIdentity(code);
+
+        // Bloqueio de duplicidade por unidade física individual (labelId)
+        if (labelId && scannedLabelsRef.current.has(labelId)) {
+            toast.warn(`Esta unidade física (${item.name}) já foi contabilizada neste inventário.`);
+            setScannerInput('');
+            return;
+        }
+
+        if (labelId) {
+            scannedLabelsRef.current.add(labelId);
+        }
+
+        const currentCount = item.physicalCount === null ? 0 : item.physicalCount;
+        const nextCount = currentCount + 1;
+        onUpdateCount(item.id, nextCount);
+        setLastScanned({ item, timestamp: Date.now() });
+        toast.success(`${item.name}: +1 (${nextCount} ${item.unit || 'UN'})`);
         setScannerInput('');
     };
 

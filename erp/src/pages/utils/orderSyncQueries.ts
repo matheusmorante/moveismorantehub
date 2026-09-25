@@ -234,7 +234,17 @@ export const fetchScheduledAndDraftOrders = async (): Promise<Order[]> => {
     try {
         const { data, error } = await supabase
             .from(TABLE_NAME)
-            .select('*, order_items(*), order_payments(*)')
+            .select(`
+                id, order_number, order_index, status, order_type, customer_id, customer_name,
+                seller_id, seller_name, total_amount, payment_method, channel, notes,
+                scheduled_date, scheduled_start_time, scheduled_end_time, delivery_method,
+                delivery_status, delivery_arrived_at, delivery_started_at, delivery_finished_at,
+                marketing_origin, items_subtotal, total_discount, total_cost, stock_processed,
+                is_stock_checked, is_registered_in_bling, deleted, deleted_at, return_order_id,
+                linked_order_id, returned_total_amount, original_sold_total, return_kind,
+                created_at, updated_at,
+                order_items(id, order_id, item_index, product_id, variation_id, code, description, quantity, unit_price, unit_discount, cost_price, handling_type, is_temporary_product)
+            `)
             .or('deleted.is.null,deleted.eq.false')
             .in('status', ['scheduled', 'draft'])
             .order('created_at', { ascending: false });
@@ -353,19 +363,102 @@ export const subscribeToOrders = (callback: OrdersSubscriber) => {
     };
 };
 
-/** Leitura completa para indicadores históricos; não altera a consulta resumida das demais telas. */
-export const fetchAllOrdersForDashboard = async (): Promise<Order[]> => {
+export interface DashboardOrdersDateRange {
+    start: Date;
+    end: Date;
+}
+
+const DASHBOARD_ORDERS_COLUMNS = `
+    id, order_number, order_index, status, order_type, customer_id, customer_name,
+    total_amount, marketing_origin, scheduled_date, delivery_method, delivery_status,
+    deleted, deleted_at, created_at, updated_at,
+    order_items(id, order_id, product_id, variation_id, description, quantity, unit_price, unit_discount, cost_price, handling_type, is_temporary_product)
+`;
+
+/** Fonte C: Busca leve de apenas 5 pedidos recentes para o card da interface */
+export const fetchRecentOrders = async (limit: number = 5): Promise<Order[]> => {
+    try {
+        const { data, error } = await supabase
+            .from(TABLE_NAME)
+            .select('id, order_number, order_index, status, order_type, customer_name, total_amount, created_at')
+            .in('status', ['scheduled', 'fulfilled'])
+            .or('deleted.is.null,deleted.eq.false')
+            .order('created_at', { ascending: false })
+            .limit(limit);
+
+        if (error) {
+            console.error('[OrdersSync] Erro ao buscar pedidos recentes:', error);
+            return [];
+        }
+
+        return (data || []).map(r => ({
+            id: String(r.id),
+            orderNumber: r.order_number != null ? Number(r.order_number) : undefined,
+            orderIndex: r.order_index != null ? Number(r.order_index) : undefined,
+            status: r.status,
+            orderType: r.order_type || 'sale',
+            customerData: { fullName: r.customer_name || '' } as any,
+            totalAmount: Number(r.total_amount || 0),
+            date: r.created_at,
+            deleted: false
+        } as Order));
+    } catch (err) {
+        console.error('[OrdersSync] Falha em fetchRecentOrders:', err);
+        return [];
+    }
+};
+
+/** Fonte B: Busca leve de até 50 pedidos para radar geográfico (sem order_items pesados) */
+export const fetchGeoMapOrders = async (limit: number = 50): Promise<Order[]> => {
+    try {
+        const { data, error } = await supabase
+            .from(TABLE_NAME)
+            .select('id, total_amount, status, order_type, customer_name, order_data')
+            .in('status', ['scheduled', 'fulfilled'])
+            .or('deleted.is.null,deleted.eq.false')
+            .order('created_at', { ascending: false })
+            .limit(limit);
+
+        if (error) {
+            console.error('[OrdersSync] Erro ao buscar pedidos do mapa:', error);
+            return [];
+        }
+
+        return (data || []).map(r => ({
+            id: String(r.id),
+            totalAmount: Number(r.total_amount || 0),
+            status: r.status,
+            orderType: r.order_type || 'sale',
+            customerData: r.order_data?.customerData || { fullName: r.customer_name || '' },
+            shipping: r.order_data?.shipping || {},
+            deleted: false
+        } as Order));
+    } catch (err) {
+        console.error('[OrdersSync] Falha em fetchGeoMapOrders:', err);
+        return [];
+    }
+};
+
+/** Fonte A: Leitura otimizada para indicadores e gráficos do dashboard por período */
+export const fetchAllOrdersForDashboard = async (range?: DashboardOrdersDateRange): Promise<Order[]> => {
     const pageSize = 1000;
     const rows: any[] = [];
     let from = 0;
 
     try {
         while (true) {
-            const { data, error } = await supabase
+            let query = supabase
                 .from(TABLE_NAME)
-                .select('*, order_items(*), order_payments(*)')
-                .order('created_at', { ascending: false })
-                .range(from, from + pageSize - 1);
+                .select(DASHBOARD_ORDERS_COLUMNS)
+                .order('created_at', { ascending: false });
+
+            if (range) {
+                query = query
+                    .gte('created_at', range.start.toISOString())
+                    .lte('created_at', range.end.toISOString());
+            }
+
+            const { data, error } = await query.range(from, from + pageSize - 1);
             if (error) throw error;
             const page = Array.isArray(data) ? data : [];
             rows.push(...page);
@@ -373,16 +466,62 @@ export const fetchAllOrdersForDashboard = async (): Promise<Order[]> => {
             from += pageSize;
         }
 
-        return await enrichOrdersWithPeopleOrigins(rows.filter(isValidOrderRow).map((row: any) => {
+        return rows.filter(isValidOrderRow).map((row: any) => {
             try {
                 return mapOrderFromDatabase(row);
             } catch (_e) {
                 return capitalizeOrder({ ...(row.order_data || {}), id: String(row.id) } as Order);
             }
-        }));
+        });
     } catch (error) {
-        console.error('[OrdersSync] Erro ao buscar histórico completo do dashboard:', error);
+        console.error('[OrdersSync] Erro ao buscar dados do dashboard:', error);
         return [];
+    }
+};
+
+export interface DashboardAggregatesResponse {
+    kpis: {
+        totalSales: number;
+        saleCount: number;
+        totalOrdersCount: number;
+        totalCmv: number;
+        totalProfit: number;
+        grossMargin: number;
+        avgTicket: number;
+        itemsWithoutCost: number;
+        cmvPartial: boolean;
+        paidTrafficSalesValue: number;
+        pendingOrders: number;
+        activeSchedules: number;
+    };
+    chart: Array<{ name: string; valor: number; lucro: number; orders: number }>;
+    topProducts: {
+        topByQuantity: any[];
+        topByRevenue: any[];
+        topByProfit: any[];
+    };
+}
+
+/** Fonte A Server-Side: RPC agregada com payload consolidado < 5 KB */
+export const fetchDashboardAggregates = async (
+    start: Date,
+    end: Date,
+    groupBy: 'hour' | 'day' | 'month' = 'month'
+): Promise<DashboardAggregatesResponse | null> => {
+    try {
+        const { data, error } = await supabase.rpc('get_dashboard_aggregates', {
+            p_start: start.toISOString(),
+            p_end: end.toISOString(),
+            p_group_by: groupBy
+        });
+        if (error) {
+            console.warn('[OrdersSync] Falha na RPC agregada, fallback ativado:', error);
+            return null;
+        }
+        return data as DashboardAggregatesResponse;
+    } catch (err) {
+        console.warn('[OrdersSync] Erro ao invocar RPC agregada:', err);
+        return null;
     }
 };
 

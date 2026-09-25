@@ -3,6 +3,8 @@ import { View, Text, StyleSheet, TouchableOpacity, TextInput, FlatList, Activity
 import { X, Search } from 'lucide-react-native';
 import { supabase } from '../../../../services/supabaseClient';
 
+import { clearInventoryScopeCache, fetchInventoryScopeSuppliers, fetchInventoryScopeProducts } from '../../../../services/stockService';
+
 export interface SearchableProduct {
     id: string;
     variation_id?: string;
@@ -12,6 +14,10 @@ export interface SearchableProduct {
     stock: number;
     unit?: string;
     main_supplier_id?: string;
+    supplier_id?: string;
+    supplier_ids?: string[];
+    supplierNames?: string;
+    assignedSupplier?: string;
 }
 
 interface Props {
@@ -35,37 +41,48 @@ export const InventoryProductSearchModal: React.FC<Props> = ({ isDarkMode, visib
     useEffect(() => {
         if (!visible) return;
         setLoading(true);
-        supabase
-            .from('products')
-            .select('id, name, description, stock, unit, main_supplier_id, supplier_id, supplier_ids, sku')
-            .eq('deleted', false)
-            .eq('active', true)
-            .order('name')
-            .then(async ({ data }) => {
-                if (data) {
-                    const productIds = data.map(product => product.id);
-                    const { data: variations } = productIds.length
-                        ? await supabase.from('product_variations').select('id, product_id, name, sku, stock').in('product_id', productIds)
-                        : { data: [] };
-                    const variationsByProduct = new Map<string, typeof variations>();
-                    for (const variation of variations || []) {
-                        const key = String(variation.product_id);
-                        variationsByProduct.set(key, [...(variationsByProduct.get(key) || []), variation]);
-                    }
-                    setProducts(data.flatMap(product => {
-                        const productVariations = variationsByProduct.get(String(product.id)) || [];
-                        if (!productVariations.length) return [product as SearchableProduct];
-                        return productVariations.map(variation => ({
-                            ...product,
-                            variation_id: String(variation.id),
-                            name: variation.name || product.name || product.description,
-                            sku: variation.sku || product.sku,
-                            stock: variation.stock ?? 0,
-                        } as SearchableProduct));
-                    }));
+
+        Promise.all([
+            fetchInventoryScopeSuppliers().catch(() => []),
+            fetchInventoryScopeProducts('full').catch(() => []),
+        ]).then(([supplierData, scopeProducts]) => {
+            const suppliersList = (supplierData || []) as Array<{ id: string | number; full_name?: string }>;
+            const suppliersMap = new Map<string, string>();
+            for (const s of suppliersList) {
+                if (s.id && s.full_name) {
+                    suppliersMap.set(String(s.id), s.full_name);
                 }
-                setLoading(false);
+            }
+
+            const resolveSuppliers = (p: any) => {
+                const ids = [...new Set([p.main_supplier_id, p.supplier_id, ...(p.supplier_ids || [])].filter(Boolean).map(String))];
+                const names = ids.map(id => suppliersMap.get(id)).filter(Boolean);
+                const supplierNames = names.join(' / ') || 'Fábrica não informada';
+                const assignedSupplier = names[0] || 'Sem fornecedor';
+                return { supplierNames, assignedSupplier };
+            };
+
+            const mapped = (scopeProducts || []).map((product: any) => {
+                const { supplierNames, assignedSupplier } = resolveSuppliers(product);
+                return {
+                    id: String(product.id),
+                    variation_id: product.variation_id ? String(product.variation_id) : undefined,
+                    name: product.name || product.description || 'Produto',
+                    description: product.description,
+                    sku: product.sku,
+                    stock: product.stock ?? 0,
+                    unit: product.unit || 'UN',
+                    supplierNames,
+                    assignedSupplier,
+                } as SearchableProduct;
             });
+
+            setProducts(mapped);
+            setLoading(false);
+        }).catch((err) => {
+            console.error('Erro ao buscar catálogo de produtos para escopo:', err);
+            setLoading(false);
+        });
     }, [visible]);
 
     const filtered = search.length < 2
@@ -99,11 +116,12 @@ export const InventoryProductSearchModal: React.FC<Props> = ({ isDarkMode, visib
                     <View style={[styles.searchBox, { backgroundColor: bg, borderColor: border }]}>
                         <Search size={18} color={muted} />
                         <TextInput
+                            testID="search-product-input"
                             style={[styles.searchInput, { color: textPrimary }]}
                             autoFocus
                             value={search}
                             onChangeText={setSearch}
-                            placeholder="Nome, código..."
+                            placeholder="Nome, SKU, código..."
                             placeholderTextColor={muted}
                         />
                         {search.length > 0 && (
@@ -122,7 +140,7 @@ export const InventoryProductSearchModal: React.FC<Props> = ({ isDarkMode, visib
                 ) : (
                     <FlatList
                         data={filtered}
-                        keyExtractor={item => String(item.id)}
+                        keyExtractor={item => item.variation_id ? `${item.id}-${item.variation_id}` : String(item.id)}
                         contentContainerStyle={styles.listContent}
                         ListEmptyComponent={
                             <View style={styles.centered}>
@@ -133,6 +151,7 @@ export const InventoryProductSearchModal: React.FC<Props> = ({ isDarkMode, visib
                         }
                         renderItem={({ item }) => (
                             <TouchableOpacity
+                                testID="product-search-item"
                                 style={[styles.productItem, { backgroundColor: surface, borderColor: border }]}
                                 onPress={() => handleSelect(item)}
                             >
@@ -141,6 +160,7 @@ export const InventoryProductSearchModal: React.FC<Props> = ({ isDarkMode, visib
                                         {item.name || item.description || 'Produto'}
                                     </Text>
                                     <Text style={[styles.productStock, { color: muted }]}>
+                                        {item.supplierNames && item.supplierNames !== 'Fábrica não informada' ? `${item.supplierNames} · ` : ''}
                                         {item.sku ? `SKU: ${item.sku} · ` : ''}Estoque: {item.stock ?? 0} {item.unit || 'UN'}
                                     </Text>
                                 </View>

@@ -9,8 +9,6 @@ interface InventoryScopeConfigFormProps {
     readonly scopeType: InventoryScopeType | null;
     readonly inventoryName: string;
     readonly setInventoryName: (val: string) => void;
-    readonly blindCount: boolean;
-    readonly setBlindCount: (val: boolean) => void;
     readonly selectedSupplierId: string;
     readonly setSelectedSupplierId: (val: string) => void;
     readonly selectedResponsibleId: string;
@@ -25,8 +23,6 @@ export const InventoryScopeConfigForm: React.FC<InventoryScopeConfigFormProps> =
     scopeType,
     inventoryName,
     setInventoryName,
-    blindCount,
-    setBlindCount,
     selectedSupplierId,
     setSelectedSupplierId,
     selectedResponsibleId,

@@ -49,13 +49,9 @@ export const InventoryStagesView: React.FC<Props> = ({ items, isDarkMode, onSele
             return stage;
         });
 
-        // Keep products without a supplier countable in their own stage.
-        const filteredStagesArray = stagesArray;
-        filteredStagesArray.sort((a, b) => {
-            if (a.supplierName === 'Sem fornecedor') return 1;
-            if (b.supplierName === 'Sem fornecedor') return -1;
-            return a.supplierName.localeCompare(b.supplierName);
-        });
+        // Produtos sem fornecedor não aparecem como etapa (igual ao ERP).
+        const filteredStagesArray = stagesArray.filter(stage => stage.supplierName !== 'Sem fornecedor');
+        filteredStagesArray.sort((a, b) => a.supplierName.localeCompare(b.supplierName));
         
         const progress = total > 0 ? Math.round((counted / total) * 100) : 0;
         
@@ -80,7 +76,7 @@ export const InventoryStagesView: React.FC<Props> = ({ items, isDarkMode, onSele
                 </View>
             </View>
 
-            <Text style={[styles.sectionTitle, { color: textPrimary }]}>Etapas por Fornecedor</Text>
+            <Text style={[styles.sectionTitle, { color: textPrimary }]}>Etapas por Fornecedor ({stages.length})</Text>
 
             {/* Stages List */}
             <View style={styles.stagesList}>
@@ -92,6 +88,7 @@ export const InventoryStagesView: React.FC<Props> = ({ items, isDarkMode, onSele
                     return (
                         <TouchableOpacity
                             key={stage.supplierName}
+                            testID="stage-card"
                             style={[
                                 styles.stageCard, 
                                 { backgroundColor: surface, borderColor: isCompleted ? '#10b981' : isInProgress ? '#3b82f6' : border }

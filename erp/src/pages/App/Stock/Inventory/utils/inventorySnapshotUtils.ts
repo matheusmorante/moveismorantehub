@@ -10,7 +10,6 @@ export const readSnapshot = (move: InventoryMove) => {
                 status: (data.status || 'completed') as 'in_progress' | 'completed',
                 inventoryCode: (data.inventoryCode || move.label?.replace('Inventário #', '') || '') as string,
                 name: data.name as string | undefined,
-                blindCount: data.blindCount as boolean | undefined,
                 hasStages: data.hasStages as boolean | undefined,
                 responsibleId: data.responsibleId as string | undefined,
                 responsibleName: data.responsibleName as string | undefined,

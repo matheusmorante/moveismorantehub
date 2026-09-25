@@ -1,7 +1,7 @@
 import { Platform, Alert } from 'react-native';
 import { isRunningInExpoGo } from 'expo';
 import * as Notifications from 'expo-notifications';
-import { Audio } from 'expo-av';
+import { createAudioPlayer, setAudioModeAsync, type AudioPlayer } from 'expo-audio';
 import { supabase, NOTIFICATION_SOUND_URL } from './supabaseClient';
 import { GENERAL_NOTIFICATION_CHANNEL, isNewScheduledOrderNotification, isOrderCancelledNotification, isOrderUpdatedNotification, ORDER_CANCELLED_CHANNEL, ORDER_UPDATED_CHANNEL, SCHEDULED_ORDER_CHANNEL } from '../utils/notificationSoundRouting';
 
@@ -28,35 +28,27 @@ export const getLastPushTokenRegistrationError = () => lastPushTokenRegistration
 export const playNotificationSound = async (soundAsset = LOCAL_NOTIFICATION_SOUND) => {
   try {
     // Configura o modo de áudio do sistema para tocar sobre outras mídias
-    await Audio.setAudioModeAsync({
-      playsInSilentModeIOS: true,
-      staysActiveInBackground: false,
-      shouldDuckAndroid: true,
-      playThroughEarpieceAndroid: false,
+    await setAudioModeAsync({
+      playsInSilentMode: true,
+      interruptionMode: 'duckOthers',
+      shouldRouteThroughEarpiece: false,
     }).catch(() => {});
 
-    let soundInstance: Audio.Sound | null = null;
+    let soundInstance: AudioPlayer | null = null;
     try {
-      const { sound } = await Audio.Sound.createAsync(
-        soundAsset,
-        { shouldPlay: true, volume: 1.0 }
-      );
-      soundInstance = sound;
+      soundInstance = createAudioPlayer(soundAsset);
     } catch {
-      const { sound } = await Audio.Sound.createAsync(
-        { uri: NOTIFICATION_SOUND_URL },
-        { shouldPlay: true, volume: 1.0 }
-      );
-      soundInstance = sound;
+      soundInstance = createAudioPlayer({ uri: NOTIFICATION_SOUND_URL });
     }
 
     if (soundInstance) {
-      soundInstance.setOnPlaybackStatusUpdate((status) => {
+      soundInstance.volume = 1.0;
+      soundInstance.addListener('playbackStatusUpdate', (status) => {
         if (status.isLoaded && status.didJustFinish) {
-          soundInstance?.unloadAsync().catch(() => {});
+          soundInstance?.release();
         }
       });
-      await soundInstance.playAsync().catch(() => {});
+      soundInstance.play();
     }
   } catch (err) {
     console.warn('[Sound] Erro ao reproduzir áudio levelup:', err);

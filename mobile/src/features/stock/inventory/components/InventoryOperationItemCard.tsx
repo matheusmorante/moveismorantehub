@@ -6,7 +6,6 @@ import type { AuditItem } from '../hooks/useInventoryAuditWorkflow';
 interface Props {
   item: AuditItem;
   isDarkMode: boolean;
-  blindCount: boolean;
   scopeType?: string | null;
   onUpdateCount: (item: AuditItem, count: number | null) => void;
   onOpenProductSearch?: (itemId: string) => void;
@@ -16,7 +15,6 @@ interface Props {
 export const InventoryOperationItemCard: React.FC<Props> = ({
   item,
   isDarkMode,
-  blindCount,
   scopeType,
   onUpdateCount,
   onOpenProductSearch,
@@ -65,24 +63,23 @@ export const InventoryOperationItemCard: React.FC<Props> = ({
 
       <View style={styles.itemBody}>
         <View style={styles.statsCol}>
-          {!blindCount && (
-            <View style={{ flexDirection: 'row', gap: 16 }}>
-              <View>
-                <Text style={[styles.statLabel, { color: muted }]}>Sistema</Text>
-                <Text style={[styles.statVal, { color: textPrimary }]}>{item.systemStock} {item.unit}</Text>
-              </View>
-              {isCounted && diff !== 0 && (
-                <View>
-                  <Text style={[styles.statLabel, { color: muted }]}>Ajuste</Text>
-                  <Text style={[styles.statVal, { color: diffColor }]}>{diffText}</Text>
-                </View>
-              )}
+          <View style={{ flexDirection: 'row', gap: 16 }}>
+            <View>
+              <Text style={[styles.statLabel, { color: muted }]}>Sistema</Text>
+              <Text style={[styles.statVal, { color: textPrimary }]}>{item.systemStock} {item.unit}</Text>
             </View>
-          )}
+            {isCounted && diff !== 0 && (
+              <View>
+                <Text style={[styles.statLabel, { color: muted }]}>Ajuste</Text>
+                <Text style={[styles.statVal, { color: diffColor }]}>{diffText}</Text>
+              </View>
+            )}
+          </View>
         </View>
 
         <View style={[styles.counter, { backgroundColor: isDarkMode ? 'rgba(15,23,42,0.5)' : '#f8fafc', borderColor: border }]}>
           <TouchableOpacity 
+            testID="decrement-btn"
             style={[styles.counterBtn, { backgroundColor: surface, borderColor: border }]} 
             onPress={() => onUpdateCount(item, Math.max(0, (item.physicalCount || 0) - 1))}
             disabled={item.physicalCount === 0}
@@ -90,8 +87,9 @@ export const InventoryOperationItemCard: React.FC<Props> = ({
             <Minus size={24} color={textPrimary} opacity={item.physicalCount === 0 ? 0.3 : 1} />
           </TouchableOpacity>
           
-          <View style={{ alignItems: 'center', width: 70 }}>
+          <View style={{ alignItems: 'center', width: 60, overflow: 'hidden' }}>
             <TextInput
+              testID="count-input"
               style={[styles.countInput, { color: textPrimary }]}
               keyboardType="numeric"
               value={item.physicalCount === null ? '' : String(item.physicalCount)}
@@ -148,5 +146,5 @@ const styles = StyleSheet.create({
   statVal: { fontSize: 16, fontWeight: '800' },
   counter: { flexDirection: 'row', alignItems: 'center', borderRadius: 12, borderWidth: 1, padding: 4, gap: 4 },
   counterBtn: { width: 44, height: 44, borderRadius: 8, alignItems: 'center', justifyContent: 'center', borderWidth: 1 },
-  countInput: { fontSize: 20, fontWeight: '800', textAlign: 'center', padding: 0 },
+  countInput: { fontSize: 20, fontWeight: '800', textAlign: 'center', padding: 0, width: '100%', maxWidth: 58 },
 });

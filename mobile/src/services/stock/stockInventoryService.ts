@@ -97,7 +97,7 @@ export const fetchInventorySessions = async (page: number, startDate?: string, e
     
     let query = supabase
         .from('inventory_moves')
-        .select('id, label, observation, quantity, date, created_at, updated_at')
+        .select('id, label, observation, quantity, date, created_at')
         .ilike('label', 'Inventário #%')
         .order('created_at', { ascending: false })
         .range(from, to);
@@ -129,7 +129,7 @@ export const fetchInventorySessions = async (page: number, startDate?: string, e
         const expectedLabels = sessionCodes.map(code => `Ajuste lançado pelo inventário #${code}`);
         const { data, error: adjustmentsError } = await supabase
             .from('inventory_moves')
-            .select('id, label, observation, status, product_id, related_entity_id')
+            .select('id, label, observation, product_id')
             .in('label', expectedLabels);
             
         if (adjustmentsError) {
@@ -166,10 +166,13 @@ export const fetchInventorySessions = async (page: number, startDate?: string, e
         let inventoryCode = m.id.split('-')[0];
         let responsibleName = 'Não informado';
         
+        let sessionName = '';
+        
         try {
             const data = JSON.parse(m.observation || '{}') as any;
             inventoryCode = data.inventoryCode || m.label?.replace('Inventário #', '') || inventoryCode;
             responsibleName = data.responsibleName || 'Não informado';
+            if (data.name) sessionName = data.name;
 
             if (data.inventoryAudit && Array.isArray(data.items)) {
                 productsCount = data.items.length;
@@ -186,12 +189,12 @@ export const fetchInventorySessions = async (page: number, startDate?: string, e
 
         return {
             id: m.id,
-            name: `Inventário #${inventoryCode}`,
+            name: sessionName || `Inventário #${inventoryCode}`,
             inventoryCode,
             responsibleName,
             status: status as 'in_progress' | 'completed' | 'pending',
             created_at: m.created_at || m.date,
-            updated_at: m.updated_at || m.date,
+            updated_at: m.created_at || m.date,
             items_count: productsCount,
             productsCount,
             adjustmentsCount: sessionAdjustments.total,
@@ -355,7 +358,7 @@ export const reverseInventorySession = async (session: { id: string; inventoryCo
     const { data: moves, error } = await supabase
         .from('inventory_moves')
         .select('*')
-        .or(`label.eq."${expectedLabel}",related_entity_id.eq."${session.id}"`);
+        .eq('label', expectedLabel);
 
     if (error) throw error;
     if (!moves || moves.length === 0) return;
@@ -399,7 +402,7 @@ export const unreverseInventorySession = async (session: { id: string; inventory
     const { data: moves, error } = await supabase
         .from('inventory_moves')
         .select('*')
-        .or(`label.eq."${expectedLabel}",related_entity_id.eq."${session.id}"`);
+        .eq('label', expectedLabel);
 
     if (error) throw error;
     if (!moves || moves.length === 0) return;
@@ -473,8 +476,6 @@ export const saveInventoryDraft = async (params: {
                 date: now,
                 label: `Inventário #${code}`,
                 observation: obsStr,
-                related_entity_id: auditId,
-                status: 'in_progress',
                 created_at: now
             })
             .select('id')

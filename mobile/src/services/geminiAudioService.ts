@@ -1,4 +1,4 @@
-import { Audio } from 'expo-av';
+import { createAudioPlayer, setAudioModeAsync, type AudioPlayer } from 'expo-audio';
 import { supabase } from './supabaseClient';
 import { DeliverySummaryRecord } from './deliverySummaryService';
 import {
@@ -11,7 +11,8 @@ import {
   saveAudioRecordToCache,
 } from './deliveryAudioCacheService';
 
-let activeSound: Audio.Sound | null = null;
+let activeSound: AudioPlayer | null = null;
+let activePlaybackSubscription: { remove: () => void } | null = null;
 const audioBase64Cache = new Map<string, string>(); // cache quente durante a sessão
 
 export interface AudioPlaybackCallbacks {
@@ -24,8 +25,10 @@ export interface AudioPlaybackCallbacks {
 export const stopGeminiAudio = async () => {
   try {
     if (activeSound) {
-      await activeSound.stopAsync().catch(() => {});
-      await activeSound.unloadAsync().catch(() => {});
+      activePlaybackSubscription?.remove();
+      activePlaybackSubscription = null;
+      activeSound.pause();
+      activeSound.release();
       activeSound = null;
     }
   } catch (e) {
@@ -36,7 +39,7 @@ export const stopGeminiAudio = async () => {
 export const pauseGeminiAudio = async () => {
   try {
     if (activeSound) {
-      await activeSound.pauseAsync();
+      activeSound.pause();
     }
   } catch (e) {
     console.warn('[GeminiAudio] Erro ao pausar áudio:', e);
@@ -46,7 +49,7 @@ export const pauseGeminiAudio = async () => {
 export const resumeGeminiAudio = async () => {
   try {
     if (activeSound) {
-      await activeSound.playAsync();
+      activeSound.play();
     }
   } catch (e) {
     console.warn('[GeminiAudio] Erro ao retomar áudio:', e);
@@ -56,7 +59,7 @@ export const resumeGeminiAudio = async () => {
 export const seekGeminiAudio = async (seconds: number) => {
   try {
     if (activeSound) {
-      await activeSound.setPositionAsync(Math.max(0, Math.floor(seconds * 1000)));
+      await activeSound.seekTo(Math.max(0, seconds));
     }
   } catch (e) {
     console.warn('[GeminiAudio] Erro no seek de áudio:', e);
@@ -153,8 +156,7 @@ export const generateGeminiAudioMp3 = async (
 };
 
 /**
- * Reproduz o resumo por áudio.
- * Reproduz o áudio gerado pelo Gemini via expo-av, sem fallback para voz nativa.
+ * Reproduz o resumo por áudio com expo-audio, sem fallback para voz nativa.
  */
 export const playSummaryAudio = async (
   text: string,
@@ -173,34 +175,29 @@ export const playSummaryAudio = async (
   const res = await generateGeminiAudioMp3(cleanText, scope);
   if (res.success && (res.base64Mp3 || res.audioUrl)) {
     try {
-      await Audio.setAudioModeAsync({
-        playsInSilentModeIOS: true,
-        staysActiveInBackground: false,
-        shouldDuckAndroid: true,
+      await setAudioModeAsync({
+        playsInSilentMode: true,
+        interruptionMode: 'duckOthers',
       });
 
       const uri = res.audioUrl || (res.isWav ? `data:audio/wav;base64,${res.base64Mp3}` : `data:audio/mp3;base64,${res.base64Mp3}`);
-      const { sound } = await Audio.Sound.createAsync(
-        { uri },
-        { shouldPlay: true, volume: 1.0 },
-        (status) => {
-          if (!status.isLoaded) return;
-          if (status.isPlaying) {
-            const currentSec = Math.floor((status.positionMillis || 0) / 1000);
-            const durationSec = Math.floor((status.durationMillis || 1) / 1000);
-            callbacks.onProgress?.(currentSec, durationSec);
-          }
-          if (status.didJustFinish) {
-            callbacks.onDone?.();
-          }
+      const player = createAudioPlayer({ uri }, { updateInterval: 250 });
+      player.volume = 1.0;
+      activeSound = player;
+      activePlaybackSubscription = player.addListener('playbackStatusUpdate', (status) => {
+        if (!status.isLoaded) return;
+        if (status.playing) {
+          callbacks.onProgress?.(Math.floor(status.currentTime), Math.floor(status.duration || 1));
         }
-      );
-
-      activeSound = sound;
+        if (status.didJustFinish) {
+          callbacks.onDone?.();
+        }
+      });
+      player.play();
       callbacks.onStart?.();
       return { success: true, engineUsed: 'gemini' };
     } catch (audioErr) {
-      console.warn('[GeminiAudio] Erro ao carregar áudio Gemini no expo-av:', audioErr);
+      console.warn('[GeminiAudio] Erro ao carregar áudio Gemini no expo-audio:', audioErr);
       callbacks.onError?.(audioErr);
       return { success: false, engineUsed: 'gemini' };
     }

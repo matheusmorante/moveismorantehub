@@ -53,12 +53,12 @@ export function PostsLibraryPage({ campaigns, initialProductId, initialProductNa
       if (missingIds.length > 0) {
         const { data } = await supabase
           .from('products')
-          .select('id, name, title')
+          .select('id, name, description')
           .in('id', missingIds);
         if (data) {
           setProductNames(prev => ({
             ...prev,
-            ...Object.fromEntries(data.map((p: any) => [p.id, p.name ?? p.title ?? 'Produto'])),
+            ...Object.fromEntries(data.map((p: any) => [p.id, p.name ?? p.description ?? 'Produto'])),
           }));
         }
       }
@@ -74,11 +74,11 @@ export function PostsLibraryPage({ campaigns, initialProductId, initialProductNa
   const handleSearchProducts = useCallback(async (query: string): Promise<ProductOption[]> => {
     const { data } = await supabase
       .from('products')
-      .select('id, name, title, slug')
-      .or(`name.ilike.%${query}%,title.ilike.%${query}%`)
+      .select('id, name, description, slug')
+      .or(`name.ilike.%${query}%,description.ilike.%${query}%`)
       .eq('is_draft', false)
       .limit(10);
-    return (data ?? []).map((p: any) => ({ id: p.id, name: p.name ?? p.title ?? 'Produto', slug: p.slug ?? '' }));
+    return (data ?? []).map((p: any) => ({ id: p.id, name: p.name ?? p.description ?? 'Produto', slug: p.slug ?? '' }));
   }, []);
 
   const handleProductSearch = async (q: string) => {

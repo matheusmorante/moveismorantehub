@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef } from 'react';
 import type { AuditItem } from "../modals/InventoryAuditModal";
 import { InventoryOperationHeader } from './InventoryOperationHeader';
 import { InventoryScannerMode } from './InventoryScannerMode';
@@ -7,10 +7,11 @@ import { InventoryStagesView } from './InventoryStagesView';
 import { useInventoryOperation } from "../../hooks/useInventoryOperation";
 import type { InventoryScopeType } from '../modals/InventoryScopeModal';
 import QRScannerModal from '@/components/shared/QRScannerModal';
+import { toast } from 'react-toastify';
+import { matchScannedProductItem, extractLabelIdentity } from '@/pages/utils/barcodeScannerUtils';
 
 interface InventoryOperationScreenProps {
     readonly items: AuditItem[];
-    readonly blindCount: boolean;
     readonly hasStages?: boolean;
     readonly inventoryName: string;
     readonly scopeType?: InventoryScopeType | null;
@@ -19,13 +20,11 @@ interface InventoryOperationScreenProps {
     readonly onUpdateItemProduct?: (itemId: string, product: any, variation?: any) => void;
     readonly onReview: () => void;
     readonly onClose?: () => void;
-    readonly onSaveDraft?: () => Promise<void>;
     readonly hasChanges?: boolean;
 }
 
 export const InventoryOperationScreen: React.FC<InventoryOperationScreenProps> = ({
     items,
-    blindCount,
     hasStages,
     inventoryName,
     scopeType,
@@ -34,7 +33,6 @@ export const InventoryOperationScreen: React.FC<InventoryOperationScreenProps> =
     onUpdateItemProduct,
     onReview,
     onClose,
-    onSaveDraft,
     hasChanges,
 }) => {
     const [mode, setMode] = useState<'scanner' | 'manual'>('manual');
@@ -59,24 +57,33 @@ export const InventoryOperationScreen: React.FC<InventoryOperationScreenProps> =
     const isShowingStages = hasStages && !activeStage;
     const isCustom = scopeType === 'custom';
 
+    const scannedLabelsRef = useRef<Set<string>>(new Set());
+
     const handleQrScan = (rawCode: string) => {
-        let code = rawCode.trim();
-        try {
-            const parsed = JSON.parse(code);
-            code = String(parsed.productId ?? parsed.sku ?? parsed.code ?? parsed.scanId ?? code);
-        } catch {
-            // Códigos simples continuam sendo tratados diretamente.
+        const item = items.find((candidate) => matchScannedProductItem(candidate, rawCode));
+
+        if (!item) {
+            toast.warn('O código lido não corresponde a nenhum produto neste inventário.');
+            setIsQrScannerOpen(false);
+            return;
         }
 
-        const item = items.find((candidate) =>
-            candidate.productId === code ||
-            candidate.variationId === code ||
-            candidate.name.toLowerCase().includes(code.toLowerCase())
-        );
+        const { labelId } = extractLabelIdentity(rawCode);
 
-        if (item) {
-            onUpdateCount(item.id, (item.physicalCount ?? 0) + 1);
+        // Bloqueio de duplicidade da mesma unidade física
+        if (labelId && scannedLabelsRef.current.has(labelId)) {
+            toast.warn(`Esta unidade física (${item.name}) já foi contabilizada neste inventário.`);
+            setIsQrScannerOpen(false);
+            return;
         }
+
+        if (labelId) {
+            scannedLabelsRef.current.add(labelId);
+        }
+
+        const nextCount = (item.physicalCount ?? 0) + 1;
+        onUpdateCount(item.id, nextCount);
+        toast.success(`${item.name}: contagem +1 (${nextCount} ${item.unit || 'UN'})`);
         setIsQrScannerOpen(false);
     };
 
@@ -124,7 +131,6 @@ export const InventoryOperationScreen: React.FC<InventoryOperationScreenProps> =
                     ) : (
                         <InventoryManualMode
                             filteredItems={filteredItems}
-                            blindCount={blindCount}
                             filter={filter}
                             setFilter={setFilter}
                             search={search}
@@ -148,21 +154,6 @@ export const InventoryOperationScreen: React.FC<InventoryOperationScreenProps> =
                             >
                                 <i className="bi bi-arrow-left"></i>
                                 Voltar
-                            </button>
-                        )}
-                        {onSaveDraft && (
-                            <button
-                                onClick={onSaveDraft}
-                                disabled={!hasChanges}
-                                className={`text-sm font-bold px-4 py-2.5 rounded-xl transition-colors flex items-center gap-2 border ${
-                                    hasChanges 
-                                    ? 'border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700/50 cursor-pointer' 
-                                    : 'border-transparent text-slate-400 opacity-50 cursor-not-allowed'
-                                }`}
-                                title={hasChanges ? "Salvar progresso atual" : "Nenhuma alteração para salvar"}
-                            >
-                                <i className="bi bi-save"></i>
-                                Salvar como rascunho
                             </button>
                         )}
                     </div>

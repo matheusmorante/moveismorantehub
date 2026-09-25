@@ -7,6 +7,7 @@ import { toast } from 'react-toastify';
 import { formatToBRDate } from '../../../../utils/formatters';
 import { getProductsByIds } from '../../../../utils/productService';
 import Product, { Variation } from '../../../../types/product.type';
+import { extractScannedCodes } from '@/pages/utils/barcodeScannerUtils';
 
 export interface PurchaseReceiptCheckModalProps {
     readonly purchase: Purchase | null;
@@ -69,13 +70,15 @@ export const PurchaseReceiptCheckModal: React.FC<PurchaseReceiptCheckModalProps>
     const handleScan = useCallback(
         (code: string) => {
             if (!purchase) return;
-            const cleanCode = code.trim().toLowerCase();
+            const candidates = extractScannedCodes(code).map(c => c.trim().toLowerCase());
+            if (candidates.length === 0) return;
 
             // Tenta localizar produto por código ou referência do fornecedor
             const product = products.find(
                 (p) =>
-                    p.code?.trim().toLowerCase() === cleanCode ||
-                    p.supplierRef?.trim().toLowerCase() === cleanCode
+                    candidates.includes((p.code || '').trim().toLowerCase()) ||
+                    candidates.includes((p.supplierRef || '').trim().toLowerCase()) ||
+                    candidates.includes(String(p.id).trim().toLowerCase())
             );
 
             if (product) {
@@ -88,11 +91,14 @@ export const PurchaseReceiptCheckModal: React.FC<PurchaseReceiptCheckModalProps>
                 }
             }
 
-            // Tenta localizar variação por SKU
+            // Tenta localizar variação por SKU ou barcode
             for (const p of products) {
                 if (p.hasVariations && p.variations) {
                     const variation = p.variations.find(
-                        (v: Variation) => v.sku?.trim().toLowerCase() === cleanCode
+                        (v: Variation) =>
+                            candidates.includes((v.sku || '').trim().toLowerCase()) ||
+                            candidates.includes(((v as any).barcode || '').trim().toLowerCase()) ||
+                            candidates.includes(String(v.id).trim().toLowerCase())
                     );
                     if (variation) {
                         const purchaseItem = purchase.items.find(

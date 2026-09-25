@@ -36,3 +36,9 @@
 - Git/PR: `caveman-commit`, `pr-triage`.
 - Identidade visual responsiva: `morante-responsive-logo-usage`.
 
+## Acesso ao Supabase
+
+- Quando o acesso por CLI/token não estiver disponível, o usuário autorizou usar a sessão já autenticada do navegador para tarefas do Supabase solicitadas nesta conversa.
+- Antes de qualquer alteração remota, confirme que o projeto/ref corresponde ao configurado no app e limite a operação ao escopo autorizado.
+- Nunca exponha tokens, senhas ou outras credenciais; prefira ferramentas oficiais/API quando disponíveis e registre evidência sem dados sensíveis.
+

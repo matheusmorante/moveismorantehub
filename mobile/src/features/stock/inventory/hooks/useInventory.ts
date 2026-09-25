@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect } from 'react';
 import { InventorySession } from '../../types/stock.types';
 import * as stockService from '../../../../services/stockService';
+import { listLocalInventoryDrafts } from '../../../../services/sqlite/inventoryDrafts';
 
 export const useInventory = () => {
     const [sessions, setSessions] = useState<InventorySession[]>([]);
@@ -17,6 +18,29 @@ export const useInventory = () => {
             setLoadingMore(true);
         } else {
             setLoading(true);
+        }
+
+        // 1. Carrega rascunhos locais do SQLite (disponíveis 100% offline)
+        let localDraftSessions: InventorySession[] = [];
+        if (pageNum === 0) {
+            try {
+                const localDrafts = await listLocalInventoryDrafts();
+                localDraftSessions = localDrafts.map(d => ({
+                    id: d.id,
+                    name: d.name,
+                    status: 'in_progress',
+                    created_at: d.updatedAt,
+                    updated_at: d.updatedAt,
+                    items_count: d.items.length,
+                    productsCount: d.items.length,
+                    adjustmentsCount: 0,
+                    reversedCount: 0,
+                    inventoryCode: d.code,
+                    responsibleName: 'Armazenado no aparelho',
+                }));
+            } catch (e) {
+                console.warn('[SQLite] Erro ao listar rascunhos locais:', e);
+            }
         }
 
         try {
@@ -37,7 +61,10 @@ export const useInventory = () => {
             }));
 
             if (isRefresh || pageNum === 0) {
-                setSessions(formattedData);
+                // Mescla rascunhos locais no topo, deduplicando por ID
+                const existingRemoteIds = new Set(formattedData.map((s: any) => s.id));
+                const uniqueLocal = localDraftSessions.filter(d => !existingRemoteIds.has(d.id));
+                setSessions([...uniqueLocal, ...formattedData]);
             } else {
                 setSessions(prev => [...prev, ...formattedData]);
             }
@@ -47,6 +74,10 @@ export const useInventory = () => {
             }
         } catch (err) {
             console.error('Failed to fetch inventory sessions:', err);
+            // Em caso de falha de conexão (offline), exibe os rascunhos locais salvos no aparelho!
+            if (pageNum === 0 && localDraftSessions.length > 0) {
+                setSessions(localDraftSessions);
+            }
             setHasMore(false);
         } finally {
             setLoading(false);

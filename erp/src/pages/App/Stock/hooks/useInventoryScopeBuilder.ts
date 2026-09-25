@@ -14,7 +14,6 @@ export const useInventoryScopeBuilder = (
     
     // Configs
     const [inventoryName, setInventoryName] = useState("");
-    const [blindCount, setBlindCount] = useState(false);
     const [selectedSupplierId, setSelectedSupplierId] = useState("");
     const [selectedResponsibleId, setSelectedResponsibleId] = useState("");
     const [responsibleError, setResponsibleError] = useState(false);
@@ -65,6 +64,9 @@ export const useInventoryScopeBuilder = (
                     assignedSupplier,
                     systemStock: Number(specificVariation.stock ?? 0),
                     unit: product.unit || 'UN',
+                    sku: specificVariation.sku || product.code || '',
+                    code: product.code || '',
+                    barcode: (specificVariation as any).barcode || product.barcode || '',
                 });
             } else if (product.variations && product.variations.length > 0) {
                 for (const variation of product.variations) {
@@ -76,6 +78,9 @@ export const useInventoryScopeBuilder = (
                         assignedSupplier,
                         systemStock: Number(variation.stock ?? 0),
                         unit: product.unit || 'UN',
+                        sku: variation.sku || product.code || '',
+                        code: product.code || '',
+                        barcode: (variation as any).barcode || product.barcode || '',
                     });
                 }
             } else {
@@ -86,6 +91,9 @@ export const useInventoryScopeBuilder = (
                     assignedSupplier,
                     systemStock: Number(product.stock ?? 0),
                     unit: product.unit || 'UN',
+                    sku: product.sku || product.code || '',
+                    code: product.code || '',
+                    barcode: product.barcode || '',
                 });
             }
         };
@@ -131,8 +139,6 @@ export const useInventoryScopeBuilder = (
         scopeType,
         inventoryName,
         setInventoryName,
-        blindCount,
-        setBlindCount,
         selectedSupplierId,
         setSelectedSupplierId,
         selectedResponsibleId,

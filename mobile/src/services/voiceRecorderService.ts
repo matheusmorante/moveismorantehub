@@ -1,4 +1,4 @@
-import { Audio } from 'expo-av';
+import { AudioRecorder, RecordingPresets, requestRecordingPermissionsAsync, setAudioModeAsync } from 'expo-audio';
 
 export interface VoiceRecorderCallbacks {
   onSpeechResult: (transcript: string) => void;
@@ -8,7 +8,7 @@ export interface VoiceRecorderCallbacks {
 }
 
 let activeSpeechRecognition: any = null;
-let activeRecording: Audio.Recording | null = null;
+let activeRecording: AudioRecorder | null = null;
 let activeMediaStream: any = null;
 
 /**
@@ -116,28 +116,28 @@ export async function startVoiceRecording(callbacks: VoiceRecorderCallbacks): Pr
     }
   }
 
-  // 3. Fallback via expo-av para ambiente React Native nativo (iOS / Android)
+  // 3. Fallback via expo-audio para ambiente React Native nativo (iOS / Android)
   try {
-    const permission = await Audio.requestPermissionsAsync();
-    if (permission.status !== 'granted') {
+    const permission = await requestRecordingPermissionsAsync();
+    if (!permission.granted) {
       callbacks.onError?.('Permissão de microfone negada nas configurações do aplicativo.');
       return false;
     }
 
-    await Audio.setAudioModeAsync({
-      allowsRecordingIOS: true,
-      playsInSilentModeIOS: true,
+    await setAudioModeAsync({
+      allowsRecording: true,
+      playsInSilentMode: true,
     });
 
-    const recording = new Audio.Recording();
-    await recording.prepareToRecordAsync(Audio.RecordingOptionsPresets.HIGH_QUALITY);
-    await recording.startAsync();
+    const recording = new AudioRecorder(RecordingPresets.HIGH_QUALITY);
+    await recording.prepareToRecordAsync();
+    recording.record();
 
     activeRecording = recording;
     callbacks.onRecordingStart?.();
     return true;
   } catch (err: any) {
-    console.warn('[VoiceRecorder] Erro expo-av recording:', err);
+    console.warn('[VoiceRecorder] Erro expo-audio recording:', err);
     callbacks.onError?.('Não foi possível iniciar a gravação no dispositivo.');
     return false;
   }
@@ -167,8 +167,9 @@ export async function stopVoiceRecording(): Promise<string | null> {
 
   if (activeRecording) {
     try {
-      await activeRecording.stopAndUnloadAsync();
-      const uri = activeRecording.getURI();
+      await activeRecording.stop();
+      const uri = activeRecording.uri;
+      activeRecording.release();
       activeRecording = null;
       return uri;
     } catch {

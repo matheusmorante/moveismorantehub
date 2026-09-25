@@ -8,7 +8,6 @@ import ProductSearchModal from '@/pages/App/SalesOrder/modals/ProductSearchModal
 
 interface InventoryManualModeProps {
     readonly filteredItems: readonly AuditItem[];
-    readonly blindCount: boolean;
     readonly filter: InventoryFilter;
     readonly setFilter: (f: InventoryFilter) => void;
     readonly search: string;
@@ -20,7 +19,6 @@ interface InventoryManualModeProps {
 
 export const InventoryManualMode: React.FC<InventoryManualModeProps> = ({
     filteredItems,
-    blindCount,
     filter,
     setFilter,
     search,
@@ -99,13 +97,11 @@ export const InventoryManualMode: React.FC<InventoryManualModeProps> = ({
                                 </div>
                                 
                                 <div className="flex items-center gap-4 text-sm">
-                                    {!blindCount && (
-                                        <div className="flex flex-col">
-                                            <span className="text-slate-400 text-[10px] font-black uppercase tracking-widest">Sistema</span>
-                                            <span className="font-bold text-slate-600 dark:text-slate-300">{item.systemStock} {item.unit}</span>
-                                        </div>
-                                    )}
-                                    {isCounted && !blindCount && diff !== 0 && (
+                                    <div className="flex flex-col">
+                                        <span className="text-slate-400 text-[10px] font-black uppercase tracking-widest">Sistema</span>
+                                        <span className="font-bold text-slate-600 dark:text-slate-300">{item.systemStock} {item.unit}</span>
+                                    </div>
+                                    {isCounted && diff !== 0 && (
                                         <div className="flex flex-col">
                                             <span className="text-slate-400 text-[10px] font-black uppercase tracking-widest">Ajuste</span>
                                             <span className={`font-bold ${diff > 0 ? 'text-emerald-600' : 'text-rose-500'}`}>

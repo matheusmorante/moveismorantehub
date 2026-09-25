@@ -111,7 +111,6 @@ export const useInventoryAuditSessions = () => {
                 productsCount: snapshot.items.length,
                 adjustmentsCount,
                 reversedCount,
-                blindCount: snapshot.blindCount,
                 hasStages: snapshot.hasStages,
                 responsibleId: snapshot.responsibleId,
                 responsibleName: snapshot.responsibleName,

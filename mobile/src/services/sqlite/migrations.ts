@@ -117,4 +117,20 @@ export const runMigrations = async (db?: DatabaseDriver): Promise<void> => {
       updated_at TEXT NOT NULL
     );
   `);
+
+  // 8. Rascunhos de Inventário Físico local (inventory_drafts_local)
+  await driver.execAsync(`
+    CREATE TABLE IF NOT EXISTS inventory_drafts_local (
+      id TEXT PRIMARY KEY,
+      code TEXT NOT NULL,
+      scope_type TEXT,
+      name TEXT NOT NULL,
+      responsible_id TEXT,
+      has_stages INTEGER NOT NULL DEFAULT 0,
+      status TEXT NOT NULL DEFAULT 'in_progress',
+      items_json TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
+  `);
+  await driver.execAsync(`CREATE INDEX IF NOT EXISTS idx_inventory_drafts_local_updated ON inventory_drafts_local(updated_at);`);
 };

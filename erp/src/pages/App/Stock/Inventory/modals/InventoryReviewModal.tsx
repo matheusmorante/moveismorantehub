@@ -29,9 +29,7 @@ export const InventoryReviewModal: React.FC<InventoryReviewModalProps> = ({
                 const { data: recentMoves, error } = await supabase
                     .from('inventory_moves')
                     .select('*')
-                    .gte('date', startDate)
-                    .neq('status', 'reversed')
-                    .neq('status', 'cancelled');
+                    .gte('date', startDate);
                 
                 if (error) throw error;
 
@@ -52,6 +50,7 @@ export const InventoryReviewModal: React.FC<InventoryReviewModalProps> = ({
                     const validMoves = variationMoves.filter(m => {
                         try {
                             const meta = JSON.parse(m.observation || '{}');
+                            if (meta.status === 'reversed' || meta.status === 'cancelled') return false;
                             return !meta.inventoryAudit && m.type !== 'adjustment'; // we assume adjustments are absolute anchors, but let's stick to entry/exit
                         } catch {
                             return m.type === 'entry' || m.type === 'exit';

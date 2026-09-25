@@ -1,6 +1,7 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Platform, StatusBar } from 'react-native';
 import { ArrowLeft, ScanLine } from 'lucide-react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 interface Props {
   isDarkMode: boolean;
@@ -21,14 +22,19 @@ export const InventoryOperationHeader: React.FC<Props> = ({
   onBack,
   onOpenScanner,
 }) => {
+  const insets = useSafeAreaInsets();
+  const topInset = Math.max(
+    insets.top,
+    Platform.OS === 'android' ? (StatusBar.currentHeight || 24) : 16
+  );
   const surface = isDarkMode ? '#1e293b' : '#ffffff';
   const border = isDarkMode ? '#334155' : '#e2e8f0';
   const textPrimary = isDarkMode ? '#f1f5f9' : '#0f172a';
   const muted = isDarkMode ? '#94a3b8' : '#64748b';
 
   return (
-    <View style={[styles.header, { backgroundColor: surface, borderBottomColor: border }]}>
-      <TouchableOpacity onPress={onBack} style={styles.backBtn}>
+    <View style={[styles.header, { backgroundColor: surface, borderBottomColor: border, paddingTop: topInset + 8 }]}>
+      <TouchableOpacity testID="header-back-btn" onPress={onBack} style={styles.backBtn}>
         <ArrowLeft size={24} color={textPrimary} />
       </TouchableOpacity>
       <View style={styles.titleCol}>
@@ -58,7 +64,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 16,
     paddingVertical: 12,
-    paddingTop: 50,
     borderBottomWidth: 1,
   },
   backBtn: { marginRight: 12, padding: 4 },

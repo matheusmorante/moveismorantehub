@@ -40,7 +40,7 @@ export default function Dashboard() {
     });
     const [customEndDate, setCustomEndDate] = useState(() => new Date().toISOString().split('T')[0]);
 
-    const { loading, stats, prevStats, salesOverTime, filteredOrders, allActiveOrders } = useDashboardData(period, customStartDate, customEndDate);
+    const { loading, stats, prevStats, salesOverTime, filteredOrders, allActiveOrders, recentOrders, geoMapOrders } = useDashboardData(period, customStartDate, customEndDate);
     const operational = useDashboardOperational(allActiveOrders);
     const stockData = useDashboardStock();
     const productsData = useDashboardProducts(filteredOrders, allActiveOrders);
@@ -136,13 +136,13 @@ export default function Dashboard() {
 
             {/* ── Pedidos Recentes ── */}
             {loading ? <PanelSkeleton rows={5} /> : (
-                <RecentOrders orders={allActiveOrders} />
+                <RecentOrders orders={recentOrders} />
             )}
 
             {/* ── Mapa + Logística + Consumo de APIs ── */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 pb-16">
                 <div className="lg:col-span-2">
-                    <GeoMapPanel orders={filteredOrders.filter(isDashboardSaleOrder)} />
+                    <GeoMapPanel orders={geoMapOrders} />
                 </div>
                 <div className="space-y-6">
                     {loading ? <PanelSkeleton rows={4} /> : (

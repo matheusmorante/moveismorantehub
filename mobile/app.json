@@ -41,6 +41,14 @@
           "recordAudioAndroid": false
         }
       ],
+      [
+        "expo-audio",
+        {
+          "microphonePermission": "Permitir que o App Morante acesse o microfone para gravação de áudio.",
+          "recordAudioAndroid": true,
+          "enableBackgroundPlayback": false
+        }
+      ],
       "expo-mlkit-ocr",
       "expo-sqlite",
       [
@@ -49,7 +57,8 @@
           "experimentalLauncherActivity": true
         }
       ],
-      "expo-status-bar"
+      "expo-status-bar",
+      "expo-asset"
     ],
     "ios": {
       "supportsTablet": true,

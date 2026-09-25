@@ -1,21 +1,19 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import { ArrowLeft, ArrowRight, Save } from 'lucide-react-native';
+import { ArrowLeft, ArrowRight } from 'lucide-react-native';
 
 interface Props {
   isDarkMode: boolean;
   activeStage: string | null;
-  onBackStage: () => void;
+  onBack: () => void;
   onReview: () => void;
-  onSaveDraft?: () => void;
 }
 
 export const InventoryOperationFooter: React.FC<Props> = ({
   isDarkMode,
   activeStage,
-  onBackStage,
+  onBack,
   onReview,
-  onSaveDraft,
 }) => {
   const surface = isDarkMode ? '#1e293b' : '#ffffff';
   const border = isDarkMode ? '#334155' : '#e2e8f0';
@@ -23,22 +21,14 @@ export const InventoryOperationFooter: React.FC<Props> = ({
 
   return (
     <View style={[styles.footer, { backgroundColor: surface, borderTopColor: border }]}>
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-        {activeStage && (
-          <TouchableOpacity style={styles.backBtn} onPress={onBackStage}>
-            <ArrowLeft size={18} color={textPrimary} />
-            <Text style={[styles.backBtnText, { color: textPrimary }]}>Voltar</Text>
-          </TouchableOpacity>
-        )}
-        {onSaveDraft && (
-          <TouchableOpacity style={[styles.draftBtn, { borderColor: border }]} onPress={onSaveDraft}>
-            <Save size={16} color={textPrimary} />
-            <Text style={[styles.draftBtnText, { color: textPrimary }]}>Salvar rascunho</Text>
-          </TouchableOpacity>
-        )}
-      </View>
+      <TouchableOpacity testID="footer-back-btn" style={styles.backBtn} onPress={onBack}>
+        <ArrowLeft size={18} color={textPrimary} />
+        <Text style={[styles.backBtnText, { color: textPrimary }]}>
+          {activeStage ? 'Voltar para etapas' : 'Voltar'}
+        </Text>
+      </TouchableOpacity>
       
-      <TouchableOpacity style={styles.reviewBtn} onPress={onReview}>
+      <TouchableOpacity testID="footer-review-btn" style={styles.reviewBtn} onPress={onReview}>
         <Text style={styles.reviewBtnText}>Revisar</Text>
         <ArrowRight size={18} color="#ffffff" />
       </TouchableOpacity>
@@ -55,18 +45,17 @@ const styles = StyleSheet.create({
     paddingBottom: 28,
     borderTopWidth: 1,
   },
-  backBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 10, paddingHorizontal: 12 },
-  backBtnText: { fontWeight: '700', fontSize: 14 },
-  draftBtn: {
+  backBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
     paddingVertical: 10,
-    paddingHorizontal: 14,
-    borderWidth: 1,
-    borderRadius: 12,
+    paddingHorizontal: 12,
   },
-  draftBtnText: { fontWeight: '700', fontSize: 13 },
+  backBtnText: {
+    fontWeight: '700',
+    fontSize: 14,
+  },
   reviewBtn: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -81,5 +70,9 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 3,
   },
-  reviewBtnText: { color: '#ffffff', fontWeight: '800', fontSize: 15 },
+  reviewBtnText: {
+    color: '#ffffff',
+    fontWeight: '800',
+    fontSize: 15,
+  },
 });

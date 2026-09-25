@@ -1,0 +1,76 @@
+{
+  "version": 1,
+  "lastRunAt": "2026-09-24T23:25:00-03:00",
+  "files": {
+    "erp/src/pages/App/Dashboard/dashboardRevenue.ts": {
+      "status": "no_change_needed",
+      "lastReviewedAt": "2026-09-24T22:11:20-03:00",
+      "result": "Arquivo conciso (43 linhas), com SRP estrito, type predicates seguros e 100% coberto por testes unitários.",
+      "notes": null,
+      "validations": ["vitest: 11 tests passed"]
+    },
+    "erp/src/pages/App/Dashboard/components/RecentOrders.tsx": {
+      "status": "improved",
+      "lastReviewedAt": "2026-09-24T22:11:20-03:00",
+      "result": "Melhorado fallback de valor monetário (order.totalAmount || order.paymentsSummary?.totalOrderValue || 0) para compatibilidade com a nova Fonte C e aplicado React.memo para evitar re-renderizações desnecessárias.",
+      "notes": null,
+      "validations": ["vitest dashboard suite: 16 tests passed"]
+    },
+    "erp/src/pages/utils/orderHistoryService.ts": {
+      "status": "improved",
+      "lastReviewedAt": "2026-09-24T22:50:10-03:00",
+      "result": "Removido import morto enrichOrdersWithPeopleOrigins e reexportada nova função fetchDashboardAggregates.",
+      "notes": null,
+      "validations": ["vitest: orderMapper 5 tests passed"]
+    },
+    "erp/src/pages/App/Dashboard/components/GeoMapPanel.tsx": {
+      "status": "improved",
+      "lastReviewedAt": "2026-09-24T22:31:20-03:00",
+      "result": "Aplicado React.memo no container do Radar Geográfico para evitar reconciliações e re-renderizações desnecessárias do Leaflet / ProfitHeatMap.",
+      "notes": null,
+      "validations": ["vitest dashboard suite: 11 tests passed"]
+    },
+    "erp/src/pages/App/Dashboard/hooks/useDashboardOperational.ts": {
+      "status": "no_change_needed",
+      "lastReviewedAt": "2026-09-24T22:31:20-03:00",
+      "result": "Hook enxuto (69 linhas) com separação clara de responsabilidades para openOrders, scheduledOrders, deliveriesToday e lateDeliveries.",
+      "notes": null,
+      "validations": ["typescript compile / static check"]
+    },
+    "erp/src/pages/App/Dashboard/dashboardRevenue.test.ts": {
+      "status": "no_change_needed",
+      "lastReviewedAt": "2026-09-24T22:31:20-03:00",
+      "result": "Suíte concisa (57 linhas), testes idiomáticos com it.each e 100% de aprovação.",
+      "notes": null,
+      "validations": ["vitest: 11 tests passed in 5ms"]
+    },
+    "erp/src/pages/utils/orderSyncQueries.ts": {
+      "status": "improved",
+      "lastReviewedAt": "2026-09-24T22:51:00-03:00",
+      "result": "Implementada integração com a RPC server-side get_dashboard_aggregates via fetchDashboardAggregates com fallback resiliente.",
+      "notes": "RPC aplicada e validada diretamente no Supabase via Management API.",
+      "validations": ["vitest: 16 tests passed", "live supabase RPC test passed: payload 3.43 KB"]
+    },
+    "erp/src/pages/App/Stock/LabelPrinting/hooks/useLabelPrintingState.ts": {
+      "status": "improved",
+      "lastReviewedAt": "2026-09-24T23:10:00-03:00",
+      "result": "Monólito de 1.293 linhas refatorado para Fachada Orquestradora concisa de 205 linhas, delegando responsabilidades para 6 submódulos coesos conforme SRP/SOLID e mantendo retrocompatibilidade contratual estrita com a UI.",
+      "notes": "Erro 42703 (column products.title does not exist) corrigido na raiz; modularização conservadora com hot reload aprovado no Vite.",
+      "validations": ["Vite HMR: OK sem erros", "vitest: 11 tests passed", "live query Supabase: 200 OK"]
+    },
+    "erp/src/pages/utils/barcodeScannerUtils.ts": {
+      "status": "improved",
+      "lastReviewedAt": "2026-09-24T23:25:00-03:00",
+      "result": "Utilitário universal de scanner para extração de múltiplos códigos (SKU, barcode EAN, pipes 'SKU|UUID' de etiquetas, JSON e URLs) e correspondência resiliente com itens e catálogo de produtos.",
+      "notes": "Resolveu a causa raiz onde etiquetas com serial/UUID ('CAD-01|000042') ou SKU falhavam na correspondência do inventário tanto no ERP quanto no Mobile.",
+      "validations": ["vitest: 11 tests passed (ERP)", "vitest: 20 tests passed (Mobile)"]
+    },
+    "mobile/src/utils/barcodeScannerUtils.ts": {
+      "status": "improved",
+      "lastReviewedAt": "2026-09-24T23:25:00-03:00",
+      "result": "Port do utilitário universal de scanner para o App Mobile com suporte integral aos formatos de etiqueta impressa e inventário.",
+      "notes": null,
+      "validations": ["vitest inventoryParity: 20 tests passed"]
+    }
+  }
+}

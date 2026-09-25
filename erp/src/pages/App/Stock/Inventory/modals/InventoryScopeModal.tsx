@@ -10,7 +10,6 @@ export type InventoryScopeType = 'full' | 'supplier' | 'custom';
 export interface ScopeConfiguration {
     type: InventoryScopeType;
     name: string;
-    blindCount: boolean;
     supplierId?: string;
     responsibleId: string;
     customProductIds?: string[];
@@ -23,6 +22,9 @@ export interface ScopeConfiguration {
         assignedSupplier: string;
         systemStock: number;
         unit: string;
+        sku?: string;
+        code?: string;
+        barcode?: string;
     }>;
 }
 
@@ -46,8 +48,6 @@ export const InventoryScopeModal: React.FC<InventoryScopeModalProps> = ({
         scopeType,
         inventoryName,
         setInventoryName,
-        blindCount,
-        setBlindCount,
         selectedSupplierId,
         setSelectedSupplierId,
         selectedResponsibleId,
@@ -71,7 +71,6 @@ export const InventoryScopeModal: React.FC<InventoryScopeModalProps> = ({
         onConfirm({
             type: scopeType!,
             name: inventoryName.trim(),
-            blindCount,
             supplierId: selectedSupplierId,
             responsibleId: selectedResponsibleId,
             customProductIds: undefined,
@@ -109,8 +108,6 @@ export const InventoryScopeModal: React.FC<InventoryScopeModalProps> = ({
                             scopeType={scopeType}
                             inventoryName={inventoryName}
                             setInventoryName={setInventoryName}
-                            blindCount={blindCount}
-                            setBlindCount={setBlindCount}
                             selectedSupplierId={selectedSupplierId}
                             setSelectedSupplierId={setSelectedSupplierId}
                             selectedResponsibleId={selectedResponsibleId}

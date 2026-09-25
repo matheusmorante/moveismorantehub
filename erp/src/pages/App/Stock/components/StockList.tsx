@@ -206,7 +206,8 @@ export const StockList: React.FC<StockListProps> = ({ onLaunch }) => {
                         isOpen={isScannerOpen} 
                         onClose={() => setIsScannerOpen(false)} 
                         onScan={(code) => {
-                            setSearch(code);
+                            const cleanCode = code.includes('|') ? code.split('|')[0].trim() : code.trim();
+                            setSearch(cleanCode);
                             setIsScannerOpen(false);
                         }}
                         title="Escanear Produto"

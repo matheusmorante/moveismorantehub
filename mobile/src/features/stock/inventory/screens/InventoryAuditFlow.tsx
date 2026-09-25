@@ -32,7 +32,7 @@ export const InventoryAuditFlow: React.FC<Props> = ({ isDarkMode, userProfile, i
         draftRef,
         isSaving,
         handleConfirmScope,
-        handleSaveDraft,
+        handleUpdateCount,
         handleFinalize,
     } = useInventoryAuditWorkflow(userProfile, onClose, initialSession, copiedItems);
 
@@ -69,10 +69,10 @@ export const InventoryAuditFlow: React.FC<Props> = ({ isDarkMode, userProfile, i
             productId: String(product.id),
             variationId: product.variation_id ? String(product.variation_id) : undefined,
             name: product.name || product.description || 'Produto',
-            supplierNames: 'Fábrica não informada',
+            supplierNames: product.supplierNames || 'Fábrica não informada',
             systemStock: Number(product.stock ?? 0),
             unit: product.unit || 'UN',
-            assignedSupplier: 'Sem fornecedor',
+            assignedSupplier: product.assignedSupplier || 'Sem fornecedor',
         };
 
         if (searchTargetItemId) {
@@ -99,7 +99,8 @@ export const InventoryAuditFlow: React.FC<Props> = ({ isDarkMode, userProfile, i
                 <InventoryScopeScreen
                     isDarkMode={isDarkMode}
                     onCancel={() => {
-                        if (items.length > 0) setView('operation');
+                        const hasAnyCount = items.some(item => item.physicalCount !== null);
+                        if (hasAnyCount) setView('operation');
                         else onClose();
                     }}
                     onConfirm={handleConfirmScope}
@@ -111,33 +112,45 @@ export const InventoryAuditFlow: React.FC<Props> = ({ isDarkMode, userProfile, i
                     isDarkMode={isDarkMode}
                     inventoryName={scopeConfig.name || `Inventário #${draftRef.current.code}`}
                     inventoryId={draftRef.current.id!}
-                    blindCount={scopeConfig.blindCount}
                     items={items}
                     scopeType={scopeConfig.scopeType}
-                    onUpdateCount={(id, count) => {
-                        setItems((prev: AuditItem[]) => prev.map(item => item.id === id ? { ...item, physicalCount: count } : item));
-                    }}
+                    onUpdateCount={handleUpdateCount}
                     onAddManualItem={handleAddBlankItem}
                     onOpenProductSearch={(itemId) => {
                         if (itemId) setSearchTargetItemId(itemId);
                         setIsProductSearchOpen(true);
                     }}
                     onReview={() => setView('review')}
-                    onSaveDraft={() => void handleSaveDraft(false)}
                     onCancel={() => {
+                        const hasAnyCount = items.some(item => item.physicalCount !== null);
+                        if (!hasAnyCount) {
+                            // Nenhuma contagem feita: volta direto ao escopo sem modal e sem inventário fantasma
+                            setView('scope');
+                            return;
+                        }
+
+                        // Contagens salvas com segurança no SQLite local
+                        if (Platform.OS === 'web') {
+                            const shouldExit = typeof window !== 'undefined' && window.confirm 
+                                ? window.confirm('Suas contagens estão salvas com segurança. Deseja voltar ao escopo?') 
+                                : true;
+                            if (shouldExit) setView('scope');
+                            return;
+                        }
+
                         Alert.alert(
                             'Sair da contagem',
-                            'Deseja salvar o progresso como rascunho antes de sair?',
+                            'Suas contagens estão salvas neste aparelho. Deseja voltar à seleção de escopo ou fechar o inventário?',
                             [
                                 { text: 'Continuar contando', style: 'cancel' },
                                 { 
-                                    text: 'Sair sem salvar', 
-                                    style: 'destructive',
-                                    onPress: onClose 
+                                    text: 'Voltar ao escopo', 
+                                    onPress: () => setView('scope') 
                                 },
                                 { 
-                                    text: 'Salvar e sair', 
-                                    onPress: () => void handleSaveDraft(true) 
+                                    text: 'Fechar inventário', 
+                                    style: 'destructive',
+                                    onPress: onClose 
                                 }
                             ]
                         );
@@ -149,6 +162,7 @@ export const InventoryAuditFlow: React.FC<Props> = ({ isDarkMode, userProfile, i
                 <InventoryReviewScreen
                     isDarkMode={isDarkMode}
                     items={items}
+                    hasStages={scopeConfig?.hasStages}
                     startDate={draftRef.current.date!}
                     onCancel={() => setView('operation')}
                     onConfirm={handleFinalize}

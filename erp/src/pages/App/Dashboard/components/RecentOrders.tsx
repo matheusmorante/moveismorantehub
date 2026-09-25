@@ -66,7 +66,7 @@ const RecentOrders: React.FC<RecentOrdersProps> = ({ orders }) => {
                             </div>
                             <div className="text-right shrink-0">
                                 <p className="text-xs font-black text-slate-800 dark:text-slate-100">
-                                    {formatCurrency(order.paymentsSummary?.totalOrderValue || 0)}
+                                    {formatCurrency(order.totalAmount || order.paymentsSummary?.totalOrderValue || 0)}
                                 </p>
                                 <span className={`text-[9px] font-black px-2 py-0.5 rounded-full mt-0.5 inline-block ${STATUS_STYLES[order.status || 'draft'] || STATUS_STYLES.draft}`}>
                                     {STATUS_LABELS[order.status || 'draft'] || order.status}
@@ -80,4 +80,4 @@ const RecentOrders: React.FC<RecentOrdersProps> = ({ orders }) => {
     );
 };
 
-export default RecentOrders;
+export default React.memo(RecentOrders);

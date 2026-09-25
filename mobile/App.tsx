@@ -22,7 +22,7 @@ const AppContent = () => {
   const mandatoryUpdate = useMandatoryAppUpdate();
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: isDarkMode ? '#0f172a' : '#f8fafc' }}>
+    <View style={{ flex: 1, backgroundColor: isDarkMode ? '#0f172a' : '#f8fafc' }}>
       <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} backgroundColor={isDarkMode ? '#0f172a' : '#f8fafc'} />
 
       {loadingProfile ? (
@@ -48,7 +48,7 @@ const AppContent = () => {
         visible={mandatoryUpdate.required}
         url={mandatoryUpdate.url}
       />
-    </SafeAreaView>
+    </View>
   );
 };
 

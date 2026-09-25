@@ -22,7 +22,7 @@ export const useInventoryAuditWorkflow = (
     // Operation State
     const [items, setItems] = useState<AuditItem[]>([]);
     const [isSaving, setIsSaving] = useState(false);
-    const [scopeConfig, setScopeConfig] = useState<{ name: string, blindCount: boolean, responsibleId: string, hasStages?: boolean, scopeType?: string } | null>(null);
+    const [scopeConfig, setScopeConfig] = useState<{ name: string, responsibleId: string, hasStages?: boolean, scopeType?: string } | null>(null);
     
     const draftRef = useRef<{ id?: string; code?: string; markerMoveId?: string; date?: string }>({});
     const lastSavedSignatureRef = useRef<string | null>(null);
@@ -55,7 +55,6 @@ export const useInventoryAuditWorkflow = (
             setItems(restoredItems);
             setScopeConfig({
                 name: editingSession.inventoryCode,
-                blindCount: editingSession.blindCount ?? false,
                 hasStages: editingSession.hasStages ?? false,
                 responsibleId: editingSession.responsibleId || "",
             });
@@ -91,12 +90,14 @@ export const useInventoryAuditWorkflow = (
             systemStock: snapshot.systemStock,
             physicalCount: null, // Start as null (uncounted)
             unit: snapshot.unit,
+            sku: snapshot.sku,
+            code: snapshot.code,
+            barcode: snapshot.barcode,
         }));
 
         setItems(initialItems);
         setScopeConfig({
             name: config.name,
-            blindCount: config.blindCount,
             hasStages: config.hasStages,
             scopeType: config.type,
             responsibleId: config.responsibleId,
@@ -129,7 +130,6 @@ export const useInventoryAuditWorkflow = (
                 inventoryAudit: true,
                 inventoryCode: code,
                 status: 'in_progress',
-                blindCount: scopeConfig?.blindCount,
                 hasStages: scopeConfig?.hasStages,
                 name: scopeConfig?.name,
                 responsibleId: scopeConfig?.responsibleId,
@@ -197,7 +197,6 @@ export const useInventoryAuditWorkflow = (
                 inventoryCode: code,
                 status: 'completed',
                 name: scopeConfig.name,
-                blindCount: scopeConfig.blindCount,
                 hasStages: scopeConfig.hasStages,
                 responsibleId: scopeConfig.responsibleId,
                 responsibleName: getEmployeeDisplayName(responsible) || editingSession?.responsibleName,

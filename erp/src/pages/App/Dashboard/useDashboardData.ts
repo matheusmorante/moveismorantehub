@@ -1,5 +1,11 @@
-import { useState, useEffect, useMemo } from 'react';
-import { fetchAllOrdersForDashboard, subscribeToOrderChanges } from '../../utils/orderHistoryService';
+import { useState, useEffect, useMemo, useRef } from 'react';
+import { 
+    fetchAllOrdersForDashboard, 
+    fetchScheduledAndDraftOrders, 
+    fetchRecentOrders, 
+    fetchGeoMapOrders, 
+    subscribeToOrderChanges 
+} from '../../utils/orderHistoryService';
 import Order from '../../types/order.type';
 import { isSameDay, subDays, differenceInCalendarDays, startOfDay, endOfDay, subMonths, isWithinInterval } from 'date-fns';
 import { dashboardRevenueFactor, getDashboardRevenueImpact, getDefinitiveOrderValue, isDashboardSaleOrder } from './dashboardRevenue';
@@ -90,24 +96,10 @@ export const parsePTBRDatePublic = parsePTBRDate;
 
 export const useDashboardData = (period: Period, customStartDate?: string, customEndDate?: string) => {
     const [orders, setOrders] = useState<Order[]>([]);
+    const [recentOrders, setRecentOrders] = useState<Order[]>([]);
+    const [geoMapOrders, setGeoMapOrders] = useState<Order[]>([]);
     const [loading, setLoading] = useState(true);
-
-    useEffect(() => {
-        let active = true;
-        const refresh = async () => {
-            const fetchedOrders = await fetchAllOrdersForDashboard();
-            if (active) {
-                setOrders(fetchedOrders);
-                setLoading(false);
-            }
-        };
-        void refresh();
-        const unsubscribe = subscribeToOrderChanges(() => { void refresh(); });
-        return () => {
-            active = false;
-            unsubscribe();
-        };
-    }, []);
+    const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     const intervals = useMemo(() => {
         const now = new Date();
@@ -169,6 +161,64 @@ export const useDashboardData = (period: Period, customStartDate?: string, custo
 
         return { current: currentInterval, prev: prevInterval };
     }, [period, customStartDate, customEndDate]);
+
+    useEffect(() => {
+        let active = true;
+
+        const refresh = async () => {
+            // Buscamos em paralelo os pedidos do período corrente + comparativo,
+            // e os pedidos agendados/rascunhos em aberto para abastecer o painel operacional.
+            const queryRange = {
+                start: intervals.prev.start,
+                end: intervals.current.end,
+            };
+
+            const [periodOrders, scheduledOrders, recent, geoMap] = await Promise.all([
+                fetchAllOrdersForDashboard(queryRange),
+                fetchScheduledAndDraftOrders(),
+                fetchRecentOrders(5),
+                fetchGeoMapOrders(50)
+            ]);
+
+            if (active) {
+                // Mesclagem por id único para manter integridade total
+                const orderMap = new Map<string, Order>();
+                for (const o of periodOrders) {
+                    if (o && o.id) orderMap.set(String(o.id), o);
+                }
+                for (const o of scheduledOrders) {
+                    if (o && o.id && !orderMap.has(String(o.id))) {
+                        orderMap.set(String(o.id), o);
+                    }
+                }
+                setOrders(Array.from(orderMap.values()));
+                setRecentOrders(recent || []);
+                setGeoMapOrders(geoMap || []);
+                setLoading(false);
+            }
+        };
+
+        void refresh();
+
+        // PRIORIDADE 2: Realtime - Debounce de 1500ms para evitar tempestade de requisições
+        // quando múltiplos registros forem atualizados sucessivamente.
+        const unsubscribe = subscribeToOrderChanges(() => {
+            if (debounceTimerRef.current) {
+                clearTimeout(debounceTimerRef.current);
+            }
+            debounceTimerRef.current = setTimeout(() => {
+                if (active) void refresh();
+            }, 1500);
+        });
+
+        return () => {
+            active = false;
+            if (debounceTimerRef.current) {
+                clearTimeout(debounceTimerRef.current);
+            }
+            unsubscribe();
+        };
+    }, [intervals.current.start.getTime(), intervals.current.end.getTime(), intervals.prev.start.getTime(), intervals.prev.end.getTime()]);
 
     const calculateStats = (filteredOrdersList: Order[]): DashboardStats => {
         const saleOrders = filteredOrdersList.filter(isDashboardSaleOrder);
@@ -305,5 +355,5 @@ export const useDashboardData = (period: Period, customStartDate?: string, custo
 
     const allActiveOrders = useMemo(() => orders.filter(o => !o.deleted), [orders]);
 
-    return { loading, stats, prevStats, salesOverTime, statusData, filteredOrders, allActiveOrders, intervals };
+    return { loading, stats, prevStats, salesOverTime, statusData, filteredOrders, allActiveOrders, intervals, recentOrders, geoMapOrders };
 };

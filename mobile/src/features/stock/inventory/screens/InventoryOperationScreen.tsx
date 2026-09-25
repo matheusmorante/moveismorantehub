@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, FlatList, KeyboardAvoidingView, Platform, Modal, Alert } from 'react-native';
 import { useInventoryOperation } from '../hooks/useInventoryOperation';
-import type { AuditItem } from '../hooks/useInventoryAuditWorkflow';
+import { matchScannedProductItem, extractLabelIdentity } from '../../../../utils/barcodeScannerUtils';
+import { addInventoryScan } from '../../../../services/sqlite/inventoryScans';
 import { InventoryScannerScreen } from './InventoryScannerScreen';
 import { InventoryStagesView } from '../components/InventoryStagesView';
 import { InventoryFocusMode } from '../components/InventoryFocusMode';
@@ -14,7 +15,6 @@ interface Props {
   isDarkMode: boolean;
   inventoryId: string;
   inventoryName: string;
-  blindCount: boolean;
   items: AuditItem[];
   scopeType?: string | null;
   onUpdateCount: (id: string, count: number | null) => void;
@@ -22,14 +22,12 @@ interface Props {
   onOpenProductSearch?: (itemId: string) => void;
   onReview: () => void;
   onCancel?: () => void;
-  onSaveDraft?: () => void;
 }
 
 export const InventoryOperationScreen: React.FC<Props> = ({
   isDarkMode,
   inventoryId,
   inventoryName,
-  blindCount,
   items,
   scopeType,
   onUpdateCount,
@@ -37,7 +35,6 @@ export const InventoryOperationScreen: React.FC<Props> = ({
   onOpenProductSearch,
   onReview,
   onCancel,
-  onSaveDraft,
 }) => {
   const [showScanner, setShowScanner] = useState(false);
   const [activeStage, setActiveStage] = useState<string | null>(null);
@@ -59,68 +56,41 @@ export const InventoryOperationScreen: React.FC<Props> = ({
   const isShowingStages = scopeType === 'full' && !activeStage;
 
   const handleScan = async (data: string) => {
-    let scanId = data;
-    let targetProductId = data;
+    const item = items.find(i => matchScannedProductItem(i, data));
 
-    try {
-      const parsed = JSON.parse(data);
-      if (parsed.scanId) scanId = parsed.scanId;
-      if (parsed.productId) targetProductId = String(parsed.productId);
-      else if (parsed.sku) targetProductId = String(parsed.sku);
-    } catch {
-      // data is raw string
-    }
-
-    const item = items.find(i => 
-      i.productId === targetProductId || 
-      i.variationId === targetProductId || 
-      i.name.toLowerCase().includes(targetProductId.toLowerCase())
-    );
-
-    if (item) {
-      const { addInventoryScan } = require('../../../../services/sqlite/inventoryScans');
-      const result = await addInventoryScan(inventoryId, item.productId, item.variationId || null, scanId);
-      if (result.success) {
-        const currentCount = item.physicalCount === null ? 0 : item.physicalCount;
-        onUpdateCount(item.id, currentCount + 1);
-        Alert.alert('Sucesso', `Produto ${item.name} computado com sucesso!`);
-      } else if (result.error === 'duplicate') {
-        Alert.alert('Atenção', 'Esta caixa/volume já foi escaneada neste inventário.');
-      } else {
-        Alert.alert('Erro', 'Falha ao gravar no banco local offline.');
-      }
-    } else {
+    if (!item) {
       Alert.alert('Não encontrado', 'O código lido não corresponde a nenhum produto nesta lista.');
-    }
-    setShowScanner(false);
-  };
-
-  const handleManualCountUpdate = async (item: AuditItem, newCount: number | null) => {
-    const current = item.physicalCount || 0;
-    const target = newCount || 0;
-    
-    if (newCount === null && item.physicalCount === null) return;
-    
-    const diff = target - current;
-    if (diff === 0) {
-      onUpdateCount(item.id, newCount);
+      setShowScanner(false);
       return;
     }
-    
-    const { addInventoryScan, removeLatestScanForProduct } = require('../../../../services/sqlite/inventoryScans');
-    const { v4: uuidv4 } = require('uuid');
 
-    if (diff > 0) {
-      for (let i = 0; i < diff; i++) {
-        await addInventoryScan(inventoryId, item.productId, item.variationId || null, uuidv4());
-      }
-    } else if (diff < 0) {
-      const absDiff = Math.abs(diff);
-      for (let i = 0; i < absDiff; i++) {
-        await removeLatestScanForProduct(inventoryId, item.productId, item.variationId || null);
+    const { labelId } = extractLabelIdentity(data);
+
+    // Se o QR possui um labelId UUID de unidade física, valida duplicidade local no SQLite
+    if (labelId) {
+      const scanResult = await addInventoryScan(
+        inventoryId || 'default-inventory',
+        String(item.productId),
+        item.variationId ? String(item.variationId) : null,
+        labelId
+      );
+
+      if (!scanResult.success && scanResult.error === 'duplicate') {
+        Alert.alert(
+          'Unidade já contabilizada',
+          `Esta unidade física (${item.name}) já foi escaneada e contabilizada neste inventário.`
+        );
+        setShowScanner(false);
+        return;
       }
     }
-    onUpdateCount(item.id, newCount);
+
+    const currentCount = item.physicalCount === null ? 0 : item.physicalCount;
+    const nextCount = currentCount + 1;
+    // Atualização unificada: salva no SQLite local
+    onUpdateCount(item.id, nextCount);
+    Alert.alert('Produto escaneado', `${item.name}\nContagem atualizada: ${nextCount} ${item.unit || 'UN'}`);
+    setShowScanner(false);
   };
 
   return (
@@ -131,7 +101,7 @@ export const InventoryOperationScreen: React.FC<Props> = ({
         countedCount={countedItems.length}
         totalCount={activeItems.length}
         progressPercent={progressPercent}
-        onBack={onCancel || (() => {})}
+        onBack={activeStage ? () => setActiveStage(null) : (onCancel || (() => {}))}
         onOpenScanner={() => setShowScanner(true)}
       />
 
@@ -162,9 +132,8 @@ export const InventoryOperationScreen: React.FC<Props> = ({
               <InventoryOperationItemCard
                 item={item}
                 isDarkMode={isDarkMode}
-                blindCount={blindCount}
                 scopeType={scopeType}
-                onUpdateCount={handleManualCountUpdate}
+                onUpdateCount={(it, count) => onUpdateCount(it.id, count)}
                 onOpenProductSearch={onOpenProductSearch}
                 onFocusItem={() => {
                   const idx = activeItems.findIndex(i => i.id === item.id);
@@ -185,9 +154,8 @@ export const InventoryOperationScreen: React.FC<Props> = ({
       <InventoryOperationFooter
         isDarkMode={isDarkMode}
         activeStage={activeStage}
-        onBackStage={() => setActiveStage(null)}
+        onBack={activeStage ? () => setActiveStage(null) : (onCancel || (() => {}))}
         onReview={onReview}
-        onSaveDraft={onSaveDraft}
       />
 
       <Modal visible={showScanner} animationType="slide" onRequestClose={() => setShowScanner(false)}>

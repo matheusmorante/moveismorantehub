@@ -39,8 +39,8 @@ export function useMandatoryAppUpdate(): RequiredUpdate {
         const url = config?.androidUpdateUrl || 'https://expo.dev/artifacts/eas/c6GuI7KSgOnw0kSY-zI9S_5dxaFMuc9lCT37XL-ynYE.apk';
         const installedBuild = getInstalledAndroidBuild();
 
-        // Se a build instalada for diferente da build oficial configurada, bloqueia para atualização obrigatória
-        const isOutdated = installedBuild !== requiredBuild;
+        // A configuração representa a build mínima compatível; builds mais novas continuam válidas.
+        const isOutdated = installedBuild < requiredBuild;
 
         if (url && isOutdated) {
           console.log(`[Update Obrigatório] Build instalada: ${installedBuild} != Esperada: ${requiredBuild}`);

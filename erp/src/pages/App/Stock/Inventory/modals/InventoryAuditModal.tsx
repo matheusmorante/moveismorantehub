@@ -22,6 +22,9 @@ export interface AuditItem {
     systemStock: number;
     physicalCount: number | null;
     unit: string;
+    sku?: string;
+    code?: string;
+    barcode?: string;
 }
 
 interface InventoryAuditModalProps {
@@ -144,7 +147,6 @@ export const InventoryAuditModal: React.FC<InventoryAuditModalProps> = ({
                     <>
                         <InventoryOperationScreen
                             items={items}
-                            blindCount={scopeConfig.blindCount}
                             hasStages={scopeConfig.hasStages}
                             scopeType={scopeConfig.scopeType as InventoryScopeType | undefined}
                             inventoryName={scopeConfig.name || `Inventário #${draftRef.current.code}`}
@@ -157,9 +159,6 @@ export const InventoryAuditModal: React.FC<InventoryAuditModalProps> = ({
                             onUpdateItemProduct={handleUpdateItemProduct}
                             onReview={() => setView('review')}
                             onClose={handleRequestClose}
-                            onSaveDraft={async () => {
-                                await saveDraft(false);
-                            }}
                             hasChanges={hasChanges}
                         />
                     </>

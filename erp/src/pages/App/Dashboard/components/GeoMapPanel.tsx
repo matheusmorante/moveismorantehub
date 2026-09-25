@@ -37,4 +37,4 @@ const GeoMapPanel: React.FC<GeoMapPanelProps> = ({ orders }) => {
     );
 };
 
-export default GeoMapPanel;
+export default React.memo(GeoMapPanel);

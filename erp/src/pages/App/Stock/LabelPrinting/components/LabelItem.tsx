@@ -396,9 +396,10 @@ export const LabelItem: React.FC<LabelItemProps> = ({ config, image, index, scal
             if (!barcodeText) return null;
             
             if (config.category === 'identificacao') {
+                const qrText = uuid ? `MH:L:${uuid}|${barcodeText}` : barcodeText;
                 return (
                     <div key={el.id} style={{ position: 'absolute', left: `${el.pos?.x ?? 50}%`, top: `${el.pos?.y ?? 60}%`, transform: 'translate(-50%, -50%)', width: 'auto', height: '60%', zIndex: 5, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                        <QRCodeCanvas text={uuid ? `${barcodeText}|${uuid}` : barcodeText} />
+                        <QRCodeCanvas text={qrText} />
                     </div>
                 );
             }
@@ -450,7 +451,7 @@ export const LabelItem: React.FC<LabelItemProps> = ({ config, image, index, scal
                         </div>
                         <div style={{ width: '36mm', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                             <div style={{ width: '30mm', height: '30mm', backgroundColor: 'white', padding: '2mm', boxSizing: 'border-box', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                <QRCodeCanvas text={uuid ? `${config.sku || config.barcode || config.code || ''}|${uuid}` : (config.sku || config.barcode || config.code || '')} />
+                                <QRCodeCanvas text={uuid ? `MH:L:${uuid}|${config.sku || config.barcode || config.code || ''}` : (config.sku || config.barcode || config.code || '')} />
                             </div>
                         </div>
                     </div>

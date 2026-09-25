@@ -96,34 +96,36 @@ const PersonList = forwardRef<PersonListRef, PersonListProps>(({
             const loadCustomerOrderCounts = async () => {
                 const { data, error } = await supabase
                     .from('orders')
-                    .select('id, deleted, customer_id, customer_name, customer_phone, customer_email, order_data')
-                    .eq('deleted', false);
+                    .select('id, customer_id, customer_name')
+                    .or('deleted.is.null,deleted.eq.false');
                 if (error || !data) return;
+
+                // Indexa pessoas por id e por nome minúsculo para busca O(1)
+                const personById = new Map<string, string>();
+                const personByName = new Map<string, string>();
+                people.forEach(p => {
+                    const pid = String(p.id);
+                    personById.set(pid, pid);
+                    if (p.fullName) {
+                        personByName.set(p.fullName.trim().toLowerCase(), pid);
+                    }
+                });
 
                 const counts: Record<string, number> = {};
                 data.forEach((row: any) => {
-                    const cData = row.order_data?.customerData || {};
-                    const cId = row.customer_id || cData.id || row.order_data?.customerId;
-                    const cName = (row.customer_name || cData.fullName || '').trim().toLowerCase();
-                    const cPhone = (row.customer_phone || cData.phone || '').trim();
-                    const cEmail = (row.customer_email || cData.email || '').trim().toLowerCase();
+                    const cId = row.customer_id ? String(row.customer_id) : undefined;
+                    const cName = row.customer_name ? row.customer_name.trim().toLowerCase() : undefined;
 
-                    people.forEach(person => {
-                        const pId = String(person.id);
-                        const pName = (person.fullName || '').trim().toLowerCase();
-                        const pPhone = (person.phone || '').trim();
-                        const pEmail = (person.email || '').trim().toLowerCase();
+                    let matchedId: string | undefined = undefined;
+                    if (cId && personById.has(cId)) {
+                        matchedId = cId;
+                    } else if (cName && personByName.has(cName)) {
+                        matchedId = personByName.get(cName);
+                    }
 
-                        let isMatch = false;
-                        if (cId && String(cId) === pId) isMatch = true;
-                        else if (cName && pName && cName === pName) isMatch = true;
-                        else if (cPhone && pPhone && cPhone === pPhone) isMatch = true;
-                        else if (cEmail && pEmail && cEmail === pEmail) isMatch = true;
-
-                        if (isMatch) {
-                            counts[pId] = (counts[pId] || 0) + 1;
-                        }
-                    });
+                    if (matchedId) {
+                        counts[matchedId] = (counts[matchedId] || 0) + 1;
+                    }
                 });
                 setCustomerOrderCounts(counts);
             };

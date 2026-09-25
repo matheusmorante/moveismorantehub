@@ -158,7 +158,7 @@ test.describe('Módulo de Estoque - Inventário e Auditoria', () => {
         await expect(page.locator('text=Novo Inventário')).not.toBeVisible();
     });
 
-    test('3. Inventário: Salvar como Rascunho', async ({ page }) => {
+    test('3. Inventário: Fechamento com Proteção de Alterações', async ({ page }) => {
         await page.goto(`/estoque/inventarios?${AUTH_QUERY}`, { waitUntil: 'domcontentloaded' });
         await page.click('button:has-text("Novo inventário")');
         await page.waitForSelector('text=Novo Inventário');
@@ -167,15 +167,9 @@ test.describe('Módulo de Estoque - Inventário e Auditoria', () => {
         await page.click('[role="dialog"] button:has-text("Matheus Morante")');
         await page.click('button:has-text("Confirmar e Iniciar")');
 
-        const btnSaveDraft = page.locator('button:has-text("Salvar como rascunho")');
-        await expect(btnSaveDraft).toBeDisabled();
-
         const plusButton = page.locator('button i.bi-plus').first();
         if (await plusButton.isVisible()) {
             await plusButton.click();
-            await expect(btnSaveDraft).toBeEnabled();
-            
-            await btnSaveDraft.click();
             await page.waitForTimeout(500);
         }
 

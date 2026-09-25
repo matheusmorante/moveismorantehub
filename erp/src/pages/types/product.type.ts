@@ -16,6 +16,7 @@ export type Variation = {
     // variação canônica. O UUID próprio nunca é substituído.
     mergedToVariationId?: string;
     sku: string;
+    barcode?: string;
     name: string; // e.g., "SOFA 3 LUG AZUL" (Nome ERP)
     title?: string; // e.g., "Sofá 3 Lugares Conforto Azul" (Título Catálogo)
     stock: number;
@@ -107,6 +108,7 @@ export type Product = {
     id?: string;
     code?: string;
     sku?: string;
+    barcode?: string;
     name?: string;
     title?: string;
     description: string;

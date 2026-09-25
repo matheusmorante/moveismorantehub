@@ -7,6 +7,9 @@ export interface ScopeProduct {
     description?: string;
     stock: number;
     unit?: string;
+    sku?: string;
+    code?: string;
+    barcode?: string;
     main_supplier_id?: string;
     supplier_id?: string;
     supplier_ids?: string[];
@@ -22,7 +25,6 @@ export type InventoryScopeType = 'full' | 'supplier' | 'custom';
 export interface ScopeConfiguration {
     type: InventoryScopeType;
     name: string;
-    blindCount: boolean;
     hasStages?: boolean;
     supplierId?: string;
     responsibleId: string;
@@ -34,6 +36,9 @@ export interface ScopeConfiguration {
         assignedSupplier: string;
         systemStock: number;
         unit: string;
+        sku?: string;
+        code?: string;
+        barcode?: string;
     }>;
 }
 
@@ -46,16 +51,20 @@ export const useInventoryScopeBuilder = (
     
     // Configs
     const [inventoryName, setInventoryName] = useState("");
-    const [blindCount, setBlindCount] = useState(false);
     const [selectedSupplierId, setSelectedSupplierId] = useState("");
     const [selectedResponsibleId, setSelectedResponsibleId] = useState("");
     const [responsibleError, setResponsibleError] = useState(false);
     const [customProducts, setCustomProducts] = useState<Array<{ product: ScopeProduct }>>([]);
 
     const getSupplierNames = (product: ScopeProduct) => {
-        if (!product.main_supplier_id) return 'Fábrica não informada';
-        const supplier = suppliers.find(s => s.id === product.main_supplier_id);
-        return supplier ? supplier.full_name : 'Fábrica não informada';
+        const ids = [...new Set([product.main_supplier_id, product.supplier_id, ...(product.supplier_ids || [])].filter(Boolean).map(String))];
+        const names = ids.map(id => suppliers.find(s => String(s.id) === id)?.full_name).filter(Boolean);
+        return (names as string[]).join(' / ') || 'Fábrica não informada';
+    };
+
+    const getAssignedSupplier = (product: ScopeProduct) => {
+        const id = [product.main_supplier_id, product.supplier_id, ...(product.supplier_ids || [])].find(Boolean);
+        return (id && suppliers.find(s => String(s.id) === String(id))?.full_name) || 'Sem fornecedor';
     };
 
     const matchingItems = useMemo(() => {
@@ -65,18 +74,24 @@ export const useInventoryScopeBuilder = (
             const supplierName = getSupplierNames(product);
             items.push({
                 productId: String(product.id),
+                variationId: product.variation_id ? String(product.variation_id) : undefined,
                 name: product.name || product.description || 'Produto',
                 supplierNames: supplierName,
-                assignedSupplier: supplierName.split(' / ')[0] || 'Sem fornecedor',
+                assignedSupplier: getAssignedSupplier(product),
                 systemStock: Number(product.stock ?? 0),
                 unit: product.unit || 'UN',
+                sku: product.sku || product.code || '',
+                code: product.code || '',
+                barcode: product.barcode || '',
             });
         };
 
         if (scopeType === 'full') {
             for (const product of allProducts) addProduct(product);
         } else if (scopeType === 'supplier' && selectedSupplierId) {
-            const supplierProducts = allProducts.filter(p => p.main_supplier_id === selectedSupplierId);
+            const supplierProducts = allProducts.filter(p =>
+                [p.main_supplier_id, p.supplier_id, ...(p.supplier_ids || [])].some(id => String(id) === String(selectedSupplierId))
+            );
             for (const product of supplierProducts) addProduct(product);
         } else if (scopeType === 'custom') {
             for (const { product } of customProducts) addProduct(product);
@@ -100,8 +115,6 @@ export const useInventoryScopeBuilder = (
         scopeType,
         inventoryName,
         setInventoryName,
-        blindCount,
-        setBlindCount,
         selectedSupplierId,
         setSelectedSupplierId,
         selectedResponsibleId,

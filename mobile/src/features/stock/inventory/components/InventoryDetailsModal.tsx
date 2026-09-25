@@ -47,7 +47,10 @@ export const InventoryDetailsModal: React.FC<Props> = ({ session, isDarkMode, on
         return (
             <View style={[styles.itemCard, { backgroundColor: surface, borderColor: border }]}>
                 <View style={{ flex: 1, paddingRight: 8 }}>
-                    <Text style={{ color: textPrimary, fontWeight: '700', marginBottom: 4 }}>{item.name}</Text>
+                    <Text style={{ color: textPrimary, fontWeight: '700', marginBottom: 2 }}>{item.name}</Text>
+                    {!!item.assignedSupplier && item.assignedSupplier !== 'Sem fornecedor' && (
+                        <Text style={{ color: muted, fontSize: 11, marginBottom: 4 }}>{item.assignedSupplier}</Text>
+                    )}
                     <View style={{ flexDirection: 'row', gap: 12 }}>
                         <Text style={{ color: muted, fontSize: 12 }}>Esperado: <Text style={{ fontWeight: '700', color: textPrimary }}>{expected}</Text></Text>
                         <Text style={{ color: muted, fontSize: 12 }}>Contado: <Text style={{ fontWeight: '700', color: textPrimary }}>{counted !== null && counted !== undefined ? counted : '-'}</Text></Text>
@@ -98,7 +101,7 @@ export const InventoryDetailsModal: React.FC<Props> = ({ session, isDarkMode, on
                 ) : (
                     <FlatList
                         data={items}
-                        keyExtractor={(item: any) => item.id}
+                        keyExtractor={(item: any, index: number) => item.id || `${item.productId}-${item.variationId || index}`}
                         renderItem={renderItem}
                         contentContainerStyle={{ padding: 16, gap: 12 }}
                         ListHeaderComponent={

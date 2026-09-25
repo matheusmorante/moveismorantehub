@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator, Platform, StatusBar } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { CheckCircle2, ArrowLeft, AlertTriangle } from 'lucide-react-native';
 import type { AuditItem } from '../hooks/useInventoryAuditWorkflow';
 import { supabase } from '../../../../services/supabaseClient';
@@ -8,6 +9,7 @@ interface Props {
     isDarkMode: boolean;
     items: AuditItem[];
     startDate: string;
+    hasStages?: boolean;
     onCancel: () => void;
     onConfirm: (itemsWithAdjustment: Array<AuditItem & { reconciledExpected: number, difference: number }>) => void;
 }
@@ -16,9 +18,13 @@ export const InventoryReviewScreen: React.FC<Props> = ({
     isDarkMode,
     items,
     startDate,
+    hasStages,
     onCancel,
     onConfirm
 }) => {
+    const insets = useSafeAreaInsets();
+    const topInset = Math.max(insets.top, Platform.OS === 'android' ? (StatusBar.currentHeight || 24) : 0);
+    const bottomInset = Math.max(insets.bottom, 16);
     const [reconciledItems, setReconciledItems] = useState<Array<AuditItem & { reconciledExpected: number; difference: number }>>([]);
     const [loading, setLoading] = useState(true);
     const [reconcileError, setReconcileError] = useState(false);
@@ -32,9 +38,7 @@ export const InventoryReviewScreen: React.FC<Props> = ({
                 const { data, error } = await supabase
                     .from('inventory_moves')
                     .select('product_id, variation_id, type, quantity, observation')
-                    .gte('date', startDate)
-                    .neq('status', 'reversed')
-                    .neq('status', 'cancelled');
+                    .gte('date', startDate);
                 if (error) throw error;
 
                 const result = items.map(item => {
@@ -48,6 +52,7 @@ export const InventoryReviewScreen: React.FC<Props> = ({
                         if (typeof observation === 'string') {
                             try { observation = JSON.parse(observation); } catch { observation = {}; }
                         }
+                        if (observation?.status === 'reversed' || observation?.status === 'cancelled') return false;
                         return !observation?.inventoryAudit && move.type !== 'adjustment';
                     });
 
@@ -83,20 +88,22 @@ export const InventoryReviewScreen: React.FC<Props> = ({
     const muted = isDarkMode ? '#94a3b8' : '#64748b';
 
     const countedItems = items.filter(i => i.physicalCount !== null);
+    const uncountedCount = items.length - countedItems.length;
     
     const itemsWithDifferences = reconciledItems.filter(i => i.physicalCount !== null && i.difference !== 0);
     const adjustmentsCount = itemsWithDifferences.length;
+    const isBlocked = countedItems.length === 0 || loading || reconcileError || (hasStages && uncountedCount > 0);
 
     const handleConfirm = () => {
         console.log('UI LOG: handleConfirm called! countedItems:', countedItems.length);
-        if (countedItems.length === 0 || loading || reconcileError) return;
+        if (isBlocked) return;
         onConfirm(reconciledItems.filter(item => item.physicalCount !== null && item.difference !== 0));
     };
 
     return (
         <View style={[styles.container, { backgroundColor: bg }]}>
-            <View style={[styles.header, { backgroundColor: surface, borderBottomColor: border }]}>
-                <TouchableOpacity onPress={onCancel} style={styles.backBtn}>
+            <View style={[styles.header, { backgroundColor: surface, borderBottomColor: border, paddingTop: topInset + 8 }]}>
+                <TouchableOpacity testID="review-back-btn" onPress={onCancel} style={styles.backBtn}>
                     <ArrowLeft size={24} color={textPrimary} />
                 </TouchableOpacity>
                 <Text style={[styles.headerTitle, { color: textPrimary }]}>Revisão Final</Text>
@@ -162,7 +169,10 @@ export const InventoryReviewScreen: React.FC<Props> = ({
                         {itemsWithDifferences.map(item => (
                             <View key={item.id} style={[styles.diffItem, { borderBottomColor: border }]}>
                                 <View style={{ flex: 1, paddingRight: 8 }}>
-                                    <Text style={{ color: textPrimary, fontWeight: '700', marginBottom: 4 }}>{item.name}</Text>
+                                    <Text style={{ color: textPrimary, fontWeight: '700', marginBottom: 2 }}>{item.name}</Text>
+                                    {!!item.supplierNames && item.supplierNames !== 'Fábrica não informada' && (
+                                        <Text numberOfLines={1} style={{ color: muted, fontSize: 11, marginBottom: 4 }}>{item.supplierNames}</Text>
+                                    )}
                                     <View style={{ flexDirection: 'row', gap: 12 }}>
                                         <Text style={{ color: muted, fontSize: 12 }}>Esperado: <Text style={{ fontWeight: '700', color: textPrimary }}>{item.reconciledExpected}</Text></Text>
                                         <Text style={{ color: muted, fontSize: 12 }}>Contado: <Text style={{ fontWeight: '700', color: textPrimary }}>{item.physicalCount}</Text></Text>
@@ -179,16 +189,21 @@ export const InventoryReviewScreen: React.FC<Props> = ({
                 )}
             </ScrollView>}
 
-            <View style={[styles.footer, { backgroundColor: surface, borderTopColor: border }]}>
-                {(countedItems.length === 0 || loading || reconcileError) && (
+            <View style={[styles.footer, { backgroundColor: surface, borderTopColor: border, paddingBottom: bottomInset + 12 }]}>
+                {isBlocked && (
                     <Text style={{ color: '#ef4444', textAlign: 'center', marginBottom: 12, fontWeight: '600' }}>
-                        {countedItems.length === 0 ? 'Você precisa contar pelo menos 1 item para finalizar o inventário.' : 'A revisão precisa concluir a reconciliação antes de finalizar.'}
+                        {countedItems.length === 0
+                            ? 'Você precisa contar pelo menos 1 item para finalizar o inventário.'
+                            : hasStages && uncountedCount > 0
+                                ? 'Finalize todas as etapas para concluir o inventário.'
+                                : 'A revisão precisa concluir a reconciliação antes de finalizar.'}
                     </Text>
                 )}
                 <TouchableOpacity 
-                    style={[styles.confirmBtn, (countedItems.length === 0 || loading || reconcileError) && { backgroundColor: muted }]}
+                    testID="confirm-review-btn"
+                    style={[styles.confirmBtn, isBlocked && { backgroundColor: muted }]}
                     onPress={handleConfirm}
-                    disabled={countedItems.length === 0 || loading || reconcileError}
+                    disabled={isBlocked}
                 >
                     <Text style={styles.confirmBtnText}>Confirmar e Atualizar Estoque</Text>
                 </TouchableOpacity>
@@ -199,7 +214,7 @@ export const InventoryReviewScreen: React.FC<Props> = ({
 
 const styles = StyleSheet.create({
     container: { flex: 1 },
-    header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 16, paddingTop: 50, borderBottomWidth: 1 },
+    header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingBottom: 12, borderBottomWidth: 1 },
     backBtn: { padding: 4 },
     headerTitle: { fontSize: 18, fontWeight: '800' },
     card: { padding: 20, borderRadius: 16, borderWidth: 1 },

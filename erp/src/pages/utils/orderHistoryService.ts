@@ -11,9 +11,11 @@ import {
 import { 
     fetchOrdersPage, 
     fetchAllOrdersForDashboard,
+    fetchRecentOrders,
+    fetchGeoMapOrders,
+    fetchDashboardAggregates,
     subscribeToOrders, 
     subscribeToOrderChanges,
-    enrichOrdersWithPeopleOrigins,
     fetchScheduledAndDraftOrders
 } from './orderSyncQueries';
 import { 
@@ -37,6 +39,9 @@ export {
     fetchOrderById,
     fetchOrdersPage,
     fetchAllOrdersForDashboard,
+    fetchRecentOrders,
+    fetchGeoMapOrders,
+    fetchDashboardAggregates,
     subscribeToOrders,
     subscribeToOrderChanges,
     fetchScheduledAndDraftOrders,
