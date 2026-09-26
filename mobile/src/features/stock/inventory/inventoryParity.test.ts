@@ -183,13 +183,13 @@ describe('Paridade de Inventário de Estoque (ERP Web x App Mobile)', () => {
         expect(assignedSupplier).toBe('Fábrica Alpha');
     });
 
-    it('bloqueia finalização na revisão quando hasStages=true e há itens não contados', () => {
+    it('permite finalizar na revisão com ao menos um item contado, mesmo com itens pendentes', () => {
         const canFinalize = (hasStages: boolean, countedCount: number, totalCount: number, loading: boolean) => {
             const uncountedCount = totalCount - countedCount;
-            return !(countedCount === 0 || loading || (hasStages && uncountedCount > 0));
+            return !(countedCount === 0 || loading);
         };
 
-        // Inventário full com etapas: se houver pendentes, deve bloquear
+        // Inventário full com etapas: pendências permanecem como aviso, sem bloquear
         expect(canFinalize(true, 5, 10, false)).toBe(false);
         // Inventário full com etapas: todas contadas, deve liberar
         expect(canFinalize(true, 10, 10, false)).toBe(true);

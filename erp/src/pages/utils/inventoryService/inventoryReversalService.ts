@@ -37,10 +37,12 @@ export const reverseInventoryMove = async (
         }
 
         if (existingMeta.source === 'inventory_audit' && (existingMeta.previousStock == null || !Number.isFinite(Number(existingMeta.previousStock)))) {
+            const auditLinkId = moveData.order_id || moveData.related_entity_id;
+            if (!auditLinkId) throw new Error('A movimentação de inventário não possui vínculo com a sessão original.');
             const { data: markers, error: markerError } = await supabase
                 .from(INVENTORY_TABLE_NAME)
                 .select('date, observation')
-                .eq('order_id', moveData.order_id)
+                .or(`order_id.eq.${auditLinkId},related_entity_id.eq.${auditLinkId}`)
                 .ilike('label', 'Inventário #%')
                 .limit(1);
             if (markerError) throw markerError;

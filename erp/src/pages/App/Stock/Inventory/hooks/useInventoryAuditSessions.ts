@@ -91,7 +91,7 @@ export const useInventoryAuditSessions = () => {
             const { data: auditMoves, error: fetchError } = await supabase
                 .from('inventory_moves')
                 .select('*')
-                .eq('order_id', session.id)
+                .or(`order_id.eq.${session.id},related_entity_id.eq.${session.id}`)
                 .like('label', 'Ajuste lançado pelo inventário #%');
             if (fetchError) throw fetchError;
             if (!auditMoves?.length) {
@@ -113,7 +113,7 @@ export const useInventoryAuditSessions = () => {
             const { data: verifiedMoves, error: verifyError } = await supabase
                 .from('inventory_moves')
                 .select('*')
-                .eq('order_id', session.id)
+                .or(`order_id.eq.${session.id},related_entity_id.eq.${session.id}`)
                 .like('label', 'Ajuste lançado pelo inventário #%');
             if (verifyError) throw verifyError;
             const allInExpectedState = (verifiedMoves || []).every(move => {

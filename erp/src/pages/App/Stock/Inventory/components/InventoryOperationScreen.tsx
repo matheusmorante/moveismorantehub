@@ -121,6 +121,11 @@ export const InventoryOperationScreen: React.FC<InventoryOperationScreenProps> =
                 showErrorFeedback('Unidade física já contabilizada', scopedItem.name);
                 return;
             }
+            if (typeof Audio !== 'undefined') {
+                const countSound = new Audio('/inventory_count.mp3');
+                countSound.volume = 1;
+                void countSound.play().catch(() => {});
+            }
             setSessionUnitsRead(count => count + 1);
             setScannedProductIds(previous => new Set(previous).add(scopedItem.id));
             setLastRead({ item: scopedItem, quantity: nextCount });

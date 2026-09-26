@@ -19,7 +19,6 @@ export const InventoryReviewScreen: React.FC<Props> = ({
     isDarkMode,
     items,
     startDate,
-    hasStages,
     onCancel,
     onConfirm
 }) => {
@@ -107,7 +106,7 @@ export const InventoryReviewScreen: React.FC<Props> = ({
     
     const itemsWithDifferences = reconciledItems.filter(i => i.physicalCount !== null && i.difference !== 0);
     const adjustmentsCount = itemsWithDifferences.length;
-    const isBlocked = countedItems.length === 0 || loading || (hasStages && uncountedCount > 0);
+    const isBlocked = countedItems.length === 0 || loading;
 
     const handleConfirm = () => {
         console.log('UI LOG: handleConfirm called! countedItems:', countedItems.length);
@@ -206,9 +205,7 @@ export const InventoryReviewScreen: React.FC<Props> = ({
                     <Text style={{ color: '#ef4444', textAlign: 'center', marginBottom: 12, fontWeight: '600' }}>
                         {countedItems.length === 0
                             ? 'Você precisa contar pelo menos 1 item para finalizar o inventário.'
-                            : hasStages && uncountedCount > 0
-                                ? 'Finalize todas as etapas para concluir o inventário.'
-                                : 'A revisão ainda está carregando.'}
+                            : 'A revisão ainda está carregando.'}
                     </Text>
                 )}
                 <TouchableOpacity 

@@ -11,6 +11,7 @@ import { InventoryOperationHeader } from '../components/InventoryOperationHeader
 import { InventoryOperationFilterBar } from '../components/InventoryOperationFilterBar';
 import { InventoryOperationItemCard } from '../components/InventoryOperationItemCard';
 import { InventoryOperationFooter } from '../components/InventoryOperationFooter';
+import { playInventoryCountSound } from '../../../../services/inventoryCountSound';
 
 import type { AuditItem } from '../types/inventoryWorkflow.types';
 
@@ -96,6 +97,7 @@ export const InventoryOperationScreen: React.FC<Props> = ({
       const physicalLabelId = getPhysicalInventoryScanId(data);
       const nextCount = await onIncrementScannedItem(item.id, physicalLabelId);
       if (nextCount === null) return { kind: 'error', title: 'Unidade física já contabilizada', message: item.name };
+      await playInventoryCountSound();
       return { kind: 'success', title: item.name, sku: item.sku || item.code || item.barcode || '—',
         supplier: activeStage ? undefined : item.assignedSupplier || 'Sem fornecedor', quantity: nextCount, itemId: item.id,
         message: item.isActive === false ? `Produto desativado — ${nextCount} ${nextCount === 1 ? 'unidade encontrada' : 'unidades encontradas'}` : undefined };

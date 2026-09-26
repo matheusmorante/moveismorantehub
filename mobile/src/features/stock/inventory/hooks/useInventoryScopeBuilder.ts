@@ -107,7 +107,7 @@ export const useInventoryScopeBuilder = (
         setScopeType(type);
         setStep(2);
         
-        const dateStr = new Date().toLocaleDateString('pt-BR', { month: 'long' });
+        const dateStr = new Date().toLocaleDateString('pt-BR');
         if (type === 'full') setInventoryName(`Inventário Geral - ${dateStr}`);
         else if (type === 'supplier') setInventoryName(`Inventário por Fornecedor`);
         else setInventoryName(`Inventário Personalizado`);

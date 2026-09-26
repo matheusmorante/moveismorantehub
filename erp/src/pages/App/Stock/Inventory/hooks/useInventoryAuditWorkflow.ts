@@ -236,9 +236,6 @@ export const useInventoryAuditWorkflow = (
             if (!auditId || !code || !items.some(item => item.physicalCount !== null)) {
                 throw new Error('Inventário sem identificação ou sem contagem.');
             }
-            if (scopeConfig.hasStages && items.some(item => item.physicalCount === null)) {
-                throw new Error('Todos os produtos devem ser contados antes de concluir o inventário por etapas.');
-            }
             const responsible = employees.find((employee) => String(employee.id) === scopeConfig.responsibleId);
             const auditObservation = {
                 inventoryAudit: true,

@@ -14,7 +14,6 @@ interface InventoryReviewModalProps {
 export const InventoryReviewModal: React.FC<InventoryReviewModalProps> = ({
     items,
     startDate,
-    hasStages,
     onCancel,
     onConfirm,
 }) => {
@@ -190,8 +189,8 @@ export const InventoryReviewModal: React.FC<InventoryReviewModalProps> = ({
                     </button>
                     <button
                         onClick={() => onConfirm(reconciledItems.filter(item => item.physicalCount !== null))}
-                        disabled={loading || (hasStages && uncountedCount > 0)}
-                        title={hasStages && uncountedCount > 0 ? "Finalize todas as etapas para confirmar o inventário." : ""}
+                        disabled={loading || reconciledItems.every(item => item.physicalCount === null)}
+                        title={reconciledItems.every(item => item.physicalCount === null) ? "Conte pelo menos um item para confirmar o inventário." : ""}
                         className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-black rounded-lg shadow-sm transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                         Concluir Inventário

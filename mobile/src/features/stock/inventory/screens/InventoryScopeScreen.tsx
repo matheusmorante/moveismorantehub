@@ -64,7 +64,7 @@ export const InventoryScopeScreen: React.FC<Props> = ({ isDarkMode, onCancel, on
         allProducts = (await fetchInventoryScopeProducts(type, supplierId)) as ScopeProduct[];
       }
 
-      const dateStr = new Date().toLocaleDateString('pt-BR', { month: 'long' });
+      const dateStr = new Date().toLocaleDateString('pt-BR');
       let name = '';
       if (type === 'full') name = `Inventário Geral - ${dateStr}`;
       else if (type === 'supplier') {
