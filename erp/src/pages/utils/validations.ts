@@ -15,11 +15,11 @@ export const validateItems = (items: Item[], isBudget: boolean = false, isReturn
     items.forEach((item, idx) => {
         if (!item) return;
         if (!item.description || item.description.trim() === "") {
-            errors[`item_${idx}_description`] = "A descrição do item é obrigatória.";
+            errors[`item_${idx}_description`] = "A descricao do item e obrigatoria.";
         }
-        // No longer has default, must be explicitly selected (dispensado em orçamentos e devoluções)
-        if (!hideHandling && (!item.handlingType || item.handlingType.trim() === "")) {
-            errors[`item_${idx}_handlingType`] = "O manuseio do item é obrigatório.";
+        const isService = item.itemType === 'service';
+        if (!hideHandling && !isService && (!item.handlingType || item.handlingType.trim() === "")) {
+            errors[`item_${idx}_handlingType`] = "O manuseio do item e obrigatorio.";
         }
     });
     return errors;

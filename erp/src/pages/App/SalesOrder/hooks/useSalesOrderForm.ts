@@ -55,12 +55,6 @@ export const useSalesOrderForm = (initialDeliveryMethod?: 'delivery' | 'pickup',
 
     // Stable state ref for callbacks and async operations
     const latestState = useRef<any>({});
-    useEffect(() => {
-        latestState.current = {
-            currentOrderId, orderIndex: null, isGeneratingCode: false, status, items, itemsSummary, shipping, payments, paymentsSummary, customerData, observation, seller, sellerId, marketingOrigin, orderDate, isSaving, isSavingDraft: false,
-            orderType, assistanceItems, assistanceServiceValue, assistanceCost, linkedOrderId, isButtonsClicked, currentStep
-        };
-    });
 
     // Sub-hooks modularizados
     const {
@@ -70,6 +64,13 @@ export const useSalesOrderForm = (initialDeliveryMethod?: 'delivery' | 'pickup',
         generateCodeForCopyOrNew,
         ensureOrderCode,
     } = useOrderCodeGenerator(currentOrderId, latestState);
+
+    useEffect(() => {
+        latestState.current = {
+            currentOrderId, orderIndex, isGeneratingCode, status, items, itemsSummary, shipping, payments, paymentsSummary, customerData, observation, seller, sellerId, marketingOrigin, orderDate, isSaving, isSavingDraft: false,
+            orderType, assistanceItems, assistanceServiceValue, assistanceCost, linkedOrderId, isButtonsClicked, currentStep
+        };
+    });
 
     const {
         isCalculatingDistance,
