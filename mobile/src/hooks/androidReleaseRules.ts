@@ -1,5 +1,3 @@
-export const ANDROID_RELEASE_STORAGE_PATH = 'android/latest/morantehub.apk';
-
 export type AndroidReleaseRecord = {
   platform: 'android';
   version: string;
@@ -10,6 +8,7 @@ export type AndroidReleaseRecord = {
   sha256: string;
   is_mandatory: boolean;
   release_notes: string | null;
+  download_url: string | null;
   updated_at: string;
 };
 
@@ -32,10 +31,8 @@ export function resolveAndroidReleaseUpdateState(
     || !Number.isSafeInteger(candidate.min_supported_build)
     || candidate.min_supported_build <= 0
     || candidate.min_supported_build > candidate.build_number
-    || candidate.storage_path !== ANDROID_RELEASE_STORAGE_PATH
-    || !Number.isSafeInteger(candidate.file_size)
-    || candidate.file_size <= 0
-    || !/^[a-f0-9]{64}$/i.test(candidate.sha256)
+    || !candidate.download_url
+    || !/^https?:\/\/.+/i.test(candidate.download_url)
   ) {
     return { available: false, required: false, release: null };
   }

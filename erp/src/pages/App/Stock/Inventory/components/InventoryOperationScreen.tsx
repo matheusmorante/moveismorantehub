@@ -7,6 +7,7 @@ import { useInventoryOperation } from "../../hooks/useInventoryOperation";
 import type { InventoryScopeType } from '../modals/InventoryScopeModal';
 import QRScannerModal from '@/components/shared/QRScannerModal';
 import { matchScannedProductItem, extractLabelIdentity } from '@/pages/utils/barcodeScannerUtils';
+import { getPhysicalInventoryScanId } from '../services/inventoryScanRules';
 import { ensureOfflineInventoryCatalogSynced, findOfflineInventoryMatch, type OfflineInventoryMatch } from '../services/offlineInventoryCatalog';
 
 interface InventoryOperationScreenProps {
@@ -114,7 +115,7 @@ export const InventoryOperationScreen: React.FC<InventoryOperationScreenProps> =
         }
 
         try {
-            const physicalLabelId = labelId && ![scopedItem.productId, scopedItem.variationId].includes(labelId) ? labelId : undefined;
+            const physicalLabelId = getPhysicalInventoryScanId(rawCode);
             const nextCount = await onIncrementScannedItem(scopedItem.id, physicalLabelId);
             if (nextCount === null) {
                 showErrorFeedback('Unidade física já contabilizada', scopedItem.name);

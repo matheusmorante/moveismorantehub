@@ -4,8 +4,8 @@ import type { AuditItem } from "../modals/InventoryAuditModal";
 interface InventoryOperationHeaderProps {
     readonly inventoryName: string;
     readonly items: readonly AuditItem[];
-    readonly mode: 'scanner' | 'manual';
-    readonly setMode: (mode: 'scanner' | 'manual') => void;
+    readonly mode?: 'scanner' | 'manual';
+    readonly setMode?: (mode: 'scanner' | 'manual') => void;
     readonly onOpenQrScanner: () => void;
     readonly onClose?: () => void;
 }
@@ -13,8 +13,6 @@ interface InventoryOperationHeaderProps {
 export const InventoryOperationHeader: React.FC<InventoryOperationHeaderProps> = ({
     inventoryName,
     items,
-    mode,
-    setMode,
     onOpenQrScanner,
     onClose,
 }) => {
@@ -61,23 +59,6 @@ export const InventoryOperationHeader: React.FC<InventoryOperationHeaderProps> =
                     >
                         <i className="bi bi-qr-code-scan text-2xl" aria-hidden="true"></i>
                     </button>
-                    <div className="flex p-1 bg-slate-100 dark:bg-slate-900 rounded-xl shrink-0 w-full md:w-auto">
-                        <button
-                            onClick={() => setMode('manual')}
-                            className={`flex-1 md:flex-none flex items-center justify-center gap-2 px-6 py-2.5 rounded-lg font-bold text-sm transition-all ${mode === 'manual' ? 'bg-white dark:bg-slate-800 text-blue-600 dark:text-blue-400 shadow-sm' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}
-                        >
-                            <i className="bi bi-hand-index-thumb text-lg"></i>
-                            Manual
-                        </button>
-                        <button
-                            onClick={onOpenQrScanner}
-                            className={`flex-1 md:flex-none flex items-center justify-center gap-2 px-6 py-2.5 rounded-lg font-bold text-sm transition-all ${mode === 'scanner' ? 'bg-white dark:bg-slate-800 text-emerald-600 dark:text-emerald-400 shadow-sm' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}
-                            aria-label="Abrir câmera para escanear código de barras"
-                        >
-                            <i className="bi bi-upc-scan text-lg"></i>
-                            Scanner
-                        </button>
-                    </div>
                     {onClose && (
                         <button
                             onClick={onClose}

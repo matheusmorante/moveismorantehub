@@ -29,7 +29,7 @@ export function MandatoryUpdateModal({
 }: Props) {
   if (!visible) return null;
 
-  return <Modal visible={visible} transparent animationType="fade" onRequestClose={() => {}}>
+  return <Modal visible={visible} transparent animationType="fade" onRequestClose={() => { if (!required) onDismiss(); }}>
     <View style={styles.backdrop}><View style={styles.card}>
       <View style={styles.icon}><Smartphone size={30} color="#2563eb" /></View>
       <Text style={styles.title}>{required ? 'Atualização obrigatória' : 'Nova versão disponível'}</Text>

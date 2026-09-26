@@ -44,7 +44,7 @@ function readAppRelease() {
     fail('Android release versions differ between app.json, appVersion.ts, and build.gradle.');
   }
 
-  const minimumBuild = Number(process.env.ANDROID_MIN_SUPPORTED_BUILD || buildNumber);
+  const minimumBuild = Number(process.env.ANDROID_MIN_SUPPORTED_BUILD || 19);
   if (!Number.isSafeInteger(minimumBuild) || minimumBuild <= 0 || minimumBuild > buildNumber) {
     fail('ANDROID_MIN_SUPPORTED_BUILD must be a positive build no higher than the current build.');
   }
@@ -97,6 +97,7 @@ function validateLocalApk(apkPath, release) {
     'mobile/src/components/modals/MandatoryUpdateModal.tsx',
     'mobile/src/utils/barcodeScannerUtils.ts',
     'mobile/src/features/stock/inventory/hooks/useInventoryAuditWorkflow.ts',
+    'mobile/src/features/stock/inventory/screens/InventoryOperationScreen.tsx',
     'mobile/src/features/stock/inventory/screens/InventoryScannerScreen.tsx',
   ].map((relative) => path.join(REPO_ROOT, relative));
   const newestSourceMtime = Math.max(...sourcePaths.map((source) => fs.statSync(source).mtimeMs));
@@ -241,8 +242,10 @@ async function main() {
   }
 
   const release = readAppRelease();
-  const apkPath = path.resolve(process.argv[2] || DEFAULT_APK);
+  const apkArgument = process.argv.slice(2).find((argument) => !argument.startsWith('--'));
+  const apkPath = path.resolve(apkArgument || DEFAULT_APK);
   const fileSize = validateLocalApk(apkPath, release);
+  const apkModifiedAt = fs.statSync(apkPath).mtime.toISOString();
   const localHash = await sha256File(apkPath);
   if (fileSize > BUCKET_FILE_LIMIT) fail('The APK exceeds the dedicated releases bucket limit.');
 
@@ -300,6 +303,8 @@ async function main() {
     if (metadataError) throw metadataError;
 
     console.log(JSON.stringify({
+      apkPath,
+      apkModifiedAt,
       version: release.version,
       buildNumber: release.buildNumber,
       fileSize,

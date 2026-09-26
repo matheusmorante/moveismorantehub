@@ -42,7 +42,10 @@ const item = (id: string, sku: string, supplier: string): AuditItem => ({
 
 const renderInventory = () => {
     const counts = new Map<string, number>();
-    const onIncrementScannedItem = vi.fn(async (id: string) => {
+    const seenLabels = new Set<string>();
+    const onIncrementScannedItem = vi.fn(async (id: string, labelId?: string) => {
+        if (labelId && seenLabels.has(labelId)) return null;
+        if (labelId) seenLabels.add(labelId);
         const next = (counts.get(id) || 0) + 1;
         counts.set(id, next);
         return next;
@@ -77,19 +80,17 @@ describe('escopo do scanner do inventário web', () => {
         await waitFor(() => expect(screen.getByText('Produto não pertence a este inventário')).toBeTruthy());
         expect(onIncrementScannedItem).not.toHaveBeenCalled();
         fireEvent.click(screen.getByText('Ler A'));
-        await waitFor(() => expect(onIncrementScannedItem).toHaveBeenCalledWith('a', undefined));
+        await waitFor(() => expect(onIncrementScannedItem).toHaveBeenCalledWith('a', 'qr:SKU-A'));
     });
 
-    it('aceita leituras sucessivas do mesmo produto e finaliza apenas a sessão do scanner', async () => {
+    it('bloqueia segunda leitura do mesmo QR code e exibe feedback de já contabilizado', async () => {
         const { onIncrementScannedItem, onReview } = renderInventory();
         fireEvent.click(screen.getByText('Abrir scanner'));
         fireEvent.click(screen.getByText('Ler A'));
         await waitFor(() => expect(onIncrementScannedItem).toHaveBeenCalledTimes(1));
         fireEvent.click(screen.getByText('Ler A'));
-        await waitFor(() => expect(onIncrementScannedItem).toHaveBeenCalledTimes(2));
-        expect(screen.getByText('2 unidades lidas · 1 produto')).toBeTruthy();
-        fireEvent.click(screen.getByText('Finalizar leitura'));
-        expect(screen.queryByRole('dialog')).toBeNull();
+        await waitFor(() => expect(screen.getByText('Unidade física já contabilizada')).toBeTruthy());
+        expect(onIncrementScannedItem).toHaveBeenCalledTimes(2); // 2ª chamada retorna null (deduplicada)
         expect(onReview).not.toHaveBeenCalled();
     });
 });

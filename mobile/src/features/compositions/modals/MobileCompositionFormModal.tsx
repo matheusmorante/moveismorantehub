@@ -210,7 +210,7 @@ export const MobileCompositionFormModal: React.FC<MobileCompositionFormModalProp
         </View>
     );
 
-ï»¿    const renderItemsTab = () => (
+    const renderItemsTab = () => (
         <View style={{ padding: 16, flex: 1 }}>
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
                 <View>

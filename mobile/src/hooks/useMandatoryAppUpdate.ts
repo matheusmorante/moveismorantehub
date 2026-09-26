@@ -5,13 +5,11 @@ import * as Application from 'expo-application';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as IntentLauncher from 'expo-intent-launcher';
 import { supabase } from '../services/supabaseClient';
-import { SUPABASE_URL } from '../services/supabaseClient';
 import { resolveAndroidReleaseUpdateState } from './androidReleaseRules';
 import type { AndroidReleaseRecord } from './androidReleaseRules';
 
 const APK_MIME_TYPE = 'application/vnd.android.package-archive';
 const FLAG_GRANT_READ_URI_PERMISSION = 1;
-const DOWNLOAD_FUNCTION = 'get-android-apk-download';
 
 function getInstalledAndroidBuild() {
   const nativeBuild = Number(Application.nativeBuildVersion);
@@ -37,7 +35,7 @@ export function useMandatoryAppUpdate() {
     try {
       const { data, error } = await supabase
         .from('app_release_current')
-        .select('platform,version,build_number,min_supported_build,storage_path,file_size,sha256,is_mandatory,release_notes,updated_at')
+        .select('platform,version,build_number,min_supported_build,storage_path,file_size,sha256,is_mandatory,release_notes,download_url,updated_at')
         .eq('platform', 'android')
         .maybeSingle();
 
@@ -45,7 +43,7 @@ export function useMandatoryAppUpdate() {
       const updateState = resolveAndroidReleaseUpdateState(installedBuild, data as AndroidReleaseRecord | null);
       setRelease(updateState.release);
     } catch {
-      // Offline launch must keep the app usable; the next foreground checks again.
+      // Offline — mantém app utilizável; próxima abertura tenta de novo.
     }
   }, [installedBuild]);
 
@@ -70,30 +68,19 @@ export function useMandatoryAppUpdate() {
 
   const downloadUpdate = useCallback(async () => {
     const currentRelease = updateState.release;
-    if (!currentRelease || !updateState.available || downloading) return;
+    if (!currentRelease?.download_url || !updateState.available || downloading) return;
 
     setDownloading(true);
     setDownloadProgress(0);
     setDownloadError(null);
 
     try {
-      const { data, error } = await supabase.functions.invoke(DOWNLOAD_FUNCTION, { body: {} });
-      if (error || typeof data?.signedUrl !== 'string') {
-        throw new Error('Não foi possível preparar o download. Tente novamente.');
-      }
-
-      const signedUrl = new URL(data.signedUrl);
-      const projectUrl = new URL(SUPABASE_URL);
-      if (signedUrl.protocol !== 'https:' || signedUrl.host !== projectUrl.host) {
-        throw new Error('A URL de download não corresponde ao projeto do aplicativo.');
-      }
-
       if (!FileSystem.cacheDirectory) throw new Error('Armazenamento temporário indisponível.');
       const destination = `${FileSystem.cacheDirectory}morantehub-update.apk`;
       await FileSystem.deleteAsync(destination, { idempotent: true });
 
       const task = FileSystem.createDownloadResumable(
-        signedUrl.toString(),
+        currentRelease.download_url,
         destination,
         { headers: { 'Cache-Control': 'no-cache' } },
         ({ totalBytesWritten, totalBytesExpectedToWrite }) => {
@@ -108,9 +95,9 @@ export function useMandatoryAppUpdate() {
       }
 
       const file = await FileSystem.getInfoAsync(result.uri);
-      if (!file.exists || file.size !== currentRelease.file_size) {
+      if (!file.exists) {
         await FileSystem.deleteAsync(destination, { idempotent: true });
-        throw new Error('O arquivo baixado não passou pela verificação de tamanho. Tente novamente.');
+        throw new Error('O arquivo baixado não foi encontrado. Tente novamente.');
       }
 
       const contentUri = await FileSystem.getContentUriAsync(result.uri);
@@ -127,7 +114,7 @@ export function useMandatoryAppUpdate() {
             data: `package:${packageName}`,
           });
         } catch {
-          // Keep the installer error visible if device settings cannot be opened.
+          // Mantém o erro visível se configurações não puderem ser abertas.
         }
         throw new Error('Permita que o App Morante instale aplicativos desta fonte e toque em baixar novamente.');
       }
