@@ -30,6 +30,15 @@ describe('fluxo de endereço e logística com Google Maps', () => {
         });
     });
 
+    it('não chama o Google quando o endereço está vazio', async () => {
+        const onFailure = vi.fn();
+        const result = await autoCalculateRouteDistance({ street: '', number: '', neighborhood: '', city: '', state: 'PR' }, onFailure);
+
+        expect(result).toBeNull();
+        expect(usageCheck).not.toHaveBeenCalled();
+        expect(onFailure).toHaveBeenCalledWith(expect.stringContaining('Endereço insuficiente'));
+    });
+
     it('permite tentar novamente a busca depois que o script do Google falha ao carregar', async () => {
         const prediction = {
             description: 'Rua das Flores, Colombo - PR, Brasil',

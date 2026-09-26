@@ -290,6 +290,7 @@ const LabelGrid: React.FC<Props> = ({
                                             rotation={item.rotation || 0}
                                             hideBleedBorder={!previewMode}
                                             uuid={item.uuid}
+                                            previewMode={previewMode}
                                         />
                                     );
                                 })()

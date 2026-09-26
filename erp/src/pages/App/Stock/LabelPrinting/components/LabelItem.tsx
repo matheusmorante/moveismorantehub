@@ -13,6 +13,7 @@ export interface LabelItemProps {
     readonly hideContent?: boolean;
     readonly hidePhysicalBorder?: boolean;
     readonly uuid?: string;
+    readonly previewMode?: boolean;
 }
 
 const Barcode: React.FC<{ text: string; height?: number }> = ({ text, height = 15 }) => {
@@ -122,6 +123,27 @@ const QRCodeCanvas: React.FC<{ text: string }> = ({ text }) => {
     if (error) return <div className="text-[10px] font-black text-rose-500 uppercase px-2 py-1 bg-rose-50 rounded italic">Formato Inválido</div>;
     return <canvas ref={canvasRef} style={{ maxWidth: '100%', height: 'auto', maxHeight: '100%', display: 'block' }} />;
 };
+
+const QRPreviewPlaceholder = () => (
+    <div
+        aria-label="Pré-visualização do QR Code"
+        title="O QR Code real será gerado ao imprimir"
+        style={{
+            width: '30mm',
+            height: '30mm',
+            border: '1.5px dashed #94a3b8',
+            borderRadius: '3mm',
+            background: '#f8fafc',
+            color: '#64748b',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            boxSizing: 'border-box',
+        }}
+    >
+        <i className="bi bi-qr-code" aria-hidden="true" style={{ fontSize: '14mm' }} />
+    </div>
+);
 
 export const PriceLabelArtItem: React.FC<{ config: any }> = ({ config }) => {
     // GUARD: Sem artConfig do BD, não renderizar com fallbacks genéricos
@@ -310,7 +332,7 @@ export const PriceLabelArtItem: React.FC<{ config: any }> = ({ config }) => {
     return <PriceLabelArtRenderer data={artData} mode="view" />;
 };
 
-export const LabelItem: React.FC<LabelItemProps> = ({ config, image, index, scale, rotation, hideBleedBorder, hideContent, hidePhysicalBorder, uuid }) => {
+export const LabelItem: React.FC<LabelItemProps> = ({ config, image, index, scale, rotation, hideBleedBorder, hideContent, hidePhysicalBorder, uuid, previewMode = false }) => {
     const activeScale = scale ?? config.imageScale ?? 1;
     const isRound = config.type === 'round';
     const formatPrice = (price?: string | number) => {
@@ -399,7 +421,7 @@ export const LabelItem: React.FC<LabelItemProps> = ({ config, image, index, scal
                 const qrText = uuid ? `MH:L:${uuid}|${barcodeText}` : barcodeText;
                 return (
                     <div key={el.id} style={{ position: 'absolute', left: `${el.pos?.x ?? 50}%`, top: `${el.pos?.y ?? 60}%`, transform: 'translate(-50%, -50%)', width: 'auto', height: '60%', zIndex: 5, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                        <QRCodeCanvas text={qrText} />
+                        {previewMode ? <QRPreviewPlaceholder /> : <QRCodeCanvas text={qrText} />}
                     </div>
                 );
             }
@@ -451,7 +473,7 @@ export const LabelItem: React.FC<LabelItemProps> = ({ config, image, index, scal
                         </div>
                         <div style={{ width: '36mm', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                             <div style={{ width: '30mm', height: '30mm', backgroundColor: 'white', padding: '2mm', boxSizing: 'border-box', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                <QRCodeCanvas text={uuid ? `MH:L:${uuid}|${config.sku || config.barcode || config.code || (config as any).variationId || (config as any).productId || ''}` : (config.sku || config.barcode || config.code || (config as any).variationId || (config as any).productId || '')} />
+                                {previewMode ? <QRPreviewPlaceholder /> : <QRCodeCanvas text={uuid ? `MH:L:${uuid}|${config.sku || config.barcode || config.code || (config as any).variationId || (config as any).productId || ''}` : (config.sku || config.barcode || config.code || (config as any).variationId || (config as any).productId || '')} />}
                             </div>
                         </div>
                     </div>

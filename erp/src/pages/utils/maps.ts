@@ -156,6 +156,13 @@ export const geocodeAddress = async (address: CustomerData['fullAddress'] | stri
         state = address.state || 'PR';
     }
 
+    // Não consumir cota com uma tentativa de geocodificação sem endereço real.
+    const hasAddressData = [street, neighborhood, city].some(value => String(value || '').trim().length > 0);
+    if (!hasAddressData) {
+        onFailure?.('Endereço insuficiente para geocodificação. Informe ao menos rua, bairro ou cidade.');
+        return null;
+    }
+
     const apiKey = getEffectiveGoogleMapsApiKey();
 
     // Monta query primária completa

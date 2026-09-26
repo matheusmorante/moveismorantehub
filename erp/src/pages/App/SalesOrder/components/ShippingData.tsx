@@ -118,24 +118,34 @@ const ShippingData = ({ shipping, setShipping, customerData, isCalculatingDistan
         <div className="flex flex-col gap-8 w-full">
             <div className="flex flex-col gap-10 w-full lg:gap-12">
                 <div className="flex flex-col gap-10">
-                        {/* Address Type Selector (Informar / Não Informar) */}
+                        {/* Address status toggle */}
                         <div className="flex flex-col gap-4">
                             <div className="flex items-center justify-between">
                                 <h4 className="text-xs font-black uppercase tracking-widest text-slate-400">
                                     {shipping.deliveryMethod === 'pickup' ? 'Local de Retirada / Endereço' : 'Endereço de Entrega'}
                                 </h4>
+                                <div className="flex items-center gap-3">
+                                <span className="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400">
+                                    Endereço pendente?
+                                </span>
                                 <button
                                     type="button"
+                                    role="switch"
+                                    aria-checked={shipping.noAddress}
+                                    aria-label="Marcar endereço como pendente"
                                     onClick={() => setShipping(prev => ({ ...prev, noAddress: !prev.noAddress }))}
-                                    className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest transition-all ${
-                                        shipping.noAddress 
-                                            ? 'bg-amber-100 text-amber-700 border border-amber-200 shadow-sm' 
-                                            : 'bg-slate-100 text-slate-600 border border-slate-200 hover:bg-slate-200'
+                                    className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full border transition-colors focus:outline-none focus:ring-2 focus:ring-amber-400 focus:ring-offset-2 dark:focus:ring-offset-slate-900 ${
+                                        shipping.noAddress
+                                            ? 'border-amber-500 bg-amber-500'
+                                            : 'border-slate-300 bg-slate-200 hover:bg-slate-300 dark:border-slate-600 dark:bg-slate-700 dark:hover:bg-slate-600'
                                     }`}
                                 >
-                                    <i className={`bi ${shipping.noAddress ? 'bi-geo-fill text-amber-500' : 'bi-geo-alt'}`}></i>
-                                    {shipping.noAddress ? 'Endereço não informado' : 'Não informar endereço'}
+                                    <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-sm transition-transform ${shipping.noAddress ? 'translate-x-6' : 'translate-x-1'}`} />
                                 </button>
+                                <span className={`text-[9px] font-black uppercase tracking-widest ${shipping.noAddress ? 'text-amber-600 dark:text-amber-400' : 'text-slate-400'}`}>
+                                    {shipping.noAddress ? 'Sim' : 'Não'}
+                                </span>
+                                </div>
                             </div>
                             
                             {shipping.noAddress && (
