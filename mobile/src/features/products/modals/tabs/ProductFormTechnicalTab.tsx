@@ -33,6 +33,7 @@ export const ProductFormTechnicalTab: React.FC<Props> = ({ formData, setFormData
   const [technicalFields, setTechnicalFields] = useState<any[]>([]);
   const [loadingFields, setLoadingFields] = useState(false);
   const [activePickerField, setActivePickerField] = useState<any>(null);
+  const [focusedDropdown, setFocusedDropdown] = useState<string | null>(null);
   const [showAdditionalAttributes, setShowAdditionalAttributes] = useState(false);
   const [manualFieldNames, setManualFieldNames] = useState<string[]>([]);
   const [optionSearch, setOptionSearch] = useState('');
@@ -187,7 +188,8 @@ export const ProductFormTechnicalTab: React.FC<Props> = ({ formData, setFormData
           const alwaysApplicable = ['cor', 'material da estrutura'].includes(normalizedName);
           const applicable = alwaysApplicable || currentValue !== 'Não se aplica';
           const isManual = manualFieldNames.includes(field.name);
-          return (
+
+                  return (
             <View key={field.id} style={styles.attributeField}>
               <View style={styles.attributeHeading}>
                 <View style={styles.attributeLabelWrap}>
@@ -218,11 +220,58 @@ export const ProductFormTechnicalTab: React.FC<Props> = ({ formData, setFormData
                 </View>
               </View>
               {choices.length > 0 ? (
-                <TouchableOpacity disabled={!applicable} onPress={() => { setActivePickerField(field); setOptionSearch(''); }} style={[styles.input, styles.choiceButton, dark && styles.darkInput, !applicable && styles.disabledInput]}>
-                  <Search size={15} color={dark ? '#94a3b8' : '#64748b'} />
-                  <Text style={[styles.choiceButtonText, dark && styles.lightText]} numberOfLines={2}>{currentValue || 'Selecionar opção'}</Text>
-                  <Text style={styles.choiceChevron}>⌄</Text>
-                </TouchableOpacity>
+                <View>
+                  <TextInput
+                    editable={applicable}
+                    value={currentValue === 'Não se aplica' ? '' : currentValue}
+                    onFocus={() => {
+                      setFocusedDropdown(field.name);
+                      setActivePickerField(field);
+                    }}
+                    onChangeText={value => {
+                      setTechnicalValue(field.name, value);
+                      if (activePickerField?.name !== field.name) setActivePickerField(field);
+                    }}
+                    placeholder="Selecione ou digite..."
+                    placeholderTextColor="#94a3b8"
+                    style={[styles.input, dark && styles.darkInput, dark && styles.lightText, !applicable && styles.disabledInput]}
+                  />
+                  {focusedDropdown === field.name && activePickerField?.name === field.name && currentValue.length >= 2 && (
+                    <View style={[styles.inlineDropdown, dark && styles.darkInlineDropdown]}>
+                      <ScrollView nestedScrollEnabled keyboardShouldPersistTaps="handled" style={{ maxHeight: 200 }}>
+                        {(choices || []).filter((o: any) => o.value.toLowerCase().includes(currentValue.trim().toLowerCase())).map((option: any) => {
+                          const current = ownTechnicalValues[activePickerField.name];
+                          const selectedValues = Array.isArray(current) ? current : current ? [String(current)] : [];
+                          const selected = selectedValues.includes(option.value);
+                          return (
+                            <TouchableOpacity key={option.id} onPress={() => {
+                              if (activePickerField.data_type === 'multi_select') {
+                                setTechnicalValue(activePickerField.name, selected
+                                  ? selectedValues.filter((value: string) => value !== option.value)
+                                  : [...selectedValues, option.value]);
+                              } else {
+                                setTechnicalValue(activePickerField.name, option.value);
+                                setFocusedDropdown(null);
+                                setActivePickerField(null);
+                              }
+                            }} style={[styles.optionRow, selected && styles.selectedOptionRow]}>
+                              <Text style={[styles.optionRowText, dark && styles.lightText, selected && styles.selectedOptionRowText]}>{option.value}</Text>
+                              {selected && <Text style={styles.selectedMark}>✓</Text>}
+                            </TouchableOpacity>
+                          );
+                        })}
+                        {(choices || []).filter((o: any) => o.value.toLowerCase().includes(currentValue.trim().toLowerCase())).length === 0 && (
+                          <View style={styles.optionRow}>
+                            <Text style={[styles.optionRowText, dark && styles.lightText]}>Nenhum resultado</Text>
+                          </View>
+                        )}
+                      </ScrollView>
+                      <TouchableOpacity onPress={() => { setFocusedDropdown(null); setActivePickerField(null); }} style={styles.inlineCloseBtn}>
+                        <Text style={styles.inlineCloseBtnText}>Concluir</Text>
+                      </TouchableOpacity>
+                    </View>
+                  )}
+                </View>
               ) : (
                 <TextInput editable={applicable} value={currentValue === 'Não se aplica' ? '' : currentValue} onChangeText={value => setTechnicalValue(field.name, value)}
                   keyboardType={['decimal', 'measure'].includes(field.data_type) ? 'decimal-pad' : ['integer', 'number'].includes(field.data_type) ? 'number-pad' : 'default'}
@@ -246,40 +295,6 @@ export const ProductFormTechnicalTab: React.FC<Props> = ({ formData, setFormData
         )}
         </View>
       )}
-
-      <Modal visible={Boolean(activePickerField)} transparent animationType="fade" onRequestClose={() => setActivePickerField(null)}>
-        <View style={styles.pickerOverlay}>
-          <View style={[styles.pickerCard, dark && styles.darkCard]}>
-            <Text style={[styles.cardTitle, dark && styles.lightText]}>{activePickerField?.name || 'Selecionar opção'}</Text>
-            <TextInput value={optionSearch} onChangeText={setOptionSearch} placeholder="Buscar opção..." placeholderTextColor="#94a3b8"
-              style={[styles.input, dark && styles.darkInput, dark && styles.lightText]} />
-            <ScrollView keyboardShouldPersistTaps="handled" style={styles.optionList}>
-              {(activePickerField?.options || []).filter((option: any) => option.value.toLowerCase().includes(optionSearch.trim().toLowerCase()))
-                .map((option: any) => {
-                  const current = ownTechnicalValues[activePickerField.name];
-                  const selectedValues = Array.isArray(current) ? current : current ? [String(current)] : [];
-                  const selected = selectedValues.includes(option.value);
-                  return <TouchableOpacity key={option.id} onPress={() => {
-                    if (activePickerField.data_type === 'multi_select') {
-                      setTechnicalValue(activePickerField.name, selected
-                        ? selectedValues.filter((value: string) => value !== option.value)
-                        : [...selectedValues, option.value]);
-                    } else {
-                      setTechnicalValue(activePickerField.name, option.value);
-                      setActivePickerField(null);
-                    }
-                  }} style={[styles.optionRow, selected && styles.selectedOptionRow]}>
-                    <Text style={[styles.optionRowText, dark && styles.lightText, selected && styles.selectedOptionRowText]}>{option.value}</Text>
-                    {selected && <Text style={styles.selectedMark}>✓</Text>}
-                  </TouchableOpacity>;
-                })}
-            </ScrollView>
-            <TouchableOpacity onPress={() => setActivePickerField(null)} style={styles.pickerCloseButton}>
-              <Text style={styles.pickerCloseText}>Concluir</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
 
       <Modal visible={showAdditionalAttributes} transparent animationType="fade" onRequestClose={() => setShowAdditionalAttributes(false)}>
         <View style={styles.pickerOverlay}>
@@ -330,6 +345,10 @@ const styles = StyleSheet.create({
   choiceButton: { flexDirection: 'row', alignItems: 'center', minHeight: 44, height: 'auto', paddingVertical: 10 },
   choiceButtonText: { fontSize: 12, fontWeight: '700', color: '#334155', flex: 1 },
   choiceChevron: { color: '#64748b', fontSize: 18 },
+  inlineDropdown: { backgroundColor: '#ffffff', borderWidth: 1, borderColor: '#e2e8f0', borderRadius: 10, marginTop: 4, maxHeight: 240, overflow: 'hidden' },
+  darkInlineDropdown: { backgroundColor: '#1e293b', borderColor: '#334155' },
+  inlineCloseBtn: { height: 40, borderTopWidth: 1, borderTopColor: '#e2e8f0', backgroundColor: '#f8fafc', alignItems: 'center', justifyContent: 'center' },
+  inlineCloseBtnText: { color: '#2563eb', fontWeight: '800', fontSize: 12 },
   pickerOverlay: { flex: 1, backgroundColor: '#0f172a99', justifyContent: 'center', padding: 18 },
   pickerCard: { maxHeight: '82%', backgroundColor: '#fff', borderRadius: 18, padding: 16, gap: 12 },
   optionList: { flexGrow: 0 },

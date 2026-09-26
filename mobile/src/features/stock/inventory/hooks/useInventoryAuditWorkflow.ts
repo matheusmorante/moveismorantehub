@@ -12,6 +12,7 @@ import {
 } from '../services/inventorySessionInitializer';
 import { useInventoryPersistenceQueue } from './useInventoryPersistenceQueue';
 import { executeInventoryFinalization } from '../services/inventoryFinalizer';
+import { getInventorySubmission } from '../../../../services/sqlite/inventoryOutbox';
 
 export type { AuditItem } from '../types/inventoryWorkflow.types';
 
@@ -24,15 +25,20 @@ export const useInventoryAuditWorkflow = (
     const [view, setView] = useState<AuditWorkflowView>('scope');
     const [items, setItemsState] = useState<AuditItem[]>([]);
     const [isSaving, setIsSaving] = useState(false);
-    const [scopeConfig, setScopeConfig] = useState<{ name: string; hasStages: boolean; responsibleId: string; scopeType?: string } | null>(null);
+    const [scopeConfig, setScopeConfig] = useState<{ name: string; hasStages: boolean; responsibleId: string; scopeType?: string; supplierId?: string } | null>(null);
 
     const draftRef = useRef<AuditDraftState>({});
     const latestItemsRef = useRef<AuditItem[]>(items);
+    const frozenSubmissionRef = useRef(false);
 
     // Fila serializada para concorrência segura no SQLite
     const { persistToSQLite, flush } = useInventoryPersistenceQueue(draftRef, scopeConfig, userProfile?.id);
 
     const setItems: React.Dispatch<React.SetStateAction<AuditItem[]>> = useCallback(nextValue => {
+        if (frozenSubmissionRef.current) {
+            Alert.alert('Envio pendente', 'Esta conclusão já foi salva. Retome o envio sem alterar a contagem.');
+            return;
+        }
         const next = typeof nextValue === 'function' ? nextValue(latestItemsRef.current) : nextValue;
         latestItemsRef.current = next;
         setItemsState(next);
@@ -52,6 +58,7 @@ export const useInventoryAuditWorkflow = (
                 try {
                     const data = await restoreInventorySession(initialSession, userProfile?.id);
                     if (data && isMounted) {
+                        frozenSubmissionRef.current = Boolean(data.draft.id && await getInventorySubmission(data.draft.id));
                         draftRef.current = data.draft;
                         latestItemsRef.current = data.items;
                         setItemsState(data.items);
@@ -69,6 +76,7 @@ export const useInventoryAuditWorkflow = (
                 try {
                     const data = await duplicateInventorySession(copiedItems, userProfile?.id);
                     if (isMounted) {
+                        frozenSubmissionRef.current = false;
                         draftRef.current = data.draft;
                         latestItemsRef.current = data.items;
                         setItemsState(data.items);
@@ -89,6 +97,7 @@ export const useInventoryAuditWorkflow = (
     }, [initialSession, copiedItems, userProfile?.id]);
 
     const handleConfirmScope = async (config: ScopeConfiguration) => {
+        frozenSubmissionRef.current = false;
         const initialItems: AuditItem[] = config.itemsSnapshot.map(snapshot => ({
             id: createInventoryItemId(),
             key: `${snapshot.productId}-${snapshot.variationId || 'main'}`,
@@ -111,6 +120,7 @@ export const useInventoryAuditWorkflow = (
             hasStages: config.hasStages ?? false,
             responsibleId: config.responsibleId,
             scopeType: config.type,
+            supplierId: config.supplierId,
         };
 
         setScopeConfig(nextScope);
@@ -133,16 +143,20 @@ export const useInventoryAuditWorkflow = (
     };
 
     const handleUpdateCount = useCallback((itemId: string, newCount: number | null) => {
-        setItems(prevItems => prevItems.map(item => item.id === itemId ? { ...item, physicalCount: newCount } : item));
+        setItems(prevItems => prevItems.map(item => item.id === itemId ? { ...item, physicalCount: newCount, countedAt: newCount === null ? undefined : new Date().toISOString() } : item));
     }, [setItems]);
 
     const incrementScannedItem = async (itemId: string, labelId?: string): Promise<number | null> => {
+        if (frozenSubmissionRef.current) {
+            Alert.alert('Envio pendente', 'Esta conclusão já foi salva. Retome o envio sem alterar a contagem.');
+            return null;
+        }
         const item = latestItemsRef.current.find(candidate => candidate.id === itemId);
         if (!item) throw new Error('Produto não encontrado no rascunho local.');
         if (labelId && latestItemsRef.current.some(candidate => candidate.countedLabelIds?.includes(labelId))) return null;
         const count = (item.physicalCount ?? 0) + 1;
         const next = latestItemsRef.current.map(candidate => candidate.id === itemId
-            ? { ...candidate, physicalCount: count, countedLabelIds: labelId ? [...(candidate.countedLabelIds || []), labelId] : candidate.countedLabelIds }
+            ? { ...candidate, physicalCount: count, countedAt: new Date().toISOString(), countedLabelIds: labelId ? [...(candidate.countedLabelIds || []), labelId] : candidate.countedLabelIds }
             : candidate);
         latestItemsRef.current = next;
         setItemsState(next);

@@ -1,4 +1,5 @@
 import React from 'react';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { View, Text, TouchableOpacity, StyleSheet, Modal, ScrollView } from 'react-native';
 import { X, Sparkles, Fuel, ArrowDownLeft, FileCheck, Layers, Package, Truck, Wrench, RotateCcw } from 'lucide-react-native';
 
@@ -13,6 +14,7 @@ export const FinanceExamplesModal: React.FC<Props> = ({
   onClose,
   isDarkMode = false,
 }) => {
+  const insets = useSafeAreaInsets();
   return (
     <Modal
       visible={visible}
@@ -20,7 +22,7 @@ export const FinanceExamplesModal: React.FC<Props> = ({
       transparent={true}
       onRequestClose={onClose}
     >
-      <View style={styles.backdrop}>
+      <View style={[styles.backdrop, { paddingTop: insets.top, paddingBottom: Math.max(insets.bottom, 16) }]}>
         <View style={[styles.contentCard, isDarkMode && styles.contentCardDark]}>
           {/* Cabeçalho */}
           <View style={styles.header}>

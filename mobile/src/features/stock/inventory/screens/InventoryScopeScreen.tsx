@@ -19,22 +19,34 @@ export const InventoryScopeScreen: React.FC<Props> = ({ isDarkMode, onCancel, on
   const { userProfile } = useAuth();
   const [suppliers, setSuppliers] = useState<ScopeSupplier[]>([]);
   const [loadingData, setLoadingData] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [reloadToken, setReloadToken] = useState(0);
   const [catalogSyncedAt, setCatalogSyncedAt] = useState<string | null>(null);
   const [expandedType, setExpandedType] = useState<InventoryScopeType | null>(null);
   const [selectedSupplierId, setSelectedSupplierId] = useState<string | null>(null);
   const [customProducts, setCustomProducts] = useState<SearchableProduct[]>([]);
   const [searchOpen, setSearchOpen] = useState(false);
 
-  // Load Initial Data
   useEffect(() => {
+    let active = true;
     void (async () => {
-      const supplierData = await fetchInventoryScopeSuppliers();
-      const catalog = await getOfflineInventoryCatalog();
-      setSuppliers(supplierData as ScopeSupplier[]);
-      setCatalogSyncedAt(catalog.syncedAt);
-      setLoadingData(false);
-    })().catch(() => setLoadingData(false));
-  }, []);
+      setLoadingData(true);
+      setLoadError(null);
+      try {
+        const supplierData = await fetchInventoryScopeSuppliers();
+        const catalog = await getOfflineInventoryCatalog();
+        if (active) {
+          setSuppliers(supplierData as ScopeSupplier[]);
+          setCatalogSyncedAt(catalog.syncedAt);
+        }
+      } catch (error) {
+        if (active) setLoadError(error instanceof Error ? error.message : 'Não foi possível carregar os fornecedores.');
+      } finally {
+        if (active) setLoadingData(false);
+      }
+    })();
+    return () => { active = false; };
+  }, [reloadToken]);
 
   const bg = isDarkMode ? '#0f172a' : '#f8fafc';
   const surface = isDarkMode ? '#1e293b' : '#ffffff';
@@ -100,6 +112,12 @@ export const InventoryScopeScreen: React.FC<Props> = ({ isDarkMode, onCancel, on
         for (const product of supplierProducts) addProduct(product);
       }
 
+      if (items.length === 0) {
+        throw new Error(type === 'supplier'
+          ? 'Nenhum produto deste fornecedor foi encontrado no catálogo local.'
+          : 'Nenhum produto foi encontrado no catálogo local. Sincronize e tente novamente.');
+      }
+
       onConfirm({
         type,
         name,
@@ -110,7 +128,7 @@ export const InventoryScopeScreen: React.FC<Props> = ({ isDarkMode, onCancel, on
       });
     } catch (error) {
       console.error('Não foi possível preparar o escopo do inventário:', error);
-      Alert.alert('Erro', 'Não foi possível carregar os produtos para este inventário. Tente novamente.');
+      Alert.alert('Erro', error instanceof Error ? error.message : 'Não foi possível carregar os produtos para este inventário. Tente novamente.');
     } finally {
       setLoadingData(false);
     }
@@ -149,6 +167,14 @@ export const InventoryScopeScreen: React.FC<Props> = ({ isDarkMode, onCancel, on
       </View>
 
       <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 16 }}>
+        {loadError ? (
+          <View style={[styles.errorBox, { backgroundColor: surface, borderColor: border }]}>
+            <Text style={{ color: textPrimary, textAlign: 'center' }}>{loadError}</Text>
+            <TouchableOpacity onPress={() => setReloadToken(current => current + 1)} style={styles.retryButton}>
+              <Text style={styles.retryText}>Tentar novamente</Text>
+            </TouchableOpacity>
+          </View>
+        ) : (
         <InventoryScopeTypeSelector
           isDarkMode={isDarkMode}
           suppliers={suppliers}
@@ -163,6 +189,7 @@ export const InventoryScopeScreen: React.FC<Props> = ({ isDarkMode, onCancel, on
           }
           onConfirmType={(type, supId) => void confirmDirectly(type, supId)}
         />
+        )}
       </ScrollView>
 
       <InventoryProductSearchModal
@@ -194,4 +221,7 @@ const styles = StyleSheet.create({
   headerSubtitle: { fontSize: 13, marginTop: 2 },
   syncStatus: { fontSize: 11, marginTop: 5 },
   closeBtn: { padding: 4 },
+  errorBox: { borderWidth: 1, borderRadius: 16, padding: 20, alignItems: 'center', gap: 12 },
+  retryButton: { backgroundColor: '#2563eb', paddingHorizontal: 18, paddingVertical: 10, borderRadius: 10 },
+  retryText: { color: '#fff', fontWeight: '700' },
 });

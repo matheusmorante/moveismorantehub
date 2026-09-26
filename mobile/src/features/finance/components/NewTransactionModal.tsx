@@ -1,4 +1,5 @@
 import React from 'react';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   View,
   Text,
@@ -43,6 +44,7 @@ export const NewTransactionModal: React.FC<Props> = ({
   userName = 'Operador',
   isDarkMode = false,
 }) => {
+  const insets = useSafeAreaInsets();
   const form = useTransactionForm({
     visible,
     transaction,
@@ -55,7 +57,7 @@ export const NewTransactionModal: React.FC<Props> = ({
   return (
     <>
       <Modal visible={visible} animationType="slide" transparent={true} onRequestClose={onClose}>
-        <View style={styles.overlay}>
+        <View style={[styles.overlay, { paddingTop: insets.top, paddingBottom: Math.max(insets.bottom, 16) }]}>
           <View style={[styles.modalContent, isDarkMode && styles.modalContentDark]}>
             {/* Cabeçalho */}
             <View style={styles.header}>

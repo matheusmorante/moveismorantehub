@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import {
   Modal,
-  SafeAreaView,
+
   Image as RNImage,
   ScrollView,
   StyleSheet,
@@ -15,6 +15,7 @@ import { generateVariationSku, parseLocalizedPrice } from '../../services/mobile
 import { ProductFormTechnicalTab } from './ProductFormTechnicalTab';
 import { ProductVariationPhotosEditor } from '../components/ProductVariationPhotosEditor';
 import { ProductFormCompositionTab } from './ProductFormCompositionTab';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 type VariationTabId = 'identificacao' | 'tecnico' | 'descricao' | 'fotos' | 'compostos' | 'estoque';
 
@@ -27,6 +28,7 @@ interface Props {
 export const ProductFormVariationsTab: React.FC<Props> = ({ formData, setFormData, dark }) => {
   const [expanded, setExpanded] = useState<number | null>(null);
   const [activeVariationTab, setActiveVariationTab] = useState<VariationTabId>('identificacao');
+  const insets = useSafeAreaInsets();
 
   const variations: any[] = Array.isArray(formData.variations) ? formData.variations : [];
 
@@ -263,7 +265,7 @@ export const ProductFormVariationsTab: React.FC<Props> = ({ formData, setFormDat
                       presentationStyle="fullScreen"
                       onRequestClose={() => setExpanded(null)}
                     >
-                    <SafeAreaView style={[styles.variationModalRoot, dark && styles.darkModalRoot]}>
+                    <View style={[styles.variationModalRoot, dark && styles.darkModalRoot, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
                     <View style={styles.varEdit}>
                       <View style={styles.variationFormHeader}>
                         <View style={styles.variationHeaderTitle}>
@@ -543,7 +545,7 @@ export const ProductFormVariationsTab: React.FC<Props> = ({ formData, setFormDat
                         <Text style={styles.completeVariationButtonText}>Concluir</Text>
                       </TouchableOpacity>
                     </View>
-                    </SafeAreaView>
+                    </View>
                     </Modal>
                   )}
                 </View>

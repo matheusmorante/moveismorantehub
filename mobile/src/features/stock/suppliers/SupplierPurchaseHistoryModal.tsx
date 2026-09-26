@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ActivityIndicator, FlatList, Modal, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { X } from 'lucide-react-native';
 import * as stockService from '../../../services/stockService';
@@ -6,6 +7,7 @@ import * as stockService from '../../../services/stockService';
 interface Props { visible: boolean; supplier: any; isDarkMode: boolean; onClose: () => void }
 
 export const SupplierPurchaseHistoryModal: React.FC<Props> = ({ visible, supplier, isDarkMode, onClose }) => {
+  const insets = useSafeAreaInsets();
   const [items, setItems] = useState<any[]>([]);
   const [page, setPage] = useState(0);
   const [total, setTotal] = useState(0);
@@ -36,7 +38,7 @@ export const SupplierPurchaseHistoryModal: React.FC<Props> = ({ visible, supplie
 
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
-      <View style={[styles.container, { backgroundColor: colors.bg }]}>
+      <View style={[styles.container, { backgroundColor: colors.bg }, { paddingTop: insets.top, paddingBottom: Math.max(insets.bottom, 16) }]}>
         <View style={[styles.header, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
           <View style={{ flex: 1 }}><Text style={[styles.title, { color: colors.text }]}>Histórico de Pedidos</Text><Text numberOfLines={1} style={[styles.subtitle, { color: colors.muted }]}>{supplier?.name || supplier?.full_name || 'Fornecedor'}</Text></View>
           <TouchableOpacity onPress={onClose} style={styles.close} accessibilityRole="button" accessibilityLabel="Fechar histórico"><X size={22} color={colors.muted} /></TouchableOpacity>

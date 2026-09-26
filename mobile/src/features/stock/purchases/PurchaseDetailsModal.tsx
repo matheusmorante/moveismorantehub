@@ -1,4 +1,5 @@
 import React from 'react';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Alert, Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Edit3, X } from 'lucide-react-native';
 import { MobilePurchase, PurchaseStatus, purchaseStatusLabel } from './mobilePurchaseService';
@@ -16,6 +17,7 @@ const money = (value: number) => new Intl.NumberFormat('pt-BR', { style: 'curren
 const date = (value?: string) => value ? new Date(value).toLocaleDateString('pt-BR') : '—';
 
 export const PurchaseDetailsModal: React.FC<Props> = ({ visible, isDarkMode, purchase, onClose, onEdit, onStatusChange }) => {
+  const insets = useSafeAreaInsets();
   if (!purchase) return null;
   const colors = { bg: isDarkMode ? '#0f172a' : '#f8fafc', surface: isDarkMode ? '#1e293b' : '#fff', border: isDarkMode ? '#334155' : '#e2e8f0', text: isDarkMode ? '#f8fafc' : '#0f172a', muted: isDarkMode ? '#94a3b8' : '#64748b' };
   const statusColor = purchase.status === 'fulfilled' ? '#059669' : purchase.status === 'cancelled' ? '#dc2626' : '#d97706';
@@ -26,7 +28,7 @@ export const PurchaseDetailsModal: React.FC<Props> = ({ visible, isDarkMode, pur
   };
 
   return <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
-    <View style={[styles.flex, { backgroundColor: colors.bg }]}>
+    <View style={[styles.flex, { backgroundColor: colors.bg }, { paddingTop: insets.top, paddingBottom: Math.max(insets.bottom, 16) }]}>
       <View style={[styles.header, { backgroundColor: colors.surface, borderColor: colors.border }]}><View style={styles.headerCopy}><View style={styles.titleLine}><Text style={[styles.title, { color: colors.text }]}>Pedido #{purchase.purchaseNumber || purchase.id.slice(0, 8).toUpperCase()}</Text><Text style={[styles.badge, { color: statusColor, borderColor: statusColor }]}>{purchaseStatusLabel(purchase.status)}</Text></View><Text style={[styles.meta, { color: colors.muted }]}>{purchase.supplierName} · {date(purchase.date)}</Text></View><TouchableOpacity onPress={onClose} style={styles.icon}><X size={24} color={colors.text} /></TouchableOpacity></View>
       <ScrollView contentContainerStyle={styles.content}>
         <View style={[styles.summary, { backgroundColor: colors.surface, borderColor: colors.border }]}><View><Text style={[styles.label, { color: colors.muted }]}>Fornecedor</Text><Text style={[styles.value, { color: colors.text }]}>{purchase.supplierName}</Text></View><View><Text style={[styles.label, { color: colors.muted }]}>Data</Text><Text style={[styles.value, { color: colors.text }]}>{date(purchase.date)}</Text></View><View><Text style={[styles.label, { color: colors.muted }]}>Total</Text><Text style={[styles.total, { color: '#059669' }]}>{money(purchase.totalValue)}</Text></View><View><Text style={[styles.label, { color: colors.muted }]}>Estoque</Text><Text style={[styles.value, { color: colors.text }]}>{purchase.stockProcessed ? 'Processado' : 'Não processado'}</Text></View></View>

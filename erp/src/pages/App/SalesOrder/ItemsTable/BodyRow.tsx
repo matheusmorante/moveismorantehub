@@ -2,6 +2,7 @@ import React from 'react';
 import Product, { Variation } from '../../../types/product.type';
 import ProductAutocomplete from '../../../../components/ProductAutocomplete';
 import Item from '../../../types/items.type';
+import Service from '../../../types/service.type';
 import { calcItemTotalValue } from '../../../utils/calculations';
 import CurrencyOrPercentInput from '../../../../components/CurrencyOrPercentInput';
 import UnitInput from './UnitInput';
@@ -9,6 +10,7 @@ import CurrencyInput from '../../../../components/CurrencyInput';
 import CurrencyDisplay from '../../../../components/CurrencyDisplay';
 import { ValidationErrors } from '../../../utils/validations';
 import { getSettings } from '@/pages/utils/settingsService';
+import ServiceAutocomplete from './ServiceAutocomplete';
 
 interface Props {
     item: Item;
@@ -25,16 +27,35 @@ interface Props {
     isReturn?: boolean;
     hideHandling?: boolean;
     highlightAsTemporary?: boolean;
+    isExpanded?: boolean;
+    onToggleExpand?: () => void;
 }
 
-const BodyRow = ({ item, onChange, onBatchChange, onDelete, idx, deliveryMethod, errors, isMobile, onSelectProduct, isBudget, isReturn, hideHandling, highlightAsTemporary }: Props) => {
-    const shouldHideHandling = Boolean(hideHandling || isBudget || isReturn);
-    const isLinkedProduct = Boolean(item.description?.trim() && item.productId);
-    const isTemporaryProduct = Boolean(item.description?.trim() && !item.productId);
+const BodyRow = ({
+    item,
+    onChange,
+    onBatchChange,
+    onDelete,
+    idx,
+    deliveryMethod,
+    errors,
+    isMobile,
+    onSelectProduct,
+    isBudget,
+    isReturn,
+    hideHandling,
+    highlightAsTemporary,
+    isExpanded = true,
+    onToggleExpand
+}: Props) => {
+    const isService = item.itemType === 'service';
+    const shouldHideHandling = Boolean(isService || hideHandling || isBudget || isReturn);
+    const isLinkedProduct = Boolean(!isService && item.description?.trim() && item.productId);
+    const isTemporaryProduct = Boolean(!isService && item.description?.trim() && !item.productId);
     const errorKey = `item_${idx}_description`;
     const error = errors[errorKey];
     const handlingErrorKey = `item_${idx}_handlingType`;
-    const handlingError = errors[handlingErrorKey];
+    const handlingError = !isService && errors[handlingErrorKey];
     const settings = getSettings();
 
     // Valores calculados com arredondamento preciso para evitar dízimas de ponto flutuante
@@ -47,6 +68,7 @@ const BodyRow = ({ item, onChange, onBatchChange, onDelete, idx, deliveryMethod,
         : (item.unitPrice > 0 ? Math.round(((item.unitDiscount / item.unitPrice) * 100) * 100) / 100 : 0);
 
     const initialSubtotal = Math.round((item.unitPrice - discountInValue) * 100) / 100;
+
     // Estados locais temporários para digitação livre sem disparar recálculos prematuros
     const [tempUnitPrice, setTempUnitPrice] = React.useState(item.unitPrice || 0);
     const [tempDiscountValue, setTempDiscountValue] = React.useState(discountInValue);
@@ -150,33 +172,172 @@ const BodyRow = ({ item, onChange, onBatchChange, onDelete, idx, deliveryMethod,
         }
     };
 
-    if (isMobile) {
-        return (
-            <div className={`p-4 sm:p-5 bg-white dark:bg-slate-900 border rounded-3xl ${highlightAsTemporary ? 'border-amber-400 dark:border-amber-500 ring-4 ring-amber-400/20 bg-amber-50/20 dark:bg-amber-950/10' : error ? 'border-red-500 ring-4 ring-red-500/10' : 'border-slate-200/80 dark:border-slate-800'} shadow-sm relative group transition-all hover:shadow-md space-y-4`}>
-                {/* Botão Excluir no canto superior direito do card */}
-                {!item.isComboItem && (
-                    <button
-                        type="button"
-                        onClick={onDelete}
-                        className="absolute top-3.5 right-3.5 sm:top-4 sm:right-4 w-8 h-8 flex items-center justify-center text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30 rounded-xl transition-all z-10"
-                        title="Excluir item"
-                    >
-                        <i className="bi bi-trash text-sm" />
-                    </button>
-                )}
+    const handleSelectService = (service: Service) => {
+        onBatchChange(idx, {
+            description: service.description,
+            unitPrice: service.unitPrice || 0,
+            costPrice: service.costPrice || 0,
+            itemType: 'service'
+        });
+    };
 
-                {/* Linha 1: Descrição do Item ocupando toda a linha */}
-                <div className="w-full pr-9 sm:pr-10">
+    // VISUALIZAÇÃO EM CARD (isMobile / width < 1280px)
+    if (isMobile) {
+        // MODO COMPACTO
+        if (!isExpanded) {
+            return (
+                <div
+                    onClick={onToggleExpand}
+                    className={`px-3.5 py-2.5 bg-white dark:bg-slate-900 border rounded-2xl ${
+                        highlightAsTemporary 
+                            ? 'border-amber-400 dark:border-amber-500 ring-2 ring-amber-400/20 bg-amber-50/10 dark:bg-amber-950/10' 
+                            : error 
+                            ? 'border-red-500 ring-2 ring-red-500/10' 
+                            : 'border-slate-200/80 dark:border-slate-800'
+                    } shadow-sm hover:shadow-md transition-all cursor-pointer flex items-center justify-between gap-3 group`}
+                >
+                    <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                        <div className={`w-7 h-7 rounded-xl flex items-center justify-center shrink-0 text-xs ${
+                            isService
+                                ? 'bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400 border border-amber-100 dark:border-amber-900/40'
+                                : 'bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 border border-blue-100 dark:border-blue-900/40'
+                        }`}>
+                            <i className={`bi ${isService ? 'bi-tools' : 'bi-box-seam'}`} />
+                        </div>
+
+                        <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-2 flex-wrap">
+                                <span className="text-xs font-bold text-slate-800 dark:text-slate-100 truncate">
+                                    {item.description?.trim() || (
+                                        <span className="text-slate-400 italic font-normal">
+                                            {isService ? 'Serviço sem descrição' : 'Produto sem descrição'}
+                                        </span>
+                                    )}
+                                </span>
+                                {isTemporaryProduct && <TemporaryProductAlert />}
+                                {item.handlingType && !shouldHideHandling && (
+                                    <span className="px-1.5 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-[10px] font-semibold text-slate-500">
+                                        {item.handlingType}
+                                    </span>
+                                )}
+                            </div>
+                            {item.observation && (
+                                <div className="text-[10px] text-slate-400 truncate max-w-sm mt-0.5">
+                                    {item.observation}
+                                </div>
+                            )}
+                        </div>
+                    </div>
+
+                    <div className="flex items-center gap-3 shrink-0">
+                        <div className="text-right">
+                            <span className="text-[10px] text-slate-400 font-bold block leading-none">
+                                {item.quantity || 1} un
+                            </span>
+                            <span className="text-xs font-black text-blue-600 dark:text-blue-400">
+                                <CurrencyDisplay value={calcItemTotalValue(item)} />
+                            </span>
+                        </div>
+
+                        <div className="flex items-center gap-1">
+                            <button
+                                type="button"
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    onToggleExpand?.();
+                                }}
+                                className="w-7 h-7 flex items-center justify-center text-slate-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950/30 rounded-lg transition-colors"
+                                title="Editar item"
+                            >
+                                <i className="bi bi-pencil text-xs" />
+                            </button>
+                            {!item.isComboItem && (
+                                <button
+                                    type="button"
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        onDelete();
+                                    }}
+                                    className="w-7 h-7 flex items-center justify-center text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30 rounded-lg transition-colors"
+                                    title="Excluir item"
+                                >
+                                    <i className="bi bi-trash text-xs" />
+                                </button>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        // MODO EXPANDIDO (FORMULÁRIO COMPACTO)
+        return (
+            <div className={`p-3.5 sm:p-4 bg-white dark:bg-slate-900 border rounded-2xl ${
+                highlightAsTemporary 
+                    ? 'border-amber-400 dark:border-amber-500 ring-2 ring-amber-400/20 bg-amber-50/10 dark:bg-amber-950/10' 
+                    : error 
+                    ? 'border-red-500 ring-2 ring-red-500/10' 
+                    : 'border-slate-200/80 dark:border-slate-800'
+            } shadow-sm relative group transition-all space-y-3`}>
+                
+                {/* Cabeçalho do Card Expandido com Ações */}
+                <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-2">
+                    <div className="flex items-center gap-2">
+                        <span className={`w-5 h-5 rounded-lg flex items-center justify-center text-[10px] ${
+                            isService
+                                ? 'bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400'
+                                : 'bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400'
+                        }`}>
+                            <i className={`bi ${isService ? 'bi-tools' : 'bi-box-seam'}`} />
+                        </span>
+                        <span className="text-[11px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                            Item #{idx + 1} • {isService ? 'Serviço' : 'Produto'}
+                        </span>
+                    </div>
+
+                    <div className="flex items-center gap-1">
+                        <button
+                            type="button"
+                            onClick={onToggleExpand}
+                            className="px-2 py-1 flex items-center gap-1 text-[11px] font-bold text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"
+                            title="Recolher item"
+                        >
+                            <span>Recolher</span>
+                            <i className="bi bi-chevron-up text-xs" />
+                        </button>
+                        {!item.isComboItem && (
+                            <button
+                                type="button"
+                                onClick={onDelete}
+                                className="w-7 h-7 flex items-center justify-center text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30 rounded-lg transition-colors"
+                                title="Excluir item"
+                            >
+                                <i className="bi bi-trash text-xs" />
+                            </button>
+                        )}
+                    </div>
+                </div>
+
+                {/* Linha 1: Descrição */}
+                <div className="w-full">
                     <label className="text-[10px] font-black uppercase tracking-wider mb-1 flex items-center gap-1.5 ml-1 text-slate-400 dark:text-slate-500">
-                        <span>Descrição do Item</span> <span className="text-red-500">*</span>
+                        <span>{isService ? 'Descrição do Serviço' : 'Descrição do Item'}</span> <span className="text-red-500">*</span>
                         {isTemporaryProduct && <TemporaryProductAlert />}
                     </label>
-                    {!item.isComboItem ? (
+                    {isService ? (
+                        <ServiceAutocomplete
+                            value={item.description}
+                            onChange={(val) => onChange(idx, 'description', val)}
+                            onSelectService={handleSelectService}
+                            placeholder="Buscar serviço cadastrado ou digite o nome..."
+                            className={error ? 'border-red-500 ring-2 ring-red-500' : ''}
+                        />
+                    ) : !item.isComboItem ? (
                         <ProductAutocomplete
                             value={item.description}
                             onChange={(val) => onChange(idx, 'description', val)}
                             onSelect={(p, v) => onSelectProduct(idx, p, v)}
-                            placeholder="Buscar produto..."
+                            placeholder="Buscar produto no catálogo..."
                             isTemporary={isTemporaryProduct}
                             isSelected={isLinkedProduct}
                             className={error ? 'border-red-500 rounded-2xl ring-2 ring-red-500' : ''}
@@ -189,16 +350,16 @@ const BodyRow = ({ item, onChange, onBatchChange, onDelete, idx, deliveryMethod,
                     )}
                 </div>
 
-                {/* Linha 2: Tipo de Manuseio e Observação na mesma linha */}
+                {/* Linha 2: Manuseio (se produto) e Observação */}
                 {!item.isComboItem && (
-                    <div className="flex flex-wrap sm:flex-nowrap items-start gap-3 sm:gap-4">
+                    <div className="flex flex-wrap sm:flex-nowrap items-start gap-3">
                         {!shouldHideHandling && (
-                            <div className="w-full sm:w-[260px] md:w-[280px] shrink-0">
+                            <div className="w-full sm:w-[220px] md:w-[240px] shrink-0">
                                 <label className="text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500 mb-1 block ml-1">
                                     Tipo de Manuseio <span className="text-red-500">*</span>
                                 </label>
                                 <select
-                                    className={`w-full appearance-none border-b-2 bg-transparent px-3 py-2 text-xs font-bold text-slate-700 outline-none transition-colors dark:text-slate-200 ${handlingError ? 'border-red-500 focus:border-red-500' : 'border-slate-200 focus:border-blue-600 dark:border-slate-700 dark:focus:border-blue-500'}`}
+                                    className={`w-full appearance-none border-b-2 bg-transparent px-3 py-1.5 text-xs font-bold text-slate-700 outline-none transition-colors dark:text-slate-200 ${handlingError ? 'border-red-500 focus:border-red-500' : 'border-slate-200 focus:border-blue-600 dark:border-slate-700 dark:focus:border-blue-500'}`}
                                     value={item.handlingType || ''}
                                     onChange={(e) => {
                                         const val = e.target.value;
@@ -238,16 +399,16 @@ const BodyRow = ({ item, onChange, onBatchChange, onDelete, idx, deliveryMethod,
                                 value={tempObservation}
                                 onChange={(e) => setTempObservation(e.target.value)}
                                 onBlur={commitObservation}
-                                placeholder="Ex: salvados, peça do mostruário com avaria..."
-                                className="w-full bg-slate-50/50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700 focus:border-blue-500 px-3 py-1.5 rounded-xl text-xs font-medium text-slate-700 dark:text-slate-200 outline-none transition-all placeholder:text-slate-400"
+                                placeholder="Observação sobre este item..."
+                                className="w-full bg-slate-50/70 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700 focus:border-blue-500 px-3 py-1.5 rounded-xl text-xs font-medium text-slate-700 dark:text-slate-200 outline-none transition-all placeholder:text-slate-400"
                             />
                         </div>
                     </div>
                 )}
 
-                {/* Linha 2: Quantidade, Preço Unitário, Descontos, Líquido e Total */}
+                {/* Linha 3: Grid de Valores */}
                 {!item.isComboItem && (
-                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 items-end pt-1">
+                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5 items-end pt-1">
                         <div className="w-full">
                             <label className="text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500 mb-1 block ml-1">
                                 Qtd. <span className="text-red-500">*</span>
@@ -309,9 +470,9 @@ const BodyRow = ({ item, onChange, onBatchChange, onDelete, idx, deliveryMethod,
                         </div>
 
                         {/* Total do Item */}
-                        <div className="w-full flex flex-col items-end justify-center px-4 py-2 bg-blue-50/70 dark:bg-blue-950/30 border border-blue-100/80 dark:border-blue-900/40 rounded-2xl min-h-[50px]">
-                            <span className="text-[8px] font-black uppercase text-blue-600/70 dark:text-blue-400/70 tracking-widest">Total Item</span>
-                            <div className="text-sm font-black text-blue-600 dark:text-blue-400">
+                        <div className="w-full flex flex-col items-end justify-center px-3 py-1.5 bg-blue-50/70 dark:bg-blue-950/30 border border-blue-100/80 dark:border-blue-900/40 rounded-xl min-h-[44px]">
+                            <span className="text-[8px] font-black uppercase text-blue-600/70 dark:text-blue-400/70 tracking-widest">Total</span>
+                            <div className="text-xs font-black text-blue-600 dark:text-blue-400">
                                 <CurrencyDisplay value={calcItemTotalValue(item)} />
                             </div>
                         </div>
@@ -321,10 +482,31 @@ const BodyRow = ({ item, onChange, onBatchChange, onDelete, idx, deliveryMethod,
         );
     }
 
+    // VISUALIZAÇÃO EM TABELA (width >= 1280px)
     return (
         <tr className={`group transition-colors border-b border-slate-100 dark:border-slate-800 last:border-0 font-sans ${highlightAsTemporary ? 'bg-amber-50/50 dark:bg-amber-950/20 ring-2 ring-inset ring-amber-400/50' : 'hover:bg-slate-50/50 dark:hover:bg-slate-800/20'}`}>
-            <td className="px-4 py-2 relative group/desc">
-                {!item.isComboItem ? (
+            <td className="px-3 py-1.5 relative group/desc">
+                {isService ? (
+                    <>
+                        <ServiceAutocomplete
+                            value={item.description}
+                            onChange={(val) => onChange(idx, 'description', val)}
+                            onSelectService={handleSelectService}
+                            placeholder="Descrição do serviço..."
+                            className={error ? 'border-red-500 rounded-xl ring-2 ring-red-500' : ''}
+                        />
+                        <div className="mt-1 flex items-center gap-2">
+                            <input
+                                type="text"
+                                value={tempObservation}
+                                onChange={(e) => setTempObservation(e.target.value)}
+                                onBlur={commitObservation}
+                                placeholder="Observação..."
+                                className="w-full bg-slate-50/60 dark:bg-slate-800/40 border border-slate-200/80 dark:border-slate-700/80 focus:border-blue-500 px-2 py-0.5 rounded-lg text-[11px] font-medium text-slate-700 dark:text-slate-200 outline-none transition-all placeholder:text-slate-400"
+                            />
+                        </div>
+                    </>
+                ) : !item.isComboItem ? (
                     <>
                     <ProductAutocomplete
                         value={item.description}
@@ -335,24 +517,24 @@ const BodyRow = ({ item, onChange, onBatchChange, onDelete, idx, deliveryMethod,
                         isSelected={isLinkedProduct}
                         className={error ? 'border-red-500 rounded-xl ring-2 ring-red-500' : ''}
                     />
-                    <div className="mt-1.5 flex items-center gap-2">
+                    <div className="mt-1 flex items-center gap-2">
                         <input
                             type="text"
                             value={tempObservation}
                             onChange={(e) => setTempObservation(e.target.value)}
                             onBlur={commitObservation}
                             placeholder="Observação (ex: salvados, peça do mostruário com avaria)..."
-                            className="w-full bg-slate-50/60 dark:bg-slate-800/40 border border-slate-200/80 dark:border-slate-700/80 focus:border-blue-500 px-2.5 py-1 rounded-lg text-[11px] font-medium text-slate-700 dark:text-slate-200 outline-none transition-all placeholder:text-slate-400"
+                            className="w-full bg-slate-50/60 dark:bg-slate-800/40 border border-slate-200/80 dark:border-slate-700/80 focus:border-blue-500 px-2 py-0.5 rounded-lg text-[11px] font-medium text-slate-700 dark:text-slate-200 outline-none transition-all placeholder:text-slate-400"
                         />
                     </div>
                     {isLinkedProduct && (
-                        <div className="flex items-center gap-1 mt-1 text-[10px] font-bold text-emerald-600 dark:text-emerald-400 ml-1">
-                            <i className="bi bi-check-circle-fill text-emerald-500 text-xs" />
+                        <div className="flex items-center gap-1 mt-0.5 text-[9px] font-bold text-emerald-600 dark:text-emerald-400 ml-1">
+                            <i className="bi bi-check-circle-fill text-emerald-500 text-[10px]" />
                             <span>Produto vinculado ao catálogo</span>
                         </div>
                     )}
                     {isTemporaryProduct && (
-                        <div className="mt-1 ml-1">
+                        <div className="mt-0.5 ml-1">
                             <TemporaryProductAlert />
                         </div>
                     )}
@@ -360,7 +542,7 @@ const BodyRow = ({ item, onChange, onBatchChange, onDelete, idx, deliveryMethod,
                 ) : (
                     <div className="flex items-center gap-2 pl-3">
                         <i className="bi bi-arrow-return-right text-slate-300" />
-                        <span className="text-sm italic text-slate-500 dark:text-slate-400">{item.description}</span>
+                        <span className="text-xs italic text-slate-500 dark:text-slate-400">{item.description}</span>
                     </div>
                 )}
                 {error && (
@@ -371,11 +553,11 @@ const BodyRow = ({ item, onChange, onBatchChange, onDelete, idx, deliveryMethod,
                 )}
             </td>
             {!shouldHideHandling && (
-                <td className="px-3 py-2 w-[140px]">
+                <td className="px-2 py-1.5 w-[140px]">
                     {!item.isComboItem && (
                         <div className="relative group/hsel">
                             <select
-                                className={`w-full appearance-none border-b-2 bg-transparent px-2 py-1.5 text-[11px] font-bold text-slate-600 outline-none transition-colors dark:text-slate-400 ${handlingError ? 'border-red-500 focus:border-red-500' : 'border-slate-200 focus:border-blue-600 dark:border-slate-800 dark:focus:border-blue-500'}`}
+                                className={`w-full appearance-none border-b-2 bg-transparent px-2 py-1 text-[11px] font-bold text-slate-600 outline-none transition-colors dark:text-slate-400 ${handlingError ? 'border-red-500 focus:border-red-500' : 'border-slate-200 focus:border-blue-600 dark:border-slate-800 dark:focus:border-blue-500'}`}
                                 value={item.handlingType || ''}
                                 onChange={(e) => {
                                     const val = e.target.value;
@@ -407,39 +589,44 @@ const BodyRow = ({ item, onChange, onBatchChange, onDelete, idx, deliveryMethod,
                     )}
                 </td>
             )}
-            <td className="px-2 py-2 w-[80px]">
+            {isService && !hideHandling && !isBudget && !isReturn && (
+                <td className="px-2 py-1.5 w-[140px] text-center text-xs text-slate-300 dark:text-slate-700">
+                    -
+                </td>
+            )}
+            <td className="px-2 py-1.5 w-[80px]">
                 <UnitInput
                     value={item.quantity}
                     onChange={(value: number) => onChange(idx, 'quantity', value)}
                     disabled={item.isComboItem}
                 />
             </td>
-            <td className="px-2 py-2 w-[110px]">
+            <td className="px-2 py-1.5 w-[110px]">
                 {!item.isComboItem ? (
                     <CurrencyInput
                         value={tempUnitPrice}
                         onChange={(val: number) => setTempUnitPrice(val)}
                         onBlur={commitUnitPrice}
-                        className="w-full bg-white dark:bg-slate-955 border border-slate-200 dark:border-slate-800 focus:border-blue-500 px-2 py-1.5 rounded-xl text-xs font-bold outline-none text-right"
+                        className="w-full bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 focus:border-blue-500 px-2 py-1 rounded-xl text-xs font-bold outline-none text-right"
                     />
                 ) : (
                     <div className="text-right text-xs font-bold text-slate-400">-</div>
                 )}
             </td>
-            <td className="px-2 py-2 w-[100px]">
+            <td className="px-2 py-1.5 w-[100px]">
                 {!item.isComboItem ? (
                     <CurrencyInput
                         value={tempDiscountValue}
                         max={item.unitPrice || undefined}
                         onChange={(val: number) => setTempDiscountValue(val)}
                         onBlur={commitDiscountValue}
-                        className="w-full bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 focus:border-blue-500 px-2 py-1.5 rounded-xl text-xs font-bold outline-none text-right"
+                        className="w-full bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 focus:border-blue-500 px-2 py-1 rounded-xl text-xs font-bold outline-none text-right"
                     />
                 ) : (
                     <div className="text-right text-xs font-bold text-slate-400">-</div>
                 )}
             </td>
-            <td className="px-2 py-2 w-[85px]">
+            <td className="px-2 py-1.5 w-[85px]">
                 {!item.isComboItem ? (
                     <CurrencyOrPercentInput
                         prefix=""
@@ -448,39 +635,39 @@ const BodyRow = ({ item, onChange, onBatchChange, onDelete, idx, deliveryMethod,
                         max={100}
                         onChange={(val: number) => setTempDiscountPercent(val)}
                         onBlur={commitDiscountPercent}
-                        className="w-full bg-white dark:bg-slate-955 border border-slate-200 dark:border-slate-800 focus:border-blue-500 px-2 py-1.5 rounded-xl text-xs font-bold outline-none text-right"
+                        className="w-full bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 focus:border-blue-500 px-2 py-1 rounded-xl text-xs font-bold outline-none text-right"
                     />
                 ) : (
                     <div className="text-right text-xs font-bold text-slate-400">-</div>
                 )}
             </td>
-            <td className="px-2 py-2 w-[110px]">
+            <td className="px-2 py-1.5 w-[110px]">
                 {!item.isComboItem ? (
                     <CurrencyInput
                         value={tempSubtotal}
                         max={item.unitPrice || undefined}
                         onChange={(val: number) => setTempSubtotal(val)}
                         onBlur={commitSubtotal}
-                        className="w-full bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 focus:border-blue-500 px-2 py-1.5 rounded-xl text-xs font-bold outline-none text-right"
+                        className="w-full bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 focus:border-blue-500 px-2 py-1 rounded-xl text-xs font-bold outline-none text-right"
                     />
                 ) : (
                     <div className="text-right text-xs font-bold text-slate-400">-</div>
                 )}
             </td>
-            <td className="px-2 py-2 w-[105px] text-right">
+            <td className="px-2 py-1.5 w-[105px] text-right">
                 <div className="font-bold text-slate-700 dark:text-slate-200 text-xs whitespace-nowrap">
                     <CurrencyDisplay value={calcItemTotalValue(item)} />
                 </div>
             </td>
-            <td className="px-2 py-2 w-[50px] text-center">
+            <td className="px-2 py-1.5 w-[50px] text-center">
                 {!item.isComboItem && (
                     <button
                         type="button"
                         onClick={onDelete}
-                        className="w-8 h-8 mx-auto flex items-center justify-center text-slate-300 dark:text-slate-600 hover:text-red-500 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-all opacity-0 group-hover:opacity-100"
+                        className="w-7 h-7 mx-auto flex items-center justify-center text-slate-300 dark:text-slate-600 hover:text-red-500 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-all opacity-0 group-hover:opacity-100"
                         title="Excluir item"
                     >
-                        <i className="bi bi-trash" />
+                        <i className="bi bi-trash text-xs" />
                     </button>
                 )}
             </td>

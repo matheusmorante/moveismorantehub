@@ -5,7 +5,7 @@ import {
   KeyboardAvoidingView,
   Modal,
   Platform,
-  SafeAreaView,
+
   ScrollView,
   StatusBar,
   StyleSheet,
@@ -13,6 +13,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { X, Save, Check, ChevronLeft, ChevronRight, Lock, Images, Info, FileText, Package, Grid3X3, Receipt } from 'lucide-react-native';
 import { ProductFormBasicTab } from '../modals/tabs/ProductFormBasicTab';
 import { ProductFormPricesTab } from '../modals/tabs/ProductFormPricesTab';
@@ -119,6 +120,7 @@ export const ProductFormScreen: React.FC<Props> = ({
   const [requirementsError, setRequirementsError] = useState(false);
   const tabScrollRef = useRef<ScrollView>(null);
   const dirtyRef = useRef(false);
+  const insets = useSafeAreaInsets();
 
   const categoryIds: string[] = Array.isArray(formData.categoryIds) && formData.categoryIds.length
     ? formData.categoryIds
@@ -584,7 +586,7 @@ export const ProductFormScreen: React.FC<Props> = ({
 
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="fullScreen" onRequestClose={handleRequestClose}>
-      <SafeAreaView style={[styles.safeArea, dark && styles.darkBg]}>
+      <View style={[styles.safeArea, dark && styles.darkBg, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
         <StatusBar barStyle={dark ? 'light-content' : 'dark-content'} />
         <KeyboardAvoidingView
           style={styles.flex}
@@ -723,7 +725,7 @@ export const ProductFormScreen: React.FC<Props> = ({
             </TouchableOpacity>
           </View>
         </KeyboardAvoidingView>
-      </SafeAreaView>
+      </View>
     </Modal>
   );
 };

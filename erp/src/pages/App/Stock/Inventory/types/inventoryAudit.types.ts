@@ -16,7 +16,7 @@ export interface InventoryAuditSession {
     readonly inventoryCode: string;
     readonly name?: string;
     readonly date: string;
-    readonly status: 'in_progress' | 'completed';
+    readonly status: 'in_progress' | 'pending' | 'completed';
     readonly hasStages?: boolean;
     readonly productsCount: number;
     readonly adjustmentsCount: number;
@@ -37,6 +37,7 @@ export interface AuditItem {
     assignedSupplier: string;
     systemStock: number;
     physicalCount: number | null;
+    countedAt?: string;
     unit: string;
     sku?: string;
     code?: string;

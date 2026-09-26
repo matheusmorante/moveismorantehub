@@ -9,6 +9,7 @@ interface ScopeConfigSnapshot {
     hasStages: boolean;
     responsibleId: string;
     scopeType?: string;
+    supplierId?: string;
 }
 
 /**
@@ -34,6 +35,7 @@ export const useInventoryPersistenceQueue = (
                 id: auditId,
                 code,
                 scopeType: savedScope?.scopeType,
+                supplierId: savedScope?.supplierId,
                 name: savedScope?.name || `Inventário #${code}`,
                 responsibleId: savedScope?.responsibleId || userProfileId,
                 hasStages: savedScope?.hasStages ?? false,

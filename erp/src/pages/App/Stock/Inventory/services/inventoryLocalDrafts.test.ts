@@ -9,10 +9,10 @@ const makeDraft = (id: string, count: number | null): WebInventoryDraft => ({
     name: 'Inventário de teste',
     responsibleId: 'operator-1',
     hasStages: true,
-    scopeType: 'full',
+    scopeType: 'supplier', supplierId: 'supplier-1',
     status: 'in_progress',
     updatedAt: new Date().toISOString(),
-    items: [{ id: 'item-1', key: 'p1-main', productId: 'p1', name: 'Produto', supplierNames: 'Telasul', assignedSupplier: 'Telasul', systemStock: 4, physicalCount: count, unit: 'UN', sku: 'P1' }],
+    items: [{ id: 'item-1', key: 'p1-main', productId: 'p1', name: 'Produto', supplierNames: 'Telasul', assignedSupplier: 'Telasul', systemStock: 4, physicalCount: count, countedAt: '2026-09-25T10:00:00Z', unit: 'UN', sku: 'P1' }],
     scannedLabelIds: [],
 });
 
@@ -26,6 +26,8 @@ describe('rascunho de inventário no IndexedDB', () => {
         await saveWebInventoryDraft(makeDraft('audit-b', 2));
         expect((await getWebInventoryDraft('audit-a'))?.items[0].physicalCount).toBe(30);
         expect((await getWebInventoryDraft('audit-b'))?.items[0].physicalCount).toBe(2);
+        expect((await getWebInventoryDraft('audit-a'))?.supplierId).toBe('supplier-1');
+        expect((await getWebInventoryDraft('audit-a'))?.items[0].countedAt).toBe('2026-09-25T10:00:00Z');
         expect(await listWebInventoryDrafts()).toHaveLength(2);
     });
 

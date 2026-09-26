@@ -15,46 +15,64 @@ const parseOrderData = (value: string | Record<string, unknown>): Record<string,
 
 export const OrderRepository = {
   async init(): Promise<void> {
-    await runMigrations();
+    try {
+      await runMigrations();
+    } catch (e) {
+      console.warn('[OrderRepository] Migrations initialization warning:', e);
+    }
   },
 
   async getById(id: string): Promise<LocalOrder | null> {
-    const db = await getSQLiteDatabase();
-    const row = await db.getFirstAsync<OrderRow>(
-      `SELECT * FROM orders_local WHERE id = ?`,
-      [id]
-    );
+    try {
+      await this.init();
+      const db = await getSQLiteDatabase();
+      const row = await db.getFirstAsync<OrderRow>(
+        `SELECT * FROM orders_local WHERE id = ?`,
+        [id]
+      );
 
-    if (!row) return null;
+      if (!row) return null;
 
-    return {
-      id: row.id,
-      status: row.status,
-      orderType: row.order_type,
-      customerName: row.customer_name,
-      totalAmount: row.total_amount,
-      orderData: parseOrderData(row.order_data),
-      version: row.version,
-      updatedAt: row.updated_at,
-      syncedAt: row.synced_at,
-      isPendingLocal: Boolean(row.is_pending_local),
-    };
+      return {
+        id: row.id,
+        status: row.status,
+        orderType: row.order_type,
+        customerName: row.customer_name,
+        totalAmount: row.total_amount,
+        orderData: parseOrderData(row.order_data),
+        version: row.version,
+        updatedAt: row.updated_at,
+        syncedAt: row.synced_at,
+        isPendingLocal: Boolean(row.is_pending_local),
+      };
+    } catch (err) {
+      console.warn('[OrderRepository] Falha ao buscar pedido por id local:', err);
+      return null;
+    }
   },
 
   async list(): Promise<LocalOrder[]> {
-    const db = await getSQLiteDatabase();
-    const rows = await db.getAllAsync<OrderRow>('SELECT * FROM orders_local ORDER BY updated_at DESC');
-    return rows.map((row) => ({ id: row.id, status: row.status, orderType: row.order_type ?? undefined,
-      customerName: row.customer_name ?? undefined, totalAmount: row.total_amount ?? undefined,
-      orderData: parseOrderData(row.order_data), version: row.version, updatedAt: row.updated_at,
-      syncedAt: row.synced_at ?? undefined, isPendingLocal: Boolean(row.is_pending_local) }));
+    try {
+      await this.init();
+      const db = await getSQLiteDatabase();
+      const rows = await db.getAllAsync<OrderRow>('SELECT * FROM orders_local ORDER BY updated_at DESC');
+      return (rows || []).map((row) => ({ id: row.id, status: row.status, orderType: row.order_type ?? undefined,
+        customerName: row.customer_name ?? undefined, totalAmount: row.total_amount ?? undefined,
+        orderData: parseOrderData(row.order_data), version: row.version, updatedAt: row.updated_at,
+        syncedAt: row.synced_at ?? undefined, isPendingLocal: Boolean(row.is_pending_local) }));
+    } catch (err) {
+      console.warn('[OrderRepository] Falha ao listar pedidos locais:', err);
+      return [];
+    }
   },
 
   async saveLocal(order: LocalOrder): Promise<void> {
-    const db = await getSQLiteDatabase();
-    const orderDataJson = JSON.stringify(order.orderData);
+    try {
+      await this.init();
+      const db = await getSQLiteDatabase();
+      const orderDataJson = JSON.stringify(order.orderData || {});
 
-    const existing = await db.getFirstAsync(`SELECT id FROM orders_local WHERE id = ?`, [order.id]);
+      const existing = await db.getFirstAsync(`SELECT id FROM orders_local WHERE id = ?`, [order.id]);
 
     if (existing) {
       await db.runAsync(
@@ -92,5 +110,8 @@ export const OrderRepository = {
         ]
       );
     }
+  } catch (err) {
+    console.warn('[OrderRepository] Falha ao salvar pedido localmente:', err);
+  }
   },
 };

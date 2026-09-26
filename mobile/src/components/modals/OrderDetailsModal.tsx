@@ -18,14 +18,39 @@ export const OrderDetailsModal: React.FC<Props> = ({ order, onClose, isDarkMode,
   const insets = useSafeAreaInsets();
   const [preparingDelivery, setPreparingDelivery] = useState(false);
   const [canStartDelivery, setCanStartDelivery] = useState(false);
+  const [detailedOrder, setDetailedOrder] = useState<any>(order);
   const topInset = Math.max(insets.top, Platform.OS === 'android' ? (StatusBar.currentHeight || 24) : 0);
 
   useEffect(() => {
-    if (!order) {
+    setDetailedOrder(order);
+    if (!order?.id) {
       setPreparingDelivery(false);
-    } else if (order._openDeliveryPreparation) {
+      return;
+    }
+    if (order._openDeliveryPreparation) {
       setPreparingDelivery(true);
     }
+
+    const existingItems = order.order_data?.items || order.items || [];
+    const hasFullItems = Array.isArray(existingItems) && existingItems.length > 0 && existingItems.some((i: any) => i.name || i.description || i.productName || i.title);
+    if (hasFullItems) return;
+
+    let alive = true;
+    supabase
+      .from('orders')
+      .select('*')
+      .eq('id', order.id)
+      .maybeSingle()
+      .then(({ data, error }) => {
+        if (!error && data && alive) {
+          setDetailedOrder(data);
+        }
+      })
+      .catch((err) => console.warn('[OrderDetailsModal] Falha ao carregar detalhes completos:', err));
+
+    return () => {
+      alive = false;
+    };
   }, [order]);
   useEffect(() => {
     const loadPermission = async () => {
@@ -57,7 +82,7 @@ export const OrderDetailsModal: React.FC<Props> = ({ order, onClose, isDarkMode,
       <View style={[styles.modalContainer, { paddingTop: topInset }, isDarkMode && styles.modalContainerDark]}>
         {preparingDelivery ? (
           <DeliveryPreparationScreen
-            order={order}
+            order={detailedOrder || order}
             isDarkMode={isDarkMode}
             userProfile={userProfile}
             onBack={started => {
@@ -82,7 +107,7 @@ export const OrderDetailsModal: React.FC<Props> = ({ order, onClose, isDarkMode,
 
         {/* Full-Screen Body Content */}
         <View style={{ flex: 1 }}>
-          <OrderDetailsBody order={order} isDarkMode={isDarkMode} canStartDelivery={canStartDelivery} onStartDelivery={() => setPreparingDelivery(true)} onViewDelivery={() => setPreparingDelivery(true)} />
+          <OrderDetailsBody order={detailedOrder || order} isDarkMode={isDarkMode} canStartDelivery={canStartDelivery} onStartDelivery={() => setPreparingDelivery(true)} onViewDelivery={() => setPreparingDelivery(true)} />
         </View>
         </>}
       </View>

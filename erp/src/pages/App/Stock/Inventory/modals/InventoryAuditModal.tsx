@@ -21,6 +21,7 @@ export interface AuditItem {
     assignedSupplier: string;
     systemStock: number;
     physicalCount: number | null;
+    countedAt?: string;
     unit: string;
     sku?: string;
     code?: string;
@@ -159,7 +160,7 @@ export const InventoryAuditModal: React.FC<InventoryAuditModalProps> = ({
                             inventoryName={scopeConfig.name || `Inventário #${draftRef.current.code}`}
                             onUpdateCount={(id, count) => {
                                 setItems((prev) =>
-                                    prev.map((item) => (item.id === id ? { ...item, physicalCount: count } : item))
+                                    prev.map((item) => (item.id === id ? { ...item, physicalCount: count, countedAt: count === null ? undefined : new Date().toISOString() } : item))
                                 );
                             }}
                             onIncrementScannedItem={incrementScannedItem}

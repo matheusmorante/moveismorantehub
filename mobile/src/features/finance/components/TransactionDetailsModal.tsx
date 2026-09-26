@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { View, Text, TouchableOpacity, Modal, StyleSheet, ScrollView, Alert, ActivityIndicator } from 'react-native';
 import { X, ArrowUpRight, ArrowDownLeft, Bot, User, RotateCcw } from 'lucide-react-native';
 import { FinancialTransaction, reverseFinancialTransaction } from '../../../services/mobileFinanceService';
@@ -20,6 +21,7 @@ export const TransactionDetailsModal: React.FC<Props> = ({
   canReverse = true,
   isDarkMode = false,
 }) => {
+  const insets = useSafeAreaInsets();
   const [reversing, setReversing] = useState(false);
 
   if (!transaction) return null;
@@ -58,7 +60,7 @@ export const TransactionDetailsModal: React.FC<Props> = ({
 
   return (
     <Modal visible={visible} animationType="slide" transparent={true} onRequestClose={onClose}>
-      <View style={styles.overlay}>
+      <View style={[styles.overlay, { paddingTop: insets.top, paddingBottom: Math.max(insets.bottom, 16) }]}>
         <View style={[styles.modalContent, isDarkMode && styles.modalContentDark]}>
           <View style={styles.header}>
             <View style={styles.titleRow}>

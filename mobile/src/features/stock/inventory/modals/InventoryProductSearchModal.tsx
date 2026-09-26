@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { View, Text, StyleSheet, TouchableOpacity, TextInput, FlatList, ActivityIndicator, Modal } from 'react-native';
 import { X, Search } from 'lucide-react-native';
 import { supabase } from '../../../../services/supabaseClient';
@@ -30,6 +31,7 @@ interface Props {
 }
 
 export const InventoryProductSearchModal: React.FC<Props> = ({ isDarkMode, visible, onClose, onSelect }) => {
+  const insets = useSafeAreaInsets();
     const [search, setSearch] = useState('');
     const [products, setProducts] = useState<SearchableProduct[]>([]);
     const [loading, setLoading] = useState(true);
@@ -103,7 +105,7 @@ export const InventoryProductSearchModal: React.FC<Props> = ({ isDarkMode, visib
 
     return (
         <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
-            <View style={[styles.container, { backgroundColor: bg }]}>
+            <View style={[styles.container, { backgroundColor: bg }, { paddingTop: insets.top, paddingBottom: Math.max(insets.bottom, 16) }]}>
                 {/* Header */}
                 <View style={[styles.header, { backgroundColor: '#7c3aed', paddingTop: 50 }]}>
                     <View style={{ flex: 1 }}>

@@ -31,7 +31,7 @@ export const InventoryOptionsMenuModal: React.FC<Props> = ({
 
   const adjustmentsCount = session.adjustmentsCount || 0;
   const reversedCount = session.reversedCount || 0;
-  const isInProgress = session.status === 'in_progress';
+  const isInProgress = session.status === 'in_progress' || session.status === 'pending_sync';
   const canRevert = session.status === 'completed' && adjustmentsCount > 0 && reversedCount === 0;
   const hasReverted = session.status === 'completed' && reversedCount > 0;
   const code = session.inventoryCode || session.name?.replace('Inventário #', '') || session.id.split('-')[0];
@@ -46,7 +46,7 @@ export const InventoryOptionsMenuModal: React.FC<Props> = ({
 
           {isInProgress ? (
             <TouchableOpacity style={styles.modalOption} onPress={() => onContinue(session)}>
-              <Text style={[styles.modalOptionText, { color: '#059669' }]}>Continuar inventário</Text>
+              <Text style={[styles.modalOptionText, { color: '#059669' }]}>{session.status === 'pending_sync' ? 'Retomar envio' : 'Continuar inventário'}</Text>
             </TouchableOpacity>
           ) : (
             <TouchableOpacity style={styles.modalOption} onPress={() => onViewDetails(session)}>

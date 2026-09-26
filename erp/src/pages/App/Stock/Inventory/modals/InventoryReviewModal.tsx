@@ -27,6 +27,7 @@ export const InventoryReviewModal: React.FC<InventoryReviewModalProps> = ({
         const reconcile = async () => {
             setReconcileError(false);
             try {
+                if (typeof navigator !== 'undefined' && navigator.onLine === false) throw new Error('Inventário revisado offline');
                 const moves: Array<{ product_id: string; variation_id: string | null; type: string; quantity: number | null; observation: string | null; status: string | null }> = [];
                 const productIds = [...new Set(items.map(item => item.productId).filter(Boolean))];
                 for (let offset = 0; offset < productIds.length; offset += 50) {
@@ -83,8 +84,11 @@ export const InventoryReviewModal: React.FC<InventoryReviewModalProps> = ({
                 setUncountedCount(uncounted);
                 setReconciledItems(reconciled);
             } catch (error) {
-                console.error("Error reconciling inventory:", error);
+                if (typeof navigator === 'undefined' || navigator.onLine !== false) console.error("Error reconciling inventory:", error);
                 setReconcileError(true);
+                setReconciledItems(items.map(item => ({ ...item, reconciledExpected: Number(item.systemStock || 0),
+                    difference: item.physicalCount === null ? 0 : item.physicalCount - Number(item.systemStock || 0) })));
+                setUncountedCount(items.filter(item => item.physicalCount === null).length);
             } finally {
                 setLoading(false);
             }
@@ -116,7 +120,7 @@ export const InventoryReviewModal: React.FC<InventoryReviewModalProps> = ({
                         </div>
                     ) : (
                         <div className="space-y-6">
-                            {reconcileError && <p role="alert" className="rounded-xl bg-rose-50 p-4 text-sm font-bold text-rose-700">Não foi possível validar as movimentações. A contagem está salva neste navegador; tente concluir quando a conexão voltar.</p>}
+                            {reconcileError && <p role="alert" className="rounded-xl bg-amber-50 p-4 text-sm font-bold text-amber-700">Sem conexão com o estoque. As divergências são estimativas locais; a submissão ficará salva neste navegador.</p>}
                             {uncountedCount > 0 && (
                                 <div className="bg-amber-50 dark:bg-amber-900/20 border-l-4 border-amber-500 p-4 rounded-r-xl">
                                     <div className="flex items-start gap-3">
@@ -185,8 +189,8 @@ export const InventoryReviewModal: React.FC<InventoryReviewModalProps> = ({
                         Voltar para contagem
                     </button>
                     <button
-                        onClick={() => onConfirm(itemsToAdjust)}
-                        disabled={loading || reconcileError || (hasStages && uncountedCount > 0)}
+                        onClick={() => onConfirm(reconciledItems.filter(item => item.physicalCount !== null))}
+                        disabled={loading || (hasStages && uncountedCount > 0)}
                         title={hasStages && uncountedCount > 0 ? "Finalize todas as etapas para confirmar o inventário." : ""}
                         className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-black rounded-lg shadow-sm transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                     >

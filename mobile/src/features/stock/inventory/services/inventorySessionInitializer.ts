@@ -11,6 +11,7 @@ export interface InitializedInventoryData {
         hasStages: boolean;
         responsibleId: string;
         scopeType?: string;
+        supplierId?: string;
     };
 }
 
@@ -56,6 +57,7 @@ export const restoreInventorySession = async (
                 hasStages: localDraft.hasStages,
                 responsibleId: localDraft.responsibleId || userProfileId || '',
                 scopeType: localDraft.scopeType || 'custom',
+                supplierId: localDraft.supplierId,
             },
         };
     }
@@ -74,6 +76,7 @@ export const restoreInventorySession = async (
         assignedSupplier: it.assignedSupplier || 'Sem fornecedor',
         systemStock: it.systemStock || 0,
         physicalCount: it.physicalCount !== undefined ? it.physicalCount : null,
+        countedAt: it.countedAt,
         unit: it.unit || 'UN',
         sku: it.sku || it.code || '',
         code: it.code || '',
@@ -93,6 +96,7 @@ export const restoreInventorySession = async (
             hasStages: Boolean(details?.hasStages),
             responsibleId: details?.responsibleId || userProfileId || '',
             scopeType: details?.scopeType || 'custom',
+            supplierId: details?.supplierId,
         },
     };
 };

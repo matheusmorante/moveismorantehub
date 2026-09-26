@@ -41,11 +41,26 @@ interface OrderListRow {
 
 const toListItem = (row: any): MobileOrderListItem => {
   const data = row.order_data || {};
-  const customerName = row.customer_name || data.customerData?.fullName || data.customer_name || '';
-  const orderNumber = row.order_number || data.orderIndex || data.order_index || '';
-  const orderStatus = row.status || data.status || 'pending';
+  const customerName = row.customer_name || data.customerData?.fullName || data.customer_name || 'Cliente';
+  const orderNumber = String(
+    row.order_number ??
+    row.order_index ??
+    data.orderIndex ??
+    data.order_index ??
+    data.orderNumber ??
+    row.id ??
+    ''
+  ).trim();
+  const orderStatus = row.status || data.status || 'scheduled';
   const orderType = data.orderType || data.order_type || row.order_type || 'sale';
-  const totalValue = Number(row.total_amount ?? data.paymentsSummary?.totalOrderValue ?? row.total_value ?? 0);
+  const totalValue = Number(
+    row.total_amount ??
+    data.paymentsSummary?.totalOrderValue ??
+    data.totalValue ??
+    row.total_value ??
+    data.total ??
+    0
+  );
 
   return {
     id: String(row.id),
@@ -89,6 +104,9 @@ const toListItem = (row: any): MobileOrderListItem => {
 const isBudgetRow = (row: any): boolean =>
   String(row?.order_type || row?.order_data?.orderType || row?.order_data?.order_type || '').toLowerCase() === 'budget';
 
+const isHiddenRow = (row: any): boolean =>
+  isBudgetRow(row) || Boolean(row?.deleted || row?.order_data?.deleted);
+
 export const fetchMobileOrdersPage = async ({
   page,
   pageSize,
@@ -122,7 +140,7 @@ export const fetchMobileOrdersPage = async ({
 
     const { data, count, error } = await query;
     if (!error && data && data.length > 0) {
-      const visibleRows = data.filter((row: any) => !isBudgetRow(row));
+      const visibleRows = data.filter((row: any) => !isHiddenRow(row));
       const items = visibleRows.map(toListItem);
       await cacheOrders(items);
       return {
@@ -154,7 +172,7 @@ export const fetchMobileOrdersPage = async ({
   const { data, count, error } = await query;
   if (error) throw error;
 
-  const visibleRows = (data || []).filter((row: any) => !isBudgetRow(row));
+  const visibleRows = (data || []).filter((row: any) => !isHiddenRow(row));
   return {
     items: await cacheOrders(visibleRows.map(toListItem)),
     total: Math.max(0, (count || 0) - ((data || []).length - visibleRows.length)),

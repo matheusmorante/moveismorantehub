@@ -1,4 +1,5 @@
 import { Platform } from 'react-native';
+import { createAsyncSingleton } from './asyncSingleton';
 
 export interface DatabaseDriver {
   execAsync(sql: string): Promise<void>;
@@ -41,6 +42,7 @@ class InMemoryDatabaseDriver implements DatabaseDriver {
           });
           const existingIndex = this.tables[tableName].findIndex(existing => existing.id === row.id);
           if (trimmed.toUpperCase().includes('ON CONFLICT(ID)') && existingIndex >= 0) {
+            if (trimmed.toUpperCase().includes('DO NOTHING')) return { changes: 0, lastInsertRowId: 0 };
             this.tables[tableName][existingIndex] = row;
           } else {
             this.tables[tableName].push(row);
@@ -99,24 +101,22 @@ class InMemoryDatabaseDriver implements DatabaseDriver {
   }
 }
 
-let dbInstance: DatabaseDriver | null = null;
+export const shouldUseInMemoryDatabase = (platform: string, environment?: string): boolean =>
+  platform === 'web' || environment === 'test';
 
-export const getSQLiteDatabase = async (): Promise<DatabaseDriver> => {
-  if (dbInstance) return dbInstance;
-
-  if (Platform.OS === 'web' || typeof window === 'undefined' || process.env.NODE_ENV === 'test') {
-    dbInstance = new InMemoryDatabaseDriver();
-    return dbInstance;
+const openSQLiteDatabase = async (): Promise<DatabaseDriver> => {
+  if (shouldUseInMemoryDatabase(Platform.OS, process.env.NODE_ENV)) {
+    return new InMemoryDatabaseDriver();
   }
 
   try {
     // Carregamento dinâmico de expo-sqlite para ambiente nativo
     const SQLite = require('expo-sqlite');
-    const nativeDb = await SQLite.openDatabaseAsync('morantehub.db');
-    dbInstance = nativeDb as DatabaseDriver;
-    return dbInstance;
+    return await SQLite.openDatabaseAsync('morantehub.db') as DatabaseDriver;
   } catch (e) {
     console.error('[SQLite] Banco nativo indisponível:', e);
     throw new Error('O armazenamento local do aparelho está indisponível. Não é seguro iniciar a contagem.');
   }
 };
+
+export const getSQLiteDatabase = createAsyncSingleton(openSQLiteDatabase);

@@ -44,6 +44,22 @@ export const getOrderTotalValue = (item: any): number => {
     return Number(item.total_value);
   }
 
+  if (item.total_amount != null && Number(item.total_amount) > 0) {
+    return Number(item.total_amount);
+  }
+
+  if (item.totalAmount != null && Number(item.totalAmount) > 0) {
+    return Number(item.totalAmount);
+  }
+
+  if (orderData.paymentsSummary?.totalAmountPaid != null && Number(orderData.paymentsSummary.totalAmountPaid) > 0) {
+    return Number(orderData.paymentsSummary.totalAmountPaid);
+  }
+
+  if (orderData.total_amount != null && Number(orderData.total_amount) > 0) {
+    return Number(orderData.total_amount);
+  }
+
   if (orderData.total != null && Number(orderData.total) > 0) {
     return Number(orderData.total);
   }

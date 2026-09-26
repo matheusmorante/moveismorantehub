@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { View, Text, TouchableOpacity, Modal, StyleSheet, TextInput, FlatList } from 'react-native';
 import { X, Search, Check, Folder } from 'lucide-react-native';
 import type { FinancialCategory } from '../../../services/mobileFinanceService';
@@ -31,6 +32,7 @@ export const CategorySelectModal: React.FC<Props> = ({
   initialSearchText = '',
   isDarkMode = false,
 }) => {
+  const insets = useSafeAreaInsets();
   const [searchText, setSearchText] = useState(initialSearchText);
 
   React.useEffect(() => {
@@ -50,7 +52,7 @@ export const CategorySelectModal: React.FC<Props> = ({
 
   return (
     <Modal visible={visible} animationType="slide" transparent={true} onRequestClose={onClose}>
-      <View style={styles.overlay}>
+      <View style={[styles.overlay, { paddingTop: insets.top, paddingBottom: Math.max(insets.bottom, 16) }]}>
         <View style={[styles.modalContent, isDarkMode && styles.modalContentDark]}>
           {/* Header */}
           <View style={styles.header}>

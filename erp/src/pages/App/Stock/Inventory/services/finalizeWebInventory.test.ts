@@ -6,6 +6,7 @@ vi.mock('@/pages/utils/supabaseConfig', () => ({ supabase: { rpc } }));
 
 import { finalizeWebInventory } from './finalizeWebInventory';
 import { getWebInventoryDraft, saveWebInventoryDraft } from './inventoryLocalDrafts';
+import { deleteInventorySubmission, getInventorySubmission } from './inventoryOutbox';
 
 const draft = {
     id: 'audit-commit', code: 'LOCAL-commit', date: '2026-09-25T10:00:00Z', name: 'Teste',
@@ -17,6 +18,8 @@ const adjustments = [{ productId: 'product-1', variationId: 'variation-1', name:
 describe('commit do inventário web', () => {
     beforeEach(async () => {
         vi.clearAllMocks();
+        vi.stubEnv('VITE_INVENTORY_RPC_V2', 'false');
+        await deleteInventorySubmission(draft.id);
         await saveWebInventoryDraft(draft);
     });
 
@@ -33,8 +36,10 @@ describe('commit do inventário web', () => {
             .mockResolvedValueOnce({ data: { auditId: draft.id, status: 'already_processed' }, error: null });
         await expect(finalizeWebInventory(draft.id, draft.code, { status: 'completed' }, adjustments)).rejects.toThrow('offline');
         expect((await getWebInventoryDraft(draft.id))?.scannedLabelIds).toEqual(['label-a']);
-        await finalizeWebInventory(draft.id, draft.code, { status: 'completed' }, adjustments);
+        expect((await getInventorySubmission(draft.id))?.items[0].physicalCount).toBe(3);
+        await finalizeWebInventory(draft.id, draft.code, { status: 'changed' }, [{ ...adjustments[0], physicalCount: 99 }]);
         expect(rpc.mock.calls[0][1].p_audit_id).toBe(rpc.mock.calls[1][1].p_audit_id);
+        expect(rpc.mock.calls[0][1]).toEqual(rpc.mock.calls[1][1]);
         expect(await getWebInventoryDraft(draft.id)).toBeNull();
     });
 
@@ -42,5 +47,20 @@ describe('commit do inventário web', () => {
         rpc.mockResolvedValue({ data: { auditId: 'outro-id', status: 'processed' }, error: null });
         await expect(finalizeWebInventory(draft.id, draft.code, { status: 'completed' }, adjustments)).rejects.toThrow('não confirmou');
         expect(await getWebInventoryDraft(draft.id)).not.toBeNull();
+    });
+
+    it('envia todas as contagens com horário pela RPC v2 quando habilitada', async () => {
+        vi.stubEnv('VITE_INVENTORY_RPC_V2', 'true');
+        rpc.mockResolvedValue({ data: { auditId: draft.id, status: 'processed', moves: [] }, error: null });
+        await finalizeWebInventory(draft.id, draft.code,
+            { inventoryAudit: true, inventoryCode: draft.code, status: 'completed',
+                items: [{ productId: 'product-1', variationId: 'variation-1', physicalCount: 3, countedAt: '2026-09-25T10:00:00Z' },
+                    { productId: 'product-2', variationId: 'variation-2', physicalCount: 4, countedAt: '2026-09-25T10:00:00Z' }] },
+            [{ ...adjustments[0], countedAt: '2026-09-25T10:00:00Z' },
+                { productId: 'product-2', variationId: 'variation-2', name: 'Sem diferença', physicalCount: 4,
+                    reconciledExpected: 4, countedAt: '2026-09-25T10:00:00Z' }]);
+        expect(rpc.mock.calls[0][0]).toBe('finalize_inventory_transaction_v2');
+        expect(rpc.mock.calls[0][1].p_items[0].countedAt).toBe('2026-09-25T10:00:00Z');
+        expect(rpc.mock.calls[0][1].p_items).toHaveLength(2);
     });
 });

@@ -116,7 +116,7 @@ const StockPage = () => {
     };
 
     const handleOpenAuditSession = (session: InventoryAuditSession) => {
-        if (session.status === 'in_progress') {
+        if (session.status === 'in_progress' || session.status === 'pending') {
             setEditingAuditSession(session);
             setCopiedAuditItems(null);
             setIsAuditModalOpen(true);

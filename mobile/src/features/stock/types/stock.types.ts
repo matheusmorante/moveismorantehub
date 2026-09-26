@@ -72,7 +72,7 @@ export interface InventorySession {
     name?: string;
     inventoryCode?: string;
     responsibleName?: string;
-    status: 'in_progress' | 'completed' | 'pending';
+    status: 'in_progress' | 'completed' | 'pending' | 'pending_sync';
     created_at: string;
     updated_at: string;
     items_count?: number; // Keep for backward compatibility if needed, but we prefer productsCount

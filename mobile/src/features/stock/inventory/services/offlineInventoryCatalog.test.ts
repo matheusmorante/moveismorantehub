@@ -47,4 +47,29 @@ describe('índice offline de inventário mobile', () => {
   it('resolve etiqueta antiga sem variation_id quando o produto antigo tinha uma única variação canônica', () => {
     expect(resolveOfflineInventoryMatch(catalog, legacyUnlinkedLabelId)?.variationId).toBe('variation-current');
   });
+
+  it('resolve cadeia A -> B -> C e nunca seleciona aliases como itens operacionais', () => {
+    const chained: OfflineInventoryCatalog = {
+      ...catalog,
+      variations: {
+        ...catalog.variations,
+        'variation-current': { ...catalog.variations['variation-current'], merged_to_variation_id: 'variation-final' },
+        'variation-final': { id: 'variation-final', product_id: 'product-current', name: 'Variação final', sku: 'SKU-FINAL', active: true },
+      },
+    };
+
+    expect(resolveOfflineInventoryMatch(chained, labelId)?.variationId).toBe('variation-final');
+    expect(resolveOfflineInventoryMatch(chained, 'SKU-ANTIGO')?.variationId).toBe('variation-final');
+  });
+
+  it('rejeita cadeia cíclica de merges sem criar contagem em alias antigo', () => {
+    const cyclic: OfflineInventoryCatalog = {
+      ...catalog,
+      variations: {
+        ...catalog.variations,
+        'variation-current': { ...catalog.variations['variation-current'], merged_to_variation_id: 'variation-old' },
+      },
+    };
+    expect(resolveOfflineInventoryMatch(cyclic, labelId)).toBeNull();
+  });
 });

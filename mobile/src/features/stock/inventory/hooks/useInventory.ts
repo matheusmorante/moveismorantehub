@@ -28,7 +28,7 @@ export const useInventory = () => {
                 localDraftSessions = localDrafts.map(d => ({
                     id: d.id,
                     name: d.name,
-                    status: 'in_progress',
+                    status: d.status || 'in_progress',
                     created_at: d.updatedAt,
                     updated_at: d.updatedAt,
                     items_count: d.items.length,

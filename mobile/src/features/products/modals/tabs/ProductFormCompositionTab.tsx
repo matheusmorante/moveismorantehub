@@ -45,7 +45,7 @@ export const ProductFormCompositionTab: React.FC<Props> = ({ formData, setFormDa
           .neq('item_type', 'combo')
           .or('is_combo.is.null,is_combo.eq.false')
           .or(`name.ilike.${term},code.ilike.${term}`)
-          .limit(10);
+          .limit(5);
 
         if (error) throw error;
         if (data) {

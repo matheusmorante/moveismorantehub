@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Modal, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Check, Link2, Plus, Search, Trash2, X } from 'lucide-react-native';
 import * as stockService from '../../../../services/stockService';
 import { SupplierFormModal } from '../../suppliers/SupplierFormModal';
@@ -44,6 +44,7 @@ interface Props {
 }
 
 export const InboundInvoiceMappingsModal: React.FC<Props> = ({ invoice, visible, isDarkMode, onClose, onSaved }) => {
+  const insets = useSafeAreaInsets();
   const [details, setDetails] = useState<any>(null);
   const [items, setItems] = useState<MappingItem[]>([]);
   const [supplierId, setSupplierId] = useState('');
@@ -453,7 +454,7 @@ export const InboundInvoiceMappingsModal: React.FC<Props> = ({ invoice, visible,
 
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="fullScreen" onRequestClose={onClose}>
-      <SafeAreaView style={[styles.container, isDarkMode && styles.containerDark]}>
+      <View style={[styles.container, isDarkMode && styles.containerDark, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
         <View style={[styles.header, isDarkMode && styles.headerDark]}>
           <View style={styles.headerText}>
             <Text style={[styles.title, isDarkMode && styles.textDark]}>Gerenciar vínculos</Text>
@@ -706,7 +707,7 @@ export const InboundInvoiceMappingsModal: React.FC<Props> = ({ invoice, visible,
             <TouchableOpacity style={styles.doneButton} onPress={onClose}><Check size={18} color="#fff" /><Text style={styles.doneText}>Concluir</Text></TouchableOpacity>
           </ScrollView>
         )}
-      </SafeAreaView>
+      </View>
       <SupplierFormModal
         visible={supplierFormVisible}
         isDarkMode={isDarkMode}
@@ -714,7 +715,7 @@ export const InboundInvoiceMappingsModal: React.FC<Props> = ({ invoice, visible,
         onSave={createSupplier}
       />
       <Modal visible={registrationOptionsVisible} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => { setRegistrationOptionsVisible(false); setRegistrationItem(null); }}>
-        <SafeAreaView style={[styles.container, isDarkMode && styles.containerDark]}>
+        <View style={[styles.container, isDarkMode && styles.containerDark, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
           <View style={[styles.header, isDarkMode && styles.headerDark]}>
             <Text style={[styles.title, isDarkMode && styles.textDark]}>Cadastrar produto vinculado à NF-e</Text>
             <TouchableOpacity style={styles.closeButton} onPress={() => { setRegistrationOptionsVisible(false); setRegistrationItem(null); }}><X size={22} color={isDarkMode ? '#cbd5e1' : '#475569'} /></TouchableOpacity>
@@ -730,7 +731,7 @@ export const InboundInvoiceMappingsModal: React.FC<Props> = ({ invoice, visible,
             {parentSearchError ? <Text style={styles.errorText}>{parentSearchError}</Text> : null}
             {parentResults.map((parent) => <TouchableOpacity key={parent.id} style={styles.resultRow} onPress={() => startVariationRegistration(parent)}><View style={{ flex: 1 }}><Text style={[styles.itemName, isDarkMode && styles.textDark]}>{parent.name}</Text><Text style={styles.muted}>SKU: {parent.code || '—'} · {(parent.product_variations || []).length} variações</Text></View><Plus size={18} color="#2563eb" /></TouchableOpacity>)}
           </ScrollView>
-        </SafeAreaView>
+        </View>
       </Modal>
       <ProductFormScreen
         visible={registrationFormVisible}

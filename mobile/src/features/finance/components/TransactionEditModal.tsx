@@ -7,10 +7,11 @@ import {
   TouchableOpacity,
   ScrollView,
   StyleSheet,
-  SafeAreaView,
+
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { X, Calendar, DollarSign, Tag, User, CreditCard, Layers } from 'lucide-react-native';
 import { ParsedFinancialIntent, FinancialInstallment } from '../../../services/financialAiAssistantService';
 
@@ -29,6 +30,7 @@ export const TransactionEditModal: React.FC<Props> = ({
   onSave,
   isDarkMode = false,
 }) => {
+  const insets = useSafeAreaInsets();
   if (!intent) return null;
 
   const [description, setDescription] = useState(intent.description || '');
@@ -78,7 +80,7 @@ export const TransactionEditModal: React.FC<Props> = ({
 
   return (
     <Modal visible={visible} animationType="slide" transparent={false} onRequestClose={onClose}>
-      <SafeAreaView style={[styles.container, isDarkMode && styles.containerDark]}>
+      <View style={[styles.container, isDarkMode && styles.containerDark, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           style={{ flex: 1 }}
@@ -229,7 +231,7 @@ export const TransactionEditModal: React.FC<Props> = ({
             </TouchableOpacity>
           </View>
         </KeyboardAvoidingView>
-      </SafeAreaView>
+      </View>
     </Modal>
   );
 };

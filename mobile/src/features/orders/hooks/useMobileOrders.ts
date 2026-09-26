@@ -20,20 +20,38 @@ export function useMobileOrders() {
     try {
       // 1. Tenta carregar dados do cache de trabalho local primeiro para exibição imediata
       if (!pull) {
-        const cached = (await OrderRepository.list()).filter((order) =>
-          order.orderType !== 'budget' && order.orderData?.orderType !== 'budget' && order.orderData?.order_type !== 'budget'
-        );
-        if (cached.length > 0) {
-          const localItems = cached.map((order) => ({ id: order.id, order_number: String(order.orderData.orderIndex ?? ''), created_at: String(order.orderData.createdAt || order.orderData.date || ''),
-            status: order.status, order_type: order.orderType ?? 'sale', customer_name: order.customerName ?? '', total_value: order.totalAmount ?? 0,
-            order_data: order.orderData, version: order.version }));
-          setOrders(localItems);
-          setTotalItems(localItems.length);
-          setLoading(false);
+        try {
+          const cached = (await OrderRepository.list()).filter((order) =>
+            order.orderType !== 'budget' && order.orderData?.orderType !== 'budget' && order.orderData?.order_type !== 'budget'
+          );
+          if (cached.length > 0) {
+            const localItems = cached.map((order) => {
+              const oData = order.orderData || {};
+              const orderNum = String(oData.orderIndex ?? oData.order_index ?? oData.orderNumber ?? order.id ?? '');
+              const totalVal = Number(order.totalAmount ?? oData.paymentsSummary?.totalOrderValue ?? oData.totalValue ?? 0);
+              return {
+                id: order.id,
+                order_number: orderNum,
+                created_at: String(oData.createdAt || oData.date || order.updatedAt || ''),
+                status: order.status || oData.status || 'scheduled',
+                order_type: order.orderType || oData.orderType || 'sale',
+                customer_name: order.customerName || oData.customerData?.fullName || 'Cliente',
+                total_value: totalVal,
+                order_data: oData,
+                version: order.version,
+              };
+            });
+            setOrders(localItems);
+            setTotalItems(localItems.length);
+            setLoading(false);
+          }
+        } catch (cacheErr) {
+          console.warn('[useMobileOrders] Cache local indisponível; prosseguindo com busca remota:', cacheErr);
         }
       }
 
-      const [ordersResult, settingsResult] = await Promise.all([
+      // 2. Busca remota dos pedidos e configurações de forma resiliente
+      const [ordersResult, settingsResult] = await Promise.allSettled([
         fetchMobileOrdersPage({
           page,
           pageSize: ITEMS_PER_PAGE,
@@ -42,12 +60,20 @@ export function useMobileOrders() {
         }),
         supabase.from('settings').select('*').limit(1),
       ]);
-      setOrders(ordersResult.items);
-      setTotalItems(ordersResult.total);
-      const settings = settingsResult.data?.[0]?.data || settingsResult.data?.[0] || {};
-      setHandlingOptions([...(settings.deliveryHandlingOptions || []), ...(settings.pickupHandlingOptions || [])]);
+
+      if (ordersResult.status === 'fulfilled') {
+        setOrders(ordersResult.value.items);
+        setTotalItems(ordersResult.value.total);
+      } else {
+        console.error('[useMobileOrders] Falha ao buscar pedidos remotos:', ordersResult.reason);
+      }
+
+      if (settingsResult.status === 'fulfilled') {
+        const settings = settingsResult.value.data?.[0]?.data || settingsResult.value.data?.[0] || {};
+        setHandlingOptions([...(settings.deliveryHandlingOptions || []), ...(settings.pickupHandlingOptions || [])]);
+      }
     } catch (error) {
-      console.warn('[NativeOrders] Erro ao buscar pedidos (usando cache local se disponível):', error);
+      console.warn('[NativeOrders] Erro geral ao atualizar pedidos:', error);
     } finally {
       setLoading(false);
       setRefreshing(false);

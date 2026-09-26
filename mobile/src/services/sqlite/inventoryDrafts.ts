@@ -1,10 +1,13 @@
 import { getSQLiteDatabase } from './database';
+import { runMigrations } from './migrations';
+import { getInventorySubmission } from './inventoryOutbox';
 import type { AuditItem } from '../../features/stock/inventory/hooks/useInventoryAuditWorkflow';
 
 export interface LocalInventoryDraft {
   id: string;
   code: string;
   scopeType?: string | null;
+  supplierId?: string;
   name: string;
   responsibleId?: string;
   hasStages: boolean;
@@ -33,6 +36,7 @@ export const saveLocalInventoryDraft = async (draft: {
   id: string;
   code: string;
   scopeType?: string | null;
+  supplierId?: string;
   name: string;
   responsibleId?: string;
   hasStages?: boolean;
@@ -40,6 +44,10 @@ export const saveLocalInventoryDraft = async (draft: {
   items: AuditItem[];
 }): Promise<void> => {
   const db = await getSQLiteDatabase();
+  await runMigrations(db);
+  if (await getInventorySubmission(draft.id)) {
+    throw new Error('Este inventário já possui submissão congelada. A contagem não pode ser editada durante o envio.');
+  }
   const updatedAt = new Date().toISOString();
   const itemsJson = JSON.stringify(draft.items);
   const hasStagesInt = draft.hasStages ? 1 : 0;
@@ -64,6 +72,11 @@ export const saveLocalInventoryDraft = async (draft: {
       updatedAt,
     ]
   );
+  await db.runAsync(
+    `INSERT INTO inventory_draft_scope_local (id, supplier_id, updated_at) VALUES (?, ?, ?)
+     ON CONFLICT(id) DO UPDATE SET supplier_id = excluded.supplier_id, updated_at = excluded.updated_at;`,
+    [draft.id, draft.supplierId || null, updatedAt],
+  );
 };
 
 /**
@@ -71,6 +84,7 @@ export const saveLocalInventoryDraft = async (draft: {
  */
 export const getLocalInventoryDraft = async (id?: string): Promise<LocalInventoryDraft | null> => {
   const db = await getSQLiteDatabase();
+  await runMigrations(db);
   let row: LocalInventoryDraftRow | null = null;
 
   if (id) {
@@ -85,6 +99,8 @@ export const getLocalInventoryDraft = async (id?: string): Promise<LocalInventor
   }
 
   if (!row) return null;
+  const scope = await db.getFirstAsync<{ supplier_id: string | null }>(
+    'SELECT supplier_id FROM inventory_draft_scope_local WHERE id = ? LIMIT 1;', [row.id]);
 
   try {
     const items: AuditItem[] = JSON.parse(row.items_json || '[]');
@@ -92,6 +108,7 @@ export const getLocalInventoryDraft = async (id?: string): Promise<LocalInventor
       id: row.id,
       code: row.code,
       scopeType: row.scope_type,
+      supplierId: scope?.supplier_id || undefined,
       name: row.name,
       responsibleId: row.responsible_id || undefined,
       hasStages: Boolean(row.has_stages),
@@ -110,10 +127,13 @@ export const getLocalInventoryDraft = async (id?: string): Promise<LocalInventor
  */
 export const listLocalInventoryDrafts = async (): Promise<LocalInventoryDraft[]> => {
   const db = await getSQLiteDatabase();
+  await runMigrations(db);
   const rows = await db.getAllAsync<LocalInventoryDraftRow>(
     `SELECT * FROM inventory_drafts_local WHERE status != 'completed' ORDER BY updated_at DESC;`
   );
 
+  const scopes = await db.getAllAsync<{ id: string; supplier_id: string | null }>('SELECT id, supplier_id FROM inventory_draft_scope_local;');
+  const supplierById = new Map(scopes.map(scope => [scope.id, scope.supplier_id]));
   return rows.map(row => {
     let items: AuditItem[] = [];
     try {
@@ -124,6 +144,7 @@ export const listLocalInventoryDrafts = async (): Promise<LocalInventoryDraft[]>
       id: row.id,
       code: row.code,
       scopeType: row.scope_type,
+      supplierId: supplierById.get(row.id) || undefined,
       name: row.name,
       responsibleId: row.responsible_id || undefined,
       hasStages: Boolean(row.has_stages),
@@ -139,6 +160,7 @@ export const listLocalInventoryDrafts = async (): Promise<LocalInventoryDraft[]>
  */
 export const markLocalDraftPendingSync = async (id: string): Promise<void> => {
   const db = await getSQLiteDatabase();
+  await runMigrations(db);
   await db.runAsync(
     `UPDATE inventory_drafts_local SET status = 'pending_sync', updated_at = ? WHERE id = ?;`,
     [new Date().toISOString(), id]
@@ -150,7 +172,9 @@ export const markLocalDraftPendingSync = async (id: string): Promise<void> => {
  */
 export const deleteLocalInventoryDraft = async (id: string): Promise<void> => {
   const db = await getSQLiteDatabase();
+  await runMigrations(db);
   await db.runAsync(`DELETE FROM inventory_drafts_local WHERE id = ?;`, [id]);
+  await db.runAsync(`DELETE FROM inventory_draft_scope_local WHERE id = ?;`, [id]);
 };
 
 /**
@@ -158,5 +182,7 @@ export const deleteLocalInventoryDraft = async (id: string): Promise<void> => {
  */
 export const clearAllLocalInventoryDrafts = async (): Promise<void> => {
   const db = await getSQLiteDatabase();
+  await runMigrations(db);
   await db.runAsync(`DELETE FROM inventory_drafts_local;`);
+  await db.runAsync(`DELETE FROM inventory_draft_scope_local;`);
 };

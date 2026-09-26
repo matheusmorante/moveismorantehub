@@ -5,6 +5,9 @@ import { clearOfflineInventoryCatalogCache, ensureOfflineInventoryCatalogSynced,
 export const fetchInventoryScopeSuppliers = async () => {
     await ensureOfflineInventoryCatalogSynced();
     const catalog = await getOfflineInventoryCatalog();
+    if (!catalog.syncedAt && Object.keys(catalog.suppliers).length === 0) {
+        throw new Error('O catálogo local ainda não foi sincronizado. Conecte-se à internet e tente novamente.');
+    }
     return Object.values(catalog.suppliers)
         .filter(supplier => !supplier.deleted)
         .map(supplier => ({ id: supplier.id, full_name: supplier.social_name || supplier.full_name || supplier.nickname || '' }))
@@ -13,7 +16,11 @@ export const fetchInventoryScopeSuppliers = async () => {
 
 export const fetchInventoryScopeProducts = async (_scope: 'full' | 'supplier', _supplierId?: string) => {
     await ensureOfflineInventoryCatalogSynced();
-    return getOfflineInventoryScopeProducts();
+    const products = await getOfflineInventoryScopeProducts();
+    if (products.length === 0) {
+        throw new Error('Nenhum produto foi encontrado no catálogo local. Conecte-se à internet e tente novamente.');
+    }
+    return products;
 };
 
 export const clearInventoryScopeCache = () => clearOfflineInventoryCatalogCache();

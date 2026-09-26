@@ -8,6 +8,7 @@ import { getEmployeeDisplayName } from "../components/InventoryResponsibleSelect
 import { useInventoryAuditData } from "./useInventoryAuditData";
 import { getWebInventoryDraft, saveWebInventoryDraft } from '../services/inventoryLocalDrafts';
 import { finalizeWebInventory } from '../services/finalizeWebInventory';
+import { getInventorySubmission } from '../services/inventoryOutbox';
 import { ensureOfflineInventoryCatalogSynced } from '../services/offlineInventoryCatalog';
 
 export const useInventoryAuditWorkflow = (
@@ -16,7 +17,7 @@ export const useInventoryAuditWorkflow = (
     editingSession?: InventoryAuditSession | null,
     copiedItems?: readonly InventorySnapshotItem[] | null,
 ) => {
-    const { allProducts, suppliers, employees, getSupplierNames } = useInventoryAuditData(isOpen);
+    const { allProducts, suppliers, employees, getSupplierNames, catalogSyncedAt } = useInventoryAuditData(isOpen);
     
     // View state
     const [view, setView] = useState<'scope' | 'operation' | 'review'>('scope');
@@ -24,10 +25,11 @@ export const useInventoryAuditWorkflow = (
     // Operation State
     const [items, setItemsState] = useState<AuditItem[]>([]);
     const [isSaving, setIsSaving] = useState(false);
-    const [scopeConfig, setScopeConfig] = useState<{ name: string, responsibleId: string, hasStages?: boolean, scopeType?: string } | null>(null);
+    const [scopeConfig, setScopeConfig] = useState<{ name: string, responsibleId: string, hasStages?: boolean, scopeType?: string, supplierId?: string } | null>(null);
     
     const draftRef = useRef<{ id?: string; code?: string; markerMoveId?: string; date?: string }>({});
     const latestItemsRef = useRef<AuditItem[]>([]);
+    const frozenSubmissionRef = useRef(false);
     const scannedLabelsRef = useRef<Set<string>>(new Set());
     const scopeConfigRef = useRef(scopeConfig);
     const writeQueueRef = useRef<Promise<void>>(Promise.resolve());
@@ -48,6 +50,7 @@ export const useInventoryAuditWorkflow = (
             responsibleId: scope.responsibleId,
             hasStages: Boolean(scope.hasStages),
             scopeType: scope.scopeType,
+            supplierId: scope.supplierId,
             status: 'in_progress' as const,
             items: nextItems,
             scannedLabelIds: [...scannedLabelsRef.current],
@@ -62,6 +65,10 @@ export const useInventoryAuditWorkflow = (
     }, []);
 
     const setItems: React.Dispatch<React.SetStateAction<AuditItem[]>> = useCallback(nextValue => {
+        if (frozenSubmissionRef.current) {
+            toast.error('Esta conclusão já foi salva. Retome o envio sem alterar a contagem.');
+            return;
+        }
         const next = typeof nextValue === 'function' ? nextValue(latestItemsRef.current) : nextValue;
         latestItemsRef.current = next;
         setItemsState(next);
@@ -87,11 +94,12 @@ export const useInventoryAuditWorkflow = (
                 const local = await getWebInventoryDraft(editingSession.id);
                 if (cancelled) return;
                 if (local) {
+                    frozenSubmissionRef.current = Boolean(await getInventorySubmission(local.id));
                     draftRef.current = { id: local.id, code: local.code, date: local.date, markerMoveId: editingSession.markerMoveId };
                     scannedLabelsRef.current = new Set(local.scannedLabelIds || []);
                     latestItemsRef.current = local.items;
                     setItemsState(local.items);
-                    const config = { name: local.name, hasStages: local.hasStages, responsibleId: local.responsibleId, scopeType: local.scopeType };
+                    const config = { name: local.name, hasStages: local.hasStages, responsibleId: local.responsibleId, scopeType: local.scopeType, supplierId: local.supplierId };
                     scopeConfigRef.current = config;
                     setScopeConfig(config);
                     setView('operation');
@@ -107,6 +115,7 @@ export const useInventoryAuditWorkflow = (
                         supplierNames: product ? getSupplierNames(product) : 'Fábrica não informada',
                         assignedSupplier: source.assignedSupplier || 'Sem fornecedor', systemStock: source.systemStock,
                         physicalCount: source.physicalCount, unit: product?.unit || 'UN',
+                        countedAt: (source as AuditItem).countedAt,
                         sku: source.sku || (product as any)?.sku || product?.code || '',
                         code: source.code || product?.code || '', barcode: source.barcode || (product as any)?.barcode || '',
                     } as AuditItem;
@@ -121,6 +130,7 @@ export const useInventoryAuditWorkflow = (
                 persistItems(restoredItems);
                 setView('operation');
             } else {
+                frozenSubmissionRef.current = false;
                 latestItemsRef.current = [];
                 setItemsState([]);
                 scopeConfigRef.current = null;
@@ -139,6 +149,7 @@ export const useInventoryAuditWorkflow = (
     }, [isOpen, editingSession, allProducts, suppliers, copiedItems, getSupplierNames]);
 
     const handleConfirmScope = async (config: ScopeConfiguration) => {
+        frozenSubmissionRef.current = false;
         await ensureOfflineInventoryCatalogSynced();
         const initialItems = config.itemsSnapshot.map(snapshot => ({
             id: createItemId(),
@@ -161,6 +172,7 @@ export const useInventoryAuditWorkflow = (
             name: config.name,
             hasStages: config.hasStages,
             scopeType: config.type,
+            supplierId: config.supplierId,
             responsibleId: config.responsibleId,
         };
         const auditId = crypto.randomUUID();
@@ -199,12 +211,16 @@ export const useInventoryAuditWorkflow = (
     }, [flushLocalWrites, onClose]);
 
     const incrementScannedItem = async (itemId: string, labelId?: string): Promise<number | null> => {
+        if (frozenSubmissionRef.current) {
+            toast.error('Esta conclusão já foi salva. Retome o envio sem alterar a contagem.');
+            return null;
+        }
         if (labelId && scannedLabelsRef.current.has(labelId)) return null;
         const current = latestItemsRef.current.find(item => item.id === itemId);
         if (!current) throw new Error('Produto não encontrado no inventário local.');
         const count = (current.physicalCount ?? 0) + 1;
         if (labelId) scannedLabelsRef.current.add(labelId);
-        setItems(previous => previous.map(item => item.id === itemId ? { ...item, physicalCount: count } : item));
+        setItems(previous => previous.map(item => item.id === itemId ? { ...item, physicalCount: count, countedAt: new Date().toISOString() } : item));
         await flushLocalWrites();
         return count;
     };
@@ -231,8 +247,10 @@ export const useInventoryAuditWorkflow = (
                 name: scopeConfig.name,
                 hasStages: scopeConfig.hasStages,
                 responsibleId: scopeConfig.responsibleId,
+                scopeType: scopeConfig.scopeType,
+                supplierId: scopeConfig.supplierId,
                 responsibleName: getEmployeeDisplayName(responsible) || editingSession?.responsibleName,
-                items: items.map(({ productId, variationId, name, systemStock, physicalCount, assignedSupplier }) => ({ productId, variationId, name, systemStock, physicalCount, assignedSupplier })),
+                items: items.map(({ productId, variationId, name, systemStock, physicalCount, assignedSupplier, countedAt }) => ({ productId, variationId, name, systemStock, physicalCount, assignedSupplier, countedAt })),
             };
             await finalizeWebInventory(auditId, code, auditObservation, itemsWithAdjustment);
 
@@ -240,7 +258,9 @@ export const useInventoryAuditWorkflow = (
             onClose();
         } catch (error: unknown) {
             console.error("Erro ao salvar inventário:", error);
-            toast.error("Erro ao processar as movimentações de inventário.");
+            const pending = draftRef.current.id && await getInventorySubmission(draftRef.current.id).catch(() => null);
+            toast.error(pending ? 'Submissão salva neste navegador. Retome o inventário para tentar enviar novamente.'
+                : 'Erro ao processar as movimentações de inventário.');
         } finally {
             setIsSaving(false);
         }
@@ -252,6 +272,7 @@ export const useInventoryAuditWorkflow = (
         allProducts,
         suppliers,
         employees,
+        catalogSyncedAt,
         view,
         setView,
         items,

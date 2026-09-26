@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { View, Text, TouchableOpacity, Modal, StyleSheet, ScrollView, TextInput } from 'react-native';
 import { X, Check } from 'lucide-react-native';
 import { FinancialCategory, TransactionFilterOptions } from '../../../services/mobileFinanceService';
@@ -23,6 +24,7 @@ export const TransactionFilterModal: React.FC<Props> = ({
   onApplyFilters,
   isDarkMode = false,
 }) => {
+  const insets = useSafeAreaInsets();
   const [selectedCatId, setSelectedCatId] = useState<string>(currentFilters.categoryId || '');
   const [selectedPayment, setSelectedPayment] = useState<string>(currentFilters.paymentMethod || '');
   const [selectedAccount, setSelectedAccount] = useState<string>(currentFilters.accountId || '');
@@ -52,7 +54,7 @@ export const TransactionFilterModal: React.FC<Props> = ({
 
   return (
     <Modal visible={visible} animationType="slide" transparent={true} onRequestClose={onClose}>
-      <View style={styles.overlay}>
+      <View style={[styles.overlay, { paddingTop: insets.top, paddingBottom: Math.max(insets.bottom, 16) }]}>
         <View style={[styles.modalContent, isDarkMode && styles.modalContentDark]}>
           <View style={styles.header}>
             <Text style={[styles.title, isDarkMode && styles.titleDark]}>Filtros Avançados</Text>

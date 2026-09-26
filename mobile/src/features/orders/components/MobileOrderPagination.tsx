@@ -82,7 +82,7 @@ export const MobileOrderPagination: React.FC<Props> = ({
           pedidos
         </Text>
         <Text style={[styles.perPageText, dark && styles.perPageTextDark]}>
-          (30 por página)
+          ({itemsPerPage} por página)
         </Text>
       </View>
 

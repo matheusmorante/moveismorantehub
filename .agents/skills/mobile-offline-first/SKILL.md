@@ -111,6 +111,12 @@ Cada evento gerado localmente no dispositivo transita obrigatoriamente por 4 est
    - Gerenciadas por uma fila dedicada (`media_upload_queue`) desacoplada do JSON de eventos.
 4. **Tratamento de Eventos `REJECTED`**:
    - Quando um evento é rejeitado (ex: pedido cancelado), a UI exibe o card em estado de alerta para que o operador saiba o motivo (ex: *"Esta entrega não pôde ser confirmada porque o pedido foi cancelado pela administração"*).
+5. **Inventário offline por índice de identificação**:
+   - Offline não replica o módulo de Produtos. O índice guarda apenas identidade de produto/variação, etiquetas, fornecedores, estado, aliases de merge e cursores incrementais.
+   - Variações mescladas não entram na lista operacional; identificadores antigos resolvem à variação canônica. Merge de item já contado exige conflito explícito antes do envio.
+   - Rascunho de contagem e snapshot/outbox da conclusão ficam em armazenamento independente do índice. Reconstruir o índice nunca apaga contagens ou submissões pendentes.
+   - O snapshot de conclusão é imutável e usa o mesmo `audit_id` em toda retentativa. A quantidade e o horário de cada contagem seguem para o servidor; o cálculo final do saldo e das movimentações posteriores é exclusivamente server-side.
+   - Migração de índice é versionada e preserva o cache anterior até o novo formato ser validado. Ver `docs/negocio/estoque/contrato-indice-inventario-offline.md`.
 
 ---
 

@@ -1,8 +1,9 @@
-import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import { Package, Users, Filter, X } from 'lucide-react-native';
+import React, { useState } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, TextInput } from 'react-native';
+import { Package, Users, Filter, X, Search } from 'lucide-react-native';
 import type { InventoryScopeType, ScopeSupplier } from '../hooks/useInventoryScopeBuilder';
 import type { SearchableProduct } from '../modals/InventoryProductSearchModal';
+import { filterScopeSuppliers } from './filterScopeSuppliers';
 
 interface Props {
   isDarkMode: boolean;
@@ -29,6 +30,8 @@ export const InventoryScopeTypeSelector: React.FC<Props> = ({
   onRemoveCustomProduct,
   onConfirmType,
 }) => {
+  const [supplierSearch, setSupplierSearch] = useState('');
+  const visibleSuppliers = filterScopeSuppliers(suppliers, supplierSearch);
   const bg = isDarkMode ? '#0f172a' : '#f8fafc';
   const surface = isDarkMode ? '#1e293b' : '#ffffff';
   const border = isDarkMode ? '#334155' : '#e2e8f0';
@@ -77,8 +80,19 @@ export const InventoryScopeTypeSelector: React.FC<Props> = ({
         {expandedType === 'supplier' && (
           <View style={[styles.expandableBox, { backgroundColor: surface, borderColor: border }]}>
             <Text style={[styles.sectionTitle, { color: textPrimary }]}>Selecione o fornecedor para iniciar:</Text>
+            <View style={[styles.searchBox, { backgroundColor: bg, borderColor: border }]}>
+              <Search size={18} color={muted} />
+              <TextInput
+                testID="inventory-supplier-search"
+                value={supplierSearch}
+                onChangeText={setSupplierSearch}
+                placeholder="Pesquisar fornecedor"
+                placeholderTextColor={muted}
+                style={[styles.searchInput, { color: textPrimary }]}
+              />
+            </View>
             <View style={styles.chipsRow}>
-              {suppliers.map(s => {
+              {visibleSuppliers.map(s => {
                 const isSelected = selectedSupplierId === s.id;
                 return (
                   <TouchableOpacity
@@ -104,6 +118,11 @@ export const InventoryScopeTypeSelector: React.FC<Props> = ({
                 );
               })}
             </View>
+            {visibleSuppliers.length === 0 && (
+              <Text style={{ color: muted, marginTop: 12 }}>
+                {suppliers.length === 0 ? 'Nenhum fornecedor disponível no catálogo local.' : 'Nenhum fornecedor encontrado.'}
+              </Text>
+            )}
             {selectedSupplierId && (
               <TouchableOpacity
                 testID="continue-supplier-btn"
@@ -203,6 +222,8 @@ const styles = StyleSheet.create({
   },
   sectionTitle: { fontSize: 13, marginBottom: 12, fontWeight: '700' },
   chipsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  searchBox: { flexDirection: 'row', alignItems: 'center', gap: 8, borderWidth: 1, borderRadius: 10, paddingHorizontal: 12, marginBottom: 12 },
+  searchInput: { flex: 1, paddingVertical: 9, fontSize: 14 },
   chip: {
     paddingHorizontal: 16,
     paddingVertical: 8,

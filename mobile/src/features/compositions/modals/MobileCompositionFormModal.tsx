@@ -1,9 +1,10 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import { View, Text, Modal, TouchableOpacity, TextInput, ScrollView, Alert, KeyboardAvoidingView, Platform, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import type { Composition, CompositionVariationItem } from '../types/composition.type';
 import { saveComposition } from '../services/mobileCompositionService';
 import { MobileCompositionSearchModal } from './MobileCompositionSearchModal';
+import { supabase } from '../../../services/supabaseClient';
 
 interface MobileCompositionFormModalProps {
     visible: boolean;
@@ -29,6 +30,10 @@ export const MobileCompositionFormModal: React.FC<MobileCompositionFormModalProp
     const [items, setItems] = useState<CompositionVariationItem[]>([]);
     const [isProductSearchOpen, setIsProductSearchOpen] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
+    const [searchTerm, setSearchTerm] = useState('');
+    const [results, setResults] = useState<any[]>([]);
+    const [searching, setSearching] = useState(false);
+    const [searchError, setSearchError] = useState(false);
 
     useEffect(() => {
         if (visible && composition) {
@@ -72,13 +77,13 @@ export const MobileCompositionFormModal: React.FC<MobileCompositionFormModalProp
 
     const handleSave = async () => {
         if (!formData.name) {
-            Alert.alert('Erro', 'O nome da composição é obrigatório.');
+            Alert.alert('Erro', 'O nome da composiÃ§Ã£o Ã© obrigatÃ³rio.');
             setActiveTab('info');
             return;
         }
 
         if (items.length === 0) {
-            Alert.alert('Erro', 'Adicione pelo menos um produto real à composição.');
+            Alert.alert('Erro', 'Adicione pelo menos um produto real Ã  composiÃ§Ã£o.');
             setActiveTab('items');
             return;
         }
@@ -88,7 +93,7 @@ export const MobileCompositionFormModal: React.FC<MobileCompositionFormModalProp
             const variationsToSave = [
                 {
                     id: composition?.variations?.[0]?.id,
-                    name: 'Padrão',
+                    name: 'PadrÃ£o',
                     sku: formData.sku,
                     items: items,
                     active: true
@@ -96,12 +101,12 @@ export const MobileCompositionFormModal: React.FC<MobileCompositionFormModalProp
             ];
 
             await saveComposition(formData, variationsToSave);
-            Alert.alert('Sucesso', 'Composição salva com sucesso!');
+            Alert.alert('Sucesso', 'ComposiÃ§Ã£o salva com sucesso!');
             if (onSuccess) onSuccess();
             onClose();
         } catch (error) {
             console.error('Erro ao salvar:', error);
-            Alert.alert('Erro', 'Ocorreu um erro ao salvar a composição.');
+            Alert.alert('Erro', 'Ocorreu um erro ao salvar a composiÃ§Ã£o.');
         } finally {
             setIsSaving(false);
         }
@@ -122,7 +127,7 @@ export const MobileCompositionFormModal: React.FC<MobileCompositionFormModalProp
             {[
                 { id: 'info', label: 'Cadastro Geral', icon: 'document-text-outline' },
                 { id: 'items', label: 'Produtos', icon: 'cube-outline' },
-                { id: 'variations', label: 'Variações', icon: 'grid-outline' },
+                { id: 'variations', label: 'VariaÃ§Ãµes', icon: 'grid-outline' },
                 { id: 'images', label: 'Fotos', icon: 'images-outline' }
             ].map(tab => (
                 <TouchableOpacity
@@ -153,9 +158,9 @@ export const MobileCompositionFormModal: React.FC<MobileCompositionFormModalProp
 
     const renderInfoTab = () => (
         <View style={{ padding: 16 }}>
-            <Text style={{ color: themeColors.text, fontWeight: 'bold', marginBottom: 8, fontSize: 16 }}>Informações Básicas</Text>
+            <Text style={{ color: themeColors.text, fontWeight: 'bold', marginBottom: 8, fontSize: 16 }}>InformaÃ§Ãµes BÃ¡sicas</Text>
             
-            <Text style={{ color: themeColors.textMuted, fontSize: 12, marginBottom: 4, marginTop: 8 }}>Nome da Composição *</Text>
+            <Text style={{ color: themeColors.textMuted, fontSize: 12, marginBottom: 4, marginTop: 8 }}>Nome da ComposiÃ§Ã£o *</Text>
             <TextInput
                 style={{ backgroundColor: themeColors.surface, color: themeColors.text, padding: 12, borderRadius: 8, borderWidth: 1, borderColor: themeColors.border }}
                 placeholder="Ex: Cozinha Compacta Paris"
@@ -173,13 +178,13 @@ export const MobileCompositionFormModal: React.FC<MobileCompositionFormModalProp
                 onChangeText={(text) => setFormData({ ...formData, sku: text })}
             />
 
-            <Text style={{ color: themeColors.textMuted, fontSize: 12, marginBottom: 4, marginTop: 16 }}>Modo de Precificação</Text>
+            <Text style={{ color: themeColors.textMuted, fontSize: 12, marginBottom: 4, marginTop: 16 }}>Modo de PrecificaÃ§Ã£o</Text>
             <View style={{ flexDirection: 'row', gap: 8, marginBottom: 16 }}>
                 <TouchableOpacity
                     onPress={() => setFormData({ ...formData, pricing_mode: 'sum' })}
                     style={{ flex: 1, padding: 12, borderRadius: 8, borderWidth: 1, borderColor: formData.pricing_mode === 'sum' ? themeColors.primary : themeColors.border, backgroundColor: formData.pricing_mode === 'sum' ? `${themeColors.primary}20` : themeColors.surface, alignItems: 'center' }}
                 >
-                    <Text style={{ color: formData.pricing_mode === 'sum' ? themeColors.primary : themeColors.text, fontSize: 12, fontWeight: 'bold' }}>Automático (Soma)</Text>
+                    <Text style={{ color: formData.pricing_mode === 'sum' ? themeColors.primary : themeColors.text, fontSize: 12, fontWeight: 'bold' }}>AutomÃ¡tico (Soma)</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
                     onPress={() => setFormData({ ...formData, pricing_mode: 'fixed' })}
@@ -191,7 +196,7 @@ export const MobileCompositionFormModal: React.FC<MobileCompositionFormModalProp
 
             {formData.pricing_mode === 'fixed' && (
                 <>
-                    <Text style={{ color: themeColors.textMuted, fontSize: 12, marginBottom: 4 }}>Preço Fixo de Venda</Text>
+                    <Text style={{ color: themeColors.textMuted, fontSize: 12, marginBottom: 4 }}>PreÃ§o Fixo de Venda</Text>
                     <TextInput
                         style={{ backgroundColor: themeColors.surface, color: themeColors.text, padding: 12, borderRadius: 8, borderWidth: 1, borderColor: themeColors.border }}
                         placeholder="R$ 0,00"
@@ -205,25 +210,49 @@ export const MobileCompositionFormModal: React.FC<MobileCompositionFormModalProp
         </View>
     );
 
-    const renderItemsTab = () => (
+ï»¿    const renderItemsTab = () => (
         <View style={{ padding: 16, flex: 1 }}>
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
                 <View>
-                    <Text style={{ color: themeColors.text, fontWeight: 'bold', fontSize: 16 }}>Itens da Composição</Text>
-                    <Text style={{ color: themeColors.textMuted, fontSize: 12 }}>A disponibilidade é limitada pelo menor estoque.</Text>
+                    <Text style={{ color: themeColors.text, fontWeight: 'bold', fontSize: 16 }}>Itens da ComposiÃ§Ã£o</Text>
+                    <Text style={{ color: themeColors.textMuted, fontSize: 12 }}>A disponibilidade Ã© limitada pelo menor estoque.</Text>
                 </View>
-                <TouchableOpacity
-                    onPress={() => setIsProductSearchOpen(true)}
-                    style={{ backgroundColor: themeColors.text, paddingHorizontal: 16, paddingVertical: 8, borderRadius: 8 }}
-                >
-                    <Text style={{ color: themeColors.bg, fontWeight: 'bold', fontSize: 12 }}>+ Adicionar</Text>
-                </TouchableOpacity>
             </View>
+
+            <View style={{ marginBottom: 16 }}>
+                <Text style={{ color: themeColors.text, fontWeight: 'bold', fontSize: 14, marginBottom: 8 }}>+ Adicionar Produto</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: themeColors.surface, borderRadius: 8, borderWidth: 1, borderColor: themeColors.border, paddingHorizontal: 12 }}>
+                    <Ionicons name="search" size={16} color={themeColors.textMuted} />
+                    <TextInput
+                        style={{ flex: 1, padding: 12, color: themeColors.text }}
+                        placeholder="Buscar por nome ou cÃ³digo..."
+                        placeholderTextColor={themeColors.textMuted}
+                        value={searchTerm}
+                        onChangeText={setSearchTerm}
+                    />
+                </View>
+
+                {searching && <Text style={{ fontSize: 12, color: themeColors.textMuted, marginTop: 4 }}>Buscando...</Text>}
+                {!searching && searchError && <Text style={{ fontSize: 12, color: themeColors.danger, marginTop: 4 }}>Erro ao buscar produtos.</Text>}
+                {!searching && !searchError && searchTerm.length >= 2 && results.length === 0 && <Text style={{ fontSize: 12, color: themeColors.textMuted, marginTop: 4 }}>Nenhum produto encontrado.</Text>}
+
+                {results.length > 0 && (
+                    <View style={{ borderWidth: 1, borderColor: themeColors.border, borderRadius: 8, backgroundColor: themeColors.surface, marginTop: 4, overflow: 'hidden' }}>
+                        {results.map((r, i) => (
+                            <TouchableOpacity key={i} style={{ padding: 12, borderBottomWidth: i < results.length - 1 ? 1 : 0, borderBottomColor: themeColors.border }} onPress={() => handleAddItem(r)}>
+                                <Text style={{ fontSize: 12, fontWeight: 'bold', color: themeColors.text }}>{r.name}{r.variationName ? ' - ' + r.variationName : ''}</Text>
+                                <Text style={{ fontSize: 11, color: themeColors.textMuted }}>{r.variationSku || r.code} â€¢ R$ {Number(r.variationPrice ?? r.price ?? r.unit_price ?? 0).toFixed(2)} â€¢ Estoque: {Number(r.variationStock ?? r.stock ?? 0)}</Text>
+                            </TouchableOpacity>
+                        ))}
+                    </View>
+                )}
+            </View>
+
 
             {items.length === 0 ? (
                 <View style={{ alignItems: 'center', justifyContent: 'center', padding: 32, backgroundColor: themeColors.surface, borderRadius: 12, borderWidth: 1, borderColor: themeColors.border, borderStyle: 'dashed' }}>
                     <Ionicons name="cube-outline" size={48} color={themeColors.textMuted} />
-                    <Text style={{ color: themeColors.text, fontWeight: 'bold', marginTop: 16 }}>Composição vazia</Text>
+                    <Text style={{ color: themeColors.text, fontWeight: 'bold', marginTop: 16 }}>ComposiÃ§Ã£o vazia</Text>
                     <Text style={{ color: themeColors.textMuted, textAlign: 'center', marginTop: 8, fontSize: 12 }}>Adicione produtos reais para que o estoque possa ser deduzido nas vendas.</Text>
                 </View>
             ) : (
@@ -259,7 +288,7 @@ export const MobileCompositionFormModal: React.FC<MobileCompositionFormModalProp
     const renderConstructionTab = (name: string) => (
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: 32 }}>
             <Ionicons name="hammer-outline" size={48} color={themeColors.textMuted} />
-            <Text style={{ color: themeColors.text, fontWeight: 'bold', marginTop: 16 }}>Aba {name} em Construção</Text>
+            <Text style={{ color: themeColors.text, fontWeight: 'bold', marginTop: 16 }}>Aba {name} em ConstruÃ§Ã£o</Text>
         </View>
     );
 
@@ -273,7 +302,7 @@ export const MobileCompositionFormModal: React.FC<MobileCompositionFormModalProp
                             <Ionicons name="layers-outline" size={20} color={themeColors.primary} />
                         </View>
                         <Text style={{ fontSize: 18, fontWeight: 'bold', color: themeColors.text }}>
-                            {composition ? 'Editar Composição' : 'Nova Composição'}
+                            {composition ? 'Editar ComposiÃ§Ã£o' : 'Nova ComposiÃ§Ã£o'}
                         </Text>
                     </View>
                     <TouchableOpacity onPress={onClose} style={{ padding: 8 }}>
@@ -286,7 +315,7 @@ export const MobileCompositionFormModal: React.FC<MobileCompositionFormModalProp
                 <View style={{ flex: 1 }}>
                     {activeTab === 'info' && renderInfoTab()}
                     {activeTab === 'items' && renderItemsTab()}
-                    {activeTab === 'variations' && renderConstructionTab('Variações')}
+                    {activeTab === 'variations' && renderConstructionTab('VariaÃ§Ãµes')}
                     {activeTab === 'images' && renderConstructionTab('Fotos')}
                 </View>
 
@@ -323,3 +352,4 @@ export const MobileCompositionFormModal: React.FC<MobileCompositionFormModalProp
         </Modal>
     );
 };
+

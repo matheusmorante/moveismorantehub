@@ -1,0 +1,49 @@
+﻿    useEffect(() => {
+        if (searchTerm.length < 2) {
+            setResults([]);
+            setSearchError(false);
+            return;
+        }
+
+        const search = async () => {
+            setSearching(true);
+            setSearchError(false);
+            try {
+                const term = \%\%\;
+                const { data, error } = await supabase
+                    .from('products')
+                    .select('id, name, code, price, unit_price, status, item_type, is_combo, product_variations(id, name, sku, price, unit_price, stock, active, status)')
+                    .eq('deleted', false)
+                    .neq('item_type', 'composition')
+                    .neq('item_type', 'combo')
+                    .or('is_combo.is.null,is_combo.eq.false')
+                    .or(\
+ame.ilike.\,code.ilike.\\)
+                    .limit(5);
+
+                if (error) throw error;
+                if (data) {
+                    const mapped = data.flatMap(product => {
+                        const variations = (product.product_variations || []).filter((variation: any) => variation.active !== false && variation.status !== 'merged');
+                        return variations.length > 0 ? variations.map((variation: any) => ({
+                            ...product,
+                            variationId: variation.id,
+                            variationName: variation.name,
+                            variationSku: variation.sku,
+                            variationPrice: variation.price,
+                            variationStock: variation.stock,
+                        })) : [product];
+                    });
+                    setResults(mapped);
+                }
+            } catch (e) {
+                console.warn('[MobileCompositionFormModal] Falha ao buscar componentes:', e);
+                setResults([]);
+                setSearchError(true);
+            } finally {
+                setSearching(false);
+            }
+        };
+        const to = setTimeout(search, 500);
+        return () => clearTimeout(to);
+    }, [searchTerm]);

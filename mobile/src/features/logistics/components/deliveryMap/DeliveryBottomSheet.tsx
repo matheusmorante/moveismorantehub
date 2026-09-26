@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { View, Text, TouchableOpacity, Modal, StyleSheet, ScrollView, ActivityIndicator, Alert } from 'react-native';
 import { X, Play, MapPin, Package, Clock, AlertTriangle, FileText, Navigation, Timer } from 'lucide-react-native';
 import { DeliveryRouteItem } from '../../hooks/useDeliveryRoute';
@@ -22,6 +23,7 @@ export const DeliveryBottomSheet: React.FC<Props> = ({
   onViewOrder,
   isDarkMode = false,
 }) => {
+  const insets = useSafeAreaInsets();
   const [starting, setStarting] = useState(false);
 
   if (!item) return null;
@@ -66,7 +68,7 @@ export const DeliveryBottomSheet: React.FC<Props> = ({
 
   return (
     <Modal visible={!!item} transparent animationType="fade" onRequestClose={onClose}>
-      <View style={styles.overlay}>
+      <View style={[styles.overlay, { paddingTop: insets.top, paddingBottom: Math.max(insets.bottom, 16) }]}>
         <TouchableOpacity style={styles.backdrop} activeOpacity={1} onPress={onClose} />
 
         {/* Card flutuante centralizado no meio da tela */}

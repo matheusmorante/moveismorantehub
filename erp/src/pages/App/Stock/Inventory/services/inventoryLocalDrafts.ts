@@ -1,4 +1,5 @@
 import type { AuditItem } from '../types/inventoryAudit.types';
+import { getInventorySubmission } from './inventoryOutbox';
 
 export interface WebInventoryDraft {
     id: string;
@@ -8,6 +9,7 @@ export interface WebInventoryDraft {
     responsibleId: string;
     hasStages: boolean;
     scopeType?: string;
+    supplierId?: string;
     status: 'in_progress' | 'pending_sync';
     items: AuditItem[];
     scannedLabelIds?: string[];
@@ -23,13 +25,16 @@ const openDatabase = (): Promise<IDBDatabase> => new Promise((resolve, reject) =
         reject(new Error('O navegador não disponibiliza IndexedDB para salvar a contagem.'));
         return;
     }
-    const request = indexedDB.open(DATABASE_NAME, 2);
+    const request = indexedDB.open(DATABASE_NAME, 3);
     request.onupgradeneeded = () => {
         if (!request.result.objectStoreNames.contains(STORE_NAME)) {
             request.result.createObjectStore(STORE_NAME, { keyPath: 'id' });
         }
         if (!request.result.objectStoreNames.contains('catalog')) {
             request.result.createObjectStore('catalog', { keyPath: 'id' });
+        }
+        if (!request.result.objectStoreNames.contains('outbox')) {
+            request.result.createObjectStore('outbox', { keyPath: 'id' });
         }
     };
     request.onsuccess = () => resolve(request.result);
@@ -49,6 +54,9 @@ const transact = async <T>(mode: IDBTransactionMode, run: (store: IDBObjectStore
 };
 
 export const saveWebInventoryDraft = async (draft: WebInventoryDraft): Promise<void> => {
+    if (draft.status === 'in_progress' && await getInventorySubmission(draft.id)) {
+        throw new Error('Este inventário já possui submissão congelada. A contagem não pode ser editada durante o envio.');
+    }
     await transact<void>('readwrite', store => { store.put(draft); });
     if (typeof window !== 'undefined') window.dispatchEvent(new Event(CHANGE_EVENT));
 };

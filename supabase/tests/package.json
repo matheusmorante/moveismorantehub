@@ -1,0 +1,9 @@
+{
+  "private": true,
+  "scripts": {
+    "test:inventory-v2": "node finalizeInventoryV2.cjs"
+  },
+  "devDependencies": {
+    "@electric-sql/pglite": "0.5.8"
+  }
+}

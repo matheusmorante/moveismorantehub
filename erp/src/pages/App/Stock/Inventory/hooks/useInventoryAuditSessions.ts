@@ -174,7 +174,7 @@ export const useInventoryAuditSessions = () => {
                 id: draft.id,
                 inventoryCode: draft.code,
                 date: draft.date,
-                status: 'in_progress',
+                status: draft.status === 'pending_sync' ? 'pending' : 'in_progress',
                 items: draft.items,
                 productsCount: draft.items.filter(item => item.physicalCount !== null).length,
                 adjustmentsCount: 0,

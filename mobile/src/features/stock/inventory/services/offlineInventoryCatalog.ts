@@ -5,6 +5,7 @@ import { extractLabelIdentity, extractScannedCodes } from '../../../../utils/bar
 
 type CatalogRow = Record<string, any>;
 export interface OfflineInventoryCatalog {
+  formatVersion?: 2;
   products: Record<string, CatalogRow>;
   variations: Record<string, CatalogRow>;
   labels: Record<string, CatalogRow>;
@@ -31,6 +32,9 @@ export interface OfflineInventoryMatch {
 }
 
 const emptyCatalog = (): OfflineInventoryCatalog => ({ products: {}, variations: {}, labels: {}, suppliers: {}, cursors: {}, syncedAt: null, deletionCursor: 0 });
+const compactRows = (rows: Record<string, CatalogRow>, keys: readonly string[]): Record<string, CatalogRow> =>
+  Object.fromEntries(Object.entries(rows).map(([id, row]) => [id,
+    Object.fromEntries(keys.filter(key => row[key] !== undefined).map(key => [key, row[key]]))]));
 let syncInFlight: Promise<{ success: boolean; syncedAt: string | null }> | null = null;
 let cachedCatalog: OfflineInventoryCatalog | null = null;
 let lastSyncAttemptAt = 0;
@@ -40,12 +44,13 @@ const maxTimestamp = (rows: CatalogRow[], previous?: string) => rows.reduce((max
   return value > max ? value : max;
 }, previous || '');
 
-const fetchChangedRows = async (table: string, columns: string, cursor?: string): Promise<CatalogRow[]> => {
+const fetchChangedRows = async (table: string, columns: string, cursor?: string, bootstrapFilter?: [string, string]): Promise<CatalogRow[]> => {
   const rows: CatalogRow[] = [];
   const pageSize = 500;
   for (let offset = 0; ; offset += pageSize) {
     let query = (supabase.from(table as any) as any).select(columns).order('updated_at', { ascending: true }).order('id', { ascending: true });
     if (cursor) query = query.gte('updated_at', cursor);
+    else if (bootstrapFilter) query = query.eq(bootstrapFilter[0], bootstrapFilter[1]);
     const { data, error } = await query.range(offset, offset + pageSize - 1);
     if (error) throw error;
     rows.push(...(data || []));
@@ -77,18 +82,27 @@ export const syncOfflineInventoryCatalog = async (): Promise<{ success: boolean;
   if (syncInFlight) return syncInFlight;
   lastSyncAttemptAt = Date.now();
   syncInFlight = (async () => {
-    const previous = await getOfflineInventoryCatalog();
     try {
-      const [products, variations, labels, suppliers, deletions] = await Promise.all([
-        fetchChangedRows('products', 'id, name, description, code, unit, stock, active, deleted, deleted_at, is_draft, item_type, supplier_id, main_supplier_id, supplier_ids, updated_at', previous.cursors.products),
-        fetchChangedRows('product_variations', 'id, product_id, name, sku, stock, active, status, merged_to_variation_id, updated_at', previous.cursors.variations),
-        fetchChangedRows('inventory_labels', 'id, product_id, variation_id, sku, barcode, status, created_at, printed_at, updated_at', previous.cursors.labels),
-        fetchChangedRows('people', 'id, person_type, full_name, social_name, nickname, active, deleted, updated_at', previous.cursors.suppliers),
-        fetchDeletions(previous.deletionCursor || 0),
+      const previous = await getOfflineInventoryCatalog();
+      let deletions: CatalogRow[] | null;
+      try {
+        deletions = await fetchDeletions(previous.deletionCursor || 0);
+      } catch (error: any) {
+        if (error?.code !== '42501') throw error;
+        if (previous.syncedAt) throw error;
+        // Primeiro uso sem sessão: permite o bootstrap, mas não declara incrementos futuros seguros.
+        deletions = null;
+      }
+      const fullRefresh = deletions === null;
+      const [products, variations, labels, suppliers] = await Promise.all([
+        fetchChangedRows('products', 'id, name, code, unit, active, deleted, deleted_at, is_draft, item_type, supplier_id, main_supplier_id, supplier_ids, updated_at', fullRefresh ? undefined : previous.cursors.products, ['item_type', 'product']),
+        fetchChangedRows('product_variations', 'id, product_id, name, sku, stock, active, status, merged_to_variation_id, updated_at', fullRefresh ? undefined : previous.cursors.variations),
+        fetchChangedRows('inventory_labels', 'id, product_id, variation_id, sku, barcode, status, updated_at', fullRefresh ? undefined : previous.cursors.labels),
+        fetchChangedRows('people', 'id, person_type, full_name, social_name, nickname, active, deleted, updated_at', fullRefresh ? undefined : previous.cursors.suppliers, ['person_type', 'suppliers']),
       ]);
       const next: OfflineInventoryCatalog = {
-        products: { ...previous.products }, variations: { ...previous.variations },
-        labels: { ...previous.labels }, suppliers: { ...previous.suppliers },
+        products: fullRefresh ? {} : { ...previous.products }, variations: fullRefresh ? {} : { ...previous.variations },
+        labels: fullRefresh ? {} : { ...previous.labels }, suppliers: fullRefresh ? {} : { ...previous.suppliers },
         cursors: { ...previous.cursors }, syncedAt: new Date().toISOString(),
       };
       for (const row of products) {
@@ -103,7 +117,7 @@ export const syncOfflineInventoryCatalog = async (): Promise<{ success: boolean;
         if (row.person_type === 'suppliers') next.suppliers[key] = row;
         else if (next.suppliers[key]) next.suppliers[key] = { ...next.suppliers[key], deleted: true };
       }
-      for (const row of deletions) {
+      for (const row of deletions || []) {
         const key = String(row.entity_id);
         if (row.entity_type === 'product' && next.products[key]) next.products[key] = { ...next.products[key], deleted: true, deleted_at: row.deleted_at };
         if (row.entity_type === 'variation' && next.variations[key]) next.variations[key] = { ...next.variations[key], deleted: true };
@@ -114,13 +128,20 @@ export const syncOfflineInventoryCatalog = async (): Promise<{ success: boolean;
       next.cursors.variations = maxTimestamp(variations, next.cursors.variations);
       next.cursors.labels = maxTimestamp(labels, next.cursors.labels);
       next.cursors.suppliers = maxTimestamp(suppliers, next.cursors.suppliers);
-      next.deletionCursor = deletions.reduce((max, row) => Math.max(max, Number(row.sequence_id) || 0), previous.deletionCursor || 0);
-      await saveLocalInventoryCatalogSnapshot(next);
-      cachedCatalog = next;
-      return { success: true, syncedAt: next.syncedAt };
+      next.deletionCursor = (deletions || []).reduce((max, row) => Math.max(max, Number(row.sequence_id) || 0), previous.deletionCursor || 0);
+      const compact: OfflineInventoryCatalog = {
+        ...next, formatVersion: 2,
+        products: compactRows(next.products, ['id', 'name', 'code', 'unit', 'active', 'deleted', 'deleted_at', 'is_draft', 'item_type', 'supplier_id', 'main_supplier_id', 'supplier_ids', 'updated_at']),
+        variations: compactRows(next.variations, ['id', 'product_id', 'name', 'sku', 'stock', 'active', 'status', 'merged_to_variation_id', 'deleted', 'updated_at']),
+        labels: compactRows(next.labels, ['id', 'product_id', 'variation_id', 'sku', 'barcode', 'status', 'updated_at']),
+        suppliers: compactRows(next.suppliers, ['id', 'person_type', 'full_name', 'social_name', 'nickname', 'active', 'deleted', 'updated_at']),
+      };
+      await saveLocalInventoryCatalogSnapshot(compact);
+      cachedCatalog = compact;
+      return { success: true, syncedAt: compact.syncedAt };
     } catch (error) {
       console.warn('[Inventory catalog] Sincronização offline indisponível; usando o índice salvo:', error);
-      return { success: false, syncedAt: previous.syncedAt };
+      return { success: false, syncedAt: cachedCatalog?.syncedAt || null };
     } finally {
       syncInFlight = null;
     }
@@ -169,11 +190,12 @@ const supplierNames = (catalog: OfflineInventoryCatalog, ids: string[]) => ids.m
 const canonicalVariation = (catalog: OfflineInventoryCatalog, initialId: string) => {
   let current = catalog.variations[initialId];
   const seen = new Set<string>();
-  while (current?.merged_to_variation_id && !seen.has(String(current.id))) {
+  while (current?.merged_to_variation_id) {
+    if (seen.has(String(current.id))) return null;
     seen.add(String(current.id));
     current = catalog.variations[String(current.merged_to_variation_id)];
   }
-  return current;
+  return current && !current.deleted ? current : null;
 };
 
 export const resolveOfflineInventoryMatch = (catalog: OfflineInventoryCatalog, rawCode: string): OfflineInventoryMatch | null => {

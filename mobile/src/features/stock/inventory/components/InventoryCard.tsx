@@ -63,7 +63,7 @@ export const InventoryCard = ({
                     <View style={[styles.badge, { backgroundColor: isDarkMode ? statusBgDark : statusBg }]}>
                         <View style={[styles.dot, { backgroundColor: statusColor }]} />
                         <Text style={[styles.badgeText, { color: statusColor }]}>
-                            {isCompleted ? 'CONCLUÍDO' : 'EM ANDAMENTO'}
+                            {isCompleted ? 'CONCLUÍDO' : session.status === 'pending_sync' ? 'AGUARDANDO ENVIO' : 'EM ANDAMENTO'}
                         </Text>
                     </View>
                     <TouchableOpacity testID="inventory-options-btn" style={styles.moreButton} hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }} onPress={() => onOptionsPress?.(session)}>

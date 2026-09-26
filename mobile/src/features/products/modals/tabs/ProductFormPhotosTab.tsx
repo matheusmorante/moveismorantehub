@@ -43,59 +43,110 @@ export const ProductFormPhotosTab: React.FC<Props> = ({ formData, setFormData, d
   const [selectedPhotoIdx, setSelectedPhotoIdx] = useState<number | null>(null);
   const [uploading, setUploading] = useState(false);
 
-  // Selecionar imagem usando leitor universal do dispositivo / Web
-  const pickImage = (onImagePicked: (url: string) => void) => {
+  // Selecionar uma ou múltiplas imagens usando leitor do dispositivo / Web
+  const pickImages = ({
+    multiple = true,
+    onImagesPicked,
+  }: {
+    multiple?: boolean;
+    onImagesPicked: (urls: string[]) => void;
+  }) => {
     if (Platform.OS === 'web' && typeof document !== 'undefined') {
       const input = document.createElement('input');
       input.type = 'file';
       input.accept = 'image/*';
+      if (multiple) {
+        input.multiple = true;
+      }
       input.onchange = async (e: any) => {
-        const file = e.target?.files?.[0];
-        if (!file) return;
+        const rawFiles = e.target?.files ? Array.from(e.target.files) : [];
+        const files = multiple ? (rawFiles as File[]) : (rawFiles.slice(0, 1) as File[]);
+        if (files.length === 0) return;
         setUploading(true);
-        try { onImagePicked(await uploadProductPhoto(file, file.name || 'produto.jpg', file.type || 'image/jpeg')); }
-        catch (error: any) { Alert.alert('Erro ao enviar foto', error?.message || 'Tente novamente.'); }
-        finally { setUploading(false); }
+        try {
+          const uploadedUrls: string[] = [];
+          for (const file of files) {
+            const url = await uploadProductPhoto(file, file.name || 'produto.jpg', file.type || 'image/jpeg');
+            uploadedUrls.push(url);
+          }
+          if (uploadedUrls.length > 0) {
+            onImagesPicked(uploadedUrls);
+          }
+        } catch (error: any) {
+          Alert.alert('Erro ao enviar foto(s)', error?.message || 'Tente novamente.');
+        } finally {
+          setUploading(false);
+        }
       };
       input.click();
     } else {
-      DocumentPicker.getDocumentAsync({ type: 'image/*', copyToCacheDirectory: true }).then(async result => {
-        if (result.canceled || !result.assets?.[0]) return;
-        const asset = result.assets[0];
+      DocumentPicker.getDocumentAsync({
+        type: 'image/*',
+        copyToCacheDirectory: true,
+        multiple,
+      }).then(async result => {
+        if (result.canceled || !result.assets || result.assets.length === 0) return;
+        const assets = multiple ? result.assets : [result.assets[0]];
         setUploading(true);
         try {
-          const response = await fetch(asset.uri);
-          const blob = await response.blob();
-          const type = asset.mimeType || blob.type || 'image/jpeg';
-          onImagePicked(await uploadProductPhoto(blob, asset.name || 'produto.jpg', type));
+          const uploadedUrls: string[] = [];
+          for (const asset of assets) {
+            const response = await fetch(asset.uri);
+            const blob = await response.blob();
+            const type = asset.mimeType || blob.type || 'image/jpeg';
+            const url = await uploadProductPhoto(blob, asset.name || 'produto.jpg', type);
+            uploadedUrls.push(url);
+          }
+          if (uploadedUrls.length > 0) {
+            onImagesPicked(uploadedUrls);
+          }
         } catch (error: any) {
-          Alert.alert('Erro ao enviar foto', error?.message || 'Tente novamente.');
-        } finally { setUploading(false); }
-      }).catch((error: any) => Alert.alert('Erro ao selecionar foto', error?.message || 'Não foi possível abrir os arquivos.'));
+          Alert.alert('Erro ao enviar foto(s)', error?.message || 'Tente novamente.');
+        } finally {
+          setUploading(false);
+        }
+      }).catch((error: any) => Alert.alert('Erro ao selecionar foto(s)', error?.message || 'Não foi possível abrir a galeria.'));
     }
   };
 
   const handleAddPhoto = () => {
-    if (images.length >= MAX_PRODUCT_IMAGES) {
+    const currentCount = images.length;
+    if (currentCount >= MAX_PRODUCT_IMAGES) {
       Alert.alert('Limite de fotos', `O ERP permite até ${MAX_PRODUCT_IMAGES} fotos por produto.`);
       return;
     }
-    pickImage((dataUrl) => {
-      setFormData(prev => ({
-        ...prev,
-        images: [...(prev.images || []), dataUrl],
-      }));
+    const availableSlots = MAX_PRODUCT_IMAGES - currentCount;
+
+    pickImages({
+      multiple: true,
+      onImagesPicked: (newUrls) => {
+        const urlsToAdd = newUrls.slice(0, availableSlots);
+        if (newUrls.length > availableSlots) {
+          Alert.alert(
+            'Limite de fotos',
+            `Foram adicionadas ${availableSlots} foto(s) respeitando o limite máximo de ${MAX_PRODUCT_IMAGES}.`
+          );
+        }
+        setFormData(prev => ({
+          ...prev,
+          images: [...(prev.images || []), ...urlsToAdd],
+        }));
+      },
     });
   };
 
   const handleReplacePhoto = (idx: number) => {
-    pickImage((dataUrl) => {
-      setFormData(prev => {
-        const next = [...(prev.images || [])];
-        next[idx] = dataUrl;
-        return { ...prev, images: next };
-      });
-      setSelectedPhotoIdx(null);
+    pickImages({
+      multiple: false,
+      onImagesPicked: ([dataUrl]) => {
+        if (!dataUrl) return;
+        setFormData(prev => {
+          const next = [...(prev.images || [])];
+          next[idx] = dataUrl;
+          return { ...prev, images: next };
+        });
+        setSelectedPhotoIdx(null);
+      },
     });
   };
 
@@ -143,8 +194,8 @@ export const ProductFormPhotosTab: React.FC<Props> = ({ formData, setFormData, d
           <View style={styles.addIconCircle}>
             <Plus size={24} color="#2563eb" />
           </View>
-          <Text style={styles.addCardText}>Adicionar Foto</Text>
-          <Text style={styles.addCardSubtext}>Galeria / Imagens</Text>
+          <Text style={styles.addCardText}>Adicionar Fotos</Text>
+          <Text style={styles.addCardSubtext}>Galeria / Múltiplas imagens</Text>
         </TouchableOpacity>
 
         {/* Cards de Fotos do Produto (1:1) */}

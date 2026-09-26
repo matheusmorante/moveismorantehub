@@ -1,5 +1,6 @@
 import React, { useRef, useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Modal, FlatList, Dimensions, SafeAreaView } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Modal, FlatList, Dimensions } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { X, ChevronLeft, ChevronRight } from 'lucide-react-native';
 import type { AuditItem } from '../hooks/useInventoryAuditWorkflow';
 import { InventoryFocusItemCard } from '../components/InventoryFocusItemCard';
@@ -29,6 +30,7 @@ export const InventoryFocusModeModal: React.FC<Props> = ({
 }) => {
   const flatListRef = useRef<FlatList>(null);
   const [currentIndex, setCurrentIndex] = useState(initialItemIndex);
+  const insets = useSafeAreaInsets();
 
   const bg = isDarkMode ? '#0f172a' : '#f8fafc';
   const surface = isDarkMode ? '#1e293b' : '#ffffff';
@@ -58,7 +60,7 @@ export const InventoryFocusModeModal: React.FC<Props> = ({
 
   return (
     <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
-      <SafeAreaView style={[styles.container, { backgroundColor: bg }]}>
+      <View style={[styles.container, { backgroundColor: bg, paddingTop: insets.top, paddingBottom: insets.bottom }]}>
         {/* Header */}
         <View style={[styles.header, { borderBottomColor: border, backgroundColor: surface }]}>
           <View style={{ flex: 1 }}>
@@ -110,7 +112,7 @@ export const InventoryFocusModeModal: React.FC<Props> = ({
             Item {currentIndex + 1} de {items.length}
           </Text>
         </View>
-      </SafeAreaView>
+      </View>
     </Modal>
   );
 };

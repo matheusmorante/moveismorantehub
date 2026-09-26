@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Modal, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { X, Layers, Sliders, ChevronRight } from 'lucide-react-native';
 import { CategoriesManagerModal } from './CategoriesManagerModal';
@@ -21,6 +22,7 @@ export const ProductConfigModal: React.FC<Props> = ({
   onCategoriesUpdated,
   onNavigateToCategories,
 }) => {
+  const insets = useSafeAreaInsets();
   const [showCategories, setShowCategories] = useState(false);
   const [showAttributes, setShowAttributes] = useState(false);
   const [showEnvironments, setShowEnvironments] = useState(false);
@@ -46,7 +48,7 @@ export const ProductConfigModal: React.FC<Props> = ({
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <View style={styles.backdrop}>
+      <View style={[styles.backdrop, { paddingTop: insets.top, paddingBottom: Math.max(insets.bottom, 16) }]}>
         <View style={[styles.content, dark && styles.darkContent]}>
           <View style={styles.header}>
             <View>

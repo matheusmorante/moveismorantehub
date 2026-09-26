@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   ActivityIndicator,
   Alert,
@@ -28,6 +29,7 @@ interface Props {
 }
 
 export const AttributesManagerModal: React.FC<Props> = ({ visible, dark, onClose }) => {
+  const insets = useSafeAreaInsets();
   const [attributes, setAttributes] = useState<MobileAttribute[]>([]);
   const [loading, setLoading] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -126,7 +128,7 @@ export const AttributesManagerModal: React.FC<Props> = ({ visible, dark, onClose
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <View style={styles.backdrop}>
+      <View style={[styles.backdrop, { paddingTop: insets.top, paddingBottom: Math.max(insets.bottom, 16) }]}>
         <View style={[styles.content, dark && styles.darkContent]}>
           <View style={styles.header}>
             <View style={styles.titleArea}>

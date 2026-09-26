@@ -115,7 +115,7 @@ export function useProductAutocomplete({
                     }
                 });
 
-                setSuggestions(items);
+                setSuggestions(items.slice(0, 5));
             } catch (error) {
                 console.error('Erro ao buscar sugestões:', error);
             } finally {

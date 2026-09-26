@@ -1,7 +1,22 @@
 import { DatabaseDriver, getSQLiteDatabase } from './database';
 
+const migratedDrivers = new WeakMap<DatabaseDriver, Promise<void>>();
+
 export const runMigrations = async (db?: DatabaseDriver): Promise<void> => {
   const driver = db || (await getSQLiteDatabase());
+  const existing = migratedDrivers.get(driver);
+  if (existing) return existing;
+  const migration = applyMigrations(driver);
+  migratedDrivers.set(driver, migration);
+  try {
+    await migration;
+  } catch (error) {
+    migratedDrivers.delete(driver);
+    throw error;
+  }
+};
+
+const applyMigrations = async (driver: DatabaseDriver): Promise<void> => {
 
   // 1. Tabela de controle de migrações
   await driver.execAsync(`
@@ -141,4 +156,34 @@ export const runMigrations = async (db?: DatabaseDriver): Promise<void> => {
       updated_at TEXT NOT NULL
     );
   `);
+
+  // Versão 2: submissão de inventário independente do índice e do rascunho.
+  await driver.execAsync(`
+    CREATE TABLE IF NOT EXISTS inventory_outbox_local (
+      id TEXT PRIMARY KEY,
+      payload_json TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'pending',
+      retry_count INTEGER NOT NULL DEFAULT 0,
+      last_error TEXT,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
+  `);
+  await driver.execAsync(`
+    CREATE TABLE IF NOT EXISTS inventory_draft_scope_local (
+      id TEXT PRIMARY KEY,
+      supplier_id TEXT,
+      updated_at TEXT NOT NULL
+    );
+  `);
+  await driver.runAsync(
+    `INSERT INTO schema_migrations (version, name, applied_at) VALUES (?, ?, ?)
+     ON CONFLICT(version) DO NOTHING;`,
+    [2, 'inventory_outbox_local', new Date().toISOString()],
+  );
+  await driver.runAsync(
+    `INSERT INTO schema_migrations (version, name, applied_at) VALUES (?, ?, ?)
+     ON CONFLICT(version) DO NOTHING;`,
+    [3, 'inventory_draft_scope_local', new Date().toISOString()],
+  );
 };

@@ -10,8 +10,8 @@ const makeDraft = (id: string, physicalCount: number | null) => ({
     name: 'Inventário local',
     responsibleId: 'operator-1',
     hasStages: true,
-    scopeType: 'full',
-    items: [{ id: 'item-1', key: 'p1-main', productId: 'p1', name: 'Produto', supplierNames: 'Telasul', assignedSupplier: 'Telasul', systemStock: 4, physicalCount, unit: 'UN', sku: 'P1' }],
+    scopeType: 'supplier', supplierId: 'supplier-1',
+    items: [{ id: 'item-1', key: 'p1-main', productId: 'p1', name: 'Produto', supplierNames: 'Telasul', assignedSupplier: 'Telasul', systemStock: 4, physicalCount, countedAt: '2026-09-25T10:00:00Z', unit: 'UN', sku: 'P1' }],
 });
 
 describe('rascunho de inventário no SQLite', () => {
@@ -22,6 +22,8 @@ describe('rascunho de inventário no SQLite', () => {
         await saveLocalInventoryDraft(makeDraft('audit-b', 2));
         expect((await getLocalInventoryDraft('audit-a'))?.items[0].physicalCount).toBe(30);
         expect((await getLocalInventoryDraft('audit-b'))?.items[0].physicalCount).toBe(2);
+        expect((await getLocalInventoryDraft('audit-a'))?.supplierId).toBe('supplier-1');
+        expect((await getLocalInventoryDraft('audit-a'))?.items[0].countedAt).toBe('2026-09-25T10:00:00Z');
         expect(await listLocalInventoryDrafts()).toHaveLength(2);
     });
 

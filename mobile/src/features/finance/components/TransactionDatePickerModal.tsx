@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Modal, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { ChevronLeft, ChevronRight, X } from 'lucide-react-native';
 
@@ -35,6 +36,7 @@ export const TransactionDatePickerModal: React.FC<Props> = ({
   onClose,
   onSelect,
 }) => {
+  const insets = useSafeAreaInsets();
   const [visibleMonth, setVisibleMonth] = useState(() => fromIsoDate(selectedDate));
 
   useEffect(() => {
@@ -63,7 +65,7 @@ export const TransactionDatePickerModal: React.FC<Props> = ({
 
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
-      <View style={styles.overlay}>
+      <View style={[styles.overlay, { paddingTop: insets.top, paddingBottom: Math.max(insets.bottom, 16) }]}>
         <View style={[styles.content, isDarkMode && styles.contentDark]}>
           <View style={styles.header}>
             <Text style={[styles.title, isDarkMode && styles.textDark]}>Escolha a data</Text>

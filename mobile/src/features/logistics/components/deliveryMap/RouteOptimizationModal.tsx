@@ -1,4 +1,5 @@
 import React from 'react';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { View, Text, TouchableOpacity, Modal, StyleSheet, ScrollView } from 'react-native';
 import { Sparkles, Check, X, ArrowRight, Zap } from 'lucide-react-native';
 import { OptimizationResult } from '../../services/routeOptimizationService';
@@ -20,11 +21,12 @@ export const RouteOptimizationModal: React.FC<Props> = ({
   onClose,
   isDarkMode = false,
 }) => {
+  const insets = useSafeAreaInsets();
   if (!result) return null;
 
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
-      <View style={styles.overlay}>
+      <View style={[styles.overlay, { paddingTop: insets.top, paddingBottom: Math.max(insets.bottom, 16) }]}>
         <TouchableOpacity style={styles.backdrop} activeOpacity={1} onPress={onClose} />
 
         <View style={[styles.card, isDarkMode && styles.cardDark]}>

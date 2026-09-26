@@ -143,7 +143,7 @@ export const InventoryScannerScreen: React.FC<Props> = ({
         ref={cameraRef}
         onBarcodeScanned={scanned ? undefined : handleBarCodeScanned}
         barcodeScannerSettings={{
-          barcodeTypes: continuous ? ['qr'] : ["qr", "ean13", "ean8", "code128", "code39", "upc_e", "upc_a"],
+          barcodeTypes: ['qr'],
         }}
         style={StyleSheet.absoluteFill}
       />

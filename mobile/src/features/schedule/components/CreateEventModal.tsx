@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { View, Text, TouchableOpacity, StyleSheet, Modal, TextInput, ScrollView, Alert, ActivityIndicator } from 'react-native';
 import { X, Calendar as CalendarIcon, Clock, Tag, FileText, Check } from 'lucide-react-native';
 import { createCalendarEvent, CalendarEvent } from '../../../services/scheduleEventsService';
@@ -31,6 +32,7 @@ export const CreateEventModal: React.FC<Props> = ({
   onEventCreated,
   isDarkMode = false,
 }) => {
+  const insets = useSafeAreaInsets();
   const todayStr = new Date().toISOString().split('T')[0];
 
   const [title, setTitle] = useState('');
@@ -75,7 +77,7 @@ export const CreateEventModal: React.FC<Props> = ({
 
   return (
     <Modal visible={visible} animationType="slide" transparent={true} onRequestClose={onClose}>
-      <View style={styles.backdrop}>
+      <View style={[styles.backdrop, { paddingTop: insets.top, paddingBottom: Math.max(insets.bottom, 16) }]}>
         <View style={[styles.card, isDarkMode && styles.cardDark]}>
           {/* Header */}
           <View style={styles.header}>

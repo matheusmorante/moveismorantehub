@@ -190,7 +190,7 @@ export const InventoryScreen: React.FC<Props> = ({ isDarkMode, userProfile, onBa
                         session={item.data as InventorySession} 
                         isDarkMode={isDarkMode} 
                         onPress={(session) => {
-                            if (session.status === 'in_progress') {
+                            if (session.status === 'in_progress' || session.status === 'pending_sync') {
                                 handleContinueInventory(session);
                             } else {
                                 setViewDetailsSession(session);

@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { View, Text, StyleSheet, Modal, TouchableOpacity, ActivityIndicator, FlatList } from 'react-native';
 import { InventorySession } from '../../types/stock.types';
 import { fetchInventorySessionDetails } from '../../../../services/stockService';
@@ -11,6 +12,7 @@ interface Props {
 }
 
 export const InventoryDetailsModal: React.FC<Props> = ({ session, isDarkMode, onClose }) => {
+  const insets = useSafeAreaInsets();
     const [loading, setLoading] = useState(true);
     const [details, setDetails] = useState<any>(null);
 
@@ -81,7 +83,7 @@ export const InventoryDetailsModal: React.FC<Props> = ({ session, isDarkMode, on
 
     return (
         <Modal visible={true} animationType="slide" onRequestClose={onClose}>
-            <View style={[styles.container, { backgroundColor: bg }]}>
+            <View style={[styles.container, { backgroundColor: bg }, { paddingTop: insets.top, paddingBottom: Math.max(insets.bottom, 16) }]}>
                 {/* Header */}
                 <View style={[styles.header, { backgroundColor: surface, borderBottomColor: border }]}>
                     <TouchableOpacity onPress={onClose} style={styles.backBtn}>

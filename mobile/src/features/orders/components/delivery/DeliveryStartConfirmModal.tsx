@@ -1,4 +1,5 @@
 import React from 'react';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   Modal,
   View,
@@ -28,11 +29,12 @@ export const DeliveryStartConfirmModal: React.FC<Props> = ({
   onConfirm,
   onCancel,
 }) => {
+  const insets = useSafeAreaInsets();
   if (!visible) return null;
 
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onCancel}>
-      <View style={styles.overlay}>
+      <View style={[styles.overlay, { paddingTop: insets.top, paddingBottom: Math.max(insets.bottom, 16) }]}>
         <TouchableOpacity style={styles.backdrop} activeOpacity={1} onPress={loading ? undefined : onCancel} />
 
         <View style={[styles.card, isDarkMode && styles.cardDark]}>
