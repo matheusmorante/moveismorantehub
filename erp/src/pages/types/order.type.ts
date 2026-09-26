@@ -54,6 +54,7 @@ export type Order = {
     returnStockProcessed?: boolean,
     stockReversed?: boolean,
     returnStockReversed?: boolean,
+    autoFulfillExempt?: boolean,
     /** Valor total financeiro da devolução */
     returnedTotalAmount?: number,
     /** Valor total original vendido dos itens da devolução */

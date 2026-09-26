@@ -111,7 +111,7 @@ export async function autoFulfillExpiredOrders(
         if (order.deleted || order.status === 'fulfilled' || order.status === 'cancelled' || order.status === 'draft') {
             return false;
         }
-        if (inFlightAutoFulfillOrders.has(order.id)) {
+        if (inFlightAutoFulfillOrders.has(order.id) || order.autoFulfillExempt) {
             return false;
         }
 

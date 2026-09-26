@@ -110,6 +110,12 @@ export const createOrderHistoryOperations = ({
         const expectedReturnStockProcessed = isCancelled ? false : currentOrder.returnStockProcessed;
         const expectedReturnStockReversed = isCancelled ? true : (currentOrder.returnStockReversed || false);
 
+        const isUndoFulfillment = currentOrder.status === 'fulfilled' && newStatus === 'scheduled';
+        const payload: Partial<Order> = { status: newStatus };
+        if (isUndoFulfillment) {
+            payload.autoFulfillExempt = true;
+        }
+
         // Optimistic update
         setOrders(prev => prev.map(o => o.id === id ? { 
             ...o, 
@@ -117,11 +123,12 @@ export const createOrderHistoryOperations = ({
             stockProcessed: expectedStockProcessed,
             stockReversed: expectedStockReversed,
             returnStockProcessed: expectedReturnStockProcessed,
-            returnStockReversed: expectedReturnStockReversed
+            returnStockReversed: expectedReturnStockReversed,
+            ...(isUndoFulfillment ? { autoFulfillExempt: true } : {})
         } : o));
         try {
-            await updateOrder(id, { status: newStatus }, currentOrder);
-            if (currentOrder.status === 'fulfilled' && newStatus === 'scheduled') {
+            await updateOrder(id, payload, currentOrder);
+            if (isUndoFulfillment) {
                 toast.success("Pedido retornado para Agendado com sucesso.");
             } else {
                 toast.success("Status do pedido atualizado!");
