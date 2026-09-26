@@ -5,7 +5,7 @@ import { listLocalInventoryDrafts } from '../../../../services/sqlite/inventoryD
 
 export const useInventory = () => {
     const [sessions, setSessions] = useState<InventorySession[]>([]);
-    const [loading, setLoading] = useState(false);
+    const [loading, setLoading] = useState(true);
     const [loadingMore, setLoadingMore] = useState(false);
     const [page, setPage] = useState(0);
     const [hasMore, setHasMore] = useState(true);

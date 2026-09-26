@@ -15,6 +15,8 @@ export const useInventoryAuditSessions = () => {
     const [activeSession, setActiveSession] = useState<InventoryAuditSession | null>(null);
     const [menuPos, setMenuPos] = useState<{ top?: number; bottom?: number; right: number } | null>(null);
     const [confirmAction, setConfirmAction] = useState<{ session: InventoryAuditSession; type: 'reverse' | 'apply' } | null>(null);
+    const [periodDays, setPeriodDays] = useState(30);
+    const [page, setPage] = useState(1);
 
     useEffect(() => {
         if (!activeSession) return;
@@ -140,7 +142,7 @@ export const useInventoryAuditSessions = () => {
         }
     };
 
-    const sessions = useMemo(() => {
+    const allSessions = useMemo(() => {
         const remoteSessions = moves
         .filter((move) => move.label?.startsWith('Inventário #'))
         .map((marker): InventoryAuditSession | null => {
@@ -186,8 +188,27 @@ export const useInventoryAuditSessions = () => {
             .sort((left, right) => new Date(right.date).getTime() - new Date(left.date).getTime());
     }, [moves, localDrafts]);
 
+    const filteredSessions = useMemo(() => {
+        if (periodDays === 0) return allSessions;
+        const cutoff = Date.now() - periodDays * 24 * 60 * 60 * 1000;
+        return allSessions.filter(session => new Date(session.date).getTime() >= cutoff);
+    }, [allSessions, periodDays]);
+
+    const pageSize = 10;
+    const pageCount = Math.max(1, Math.ceil(filteredSessions.length / pageSize));
+    const sessions = filteredSessions.slice((page - 1) * pageSize, page * pageSize);
+
+    useEffect(() => {
+        setPage(1);
+    }, [periodDays, allSessions.length]);
+
     return {
         sessions,
+        periodDays,
+        setPeriodDays,
+        page,
+        setPage,
+        pageCount,
         loading,
         activeSession,
         menuPos,

@@ -133,8 +133,8 @@ const CustomerDataInputs = ({ customerData, setCustomerData, errors, marketingOr
     return (
         <div ref={wrapperRef} className="relative w-full">
             <div className="mb-2 ml-1 flex items-center justify-between gap-3">
-                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">
-                    Selecionar cliente
+                <label className={`text-[10px] font-black uppercase tracking-widest ${hasError ? "text-red-600 dark:text-red-400" : "text-slate-400 dark:text-slate-500"}`}>
+                    Selecionar cliente <span className="text-red-500">*</span>
                 </label>
                 <button
                     type="button"
@@ -172,12 +172,12 @@ const CustomerDataInputs = ({ customerData, setCustomerData, errors, marketingOr
                     }}
                     onFocus={() => setIsOpen(canSearchCustomers(searchTerm))}
                     placeholder="Busque pelo nome ou telefone..."
-                    className={`w-full border-b-2 bg-transparent py-3 pr-20 text-sm outline-none transition-all placeholder:text-slate-300 dark:text-slate-300 dark:placeholder:text-slate-700 ${
+                    className={`w-full border-b-2 bg-transparent py-3 pr-20 text-sm outline-none transition-all placeholder:text-slate-300 dark:placeholder:text-slate-700 ${
                         hasError
-                            ? "pl-3 border-red-500 focus:border-red-600"
+                            ? "pl-3 border-red-500 focus:border-red-600 text-red-700 dark:text-red-300"
                             : isCustomerSelected
                             ? "pl-9 border-emerald-500 focus:border-emerald-600 dark:border-emerald-500 dark:focus:border-emerald-400 font-medium text-slate-800 dark:text-slate-100"
-                            : "pl-3 border-slate-200 focus:border-blue-600 dark:border-slate-700 dark:focus:border-blue-500"
+                            : "pl-3 border-slate-200 focus:border-blue-600 dark:border-slate-700 dark:text-slate-300 dark:focus:border-blue-500"
                     }`}
                 />
                 <div className="absolute right-3 top-1/2 flex -translate-y-1/2 items-center gap-2.5">

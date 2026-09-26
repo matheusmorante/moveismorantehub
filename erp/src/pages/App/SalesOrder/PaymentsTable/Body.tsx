@@ -2,15 +2,17 @@ import React from "react";
 import { Payment, PaymentsSummary } from "../../../types/payments.type";
 import { sanitizePayment } from "../../../utils/sanitization";
 import BodyRow from "./BodyRow";
+import { ValidationErrors } from "../../../utils/validations";
 
 interface Props {
     payments: Payment[];
     setPayments: React.Dispatch<React.SetStateAction<Payment[]>>;
     summary: PaymentsSummary;
     isMobile?: boolean;
+    errors: ValidationErrors;
 }
 
-const Body = ({ payments, setPayments, summary, isMobile }: Props) => {
+const Body = ({ payments, setPayments, summary, isMobile, errors }: Props) => {
     const changeFee = (idx: number, fee: number, feeType: 'fixed' | 'percentage') => {
         setPayments((prev: Payment[]) => {
             const newPayments = [...prev];
@@ -55,6 +57,7 @@ const Body = ({ payments, setPayments, summary, isMobile }: Props) => {
             summary={summary}
             idx={idx}
             isMobile={isMobile}
+            errors={errors}
         />
     ));
 

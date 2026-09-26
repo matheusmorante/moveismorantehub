@@ -7,7 +7,7 @@ interface CancelSaleModalProps {
 }
 
 const CancelSaleModal = ({ onCancel, onConfirm }: CancelSaleModalProps) => {
-    const [secondsLeft, setSecondsLeft] = useState(5);
+    const [secondsLeft, setSecondsLeft] = useState(3);
 
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {

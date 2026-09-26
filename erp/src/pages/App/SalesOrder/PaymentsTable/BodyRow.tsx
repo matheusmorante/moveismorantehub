@@ -8,6 +8,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { PixPaymentModal } from './PixPaymentModal';
 import DropdownPortal from '../../../../components/shared/DropdownPortal';
 import { formatCurrency } from '../../../utils/formatters';
+import { ValidationErrors } from '../../../utils/validations';
 
 interface Props {
     payment: Payment,
@@ -16,11 +17,13 @@ interface Props {
     onChangeFee: (idx: number, fee: number, feeType: 'fixed' | 'percentage') => void,
     onDelete: () => void,
     idx: number,
-    isMobile?: boolean
+    isMobile?: boolean,
+    errors: ValidationErrors
 }
 
 
-const BodyRow = ({ payment, summary, onChange, onChangeFee, onDelete, idx, isMobile }: Props) => {
+const BodyRow = ({ payment, summary, onChange, onChangeFee, onDelete, idx, isMobile, errors }: Props) => {
+    const statusError = errors[`payment_${idx}_status`];
     const [isPixModalOpen, setIsPixModalOpen] = useState(false);
 
     const [isDropdownOpen, setIsDropdownOpen] = useState(false);
@@ -102,7 +105,7 @@ const BodyRow = ({ payment, summary, onChange, onChangeFee, onDelete, idx, isMob
 
     if (isMobile) {
         return (
-            <div className="p-4 bg-white dark:bg-slate-900/40 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm relative group overflow-hidden">
+            <div className={`p-4 bg-white dark:bg-slate-900/40 rounded-2xl border shadow-sm relative group overflow-hidden ${statusError ? 'border-red-500 ring-2 ring-red-500/10' : 'border-slate-100 dark:border-slate-800'}`}>
                 <div className="flex flex-col gap-4">
                     {/* Header: Method & Delete */}
                     <div className="flex justify-between items-center gap-2">
@@ -192,10 +195,10 @@ const BodyRow = ({ payment, summary, onChange, onChangeFee, onDelete, idx, isMob
                             />
                         </div>
                         <div className="w-44 max-w-full space-y-1">
-                            <label className="text-[9px] font-black uppercase text-slate-400">Status</label>
+                            <label className={`text-[9px] font-black uppercase ${statusError ? 'text-red-600 dark:text-red-400' : 'text-slate-400'}`}>Status <span className="text-red-500">*</span></label>
                             <div className="relative">
                                 <select
-                                    className="w-full appearance-none border-b-2 border-slate-200 bg-transparent px-3 py-2 text-xs font-bold leading-4 outline-none transition-colors focus:border-blue-600 dark:border-slate-700 dark:text-slate-200 dark:focus:border-blue-500"
+                                    className={`w-full appearance-none border-b-2 bg-transparent px-3 py-2 text-xs font-bold leading-4 outline-none transition-colors focus:border-blue-600 dark:text-slate-200 dark:focus:border-blue-500 ${statusError ? 'border-red-500 focus:border-red-500' : 'border-slate-200 dark:border-slate-700'}`}
                                     value={payment.status}
                                     onChange={e => {
                                         const val = e.target.value;
@@ -355,7 +358,7 @@ const BodyRow = ({ payment, summary, onChange, onChangeFee, onDelete, idx, isMob
             <td className="px-4 py-2">
                 <div className="relative group/status min-w-[140px]">
                     <select
-                        className="w-full appearance-none border-b-2 border-slate-200 bg-transparent px-3 py-2 text-sm outline-none transition-colors focus:border-blue-600 dark:border-slate-700 dark:text-slate-200 dark:focus:border-blue-500"
+                        className={`w-full appearance-none border-b-2 bg-transparent px-3 py-2 text-sm outline-none transition-colors focus:border-blue-600 dark:text-slate-200 dark:focus:border-blue-500 ${statusError ? 'border-red-500 focus:border-red-500' : 'border-slate-200 dark:border-slate-700'}`}
                         value={payment.status}
                         onChange={e => {
                             const val = e.target.value;

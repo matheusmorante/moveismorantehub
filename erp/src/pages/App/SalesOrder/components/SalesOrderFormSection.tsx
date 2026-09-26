@@ -237,6 +237,7 @@ const SalesOrderFormSection = ({ form, scrollRef, onLoadJSON, onOpenSellerSearch
                                         payments={state.payments}
                                         setPayments={actions.setPayments}
                                         summary={state.paymentsSummary}
+                                        errors={state.errors}
                                     />
                                 </div>
                             </SectionCard>

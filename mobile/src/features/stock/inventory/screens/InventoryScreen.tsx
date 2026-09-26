@@ -23,6 +23,12 @@ interface Props {
 
 export const InventoryScreen: React.FC<Props> = ({ isDarkMode, userProfile, onBack, renderHeader }) => {
   const { sessions, loading, loadingMore, loadMore, reload } = useInventory();
+  const [periodDays, setPeriodDays] = useState(30);
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 10;
+  const filteredSessions = sessions.filter(session => periodDays === 0 || new Date(session.created_at || session.updated_at).getTime() >= Date.now() - periodDays * 24 * 60 * 60 * 1000);
+  const pageCount = Math.max(1, Math.ceil(filteredSessions.length / pageSize));
+  const visibleSessions = filteredSessions.slice((currentPage - 1) * pageSize, currentPage * pageSize);
   const [showCount, setShowCount] = useState(false);
   const [editingSession, setEditingSession] = useState<InventorySession | null>(null);
   const [copiedItems, setCopiedItems] = useState<any[] | null>(null);
@@ -153,7 +159,14 @@ export const InventoryScreen: React.FC<Props> = ({ isDarkMode, userProfile, onBa
   };
 
   const PageHeader = () => (
-    <View style={[styles.pageHeader, isDarkMode && styles.pageHeaderDark, { justifyContent: 'flex-end' }]}>
+    <View style={[styles.pageHeader, isDarkMode && styles.pageHeaderDark]}>
+      <View style={styles.periodControls}>
+        <Text style={[styles.periodLabel, isDarkMode && styles.periodLabelDark]}>Período</Text>
+        <TouchableOpacity style={[styles.periodButton, isDarkMode && styles.periodButtonDark]} onPress={() => { setPeriodDays(periodDays === 30 ? 90 : periodDays === 90 ? 365 : periodDays === 365 ? 0 : 30); setCurrentPage(1); }}>
+          <Text style={[styles.periodButtonText, isDarkMode && styles.periodButtonTextDark]}>{periodDays === 30 ? 'Últimos 30 dias' : periodDays === 90 ? 'Últimos 90 dias' : periodDays === 365 ? 'Último ano' : 'Todos os períodos'}</Text>
+          <Text style={[styles.periodButtonText, isDarkMode && styles.periodButtonTextDark]}>⌄</Text>
+        </TouchableOpacity>
+      </View>
       <TouchableOpacity
         testID="new-inventory-btn"
         style={styles.startBtn}
@@ -172,7 +185,7 @@ export const InventoryScreen: React.FC<Props> = ({ isDarkMode, userProfile, onBa
   const data: any[] = [
       { type: 'MODULE_HEADER', id: 'MODULE_HEADER' },
       { type: 'PAGE_HEADER', id: 'PAGE_HEADER' },
-      ...sessions.map(s => ({ type: 'ITEM', id: s.id, data: s }))
+      ...visibleSessions.map(s => ({ type: 'ITEM', id: s.id, data: s }))
   ];
 
   return (
@@ -181,6 +194,7 @@ export const InventoryScreen: React.FC<Props> = ({ isDarkMode, userProfile, onBa
         data={data}
         keyExtractor={item => item.id}
         stickyHeaderIndices={[1]}
+        ListHeaderComponent={loading ? <ActivityIndicator size="large" color="#10b981" style={{ padding: 24 }} /> : null}
         renderItem={({ item }) => {
             if (item.type === 'MODULE_HEADER') return renderHeader();
             if (item.type === 'PAGE_HEADER') return <PageHeader />;
@@ -206,7 +220,7 @@ export const InventoryScreen: React.FC<Props> = ({ isDarkMode, userProfile, onBa
         ListFooterComponent={
             <>
                 {loadingMore && <ActivityIndicator size="small" color="#10b981" style={{ padding: 16 }} />}
-                {!loading && sessions.length === 0 && (
+                {!loading && visibleSessions.length === 0 && (
                     <View style={{ padding: 32, alignItems: 'center', justifyContent: 'center', marginTop: 40 }}>
                         <View style={{ width: 64, height: 64, borderRadius: 32, backgroundColor: isDarkMode ? '#1e293b' : '#f1f5f9', alignItems: 'center', justifyContent: 'center', marginBottom: 16 }}>
                             <ClipboardList size={32} color={isDarkMode ? '#64748b' : '#94a3b8'} />
@@ -217,6 +231,11 @@ export const InventoryScreen: React.FC<Props> = ({ isDarkMode, userProfile, onBa
                         </Text>
                     </View>
                 )}
+                {!loading && visibleSessions.length > 0 && <View style={styles.pagination}>
+                  <TouchableOpacity disabled={currentPage <= 1} onPress={() => setCurrentPage(page => Math.max(1, page - 1))} style={[styles.pageButton, currentPage <= 1 && styles.pageButtonDisabled]}><Text style={styles.pageButtonText}>‹</Text></TouchableOpacity>
+                  <Text style={[styles.pageText, isDarkMode && styles.periodLabelDark]}>Página {currentPage} de {pageCount}</Text>
+                  <TouchableOpacity disabled={currentPage >= pageCount} onPress={() => setCurrentPage(page => Math.min(pageCount, page + 1))} style={[styles.pageButton, currentPage >= pageCount && styles.pageButtonDisabled]}><Text style={styles.pageButtonText}>›</Text></TouchableOpacity>
+                </View>}
             </>
         }
       />
@@ -262,5 +281,17 @@ const styles = StyleSheet.create({
   },
   startBtnText: { color: '#ffffff', fontWeight: '800', fontSize: 14 },
   cardContainer: { paddingHorizontal: 16, paddingTop: 12 },
+  periodControls: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  periodLabel: { color: '#64748b', fontSize: 10, fontWeight: '800', textTransform: 'uppercase' },
+  periodLabelDark: { color: '#94a3b8' },
+  periodButton: { flexDirection: 'row', alignItems: 'center', gap: 8, borderWidth: 1, borderColor: '#e2e8f0', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 7 },
+  periodButtonDark: { borderColor: '#334155' },
+  periodButtonText: { color: '#334155', fontSize: 12, fontWeight: '700' },
+  periodButtonTextDark: { color: '#e2e8f0' },
+  pagination: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 14, padding: 16 },
+  pageButton: { width: 36, height: 36, borderRadius: 10, backgroundColor: '#10b981', alignItems: 'center', justifyContent: 'center' },
+  pageButtonDisabled: { opacity: 0.35 },
+  pageButtonText: { color: '#fff', fontSize: 24, fontWeight: '800', lineHeight: 26 },
+  pageText: { color: '#64748b', fontSize: 12, fontWeight: '800' },
 });
 

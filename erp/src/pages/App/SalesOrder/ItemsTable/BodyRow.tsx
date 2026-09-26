@@ -56,6 +56,7 @@ const BodyRow = ({
     const error = errors[errorKey];
     const handlingErrorKey = `item_${idx}_handlingType`;
     const handlingError = !isService && errors[handlingErrorKey];
+    const itemHasError = Boolean(error || handlingError);
     const settings = getSettings();
 
     // Valores calculados com arredondamento preciso para evitar dízimas de ponto flutuante
@@ -191,7 +192,7 @@ const BodyRow = ({
                     className={`px-3.5 py-2.5 bg-white dark:bg-slate-900 border rounded-2xl ${
                         highlightAsTemporary 
                             ? 'border-amber-400 dark:border-amber-500 ring-2 ring-amber-400/20 bg-amber-50/10 dark:bg-amber-950/10' 
-                            : error 
+                            : itemHasError
                             ? 'border-red-500 ring-2 ring-red-500/10' 
                             : 'border-slate-200/80 dark:border-slate-800'
                     } shadow-sm hover:shadow-md transition-all cursor-pointer flex items-center justify-between gap-3 group`}
@@ -207,7 +208,7 @@ const BodyRow = ({
 
                         <div className="min-w-0 flex-1">
                             <div className="flex items-center gap-2 flex-wrap">
-                                <span className="text-xs font-bold text-slate-800 dark:text-slate-100 truncate">
+                                <span className={`text-xs font-bold truncate ${itemHasError ? 'text-red-600 dark:text-red-400' : 'text-slate-800 dark:text-slate-100'}`}>
                                     {item.description?.trim() || (
                                         <span className="text-slate-400 italic font-normal">
                                             {isService ? 'Serviço sem descrição' : 'Produto sem descrição'}
@@ -275,13 +276,13 @@ const BodyRow = ({
             <div className={`p-3.5 sm:p-4 bg-white dark:bg-slate-900 border rounded-2xl ${
                 highlightAsTemporary 
                     ? 'border-amber-400 dark:border-amber-500 ring-2 ring-amber-400/20 bg-amber-50/10 dark:bg-amber-950/10' 
-                    : error 
+                    : itemHasError
                     ? 'border-red-500 ring-2 ring-red-500/10' 
                     : 'border-slate-200/80 dark:border-slate-800'
             } shadow-sm relative group transition-all space-y-3`}>
                 
                 {/* Cabeçalho do Card Expandido com Ações */}
-                <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-2">
+                <div className={`flex items-center justify-between border-b pb-2 ${itemHasError ? 'border-red-300 dark:border-red-800' : 'border-slate-100 dark:border-slate-800'}`}>
                     <div className="flex items-center gap-2">
                         <span className={`w-5 h-5 rounded-lg flex items-center justify-center text-[10px] ${
                             isService
@@ -290,7 +291,7 @@ const BodyRow = ({
                         }`}>
                             <i className={`bi ${isService ? 'bi-tools' : 'bi-box-seam'}`} />
                         </span>
-                        <span className="text-[11px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                        <span className={`text-[11px] font-black uppercase tracking-wider ${itemHasError ? 'text-red-600 dark:text-red-400' : 'text-slate-500 dark:text-slate-400'}`}>
                             Item #{idx + 1} • {isService ? 'Serviço' : 'Produto'}
                         </span>
                     </div>
@@ -320,7 +321,7 @@ const BodyRow = ({
 
                 {/* Linha 1: Descrição */}
                 <div className="w-full">
-                    <label className="text-[10px] font-black uppercase tracking-wider mb-1 flex items-center gap-1.5 ml-1 text-slate-400 dark:text-slate-500">
+                    <label className={`text-[10px] font-black uppercase tracking-wider mb-1 flex items-center gap-1.5 ml-1 ${error ? 'text-red-600 dark:text-red-400' : 'text-slate-400 dark:text-slate-500'}`}>
                         <span>{isService ? 'Descrição do Serviço' : 'Descrição do Item'}</span> <span className="text-red-500">*</span>
                         {isTemporaryProduct && <TemporaryProductAlert />}
                     </label>
@@ -355,7 +356,7 @@ const BodyRow = ({
                     <div className="flex flex-wrap sm:flex-nowrap items-start gap-3">
                         {!shouldHideHandling && (
                             <div className="w-full sm:w-[220px] md:w-[240px] shrink-0">
-                                <label className="text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500 mb-1 block ml-1">
+                                <label className={`text-[10px] font-black uppercase tracking-wider mb-1 block ml-1 ${handlingError ? 'text-red-600 dark:text-red-400' : 'text-slate-400 dark:text-slate-500'}`}>
                                     Tipo de Manuseio <span className="text-red-500">*</span>
                                 </label>
                                 <select

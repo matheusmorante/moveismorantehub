@@ -224,7 +224,7 @@ const ShippingData = ({ shipping, setShipping, customerData, isCalculatingDistan
                                         className="flex-[3] relative group/field"
                                     />
                                     <div className="flex-[1] relative group/field">
-                                        <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1 ml-1 block">Número <span className="text-red-500">*</span></label>
+                                        <label className={`text-[10px] font-black uppercase tracking-widest mb-1 ml-1 block ${errors['deliveryAddress_number'] ? 'text-red-600 dark:text-red-400' : 'text-slate-400'}`}>Número <span className="text-red-500">*</span></label>
                                         <input
                                             type="text"
                                             className={`w-full border-b-2 bg-transparent px-3 py-2 text-sm font-bold text-slate-700 outline-none transition-colors dark:text-slate-300 ${errors['deliveryAddress_number'] ? 'border-red-500 focus:border-red-500' : 'border-slate-200 dark:border-slate-800 focus:border-blue-600 dark:focus:border-blue-500'}`}
@@ -257,7 +257,7 @@ const ShippingData = ({ shipping, setShipping, customerData, isCalculatingDistan
                                         />
                                     </div>
                                     <div className="flex-[1.5] relative group/field">
-                                        <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1 ml-1 block">Cidade <span className="text-red-500">*</span></label>
+                                        <label className={`text-[10px] font-black uppercase tracking-widest mb-1 ml-1 block ${errors['deliveryAddress_city'] ? 'text-red-600 dark:text-red-400' : 'text-slate-400'}`}>Cidade <span className="text-red-500">*</span></label>
                                         <input
                                             type="text"
                                             className={`w-full border-b-2 bg-transparent px-3 py-2 text-sm font-bold text-slate-700 outline-none transition-colors dark:text-slate-300 ${errors['deliveryAddress_city'] ? 'border-red-500 focus:border-red-500' : 'border-slate-200 dark:border-slate-800 focus:border-blue-600 dark:focus:border-blue-500'}`}

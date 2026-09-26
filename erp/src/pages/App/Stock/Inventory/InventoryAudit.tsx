@@ -22,6 +22,11 @@ export const InventoryAudit: React.FC<InventoryAuditProps> = ({ onCopy, onOpen }
         closeMenu,
         deleteDraft,
         handleToggleAdjustments,
+        periodDays,
+        setPeriodDays,
+        page,
+        setPage,
+        pageCount,
     } = useInventoryAuditSessions();
 
     if (loading) {
@@ -30,6 +35,23 @@ export const InventoryAudit: React.FC<InventoryAuditProps> = ({ onCopy, onOpen }
 
     return (
         <>
+            <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-100 bg-white px-4 py-3 dark:border-slate-800 dark:bg-slate-900">
+                <label className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-slate-400">
+                    <i className="bi bi-calendar3 text-blue-500" />
+                    Período
+                    <select value={periodDays} onChange={event => setPeriodDays(Number(event.target.value))} className="rounded-lg border border-slate-200 bg-transparent px-2 py-1.5 text-[10px] font-bold text-slate-700 outline-none dark:border-slate-700 dark:text-slate-200">
+                        <option value={30}>Últimos 30 dias</option>
+                        <option value={90}>Últimos 90 dias</option>
+                        <option value={365}>Último ano</option>
+                        <option value={0}>Todos os períodos</option>
+                    </select>
+                </label>
+                <div className="flex items-center gap-2">
+                    <button type="button" disabled={page <= 1} onClick={() => setPage(current => Math.max(1, current - 1))} className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-black text-slate-500 disabled:cursor-not-allowed disabled:opacity-40 dark:border-slate-700 dark:text-slate-300" aria-label="Página anterior"><i className="bi bi-chevron-left" /></button>
+                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Página {page} de {pageCount}</span>
+                    <button type="button" disabled={page >= pageCount} onClick={() => setPage(current => Math.min(pageCount, current + 1))} className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-black text-slate-500 disabled:cursor-not-allowed disabled:opacity-40 dark:border-slate-700 dark:text-slate-300" aria-label="Próxima página"><i className="bi bi-chevron-right" /></button>
+                </div>
+            </div>
             {/* ── Cards: telas menores que xl ── */}
             <div className="xl:hidden flex flex-col gap-3">
                 {!sessions.length && (
