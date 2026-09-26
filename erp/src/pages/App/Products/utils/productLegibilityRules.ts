@@ -50,7 +50,7 @@ export function checkERPLegibility(data: Readonly<Partial<Product>>): ERPLegibil
         errors.push("Selecione pelo menos um fornecedor.");
     }
 
-    let hasValidPrice = false;
+    let hasValidPrice: boolean;
     if (!hasVars) {
         hasValidPrice = isPositiveNumber(data.unitPrice);
         if (!hasValidPrice) {
@@ -97,7 +97,7 @@ export function checkEcomLegibility(data: Readonly<Partial<Product>>): EcomLegib
         errors.push("Descrição do catálogo deve ser preenchida antes da publicação.");
     }
 
-    let hasValidPrice = false;
+    let hasValidPrice: boolean;
     if (!hasVars) {
         hasValidPrice = isPositiveNumber(data.unitPrice);
         if (!hasValidPrice) {

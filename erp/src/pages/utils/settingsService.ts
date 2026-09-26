@@ -93,6 +93,8 @@ export interface AppSettings {
         ncm?: string;
         cest?: string;
         cfop?: string;
+        returnCfop?: string;
+        inverseCfopMappings?: Record<string, string>;
         cst?: string;
         icmsPercent?: number;
         origem?: string;
@@ -390,6 +392,8 @@ export const getDefaultSettings = (): AppSettings => ({
         ncm: '94036000',
         cest: '',
         cfop: '5102',
+        returnCfop: '1202',
+        inverseCfopMappings: {},
         cst: '102',
         icmsPercent: 0,
         origem: '0',

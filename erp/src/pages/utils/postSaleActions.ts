@@ -7,6 +7,7 @@ export const POST_SALE_ACTION_KEYS = new Set([
     "sendCustomerOrder",
     "sendGroupInvite",
     "sendCustomerReviews",
+    "issueNfe",
 ]);
 
 export const canOpenPostSaleActions = (order: Partial<Order> | { orderType?: string; status?: string }): boolean => {

@@ -3,6 +3,7 @@ import { toast } from "react-toastify";
 import { financeService } from '@/pages/services/financeService';
 import { FinancialTransaction, FinancialCategory } from "../../../types/finance.type";
 import { normalizeSearchTerm } from '@/pages/utils/textUtils';
+import CurrencyInput from '../../../../components/CurrencyInput';
 
 const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
@@ -297,11 +298,10 @@ export default function Transactions() {
                             />
                             
                             <div className="flex gap-4">
-                                <input
-                                    type="number"
-                                    placeholder="Valor R$"
+                                <CurrencyInput
                                     value={formData.amount}
-                                    onChange={e => setFormData({...formData, amount: Number(e.target.value)})}
+                                    onChangeValue={val => setFormData({...formData, amount: val})}
+                                    showBadge={false}
                                     className="w-1/2 bg-slate-50 dark:bg-slate-950 border-none rounded-2xl px-4 py-3 text-sm font-bold text-slate-700 dark:text-slate-200 outline-none focus:ring-2 focus:ring-blue-500"
                                 />
                                 <input

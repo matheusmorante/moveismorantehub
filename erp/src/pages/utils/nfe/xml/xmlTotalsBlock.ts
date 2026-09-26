@@ -1,8 +1,10 @@
 import Order from "@/pages/types/order.type";
+import { composeServiceFiscalValues, fiscalMoneyFromCents } from "../serviceFiscalComposition";
 
 export function buildTotalsAndPaymentXml(order: Order, vProdTotal: number, vDescTotal: number): string {
     const vFrete = Number(order.shipping?.value || 0);
-    const vNF = (vProdTotal - vDescTotal + vFrete).toFixed(2);
+    const vOutro = fiscalMoneyFromCents(composeServiceFiscalValues(order.items || []).vOutroCents);
+    const vNF = (vProdTotal - vDescTotal + vFrete + vOutro).toFixed(2);
 
     // Modalidade de Frete: 0=Remetente/Entrega, 9=Sem frete/Retirada
     const modFrete = order.shipping?.deliveryMethod === 'pickup' ? '9' : '0';
@@ -38,7 +40,7 @@ export function buildTotalsAndPaymentXml(order: Order, vProdTotal: number, vDesc
         <vIPIDevol>0.00</vIPIDevol>
         <vPIS>0.00</vPIS>
         <vCOFINS>0.00</vCOFINS>
-        <vOutro>0.00</vOutro>
+        <vOutro>${vOutro.toFixed(2)}</vOutro>
         <vNF>${vNF}</vNF>
       </ICMSTot>
     </total>

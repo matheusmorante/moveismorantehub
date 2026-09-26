@@ -14,6 +14,7 @@ import ServiceAutocomplete from './ServiceAutocomplete';
 
 interface Props {
     item: Item;
+    productItems: Item[];
     onChange: (idx: number, key: keyof Item, value: string | number) => void;
     onBatchChange: (idx: number, changes: Partial<Item>) => void;
     onToggleDiscountType: () => void;
@@ -33,6 +34,7 @@ interface Props {
 
 const BodyRow = ({
     item,
+    productItems,
     onChange,
     onBatchChange,
     onDelete,
@@ -58,6 +60,24 @@ const BodyRow = ({
     const handlingError = !isService && errors[handlingErrorKey];
     const itemHasError = Boolean(error || handlingError);
     const settings = getSettings();
+    const serviceProductLink = isService ? (
+        <div className="mt-2">
+            <label className="mb-1 ml-1 block text-[10px] font-black uppercase tracking-wider text-slate-400">Vincular ao produto</label>
+            <select
+                aria-label="Vincular ao produto"
+                value={item.linkedProductOrderItemId || ''}
+                onChange={event => onChange(idx, 'linkedProductOrderItemId', event.target.value)}
+                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs text-slate-700 outline-none focus:border-blue-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
+            >
+                <option value="">Sem vínculo</option>
+                {productItems.map((product, productIndex) => (
+                    <option key={product.orderItemId || productIndex} value={product.orderItemId || ''} disabled={!product.orderItemId}>
+                        {product.description || 'Produto sem descrição'} — {product.code || 'Sem SKU'} (linha {productIndex + 1})
+                    </option>
+                ))}
+            </select>
+        </div>
+    ) : null;
 
     // Valores calculados com arredondamento preciso para evitar dízimas de ponto flutuante
     const discountInValue = item.discountType === "fixed" 
@@ -350,6 +370,7 @@ const BodyRow = ({
                         </div>
                     )}
                 </div>
+                {serviceProductLink}
 
                 {/* Linha 2: Manuseio (se produto) e Observação */}
                 {!item.isComboItem && (
@@ -506,6 +527,7 @@ const BodyRow = ({
                                 className="w-full bg-slate-50/60 dark:bg-slate-800/40 border border-slate-200/80 dark:border-slate-700/80 focus:border-blue-500 px-2 py-0.5 rounded-lg text-[11px] font-medium text-slate-700 dark:text-slate-200 outline-none transition-all placeholder:text-slate-400"
                             />
                         </div>
+                        {serviceProductLink}
                     </>
                 ) : !item.isComboItem ? (
                     <>

@@ -56,7 +56,7 @@ export const mapInventoryMoveFromDB = (data: any): InventoryMove => {
         try {
             meta = JSON.parse(data.observation);
             cleanObservation = meta.note || meta.observation || data.observation;
-        } catch { }
+        } catch  { /* no-op: intencionalmente silencioso */ }
     }
 
     const isReversed = 

@@ -19,7 +19,7 @@ export const getNextGoodsReceiptIndex = async (localReceipts: Array<{ receiptInd
         const { data: sequenceValue, error: sequenceError } = await supabase.rpc('next_goods_receipt_index');
         const code = Number(sequenceValue);
         if (!sequenceError && Number.isInteger(code) && code > 0 && code <= MAX_RECEIPT_CODE) return code;
-    } catch {}
+    } catch  { /* no-op: intencionalmente silencioso */ }
 
     const localMax = (localReceipts || []).reduce((highest, receipt) => {
         const idx = getGoodsReceiptIndex(receipt);

@@ -87,6 +87,8 @@ const NewSaleOrder = ({
         }
         if (migrated.items && Array.isArray(migrated.items)) {
             const mappedItems = migrated.items.map((item: any) => ({
+                orderItemId: item.orderItemId || crypto.randomUUID(),
+                linkedProductOrderItemId: item.linkedProductOrderItemId || undefined,
                 productId: item.productId || undefined,
                 variationId: item.variationId || undefined,
                 code: item.code || "",

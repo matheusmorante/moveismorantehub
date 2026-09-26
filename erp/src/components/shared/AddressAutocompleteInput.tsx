@@ -110,13 +110,13 @@ export const AddressAutocompleteInput: React.FC<Props> = ({
     const handleSelectSuggestion = async (suggestion: any) => {
         setIsOpen(false);
 
-        let streetName = suggestion.address?.road || suggestion.display_name.split(',')[0].split('-')[0].trim();
-        let neighborhood = suggestion.address?.suburb || suggestion.address?.neighbourhood || '';
-        let city = suggestion.address?.city || cityHint || 'Colombo';
-        let state = normalizeUf(suggestion.address?.state || stateHint || 'PR');
-        let cep = suggestion.address?.postcode || '';
-        let number = '';
-        let coords: [number, number] | undefined = undefined;
+        const streetName = suggestion.address?.road || suggestion.display_name.split(',')[0].split('-')[0].trim();
+        const neighborhood = suggestion.address?.suburb || suggestion.address?.neighbourhood || '';
+        const city = suggestion.address?.city || cityHint || 'Colombo';
+        const state = normalizeUf(suggestion.address?.state || stateHint || 'PR');
+        const cep = suggestion.address?.postcode || '';
+        const number = '';
+        const coords: [number, number] | undefined = undefined;
 
         // Disparo síncrono e imediato com os dados da sugestão (Rua, Bairro, Cidade, UF)
         onChange(streetName);

@@ -235,7 +235,7 @@ export const physicalDeleteVariation = async (productId: string, variationId: st
             if (delError) throw delError;
 
             // Update cache
-            let products = getLocalProducts();
+            const products = getLocalProducts();
             const parentIdx = products.findIndex(p => String(p.id).split('_')[0] === realProductId);
             if (parentIdx >= 0) {
                 const parent = products[parentIdx];

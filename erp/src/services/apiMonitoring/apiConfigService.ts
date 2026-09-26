@@ -208,7 +208,7 @@ export class ApiConfigService {
                 const parsed = JSON.parse(raw);
                 this.memoryCache = { ...DEFAULT_API_CONFIGURATIONS, ...parsed };
             }
-        } catch {}
+        } catch  { /* no-op: intencionalmente silencioso */ }
 
         if (!this.memoryCache) {
             this.memoryCache = { ...DEFAULT_API_CONFIGURATIONS };

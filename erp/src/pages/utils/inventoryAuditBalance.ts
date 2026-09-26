@@ -75,7 +75,7 @@ export const recalculateInventoryAuditBalance = async (productId: string): Promi
     const lastAnchor = lastEffectiveAnchor || lastReversedAnchor;
     if (!hasAnchor && !lastAnchor) return false;
 
-    let stock = Number(product.stock || 0);
+    let stock: number;
     if (lastAnchor) {
         stock = lastEffectiveAnchor ? getTargetStock(lastAnchor)! : getPreviousStock(lastAnchor)!;
         const anchorIndex = allMoves.indexOf(lastAnchor);

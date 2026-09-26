@@ -61,7 +61,7 @@ export const ensureReceiptIndexes = (items: GoodsReceipt[]): GoodsReceipt[] => {
                         .eq('id', item.id)
                         .then(() => {});
                 }
-            } catch {}
+            } catch  { /* no-op: intencionalmente silencioso */ }
         }
     });
 

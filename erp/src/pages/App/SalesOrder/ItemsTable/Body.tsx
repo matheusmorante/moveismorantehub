@@ -97,7 +97,13 @@ const Body = ({
     const deleteItem = (idx: number) => {
         setItems((prev: Item[]) => {
             const newItems = [...prev];
+            const removedItem = newItems[idx];
             newItems.splice(idx, 1);
+            if (removedItem?.itemType !== 'service' && removedItem?.orderItemId) {
+                return newItems.map(item => item.linkedProductOrderItemId === removedItem.orderItemId
+                    ? { ...item, linkedProductOrderItemId: undefined }
+                    : item);
+            }
             return newItems;
         });
         if (expandedIndex === idx) {
@@ -134,8 +140,9 @@ const Body = ({
 
     const content = filteredIndexedItems.map(({ item, originalIndex }) => (
         <BodyRow
-            key={`${originalIndex}-${item.productId || item.itemType || 'empty'}`}
+            key={item.orderItemId || `${originalIndex}-${item.productId || item.itemType || 'empty'}`}
             item={item}
+            productItems={items.filter(candidate => candidate.itemType !== 'service')}
             idx={originalIndex}
             onChange={changeItems}
             onBatchChange={changeBatchItems}

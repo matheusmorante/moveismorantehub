@@ -37,13 +37,14 @@ Se uma camada falhar, interrompa a escalada, investigue e corrija antes de pross
 > **NUNCA ALTERAR OU EXCLUIR REGISTROS OPERACIONAIS EXISTENTES.**
 > Playwright pode usar o Supabase atualmente utilizado pelo sistema, inclusive o banco real, desde que crie, edite, valide e remova exclusivamente registros criados pela própria execução. Dados reais existentes nunca podem ser reutilizados como massa de teste.
 
-1. **Geração de `testRunId`**: Cada bateria gera um identificador único, preferencialmente `E2E_<timestamp>_<uuid>`.
+1. **Geração de `testRunId`**: Cada bateria gera um identificador único no formato canônico `TEST_AUT_<uuid>`. Para identificar a suíte de origem (unitário, integração, E2E), use metadata adicional (campo, observação, tag), sem alterar o prefixo.
 2. **Identificação inequívoca**: O identificador deve aparecer no nome, SKU, código ou observação do registro. Use também metadata de origem somente quando o campo já existir ou fizer sentido arquiteturalmente; não altere o schema apenas para testes.
 3. **Registro de propriedade**: O harness deve guardar em memória os IDs criados pela execução e o tipo de cada registro. Todo helper de update/delete deve executar `assertOwnedByCurrentTest(record)` e falhar fechado se o ID não estiver registrado, se o `testRunId` não corresponder ou se houver qualquer dúvida.
 4. **Arrange / Act / Assert / Cleanup**: Crie todas as dependências da árvore do teste, execute o fluxo real, valide UI/persistência/relações após recarregar e remova apenas os IDs criados pela execução em `try/finally`, `afterEach` ou `afterAll`.
 5. **Ordem de limpeza**: Exclua filhos e relacionamentos antes dos pais, respeitando as foreign keys. Nunca use `DELETE` amplo, `LIKE 'E2E%'`, `truncate`, cascade não confirmado, reset de tabela ou cleanup global.
 6. **Supabase real**: A ausência de banco separado não bloqueia automaticamente Playwright. O banco atualmente usado pode ser alvo quando a execução puder provar propriedade, usar identificadores únicos e garantir teardown. Sem essa prova, não faça escrita.
 7. **Relatório obrigatório**: Registre `testRunId`, registros criados por tipo, quantidade removida, resíduos por falha de cleanup com IDs, aprovados, reprovados e a confirmação de que nenhum registro operacional real foi alterado.
+8. **Isolamento entre testes paralelos**: Se testes E2E rodam em paralelo, cada teste deve derivar seu próprio identificador do `testRunId` da bateria (ex: `TEST_AUT_<uuid>_NomeDoTeste`) para evitar interferência entre testes que manipulam os mesmos tipos de registro.
 
 ---
 
@@ -71,8 +72,35 @@ A suíte do Morante Hub engloba **todos os tipos possíveis de teste** para asse
 | **Comportamento exclusivo do React Native** | Câmera, permissões, lifecycle, SQLite e APIs nativas não disponíveis no browser. | Não automatizar em dispositivo/emulador. Fazer validações estáticas/focadas quando úteis e entregar APK para validação manual do usuário quando necessário. |
 | **Testes de Tipagem & Contratos** | Conformidade TypeScript, integridade de propriedades herdadas, schemas tributários, eventos mobile. | `node mobile/node_modules/typescript/bin/tsc --noEmit`, `npm --prefix erp run typecheck`. |
 | **Lógica Offline-First Mobile** | Transformações, idempotência, ciclo de eventos e regras de sincronização independentes do runtime nativo. | Vitest com fixtures/mocks para lógica isolada; não usar isso como evidência de que AsyncStorage, NetInfo, câmera, permissões ou SQLite nativo funcionam. A validação nativa é manual do usuário no APK. |
+| **Persistência Local (ERP Web)** | IndexedDB para cache, rascunhos ou dados offline no navegador. Aplica-se somente a módulos que usam armazenamento local; não confundir com SQLite (mobile) nem MySQL. | Vitest com `fake-indexeddb` para lógica de persistência; Playwright `evaluate` para verificação de estado real no navegador. Se o módulo não usa armazenamento local, esta linha não se aplica. |
 
 Nos E2E Playwright com backend real, siga a regra de propriedade da seção 1: criar somente dados próprios e identificáveis, guardar IDs exatos, editar/excluir apenas esses IDs e limpar de forma restrita. Não use limpeza por prefixo/`LIKE` nem selecione registros operacionais existentes como massa mutável.
+
+### 3.1 Estados Obrigatórios de UI
+
+Testes de componentes e telas (integração e E2E) devem verificar, no mínimo:
+- **Carregando**: skeleton/spinner visível durante fetch.
+- **Vazio**: mensagem adequada quando não há dados.
+- **Sucesso**: dados renderizados corretamente.
+- **Erro**: feedback ao usuário quando API/rede falha.
+- **Desabilitado / Sem permissão / Offline**: quando aplicável ao fluxo.
+
+### 3.2 Checklist Transversal de Casos Negativos
+
+Para cada módulo, além do happy path:
+- [ ] Entrada inválida / campos obrigatórios vazios.
+- [ ] Valores limites (0, mínimo, máximo, negativo).
+- [ ] Operação duplicada / duplo clique / reenvio (idempotência).
+- [ ] Cancelamento e reversão, quando o fluxo suportar.
+- [ ] Permissão insuficiente / RLS / role ausente.
+- [ ] Sessão expirada durante operação.
+- [ ] Falha de rede / API indisponível / timeout.
+- [ ] Concorrência (dois operadores no mesmo registro).
+
+### 3.3 Cobertura como Indicador
+
+> [!NOTE]
+> Percentual de cobertura de linhas é **indicador de amplitude**, não prova de qualidade. Um módulo com 100% de cobertura pode ter zero casos negativos. Priorize cenários de negócio relevantes sobre metas numéricas.
 
 ---
 
@@ -193,6 +221,19 @@ Os testes devem seguir rigorosamente a **ordem de criticidade do negócio**:
 
 ---
 
+## 7. Testes de Integração com Supabase: RPCs, Transações e Edge Functions
+
+Quando o teste envolver operações no backend Supabase:
+
+1. **RPCs**: Chamar via `supabase.rpc('nome', params)` com `testRunId`. Verificar retorno de sucesso **e** caso de erro (parâmetro inválido, registro inexistente, violação de regra).
+2. **Atomicidade**: Provocar falha intencional na segunda etapa de uma transação e confirmar que a primeira foi revertida (consultar o registro no banco após o erro e verificar ausência do registro parcial).
+3. **Rollback**: Toda transação testada deve ter pelo menos um caso que force o rollback e verifique integridade do estado anterior.
+4. **RLS e Autorização**: Testar com token de usuário sem permissão e confirmar que a operação é rejeitada (não silenciosamente ignorada).
+5. **Edge Functions**: Testar via HTTP direto ao endpoint com payload de teste. Validar resposta (status, body) **e** efeitos no banco.
+6. **Idempotência de RPCs**: Chamar a mesma RPC duas vezes com o mesmo `event_id`/`testRunId` e confirmar que não duplica efeitos.
+
+---
+
 ## 8. Proibição Absoluta de Mascarar Problemas & Diagnóstico de Causa Raiz
 
 ### Regra de Ouro dos Testes:
@@ -219,6 +260,20 @@ CAUSA RAIZ (qual regra, contrato, fluxo ou fonte da verdade originou a inconsist
 - **Correção no Nível Correto**: Se o defeito pertence a uma regra compartilhada ou entidade central, é proibido aplicar patches locais na tela ou no teste. A correção deve ser efetuada na fonte da verdade (service/entidade/validador).
 - **Testes de Regressão Obrigatórios**: Toda correção de bug deve ser acompanhada do teste automatizado específico que reproduza o cenário problemático antes da correção e comprove a estabilidade contínua após a correção.
 
+### Anti-padrões de Seletores (Playwright e Componentes)
+- Preferir `getByRole`, `getByLabel`, `getByText` e `data-testid` nomeados sobre seletores CSS internos ou posição ordinal.
+- Proibido depender de classes CSS geradas automaticamente (`.css-xxx`, `.sc-xxx`).
+- Evitar seletores por texto exato quando o texto pode mudar — preferir `data-testid` ou role com name.
+- Proibido `page.waitForTimeout(ms)` como substituto de `page.waitForSelector` / `expect(...).toBeVisible()`.
+
+### Critério de Encerramento: Quando o Teste Está "Completo"
+O agente não deve declarar "testado" apenas porque a suíte ficou verde. Um teste está completo quando:
+1. O resultado esperado foi verificado na interface (texto, estado visual, feedback).
+2. Os efeitos colaterais foram conferidos (banco, local storage, estoque, financeiro).
+3. Os estados relevantes foram cobertos (sucesso, erro, vazio, loading — conforme 3.1).
+4. Casos negativos aplicáveis ao fluxo foram incluídos (conforme 3.2).
+
+---
 
 ## Referências e Fonte Canônica de Documentação
 

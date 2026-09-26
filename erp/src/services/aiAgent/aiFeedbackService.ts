@@ -29,7 +29,7 @@ function saveLocalFeedback(item: AgentFeedbackItem): void {
     const current = getLocalFeedbacks();
     current.unshift(item);
     window.localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(current.slice(0, 100)));
-  } catch {}
+  } catch  { /* no-op: intencionalmente silencioso */ }
 }
 
 export async function saveAgentFeedback(input: SaveAgentFeedbackInput): Promise<{ success: boolean; id: string }> {

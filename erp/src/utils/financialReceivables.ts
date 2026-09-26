@@ -13,14 +13,9 @@ export function generateReceivables(
     const amountPerInstallment = totalValue / count;
 
     for (let i = 1; i <= count; i++) {
-        let dueDate = saleDate;
-        
-        if (config.installments_model === 'monthly') {
-            dueDate = addDays(saleDate, config.days_to_receive * i);
-        } else {
-            // single / a vista => days_to_receive fixo
-            dueDate = addDays(saleDate, config.days_to_receive);
-        }
+        const dueDate = config.installments_model === 'monthly'
+            ? addDays(saleDate, config.days_to_receive * i)
+            : addDays(saleDate, config.days_to_receive);
 
         receivables.push({
             description: `Ped. #${orderIndex} - ${customerName} (${config.name}${count > 1 ? ` - Parc. ${i}/${count}` : ''})`,

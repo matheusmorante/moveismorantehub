@@ -1,6 +1,6 @@
 ---
 name: principios-de-programacao
-description: Engenharia de Software, SOLID, Código Limpo, Princípios de Programação, Clareza Arquitetural e Refatoração Segura. Garante arquivos coesos (alvo 30-100 linhas, aceitável até 150), responsabilidade única, código limpo, legível, intuitivo, contratos TypeScript estritos, eliminação de duplicidades e estratégias conservadoras de refatoração sem perda de lógica.
+description: Engenharia de Software, SOLID, Código Limpo, Princípios de Programação, Clareza Arquitetural e Refatoração Segura. Garante arquivos coesos, responsabilidade única, código limpo, legível, intuitivo, contratos TypeScript estritos, eliminação de duplicidades e estratégias conservadoras de refatoração sem perda de lógica.
 ---
 
 # Skill: Princípios de Programação, SOLID e Código Limpo
@@ -11,7 +11,7 @@ Aplicar quando a tarefa envolver:
 - Estruturação de camadas (UI → Application → Domain → Infrastructure);
 - Modelagem de contratos TypeScript e interfaces;
 - Tratamento de concorrência, idempotência e mutações de dados;
-- Arquivos que ultrapassam 150–200 linhas ou acumulam múltiplas responsabilidades.
+- Arquivos que acumulam múltiplas responsabilidades ou ferem o princípio da responsabilidade única.
 
 ## Quando NÃO aplicar
 - Para dúvidas exclusivas de regras de negócio de estoque/custos (consultar `regras-de-negocio-erp`);
@@ -28,17 +28,14 @@ Nenhum agente deve iniciar implementação sem primeiro investigar a arquitetura
 
 ---
 
-## 2. Responsabilidade Única e Tamanho de Arquivos
+## 2. Responsabilidade Única
 
 Cada arquivo deve possuir uma responsabilidade principal clara, respondendo à pergunta:
 > *"Qual é a responsabilidade única deste arquivo?"*
 
-- **Alvo recomendado**: 30–100 linhas.
-- **Aceitável**: até aproximadamente 150 linhas para componentes e hooks coesos.
-- **Acima de 200 linhas ou infração real de responsabilidade**: analisar divisão modular e consultar o usuário se envolver alterações estruturais.
-
-> [!NOTE]
-> Arquivos pequenos (< 150 linhas) e com propósito bem definido **não devem gerar alertas ou perguntas repetitivas ao usuário**.
+- **O tamanho não é medido por linhas**: A conformidade com a modularização e tamanho é garantida pelo estrito cumprimento do SOLID e do Código Limpo. Se o arquivo segue o Princípio da Responsabilidade Única (SRP), ele tem o tamanho correto.
+- **Divisão**: Analisar divisão modular apenas quando houver infração real de responsabilidade.
+- **Alertas**: Não devem ser gerados alertas ou perguntas repetitivas ao usuário com base puramente na contagem de linhas do arquivo.
 
 ---
 

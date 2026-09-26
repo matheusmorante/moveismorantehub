@@ -15,6 +15,14 @@
 - Não repita leituras do mesmo arquivo ou status sem mudança observável.
 - Preserve alterações existentes e faça mudanças pequenas, verificáveis e reversíveis.
 
+## Regra global: atomicidade e consistência das operações
+
+- Antes de alterar um fluxo, identifique os efeitos obrigatórios que ele cria ou reverte: estoque, financeiro, fiscal, reservas e históricos que representam estado confirmado. Declare o estado que dispara cada efeito e se uma transição posterior deve criar outro efeito.
+- Quando a operação principal e seus efeitos precisam permanecer consistentes, grave-os na mesma transação do banco ou RPC transacional. Se qualquer etapa essencial falhar, reverta tudo e apresente o erro. Chamadas independentes do cliente não constituem uma transação; não use fallback que salve apenas parte da operação.
+- Garanta idempotência e proteção contra retries, cliques repetidos e concorrência com vínculos e restrições apropriados no banco. Cancelamentos e reversões devem ser rastreáveis, vinculados à origem e não duplicados; preserve fatos confirmados em vez de apagá-los.
+- Declare quais efeitos podem ocorrer após o commit e como serão reconciliados em caso de falha. Antes de concluir, teste sucesso, falha em cada etapa essencial, repetição, concorrência, cancelamento e reversão.
+- A regra vale para todos os módulos, mas o gatilho de cada efeito deve seguir a regra de negócio específica do fluxo; não aplique o mesmo momento de movimentação a vendas, recebimentos, inventários e devoluções.
+
 ## Política de validação de código
 
 - Ao alterar código, identifique pelo `git diff` os arquivos, módulo e dependências afetados; execute primeiro somente a validação focada mais barata para esse módulo, antes do commit.

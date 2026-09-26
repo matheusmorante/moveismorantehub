@@ -72,12 +72,9 @@ export const VariationIdentificationTab: React.FC<VariationIdentificationTabProp
                     {(() => {
                         const parentPrefix = (parentProduct.name || parentProduct.description || 'Produto').trim();
                         const currentFullName = formData.name || '';
-                        let currentSuffix = '';
-                        if (currentFullName.toLowerCase().startsWith(parentPrefix.toLowerCase())) {
-                            currentSuffix = currentFullName.slice(parentPrefix.length).replace(/^[\s\-_:]+/, '');
-                        } else {
-                            currentSuffix = currentFullName;
-                        }
+                        const currentSuffix = currentFullName.toLowerCase().startsWith(parentPrefix.toLowerCase())
+                            ? currentFullName.slice(parentPrefix.length).replace(/^[\s\-_:]+/, '')
+                            : currentFullName;
 
                         const handleSuffixChange = (newSuffix: string) => {
                             const trimmedSuffix = newSuffix.trimStart();

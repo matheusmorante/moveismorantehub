@@ -111,11 +111,11 @@ export const fetchInboundInvoicesPage = async (options?: FetchInboundInvoicesOpt
                         try {
                             const parsedFromXml = parseInboundNfeXml(row.xml_conteudo);
                             if (parsedFromXml.items && parsedFromXml.items.length > 0) sources.push(parsedFromXml.items);
-                        } catch {}
+                        } catch  { /* no-op: intencionalmente silencioso */ }
                     }
 
                     const maxLen = Math.max(0, ...sources.map(s => s.length));
-                    let childItems: InboundInvoiceItem[] = [];
+                    const childItems: InboundInvoiceItem[] = [];
 
                     for (let idx = 0; idx < maxLen; idx++) {
                         const candidates = sources.map(s => s[idx]).filter(Boolean);
@@ -302,7 +302,7 @@ export const checkInboundInvoiceKeyExists = async (
 
         const { data, error } = await query.maybeSingle();
         if (!error && data) {
-            let result: InboundInvoice = {
+            const result: InboundInvoice = {
                 id: data.id,
                 nfeKey: data.chave_acesso || '',
                 nfeNumber: String(data.numero_nfe || ''),

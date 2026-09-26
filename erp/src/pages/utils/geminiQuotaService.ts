@@ -27,7 +27,7 @@ export const recordGeminiQuotaExhausted = (cooldownMinutes = 15) => {
             limitToday: AI_LIMITS.global.perDay,
             checkedAt: Date.now(),
         };
-    } catch {}
+    } catch  { /* no-op: intencionalmente silencioso */ }
 };
 
 export const checkGeminiQuotaStatus = async (forceRefresh = false): Promise<GeminiQuotaStatus> => {
@@ -51,7 +51,7 @@ export const checkGeminiQuotaStatus = async (forceRefresh = false): Promise<Gemi
             lastCheckTime = now;
             return result;
         }
-    } catch {}
+    } catch  { /* no-op: intencionalmente silencioso */ }
 
     // 2. Checar com ApiUsageGuard
     try {

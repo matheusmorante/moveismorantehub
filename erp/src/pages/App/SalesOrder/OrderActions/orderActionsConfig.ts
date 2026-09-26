@@ -390,9 +390,9 @@ export const buttons: OrderButton[] = [
         key: "issueNfe",
         icon: "bi-file-earmark-text-fill",
         action: "ISSUE_NFE",
-        label: "Emitir NF-e / NFC-e (Homologação)",
+        label: "Emitir nota fiscal de saída",
         color: "text-indigo-600 hover:bg-indigo-50",
-        tooltip: "Emitir nota fiscal eletrônica em ambiente de homologação SEFAZ",
+        tooltip: "Emitir NF-e para entrega ou NFC-e para retirada, conforme a operação",
         orderTypes: ['sale', 'showroom']
     },
     {

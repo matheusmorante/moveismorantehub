@@ -9,7 +9,8 @@ const useItems = () => {
             unitPrice: 0,
             unitDiscount: 0,
             discountType: 'fixed',
-            handlingType: ''
+            handlingType: '',
+            orderItemId: crypto.randomUUID()
         }
     ])
 

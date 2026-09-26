@@ -8,7 +8,7 @@ export const shouldCreateReturnEntry = (item: Item, alreadyExists: boolean) =>
   Boolean(item.productId?.trim()) && !item.isTemporaryProduct && !alreadyExists;
 
 export const canProcessReturnStock = (order: Order) =>
-  order.orderType === 'return' && ['scheduled', 'fulfilled'].includes(order.status || '');
+  order.orderType === 'return' && order.status === 'fulfilled';
 
 
 /**

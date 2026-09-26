@@ -54,7 +54,7 @@ export const InventoryStagesView: React.FC<InventoryStagesViewProps> = ({ items,
         }
         
         let counted = 0;
-        let total = items.length;
+        const total = items.length;
         
         const stagesArray = Array.from(stageMap.values()).map(stage => {
             counted += stage.counted;

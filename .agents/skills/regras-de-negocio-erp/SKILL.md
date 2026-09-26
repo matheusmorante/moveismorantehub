@@ -37,10 +37,10 @@ Use esta skill antes de alterar comportamentos de domínio referentes a vendas, 
 
 ## 3. Devoluções e Custo de Retorno
 
-- **Gatilhos de Estoque Imediatos**: Ao cadastrar uma devolução definitivamente (seja ela `scheduled` com coleta ou `fulfilled` já trazida à loja), a entrada no estoque é gerada **imediatamente** (`returnStockProcessed: true`).
+- **Gatilho de Estoque da Devolução**: A devolução `scheduled` não movimenta estoque. A entrada é gerada somente quando a devolução passa a `fulfilled` e o produto cadastrado retorna de fato (`returnStockProcessed: true`).
 - **Custo de Retorno**: A entrada no estoque da devolução é valorizada utilizando o **CMV unitário histórico materializado da venda original**. Essa entrada ajusta o `costPrice` (CMPM) para movimentações subsequentes.
 - **Cancelamento e Estorno com Modal de 5 Segundos**:
-  - Para devolução agendada (`scheduled`): ação no menu de 3 pontinhos exibe **"Cancelar Devolução"**. Ao confirmar no modal de segurança com contagem de 5s, o status muda para cancelado, a entrada de estoque é estornada e é exibido o carimbo de **"Cancelado"** na linha/card.
+  - Para devolução agendada (`scheduled`): ação no menu de 3 pontinhos exibe **"Cancelar Devolução"**. Ao confirmar no modal de segurança com contagem de 5s, o status muda para cancelado sem estorno de estoque (a entrada ainda não existe) e é exibido o carimbo de **"Cancelado"** na linha/card.
   - Para devolução atendida (`fulfilled`): ação no menu de 3 pontinhos exibe **"Estornar Devolução"**. Ao confirmar no modal de segurança com contagem de 5s, o status muda para cancelado, a entrada de estoque é estornada e é exibido o carimbo de **"Estornado"** na linha/card.
 - **Separação de Fatos**: Devolução nunca apaga ou substitui o registro da venda original. Ambas permanecem como fatos históricos distintos.
 - **Data Efetiva da Movimentação de Entrada**: A movimentação de entrada de estoque gerada pela devolução tem como data efetiva a **mesma data em que a devolução foi cadastrada** (`order.date`).

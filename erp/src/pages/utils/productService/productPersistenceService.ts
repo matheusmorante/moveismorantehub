@@ -187,6 +187,6 @@ export const syncProductToSupabase = async (product: Product): Promise<void> => 
         }
     } catch (err: any) {
         console.error("[ProductService] Erro ao salvar dados no Supabase:", err);
-        throw new Error(err.message || "Erro ao salvar no Supabase");
+        throw new Error(err.message || "Erro ao salvar no Supabase", { cause: err });
     }
 };

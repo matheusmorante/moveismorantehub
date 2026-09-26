@@ -17,7 +17,7 @@ interface Props {
 }
 
 export interface InventoryScanFeedback {
-  kind: 'success' | 'error';
+  kind: 'success' | 'error' | 'warning';
   title: string;
   message?: string;
   sku?: string;
@@ -42,9 +42,11 @@ export const InventoryScannerScreen: React.FC<Props> = ({
   const [lastFeedback, setLastFeedback] = useState<InventoryScanFeedback | null>(null);
   const [unitsRead, setUnitsRead] = useState(0);
   const [productsRead, setProductsRead] = useState<Set<string>>(new Set());
+  const [frameBorderState, setFrameBorderState] = useState<'idle' | 'success' | 'error' | 'warning'>('idle');
   const processingRef = useRef(false);
   const recentScanRef = useRef<{ data: string; at: number }>({ data: '', at: 0 });
   const cameraRef = useRef<CameraView>(null);
+  const frameBorderTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     const getCameraPermissions = async () => {
@@ -53,6 +55,14 @@ export const InventoryScannerScreen: React.FC<Props> = ({
     };
     void getCameraPermissions();
   }, []);
+
+  const triggerFrameBorder = (kind: 'success' | 'error' | 'warning') => {
+    if (frameBorderTimerRef.current) clearTimeout(frameBorderTimerRef.current);
+    setFrameBorderState(kind);
+    frameBorderTimerRef.current = setTimeout(() => {
+      setFrameBorderState('idle');
+    }, kind === 'success' ? 1500 : 1200);
+  };
 
   const handleBarCodeScanned = async ({ data }: { type: string; data: string }) => {
     if (processingRef.current || (!continuous && scanned)) return;
@@ -64,15 +74,22 @@ export const InventoryScannerScreen: React.FC<Props> = ({
       if (result) {
         setLastFeedback(result);
         if (result.kind === 'error') {
+          triggerFrameBorder('error');
+          setTimeout(() => setLastFeedback(current => current === result ? null : current), 1800);
+        }
+        if (result.kind === 'warning') {
+          triggerFrameBorder('warning');
           setTimeout(() => setLastFeedback(current => current === result ? null : current), 1800);
         }
         if (result.kind === 'success') {
+          triggerFrameBorder('success');
           setUnitsRead(count => count + 1);
           if (result.itemId) setProductsRead(previous => new Set(previous).add(result.itemId!));
         }
       }
     } catch (error) {
       console.error('[Scanner] Falha ao processar leitura:', error);
+      triggerFrameBorder('error');
       setLastFeedback({ kind: 'error', title: 'Falha na leitura', message: 'Tente novamente.' });
     } finally {
       if (continuous) {
@@ -162,7 +179,14 @@ export const InventoryScannerScreen: React.FC<Props> = ({
         </View>
 
         <View style={styles.scannerArea}>
-          <View style={styles.scannerFrame} />
+          <View
+            style={[
+              styles.scannerFrame,
+              frameBorderState === 'success' && styles.scannerFrameSuccess,
+              frameBorderState === 'error' && styles.scannerFrameError,
+              frameBorderState === 'warning' && styles.scannerFrameWarning,
+            ]}
+          />
         </View>
 
         <View style={styles.footer}>
@@ -170,7 +194,12 @@ export const InventoryScannerScreen: React.FC<Props> = ({
           {continuous && (
             <>
               {lastFeedback && (
-                <View style={[styles.feedback, lastFeedback.kind === 'error' ? styles.feedbackError : styles.feedbackSuccess]}>
+                <View style={[
+                  styles.feedback,
+                  lastFeedback.kind === 'error' ? styles.feedbackError
+                  : lastFeedback.kind === 'warning' ? styles.feedbackWarning
+                  : styles.feedbackSuccess,
+                ]}>
                   <Text style={styles.feedbackTitle}>{lastFeedback.kind === 'success' ? 'ÚLTIMA LEITURA' : lastFeedback.title}</Text>
                   {lastFeedback.kind === 'success' && <Text style={styles.feedbackText}>{lastFeedback.title}</Text>}
                   {lastFeedback.sku && <Text style={styles.feedbackText}>SKU: {lastFeedback.sku}</Text>}
@@ -271,6 +300,24 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 5,
   },
+  scannerFrameSuccess: {
+    borderColor: '#22c55e',
+    borderWidth: 3,
+    shadowColor: '#22c55e',
+    shadowOpacity: 0.6,
+  },
+  scannerFrameError: {
+    borderColor: '#f87171',
+    borderWidth: 3,
+    shadowColor: '#f87171',
+    shadowOpacity: 0.5,
+  },
+  scannerFrameWarning: {
+    borderColor: '#facc15',
+    borderWidth: 3,
+    shadowColor: '#facc15',
+    shadowOpacity: 0.5,
+  },
   footer: {
     padding: 24,
     paddingBottom: 48,
@@ -284,6 +331,7 @@ const styles = StyleSheet.create({
   },
   feedback: { width: '100%', borderRadius: 12, padding: 12, marginTop: 14 },
   feedbackError: { backgroundColor: '#7f1d1d' },
+  feedbackWarning: { backgroundColor: '#78350f' },
   feedbackSuccess: { backgroundColor: '#064e3b' },
   feedbackTitle: { color: '#fff', fontSize: 11, fontWeight: '800' },
   feedbackText: { color: '#fff', fontSize: 13, marginTop: 3 },

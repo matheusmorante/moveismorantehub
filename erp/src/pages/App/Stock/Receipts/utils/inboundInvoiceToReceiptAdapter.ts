@@ -69,7 +69,7 @@ export async function adaptInboundInvoiceToReceiptState(
         (invoice.totalIcmsSt || 0);
 
     // Garantir o anexo da NF-e (S3 / Storage)
-    let attachmentUrl: string | null = null;
+    let attachmentUrl: string | null;
     onAttachmentProgress?.(true);
     try {
         attachmentUrl = await ensureInboundInvoiceAttachment(invoice);

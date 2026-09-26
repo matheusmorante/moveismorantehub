@@ -18,30 +18,41 @@ export interface IdeParams {
     model: '55' | '65';
     environment: 1 | 2;
     dhEmi: string;
+    natureOfOperation?: string;
+    operationType?: 0 | 1;
+    finalidade?: 1 | 3 | 4;
+    referencedAccessKey?: string;
+    destinationIndicator?: 1 | 2 | 3;
+    presenceIndicator?: 0 | 1 | 2 | 3 | 9;
+    municipalityCode?: string;
 }
 
 export function buildIdeXml(p: IdeParams): string {
+    if (p.referencedAccessKey && (p.finalidade !== 3 || !/^\d{44}$/.test(p.referencedAccessKey))) {
+        throw new Error('Referência de cabeçalho permitida apenas para estorno com chave fiscal válida.');
+    }
     return `
     <ide>
       <cUF>41</cUF>
       <cNF>${p.randomCode}</cNF>
-      <natOp>VENDA MERCADORIA</natOp>
+      <natOp>${escapeXml(p.natureOfOperation || 'VENDA MERCADORIA')}</natOp>
       <mod>${p.model}</mod>
       <serie>${parseInt(p.series, 10)}</serie>
       <nNF>${p.nfeNumber}</nNF>
       <dhEmi>${p.dhEmi}</dhEmi>
-      <tpNF>1</tpNF>
-      <idDest>1</idDest>
-      <cMunFG>4106907</cMunFG>
+      <tpNF>${p.operationType ?? 1}</tpNF>
+      <idDest>${p.destinationIndicator ?? 1}</idDest>
+      <cMunFG>${p.municipalityCode || '4106907'}</cMunFG>
       <tpImp>1</tpImp>
       <tpEmis>1</tpEmis>
       <cDV>${p.checkDigit}</cDV>
       <tpAmb>${p.environment}</tpAmb>
-      <finNFe>1</finNFe>
+      <finNFe>${p.finalidade ?? 1}</finNFe>
       <indFinal>1</indFinal>
-      <indPres>1</indPres>
+      <indPres>${p.presenceIndicator ?? 1}</indPres>
       <procEmi>0</procEmi>
       <verProc>MoranteHub_1.0</verProc>
+      ${p.referencedAccessKey ? `<NFref><refNFe>${p.referencedAccessKey}</refNFe></NFref>` : ''}
     </ide>`;
 }
 

@@ -28,7 +28,7 @@ export const saveVariation = async (productId: string, variation: any): Promise<
         const targetIdStr = variationId ? String(variationId).toLowerCase() : '';
 
         // REGRA DE IDENTIDADE: a variação é localizada EXCLUSIVAMENTE pelo UUID.
-        let varIndex = variations.findIndex((v: any) => {
+        const varIndex = variations.findIndex((v: any) => {
             const vIdStr = v.id ? String(v.id).toLowerCase() : '';
             return targetIdStr && vIdStr && targetIdStr === vIdStr;
         });
@@ -59,7 +59,7 @@ export const saveVariation = async (productId: string, variation: any): Promise<
         };
         delete (variationToSave as any).variationId;
 
-        let newVariations = [...variations];
+        const newVariations = [...variations];
         if (varIndex === -1) {
             newVariations.push(variationToSave);
         } else {

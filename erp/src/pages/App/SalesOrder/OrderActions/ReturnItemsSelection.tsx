@@ -1,11 +1,13 @@
 import React from "react";
 import Order from "../../../types/order.type";
 import { NumericFormat as NumericFormatBase, NumberFormatValues } from "react-number-format";
+import { getReturnLineKey } from "../../../utils/returnQuantityRules";
 const NumericFormat = NumericFormatBase as any;
 
 type Props = {
     readonly order: Order;
     readonly quantities: Record<string, number>;
+    readonly returnableQuantities: Record<string, number>;
     readonly returnUnitPrices?: Record<string, number>;
     readonly onToggle: (id: string, quantity: number, defaultUnitPrice: number) => void;
     readonly onQuantityChange: (id: string, quantity: number, max: number) => void;
@@ -15,6 +17,7 @@ type Props = {
 const ReturnItemsSelection = ({
     order,
     quantities,
+    returnableQuantities,
     returnUnitPrices = {},
     onToggle,
     onQuantityChange,
@@ -31,12 +34,13 @@ const ReturnItemsSelection = ({
             </span>
             <div className="space-y-3">
                 {order.items.map((item, index) => {
-                    const itemId = item.productId || item.description;
+                    const itemId = getReturnLineKey(item, index);
+                    const maxReturnable = returnableQuantities[itemId] || 0;
                     const selected = Boolean(quantities[itemId]);
                     const isUnregistered = !item.productId?.trim() || item.isTemporaryProduct;
                     const activeUnitPrice =
                         returnUnitPrices[itemId] !== undefined ? returnUnitPrices[itemId] : item.unitPrice;
-                    const activeQty = selected ? quantities[itemId] || 0 : item.quantity;
+                    const activeQty = selected ? quantities[itemId] || 0 : maxReturnable;
                     const itemTotal = activeQty * activeUnitPrice;
 
                     return (
@@ -51,7 +55,8 @@ const ReturnItemsSelection = ({
                             <div className="flex items-center justify-between gap-4">
                                 <button
                                     type="button"
-                                    onClick={() => onToggle(itemId, item.quantity, item.unitPrice)}
+                                    onClick={() => maxReturnable > 0 && onToggle(itemId, maxReturnable, item.unitPrice)}
+                                    disabled={maxReturnable <= 0}
                                     className="flex flex-1 items-center gap-3 text-left outline-none"
                                 >
                                     <div
@@ -74,7 +79,11 @@ const ReturnItemsSelection = ({
                                             {item.description}
                                         </span>
                                         <div className="mt-1 flex flex-wrap items-center gap-2 text-[9px] font-bold uppercase tracking-widest text-slate-400">
-                                            <span>Qtd. vendida: {item.quantity} un</span>
+                                            <span>Vendida: {item.quantity} un</span>
+                                            <span>•</span>
+                                            <span className={maxReturnable > 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-500"}>
+                                                Disponível: {maxReturnable} un
+                                            </span>
                                             <span>•</span>
                                             <span className="text-slate-500 dark:text-slate-400">
                                                 Vendido a R$ {item.unitPrice.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
@@ -106,8 +115,8 @@ const ReturnItemsSelection = ({
                                         <div className="flex items-center gap-1 rounded-2xl border border-amber-200 bg-white p-1 dark:border-amber-900/40 dark:bg-slate-950">
                                             <button
                                                 type="button"
-                                                onClick={() =>
-                                                    onQuantityChange(itemId, (quantities[itemId] || 1) - 1, item.quantity)
+                                                    onClick={() =>
+                                                        onQuantityChange(itemId, (quantities[itemId] || 1) - 1, maxReturnable)
                                                 }
                                                 className="flex h-7 w-7 items-center justify-center rounded-xl text-slate-600 hover:bg-amber-100 dark:text-slate-300 dark:hover:bg-amber-900/30"
                                             >
@@ -120,15 +129,15 @@ const ReturnItemsSelection = ({
                                                     onQuantityChange(
                                                         itemId,
                                                         parseInt(event.target.value) || 1,
-                                                        item.quantity
+                                                        maxReturnable
                                                     )
                                                 }
                                                 className="w-10 bg-transparent text-center text-xs font-black outline-none"
                                             />
                                             <button
                                                 type="button"
-                                                onClick={() =>
-                                                    onQuantityChange(itemId, (quantities[itemId] || 1) + 1, item.quantity)
+                                                    onClick={() =>
+                                                        onQuantityChange(itemId, (quantities[itemId] || 1) + 1, maxReturnable)
                                                 }
                                                 className="flex h-7 w-7 items-center justify-center rounded-xl text-slate-600 hover:bg-amber-100 dark:text-slate-300 dark:hover:bg-amber-900/30"
                                             >

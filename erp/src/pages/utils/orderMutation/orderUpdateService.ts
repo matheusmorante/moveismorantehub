@@ -5,8 +5,6 @@ import { resolveOrderCustomerSnapshot, buildOrderPersistencePayload } from '../o
 import { validateOrderStatusTransition } from '../orderStatusTransitionRules';
 import { ensureCustomerInCrm, syncCustomerToCrmBackground } from './orderCrmSyncService';
 import { dispatchOrderUpdateNotifications } from './orderNotificationDispatcher';
-import { reconcileSaleItemsStock } from './orderItemStockReconciliation';
-import { recordOrderStatusHistory, handleOrderStatusStockSideEffects } from './orderStatusWorkflowService';
 
 const TABLE_NAME = "orders";
 
@@ -81,49 +79,24 @@ export const executeUpdateOrder = async (
         const orderItemsPayload = merged.items || [];
         const orderPaymentsPayload = merged.payments || [];
 
-        // 4. Persistência Transacional Atômica
-        try {
-            const { error: rpcError } = await supabase.rpc('save_order_transaction', {
-                p_order_id: String(id),
-                p_order_payload: updatePayload,
-                p_items: orderItemsPayload,
-                p_payments: orderPaymentsPayload,
-                p_is_update: true,
-            });
+        // 4. Pedido, saídas/entradas, estornos e saldo são uma única transação.
+        // Sem fallback de escrita parcial quando a movimentação falha.
+        const { data: transaction, error: rpcError } = await supabase.rpc('create_order_with_inventory_transaction', {
+            p_order_id: String(id),
+            p_order_payload: updatePayload,
+            p_items: orderItemsPayload,
+            p_payments: orderPaymentsPayload,
+            p_is_update: true,
+        });
+        if (rpcError) throw rpcError;
+        merged = { ...merged, ...(transaction?.order_data || {}) };
 
-            if (rpcError) throw rpcError;
-        } catch (rpcErr) {
-            console.warn('[OrderUpdate] Falha na RPC transacional, executando fallback de update padrão:', rpcErr);
-            const { error } = await supabase
-                .from(TABLE_NAME)
-                .update(updatePayload)
-                .eq('id', id);
-
-            if (error) throw error;
-        }
-
-        // 5. Conciliação de itens de venda com o estoque
-        await reconcileSaleItemsStock(id, previousOrderData, merged);
-
-        // 6. Notificações de eventos e alterações
+        // 5. Notificações de eventos e alterações
         const oldStatus = previousStatus;
         const newStatus = orderToUpdate.status || merged.status || oldStatus;
         dispatchOrderUpdateNotifications(id, previousOrderData, merged, oldStatus, newStatus);
 
-        // 7. Registro de histórico de status
-        if (newStatus && oldStatus !== newStatus) {
-            await recordOrderStatusHistory(
-                id,
-                oldStatus,
-                newStatus,
-                (orderToUpdate as any).seller || (merged as any).seller || 'system'
-            );
-        }
-
-        // 8. Efeitos colaterais de estoque por status (cancelamento, devolução ou saídas automáticas)
-        await handleOrderStatusStockSideEffects(id, merged, oldStatus, newStatus);
-
-        // 9. Sincronização em background do cliente no CRM
+        // 6. Sincronização em background do cliente no CRM
         syncCustomerToCrmBackground(
             merged.customerData?.id,
             merged.customerData?.phone,

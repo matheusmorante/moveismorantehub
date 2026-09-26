@@ -108,7 +108,7 @@ export const buildCustomerOrderMessage = (order: Order) => {
     }
     const customer = order.customerData;
     
-    let message = settings.whatsappTemplates?.orderConfirmation || "";
+    const message = settings.whatsappTemplates?.orderConfirmation || "";
     
     let itemsBlock = stringifyItemsWithValues(order.items || []);
     if (order.shipping?.value && order.shipping.value > 0) {
@@ -235,7 +235,7 @@ export const buildGroupInviteMessage = (order: Order) => {
         groupInviteLink: 'https://chat.whatsapp.com/FtqlGwW7pdI9Jzgl8VRia6?mode=gi_t'
     };
     
-    let message = (settings.whatsappTemplates as any)?.groupInviteMessage || defaults.groupInviteMessage;
+    const message = (settings.whatsappTemplates as any)?.groupInviteMessage || defaults.groupInviteMessage;
     const link = (settings.whatsappTemplates as any)?.groupInviteLink || defaults.groupInviteLink;
     
     return message
@@ -250,7 +250,7 @@ export const buildPersonGroupInviteMessage = (person: any) => {
         groupInviteLink: 'https://chat.whatsapp.com/FtqlGwW7pdI9Jzgl8VRia6?mode=gi_t'
     };
     
-    let message = (settings.whatsappTemplates as any)?.groupInviteMessage || defaults.groupInviteMessage;
+    const message = (settings.whatsappTemplates as any)?.groupInviteMessage || defaults.groupInviteMessage;
     const link = (settings.whatsappTemplates as any)?.groupInviteLink || defaults.groupInviteLink;
     
     return message

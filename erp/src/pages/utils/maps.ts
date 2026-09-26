@@ -437,7 +437,7 @@ export const searchAddressSuggestions = async (query: string, city?: string, sta
             });
             return data.results;
         }
-    } catch {}
+    } catch  { /* no-op: intencionalmente silencioso */ }
 
     const guard = await ApiUsageGuard.check('google_places');
     if (!guard.allowed) {

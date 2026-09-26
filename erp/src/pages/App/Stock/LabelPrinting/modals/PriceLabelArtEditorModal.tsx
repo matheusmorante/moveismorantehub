@@ -1,12 +1,17 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import html2canvas from 'html2canvas';
+import { copyLabelImageToClipboard, downloadLabelImage } from '../services/priceLabelExportService';
 import { toast } from 'react-toastify';
-import { supabase } from '@/pages/utils/supabaseConfig';
-import { normalizeSearchTerm, buildAccentInsensitiveRegex } from '@/pages/utils/textUtils';
 import { LabelConfig } from '../utils/LabelConstants';
 import { PriceLabelArtRenderer } from '../components/PriceLabelArtRenderer';
 import { calculateLabelPhysicalSize } from '../utils/LabelPhysicalGeometry';
 import { getFixedLabelTextSize } from '../utils/fixedLabelTextSize';
+import { usePriceLabelState } from '../hooks/usePriceLabelState';
+import { PriceLabelLayersModal } from '../components/modals/PriceLabelLayersModal';
+import { PriceLabelOpportunityModal } from '../components/modals/PriceLabelOpportunityModal';
+import { PriceLabelDataFillModal } from '../components/modals/PriceLabelDataFillModal';
+import { PriceLabelTestValuesModal } from '../components/modals/PriceLabelTestValuesModal';
+import { fetchPriceLabelArtConfig, fetchOpportunities } from '../services/priceLabelPersistenceService';
+
 import {
   Opportunity,
   PriceLabelArtEditorModalProps,
@@ -27,159 +32,74 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
     const artworkSizeMm = (rawArtworkSize && rawArtworkSize.widthMm >= rawArtworkSize.heightMm)
         ? rawArtworkSize
         : { widthMm: 100, heightMm: 56 };
-    // COR DE FUNDO PADRÃO
-    const getDefaultBg = (_oppId?: string) => '#ffffff';
-
-    // MARGEM DE SEGURANÇA DA IMPRESSÃO
-    const [showSafetyMargin, setShowSafetyMargin] = useState(true);
-
-    // HISTÓRICO DE CORES USADAS RECENTEMENTE
+    const {
+      getDefaultBg, showSafetyMargin, setShowSafetyMargin, oppColorsMap,
+      setOppColorsMap, title, setTitle, showTitle,
+      setShowTitle, titleFontSizeTens, setTitleFontSizeTens, titleFontSizeHundreds,
+      setTitleFontSizeHundreds, titleFontSizeThousands, setTitleFontSizeThousands, titleColor,
+      setTitleColor, titleFontFamily, setTitleFontFamily, titlePos,
+      setTitlePos, titleRotation, setTitleRotation, titleWidth,
+      setTitleWidth, deText, setDeText, showDe,
+      setShowDe, deFontSizeTens, setDeFontSizeTens, deFontSizeHundreds,
+      setDeFontSizeHundreds, deFontSizeThousands, setDeFontSizeThousands, deColor,
+      setDeColor, deFontFamily, setDeFontFamily, dePos,
+      setDePos, deRotation, setDeRotation, normalPrice,
+      setNormalPrice, showNormalPrice, setShowNormalPrice, normalPriceFontSizeTens,
+      setNormalPriceFontSizeTens, normalPriceFontSizeHundreds, setNormalPriceFontSizeHundreds, normalPriceFontSizeThousands,
+      setNormalPriceFontSizeThousands, normalPriceColor, setNormalPriceColor, normalPriceFontFamily,
+      setNormalPriceFontFamily, normalPricePos, setNormalPricePos, normalPriceRotation,
+      setNormalPriceRotation, porText, setPorText, showPor,
+      setShowPor, porFontSizeTens, setPorFontSizeTens, porFontSizeHundreds,
+      setPorFontSizeHundreds, porFontSizeThousands, setPorFontSizeThousands, porColor,
+      setPorColor, porFontFamily, setPorFontFamily, porPos,
+      setPorPos, porRotation, setPorRotation, currencySymbol,
+      setCurrencySymbol, showCurrency, setShowCurrency, currencyFontSizeTens,
+      setCurrencyFontSizeTens, currencyFontSizeHundreds, setCurrencyFontSizeHundreds, currencyFontSizeThousands,
+      setCurrencyFontSizeThousands, currencyColor, setCurrencyColor, currencyFontFamily,
+      setCurrencyFontFamily, currencyPos, setCurrencyPos, currencyRotation,
+      setCurrencyRotation, promoPrice, setPromoPrice, showPromoPrice,
+      setShowPromoPrice, showPromoPriceTens, setShowPromoPriceTens, showPromoPriceHundreds,
+      setShowPromoPriceHundreds, showPromoPriceThousands, setShowPromoPriceThousands, showSizeDropdown,
+      setShowSizeDropdown, priceColor, setPriceColor, promoPriceFontFamily,
+      setPromoPriceFontFamily, promoPricePos, setPromoPricePos, promoPriceRotation,
+      setPromoPriceRotation, scaleTens, setScaleTens, scaleHundreds,
+      setScaleHundreds, scaleThousands, setScaleThousands, scaleTenThousands,
+      setScaleTenThousands, centsText, setCentsText, showCents,
+      setShowCents, centsFontSizeTens, setCentsFontSizeTens, centsFontSizeHundreds,
+      setCentsFontSizeHundreds, centsFontSizeThousands, setCentsFontSizeThousands, centsColor,
+      setCentsColor, centsFontFamily, setCentsFontFamily, centsPos,
+      setCentsPos, centsRotation, setCentsRotation, selectedMagnitude,
+      setSelectedMagnitude, activeGuideX, setActiveGuideX, activeGuideY,
+      setActiveGuideY, dbOpportunities, setDbOpportunities, selectedOppId,
+      setSelectedOppId, showInstallments, setShowInstallments, installments,
+      setInstallments, installmentsFontSizeTens, setInstallmentsFontSizeTens, installmentsFontSizeHundreds,
+      setInstallmentsFontSizeHundreds, installmentsFontSizeThousands, setInstallmentsFontSizeThousands, installmentsColor,
+      setInstallmentsColor, installmentsFontFamily, setInstallmentsFontFamily, installmentsPos,
+      setInstallmentsPos, installmentsRotation, setInstallmentsRotation, dePricePorGroupPos,
+      setDePricePorGroupPos, dePricePorGroupRotation, setDePricePorGroupRotation, dePricePorGroupGap,
+      setDePricePorGroupGap, defaultBgColor, bgColor, setBgColor,
+      selectedElement, setSelectedElement, selectedElements, setSelectedElements,
+      isArtConfigLoading, setIsArtConfigLoading, autoSaveStatus, setAutoSaveStatus,
+      lastQueuedSnapshotRef, latestRequestedSnapshotRef, saveQueueRef, isFileMenuOpen,
+      setIsFileMenuOpen, isCenterMenuOpen, setIsCenterMenuOpen, isOppSelectModalOpen,
+      setIsOppSelectModalOpen, isLayersModalOpen, setIsLayersModalOpen, showColorPickerDropdown,
+      setShowColorPickerDropdown, pendingGradientColorRef,
+      applySnapshot,
+      getSnapshot,
+      getMagnitudeSnapshot,
+      magnitudeTemplates,
+      setMagnitudeTemplates,
+      handleUndo,
+      handleRedo,
+      canUndo,
+      canRedo,
+      undoStackRef,
+      redoStackRef,
+      isApplyingHistoryRef,
+    } = usePriceLabelState(initialProduct, config, isOpen);
     const [colorHistory, setColorHistory] = useState<string[]>([
         '#000000', '#1e3a8a', '#dc2626', '#ea580c', '#ffffff', '#2563eb', '#16a34a', '#ff7900', '#7c3aed'
-    ]);
-
-    // MAPEAMENTO DE CORES DE ELEMENTOS POR TIPO DE ETIQUETA (OPPORTUNITY ID)
-    const [oppColorsMap, setOppColorsMap] = useState<Record<string, Record<string, string>>>({});
-
-    // 1. TÍTULO NO CABEÇALHO DA ETIQUETA
-    const [title, setTitle] = useState(initialProduct?.name || config.text || 'COLCHÃO DE ESPUMA D28 LARGURA 88');
-    const [showTitle, setShowTitle] = useState(true);
-    const [titleFontSizeTens, setTitleFontSizeTens] = useState<number>(14);
-    const [titleFontSizeHundreds, setTitleFontSizeHundreds] = useState<number>(14);
-    const [titleFontSizeThousands, setTitleFontSizeThousands] = useState<number>(14);
-    const [titleColor, setTitleColor] = useState('#000000');
-    const [titleFontFamily, setTitleFontFamily] = useState<string>('Inter, system-ui, sans-serif');
-    const [titlePos, setTitlePos] = useState({ x: 0, y: 0 });
-    const [titleRotation, setTitleRotation] = useState<number>(0);
-    const [titleWidth, setTitleWidth] = useState<number>(520);
-
-    // 2. TEXTO "DE"
-    const [deText, setDeText] = useState('De');
-    const [showDe, setShowDe] = useState(true);
-    const [deFontSizeTens, setDeFontSizeTens] = useState<number>(34);
-    const [deFontSizeHundreds, setDeFontSizeHundreds] = useState<number>(34);
-    const [deFontSizeThousands, setDeFontSizeThousands] = useState<number>(34);
-    const [deColor, setDeColor] = useState('#000000');
-    const [deFontFamily, setDeFontFamily] = useState<string>('Inter, system-ui, sans-serif');
-    const [dePos, setDePos] = useState({ x: 0, y: 0 });
-    const [deRotation, setDeRotation] = useState<number>(0);
-
-    // 3. PREÇO ORIGINAL (VALOR NUMÉRICO RISCADO)
-    const [normalPrice, setNormalPrice] = useState(initialProduct?.price || config.price || '499,00');
-    const [showNormalPrice, setShowNormalPrice] = useState(true);
-    const [normalPriceFontSizeTens, setNormalPriceFontSizeTens] = useState<number>(16);
-    const [normalPriceFontSizeHundreds, setNormalPriceFontSizeHundreds] = useState<number>(16);
-    const [normalPriceFontSizeThousands, setNormalPriceFontSizeThousands] = useState<number>(16);
-    const [normalPriceColor, setNormalPriceColor] = useState('#000000');
-    const [normalPriceFontFamily, setNormalPriceFontFamily] = useState<string>('Inter, system-ui, sans-serif');
-    const [normalPricePos, setNormalPricePos] = useState({ x: 0, y: 0 });
-    const [normalPriceRotation, setNormalPriceRotation] = useState<number>(0);
-
-    // 4. TEXTO "POR:"
-    const [porText, setPorText] = useState('por:');
-    const [showPor, setShowPor] = useState(true);
-    const [porFontSizeTens, setPorFontSizeTens] = useState<number>(15);
-    const [porFontSizeHundreds, setPorFontSizeHundreds] = useState<number>(15);
-    const [porFontSizeThousands, setPorFontSizeThousands] = useState<number>(15);
-    const [porColor, setPorColor] = useState('#000000');
-    const [porFontFamily, setPorFontFamily] = useState<string>('Inter, system-ui, sans-serif');
-    const [porPos, setPorPos] = useState({ x: 0, y: 0 });
-    const [porRotation, setPorRotation] = useState<number>(0);
-
-    // 5. SÍMBOLO DA MOEDA "R$" (TAMANHO FIXO EM TODAS AS GRANDEZAS)
-    const [currencySymbol, setCurrencySymbol] = useState('R$');
-    const [showCurrency, setShowCurrency] = useState(true);
-    const [currencyFontSizeTens, setCurrencyFontSizeTens] = useState<number>(70);
-    const [currencyFontSizeHundreds, setCurrencyFontSizeHundreds] = useState<number>(70);
-    const [currencyFontSizeThousands, setCurrencyFontSizeThousands] = useState<number>(70);
-    const [currencyColor, setCurrencyColor] = useState('#000000');
-    const [currencyFontFamily, setCurrencyFontFamily] = useState<string>('Inter, system-ui, sans-serif');
-    const [currencyPos, setCurrencyPos] = useState({ x: 0, y: 0 });
-    const [currencyRotation, setCurrencyRotation] = useState<number>(0);
-
-    // 6. PREÇO PRINCIPAL (NÚMERO GRANDE POR:) - POR ORDEM DE GRANDEZA
-    const [promoPrice, setPromoPrice] = useState(initialProduct?.promoPrice || config.promoPrice || '399,00');
-    const [showPromoPrice, setShowPromoPrice] = useState(true);
-    const [showPromoPriceTens, setShowPromoPriceTens] = useState(true);
-    const [showPromoPriceHundreds, setShowPromoPriceHundreds] = useState(true);
-    const [showPromoPriceThousands, setShowPromoPriceThousands] = useState(true);
-    const [showSizeDropdown, setShowSizeDropdown] = useState(false);
-    const [priceColor, setPriceColor] = useState(config.priceColor || '#1e3a8a');
-    const [promoPriceFontFamily, setPromoPriceFontFamily] = useState<string>('Inter, system-ui, sans-serif');
-    const [promoPricePos, setPromoPricePos] = useState({ x: 0, y: 0 });
-    const [promoPriceRotation, setPromoPriceRotation] = useState<number>(0);
-    
-    // Escalas por Ordem de Grandeza (Dezena, Centena, Milhar, Dezena de Milhar)
-    const [scaleTens, setScaleTens] = useState<number>(240);
-    const [scaleHundreds, setScaleHundreds] = useState<number>(210);
-    const [scaleThousands, setScaleThousands] = useState<number>(170);
-    const [scaleTenThousands, setScaleTenThousands] = useState<number>(140);
-
-    // 7. CENTAVOS ",00" (TAMANHO FIXO EM TODAS AS GRANDEZAS)
-    const [centsText, setCentsText] = useState(',00');
-    const [showCents, setShowCents] = useState(true);
-    const [centsFontSizeTens, setCentsFontSizeTens] = useState<number>(70);
-    const [centsFontSizeHundreds, setCentsFontSizeHundreds] = useState<number>(70);
-    const [centsFontSizeThousands, setCentsFontSizeThousands] = useState<number>(70);
-    const [centsColor, setCentsColor] = useState('#000000');
-    const [centsFontFamily, setCentsFontFamily] = useState<string>('Inter, system-ui, sans-serif');
-    const [centsPos, setCentsPos] = useState({ x: 0, y: 0 });
-    const [centsRotation, setCentsRotation] = useState<number>(0);
-
-    // ORDEM DE GRANDEZA SELECIONADA NA BARRA DE FERRAMENTAS (DEZENA, CENTENA, MILHAR)
-    const [selectedMagnitude, setSelectedMagnitude] = useState<'tens' | 'hundreds' | 'thousands'>('hundreds');
-
-    // MAPA DE TEMPLATES INDEPENDENTES POR ORDEM DE GRANDEZA (DEZENA, CENTENA, MILHAR)
-    const [magnitudeTemplates, setMagnitudeTemplates] = useState<{
-        tens?: any;
-        hundreds?: any;
-        thousands?: any;
-    }>({});
-
-    // LINHAS GUIA DE ALINHAMENTO MAGNÉTICO (ÍMÃ)
-    const [activeGuideX, setActiveGuideX] = useState<number | null>(null);
-    const [activeGuideY, setActiveGuideY] = useState<number | null>(null);
-
-    // 8. TIPO DE ETIQUETA
-    const [dbOpportunities, setDbOpportunities] = useState<Opportunity[]>([]);
-    const [selectedOppId, setSelectedOppId] = useState<string>('none');
-
-    // 9. PARCELAMENTO
-    const [showInstallments, setShowInstallments] = useState(false);
-    const [installments, setInstallments] = useState('Em até 10x sem juros no cartão');
-    const [installmentsFontSizeTens, setInstallmentsFontSizeTens] = useState<number>(12);
-    const [installmentsFontSizeHundreds, setInstallmentsFontSizeHundreds] = useState<number>(12);
-    const [installmentsFontSizeThousands, setInstallmentsFontSizeThousands] = useState<number>(12);
-    const [installmentsColor, setInstallmentsColor] = useState('#000000');
-    const [installmentsFontFamily, setInstallmentsFontFamily] = useState<string>('Inter, system-ui, sans-serif');
-    const [installmentsPos, setInstallmentsPos] = useState({ x: 0, y: 0 });
-    const [installmentsRotation, setInstallmentsRotation] = useState<number>(0);
-
-    // 10. CONTAINER AGRUPADO FLEX (DE + PREÇO ANTIGO + POR)
-    const [dePricePorGroupPos, setDePricePorGroupPos] = useState({ x: 0, y: 0 });
-    const [dePricePorGroupRotation, setDePricePorGroupRotation] = useState<number>(0);
-    const [dePricePorGroupGap, setDePricePorGroupGap] = useState<number>(10);
-
-    // 11. FUNDO DA ETIQUETA
-    const defaultBgColor = getDefaultBg(selectedOppId);
-    const [bgColor, setBgColor] = useState<string>(defaultBgColor);
-
-    // Estado de Seleção e Menus
-    const [selectedElement, setSelectedElement] = useState<PriceLabelLayerKey>(null);
-    const [selectedElements, setSelectedElements] = useState<Set<PriceLabelLayerKey>>(new Set());
-    const [isArtConfigLoading, setIsArtConfigLoading] = useState(true);
-    const [autoSaveStatus, setAutoSaveStatus] = useState<'saved' | 'saving' | 'error'>('saved');
-    const lastQueuedSnapshotRef = useRef('');
-    const latestRequestedSnapshotRef = useRef('');
-    const saveQueueRef = useRef<Promise<void>>(Promise.resolve());
-    const [isFileMenuOpen, setIsFileMenuOpen] = useState(false);
-    const [isCenterMenuOpen, setIsCenterMenuOpen] = useState(false);
-    const [isOppSelectModalOpen, setIsOppSelectModalOpen] = useState(false);
-    const [isLayersModalOpen, setIsLayersModalOpen] = useState(false);
-    const [showColorPickerDropdown, setShowColorPickerDropdown] = useState(false);
-    const pendingGradientColorRef = useRef<string | null>(null);
-
-    const handleCenterElement = (elementKey: string | null) => {
+    ]);    const handleCenterElement = (elementKey: string | null) => {
         if (!elementKey || elementKey === 'background') return;
         switch (elementKey) {
             case 'title':
@@ -225,15 +145,7 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
             pendingGradientColorRef.current = null;
         }
         setShowColorPickerDropdown(false);
-    };
-
-    // SISTEMA DE HISTÓRICO (REFS DECLARADAS NO TOPO DO COMPONENTE)
-    const undoStackRef = useRef<any[]>([]);
-    const redoStackRef = useRef<any[]>([]);
-    const isApplyingHistoryRef = useRef<boolean>(false);
-    const [canUndo, setCanUndo] = useState(false);
-    const [canRedo, setCanRedo] = useState(false);
-    // ESTADO DO MODAL DE TESTE DE VALORES (SLIDERS DE 0 A 9 POR DÍGITO)
+    };    // ESTADO DO MODAL DE TESTE DE VALORES (SLIDERS DE 0 A 9 POR DÍGITO)
     const [isTestValuesModalOpen, setIsTestValuesModalOpen] = useState(false);
     const testValuesBackupRef = useRef<{ promoPrice: string; normalPrice: string } | null>(null);
 
@@ -271,136 +183,7 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
         setIsTestValuesModalOpen(false);
     };
 
-    // ESTADO DO MODAL DE PREENCHIMENTO DE DADOS / BUSCA DE PRODUTO DA LISTA
-    const [isDataFillModalOpen, setIsDataFillModalOpen] = useState(false);
-    const [dataFillTab, setDataFillTab] = useState<'search' | 'manual'>('search');
-    const [productSearchTerm, setProductSearchTerm] = useState('');
-    const [searchResults, setSearchResults] = useState<any[]>([]);
-    const [isSearchingProducts, setIsSearchingProducts] = useState(false);
 
-    const extractProductName = (prod: any): string => {
-        const candidate = prod.name || prod.title || prod.marketplaceTitle || prod.description || 'PRODUTO SEM NOME';
-        return String(candidate).split('\n')[0].trim().toUpperCase();
-    };
-
-    // Efeito para buscar produtos no Supabase e no Cache Local quando o usuário digita na aba de busca
-    useEffect(() => {
-        if (!isDataFillModalOpen || dataFillTab !== 'search') return;
-        
-        let isCurrent = true;
-        const timer = setTimeout(async () => {
-            setIsSearchingProducts(true);
-            try {
-                // 1. Coletar do localStorage como primeira fonte instantânea
-                let localItems: any[] = [];
-                try {
-                    const rawLocal = localStorage.getItem('local_products');
-                    if (rawLocal) {
-                        const parsed = JSON.parse(rawLocal);
-                        if (Array.isArray(parsed)) localItems = parsed;
-                    }
-                } catch (e) {}
-
-                const term = normalizeSearchTerm(productSearchTerm);
-
-                // Filtrar itens do cache local se houver busca
-                let filteredLocal = localItems;
-                if (term) {
-                    filteredLocal = localItems.filter((p: any) => {
-                        const desc = normalizeSearchTerm(p.name || p.title || p.marketplaceTitle || p.description || '');
-                        const code = normalizeSearchTerm(p.code || p.sku || '');
-                        return desc.includes(term) || code.includes(term);
-                    });
-                }
-
-                // 2. Buscar também no Supabase para garantir produtos recém-criados no banco
-                let dbData: any[] = [];
-                try {
-                    let query = supabase
-                        .from('products')
-                        .select('*, product_images(*)')
-                        .eq('deleted', false)
-                        .order('created_at', { ascending: false })
-                        .limit(40);
-
-                    if (term) {
-                        const regexPattern = `.*${buildAccentInsensitiveRegex(term)}.*`;
-                        query = query.or(`name.imatch.${regexPattern},description.imatch.${regexPattern},name.ilike.%${term}%,description.ilike.%${term}%,code.ilike.%${term}%`);
-                    }
-
-                    const res = await query;
-                    if (res.data) dbData = res.data;
-                } catch (dbErr) {
-                    console.warn('[Etiqueta] Aviso ao consultar Supabase:', dbErr);
-                }
-
-                if (isCurrent) {
-                    const combinedMap = new Map();
-
-                    // Adicionar do localStorage primeiro
-                    filteredLocal.forEach((p: any) => {
-                        if (p && p.id) {
-                            combinedMap.set(String(p.id), {
-                                id: String(p.id),
-                                name: extractProductName(p),
-                                description: extractProductName(p),
-                                code: p.code || p.sku || '',
-                                unit_price: p.unitPrice ?? p.price ?? p.unit_price ?? 0,
-                                promo_price: p.promoPrice ?? p.promo_price ?? 0,
-                                images: Array.isArray(p.images) ? p.images : (p.image_url ? [p.image_url] : [])
-                            });
-                        }
-                    });
-
-                    // Complementar com do Supabase
-                    if (Array.isArray(dbData)) {
-                        dbData.forEach((p: any) => {
-                            let imgs: string[] = [];
-                            if (Array.isArray(p.product_images) && p.product_images.length > 0) {
-                                imgs = p.product_images.map((imgObj: any) => imgObj.image_url).filter(Boolean);
-                            } else if (Array.isArray(p.images)) {
-                                imgs = p.images;
-                            } else if (p.image_url) {
-                                imgs = [p.image_url];
-                            }
-
-                            const resolvedName = extractProductName(p);
-                            combinedMap.set(String(p.id), {
-                                id: String(p.id),
-                                name: resolvedName,
-                                description: resolvedName,
-                                code: p.code || p.sku || '',
-                                unit_price: p.price ?? p.unit_price ?? 0,
-                                promo_price: p.promo_price ?? 0,
-                                images: imgs
-                            });
-                        });
-                    }
-
-                    setSearchResults(Array.from(combinedMap.values()));
-                }
-            } catch (e) {
-                console.error("Erro ao buscar produtos para etiqueta:", e);
-            } finally {
-                if (isCurrent) setIsSearchingProducts(false);
-            }
-        }, 150);
-
-        return () => {
-            isCurrent = false;
-            clearTimeout(timer);
-        };
-    }, [isDataFillModalOpen, dataFillTab, productSearchTerm]);
-
-    // Função para aplicar os dados de um produto selecionado da lista (apenas Nome/Título)
-    const handleApplyProductToLabel = (prod: any) => {
-        const prodName = extractProductName(prod);
-        setTitle(prodName);
-        setShowTitle(true);
-
-        setIsDataFillModalOpen(false);
-        toast.success(`Nome "${prodName}" aplicado na etiqueta!`);
-    };
 
     const isInitializedRef = useRef(false);
     const previewRef = useRef<HTMLDivElement>(null);
@@ -468,387 +251,9 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
     }, [isOpen]);
 
 
-    // SNAPSHOT DOS VALORES DE ESTILO E POSICIONAMENTO DA MAGNITUDE ATUAL
-    // oppColorsMap é global (não por grandeza), salvo somente no getSnapshot
-    const getMagnitudeSnapshot = useCallback(() => ({
-        title, showTitle, titleFontSizeTens, titleFontSizeHundreds, titleFontSizeThousands, titleColor, titleFontFamily, titlePos, titleRotation, titleWidth,
-        deText, showDe, deFontSizeTens, deFontSizeHundreds, deFontSizeThousands, deColor, deFontFamily, dePos, deRotation,
-        normalPrice, showNormalPrice, normalPriceFontSizeTens, normalPriceFontSizeHundreds, normalPriceFontSizeThousands, normalPriceColor, normalPriceFontFamily, normalPricePos, normalPriceRotation,
-        porText, showPor, porFontSizeTens, porFontSizeHundreds, porFontSizeThousands, porColor, porFontFamily, porPos, porRotation,
-        currencySymbol, showCurrency, currencyFontSizeTens, currencyFontSizeHundreds, currencyFontSizeThousands, currencyColor, currencyFontFamily, currencyPos, currencyRotation,
-        promoPrice, showPromoPrice, showPromoPriceTens, showPromoPriceHundreds, showPromoPriceThousands, priceColor, promoPriceFontFamily, promoPricePos, promoPriceRotation, scaleTens, scaleHundreds, scaleThousands, scaleTenThousands,
-        centsText, showCents, centsFontSizeTens, centsFontSizeHundreds, centsFontSizeThousands, centsColor, centsFontFamily, centsPos, centsRotation,
-        showInstallments, installments, installmentsFontSizeTens, installmentsFontSizeHundreds, installmentsFontSizeThousands, installmentsColor, installmentsFontFamily, installmentsPos, installmentsRotation,
-        dePricePorGroupPos, dePricePorGroupRotation, dePricePorGroupGap,
-        bgColor,
-    }), [
-        title, showTitle, titleFontSizeTens, titleFontSizeHundreds, titleFontSizeThousands, titleColor, titleFontFamily, titlePos, titleRotation, titleWidth,
-        deText, showDe, deFontSizeTens, deFontSizeHundreds, deFontSizeThousands, deColor, deFontFamily, dePos, deRotation,
-        normalPrice, showNormalPrice, normalPriceFontSizeTens, normalPriceFontSizeHundreds, normalPriceFontSizeThousands, normalPriceColor, normalPriceFontFamily, normalPricePos, normalPriceRotation,
-        porText, showPor, porFontSizeTens, porFontSizeHundreds, porFontSizeThousands, porColor, porFontFamily, porPos, porRotation,
-        currencySymbol, showCurrency, currencyFontSizeTens, currencyFontSizeHundreds, currencyFontSizeThousands, currencyColor, currencyFontFamily, currencyPos, currencyRotation,
-        promoPrice, showPromoPrice, showPromoPriceTens, showPromoPriceHundreds, showPromoPriceThousands, priceColor, promoPriceFontFamily, promoPricePos, promoPriceRotation, scaleTens, scaleHundreds, scaleThousands, scaleTenThousands,
-        centsText, showCents, centsFontSizeTens, centsFontSizeHundreds, centsFontSizeThousands, centsColor, centsFontFamily, centsPos, centsRotation,
-        showInstallments, installments, installmentsFontSizeTens, installmentsFontSizeHundreds, installmentsFontSizeThousands, installmentsColor, installmentsFontFamily, installmentsPos, installmentsRotation,
-        dePricePorGroupPos, dePricePorGroupRotation, dePricePorGroupGap,
-        bgColor,
-    ]);
 
-    // SNAPSHOT COMPLETO DO TIPO DE ETIQUETA (INCLUINDO AS 3 ORDENS DE GRANDEZA)
-    const getSnapshot = useCallback(() => {
-        const curMagState = getMagnitudeSnapshot();
-        const sharedLayout = {
-            titlePos, dePos, normalPricePos, porPos, currencyPos, promoPricePos,
-            centsPos, installmentsPos, dePricePorGroupPos,
-            titleFontFamily, deFontFamily, normalPriceFontFamily, porFontFamily,
-            currencyFontFamily, centsFontFamily, installmentsFontFamily,
-            titleFontSizeTens, titleFontSizeHundreds, titleFontSizeThousands,
-            deFontSizeTens, deFontSizeHundreds, deFontSizeThousands,
-            normalPriceFontSizeTens, normalPriceFontSizeHundreds, normalPriceFontSizeThousands,
-            porFontSizeTens, porFontSizeHundreds, porFontSizeThousands,
-            currencyFontSizeTens, currencyFontSizeHundreds, currencyFontSizeThousands,
-            scaleTens, scaleHundreds, scaleThousands, scaleTenThousands,
-            centsFontSizeTens, centsFontSizeHundreds, centsFontSizeThousands,
-            installmentsFontSizeTens, installmentsFontSizeHundreds, installmentsFontSizeThousands,
-        };
-        const fullTemplates = {
-            ...Object.fromEntries(Object.entries(magnitudeTemplates).map(([magnitude, template]) => {
-                const {
-                    fabricTemplateJson: _legacyFabricTemplate,
-                    fabricDataUrl: _legacyFabricImage,
-                    ...templateData
-                } = template || {};
-                return [magnitude, { ...templateData, ...sharedLayout }];
-            })),
-            [selectedMagnitude]: curMagState
-        };
-        return {
-            selectedOppId,
-            selectedMagnitude,
-            magnitudeTemplates: fullTemplates,
-            oppColorsMap,
-            ...curMagState
-        };
-    }, [selectedOppId, selectedMagnitude, magnitudeTemplates, getMagnitudeSnapshot, oppColorsMap,
-        titlePos, dePos, normalPricePos, porPos, currencyPos, promoPricePos, centsPos, installmentsPos, dePricePorGroupPos,
-        titleFontFamily, deFontFamily, normalPriceFontFamily, porFontFamily,
-        currencyFontFamily, centsFontFamily, installmentsFontFamily,
-        titleFontSizeTens, titleFontSizeHundreds, titleFontSizeThousands,
-        deFontSizeTens, deFontSizeHundreds, deFontSizeThousands,
-        normalPriceFontSizeTens, normalPriceFontSizeHundreds, normalPriceFontSizeThousands,
-        porFontSizeTens, porFontSizeHundreds, porFontSizeThousands,
-        currencyFontSizeTens, currencyFontSizeHundreds, currencyFontSizeThousands,
-        scaleTens, scaleHundreds, scaleThousands, scaleTenThousands,
-        centsFontSizeTens, centsFontSizeHundreds, centsFontSizeThousands,
-        installmentsFontSizeTens, installmentsFontSizeHundreds, installmentsFontSizeThousands]);
 
     // APLICA O SNAPSHOT DE UMA ORDEM DE GRANDEZA ESPECÍFICA
-    const applyMagnitudeSnapshot = (s: any, preserveFixedTextStyles = false) => {
-        if (!s) return;
-        if (s.title !== undefined) setTitle(s.title);
-        if (s.showTitle !== undefined) setShowTitle(s.showTitle);
-        if (!preserveFixedTextStyles) {
-            const fixedTitleSize = getFixedLabelTextSize(s, 'title', 14);
-            setTitleFontSizeTens(fixedTitleSize); setTitleFontSizeHundreds(fixedTitleSize); setTitleFontSizeThousands(fixedTitleSize);
-        }
-
-        if (s.titleColor) setTitleColor(s.titleColor);
-        if (!preserveFixedTextStyles && s.titleFontFamily) setTitleFontFamily(s.titleFontFamily);
-        if (s.titlePos && (s.titlePos.x !== 0 || s.titlePos.y !== 0)) setTitlePos(s.titlePos); else setTitlePos({ x: 0, y: -160 });
-        if (s.titleRotation !== undefined) setTitleRotation(s.titleRotation);
-        if (Number.isFinite(Number(s.titleWidth))) setTitleWidth(Number(s.titleWidth));
-
-        if (s.deText !== undefined) setDeText(s.deText);
-        if (s.showDe !== undefined) setShowDe(s.showDe);
-        if (!preserveFixedTextStyles) {
-            const fixedDeSize = getFixedLabelTextSize(s, 'de', 34);
-            setDeFontSizeTens(fixedDeSize); setDeFontSizeHundreds(fixedDeSize); setDeFontSizeThousands(fixedDeSize);
-        }
-
-        if (s.deColor) setDeColor(s.deColor);
-        if (!preserveFixedTextStyles && s.deFontFamily) setDeFontFamily(s.deFontFamily);
-        if (s.dePos) setDePos(s.dePos);
-        if (s.deRotation !== undefined) setDeRotation(s.deRotation);
-
-        if (s.normalPrice !== undefined) setNormalPrice(s.normalPrice);
-        if (s.showNormalPrice !== undefined) setShowNormalPrice(s.showNormalPrice);
-        if (!preserveFixedTextStyles) {
-            const fixedNormalPriceSize = getFixedLabelTextSize(s, 'normalPrice', 16);
-            setNormalPriceFontSizeTens(fixedNormalPriceSize); setNormalPriceFontSizeHundreds(fixedNormalPriceSize); setNormalPriceFontSizeThousands(fixedNormalPriceSize);
-        }
-
-        if (s.normalPriceColor) setNormalPriceColor(s.normalPriceColor);
-        if (!preserveFixedTextStyles && s.normalPriceFontFamily) setNormalPriceFontFamily(s.normalPriceFontFamily);
-        if (s.normalPricePos) setNormalPricePos(s.normalPricePos);
-        if (s.normalPriceRotation !== undefined) setNormalPriceRotation(s.normalPriceRotation);
-
-        if (s.porText !== undefined) setPorText(s.porText);
-        if (s.showPor !== undefined) setShowPor(s.showPor);
-        if (!preserveFixedTextStyles) {
-            const fixedPorSize = getFixedLabelTextSize(s, 'por', 15);
-            setPorFontSizeTens(fixedPorSize); setPorFontSizeHundreds(fixedPorSize); setPorFontSizeThousands(fixedPorSize);
-        }
-
-        if (s.porColor) setPorColor(s.porColor);
-        if (!preserveFixedTextStyles && s.porFontFamily) setPorFontFamily(s.porFontFamily);
-        if (s.porPos) setPorPos(s.porPos);
-        if (s.porRotation !== undefined) setPorRotation(s.porRotation);
-
-        if (s.currencySymbol !== undefined) setCurrencySymbol(s.currencySymbol);
-        if (s.showCurrency !== undefined) setShowCurrency(s.showCurrency);
-        if (!preserveFixedTextStyles) {
-            const fixedCurrencySize = getFixedLabelTextSize(s, 'currency', 70);
-            setCurrencyFontSizeTens(fixedCurrencySize); setCurrencyFontSizeHundreds(fixedCurrencySize); setCurrencyFontSizeThousands(fixedCurrencySize);
-        }
-
-        if (s.currencyColor) setCurrencyColor(s.currencyColor);
-        if (!preserveFixedTextStyles && s.currencyFontFamily) setCurrencyFontFamily(s.currencyFontFamily);
-        if (s.currencyPos && (s.currencyPos.x !== 0 || s.currencyPos.y !== 0)) setCurrencyPos(s.currencyPos); else setCurrencyPos({ x: -280, y: 35 });
-        if (s.currencyRotation !== undefined) setCurrencyRotation(s.currencyRotation);
-
-        if (s.promoPrice !== undefined) setPromoPrice(s.promoPrice);
-        if (s.showPromoPrice !== undefined) setShowPromoPrice(s.showPromoPrice);
-        if (s.showPromoPriceTens !== undefined) setShowPromoPriceTens(s.showPromoPriceTens);
-        if (s.showPromoPriceHundreds !== undefined) setShowPromoPriceHundreds(s.showPromoPriceHundreds);
-        if (s.showPromoPriceThousands !== undefined) setShowPromoPriceThousands(s.showPromoPriceThousands);
-        if (s.priceColor) setPriceColor(s.priceColor);
-        if (s.promoPriceFontFamily) setPromoPriceFontFamily(s.promoPriceFontFamily);
-        if (s.promoPricePos && (s.promoPricePos.x !== 0 || s.promoPricePos.y !== 0)) setPromoPricePos(s.promoPricePos); else setPromoPricePos({ x: 0, y: 45 });
-        if (s.promoPriceRotation !== undefined) setPromoPriceRotation(s.promoPriceRotation);
-
-        const targetScaleTens = (s.scaleTens && Number(s.scaleTens) >= 120) ? Number(s.scaleTens) : 240;
-        const targetScaleHundreds = (s.scaleHundreds && Number(s.scaleHundreds) >= 120) ? Number(s.scaleHundreds) : 210;
-        const targetScaleThousands = (s.scaleThousands && Number(s.scaleThousands) >= 120) ? Number(s.scaleThousands) : 170;
-        setScaleTens(targetScaleTens);
-        setScaleHundreds(targetScaleHundreds);
-        setScaleThousands(targetScaleThousands);
-        if (s.scaleTenThousands !== undefined) setScaleTenThousands(s.scaleTenThousands);
-
-        if (s.centsText !== undefined) setCentsText(s.centsText);
-        if (s.showCents !== undefined) setShowCents(s.showCents);
-        if (!preserveFixedTextStyles) {
-            const fixedCentsSize = getFixedLabelTextSize(s, 'cents', 70);
-            setCentsFontSizeTens(fixedCentsSize); setCentsFontSizeHundreds(fixedCentsSize); setCentsFontSizeThousands(fixedCentsSize);
-        }
-
-        if (s.centsColor) setCentsColor(s.centsColor);
-        if (!preserveFixedTextStyles && s.centsFontFamily) setCentsFontFamily(s.centsFontFamily);
-        if (s.centsPos && (s.centsPos.x !== 0 || s.centsPos.y !== 0)) setCentsPos(s.centsPos); else setCentsPos({ x: 260, y: -10 });
-        if (s.centsRotation !== undefined) setCentsRotation(s.centsRotation);
-
-        if (s.showInstallments !== undefined) setShowInstallments(s.showInstallments);
-        if (s.installments) setInstallments(s.installments);
-        if (!preserveFixedTextStyles) {
-            const fixedInstallmentsSize = getFixedLabelTextSize(s, 'installments', 14);
-            setInstallmentsFontSizeTens(fixedInstallmentsSize); setInstallmentsFontSizeHundreds(fixedInstallmentsSize); setInstallmentsFontSizeThousands(fixedInstallmentsSize);
-        }
-
-        if (s.installmentsColor) setInstallmentsColor(s.installmentsColor);
-        if (!preserveFixedTextStyles && s.installmentsFontFamily) setInstallmentsFontFamily(s.installmentsFontFamily);
-        if (s.installmentsPos) setInstallmentsPos(s.installmentsPos);
-        if (s.installmentsRotation !== undefined) setInstallmentsRotation(s.installmentsRotation);
-
-        // { x: 0, y: 0 } é uma posição válida do template, não ausência de
-        // configuração. O editor deve refletir exatamente o snapshot do BD.
-        setDePricePorGroupPos(s.dePricePorGroupPos ?? { x: 0, y: 0 });
-        if (s.dePricePorGroupRotation !== undefined) setDePricePorGroupRotation(s.dePricePorGroupRotation);
-        if (s.dePricePorGroupGap !== undefined) setDePricePorGroupGap(s.dePricePorGroupGap);
-
-        if (s.bgColor && s.bgColor !== 'transparent') {
-            setBgColor(s.bgColor);
-        } else if (defaultBgColor) {
-            setBgColor(defaultBgColor);
-        }
-    };
-
-    const applySnapshot = (s: any, preserveLayout = false) => {
-        if (!s) return;
-        isApplyingHistoryRef.current = true;
-        const currentLayout = preserveLayout ? {
-            titlePos, dePos, normalPricePos, porPos, currencyPos, promoPricePos,
-            centsPos, installmentsPos, dePricePorGroupPos,
-            titleFontSizeTens, titleFontSizeHundreds, titleFontSizeThousands,
-            deFontSizeTens, deFontSizeHundreds, deFontSizeThousands,
-            normalPriceFontSizeTens, normalPriceFontSizeHundreds, normalPriceFontSizeThousands,
-            porFontSizeTens, porFontSizeHundreds, porFontSizeThousands,
-            currencyFontSizeTens, currencyFontSizeHundreds, currencyFontSizeThousands,
-            scaleTens, scaleHundreds, scaleThousands, scaleTenThousands,
-            centsFontSizeTens, centsFontSizeHundreds, centsFontSizeThousands,
-            installmentsFontSizeTens, installmentsFontSizeHundreds, installmentsFontSizeThousands,
-        } : null;
-
-        if (s.oppColorsMap && typeof s.oppColorsMap === 'object') setOppColorsMap(s.oppColorsMap);
-        if (s.magnitudeTemplates) setMagnitudeTemplates(s.magnitudeTemplates);
-        if (s.selectedOppId) setSelectedOppId(s.selectedOppId);
-
-        const targetMag = s.selectedMagnitude || selectedMagnitude || 'hundreds';
-        setSelectedMagnitude(targetMag);
-        if (s.magnitudeTemplates && s.magnitudeTemplates[targetMag]) {
-            applyMagnitudeSnapshot(s.magnitudeTemplates[targetMag]);
-        } else {
-            applyMagnitudeSnapshot(s);
-        }
-
-        if (currentLayout) {
-            const fixedTitleSize = currentLayout.titleFontSizeHundreds;
-            const fixedDeSize = currentLayout.deFontSizeHundreds;
-            const fixedNormalPriceSize = currentLayout.normalPriceFontSizeHundreds;
-            const fixedPorSize = currentLayout.porFontSizeHundreds;
-            const fixedCurrencySize = currentLayout.currencyFontSizeHundreds;
-            const fixedCentsSize = currentLayout.centsFontSizeHundreds;
-            const fixedInstallmentsSize = currentLayout.installmentsFontSizeHundreds;
-            setTitlePos(currentLayout.titlePos); setDePos(currentLayout.dePos); setNormalPricePos(currentLayout.normalPricePos);
-            setPorPos(currentLayout.porPos); setCurrencyPos(currentLayout.currencyPos); setPromoPricePos(currentLayout.promoPricePos);
-            setCentsPos(currentLayout.centsPos); setInstallmentsPos(currentLayout.installmentsPos); setDePricePorGroupPos(currentLayout.dePricePorGroupPos);
-            setTitleFontSizeTens(fixedTitleSize); setTitleFontSizeHundreds(fixedTitleSize); setTitleFontSizeThousands(fixedTitleSize);
-            setDeFontSizeTens(fixedDeSize); setDeFontSizeHundreds(fixedDeSize); setDeFontSizeThousands(fixedDeSize);
-            setNormalPriceFontSizeTens(fixedNormalPriceSize); setNormalPriceFontSizeHundreds(fixedNormalPriceSize); setNormalPriceFontSizeThousands(fixedNormalPriceSize);
-            setPorFontSizeTens(fixedPorSize); setPorFontSizeHundreds(fixedPorSize); setPorFontSizeThousands(fixedPorSize);
-            setCurrencyFontSizeTens(fixedCurrencySize); setCurrencyFontSizeHundreds(fixedCurrencySize); setCurrencyFontSizeThousands(fixedCurrencySize);
-            setScaleTens(currentLayout.scaleTens); setScaleHundreds(currentLayout.scaleHundreds); setScaleThousands(currentLayout.scaleThousands); setScaleTenThousands(currentLayout.scaleTenThousands);
-            setCentsFontSizeTens(fixedCentsSize); setCentsFontSizeHundreds(fixedCentsSize); setCentsFontSizeThousands(fixedCentsSize);
-            setInstallmentsFontSizeTens(fixedInstallmentsSize); setInstallmentsFontSizeHundreds(fixedInstallmentsSize); setInstallmentsFontSizeThousands(fixedInstallmentsSize);
-        }
-
-        setTimeout(() => { isApplyingHistoryRef.current = false; }, 50);
-    };
-
-    // TROCA DE ORDEM DE GRANDEZA (COM SALVAMENTO E CARREGAMENTO INDEPENDENTE DE LAYOUT)
-    const handleSwitchMagnitude = (newMag: 'tens' | 'hundreds' | 'thousands') => {
-        if (newMag === selectedMagnitude) return;
-
-        // Salva o snapshot da magnitude atual no mapa
-        const curState = getMagnitudeSnapshot();
-        const updatedMap = {
-            ...magnitudeTemplates,
-            [selectedMagnitude]: curState
-        };
-        setMagnitudeTemplates(updatedMap);
-
-        setSelectedMagnitude(newMag);
-
-        // Se a nova magnitude já tem um layout salvo no mapa, restaura!
-        const targetState = updatedMap[newMag];
-        if (targetState) {
-            applyMagnitudeSnapshot(targetState, true);
-        }
-    };
-
-    // ----------------------------------------------------
-    // SISTEMA ROBUSTO DE HISTÓRICO: DESFAZER (Ctrl+Z) E REFAZER (Ctrl+Y)
-    // ----------------------------------------------------
-
-    // Registra o snapshot inicial e acompanha mudanças do editor para a pilha de Desfazer/Refazer
-    useEffect(() => {
-        if (!isOpen) {
-            undoStackRef.current = [];
-            redoStackRef.current = [];
-            setCanUndo(false);
-            setCanRedo(false);
-            return;
-        }
-
-        // Ao abrir, inicializa a pilha com a arte atual
-        if (undoStackRef.current.length === 0) {
-            const initialSnap = getSnapshot();
-            undoStackRef.current = [initialSnap];
-            redoStackRef.current = [];
-            setCanUndo(false);
-            setCanRedo(false);
-        }
-
-        if (isApplyingHistoryRef.current) return;
-
-        const timer = setTimeout(() => {
-            if (isApplyingHistoryRef.current) return;
-            const currentSnap = getSnapshot();
-            const stack = undoStackRef.current;
-            if (stack.length > 0) {
-                const lastSnap = stack[stack.length - 1];
-                if (JSON.stringify(lastSnap) === JSON.stringify(currentSnap)) return;
-            }
-            undoStackRef.current = [...stack.slice(-50), currentSnap];
-            redoStackRef.current = [];
-            setCanUndo(undoStackRef.current.length > 1);
-            setCanRedo(false);
-        }, 300);
-
-        return () => clearTimeout(timer);
-    }, [isOpen, getSnapshot]);
-
-    const handleUndo = useCallback(() => {
-        const stack = undoStackRef.current;
-        if (stack.length <= 1) return;
-
-        isApplyingHistoryRef.current = true;
-        const current = stack.pop()!;
-        redoStackRef.current.push(current);
-
-        const previous = stack[stack.length - 1];
-        applySnapshot(previous);
-
-        setCanUndo(stack.length > 1);
-        setCanRedo(true);
-
-        setTimeout(() => {
-            isApplyingHistoryRef.current = false;
-        }, 120);
-    }, []);
-
-    const handleRedo = useCallback(() => {
-        const redoStack = redoStackRef.current;
-        if (redoStack.length === 0) return;
-
-        isApplyingHistoryRef.current = true;
-        const next = redoStack.pop()!;
-        undoStackRef.current.push(next);
-
-        applySnapshot(next);
-
-        setCanUndo(undoStackRef.current.length > 1);
-        setCanRedo(redoStack.length > 0);
-
-        setTimeout(() => {
-            isApplyingHistoryRef.current = false;
-        }, 120);
-    }, []);
-
-    // Atalhos globais de teclado para Ctrl+Z e Ctrl+Y (ou Cmd+Z / Cmd+Y no Mac)
-    useEffect(() => {
-        if (!isOpen) return;
-
-        const handleKeyDown = (e: KeyboardEvent) => {
-            const target = e.target as HTMLElement;
-            const isInput = target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable);
-            const isCtrlOrCmd = e.ctrlKey || e.metaKey;
-
-            if (isCtrlOrCmd) {
-                const key = e.key.toLowerCase();
-                if (key === 'z') {
-                    if (e.shiftKey) {
-                        // Ctrl + Shift + Z -> Refazer
-                        e.preventDefault();
-                        handleRedo();
-                    } else {
-                        // Ctrl + Z -> Desfazer (se não estiver num campo de texto simples)
-                        if (!isInput) {
-                            e.preventDefault();
-                            handleUndo();
-                        }
-                    }
-                } else if (key === 'y') {
-                    // Ctrl + Y -> Refazer
-                    if (!isInput) {
-                        e.preventDefault();
-                        handleRedo();
-                    }
-                }
-            }
-        };
-
-        window.addEventListener('keydown', handleKeyDown);
-        return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [isOpen, handleUndo, handleRedo]);
 
     // Carrega um único layout global. A oportunidade altera somente as cores.
     useEffect(() => {
@@ -863,19 +268,13 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
 
         const loadArtConfigFromSupabase = async () => {
             const layoutId = String(config?.layoutId || 'preco_2x5_restored');
-            let dbArtConfig = null;
-
             const { data } = await supabase
                 .from('label_art_configs')
                 .select('art_config')
                 .eq('layout_id', layoutId)
                 .maybeSingle();
 
-            if (data?.art_config) {
-                dbArtConfig = data.art_config;
-            } else {
-                dbArtConfig = config?.artConfig;
-            }
+            const dbArtConfig = data?.art_config || config?.artConfig;
             if (cancelled) return;
 
             if (dbArtConfig) {
@@ -923,7 +322,7 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
 
         async function fetchOpps() {
             try {
-                const { data } = await supabase.from('opportunities').select('id, name, slug, badge_color, border_color');
+                const data = await fetchOpportunities();
                 if (data && data.length > 0) {
                     setDbOpportunities(data);
                     if (initialProduct?.opportunities) {
@@ -1360,7 +759,7 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
     };
 
     // VALOR EXIBIDO DO PREÇO PRINCIPAL
-    const displayPriceNumber = useMemo(() => {
+    const _displayPriceNumber = useMemo(() => {
         return getIntegerPart(promoPrice || normalPrice || '1.999');
     }, [promoPrice, normalPrice]);
 
@@ -1743,64 +1142,10 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
         },
     ];
 
-    const handleCopyImage = async () => {
-        if (!previewRef.current) return;
-        try {
-            const hiddenEls = previewRef.current.querySelectorAll('[data-hide-export="true"]');
-            hiddenEls.forEach(el => (el as HTMLElement).style.display = 'none');
+    const handleCopyImage = () => copyLabelImageToClipboard(previewRef.current);
 
-            const canvas = await html2canvas(previewRef.current, {
-                scale: 1,
-                useCORS: true,
-                backgroundColor: '#ffffff',
-                width: previewRef.current.clientWidth,
-                height: previewRef.current.clientHeight,
-                scrollX: 0,
-                scrollY: 0
-            });
-            
-            hiddenEls.forEach(el => (el as HTMLElement).style.display = '');
-
-            canvas.toBlob(async (blob) => {
-                if (blob && navigator.clipboard && (window as any).ClipboardItem) {
-                    await navigator.clipboard.write([new (window as any).ClipboardItem({ 'image/png': blob })]);
-                    toast.success('Imagem da etiqueta copiada para a área de transferência!');
-                } else {
-                    toast.info('Copiar não suportado neste navegador. Use Baixar PNG.');
-                }
-            });
-        } catch (e) {
-            toast.error('Erro ao copiar imagem.');
-        }
-    };
-
-    const handleDownloadPng = async () => {
-        if (!previewRef.current) return;
-        try {
-            const hiddenEls = previewRef.current.querySelectorAll('[data-hide-export="true"]');
-            hiddenEls.forEach(el => (el as HTMLElement).style.display = 'none');
-
-            const canvas = await html2canvas(previewRef.current, {
-                scale: 1,
-                useCORS: true,
-                backgroundColor: '#ffffff',
-                width: previewRef.current.clientWidth,
-                height: previewRef.current.clientHeight,
-                scrollX: 0,
-                scrollY: 0
-            });
-            
-            hiddenEls.forEach(el => (el as HTMLElement).style.display = '');
-
-            const url = canvas.toDataURL('image/png');
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `etiqueta_preco_${selectedOppId}_${Date.now()}.png`;
-            a.click();
-            toast.success('Download da imagem PNG concluído!');
-        } catch (e) {
-            toast.error('Erro ao baixar imagem PNG.');
-        }
+    const handleDownloadPng = () => {
+        downloadLabelImage(previewRef.current, 'etiqueta_preco_' + selectedOppId + '_' + Date.now() + '.png');
     };
 
     return (
@@ -2601,426 +1946,72 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
                 );
             })()}
 
-            {/* Modal de Camadas Flutuante (zIndex: 9999) */}
-            {isLayersModalOpen && (
-                <div 
-                    style={{ zIndex: 9999 }}
-                    className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-fade-in"
-                >
-                    <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 w-full max-w-md border border-slate-200 dark:border-slate-800 shadow-2xl">
-                        <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-4 mb-4">
-                            <div className="flex items-center gap-2">
-                                <i className="bi bi-layers-fill text-blue-600 text-lg" />
-                                <h3 className="text-sm font-black text-slate-800 dark:text-white uppercase tracking-tight">
-                                    Camadas da Etiqueta de Preço
-                                </h3>
-                            </div>
-                            <button type="button" onClick={() => setIsLayersModalOpen(false)} className="text-slate-400 hover:text-slate-600 cursor-pointer">
-                                <i className="bi bi-x-lg text-sm" />
-                            </button>
-                        </div>
-
-                        <div className="space-y-2 max-h-[60vh] overflow-y-auto custom-scrollbar">
-                            {priceLabelLayers.map(layer => (
-                                <div
-                                    key={layer.key}
-                                    className={`w-full p-3 rounded-2xl flex items-center justify-between border transition-all ${
-                                        selectedElements.has(layer.key)
-                                            ? 'bg-blue-50 dark:bg-blue-950 border-blue-500 text-blue-600 dark:text-blue-400 shadow-sm'
-                                            : 'bg-slate-50 dark:bg-slate-950 border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-100'
-                                    }`}
-                                >
-                                    <button
-                                        type="button"
-                                        onClick={(e) => {
-                                            if (e.shiftKey) {
-                                                setSelectedElements(prev => {
-                                                    const next = new Set(prev);
-                                                    if (next.has(layer.key)) next.delete(layer.key);
-                                                    else next.add(layer.key);
-                                                    if (next.size > 0) {
-                                                        const arr = Array.from(next);
-                                                        const last = arr[arr.length - 1];
-                                                        setSelectedElement(last);
-                                                        prevSelectedRef.current = last;
-                                                    } else {
-                                                        setSelectedElement(null);
-                                                        prevSelectedRef.current = null;
-                                                    }
-                                                    return next;
-                                                });
-                                            } else {
-                                                setSelectedElement(layer.key);
-                                                setSelectedElements(new Set([layer.key]));
-                                                prevSelectedRef.current = layer.key;
-                                                setIsLayersModalOpen(false);
-                                            }
-                                        }}
-                                        className="flex items-center gap-3 text-left flex-1 cursor-pointer"
-                                    >
-                                        <i className={`bi ${layer.icon} text-base text-blue-500`} />
-                                        <div>
-                                            <span className="text-xs font-black uppercase">{layer.label}</span>
-                                            <p className="text-[9px] font-normal lowercase text-slate-400">
-                                                {layer.desc}
-                                            </p>
-                                        </div>
-                                    </button>
-
-                                    <div className="flex items-center gap-2">
-                                        {layer.key !== 'background' && (
-                                            <>
-                                                <button
-                                                    type="button"
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        handleCenterElement(layer.key);
-                                                    }}
-                                                    className="flex items-center gap-1 px-2.5 py-1 rounded-xl text-[10px] font-black uppercase tracking-wider transition cursor-pointer text-amber-700 bg-amber-100 hover:bg-amber-200 dark:bg-amber-950 dark:text-amber-300 border border-amber-200 dark:border-amber-800 shadow-xs"
-                                                    title="Trazer este componente para o centro exato (0, 0) da etiqueta"
-                                                >
-                                                    <i className="bi bi-crosshair text-xs" />
-                                                    <span>Centralizar</span>
-                                                </button>
-
-                                                <button
-                                                    type="button"
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        layer.toggleVisibility();
-                                                    }}
-                                                    className={`p-1.5 rounded-xl text-xs transition cursor-pointer ${
-                                                        layer.isVisible 
-                                                            ? 'text-blue-600 bg-blue-100 dark:bg-blue-900' 
-                                                            : 'text-slate-400 bg-slate-200 dark:bg-slate-800'
-                                                    }`}
-                                                    title={layer.isVisible ? "Ocultar camada" : "Exibir camada"}
-                                                >
-                                                    <i className={`bi ${layer.isVisible ? 'bi-eye-fill' : 'bi-eye-slash-fill'}`} />
-                                                </button>
-                                            </>
-                                        )}
-
-                                        {selectedElement === layer.key && (
-                                            <span className="text-[8px] bg-blue-600 text-white px-2 py-0.5 rounded-full font-black">Ativa</span>
-                                        )}
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-                </div>
-            )}
+            {/* Modal de Camadas Flutuante */}
+            <PriceLabelLayersModal
+                isOpen={isLayersModalOpen}
+                onClose={() => setIsLayersModalOpen(false)}
+                layers={priceLabelLayers}
+                selectedElements={selectedElements}
+                selectedElement={selectedElement}
+                onSelectLayer={(key, isShift) => {
+                    if (isShift) {
+                        setSelectedElements(prev => {
+                            const next = new Set(prev);
+                            if (next.has(key)) next.delete(key);
+                            else next.add(key);
+                            if (next.size > 0) {
+                                const arr = Array.from(next);
+                                const last = arr[arr.length - 1];
+                                setSelectedElement(last);
+                                prevSelectedRef.current = last;
+                            } else {
+                                setSelectedElement(null);
+                                prevSelectedRef.current = null;
+                            }
+                            return next;
+                        });
+                    } else {
+                        setSelectedElement(key);
+                        setSelectedElements(new Set([key]));
+                        prevSelectedRef.current = key;
+                        setIsLayersModalOpen(false);
+                    }
+                }}
+                onCenterElement={handleCenterElement}
+            />
 
             {/* Modal de seleção da visão de contexto */}
-            {isOppSelectModalOpen && (
-                <div 
-                    style={{ zIndex: 9999 }}
-                    className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-fade-in"
-                >
-                    <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 w-full max-w-xl border border-slate-200 dark:border-slate-800 shadow-2xl flex flex-col max-h-[85vh]">
-                        {/* Topo do Modal */}
-                        <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-4 mb-4 shrink-0">
-                            <div className="flex items-center gap-2.5">
-                                <div className="w-10 h-10 rounded-2xl bg-blue-100 dark:bg-blue-950/30 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0">
-                                    <i className="bi bi-tag-fill text-lg" />
-                                </div>
-                                <div>
-                                    <h3 className="text-sm font-black text-slate-800 dark:text-slate-200 uppercase tracking-tight">Visão do produto</h3>
-                                    <p className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase mt-0.5">Muda somente o contexto e as cores</p>
-                                </div>
-                            </div>
-                            <button 
-                                type="button" 
-                                onClick={() => setIsOppSelectModalOpen(false)}
-                                className="w-8 h-8 rounded-lg bg-slate-50 dark:bg-slate-800 text-slate-400 hover:text-red-500 flex items-center justify-center transition-colors cursor-pointer"
-                            >
-                                <i className="bi bi-x-lg text-xs" />
-                            </button>
-                        </div>
+            <PriceLabelOpportunityModal
+                isOpen={isOppSelectModalOpen}
+                onClose={() => setIsOppSelectModalOpen(false)}
+                allOppOptions={allOppOptions}
+                selectedOppId={selectedOppId}
+                onSelectOpportunityView={handleSelectOpportunityView}
+            />
 
-                        {/* Conteúdo do Modal */}
-                        <div className="flex-1 overflow-y-auto pr-1 py-1 space-y-3">
-                            {allOppOptions.map(opp => {
-                                const isSelectedOpp = selectedOppId === opp.id;
-                                return (
-                                    <button
-                                        key={opp.id}
-                                        type="button"
-                                        onClick={() => {
-                                            handleSelectOpportunityView(opp.id);
-                                            setIsOppSelectModalOpen(false);
-                                        }}
-                                        className={`w-full flex items-center justify-between p-4 rounded-2xl border transition-all cursor-pointer ${
-                                            isSelectedOpp 
-                                                ? 'bg-blue-600 border-blue-600 text-white shadow-md shadow-blue-500/20 active:scale-95' 
-                                                : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-800 dark:text-slate-200 hover:bg-blue-50/50 dark:hover:bg-slate-800/60'
-                                        }`}
-                                    >
-                                        <div className="flex items-center gap-3">
-                                            <span className={`w-2.5 h-2.5 rounded-full ${isSelectedOpp ? 'bg-white ring-2 ring-white/40' : 'bg-slate-300 dark:bg-slate-600'}`} />
-                                            <span className="text-xs font-black uppercase tracking-wider">{opp.name}</span>
-                                        </div>
-
-                                        {isSelectedOpp ? (
-                                            <span className="text-[10px] font-black uppercase bg-white/20 px-3 py-1 rounded-xl tracking-wider">
-                                                SELECIONADO
-                                            </span>
-                                        ) : (
-                                            <span className="text-[10px] font-bold text-slate-400 group-hover:text-blue-600 uppercase">
-                                                Visualizar
-                                            </span>
-                                        )}
-                                    </button>
-                                );
-                            })}
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {/* Modal de Preenchimento de Dados da Etiqueta / Puxar Produto (zIndex: 9999) */}
-            {isDataFillModalOpen && (
-                <div 
-                    style={{ zIndex: 9999 }}
-                    className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-fade-in"
-                >
-                    <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 w-full max-w-2xl border border-slate-200 dark:border-slate-800 shadow-2xl flex flex-col max-h-[85vh]">
-                        {/* Topo do Modal */}
-                        <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-4 mb-4 shrink-0">
-                            <div className="flex items-center gap-3">
-                                <div className="w-10 h-10 rounded-2xl bg-emerald-100 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center text-lg font-black">
-                                    <i className="bi bi-pencil-square" />
-                                </div>
-                                <div>
-                                    <h3 className="text-base font-black text-slate-800 dark:text-white uppercase tracking-tight">
-                                        Produto Modelo & Dados
-                                    </h3>
-                                    <p className="text-xs text-slate-500 font-bold">
-                                        Preencha manualmente os campos ou selecione um produto do catálogo
-                                    </p>
-                                </div>
-                            </div>
-                            <button 
-                                type="button" 
-                                onClick={() => setIsDataFillModalOpen(false)} 
-                                className="w-8 h-8 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-400 hover:text-slate-600 dark:hover:text-white flex items-center justify-center cursor-pointer transition"
-                            >
-                                <i className="bi bi-x-lg text-sm" />
-                            </button>
-                        </div>
-
-                        {/* Navegação por Abas do Modal */}
-                        <div className="flex items-center gap-2 p-1 bg-slate-100 dark:bg-slate-950 rounded-2xl mb-4 shrink-0 border border-slate-200 dark:border-slate-800">
-                            <button
-                                type="button"
-                                onClick={() => setDataFillTab('search')}
-                                className={`flex-1 py-2.5 px-4 rounded-xl text-xs font-black uppercase tracking-wide transition-all flex items-center justify-center gap-2 cursor-pointer ${
-                                    dataFillTab === 'search'
-                                        ? 'bg-white dark:bg-slate-800 text-emerald-600 dark:text-emerald-400 shadow-md'
-                                        : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
-                                }`}
-                            >
-                                <i className="bi bi-search text-sm" />
-                                <span>Puxar Produto da Lista</span>
-                            </button>
-                            <button
-                                type="button"
-                                onClick={() => setDataFillTab('manual')}
-                                className={`flex-1 py-2.5 px-4 rounded-xl text-xs font-black uppercase tracking-wide transition-all flex items-center justify-center gap-2 cursor-pointer ${
-                                    dataFillTab === 'manual'
-                                        ? 'bg-white dark:bg-slate-800 text-emerald-600 dark:text-emerald-400 shadow-md'
-                                        : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
-                                }`}
-                            >
-                                <i className="bi bi-sliders text-sm" />
-                                <span>Preenchimento Manual</span>
-                            </button>
-                        </div>
-
-                        {/* Conteúdo Aba 1: Puxar Produto da Lista */}
-                        {dataFillTab === 'search' && (
-                            <div className="flex-1 flex flex-col min-h-0 overflow-hidden space-y-3">
-                                {/* Campo de Busca */}
-                                <div className="relative shrink-0">
-                                    <i className="bi bi-search absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 text-sm" />
-                                    <input
-                                        type="text"
-                                        value={productSearchTerm}
-                                        onChange={(e) => setProductSearchTerm(e.target.value)}
-                                        placeholder="Digite o nome, código ou SKU do produto..."
-                                        className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl pl-11 pr-4 py-3 text-xs font-bold text-slate-800 dark:text-white outline-none focus:ring-2 focus:ring-emerald-500 shadow-inner"
-                                    />
-                                    {isSearchingProducts && (
-                                        <div className="absolute right-4 top-1/2 -translate-y-1/2">
-                                            <div className="w-4 h-4 border-2 border-emerald-500/30 border-t-emerald-500 rounded-full animate-spin" />
-                                        </div>
-                                    )}
-                                </div>
-
-                                {/* Lista de Resultados */}
-                                <div className="flex-1 overflow-y-auto custom-scrollbar space-y-2 pr-1 min-h-[220px]">
-                                    {searchResults.length === 0 ? (
-                                        <div className="py-12 text-center text-slate-400">
-                                            <i className="bi bi-box-seam text-3xl mb-2 block text-slate-300 dark:text-slate-700" />
-                                            <p className="text-xs font-bold">Nenhum produto encontrado</p>
-                                            <p className="text-[10px] text-slate-400 mt-1">Digite um termo no campo acima para pesquisar no catálogo do ERP</p>
-                                        </div>
-                                    ) : (
-                                        searchResults.map(prod => {
-                                            const name = extractProductName(prod);
-                                            const hasPromo = Number(prod.promo_price || 0) > 0;
-                                            const mainImage = Array.isArray(prod.images) && prod.images.length > 0 ? prod.images[0] : null;
-
-                                            return (
-                                                <div
-                                                    key={prod.id}
-                                                    onClick={() => handleApplyProductToLabel(prod)}
-                                                    className="p-3 bg-slate-50 dark:bg-slate-950 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 border border-slate-200 dark:border-slate-800 hover:border-emerald-300 dark:hover:border-emerald-700 rounded-2xl flex items-center justify-between transition-all cursor-pointer group"
-                                                >
-                                                    <div className="flex items-center gap-3.5 min-w-0">
-                                                        <div className="w-12 h-12 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 overflow-hidden flex items-center justify-center shrink-0">
-                                                            {mainImage ? (
-                                                                <img src={mainImage} alt={name} className="w-full h-full object-cover" />
-                                                            ) : (
-                                                                <i className="bi bi-image text-slate-300 text-lg" />
-                                                            )}
-                                                        </div>
-                                                        <div className="min-w-0">
-                                                            <h4 className="text-xs font-black text-slate-800 dark:text-white truncate group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors uppercase">
-                                                                {name}
-                                                            </h4>
-                                                            <div className="flex items-center gap-2 mt-0.5">
-                                                                {prod.code && (
-                                                                    <span className="text-[9px] font-bold text-slate-400 bg-slate-200 dark:bg-slate-800 px-1.5 py-0.5 rounded-md uppercase">
-                                                                        CÓD: {prod.code}
-                                                                    </span>
-                                                                )}
-                                                            </div>
-                                                        </div>
-                                                    </div>
-
-                                                    <div className="flex items-center gap-4 shrink-0 text-right">
-                                                        <div>
-                                                            {hasPromo ? (
-                                                                <>
-                                                                    <span className="text-[10px] text-slate-400 line-through block font-bold">
-                                                                        R$ {Number(prod.unit_price || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                                                                    </span>
-                                                                    <span className="text-sm font-black text-emerald-600 dark:text-emerald-400 block">
-                                                                        R$ {Number(prod.promo_price || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                                                                    </span>
-                                                                </>
-                                                            ) : (
-                                                                <span className="text-sm font-black text-slate-800 dark:text-white block">
-                                                                    R$ {Number(prod.unit_price || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                                                                </span>
-                                                            )}
-                                                        </div>
-
-                                                        <button
-                                                            type="button"
-                                                            className="px-3 py-1.5 bg-emerald-600 text-white rounded-xl text-[10px] font-black uppercase tracking-wider group-hover:bg-emerald-700 shadow-sm transition"
-                                                        >
-                                                            Puxar
-                                                        </button>
-                                                    </div>
-                                                </div>
-                                            );
-                                        })
-                                    )}
-                                </div>
-                            </div>
-                        )}
-
-                        {/* Conteúdo Aba 2: Preenchimento Manual */}
-                        {dataFillTab === 'manual' && (
-                            <div className="flex-1 overflow-y-auto custom-scrollbar space-y-4 pr-1 min-h-[220px]">
-                                <div className="space-y-1">
-                                    <label className="text-[10px] font-black text-slate-500 uppercase">Nome / Título do Produto</label>
-                                    <input
-                                        type="text"
-                                        value={title}
-                                        onChange={(e) => setTitle(e.target.value.toUpperCase())}
-                                        placeholder="Ex: COLCHÃO DE ESPUMA D28..."
-                                        className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl px-4 py-2.5 text-xs font-bold text-slate-800 dark:text-white outline-none focus:ring-2 focus:ring-emerald-500 uppercase"
-                                    />
-                                </div>
-
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                    <div className="space-y-1">
-                                        <label className="text-[10px] font-black text-slate-500 uppercase">Preço Normal (DE:)</label>
-                                        <input
-                                            type="text"
-                                            value={normalPrice}
-                                            onChange={(e) => setNormalPrice(e.target.value)}
-                                            placeholder="Ex: 499,00"
-                                            className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl px-4 py-2.5 text-xs font-bold text-slate-800 dark:text-white outline-none focus:ring-2 focus:ring-emerald-500"
-                                        />
-                                    </div>
-
-                                    <div className="space-y-1">
-                                        <label className="text-[10px] font-black text-slate-500 uppercase">Preço Principal Reais (POR:)</label>
-                                        <input
-                                            type="text"
-                                            value={promoPrice}
-                                            onChange={(e) => setPromoPrice(e.target.value)}
-                                            placeholder="Ex: 299"
-                                            className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl px-4 py-2.5 text-xs font-bold text-slate-800 dark:text-white outline-none focus:ring-2 focus:ring-emerald-500 font-mono"
-                                        />
-                                    </div>
-                                </div>
-
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                    <div className="space-y-1">
-                                        <label className="text-[10px] font-black text-slate-500 uppercase">Centavos</label>
-                                        <input
-                                            type="text"
-                                            value={centsText}
-                                            onChange={(e) => setCentsText(e.target.value)}
-                                            placeholder="Ex: ,00"
-                                            className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl px-4 py-2.5 text-xs font-bold text-slate-800 dark:text-white outline-none focus:ring-2 focus:ring-emerald-500 font-mono"
-                                        />
-                                    </div>
-
-                                    <div className="space-y-1">
-                                        <label className="text-[10px] font-black text-slate-500 uppercase">Símbolo da Moeda</label>
-                                        <input
-                                            type="text"
-                                            value={currencySymbol}
-                                            onChange={(e) => setCurrencySymbol(e.target.value)}
-                                            placeholder="Ex: R$"
-                                            className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl px-4 py-2.5 text-xs font-bold text-slate-800 dark:text-white outline-none focus:ring-2 focus:ring-emerald-500 font-mono"
-                                        />
-                                    </div>
-                                </div>
-
-                                <div className="space-y-1">
-                                    <label className="text-[10px] font-black text-slate-500 uppercase">Frase de Parcelamento</label>
-                                    <input
-                                        type="text"
-                                        value={installments}
-                                        onChange={(e) => setInstallments(e.target.value)}
-                                        placeholder="Ex: Em até 10x sem juros no cartão"
-                                        className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl px-4 py-2.5 text-xs font-bold text-slate-800 dark:text-white outline-none focus:ring-2 focus:ring-emerald-500"
-                                    />
-                                </div>
-
-                                <button
-                                    type="button"
-                                    onClick={() => {
-                                        setIsDataFillModalOpen(false);
-                                        toast.success("Campos atualizados na etiqueta!");
-                                    }}
-                                    className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl text-xs font-black uppercase tracking-wider transition-all shadow-md mt-2 cursor-pointer"
-                                >
-                                    Aplicar na Etiqueta
-                                </button>
-                            </div>
-                        )}
-                    </div>
-                </div>
-            )}
+            {/* Modal de Preenchimento de Dados da Etiqueta */}
+            <PriceLabelDataFillModal
+                isOpen={isDataFillModalOpen}
+                onClose={() => setIsDataFillModalOpen(false)}
+                onApplyProductTitle={(prodName) => {
+                    setTitle(prodName);
+                    setShowTitle(true);
+                    setIsDataFillModalOpen(false);
+                    toast.success(`Nome "${prodName}" aplicado na etiqueta!`);
+                }}
+                title={title}
+                setTitle={setTitle}
+                normalPrice={normalPrice}
+                setNormalPrice={setNormalPrice}
+                promoPrice={promoPrice}
+                setPromoPrice={setPromoPrice}
+                centsText={centsText}
+                setCentsText={setCentsText}
+                currencySymbol={currencySymbol}
+                setCurrencySymbol={setCurrencySymbol}
+                installments={installments}
+                setInstallments={setInstallments}
+            />
 
             {/* Modal Footer Fullwidth */}
             <div className="flex items-center px-6 lg:px-10 py-3.5 border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shrink-0">
@@ -3044,170 +2035,35 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
                 </div>
             </div>
 
-            {/* Modal de Teste de Valores (Simulador com Sliders 0-9 por dígito) */}
-            {isTestValuesModalOpen && (
-                <div 
-                    style={{ zIndex: 10000 }}
-                    className="fixed inset-0 z-[10000] flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-fade-in"
-                >
-                    <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 w-full max-w-xl border border-slate-200 dark:border-slate-800 shadow-2xl flex flex-col max-h-[85vh]">
-                        {/* Topo do Modal */}
-                        <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-4 mb-4 shrink-0">
-                            <div className="flex items-center gap-3">
-                                <div className="w-10 h-10 rounded-2xl bg-purple-100 dark:bg-purple-950/60 text-purple-600 dark:text-purple-400 flex items-center justify-center text-lg font-black">
-                                    <i className="bi bi-sliders" />
-                                </div>
-                                <div>
-                                    <h3 className="text-base font-black text-slate-800 dark:text-white uppercase tracking-tight">
-                                        Simulador / Teste de Numeração
-                                    </h3>
-                                    <p className="text-xs text-slate-500 font-bold">
-                                        Arraste as bolinhas para testar como os números se comportam na arte
-                                    </p>
-                                </div>
-                            </div>
-                            <button 
-                                type="button" 
-                                onClick={closeTestValuesModal} 
-                                className="w-8 h-8 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-400 hover:text-slate-600 dark:hover:text-white flex items-center justify-center cursor-pointer transition"
-                            >
-                                <i className="bi bi-x-lg text-sm" />
-                            </button>
-                        </div>
-
-                        {/* Conteúdo com Sliders */}
-                        <div className="flex-1 overflow-y-auto custom-scrollbar space-y-6 pr-1">
-                            
-                            {/* SEÇÃO 1: PREÇO PRINCIPAL */}
-                            <div className="bg-slate-50 dark:bg-slate-950 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 space-y-4">
-                                <h4 className="text-xs font-black uppercase tracking-wider text-purple-600 dark:text-purple-400 flex items-center gap-2">
-                                    <i className="bi bi-hash text-sm" />
-                                    Preço Principal (Dezena, Centena, Milhar)
-                                </h4>
-
-                                {/* DEZENA */}
-                                <div className="space-y-2 bg-white dark:bg-slate-900 p-3 rounded-xl border border-slate-200 dark:border-slate-800">
-                                    <div className="flex items-center justify-between">
-                                        <span className="text-xs font-bold text-slate-700 dark:text-slate-300">Dezena:</span>
-                                        <span className="text-sm font-black font-mono text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-950 px-2 py-0.5 rounded-lg">
-                                            {testDezenaD1}{testDezenaD2}
-                                        </span>
-                                    </div>
-                                    <div className="grid grid-cols-2 gap-3">
-                                        <div>
-                                            <span className="text-[10px] font-bold text-slate-400">1º Dígito: {testDezenaD1}</span>
-                                            <input type="range" min="0" max="9" value={testDezenaD1} onChange={e => setTestDezenaD1(Number(e.target.value))} className="w-full accent-purple-600 cursor-pointer" />
-                                        </div>
-                                        <div>
-                                            <span className="text-[10px] font-bold text-slate-400">2º Dígito: {testDezenaD2}</span>
-                                            <input type="range" min="0" max="9" value={testDezenaD2} onChange={e => setTestDezenaD2(Number(e.target.value))} className="w-full accent-purple-600 cursor-pointer" />
-                                        </div>
-                                    </div>
-                                </div>
-
-                                {/* CENTENA */}
-                                <div className="space-y-2 bg-white dark:bg-slate-900 p-3 rounded-xl border border-slate-200 dark:border-slate-800">
-                                    <div className="flex items-center justify-between">
-                                        <span className="text-xs font-bold text-slate-700 dark:text-slate-300">Centena:</span>
-                                        <span className="text-sm font-black font-mono text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-950 px-2 py-0.5 rounded-lg">
-                                            {testCentenaD1}{testCentenaD2}{testCentenaD3}
-                                        </span>
-                                    </div>
-                                    <div className="grid grid-cols-3 gap-3">
-                                        <div>
-                                            <span className="text-[10px] font-bold text-slate-400">1º Dígito: {testCentenaD1}</span>
-                                            <input type="range" min="0" max="9" value={testCentenaD1} onChange={e => setTestCentenaD1(Number(e.target.value))} className="w-full accent-purple-600 cursor-pointer" />
-                                        </div>
-                                        <div>
-                                            <span className="text-[10px] font-bold text-slate-400">2º Dígito: {testCentenaD2}</span>
-                                            <input type="range" min="0" max="9" value={testCentenaD2} onChange={e => setTestCentenaD2(Number(e.target.value))} className="w-full accent-purple-600 cursor-pointer" />
-                                        </div>
-                                        <div>
-                                            <span className="text-[10px] font-bold text-slate-400">3º Dígito: {testCentenaD3}</span>
-                                            <input type="range" min="0" max="9" value={testCentenaD3} onChange={e => setTestCentenaD3(Number(e.target.value))} className="w-full accent-purple-600 cursor-pointer" />
-                                        </div>
-                                    </div>
-                                </div>
-
-                                {/* MILHAR */}
-                                <div className="space-y-2 bg-white dark:bg-slate-900 p-3 rounded-xl border border-slate-200 dark:border-slate-800">
-                                    <div className="flex items-center justify-between">
-                                        <span className="text-xs font-bold text-slate-700 dark:text-slate-300">Milhar:</span>
-                                        <span className="text-sm font-black font-mono text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-950 px-2 py-0.5 rounded-lg">
-                                            {testMilharD1}.{testMilharD2}{testMilharD3}{testMilharD4}
-                                        </span>
-                                    </div>
-                                    <div className="grid grid-cols-4 gap-2">
-                                        <div>
-                                            <span className="text-[9px] font-bold text-slate-400">1º D: {testMilharD1}</span>
-                                            <input type="range" min="0" max="9" value={testMilharD1} onChange={e => setTestMilharD1(Number(e.target.value))} className="w-full accent-purple-600 cursor-pointer" />
-                                        </div>
-                                        <div>
-                                            <span className="text-[9px] font-bold text-slate-400">2º D: {testMilharD2}</span>
-                                            <input type="range" min="0" max="9" value={testMilharD2} onChange={e => setTestMilharD2(Number(e.target.value))} className="w-full accent-purple-600 cursor-pointer" />
-                                        </div>
-                                        <div>
-                                            <span className="text-[9px] font-bold text-slate-400">3º D: {testMilharD3}</span>
-                                            <input type="range" min="0" max="9" value={testMilharD3} onChange={e => setTestMilharD3(Number(e.target.value))} className="w-full accent-purple-600 cursor-pointer" />
-                                        </div>
-                                        <div>
-                                            <span className="text-[9px] font-bold text-slate-400">4º D: {testMilharD4}</span>
-                                            <input type="range" min="0" max="9" value={testMilharD4} onChange={e => setTestMilharD4(Number(e.target.value))} className="w-full accent-purple-600 cursor-pointer" />
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-
-                            {/* SEÇÃO 2: PREÇO ANTIGO (normalPrice) */}
-                            <div className="bg-slate-50 dark:bg-slate-950 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 space-y-4">
-                                <h4 className="text-xs font-black uppercase tracking-wider text-emerald-600 dark:text-emerald-400 flex items-center gap-2">
-                                    <i className="bi bi-tag text-sm" />
-                                    Preço Anterior / Antigo ("DE")
-                                </h4>
-
-                                <div className="space-y-2 bg-white dark:bg-slate-900 p-3 rounded-xl border border-slate-200 dark:border-slate-800">
-                                    <div className="flex items-center justify-between">
-                                        <span className="text-xs font-bold text-slate-700 dark:text-slate-300">Valor Antigo R$:</span>
-                                        <span className="text-sm font-black font-mono text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950 px-2 py-0.5 rounded-lg">
-                                            R$ {testNormalD1}{testNormalD2}{testNormalD3},00
-                                        </span>
-                                    </div>
-                                    <div className="grid grid-cols-3 gap-3">
-                                        <div>
-                                            <span className="text-[10px] font-bold text-slate-400">1º Dígito: {testNormalD1}</span>
-                                            <input type="range" min="0" max="9" value={testNormalD1} onChange={e => setTestNormalD1(Number(e.target.value))} className="w-full accent-emerald-600 cursor-pointer" />
-                                        </div>
-                                        <div>
-                                            <span className="text-[10px] font-bold text-slate-400">2º Dígito: {testNormalD2}</span>
-                                            <input type="range" min="0" max="9" value={testNormalD2} onChange={e => setTestNormalD2(Number(e.target.value))} className="w-full accent-emerald-600 cursor-pointer" />
-                                        </div>
-                                        <div>
-                                            <span className="text-[10px] font-bold text-slate-400">3º Dígito: {testNormalD3}</span>
-                                            <input type="range" min="0" max="9" value={testNormalD3} onChange={e => setTestNormalD3(Number(e.target.value))} className="w-full accent-emerald-600 cursor-pointer" />
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-
-                        </div>
-
-                        {/* Rodapé do Modal */}
-                        <div className="border-t border-slate-100 dark:border-slate-800 pt-4 mt-4 shrink-0 flex items-center justify-between">
-                            <span className="text-[10px] text-slate-400 font-bold">
-                                * Ao fechar, os valores originais serão restaurados automaticamente
-                            </span>
-                            <button
-                                type="button"
-                                onClick={closeTestValuesModal}
-                                className="px-4 py-2 bg-slate-800 hover:bg-slate-900 text-white dark:bg-slate-100 dark:hover:bg-white dark:text-slate-900 text-xs font-black uppercase tracking-wider rounded-xl cursor-pointer shadow-md active:scale-95 transition-all"
-                            >
-                                Concluir Teste
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
-
+            {/* Modal de Teste de Valores (Simulador com Sliders) */}
+            <PriceLabelTestValuesModal
+                isOpen={isTestValuesModalOpen}
+                onClose={closeTestValuesModal}
+                testDezenaD1={testDezenaD1}
+                setTestDezenaD1={setTestDezenaD1}
+                testDezenaD2={testDezenaD2}
+                setTestDezenaD2={setTestDezenaD2}
+                testCentenaD1={testCentenaD1}
+                setTestCentenaD1={setTestCentenaD1}
+                testCentenaD2={testCentenaD2}
+                setTestCentenaD2={setTestCentenaD2}
+                testCentenaD3={testCentenaD3}
+                setTestCentenaD3={setTestCentenaD3}
+                testMilharD1={testMilharD1}
+                setTestMilharD1={setTestMilharD1}
+                testMilharD2={testMilharD2}
+                setTestMilharD2={setTestMilharD2}
+                testMilharD3={testMilharD3}
+                setTestMilharD3={setTestMilharD3}
+                testMilharD4={testMilharD4}
+                setTestMilharD4={setTestMilharD4}
+                testNormalD1={testNormalD1}
+                setTestNormalD1={setTestNormalD1}
+                testNormalD2={testNormalD2}
+                setTestNormalD2={setTestNormalD2}
+                testNormalD3={testNormalD3}
+                setTestNormalD3={setTestNormalD3}
+            />
         </div>
     );
 };

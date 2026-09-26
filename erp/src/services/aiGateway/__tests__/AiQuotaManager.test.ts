@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 
 let mockLogs: any[] = [];
-let mockInsertFn = vi.fn(() => Promise.resolve({ data: null, error: null }));
+const mockInsertFn = vi.fn(() => Promise.resolve({ data: null, error: null }));
 
 vi.mock('../../../pages/utils/supabaseConfig', () => ({
   supabase: {

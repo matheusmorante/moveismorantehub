@@ -12,7 +12,7 @@ import {
   XCircle,
 } from 'lucide-react-native';
 import { MobileDrill } from '../../../components/shared/MobileDrill';
-import { formatOrderCode, formatOrderDate, formatOrderTotal } from '../../../utils/orderUtils';
+import { formatOrderCode, formatOrderDate, formatOrderTotal, isCancelledOrder } from '../../../utils/orderUtils';
 import { OrderCardDeliveryFooter } from '../../../components/cards/OrderCardDeliveryFooter';
 
 type Props = {
@@ -89,7 +89,7 @@ export function MobileOrderCard({ order, dark, handlingOptions, onDetails }: Pro
   const schedule = shipping.scheduling || data.schedule || {};
   const scheduleDate = schedule.date || schedule.startDate || order.scheduled_date || order.date;
   const isDraft = /draft|rascunh/.test(String(order.status || data.status || '').toLowerCase());
-  const cancelled = /cancel/.test(String(order.status || data.status || '').toLowerCase());
+  const cancelled = isCancelledOrder(order);
   const isStockChecked = Boolean(order.isStockChecked ?? data.isStockChecked);
   const isRegisteredInBling = Boolean(order.isRegisteredInBling ?? data.isRegisteredInBling);
   const pendingScheduling = Boolean(shipping.scheduling?.pendingScheduling || data.schedule?.pendingScheduling);
@@ -134,18 +134,11 @@ export function MobileOrderCard({ order, dark, handlingOptions, onDetails }: Pro
         styles.card,
         dark && styles.cardDark,
         cancelled && (dark ? styles.cardCancelledDark : styles.cardCancelled),
-        cancelled && { overflow: 'visible' },
+        cancelled && styles.cardCancelledLayout,
       ]}
     >
-      {/* Botãozinho redondinho com X no canto superior direito quando cancelado */}
-      {cancelled && (
-        <View style={styles.topRightCloseBadge}>
-          <Text style={styles.topRightCloseText}>✕</Text>
-        </View>
-      )}
-
       {/* Overlay escuro / brilho baixo quando cancelado (idêntico ao ERP) */}
-      {cancelled && <View style={styles.cancelledOverlay} />}
+      {cancelled && <View pointerEvents="none" style={styles.cancelledOverlay} />}
 
       {/* Carimbo de Cancelado inclinado (idêntico ao ERP) */}
       {cancelled && (
@@ -288,38 +281,14 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     backgroundColor: '#450a0a',
   },
-  topRightCloseBadge: {
-    position: 'absolute',
-    top: -6,
-    right: -6,
-    width: 26,
-    height: 26,
-    borderRadius: 13,
-    backgroundColor: '#dc2626',
-    alignItems: 'center',
-    justifyContent: 'center',
-    zIndex: 40,
-    borderWidth: 2,
-    borderColor: '#ffffff',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.35,
-    shadowRadius: 3,
-    elevation: 8,
-  },
-  topRightCloseText: {
-    color: '#ffffff',
-    fontSize: 12,
-    fontWeight: '900',
-    textAlign: 'center',
-    lineHeight: 14,
+  cardCancelledLayout: {
+    overflow: 'hidden',
   },
   cancelledOverlay: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: 'rgba(2, 6, 23, 0.45)',
     zIndex: 10,
     borderRadius: 20,
-    pointerEvents: 'none',
   },
   stampContainer: {
     ...StyleSheet.absoluteFillObject,

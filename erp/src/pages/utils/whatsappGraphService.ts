@@ -56,7 +56,7 @@ export const whatsappGraphService = {
         } catch (error: any) {
             console.error("Erro ao carregar catálogo do WhatsApp:", error);
             const metaError = error.message || "Erro desconhecido na API da Meta";
-            throw new Error(`Falha ao acessar catálogo: ${metaError}`);
+            throw new Error(`Falha ao acessar catálogo: ${metaError}`, { cause: error });
         }
     },
 
@@ -79,7 +79,7 @@ export const whatsappGraphService = {
         const cleanDescription = product.whatsappDescription || product.whatsapp_description || product.description || cleanTitle;
 
         // Processar e sanitizar imagens para a Meta
-        let singleImageUrls: string[] = [];
+        const singleImageUrls: string[] = [];
         if (Array.isArray(product.images) && product.images.length > 0) {
             product.images.forEach((imgItem: any) => {
                 if (imgItem) {
@@ -259,7 +259,7 @@ ____________________________________
                 const priceCents = Math.round(Number(rawPrice) * 100);
 
                 // Processar todas as imagens do produto
-                let allImageUrls: string[] = [];
+                const allImageUrls: string[] = [];
                 if (Array.isArray(product.images) && product.images.length > 0) {
                     product.images.forEach((imgItem: any) => {
                         if (imgItem) {
@@ -534,7 +534,7 @@ ____________________________________
         console.log("[WhatsApp API] Enviando Template Payload:", JSON.stringify(payload, null, 2));
         const startTime = Date.now();
 
-        let response = await fetch(
+        const response = await fetch(
             `${FACEBOOK_GRAPH_URL}/${GRAPH_API_VERSION}/${whatsappConfig.phoneNumberId}/messages`,
             {
                 method: 'POST',
@@ -543,7 +543,7 @@ ____________________________________
             }
         );
 
-        let data = await response.json();
+        const data = await response.json();
 
         // Se falhar e for número brasileiro com 9 dígitos (ex: 554199...), tenta sem o 9º dígito (ex: 55419...)
         if (data.error && data.error.code === 100 && formattedPhone.length === 13 && formattedPhone.startsWith('55')) {

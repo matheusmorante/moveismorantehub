@@ -243,11 +243,10 @@ export const PriceHistoryModal: React.FC<PriceHistoryModalProps> = ({ product, i
                                                 {editingId === entry.id ? (
                                                     <div className="flex items-center justify-end gap-1">
                                                         <span className="text-[10px] font-black text-slate-400">R$</span>
-                                                        <input 
-                                                            type="number" 
-                                                            aria-label="Editar custo"
+                                                        <CurrencyInput
                                                             value={editCost}
-                                                            onChange={(e) => setEditCost(Number(e.target.value))}
+                                                            onChangeValue={(val) => setEditCost(val)}
+                                                            showBadge={false}
                                                             className="w-24 bg-white dark:bg-slate-800 border border-emerald-200 dark:border-emerald-800 rounded px-2 py-1 text-right text-xs font-bold text-emerald-600 focus:ring-2 focus:ring-emerald-500 outline-none"
                                                         />
                                                     </div>

@@ -178,7 +178,7 @@ export default function AIChatAssistant({
 
       recognitionRef.current.onend = () => {
         if (isCallMode) {
-          try { recognitionRef.current.start(); } catch {}
+          try { recognitionRef.current.start(); } catch  { /* no-op: intencionalmente silencioso */ }
         } else {
           setIsListening(false);
         }

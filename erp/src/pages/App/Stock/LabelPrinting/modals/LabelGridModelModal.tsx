@@ -1,3 +1,4 @@
+import { MeasurementInput } from '@/components/MeasurementInput';
 import React, { useState } from 'react';
 import { toast } from 'react-toastify';
 
@@ -281,8 +282,8 @@ const LabelGridModelModal: React.FC<LabelGridModelModalProps> = ({ isOpen, onClo
         if (!rect) return;
         const targetX = e.clientX - rect.left;
         const targetY = e.clientY - rect.top;
-        let newX = Math.max(0, Math.min(100, (targetX / rect.width) * 100));
-        let newY = Math.max(0, Math.min(100, (targetY / rect.height) * 100));
+        const newX = Math.max(0, Math.min(100, (targetX / rect.width) * 100));
+        const newY = Math.max(0, Math.min(100, (targetY / rect.height) * 100));
 
         if (resizingElement && resizeSide) {
             const deltaX = e.clientX - resizeStartPos.x; const deltaY = e.clientY - resizeStartPos.y;
@@ -1436,19 +1437,19 @@ const LabelGridModelModal: React.FC<LabelGridModelModalProps> = ({ isOpen, onClo
                                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                                     <div className="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-2xl border border-slate-100 dark:border-slate-800"> 
                                         <label className="text-[8px] font-black text-slate-400 block mb-1 uppercase">Topo (T)</label> 
-                                        <input type="number" step="0.1" value={marginT} onChange={e => setMarginT(parseFloat(e.target.value) || 0)} className="w-full bg-transparent text-center font-black text-blue-600 outline-none" /> 
+                                        <MeasurementInput unit="mm" showBadge={false} value={marginT} onChangeValue={val => setMarginT(val || 0)} className="w-full bg-transparent text-center font-black text-blue-600 outline-none" /> 
                                     </div>
                                     <div className="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-2xl border border-slate-100 dark:border-slate-800"> 
                                         <label className="text-[8px] font-black text-slate-400 block mb-1 uppercase">Base (B)</label> 
-                                        <input type="number" step="0.1" value={marginB} onChange={e => setMarginB(parseFloat(e.target.value) || 0)} className="w-full bg-transparent text-center font-black text-blue-600 outline-none" /> 
+                                        <MeasurementInput unit="mm" showBadge={false} value={marginB} onChangeValue={val => setMarginB(val || 0)} className="w-full bg-transparent text-center font-black text-blue-600 outline-none" /> 
                                     </div>
                                     <div className="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-2xl border border-slate-100 dark:border-slate-800"> 
                                         <label className="text-[8px] font-black text-slate-400 block mb-1 uppercase">Esq. (L)</label> 
-                                        <input type="number" step="0.1" value={marginL} onChange={e => setMarginL(parseFloat(e.target.value) || 0)} className="w-full bg-transparent text-center font-black text-blue-600 outline-none" /> 
+                                        <MeasurementInput unit="mm" showBadge={false} value={marginL} onChangeValue={val => setMarginL(val || 0)} className="w-full bg-transparent text-center font-black text-blue-600 outline-none" /> 
                                     </div>
                                     <div className="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-2xl border border-slate-100 dark:border-slate-800"> 
                                         <label className="text-[8px] font-black text-slate-400 block mb-1 uppercase">Dir. (R)</label> 
-                                        <input type="number" step="0.1" value={marginR} onChange={e => setMarginR(parseFloat(e.target.value) || 0)} className="w-full bg-transparent text-center font-black text-blue-600 outline-none" /> 
+                                        <MeasurementInput unit="mm" showBadge={false} value={marginR} onChangeValue={val => setMarginR(val || 0)} className="w-full bg-transparent text-center font-black text-blue-600 outline-none" /> 
                                     </div>
                                 </div>
                                 <p className="text-[7px] text-slate-400 italic text-center">Para modelos 1x1 (térmicos), deixe todos em 0 para não ter bordas brancas.</p>

@@ -588,6 +588,7 @@ const SalesOrder = () => {
                 <PostOrderActionsModal 
                     order={postOrderDetails} 
                     onClose={() => setPostOrderDetails(null)} 
+                    onIssueNfe={(order) => setNfeModalOrder(order)}
                 />
             )}
 

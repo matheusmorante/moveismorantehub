@@ -56,8 +56,8 @@ export const enrichOrdersWithPeopleOrigins = async (orders: Order[]): Promise<Or
     if (!orders || orders.length === 0) return [];
     
     const customerIds = Array.from(new Set(orders.map(o => o.customerData?.id).filter(Boolean)));
-    let peopleOrigins: Record<string, string> = {};
-    let peopleById: Record<string, { phone?: string; address?: unknown; full_address?: unknown }> = {};
+    const peopleOrigins: Record<string, string> = {};
+    const peopleById: Record<string, { phone?: string; address?: unknown; full_address?: unknown }> = {};
 
     if (customerIds.length > 0) {
         try {

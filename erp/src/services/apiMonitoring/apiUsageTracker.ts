@@ -85,7 +85,7 @@ export class ApiUsageTracker {
                 if (config.price_per_unit > 0) {
                     estimatedCost = Number((units * config.price_per_unit).toFixed(4));
                 }
-            } catch {}
+            } catch  { /* no-op: intencionalmente silencioso */ }
         }
 
         // 1. Chamar função atômica no Supabase
@@ -144,7 +144,7 @@ export class ApiUsageTracker {
             if (error) {
                 // Ignorar erro silenciosamente
             }
-        } catch {}
+        } catch  { /* no-op: intencionalmente silencioso */ }
     }
 
     /**

@@ -9,7 +9,7 @@ import { CostState, replayMovingAverageMoves } from "./movingAverageCostRules";
 export const getMovingAverageCost = async (productId: string, variationId?: string): Promise<CostState> => {
     let query = supabase
         .from("inventory_moves")
-        .select("type, quantity, unit_cost, observation, date, created_at")
+        .select("type, quantity, unit_cost, observation, status, date, created_at")
         .eq("product_id", productId)
         .order("date", { ascending: true })
         .order("created_at", { ascending: true });
@@ -55,7 +55,7 @@ export const getCurrentMovingAverageUnitCost = async (productId: string, variati
 export const reprocessMovingAverageCosts = async (productId: string, variationId?: string) => {
     let query = supabase
         .from("inventory_moves")
-        .select("id, type, quantity, unit_cost, observation, date, created_at")
+        .select("id, type, quantity, unit_cost, observation, status, date, created_at")
         .eq("product_id", productId)
         .order("date", { ascending: true })
         .order("created_at", { ascending: true });
@@ -72,11 +72,7 @@ export const reprocessMovingAverageCosts = async (productId: string, variationId
     // As saídas manterão o CMV (snapshot) do momento exato em que ocorreram.
 
     const finalCost = replay.state.unitCost || 0;
-    try {
-        const { updateProduct } = await import("./productService");
-        await updateProduct(productId, { stock: replay.state.quantity, costPrice: finalCost });
-    } catch (e) {
-        console.warn("[MovingAverageCost] Falha ao atualizar produto:", e);
-    }
+    const { updateProduct } = await import("./productService");
+    await updateProduct(productId, { stock: replay.state.quantity, costPrice: finalCost });
 };
 

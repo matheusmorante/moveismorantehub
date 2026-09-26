@@ -135,7 +135,7 @@ export const InboundInvoicesTable: React.FC<InboundInvoicesTableProps> = ({
                                                             <i className="bi bi-hourglass-split text-[11px]" aria-hidden="true" /> Disponível
                                                         </span>
                                                     )}
-                                                    {Boolean(inv.items && inv.items.length > 0 && inv.items.every((item) => Boolean(item.matchedProductId))) ? (
+                                                    {inv.items && inv.items.length > 0 && inv.items.every((item) => Boolean(item.matchedProductId)) ? (
                                                         <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2.5 py-1 text-[10px] font-black uppercase text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300">
                                                             <i className="bi bi-check2-all text-xs" aria-hidden="true" /> Vinculação Completa
                                                         </span>
@@ -294,7 +294,7 @@ export const InboundInvoicesTable: React.FC<InboundInvoicesTableProps> = ({
                                                 </span>
                                             )}
 
-                                            {Boolean(inv.items && inv.items.length > 0 && inv.items.every((item) => Boolean(item.matchedProductId))) ? (
+                                            {inv.items && inv.items.length > 0 && inv.items.every((item) => Boolean(item.matchedProductId)) ? (
                                                 <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[9px] font-black uppercase text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300">
                                                     Vinculação Completa
                                                 </span>

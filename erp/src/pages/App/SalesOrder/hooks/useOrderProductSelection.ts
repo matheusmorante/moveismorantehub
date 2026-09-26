@@ -39,6 +39,7 @@ export function useOrderProductSelection(
 
                     return {
                         id: crypto.randomUUID(), // fake id para novo item
+                        orderItemId: crypto.randomUUID(),
                         productId: realProduct.id,
                         variationId: realVariation?.id,
                         isTemporaryProduct: false,

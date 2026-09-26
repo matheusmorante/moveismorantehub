@@ -116,7 +116,7 @@ export function renderProductRowStandardCell(key: string, ctx: CellContext): Rea
                 </td>
             );
 
-        case 'unitPrice':
+        case 'unitPrice': {
             const hasPromo = Boolean(product.promoPrice && Number(product.promoPrice) > 0 && Number(product.promoPrice) < Number(product.unitPrice));
             return (
                 <td key="unitPrice" className="px-3 py-3 text-right">
@@ -138,6 +138,7 @@ export function renderProductRowStandardCell(key: string, ctx: CellContext): Rea
                     </div>
                 </td>
             );
+        }
 
         case 'costPrice':
             return (
@@ -148,7 +149,7 @@ export function renderProductRowStandardCell(key: string, ctx: CellContext): Rea
                 </td>
             );
 
-        case 'stock':
+        case 'stock': {
             if (product.isParent) return <td key="stock" className="px-3 py-3" />;
             const isLowStock = (product.stock || 0) <= (product.minStock || 0);
             return (
@@ -158,8 +159,9 @@ export function renderProductRowStandardCell(key: string, ctx: CellContext): Rea
                     </span>
                 </td>
             );
+        }
 
-        case 'category':
+        case 'category': {
             if (isChildVar) return <td key="category" className="px-3 py-3" />;
             const categoryDisplay = getCategoryBreadcrumb(product.categoryIds || [], categoryTree as never) || product.category || product.category_name || product.categoryName || "-";
             const leafCategories = categoryDisplay.split(' | ').map((path: string) => {
@@ -178,6 +180,7 @@ export function renderProductRowStandardCell(key: string, ctx: CellContext): Rea
                     </div>
                 </td>
             );
+        }
 
         case 'createdAt':
             return (
@@ -188,7 +191,7 @@ export function renderProductRowStandardCell(key: string, ctx: CellContext): Rea
                 </td>
             );
 
-        case 'status':
+        case 'status': {
             const targetCatalogId = product.isVariation
                 ? (product.variationId || product.id || '')
                 : (product.id || '');
@@ -217,6 +220,7 @@ export function renderProductRowStandardCell(key: string, ctx: CellContext): Rea
                     </div>
                 </td>
             );
+        }
 
         default:
             return null;

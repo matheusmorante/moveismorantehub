@@ -64,7 +64,7 @@ export const saveInventoryMove = async (
 
 export const deleteInventoryMove = async (
     id: string, 
-    allowLinkedOrderMove = false, 
+    _allowLinkedOrderMove = false,
     allowDraftAuditDelete = false
 ): Promise<void> => {
     try {
@@ -75,15 +75,10 @@ export const deleteInventoryMove = async (
         let isDraftAudit = false;
         try { 
             isDraftAudit = JSON.parse(move.observation || '{}').status === 'in_progress'; 
-        } catch { }
+        } catch  { /* no-op: intencionalmente silencioso */ }
 
-        if ((move.label?.startsWith('Inventário #') || move.label?.startsWith('Ajuste lançado pelo inventário #')) && !(allowDraftAuditDelete && isDraftAudit)) {
-            throw new Error('Movimentações de inventário confirmado são imutáveis. Crie um novo inventário para gerar outro ajuste.');
-        }
-        if (!allowLinkedOrderMove && move.relatedEntityId && (
-            move.relatedEntityType === 'sales_order' || move.relatedEntityType === 'purchase_order'
-        )) {
-            throw new Error('Movimentações vinculadas a pedidos não podem ser excluídas por aqui. Faça o estorno pelo pedido vinculado.');
+        if (!allowDraftAuditDelete || !isDraftAudit || !move.label?.startsWith('Inventário #') || move.productId) {
+            throw new Error('Movimentações efetivadas não podem ser excluídas. Faça o estorno vinculado à operação original.');
         }
 
         const { error } = await supabase
@@ -157,12 +152,12 @@ export const updateInventoryMove = async (
 
             const product = mapProductFromDB(p);
             let newTotalStock = Number(product.stock || 0) + delta;
-            let updatedVariations = product.variations ? [...product.variations] : [];
+            const updatedVariations = product.variations ? [...product.variations] : [];
 
             if (oldMove.variation_id && updatedVariations.length > 0) {
                 const vIdx = updatedVariations.findIndex((v: any) => String(v.id) === String(oldMove.variation_id));
                 if (vIdx !== -1) {
-                    let vStock = Number(updatedVariations[vIdx].stock || 0) + delta;
+                    const vStock = Number(updatedVariations[vIdx].stock || 0) + delta;
                     updatedVariations[vIdx].stock = vStock;
                 }
                 newTotalStock = updatedVariations.reduce((acc: number, v: any) => acc + Number(v.stock || 0), 0);

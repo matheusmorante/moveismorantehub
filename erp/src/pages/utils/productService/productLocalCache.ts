@@ -37,12 +37,9 @@ export const subscribeToProducts = (
     initializer?: () => Promise<Product[]>
 ) => {
     const run = async () => {
-        let products: Product[] = [];
-        if (initializer) {
-            products = await initializer();
-        } else {
-            products = getLocalProducts();
-        }
+        const products: Product[] = initializer
+            ? await initializer()
+            : getLocalProducts();
         const filtered = products.filter(p => !p.deleted === includeDeleted);
         callback(filtered);
     };

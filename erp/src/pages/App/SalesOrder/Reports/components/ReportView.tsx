@@ -214,7 +214,7 @@ const ReportView = () => {
                 setReportName(data.name);
                 setReportSource(data.source);
                 setReportConfig(data.config);
-                let mCount = rd.monthCount || 1;
+                const mCount = rd.monthCount || 1;
                 let aProfit = rd.avgProfitPerItem || 0;
                 let aTurnover = rd.avgTurnoverPerItem || 0;
 

@@ -1,6 +1,7 @@
 import type React from 'react';
 import type { Product } from '@/pages/types/product.type';
 import CurrencyInput from '@/components/CurrencyInput';
+import { PercentInput } from '@/components/PercentInput';
 
 interface ProductPricingFieldsProps {
     readonly formData: Partial<Product>;

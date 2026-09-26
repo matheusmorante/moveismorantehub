@@ -57,18 +57,15 @@ export const filterOrder = (order: Order, filters?: any): boolean => {
     const statusMatch = !filters.status || order.status === filters.status;
     
     // Strict Type Separation
-    let typeMatch = true;
-    if (isBudgetView) {
-        typeMatch = order.orderType === 'budget';
-    } else if (isAssistanceView) {
-        typeMatch = order.orderType === 'assistance';
-    } else if (isReturnView) {
-        typeMatch = order.orderType === 'return';
-    } else {
-        typeMatch = filters.orderType 
-            ? order.orderType === filters.orderType 
-            : (order.orderType !== 'budget' && order.orderType !== 'assistance' && order.orderType !== 'return');
-    }
+    const typeMatch = isBudgetView
+        ? order.orderType === 'budget'
+        : isAssistanceView
+        ? order.orderType === 'assistance'
+        : isReturnView
+        ? order.orderType === 'return'
+        : filters.orderType
+        ? order.orderType === filters.orderType
+        : (order.orderType !== 'budget' && order.orderType !== 'assistance' && order.orderType !== 'return');
 
     const sellerQuery = normalizeSearchTerm(filters.seller || '');
     const sellerMatch = !filters.seller || normalizeSearchTerm(order.seller || '').includes(sellerQuery);
@@ -89,7 +86,7 @@ export const sortOrders = (orders: Order[], filters?: any): Order[] => {
     return [...orders].sort((a, b) => {
         for (const rule of sortRules) {
             const { key: sortBy, order: sortOrder } = rule;
-            let comparison = 0;
+            let comparison: number;
 
             if (sortBy === "customer") {
                 comparison = (a.customerData?.fullName || "").localeCompare(b.customerData?.fullName || "");

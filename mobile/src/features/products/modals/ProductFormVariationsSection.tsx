@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
-import { Plus, Trash2, Layers } from 'lucide-react-native';
+import { Plus, Layers } from 'lucide-react-native';
 
 interface Props {
   formData: any;
@@ -49,17 +49,6 @@ export const ProductFormVariationsSection: React.FC<Props> = ({
     setVarPrice('');
     setVarStock('');
     setAttrVal('');
-  };
-
-  const handleRemoveVar = (index: number) => {
-    setFormData((prev: any) => {
-      const next = variations.filter((_: any, i: number) => i !== index);
-      return {
-        ...prev,
-        hasVariations: next.length > 0,
-        variations: next,
-      };
-    });
   };
 
   return (
@@ -152,9 +141,6 @@ export const ProductFormVariationsSection: React.FC<Props> = ({
                 <Text style={styles.varSku}>SKU: {v.sku} | Estoque: {v.stock ?? 0}</Text>
                 <Text style={styles.varPrice}>R$ {Number(v.price || formData.unitPrice || 0).toFixed(2).replace('.', ',')}</Text>
               </View>
-              <TouchableOpacity onPress={() => handleRemoveVar(index)} style={styles.removeBtn}>
-                <Trash2 size={15} color="#ef4444" />
-              </TouchableOpacity>
             </View>
           );
         })
@@ -183,5 +169,4 @@ const styles = StyleSheet.create({
   varAttr: { fontSize: 13, fontWeight: '800', color: '#0f172a' },
   varSku: { fontSize: 10, color: '#64748b', fontWeight: '600' },
   varPrice: { fontSize: 11, fontWeight: '800', color: '#2563eb' },
-  removeBtn: { padding: 6 },
 });

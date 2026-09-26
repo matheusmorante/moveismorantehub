@@ -200,7 +200,7 @@ TEXTO DO OPERADOR:
 Retorne EXCLUSIVAMENTE o JSON estruturado, sem markdown.`;
 
         const textResponse = await callGeminiDirect(prompt);
-        let clean = textResponse.trim().replace(/^```json/, '').replace(/^```/, '').replace(/```$/, '').trim();
+        const clean = textResponse.trim().replace(/^```json/, '').replace(/^```/, '').replace(/```$/, '').trim();
         const parsed = JSON.parse(clean);
         const rawJSON = parsed.order ? parsed : { order: parsed };
 
@@ -225,7 +225,7 @@ Retorne EXCLUSIVAMENTE o JSON estruturado, sem markdown.`;
 
             if (Array.isArray(rawJSON.order.payments)) {
                 rawJSON.order.payments = rawJSON.order.payments.map((pay: any) => {
-                    let method = pay.method || "Pix";
+                    const method = pay.method || "Pix";
                     const foundMethod = validPaymentMethods.find(m => m.toLowerCase() === String(method).toLowerCase());
                     return {
                         ...pay,

@@ -8,15 +8,15 @@ interface VariationItemActionsProps {
     readonly variation: CardVariationItem;
     readonly anchorRef: React.RefObject<HTMLButtonElement>;
     readonly isMenuOpen: boolean;
-    readonly isUsageChecking: boolean;
-    readonly isUsed: boolean;
+    readonly isUsageChecking?: boolean;
+    readonly isUsed?: boolean;
     readonly onSetActiveVarMenuId: (id: string | null) => void;
     readonly onEdit: (product: Product) => void;
     readonly onShowHistory?: (product: Product) => void;
     readonly onLaunchStock?: (product: Product) => void;
     readonly onMoveToAnotherFamily?: (variation: CardVariationItem) => void;
     readonly onMergeWithAnotherVariation?: (variation: CardVariationItem) => void;
-    readonly onCheckAndAskDelete: (variationId: string) => void;
+    readonly onCheckAndAskDelete?: (variationId: string) => void;
 }
 
 export const VariationItemActions: React.FC<VariationItemActionsProps> = ({
@@ -24,15 +24,12 @@ export const VariationItemActions: React.FC<VariationItemActionsProps> = ({
     variation: v,
     anchorRef,
     isMenuOpen,
-    isUsageChecking,
-    isUsed,
     onSetActiveVarMenuId,
     onEdit,
     onShowHistory,
     onLaunchStock,
     onMoveToAnotherFamily,
     onMergeWithAnotherVariation,
-    onCheckAndAskDelete,
 }) => {
     if (!isMenuOpen) return null;
 
@@ -135,28 +132,6 @@ export const VariationItemActions: React.FC<VariationItemActionsProps> = ({
                     <i className="bi bi-bezier2" />
                     Mesclar Variação
                 </button>
-            )}
-            {!v.mergedToVariationId && (
-                <div className="border-t border-slate-50 dark:border-slate-800/50 my-1">
-                    <button
-                        type="button"
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            onSetActiveVarMenuId(null);
-                            if (v.id) onCheckAndAskDelete(v.id);
-                        }}
-                        disabled={isUsageChecking || isUsed}
-                        className={`w-full px-3.5 py-2 text-left flex items-center gap-2 cursor-pointer transition-colors ${isUsageChecking || isUsed ? 'opacity-50 cursor-not-allowed text-slate-500' : 'hover:bg-red-50 dark:hover:bg-red-950/30 text-red-600 dark:text-red-400'}`}
-                        title={isUsed ? "Variação em uso. Não pode ser deletada." : "Excluir Variação"}
-                    >
-                        {isUsageChecking ? (
-                            <i className="bi bi-arrow-repeat animate-spin text-slate-400" />
-                        ) : (
-                            <i className={`bi bi-trash3-fill ${isUsed ? 'text-slate-400' : 'text-red-500'}`} />
-                        )}
-                        {isUsageChecking ? 'Verificando Uso...' : 'Excluir Variação'}
-                    </button>
-                </div>
             )}
             {v.mergedToVariationId && (
                 <div className="px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800/50 mt-1 mx-1 rounded-lg border border-slate-100 dark:border-slate-800">

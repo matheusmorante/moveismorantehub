@@ -53,7 +53,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             const isMasterEmail = isMasterEmailCheck(userEmail);
             const googleName = user.user_metadata?.full_name || user.user_metadata?.name;
 
-            let { data, error } = await supabase
+            let { data } = await supabase
                 .from('profiles')
                 .select('*')
                 .eq('id', user.id)

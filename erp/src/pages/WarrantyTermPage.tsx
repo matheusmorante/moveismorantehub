@@ -36,7 +36,7 @@ const WarrantyTermPage = () => {
                 </p>
                 <ul className="list-disc list-inside text-sm text-slate-600 dark:text-slate-400 space-y-1 ml-4">
                     <li>Uso indevido ou manutenção inadequada;</li>
-                    <li>Danos causados por acidentes, quedas, transporte, exposição a umidade, maresia, calor excessivo, produtos abrasivos entre outras situações;</li>
+                    <li>Danos causados por acidentes, quedas, transporte, exposição a umidade, maresia, calor excessivo, produtos abrasivos entre outras situações;</li>
                     <li>Alterações ou reparos feitos por terceiros.</li>
                 </ul>
 

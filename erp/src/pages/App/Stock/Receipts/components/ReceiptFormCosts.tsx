@@ -1,3 +1,5 @@
+import CurrencyOrPercentInput from '@/components/CurrencyOrPercentInput';
+
 interface ToggleValueFieldProps {
     readonly label: string;
     readonly mode: 'percent' | 'fixed';
@@ -86,22 +88,15 @@ export function ToggleValueField({
                 </div>
             </div>
 
-            <div className="relative flex items-center">
-                <input
-                    type="number"
-                    min="0"
-                    step={isPercent ? '0.1' : '0.01'}
-                    value={value || ''}
-                    onChange={(e) => {
-                        const parsed = Number(e.target.value);
-                        onValueChange(Number.isNaN(parsed) ? 0 : Math.max(0, parsed));
-                    }}
-                    placeholder={isPercent ? '0 %' : '0,00'}
-                    className="w-full bg-white dark:bg-slate-900 border-0 border-b-2 border-slate-200 dark:border-slate-700 focus:border-blue-600 dark:focus:border-blue-500 outline-none py-1.5 pl-1 pr-8 text-sm font-bold text-slate-800 dark:text-slate-100 rounded-none transition-colors"
+            <div className="pt-2">
+                <CurrencyOrPercentInput
+                    value={value}
+                    onChange={(val) => onValueChange(Math.max(0, val))}
+                    prefix={isPercent ? '' : 'R$ '}
+                    suffix={isPercent ? '%' : ''}
+                    showBadge={false}
+                    className="w-full bg-white dark:bg-slate-900 border-0 border-b-2 border-slate-200 dark:border-slate-700 focus:border-blue-600 dark:focus:border-blue-500 outline-none py-1.5 px-1 text-sm font-bold text-slate-800 dark:text-slate-100 rounded-none transition-colors"
                 />
-                <span className="absolute right-2 text-[11px] font-black text-slate-400 pointer-events-none">
-                    {isPercent ? '%' : 'R$'}
-                </span>
             </div>
         </div>
     );

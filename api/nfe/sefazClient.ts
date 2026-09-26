@@ -7,13 +7,14 @@ export interface SefazSoapParams {
     xmlPayload: string;
     certPem: string;
     privateKeyPem: string;
+    serviceNamespace?: string;
 }
 
 /**
  * Envia mensagem SOAP 1.2 com mTLS direto para a SEFAZ
  */
 export async function sendSoapToSefaz(params: SefazSoapParams): Promise<string> {
-    const { url, action, xmlPayload, certPem, privateKeyPem } = params;
+    const { url, action, xmlPayload, certPem, privateKeyPem, serviceNamespace = 'http://www.portalfiscal.inf.br/nfe/wsdl/NFeAutorizacao4' } = params;
 
     // Criar agente HTTPS com mTLS (Chave privada + Certificado do cliente)
     const httpsAgent = new https.Agent({
@@ -26,7 +27,7 @@ export async function sendSoapToSefaz(params: SefazSoapParams): Promise<string> 
     const soapEnvelope = `<?xml version="1.0" encoding="utf-8"?>
 <soap12:Envelope xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:soap12="http://www.w3.org/2003/05/soap-envelope">
   <soap12:Body>
-    <nfeDadosMsg xmlns="http://www.portalfiscal.inf.br/nfe/wsdl/NFeAutorizacao4">
+    <nfeDadosMsg xmlns="${serviceNamespace}">
       ${xmlPayload}
     </nfeDadosMsg>
   </soap12:Body>

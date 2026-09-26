@@ -16,6 +16,9 @@ tags: [tdd, testing, rust, red-green-refactor, rtk]
 
 # Rust TDD Workflow
 
+> [!NOTE]
+> Esta skill é a base genérica de TDD para Rust. Para filtros RTK com fixtures reais, snapshots `insta` e assertivas de token savings, use [`tdd-rust`](file:///c:/Users/Rosilene/Desktop/morantehub/.agents/skills/tdd-rust/SKILL.md) — que estende este ciclo e tem precedência quando aplicável.
+
 ## Three Laws of TDD
 
 1. Do NOT write production code without a failing test

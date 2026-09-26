@@ -2,13 +2,16 @@ import React, { useState, useEffect } from "react";
 import Order from "../../../types/order.type";
 import { Item } from "../../../types/items.type";
 import Shipping from "../../../types/Shipping.type";
-import { saveOrder, updateOrder } from "../../../utils/orderHistoryService";
+import { saveOrder } from "../../../utils/orderHistoryService";
 import { formatOrderCode } from "../../../utils/orderCode";
 import { toast } from "react-toastify";
 import { Undo2 } from "lucide-react";
 import ReturnItemsSelection from "./ReturnItemsSelection";
 import ReturnCollectionSection from "./ReturnCollectionSection";
 import ReturnFormTabs, { ReturnFormTab } from "../ReturnFormTabs";
+import { supabase } from "../../../utils/supabaseConfig";
+import { getReturnLineKey, getReturnableQuantities } from "../../../utils/returnQuantityRules";
+import { allocateReturnQuantityAcrossInvoices, getBilledCapacityByOrderLine, type AvailableInvoiceLine } from "../../../utils/nfe/invoiceLineSnapshot";
 
 type Props = {
     readonly order: Order;
@@ -35,6 +38,78 @@ const ReturnOrderModal = ({ order, onClose, onSuccess }: Props) => {
     const [observations, setObservations] = useState<string[]>([]);
     const [submitting, setSubmitting] = useState(false);
     const [activeTab, setActiveTab] = useState<ReturnFormTab>("items");
+    const [returnableQuantities, setReturnableQuantities] = useState<Record<string, number>>({});
+    const [returnsLoaded, setReturnsLoaded] = useState(false);
+    const [fiscalCapacityLines, setFiscalCapacityLines] = useState<AvailableInvoiceLine[]>([]);
+    const [fiscalCapacityLoaded, setFiscalCapacityLoaded] = useState(false);
+    const [fiscalCapacityError, setFiscalCapacityError] = useState<string | null>(null);
+    const [hasAuthorizedProductionInvoice, setHasAuthorizedProductionInvoice] = useState(false);
+    const [returnRequestId] = useState(() => crypto.randomUUID());
+
+    useEffect(() => {
+        let active = true;
+        const loadPriorReturns = async () => {
+            if (!order.id) {
+                setReturnsLoaded(true);
+                setFiscalCapacityLoaded(true);
+                setReturnableQuantities(Object.fromEntries(order.items.map((item, index) => [getReturnLineKey(item, index), Number(item.quantity || 0)])));
+                return;
+            }
+            setReturnsLoaded(false);
+            setFiscalCapacityLoaded(false);
+            setFiscalCapacityError(null);
+            let loadedHasAuthorizedInvoice = false;
+            let loadedFiscalLines: AvailableInvoiceLine[] = [];
+            try {
+                const { data: session, error: sessionError } = await supabase.auth.getSession();
+                if (sessionError || !session.session?.access_token) throw new Error("Faça login novamente para conferir as NF-e de origem.");
+                const response = await fetch('/api/nfe/return-capacity', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.session.access_token}` },
+                    body: JSON.stringify({ orderId: order.id }),
+                });
+                const result = await response.json();
+                if (!response.ok || !result.success) throw new Error(result.error || 'Não foi possível conferir o saldo faturado.');
+                if (!active) return;
+                loadedHasAuthorizedInvoice = Boolean(result.hasAuthorizedProductionInvoice);
+                loadedFiscalLines = result.lines || [];
+                setHasAuthorizedProductionInvoice(loadedHasAuthorizedInvoice);
+                setFiscalCapacityLines(loadedFiscalLines);
+            } catch (error: any) {
+                if (!active) return;
+                setFiscalCapacityError(error.message || 'Não foi possível conferir o saldo fiscal.');
+                toast.error('O saldo fiscal das NF-e não pôde ser conferido. A devolução ficará bloqueada até a consulta ser concluída.');
+            } finally {
+                if (active) setFiscalCapacityLoaded(true);
+            }
+            const { data, error } = await supabase
+                .from("orders")
+                .select("status,items,order_data")
+                .eq("order_type", "return")
+                .or(`linked_order_id.eq.${order.id},order_data->>linkedOrderId.eq.${order.id}`);
+            if (!active) return;
+            if (error) {
+                console.error("Erro ao consultar devoluções anteriores:", error);
+                toast.error("Não foi possível conferir o saldo já devolvido. Tente novamente.");
+                return;
+            }
+            const priorReturns = (data || []).map((row: any) => ({
+                status: row.status || row.order_data?.status,
+                items: row.items || row.order_data?.items || [],
+            }));
+            const remaining = getReturnableQuantities(order.items || [], priorReturns);
+            const billedCapacity = loadedHasAuthorizedInvoice
+                ? getBilledCapacityByOrderLine(order.items || [], loadedFiscalLines)
+                : null;
+            setReturnableQuantities(Object.fromEntries(remaining.map((quantity, index) => [
+                getReturnLineKey(order.items[index], index),
+                billedCapacity ? Math.min(quantity, billedCapacity[index] || 0) : quantity,
+            ])));
+            setReturnsLoaded(true);
+        };
+        void loadPriorReturns();
+        return () => { active = false; };
+    }, [order.id, order.items]);
 
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
@@ -46,8 +121,8 @@ const ReturnOrderModal = ({ order, onClose, onSuccess }: Props) => {
         return () => window.removeEventListener("keydown", handleKeyDown);
     }, [onClose]);
 
-    const selectedTotal = order.items.reduce((total, item) => {
-        const itemId = item.productId || item.description;
+    const selectedTotal = order.items.reduce((total, item, index) => {
+        const itemId = getReturnLineKey(item, index);
         const qty = quantities[itemId] || 0;
         const unitPrice = returnUnitPrices[itemId] !== undefined ? returnUnitPrices[itemId] : item.unitPrice;
         return total + (qty * unitPrice);
@@ -79,11 +154,17 @@ const ReturnOrderModal = ({ order, onClose, onSuccess }: Props) => {
         setReturnUnitPrices((current) => ({ ...current, [id]: Math.max(0, unitPrice) }));
 
     const generateReturn = async () => {
+        if (!returnsLoaded || !fiscalCapacityLoaded) return toast.warning("Aguarde a conferência do saldo devolvível e fiscal.");
+        if (fiscalCapacityError) return toast.error(`Não foi possível validar a NF-e de origem: ${fiscalCapacityError}`);
         if (!Object.keys(quantities).length) return toast.warning("Selecione pelo menos um item para devolver.");
+        if (order.items.some((item, index) => (quantities[getReturnLineKey(item, index)] || 0) > (returnableQuantities[getReturnLineKey(item, index)] || 0))) {
+            return toast.error("Uma quantidade excede o saldo ainda disponível para devolução.");
+        }
         if (collectAtAddress === null) return toast.warning("Informe se a devolução foi entregue na loja ou se será coletada no endereço.");
 
         const items = order.items.reduce<Item[]>((selected, item) => {
-            const itemId = item.productId || item.description;
+            const originalOrderItemIndex = order.items.indexOf(item);
+            const itemId = getReturnLineKey(item, originalOrderItemIndex);
             const quantity = quantities[itemId];
             if (!quantity) return selected;
 
@@ -95,6 +176,7 @@ const ReturnOrderModal = ({ order, onClose, onSuccess }: Props) => {
             return [...selected, {
                 ...item,
                 quantity,
+                originalOrderItemIndex,
                 returnedQuantity: quantity,
                 unitPrice: returnedUnitPrice,
                 returnedUnitPrice,
@@ -105,9 +187,24 @@ const ReturnOrderModal = ({ order, onClose, onSuccess }: Props) => {
         }, []);
 
         const total = items.reduce((sum, item) => sum + (item.returnedTotalValue ?? item.quantity * item.unitPrice), 0);
+        let fiscalAllocations: Order['fiscalReturnAllocations'] = [];
+        if (hasAuthorizedProductionInvoice) {
+            try {
+                fiscalAllocations = allocateReturnQuantityAcrossInvoices(items.map((item, returnItemIndex) => ({
+                    returnItemIndex,
+                    originalOrderItemIndex: Number(item.originalOrderItemIndex),
+                    productId: item.productId,
+                    code: item.code,
+                    description: item.description,
+                    quantity: Number(item.returnedQuantity || item.quantity),
+                })), fiscalCapacityLines);
+            } catch (error: any) {
+                return toast.error(error.message || 'Não foi possível vincular todos os itens às NF-e autorizadas.');
+            }
+        }
         const originalSoldTotal = items.reduce((sum, item) => sum + (item.originalTotalValue ?? item.quantity * (item.originalUnitPrice ?? item.unitPrice)), 0);
-        const isCompleteReturn = order.items.every((item) =>
-            (quantities[item.productId || item.description] || 0) >= item.quantity
+        const isCompleteReturn = order.items.every((item, index) =>
+            (quantities[getReturnLineKey(item, index)] || 0) >= (returnableQuantities[getReturnLineKey(item, index)] || 0)
         );
 
         const returnOrder: Order = {
@@ -121,6 +218,8 @@ const ReturnOrderModal = ({ order, onClose, onSuccess }: Props) => {
             date: new Date().toISOString(),
             items,
             linkedOrderId: order.id,
+            returnRequestId,
+            fiscalReturnAllocations: fiscalAllocations,
             linkedOrderCode: formatOrderCode(order),
             returnedTotalAmount: total,
             originalSoldTotal: originalSoldTotal,
@@ -152,11 +251,6 @@ const ReturnOrderModal = ({ order, onClose, onSuccess }: Props) => {
         setSubmitting(true);
         try {
             const id = await saveOrder(returnOrder);
-            await updateOrder(order.id!, {
-                returnOrderId: id,
-                returnKind: isCompleteReturn ? 'complete' : 'partial',
-                returnedTotalAmount: total,
-            }, order);
             toast.success("Pedido de devolução gerado com sucesso!");
             onSuccess(id);
         } catch (error: unknown) {
@@ -202,6 +296,7 @@ const ReturnOrderModal = ({ order, onClose, onSuccess }: Props) => {
                         <ReturnItemsSelection
                             order={order}
                             quantities={quantities}
+                            returnableQuantities={returnableQuantities}
                             returnUnitPrices={returnUnitPrices}
                             onToggle={toggleItem}
                             onQuantityChange={updateQuantity}
@@ -226,8 +321,8 @@ const ReturnOrderModal = ({ order, onClose, onSuccess }: Props) => {
                         <button type="button" onClick={onClose} disabled={submitting} className="flex-1 rounded-2xl border border-slate-200 px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-500 hover:bg-slate-100 dark:border-slate-800 dark:hover:bg-slate-800">
                             Cancelar
                         </button>
-                        <button type="button" onClick={generateReturn} disabled={submitting || !Object.keys(quantities).length || collectAtAddress === null} className="flex flex-1 items-center justify-center gap-3 rounded-2xl bg-amber-600 px-6 py-4 text-[10px] font-black uppercase tracking-widest text-white shadow-xl shadow-amber-500/20 transition hover:bg-amber-700 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:shadow-none">
-                            {submitting ? "Processando..." : <><Undo2 className="h-4 w-4" />Gerar pedido de devolução</>}
+                        <button type="button" onClick={generateReturn} disabled={submitting || !returnsLoaded || !fiscalCapacityLoaded || Boolean(fiscalCapacityError) || !Object.keys(quantities).length || collectAtAddress === null} className="flex flex-1 items-center justify-center gap-3 rounded-2xl bg-amber-600 px-6 py-4 text-[10px] font-black uppercase tracking-widest text-white shadow-xl shadow-amber-500/20 transition hover:bg-amber-700 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:shadow-none">
+                            {submitting || !returnsLoaded || !fiscalCapacityLoaded ? "Conferindo saldos..." : <><Undo2 className="h-4 w-4" />Gerar pedido de devolução</>}
                         </button>
                     </div>
                 </footer>

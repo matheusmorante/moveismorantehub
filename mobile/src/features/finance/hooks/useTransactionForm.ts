@@ -42,7 +42,7 @@ export function useTransactionForm({
   const [transactionDate, setTransactionDate] = useState(todayStr);
   const [datePickerVisible, setDatePickerVisible] = useState(false);
 
-  const [amountStr, setAmountStr] = useState('');
+  const [amount, setAmount] = useState<number | null>(null);
   const [description, setDescription] = useState('');
   const [selectedCatId, setSelectedCatId] = useState('');
   const [categorySearchQuery, setCategorySearchQuery] = useState('');
@@ -75,7 +75,7 @@ export function useTransactionForm({
       setType(transaction.type);
       setPurpose(transaction.purpose === 'PERSONAL_PARTNER' ? 'PERSONAL_PARTNER' : 'BUSINESS');
       setTransactionDate(transaction.date || toLocalIsoDate(new Date()));
-      setAmountStr(String(transaction.amount).replace('.', ','));
+      setAmount(transaction.amount || null);
       setDescription(transaction.description || '');
       setSelectedCatId(
         transaction.type === 'income'
@@ -94,7 +94,7 @@ export function useTransactionForm({
     setType(null);
     setPurpose('BUSINESS');
     setTransactionDate(toLocalIsoDate(new Date()));
-    setAmountStr('');
+    setAmount(null);
     setDescription('');
     setSelectedCatId('');
     setPaymentMethod('');
@@ -206,8 +206,7 @@ export function useTransactionForm({
       errors.type = true;
     }
 
-    const val = parseFloat(amountStr.replace(',', '.'));
-    if (!val || val <= 0) {
+    if (!amount || amount <= 0) {
       errors.amount = true;
     }
 
@@ -247,7 +246,7 @@ export function useTransactionForm({
 
     const editablePayload: Partial<FinancialTransaction> = {
       type: type!,
-      amount: val,
+      amount: amount!,
       description: description.trim(),
       category_id: realCatId,
       category_name: catName,
@@ -307,7 +306,7 @@ export function useTransactionForm({
     purpose,
     transactionDate,
     datePickerVisible,
-    amountStr,
+    amount,
     description,
     selectedCatId,
     categorySearchQuery,
@@ -327,7 +326,7 @@ export function useTransactionForm({
     setDatePickerVisible,
     setCategoryModalVisible,
     setTransactionDate,
-    setAmountStr,
+    setAmount,
     setDescription,
     setSelectedCatId,
     setPaymentMethod,

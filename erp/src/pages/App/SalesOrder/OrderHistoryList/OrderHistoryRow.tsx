@@ -120,7 +120,7 @@ const OrderHistoryRow = ({
                         </span>
                     </td>
                 );
-            case 'deliveryDate':
+            case 'deliveryDate': {
                 const sched = order.shipping?.scheduling;
                 const deliveryDateStr = sched?.date;
                 let timeDisplay = "-";
@@ -154,6 +154,7 @@ const OrderHistoryRow = ({
                         </div>
                     </td>
                 );
+            }
             case 'customer':
                 return (
                     <td key={key} className={`${baseTdClass} relative`}>
@@ -184,13 +185,14 @@ const OrderHistoryRow = ({
                         </div>
                     </td>
                 );
-            case 'totalValue':
+            case 'totalValue': {
                 const displayTotal = order.paymentsSummary?.totalOrderValue || order.paymentsSummary?.totalValue || 0;
                 return (
                     <td key={key} className={`${baseTdClass} text-right whitespace-nowrap`}>
                         <span className="text-sm font-black text-blue-600 dark:text-blue-400">{formatCurrency(displayTotal)}</span>
                     </td>
                 );
+            }
             case 'actions':
                 return (
                     <td key={key} className={`${baseTdClass} text-center`} onClick={(e) => e.stopPropagation()}>

@@ -38,7 +38,7 @@ const ItemExclusionModal: React.FC<ItemExclusionModalProps> = ({
     }, [items]);
 
     const filteredAndSortedItems = useMemo(() => {
-        let result = items.filter(item => {
+        const result = items.filter(item => {
             const matchesSearch = normalizeSearchTerm(item.product).includes(normalizeSearchTerm(searchTerm)) || 
                                    (item.supplier && normalizeSearchTerm(item.supplier).includes(normalizeSearchTerm(searchTerm)));
             const matchesSupplier = selectedSupplier ? item.supplier === selectedSupplier : true;

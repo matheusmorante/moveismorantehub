@@ -67,7 +67,7 @@ export class CircuitBreaker {
     // A validação de falha ou sucesso no HALF_OPEN ocorrerá ao observar se o loop volta.
 
     // 3. Adicionar hit
-    let hits = this.hitCounters.get(fingerprint) || [];
+    const hits = this.hitCounters.get(fingerprint) || [];
     hits.push(now);
     this.hitCounters.set(fingerprint, hits);
 

@@ -83,7 +83,7 @@ describe('SUÍTE DE TESTES DO MICROFONE CONTÍNUO E AUTOENVIO (3s DE SILÊNCIO)'
 
   // TESTE 2: Microfone continua escutando após autoenvio
   test('TESTE 2: Após o autoenvio, o microfone permanece no estado LISTENING', () => {
-    let micState: 'IDLE' | 'LISTENING' = 'LISTENING';
+    const micState: 'IDLE' | 'LISTENING' = 'LISTENING';
     const autoSendHappened = true;
 
     if (autoSendHappened) {
@@ -314,7 +314,7 @@ describe('SUÍTE DE TESTES DO MICROFONE CONTÍNUO E AUTOENVIO (3s DE SILÊNCIO)'
 
   // TESTE 13: Correção emitida durante PROCESSING
   test('TESTE 13: Correção emitida durante processamento assíncrono é preservada', () => {
-    let activeDraft: ParsedFinancialIntent = {
+    const activeDraft: ParsedFinancialIntent = {
       intentType: 'SINGLE_TRANSACTION',
       type: 'expense',
       amount: 200,
@@ -340,6 +340,8 @@ describe('SUÍTE DE TESTES DO MICROFONE CONTÍNUO E AUTOENVIO (3s DE SILÊNCIO)'
 
     let pendingTranscript = 'e também paguei...';
     let micState = 'LISTENING';
+    expect(pendingTranscript).toBe('e também paguei...');
+    expect(micState).toBe('LISTENING');
 
     // Ação: Cancelar Ditado
     pendingTranscript = '';
@@ -356,6 +358,7 @@ describe('SUÍTE DE TESTES DO MICROFONE CONTÍNUO E AUTOENVIO (3s DE SILÊNCIO)'
     let pendingText = 'Troquei o óleo R$ 150 no Pix.';
     let micState = 'LISTENING';
 
+    expect(micState).toBe('LISTENING');
     // Clique em Parar
     if (pendingText.trim()) {
       sentCount += 1;
@@ -364,6 +367,7 @@ describe('SUÍTE DE TESTES DO MICROFONE CONTÍNUO E AUTOENVIO (3s DE SILÊNCIO)'
     micState = 'IDLE';
 
     expect(sentCount).toBe(1);
+    expect(pendingText).toBe('');
     expect(micState).toBe('IDLE');
   });
 });

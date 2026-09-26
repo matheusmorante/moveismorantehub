@@ -23,6 +23,7 @@ import { TransactionVehicleSelector } from './TransactionVehicleSelector';
 import { TransactionCollaboratorSelector } from './TransactionCollaboratorSelector';
 import { UnselectedTypePrompt } from './UnselectedTypePrompt';
 import { useTransactionForm } from '../hooks/useTransactionForm';
+import { CurrencyInput } from '../../../components/shared/CurrencyInput';
 import { PAYMENT_METHODS, VEHICLES } from './transactionModalUtils';
 
 interface Props {
@@ -105,7 +106,7 @@ export const NewTransactionModal: React.FC<Props> = ({
                   <Text style={[styles.label, isDarkMode && styles.labelDark]}>
                     Valor (R$) <Text style={styles.requiredAsterisk}>*</Text>
                   </Text>
-                  <TextInput
+                  <CurrencyInput
                     testID="input-amount"
                     style={[
                       styles.input,
@@ -113,16 +114,14 @@ export const NewTransactionModal: React.FC<Props> = ({
                       isDarkMode && styles.inputDark,
                       form.fieldErrors.amount && styles.inputError,
                     ]}
-                    placeholder="0,00"
-                    placeholderTextColor={isDarkMode ? '#64748b' : '#94a3b8'}
-                    keyboardType="numeric"
-                    value={form.amountStr}
-                    onChangeText={text => {
-                      form.setAmountStr(text);
+                    value={form.amount}
+                    onChangeValue={val => {
+                      form.setAmount(val);
                       if (form.fieldErrors.amount) {
                         form.setFieldErrors(prev => ({ ...prev, amount: false }));
                       }
                     }}
+                    color={isDarkMode ? '#f8fafc' : '#1e293b'}
                   />
 
                   {/* Descrição */}

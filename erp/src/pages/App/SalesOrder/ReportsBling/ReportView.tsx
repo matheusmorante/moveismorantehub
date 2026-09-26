@@ -121,9 +121,9 @@ const ReportViewBling = () => {
                 setReportName(data.name);
                 setReportSource(data.source);
                 setReportConfig(data.config);
-                let mCount = rd.monthCount || 1;
-                let aProfit = rd.avgProfitPerItem || 0;
-                let aTurnover = rd.avgTurnoverPerItem || 0;
+                const mCount = rd.monthCount || 1;
+                const aProfit = rd.avgProfitPerItem || 0;
+                const aTurnover = rd.avgTurnoverPerItem || 0;
 
                 const resultsWithMonthly = rd.results.map((r: any) => {
                     const mP = r.monthlyProfit ?? (r.totalProfit / mCount);

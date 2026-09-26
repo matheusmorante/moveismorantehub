@@ -46,7 +46,7 @@ export const useDashboardStock = (): StockData => {
                     .filter(p => p.has_variations)
                     .map(p => p.id);
 
-                let variationsByProductId: Record<string, any[]> = {};
+                const variationsByProductId: Record<string, any[]> = {};
                 if (productIdsWithVariations.length > 0) {
                     const { data: variationRows } = await supabase
                         .from('product_variations')

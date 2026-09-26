@@ -77,14 +77,11 @@ export function getOrderFulfillmentCountdown(order: Order, maxDays = DEFAULT_AUT
     const daysRemaining = Math.max(0, maxDays - daysPassed);
     const isExpired = daysRemaining <= 0;
 
-    let countdownLabel = '';
-    if (daysRemaining > 1) {
-        countdownLabel = `Atendido em ${daysRemaining} dias`;
-    } else if (daysRemaining === 1) {
-        countdownLabel = `Atendido em 1 dia`;
-    } else {
-        countdownLabel = `Atendido hoje`;
-    }
+    const countdownLabel = daysRemaining > 1
+        ? `Atendido em ${daysRemaining} dias`
+        : daysRemaining === 1
+        ? `Atendido em 1 dia`
+        : `Atendido hoje`;
 
     return {
         isPastDelivery: true,

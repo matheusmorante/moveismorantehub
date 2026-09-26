@@ -86,6 +86,6 @@ export const getNextOrderIndex = async (): Promise<number> => {
         return nextCode;
     } catch (err: any) {
         console.error('[orderCode] Falha crítica ao gerar código sequencial de pedido:', err);
-        throw new Error(`Não foi possível gerar um código único para o pedido: ${err.message || err}`);
+        throw new Error(`Não foi possível gerar um código único para o pedido: ${err.message || err}`, { cause: err });
     }
 };

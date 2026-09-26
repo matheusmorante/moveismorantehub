@@ -90,7 +90,7 @@ describe('QueryGuard (SupabaseMonitorService)', () => {
         
         // Estourar o limite (21 chamadas síncronas)
         for (let i = 0; i < 25; i++) {
-            try { await supabaseMonitor.customFetch(url, { method: 'GET' }); } catch (e) {}
+            try { await supabaseMonitor.customFetch(url, { method: 'GET' }); } catch (e) { /* no-op: intencionalmente silencioso */ }
         }
         
         // Deve estar OPEN agora
@@ -108,7 +108,7 @@ describe('QueryGuard (SupabaseMonitorService)', () => {
         
         // Estourar
         for (let i = 0; i < 25; i++) {
-            try { await supabaseMonitor.customFetch(url, { method: 'GET' }); } catch (e) {}
+            try { await supabaseMonitor.customFetch(url, { method: 'GET' }); } catch (e) { /* no-op: intencionalmente silencioso */ }
         }
         
         // Cooldown

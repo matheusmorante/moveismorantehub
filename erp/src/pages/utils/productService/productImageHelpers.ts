@@ -41,7 +41,7 @@ export const parseVariationImages = (rawImageUrl: any, rawImages?: any): string[
                         });
                         return;
                     }
-                } catch (e) {}
+                } catch (e) { /* no-op: intencionalmente silencioso */ }
             }
             trimmed.split(',').forEach((s: string) => {
                 const clean = s.trim().replace(/^["']|["']$/g, '');

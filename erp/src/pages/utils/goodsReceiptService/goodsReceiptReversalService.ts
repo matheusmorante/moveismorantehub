@@ -1,15 +1,6 @@
 import { supabase } from '@/pages/utils/supabaseConfig';
 import { GoodsReceipt } from './goodsReceipt.types';
 import { getStoredReceipts, saveStoredReceipts, notifyListeners } from './goodsReceiptStorage';
-import { reprocessMovingAverageCosts } from '../movingAverageCostService';
-
-const rebuildReceiptProjection = async (receipt: GoodsReceipt) => {
-    const skus = new Map<string, { productId: string; variationId?: string }>();
-    receipt.items.forEach((item) => {
-        if (item.productId) skus.set(`${item.productId}:${item.variationId || ''}`, item);
-    });
-    await Promise.all([...skus.values()].map((item) => reprocessMovingAverageCosts(item.productId, item.variationId)));
-};
 
 export const reverseGoodsReceipt = async (id: string): Promise<GoodsReceipt> => {
     const localList = getStoredReceipts();
@@ -28,13 +19,12 @@ export const reverseGoodsReceipt = async (id: string): Promise<GoodsReceipt> => 
         updatedAt: now,
     };
 
-    const { error } = await supabase.rpc('set_goods_receipt_inventory_status_transaction', {
+    const { error } = await supabase.rpc('set_goods_receipt_inventory_status_checked_transaction', {
         p_receipt_id: receipt.id,
         p_status: 'estornado',
         p_reason: `Estorno do Recebimento #${receipt.receiptIndex || receipt.id}`,
     });
     if (error) throw error;
-    await rebuildReceiptProjection(receipt);
 
     // 2. Atualizar localmente
     localList[idx] = estornadoReceipt;
@@ -60,13 +50,12 @@ export const unreverseGoodsReceipt = async (id: string): Promise<GoodsReceipt> =
         updatedAt: now,
     };
 
-    const { error } = await supabase.rpc('set_goods_receipt_inventory_status_transaction', {
+    const { error } = await supabase.rpc('set_goods_receipt_inventory_status_checked_transaction', {
         p_receipt_id: receipt.id,
         p_status: 'received',
         p_reason: null,
     });
     if (error) throw error;
-    await rebuildReceiptProjection(receipt);
 
     // 2. Atualizar localmente
     localList[idx] = reactivatedReceipt;

@@ -66,7 +66,8 @@ const ItemsTable = ({
                 unitDiscount: 0,
                 discountType: 'fixed',
                 handlingType: '',
-                itemType: 'product'
+                itemType: 'product',
+                orderItemId: crypto.randomUUID()
             }
         ]);
         setActiveTab('products');
@@ -84,7 +85,8 @@ const ItemsTable = ({
                 unitDiscount: 0,
                 discountType: 'fixed',
                 handlingType: '',
-                itemType: 'service'
+                itemType: 'service',
+                orderItemId: crypto.randomUUID()
             }
         ]);
         setActiveTab('services');

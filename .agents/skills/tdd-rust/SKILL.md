@@ -19,6 +19,9 @@ tags: [tdd, testing, rust, filters, snapshots, token-savings, rtk]
 
 # RTK TDD Workflow
 
+> [!NOTE]
+> Esta skill estende a base genérica [`rtk-tdd`](file:///c:/Users/Rosilene/Desktop/morantehub/.agents/skills/rtk-tdd/SKILL.md) com fixtures reais, snapshots `insta` e assertivas de token savings. Tem precedência para desenvolvimento de filtros RTK.
+
 Enforce Red-Green-Refactor for all RTK filter development.
 
 ## The Loop

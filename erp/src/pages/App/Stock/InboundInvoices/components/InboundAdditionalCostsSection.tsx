@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 import { formatCurrency } from '@/pages/utils/formatters';
+import CurrencyOrPercentInput from '@/components/CurrencyOrPercentInput';
 import type { InboundInvoice } from '@/pages/utils/inboundNfe/inboundNfeTypes';
 import {
     type AdditionalCostInput,
@@ -70,16 +71,17 @@ export function InboundAdditionalCostsSection({ invoice, onChange }: InboundAddi
                         <option value="fixed">Valor fixo (R$)</option>
                     </select>
                     <div className="flex items-center gap-2">
-                        <input
-                            type="number"
-                            min="0"
-                            step="0.01"
-                            value={cost.inputValue ?? ''}
-                            onChange={(event) => updateCost({ inputValue: asNumber(event.target.value) })}
-                            placeholder={cost.calculationType === 'percentage' ? 'Ex.: 10' : 'Ex.: 350,00'}
-                            aria-label="Valor da despesa"
-                            className="min-w-0 flex-1 rounded-lg border border-slate-200 px-3 py-2 text-xs dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
-                        />
+                        <div className="min-w-0 flex-1">
+                            <CurrencyOrPercentInput
+                                value={cost.inputValue ?? null}
+                                onChange={(val) => updateCost({ inputValue: val })}
+                                prefix={cost.calculationType === 'fixed' ? 'R$ ' : ''}
+                                suffix={cost.calculationType === 'percentage' ? '%' : ''}
+                                showBadge={false}
+                                placeholder={cost.calculationType === 'percentage' ? '10' : '350,00'}
+                                className="w-full rounded-lg border border-slate-200 px-3 py-2 text-xs dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 focus:outline-none focus:border-blue-500"
+                            />
+                        </div>
                         {calculation.costs[0] && (
                             <span className="shrink-0 text-xs font-black text-amber-700 dark:text-amber-300">
                                 {formatCurrency(calculation.costs[0].calculatedAmount)}

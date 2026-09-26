@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 import Service from "../../types/service.type";
 import { saveService } from "../../utils/serviceService";
 import { toast } from "react-toastify";
+import CurrencyInput from '../../../components/CurrencyInput';
 
 interface ServiceFormModalProps {
     isOpen: boolean;
@@ -89,21 +90,17 @@ const ServiceFormModal = ({ isOpen, onClose, service }: ServiceFormModalProps) =
 
                         <div className="flex flex-col gap-2">
                             <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">Preço de Venda (R$)</label>
-                            <input
-                                type="number"
-                                step="0.01"
+                            <CurrencyInput
                                 value={formData.unitPrice || 0}
-                                onChange={(e) => setFormData({ ...formData, unitPrice: parseFloat(e.target.value) })}
+                                onChangeValue={(val) => setFormData({ ...formData, unitPrice: val })}
                                 className="w-full px-4 py-4 bg-blue-50/50 dark:bg-blue-900/10 border border-blue-100/50 dark:border-blue-900/30 rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none transition-all text-lg font-black text-blue-600 dark:text-blue-400"
                             />
                         </div>
                         <div className="flex flex-col gap-2">
                             <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">Preço de Custo (R$)</label>
-                            <input
-                                type="number"
-                                step="0.01"
+                            <CurrencyInput
                                 value={formData.costPrice || 0}
-                                onChange={(e) => setFormData({ ...formData, costPrice: parseFloat(e.target.value) })}
+                                onChangeValue={(val) => setFormData({ ...formData, costPrice: val })}
                                 className="w-full px-4 py-4 bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-2xl focus:ring-2 focus:ring-slate-500 outline-none transition-all text-sm font-bold dark:text-slate-100"
                             />
                         </div>

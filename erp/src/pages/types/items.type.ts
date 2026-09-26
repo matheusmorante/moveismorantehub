@@ -1,6 +1,12 @@
 type DiscountType = 'percentage' | 'fixed';
 
 export type Item = {
+    /** Identificador estável da linha, independente do produto/variação. */
+    orderItemId?: string;
+    /** Índice zero-based da linha da venda original em um item de devolução. */
+    originalOrderItemIndex?: number;
+    /** Linha de produto à qual este serviço compõe fiscalmente. */
+    linkedProductOrderItemId?: string;
     productId?: string;
     variationId?: string;
     isTemporaryProduct?: boolean;

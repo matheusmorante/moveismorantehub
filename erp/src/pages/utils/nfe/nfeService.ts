@@ -6,6 +6,7 @@ import { buildNfeXml } from "./nfeXmlBuilder";
 import { openDanfePrintWindow, DanfeData } from "./danfeGenerator";
 import { updateOrder } from "../orderHistoryService";
 import { supabase } from "../supabaseConfig";
+import { getAuthorizedAt, getCancellationWindow } from './nfeEventRules';
 
 export interface NfeEmissionResult {
     success: boolean;
@@ -19,6 +20,9 @@ export interface NfeEmissionResult {
     xml?: string;
     danfeData?: DanfeData;
     error?: string;
+    pending?: boolean;
+    cStat?: string;
+    sefazMessage?: string;
     validation?: NfeValidationResult;
 }
 
@@ -32,33 +36,32 @@ async function getNextNfeNumber(model: '55' | '65', series: string, environment:
         : Number((settings as any).nfeNextNumber || 700);
 
     try {
-        const { data, error } = await supabase.rpc('get_next_nfe_number', {
+        const { data, error } = await supabase.rpc('reserve_next_nfe_number', {
             p_modelo: model,
             p_serie: series,
-            p_ambiente: environment
+            p_ambiente: environment,
+            p_numero_minimo: configuredBase,
         });
         if (!error && typeof data === 'number' && data >= configuredBase) {
             return data;
         }
     } catch {
-        // Fallback local se RPC não estiver disponível
+        // A sequência local não é segura para emissão fiscal concorrente.
     }
-
-    const storageKey = `morantehub_nfe_seq_${model}_${series}_${environment}`;
-    const stored = parseInt(localStorage.getItem(storageKey) || '0', 10);
-    const base = Math.max(stored, configuredBase);
-    const next = base;
-    localStorage.setItem(storageKey, String(next + 1));
-    return next;
+    throw new Error('Não foi possível reservar a numeração fiscal oficial. Verifique a sequência no sistema antes de emitir.');
 }
 
 /**
  * Executa a emissão da NF-e / NFC-e de teste (homologação) ou produção
  */
-export async function emitNfeForOrder(order: Order, customEnvironment?: 1 | 2): Promise<NfeEmissionResult> {
+export async function emitNfeForOrder(order: Order, customEnvironment?: 1 | 2, productionConfirmed = false): Promise<NfeEmissionResult> {
     const settings: AppSettings = await getSettings();
-    const environment: 1 | 2 = customEnvironment || (settings as any).nfeEnvironment || 2;
+    const environment: 1 | 2 = customEnvironment || 1;
+    if (environment === 1 && !productionConfirmed) {
+        return { success: false, error: 'Confirme explicitamente a transmissão em Produção antes de emitir.' };
+    }
     const model: '55' | '65' = order.shipping?.deliveryMethod === 'pickup' ? '65' : '55';
+    const emissionRequestId = crypto.randomUUID();
     const series = String((settings as any).nfeSerie || '1');
 
     if (model === '65' && (!(settings as any).cscId || !(settings as any).cscToken)) {
@@ -75,12 +78,14 @@ export async function emitNfeForOrder(order: Order, customEnvironment?: 1 | 2): 
     if (!validation.isValid) {
         return {
             success: false,
+            model,
+            environment,
             error: validation.errors.join(' | '),
             validation
         };
     }
 
-    const requestedNcms = Array.from(new Set(order.items.map(item => {
+    const requestedNcms = Array.from(new Set(order.items.filter(item => item.itemType !== 'service').map(item => {
         const rawCode = (item as any).fiscal?.ncm || '';
         return String(rawCode).replace(/\D/g, '');
     }).filter(code => code.length === 8)));
@@ -144,14 +149,17 @@ export async function emitNfeForOrder(order: Order, customEnvironment?: 1 | 2): 
     });
 
     // 5. Envio e Assinatura Digital via Serverless Function Vercel
-    let protocolNumber = `141${yearMonth}${String(Math.floor(10000000 + Math.random() * 90000000))}`;
-    let protocolDate = now.toLocaleString('pt-BR');
+    let protocolNumber: string | undefined;
+    let protocolDate: string | undefined;
     let signedXml = xml;
+    let sefazResult: any;
 
     try {
+        const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+        if (sessionError || !sessionData.session?.access_token) throw new Error('Faça login novamente para transmitir o documento fiscal.');
         const response = await fetch('/api/nfe/emit', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${sessionData.session.access_token}` },
             body: JSON.stringify({
                 xml,
                 environment,
@@ -159,18 +167,23 @@ export async function emitNfeForOrder(order: Order, customEnvironment?: 1 | 2): 
                 nfeNumber,
                 series,
                 model,
-                accessKey
+                accessKey,
+                emissionRequestId,
+                productionConfirmed
             })
         });
 
-        if (response.ok) {
-            const result = await response.json();
-            if (result.success === false) {
-                throw new Error(result.error || result.xMotivo || 'A SEFAZ rejeitou a NF-e.');
-            }
-            if (result.protocolNumber) protocolNumber = result.protocolNumber;
-            if (result.protocolDate) protocolDate = result.protocolDate;
-            if (result.signedXml) signedXml = result.signedXml;
+        sefazResult = await response.json();
+        if (sefazResult.signedXml) signedXml = sefazResult.signedXml;
+        if (sefazResult.protocolNumber) protocolNumber = sefazResult.protocolNumber;
+        if (sefazResult.protocolDate) protocolDate = sefazResult.protocolDate;
+        if (!response.ok || !sefazResult.success) {
+            return {
+                success: false, pending: Boolean(sefazResult.pending), accessKey, nfeNumber, series, model, environment,
+                xml: signedXml, cStat: sefazResult.cStat, sefazMessage: sefazResult.xMotivo,
+                error: sefazResult.error || sefazResult.xMotivo || 'A SEFAZ não confirmou a autorização da nota.',
+                validation,
+            };
         }
     } catch (e: any) {
         console.error("[NFe Service] Falha na transmissão para a SEFAZ:", e);
@@ -182,6 +195,9 @@ export async function emitNfeForOrder(order: Order, customEnvironment?: 1 | 2): 
             model,
             environment,
             xml,
+            pending: Boolean(sefazResult?.pending),
+            cStat: sefazResult?.cStat,
+            sefazMessage: sefazResult?.xMotivo,
             error: e?.message || 'Falha na transmissão para a SEFAZ.',
             validation,
         };
@@ -193,11 +209,11 @@ export async function emitNfeForOrder(order: Order, customEnvironment?: 1 | 2): 
         accessKey,
         nfeNumber,
         series,
-        protocolNumber,
-        protocolDate,
+        protocolNumber: protocolNumber || '',
+        protocolDate: protocolDate || '',
         model,
         environment,
-        status: 'autorizada'
+        status: environment === 2 ? 'homologada' : 'autorizada'
     };
 
     // 6. Atualização do Pedido com os dados fiscais emitidos
@@ -211,7 +227,7 @@ export async function emitNfeForOrder(order: Order, customEnvironment?: 1 | 2): 
         protocolDate,
         xml,
         emittedAt: now.toISOString(),
-        status: 'autorizada' as const
+        status: (environment === 2 ? 'homologada' : 'autorizada') as 'homologada' | 'autorizada'
     };
 
     try {
@@ -220,24 +236,8 @@ export async function emitNfeForOrder(order: Order, customEnvironment?: 1 | 2): 
             nfeData: nfeRecord
         } as any);
 
-        // Tentar salvar na tabela nfe_documents
-        await supabase.from('nfe_documents').insert({
-            order_id: order.id,
-            numero_nfe: nfeNumber,
-            serie: series,
-            chave_acesso: accessKey,
-            modelo: model,
-            ambiente: environment,
-            status: 'autorizada',
-            motivo_status: 'Autorizado o uso da NF-e em ambiente de homologacao',
-            xml_nfe: xml,
-            numero_protocolo: protocolNumber,
-            valor_total: order.paymentsSummary?.totalOrderValue || 0,
-            destinatario_nome: order.customerData?.fullName || 'CONSUMIDOR FINAL',
-            destinatario_documento: order.customerData?.cpfCnpj || (order.customerData as any)?.document || ''
-        });
     } catch (err) {
-        console.warn("Aviso ao persistir nfe_documents:", err);
+        console.warn("Aviso: autorização foi confirmada, mas não foi possível atualizar nfeData do pedido:", err);
     }
 
     return {
@@ -287,14 +287,21 @@ export function canCancelFiscalDocument(doc: {
     status?: string;
     modelo?: '55' | '65';
     created_at?: string;
+    xml_protocolo?: string;
+    ambiente?: 1 | 2;
     isMerchandiseDelivered?: boolean;
 }): { canCancel: boolean; reason?: string } {
     if (!doc) return { canCancel: false, reason: 'Documento não informado' };
-    if (doc.status !== 'autorizada') {
+    if (!['autorizada', 'homologada'].includes(doc.status || '') ||
+        (doc.status === 'homologada' && doc.ambiente !== 2)) {
         return { canCancel: false, reason: 'Apenas notas autorizadas podem ser canceladas' };
     }
     if (doc.isMerchandiseDelivered) {
         return { canCancel: false, reason: 'Mercadoria já entregue/circulou. Necessário emitir NF-e de Devolução de Entrada.' };
+    }
+    const window = getCancellationWindow(String(doc.modelo || ''), getAuthorizedAt(doc.xml_protocolo, doc.created_at || ''));
+    if (!window.valid || window.expired) {
+        return { canCancel: false, reason: 'Prazo normal de cancelamento expirado; avalie NF-e de estorno conforme a regra fiscal.' };
     }
     return { canCancel: true };
 }

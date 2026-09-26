@@ -10,7 +10,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { Plus, Trash2, Link2, Unlink, Info, Settings, FileText, Images, Package, Network, X, Check, Camera, Pencil } from 'lucide-react-native';
+import { Plus, Link2, Unlink, Info, Settings, FileText, Images, Package, Network, X, Check, Camera, Pencil } from 'lucide-react-native';
 import { generateVariationSku, parseLocalizedPrice } from '../../services/mobileProductHelpers';
 import { ProductFormTechnicalTab } from './ProductFormTechnicalTab';
 import { ProductVariationPhotosEditor } from '../components/ProductVariationPhotosEditor';
@@ -79,12 +79,6 @@ export const ProductFormVariationsTab: React.FC<Props> = ({ formData, setFormDat
     setActiveVariationTab('identificacao');
   };
 
-  const handleRemove = (idx: number) => {
-    setFormData(prev => {
-      const next = (prev.variations || []).filter((_: any, i: number) => i !== idx);
-      return { ...prev, variations: next, hasVariations: next.length > 0 };
-    });
-  };
 
   const updateVar = (idx: number, field: string, val: any) => {
     setFormData(prev => {
@@ -526,13 +520,7 @@ export const ProductFormVariationsTab: React.FC<Props> = ({ formData, setFormDat
                         </View>
                       )}
 
-                      <TouchableOpacity
-                        onPress={() => handleRemove(idx)}
-                        style={styles.removeBtn}
-                      >
-                        <Trash2 size={14} color="#ef4444" />
-                        <Text style={styles.removeBtnText}>Remover Variação</Text>
-                      </TouchableOpacity>
+                      
                     </ScrollView>
                     <View style={[styles.variationModalFooter, dark && styles.darkModalFooter]}>
                       <TouchableOpacity
@@ -647,6 +635,5 @@ const styles = StyleSheet.create({
   darkModalFooter: { borderTopColor: '#334155', backgroundColor: '#0f172a' },
   completeVariationButton: { minHeight: 44, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, borderRadius: 10, backgroundColor: '#2563eb' },
   completeVariationButtonText: { color: '#ffffff', fontSize: 13, fontWeight: '900', textTransform: 'uppercase' },
-  removeBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 8 },
-  removeBtnText: { fontSize: 12, fontWeight: '800', color: '#ef4444' },
+  
 });

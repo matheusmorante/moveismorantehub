@@ -15,7 +15,7 @@ export const recalculateProductStockOnMove = async (move: InventoryMove): Promis
     const product = mapProductFromDB(p);
     let newTotalStock = Number(product.stock || 0);
     let newAverageCost = Number(product.costPrice || 0);
-    let updatedVariations = product.variations ? [...product.variations] : [];
+    const updatedVariations = product.variations ? [...product.variations] : [];
 
     const qty = Number(move.quantity || 0);
 
@@ -78,7 +78,7 @@ export const revertProductStockFromMove = async (move: InventoryMove): Promise<v
     const qty = Number(move.quantity || 0);
     const product = mapProductFromDB(p);
     let newTotalStock = Number(product.stock || 0);
-    let updatedVariations = product.variations ? [...product.variations] : [];
+    const updatedVariations = product.variations ? [...product.variations] : [];
 
     if (move.variationId && updatedVariations.length > 0) {
         const vIdx = updatedVariations.findIndex((v: any) => String(v.id) === String(move.variationId));
@@ -114,7 +114,7 @@ export const reapplyProductStockFromMove = async (move: InventoryMove): Promise<
     const qty = Number(move.quantity || 0);
     const product = mapProductFromDB(p);
     let newTotalStock = Number(product.stock || 0);
-    let updatedVariations = product.variations ? [...product.variations] : [];
+    const updatedVariations = product.variations ? [...product.variations] : [];
 
     if (move.variationId && updatedVariations.length > 0) {
         const vIdx = updatedVariations.findIndex((v: any) => String(v.id) === String(move.variationId));

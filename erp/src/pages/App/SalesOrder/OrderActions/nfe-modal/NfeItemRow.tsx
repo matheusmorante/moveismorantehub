@@ -7,11 +7,19 @@ import { CFOP_OPTIONS, CSOSN_OPTIONS, ORIGEM_OPTIONS, CEST_OPTIONS } from '@/pag
 interface Props {
     item: NfeItemWithFiscal;
     onUpdateFiscal: (field: keyof NfeItemFiscal, value: string) => void;
+    onSuggestNcm: () => void;
+    onAcceptNcmSuggestion: () => void;
+    onRejectNcmSuggestion: () => void;
+    isSuggestingNcm: boolean;
 }
 
 export const NfeItemRow: React.FC<Props> = ({
     item,
-    onUpdateFiscal
+    onUpdateFiscal,
+    onSuggestNcm,
+    onAcceptNcmSuggestion,
+    onRejectNcmSuggestion,
+    isSuggestingNcm
 }) => {
     const [isExpanded, setIsExpanded] = useState(false);
     const itemTotal = (item.quantity || 1) * (item.unitPrice || 0) - ((item.unitDiscount || 0) * (item.quantity || 1));
@@ -50,12 +58,16 @@ export const NfeItemRow: React.FC<Props> = ({
 
                 {/* Campos Fiscais Rápidos (NCM via Select/Pesquisa) */}
                 <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
-                    <div className="flex items-center gap-1.5 min-w-[170px] sm:min-w-[190px]">
+                    <div className="flex flex-col items-stretch gap-1.5 min-w-[190px] sm:min-w-[220px]">
                         <label className="text-[10px] font-black uppercase tracking-wider text-slate-400 shrink-0">NCM:</label>
+                        <span className={`text-[10px] ${isNcmValid ? 'text-emerald-600' : 'text-rose-600'}`}>{isNcmValid ? '8 dígitos' : 'Informe 8 dígitos'}</span>
                         <NcmSelect
                             value={item.fiscal?.ncm || ''}
                             onChange={(val) => onUpdateFiscal('ncm', val)}
                         />
+                        <button type="button" onClick={onSuggestNcm} disabled={isSuggestingNcm} className="self-start text-[10px] font-bold text-violet-700 hover:text-violet-900 disabled:opacity-50 dark:text-violet-300">
+                            {isSuggestingNcm ? <><i className="bi bi-arrow-repeat mr-1 animate-spin" />Buscando sugestão…</> : <><i className="bi bi-stars mr-1" />Sugerir NCM</>}
+                        </button>
                     </div>
 
                     {/* Botão de Expandir Campos Fiscais Avançados */}
@@ -71,6 +83,22 @@ export const NfeItemRow: React.FC<Props> = ({
                     </button>
                 </div>
             </div>
+
+            {item.pendingNcmSuggestion?.ncm && (
+                <div className="mt-3 rounded-xl border border-violet-200 bg-violet-50 p-3 dark:border-violet-900 dark:bg-violet-950/20">
+                    <p className="text-[10px] font-black uppercase tracking-wider text-violet-800 dark:text-violet-200">Sugestão pendente · não aplicada ao item</p>
+                    <p className="mt-1 font-mono text-xs font-bold text-slate-800 dark:text-slate-100">{item.pendingNcmSuggestion.ncm}</p>
+                    <p className="mt-0.5 text-[10px] text-slate-600 dark:text-slate-300">{item.pendingNcmSuggestion.description}</p>
+                    <p className="mt-1 text-[10px] leading-relaxed text-violet-800 dark:text-violet-200">{item.pendingNcmSuggestion.reviewReason}</p>
+                    <div className="mt-2 flex items-center justify-between gap-3">
+                        <span className="text-[9px] text-slate-500">Confiança: {Math.round(item.pendingNcmSuggestion.confidence * 100)}%</span>
+                        <div className="flex gap-2">
+                            <button type="button" onClick={onRejectNcmSuggestion} className="rounded-lg border border-slate-300 px-3 py-1.5 text-[10px] font-bold text-slate-700 dark:border-slate-700 dark:text-slate-200">Recusar</button>
+                            <button type="button" onClick={onAcceptNcmSuggestion} className="rounded-lg bg-violet-600 px-3 py-1.5 text-[10px] font-bold text-white hover:bg-violet-700">Aceitar sugestão</button>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* Campos Tributários Avançados (Sanfona Expansível com Selects) */}
             {isExpanded && (

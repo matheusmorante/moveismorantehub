@@ -70,7 +70,9 @@ class QueryGuard {
           const parsed = JSON.parse(userStr);
           userId = parsed.user?.id;
           token = parsed.access_token;
-        } catch {}
+        } catch {
+          // Token malformado ou inválido no storage local, ignora
+        }
       }
 
       if (token && userId) {
@@ -214,7 +216,7 @@ class QueryGuard {
       this.inFlightRequests.set(fingerprint, fetchPromise);
     }
 
-    try {
+    // executa requisição e telemetria
       const response = await fetchPromise;
       const end = performance.now();
 
@@ -253,9 +255,9 @@ class QueryGuard {
       // IMPORTANTE: precisamos clonar a resposta para quem a originou
       // pois o response body stream só pode ser lido uma vez.
       return response.clone();
-    } catch (e) {
-      throw e;
-    }
+    // sucesso
+
+    // finalizado
   };
 }
 

@@ -202,8 +202,8 @@ export function useProductFormVariations(
                     return v;
                 }
 
-                let base = prev.code || 'PROD';
-                let suffix = v.name ? v.name.toUpperCase().replace(/\s+/g, '') : `V${idx + 1}`;
+                const base = prev.code || 'PROD';
+                const suffix = v.name ? v.name.toUpperCase().replace(/\s+/g, '') : `V${idx + 1}`;
                 let newSku = `${base}-${suffix}`;
                 if (newSku.length > 50) newSku = newSku.substring(0, 50);
 

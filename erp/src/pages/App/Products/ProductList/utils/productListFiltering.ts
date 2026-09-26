@@ -49,7 +49,7 @@ export function filterAndSortProducts(products: readonly Product[], filters: Pro
 
             const matchesSearch = (value?: string) => normalizeSearchTerm(value || '').includes(searchTerm);
             const matchesSelf = matchesSearch(product.name);
-            let matchesRelatedProduct = false;
+            let matchesRelatedProduct: boolean;
 
             if (!product.parentId) {
                 matchesRelatedProduct = (product.variations as unknown as VariationSearchable[] | undefined)

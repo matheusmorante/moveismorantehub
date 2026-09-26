@@ -94,7 +94,7 @@ export class GeminiClient {
       try {
         const parsed = JSON.parse(errText);
         errorMsg = parsed?.error?.message || errorMsg;
-      } catch {}
+      } catch  { /* no-op: intencionalmente silencioso */ }
 
       ApiUsageTracker.record({
         provider: 'gemini',

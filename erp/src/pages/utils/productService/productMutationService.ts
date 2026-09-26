@@ -241,7 +241,7 @@ export const bulkMoveToTrash = async (ids: string[]): Promise<{ successCount: nu
 
         const idsToUpdate = ids.filter(id => !idsWithOrders.has(id));
         
-        let errors: string[] = [];
+        const errors: string[] = [];
         if (idsWithOrders.size > 0) {
             errors.push(`${idsWithOrders.size} produto(s) possuem pedidos de venda/assistência vinculados e não puderam ser movidos para a lixeira.`);
             orderConflicts.forEach(oc => errors.push(oc));
@@ -306,7 +306,7 @@ export const bulkPermanentDeleteProducts = async (ids: string[]): Promise<{ succ
 
         const idsToDelete = idsToProcess.filter(id => !idsWithOrders.has(id));
         
-        let errors: string[] = [];
+        const errors: string[] = [];
         if (idsWithMoves.size > 0) errors.push(`${idsWithMoves.size} produto(s) possuem movimentações de estoque (entradas/saídas).`);
         if (idsWithOrders.size > 0) errors.push(`${idsWithOrders.size} produto(s) possuem pedidos de venda ou assistência vinculados.`);
 

@@ -186,7 +186,7 @@ const QRScannerModal: React.FC<QRScannerModalProps> = ({
 
         // Vibração (Feedback háptico) se habilitado
         if (feedbackOnDetection && configSettings?.vibrate !== false && navigator.vibrate) {
-            try { navigator.vibrate(80); } catch (e) {}
+            try { navigator.vibrate(80); } catch (e) { /* no-op: intencionalmente silencioso */ }
         }
         
         console.log("[Scanner v7] Código detectado:", text);

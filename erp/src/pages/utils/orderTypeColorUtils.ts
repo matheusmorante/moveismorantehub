@@ -194,7 +194,7 @@ export const getPrimaryHandlingInfo = (order: any, settings: any) => {
         if (!hLabel) return null;
         
         // Try exact match first
-        let opt = allOptions.find(o => (o.label || "").trim().toLowerCase() === hLabel);
+        const opt = allOptions.find(o => (o.label || "").trim().toLowerCase() === hLabel);
         
         // Fallback: If no match but contains "montagem", treat as assembly (resilience for data drift)
         if (!opt && hLabel.includes('montagem')) {

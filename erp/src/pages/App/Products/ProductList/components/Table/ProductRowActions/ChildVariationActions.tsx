@@ -1,6 +1,5 @@
 import React, { useState, useRef } from 'react';
 import DropdownPortal from '@/components/shared/DropdownPortal';
-import { useDeleteVariation } from '../../../hooks/useDeleteVariation';
 import { ActionProductLike } from '../Table/ProductRowActionsCell';
 
 export interface ChildVariationActionsProps {
@@ -14,16 +13,9 @@ export const ChildVariationActions: React.FC<ChildVariationActionsProps> = ({
     product,
     onMoveToAnotherFamily,
     onMergeWithAnotherVariation,
-    onRefresh,
 }) => {
     const [isMenuOpen, setIsMenuOpen] = useState(false);
     const menuAnchorRef = useRef<HTMLButtonElement>(null);
-    const parentId = product.parentId || product.id || '';
-    
-    const { checkingUsageId, usageCache, handleCheckAndAskDelete } = useDeleteVariation(parentId, onRefresh);
-    const variationId = product.variationId || product.id;
-    const isUsed = usageCache[variationId || ''] === true;
-    const isUsageChecking = checkingUsageId === variationId;
 
     if (!onMoveToAnotherFamily || !product.variationId) return null;
 
@@ -103,28 +95,6 @@ export const ChildVariationActions: React.FC<ChildVariationActionsProps> = ({
                                         <span className="text-[10px] font-black uppercase tracking-widest text-slate-700 dark:text-slate-200">Mesclar com outra variação</span>
                                     </button>
                                 )}
-                                <div className="border-t border-slate-50 dark:border-slate-800/50 my-1">
-                                    <button
-                                        type="button"
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            setIsMenuOpen(false);
-                                            if (variationId) handleCheckAndAskDelete(variationId);
-                                        }}
-                                        disabled={isUsageChecking || isUsed}
-                                        className={`w-full px-4 py-2.5 text-left flex items-center gap-3 cursor-pointer transition-colors ${isUsageChecking || isUsed ? 'opacity-50 cursor-not-allowed text-slate-500' : 'hover:bg-red-50 dark:hover:bg-red-950/30 text-red-600 dark:text-red-400'}`}
-                                        title={isUsed ? "Variação em uso. Não pode ser deletada." : "Excluir Variação"}
-                                    >
-                                        {isUsageChecking ? (
-                                            <i className="bi bi-arrow-repeat animate-spin text-slate-400" />
-                                        ) : (
-                                            <i className={`bi bi-trash3-fill ${isUsed ? 'text-slate-400' : 'text-red-500'}`} />
-                                        )}
-                                        <span className="text-[10px] font-black uppercase tracking-widest">
-                                            {isUsageChecking ? 'Verificando Uso...' : 'Excluir Variação'}
-                                        </span>
-                                    </button>
-                                </div>
                             </>
                         )}
                     </div>

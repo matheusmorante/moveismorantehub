@@ -382,7 +382,7 @@ export function useVariationForm({
             variationName = parentPrefix || 'Variação';
         }
 
-        let finalVariation = {
+        const finalVariation = {
             ...formData,
             attributes: cleanAttributes,
             name: toTitleCase(variationName),

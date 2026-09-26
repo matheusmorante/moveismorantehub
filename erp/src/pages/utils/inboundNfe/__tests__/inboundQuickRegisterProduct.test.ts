@@ -115,7 +115,7 @@ describe('Cadastro Rápido de Produtos via NF-e (Modo A & Modo B)', () => {
                     const products: Product[] = JSON.parse(raw);
                     const filtered = products.filter((p) => p.id !== id && !p.name?.includes(testRunId));
                     localStorage.setItem('erp_products', JSON.stringify(filtered));
-                } catch {}
+                } catch  { /* no-op: intencionalmente silencioso */ }
             }
         });
         supplierCodesStore.length = 0;

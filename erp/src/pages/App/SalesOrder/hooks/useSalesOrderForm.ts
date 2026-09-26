@@ -141,7 +141,10 @@ export const useSalesOrderForm = (initialDeliveryMethod?: 'delivery' | 'pickup',
             generateCodeForCopyOrNew();
         }
 
-        setItems(migratedOrder.items || []);
+        setItems((migratedOrder.items || []).map(item => ({
+            ...item,
+            orderItemId: item.orderItemId || crypto.randomUUID()
+        })));
         const defaultScheduling = {
             date: "",
             endDate: "",

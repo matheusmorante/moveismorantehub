@@ -41,7 +41,7 @@ export const initializeProductsIfEmpty = async (): Promise<Product[]> => {
             }
         }
 
-        let fetchedProducts: Product[] = allData.map((p, idx) => mapFromDB(p, idx));
+        const fetchedProducts: Product[] = allData.map((p, idx) => mapFromDB(p, idx));
         saveLocalProducts(fetchedProducts);
         return fetchedProducts;
     } catch (e) {

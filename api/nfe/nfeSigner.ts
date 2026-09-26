@@ -60,15 +60,24 @@ export function canonicalizeC14N(xml: string): string {
  * Aplica a assinatura digital padrão XMLDSig (RSA-SHA1) na tag <infNFe Id="..."> conforme o MOC da SEFAZ
  */
 export function signNfeXml(xml: string, privateKeyPem: string, certDerBase64: string): string {
+    return signFiscalEventXml(xml, privateKeyPem, certDerBase64, 'infNFe');
+}
+
+/** Assina eventos fiscais NF-e (como infEvento) com XMLDSig exigida pela SEFAZ. */
+export function signNfeEventXml(xml: string, privateKeyPem: string, certDerBase64: string): string {
+    return signFiscalEventXml(xml, privateKeyPem, certDerBase64, 'infEvento');
+}
+
+function signFiscalEventXml(xml: string, privateKeyPem: string, certDerBase64: string, elementName: 'infNFe' | 'infEvento'): string {
     // A NF-e exige XMLDSig sobre o elemento infNFe. O xml-crypto aplica a
     // canonização C14N e os transforms XMLDSig corretamente; a implementação
     // manual anterior apenas removia espaços, o que podia invalidar o Digest.
-    const infNFeMatch = xml.match(/<infNFe\s+Id="([^"]+)"[^>]*>[\s\S]*?<\/infNFe>/);
-    if (!infNFeMatch) {
-        throw new Error('Tag <infNFe Id="..."> não encontrada no XML para assinatura.');
+    const elementMatch = xml.match(new RegExp(`<${elementName}\\s+Id="([^"]+)"[^>]*>[\\s\\S]*?<\\/${elementName}>`));
+    if (!elementMatch) {
+        throw new Error(`Tag <${elementName} Id="..."> não encontrada no XML para assinatura.`);
     }
 
-    const infNFeId = infNFeMatch[1];
+    const elementId = elementMatch[1];
     const cleanCertBase64 = certDerBase64.replace(/[\r\n\s]/g, '');
     const signer = new SignedXml({
         privateKey: privateKeyPem,
@@ -78,17 +87,17 @@ export function signNfeXml(xml: string, privateKeyPem: string, certDerBase64: st
     });
 
     signer.addReference({
-        xpath: "//*[local-name(.)='infNFe']",
+        xpath: `//*[local-name(.)='${elementName}']`,
         transforms: [
             'http://www.w3.org/2000/09/xmldsig#enveloped-signature',
             'http://www.w3.org/TR/2001/REC-xml-c14n-20010315',
         ],
         digestAlgorithm: 'http://www.w3.org/2000/09/xmldsig#sha1',
-        uri: `#${infNFeId}`,
+        uri: `#${elementId}`,
     });
 
     signer.computeSignature(xml, {
-        location: { reference: "//*[local-name(.)='infNFe']", action: 'after' },
+        location: { reference: `//*[local-name(.)='${elementName}']`, action: 'after' },
     });
 
     return signer.getSignedXml();

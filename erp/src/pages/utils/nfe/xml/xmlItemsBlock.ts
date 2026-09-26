@@ -1,6 +1,7 @@
 import Order from "@/pages/types/order.type";
 import { AppSettings } from "../../settingsService";
 import { escapeXml } from "./xmlEmitterBlock";
+import { composeServiceFiscalValues, fiscalMoneyFromCents } from "../serviceFiscalComposition";
 
 export interface BuildItemsResult {
     itemsXml: string;
@@ -12,12 +13,13 @@ export function buildItemsXml(order: Order, settings: AppSettings, isHomologacao
     let vProdTotal = 0;
     let vDescTotal = 0;
 
-    const itemsXml = (order.items || []).map((item, index) => {
+    const composition = composeServiceFiscalValues(order.items || []);
+    const itemsXml = composition.products.map(({ item, itemIndex: sourceIndex, vProdCents, vDescCents }, index) => {
         const itemIndex = index + 1;
         const qCom = item.quantity || 1;
-        const vUnCom = Number(item.unitPrice || 0);
-        const itemDiscount = Number(item.unitDiscount || 0) * qCom;
-        const vProd = qCom * vUnCom;
+        const vProd = fiscalMoneyFromCents(vProdCents);
+        const itemDiscount = fiscalMoneyFromCents(vDescCents);
+        const vUnCom = vProd / qCom;
         
         vProdTotal += vProd;
         vDescTotal += itemDiscount;
@@ -28,7 +30,7 @@ export function buildItemsXml(order: Order, settings: AppSettings, isHomologacao
         const cfop = fiscal.cfop || '5102';
         const csosn = fiscal.cst || '102';
         const origem = fiscal.origem || '0';
-        const cProd = item.code || item.productId || String(itemIndex);
+        const cProd = item.code || item.productId || String(sourceIndex + 1);
         const xProd = isHomologacao 
             ? `NOTA FISCAL EMITIDA EM AMBIENTE DE HOMOLOGACAO - SEM VALOR FISCAL (${escapeXml(item.description)})`
             : escapeXml(item.description);

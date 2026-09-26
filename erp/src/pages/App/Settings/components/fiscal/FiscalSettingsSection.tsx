@@ -2,6 +2,8 @@ import React from 'react';
 import { CompanyFiscalDataSection } from '../CompanyFiscalDataSection';
 import { NcmSelect } from '../../../SalesOrder/OrderActions/nfe-modal/NcmSelect';
 import { NcmManagementPanel } from './NcmManagementPanel';
+import { CFOP_OPTIONS } from '../../../../utils/nfe/fiscalConstants';
+import { normalizeCfop } from '../../../../utils/nfe/fiscalCfopResolution';
 
 interface FiscalSettingsSectionProps {
     settings: any;
@@ -9,6 +11,9 @@ interface FiscalSettingsSectionProps {
 }
 
 export default function FiscalSettingsSection({ settings, onChange }: FiscalSettingsSectionProps) {
+    const [mappingSource, setMappingSource] = React.useState('');
+    const [mappingTarget, setMappingTarget] = React.useState('');
+    const [mappingError, setMappingError] = React.useState('');
     const fiscal = settings.fiscalDefaults || {
         ncm: '94036000',
         cest: '',
@@ -53,13 +58,27 @@ export default function FiscalSettingsSection({ settings, onChange }: FiscalSett
         { value: '900', label: '900 - Outros' }
     ];
 
-    // CFOPs comuns para Simples Nacional
-    const cfops = [
-        { value: '5102', label: '5102 - Venda de mercadoria adquirida/recebida de terceiros' },
-        { value: '5405', label: '5405 - Venda de mercadoria sujeita ao regime de substituição tributária (Substituído)' },
-        { value: '5101', label: '5101 - Venda de produção do estabelecimento' },
-        { value: '5403', label: '5403 - Venda de produção do estabelecimento sujeita a ST' }
-    ];
+    const cfops = CFOP_OPTIONS.filter((option) => option.value.startsWith('5'));
+
+    const addInverseMapping = () => {
+        const source = normalizeCfop(mappingSource);
+        const target = normalizeCfop(mappingTarget);
+        if (!source || !/^[56]\d{3}$/.test(source) || !target ||
+            target[0] !== (source[0] === '5' ? '1' : '2')) {
+            setMappingError('Informe um CFOP de saída e seu CFOP de entrada validado (5→1 ou 6→2).');
+            return;
+        }
+        updateFiscal('inverseCfopMappings', { ...(fiscal.inverseCfopMappings || {}), [source]: target });
+        setMappingError('');
+        setMappingSource('');
+        setMappingTarget('');
+    };
+
+    const removeInverseMapping = (source: string) => {
+        const next = { ...(fiscal.inverseCfopMappings || {}) };
+        delete next[source];
+        updateFiscal('inverseCfopMappings', next);
+    };
 
     // CST PIS/COFINS comuns
     const pisCofinsCsts = [
@@ -151,6 +170,52 @@ export default function FiscalSettingsSection({ settings, onChange }: FiscalSett
                         ))}
                     </select>
                 </div>
+            </div>
+
+            {/* NCM Padrão */}
+            <div className="p-8 hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors border-t border-slate-100 dark:border-slate-800/50">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+                    <div className="flex-1 max-w-lg">
+                        <h4 className="font-bold text-slate-800 dark:text-slate-200 text-sm uppercase tracking-wider">CFOP padrão de devolução</h4>
+                        <p className="text-xs text-slate-400 dark:text-slate-500 mt-1 leading-relaxed">Pré-seleção para NF-e de devolução interna. Confira por item antes de transmitir.</p>
+                    </div>
+                    <div className="w-full md:w-96">
+                        <input aria-label="CFOP padrão de devolução" list="return-cfop-options" inputMode="numeric"
+                            value={fiscal.returnCfop ?? '1202'}
+                            onChange={(event) => updateFiscal('returnCfop', event.target.value.replace(/\D/g, '').slice(0, 4))}
+                            className="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl px-5 py-3 text-sm outline-none focus:border-blue-500 dark:text-slate-200 w-full font-bold" />
+                        <datalist id="return-cfop-options">
+                            {CFOP_OPTIONS.filter((option) => option.value.startsWith('1')).map((option) =>
+                                <option key={option.value} value={option.value} label={option.label} />)}
+                        </datalist>
+                        <p className="mt-1 text-xs text-slate-500">{CFOP_OPTIONS.find((option) => option.value === (fiscal.returnCfop ?? '1202'))?.label || 'CFOP informado manualmente: confirme a descrição e a aplicação fiscal.'}</p>
+                    </div>
+                </div>
+            </div>
+
+            <div className="p-8 hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors border-t border-slate-100 dark:border-slate-800/50">
+                <h4 className="font-bold text-slate-800 dark:text-slate-200 text-sm uppercase tracking-wider">Mapeamento de CFOPs inversos para estorno</h4>
+                <p className="text-xs text-slate-400 dark:text-slate-500 mt-1 mb-4 leading-relaxed">Associe explicitamente cada CFOP de saída ao CFOP de entrada fiscalmente conferido. Nenhum mapeamento é criado automaticamente.</p>
+                <div className="flex flex-wrap gap-3 items-center">
+                    <input aria-label="CFOP original de saída" list="sale-cfop-options" inputMode="numeric" placeholder="CFOP original (ex.: 5102)"
+                        value={mappingSource} onChange={(event) => setMappingSource(event.target.value.replace(/\D/g, '').slice(0, 4))}
+                        className="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-3 text-sm dark:text-slate-200" />
+                    <datalist id="sale-cfop-options">{cfops.map((option) => <option key={option.value} value={option.value} label={option.label} />)}</datalist>
+                    <span aria-hidden="true" className="text-slate-500">→</span>
+                    <input aria-label="CFOP inverso de entrada" list="return-cfop-options" inputMode="numeric" placeholder="CFOP inverso"
+                        value={mappingTarget} onChange={(event) => setMappingTarget(event.target.value.replace(/\D/g, '').slice(0, 4))}
+                        className="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-3 text-sm dark:text-slate-200" />
+                    <button type="button" onClick={addInverseMapping} className="rounded-xl bg-blue-600 px-4 py-3 text-sm font-bold text-white hover:bg-blue-700">Adicionar mapeamento</button>
+                </div>
+                {mappingError && <p role="alert" className="mt-2 text-sm text-red-600">{mappingError}</p>}
+                <ul className="mt-4 space-y-2">
+                    {Object.entries(fiscal.inverseCfopMappings || {}).map(([source, target]) => (
+                        <li key={source} className="flex items-center justify-between gap-3 text-sm text-slate-700 dark:text-slate-300">
+                            <span>{source} → {String(target)} · {CFOP_OPTIONS.find((option) => option.value === target)?.label || 'Descrição não cadastrada; confira fiscalmente'}</span>
+                            <button type="button" onClick={() => removeInverseMapping(source)} aria-label={`Remover mapeamento ${source}`} className="text-red-600 hover:underline">Remover</button>
+                        </li>
+                    ))}
+                </ul>
             </div>
 
             {/* NCM Padrão */}

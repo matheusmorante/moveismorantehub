@@ -28,7 +28,7 @@ export const parseAddressPrediction = (pred: any, defaultCity?: string, defaultS
     const mainText = pred.structured_formatting?.main_text || (pred.description ? pred.description.split(',')[0].split('-')[0].trim() : '');
     const secondaryText = pred.structured_formatting?.secondary_text || '';
 
-    let road = mainText;
+    const road = mainText;
     let neighborhood = '';
     let city = defaultCity || '';
     let state = normalizeUf(defaultState || 'PR');

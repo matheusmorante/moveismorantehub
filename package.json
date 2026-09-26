@@ -19,6 +19,7 @@
     "sefaz:bridge": "npx tsx api/nfe/standaloneServer.ts"
   },
   "devDependencies": {
+    "@vercel/node": "^16.0.1",
     "@types/bwip-js": "^3.2.3",
     "@types/node-forge": "^1.3.14",
     "concurrently": "^9.1.2",
@@ -27,9 +28,11 @@
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.30.0",
     "@supabase/supabase-js": "^2.115.0",
+    "@xmldom/xmldom": "^0.8.10",
     "agentic-awesome-skills": "^15.15.0",
     "axios": "^1.20.0",
     "dotenv": "^17.4.2",
+    "libxml2-wasm": "^0.7.2",
     "node-forge": "^1.4.0",
     "xml-crypto": "^6.1.2",
     "zod": "^4.5.4"

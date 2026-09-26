@@ -326,15 +326,17 @@ export const useDashboardData = (period: Period, customStartDate?: string, custo
                 return acc + factor * (getDefinitiveOrderValue(o) - cmv);
             }, 0);
 
-            let label = '';
             const dd = d.getDate().toString().padStart(2, '0');
             const mm = (d.getMonth() + 1).toString().padStart(2, '0');
             const aa = d.getFullYear().toString().slice(-2);
 
-            if (isHourlyChart) label = `${d.getHours()}h`;
-            else if (period === 'year' || period === 'last_semester') label = `${months[d.getMonth()]}/${aa}`;
-            else if (period === 'custom') label = `${dd}/${mm}/${aa}`;
-            else label = `${dd}/${mm}`;
+            const label = isHourlyChart
+                ? `${d.getHours()}h`
+                : period === 'year' || period === 'last_semester'
+                ? `${months[d.getMonth()]}/${aa}`
+                : period === 'custom'
+                ? `${dd}/${mm}/${aa}`
+                : `${dd}/${mm}`;
 
             return { name: label, valor: total, lucro, orders: dayOrders.filter(isDashboardSaleOrder).length };
         });

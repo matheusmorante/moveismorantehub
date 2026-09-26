@@ -39,7 +39,7 @@ export const ensureCustomerInCrm = async (
     } catch (err) {
         console.error("[OrderCrmSync] Erro ao cadastrar cliente no CRM:", err);
         if (isStrict) {
-            throw new Error('Não foi possível cadastrar o cliente. O pedido não foi salvo.');
+            throw new Error('Não foi possível cadastrar o cliente. O pedido não foi salvo.', { cause: err });
         }
         return undefined;
     }

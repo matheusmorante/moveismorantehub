@@ -139,7 +139,7 @@ describe('Bateria E2E/Estresse — Ordem Assíncrona, Versionamento e Idempotên
   });
 
   it('Grupo 38 — Correção de Contraparte', () => {
-    let drafts: any[] = [
+    const drafts: any[] = [
       {
         id: 'd1',
         type: 'EXPENSE',
@@ -157,7 +157,7 @@ describe('Bateria E2E/Estresse — Ordem Assíncrona, Versionamento e Idempotên
   });
 
   it('Grupo 39 — Correção de Categoria por Contexto (Personal -> Business)', () => {
-    let drafts: any[] = [
+    const drafts: any[] = [
       {
         id: 'd1',
         type: 'EXPENSE',
@@ -177,7 +177,7 @@ describe('Bateria E2E/Estresse — Ordem Assíncrona, Versionamento e Idempotên
   });
 
   it('Grupo 45 & 46 — Retry de Confirmação com Idempotência', () => {
-    let persistedRecords: string[] = [];
+    const persistedRecords: string[] = [];
 
     const persistWithRetry = (idempotencyKey: string) => {
       if (persistedRecords.includes(idempotencyKey)) {

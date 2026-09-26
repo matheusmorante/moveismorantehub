@@ -1,4 +1,5 @@
 import React from "react";
+import CurrencyInput from "@/components/CurrencyInput";
 import { AppSettings } from '@/pages/utils/settingsService';
 
 interface Props {

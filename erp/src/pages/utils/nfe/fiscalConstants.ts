@@ -9,6 +9,8 @@ export interface FiscalOption {
 }
 
 export const CFOP_OPTIONS: FiscalOption[] = [
+    { value: '1202', label: '1.202 - Devolução de venda de mercadoria adquirida ou recebida de terceiros' },
+    { value: '1949', label: '1.949 - Outra entrada de mercadoria ou prestação de serviço não especificada (revisão fiscal)' },
     { value: '5102', label: '5102 - Venda de mercadoria adquirida/recebida de terceiros' },
     { value: '5405', label: '5405 - Venda de mercadoria sujeita a ST (Substituído)' },
     { value: '5101', label: '5101 - Venda de produção do estabelecimento' },

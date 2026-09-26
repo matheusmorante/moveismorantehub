@@ -14,6 +14,6 @@ export const sanitizePayment = (payment: Payment) => {
 
     return payment
 }
-// eslint-disable-next-line
+ 
 export const sanitizeNumber = (value: string) => value.replace(/\D/g, '')
 

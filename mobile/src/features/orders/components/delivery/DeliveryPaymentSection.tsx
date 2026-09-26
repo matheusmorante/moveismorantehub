@@ -1,5 +1,6 @@
 import React from 'react';
 import { Alert, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { CurrencyInput } from '../../../../../components/shared/CurrencyInput';
 import { CreditCard, PlusCircle, CheckCircle2, CircleDollarSign } from 'lucide-react-native';
 
 type Payment = { method?: string; amount?: number; status?: string; fee?: number; feeType?: string };
@@ -21,7 +22,7 @@ export const DeliveryPaymentSection = ({ payments, onChange, isDarkMode }: Props
     <View style={styles.header}><View style={styles.titleRow}><CircleDollarSign size={18} color="#16a34a" /><Text style={[styles.title, isDarkMode && styles.light]}>Pagamento na entrega</Text></View><Text style={styles.hint}>Confirme cada pagamento para liberar a finalização.</Text></View>
     {payments.map((payment, index) => <View key={`${index}-${payment.method}`} style={[styles.payment, isDarkMode && styles.paymentDark]}>
       <View style={styles.paymentTop}><Text style={[styles.paymentLabel, isDarkMode && styles.light]}>Pagamento {index + 1}</Text><Text style={[styles.amount, isDarkMode && styles.light]}>{currency(payment.amount)}</Text></View>
-      <View style={styles.controls}><TouchableOpacity onPress={() => selectMethod(index)} style={styles.select}><CreditCard size={15} color="#2563eb" /><Text style={styles.selectText}>{payment.method || 'Escolher forma'}</Text></TouchableOpacity><TextInput value={String(payment.amount ?? '')} onChangeText={value => update(index, { amount: Number(value.replace(',', '.')) || 0 })} keyboardType="decimal-pad" style={[styles.amountInput, isDarkMode && styles.inputDark]} /></View>
+      <View style={styles.controls}><TouchableOpacity onPress={() => selectMethod(index)} style={styles.select}><CreditCard size={15} color="#2563eb" /><Text style={styles.selectText}>{payment.method || 'Escolher forma'}</Text></TouchableOpacity><CurrencyInput value={payment.amount || null} onChangeValue={val => update(index, { amount: val || 0 })} style={[styles.amountInput, isDarkMode && styles.inputDark]} color={isDarkMode ? '#f8fafc' : '#1e293b'} /></View>
       <TouchableOpacity disabled={paid(payment.status)} onPress={() => selectStatus(index)} style={[styles.status, paid(payment.status) ? styles.statusPaid : styles.statusPending]}><CheckCircle2 size={16} color={paid(payment.status) ? '#166534' : '#b45309'} /><Text style={[styles.statusText, paid(payment.status) ? styles.paidText : styles.pendingText]}>{paid(payment.status) ? 'Pago' : 'Pendente - no ato da entrega'}</Text></TouchableOpacity>
     </View>)}
     <TouchableOpacity onPress={() => onChange([...payments, { method: 'Pix', amount: 0, status: 'Pendente', fee: 0, feeType: 'fixed' }])} style={styles.add}><PlusCircle size={17} color="#2563eb" /><Text style={styles.addText}>Adicionar forma de pagamento</Text></TouchableOpacity>

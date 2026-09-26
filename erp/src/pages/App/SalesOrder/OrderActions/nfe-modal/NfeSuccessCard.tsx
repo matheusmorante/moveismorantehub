@@ -17,10 +17,14 @@ export const NfeSuccessCard: React.FC<NfeSuccessCardProps> = ({
         <div className="p-4 bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-900/40 rounded-2xl space-y-3 animate-in fade-in duration-200">
             <div className="flex items-center gap-2 text-emerald-700 dark:text-emerald-300">
                 <i className="bi bi-check-circle-fill text-lg" />
-                <h4 className="text-xs font-black uppercase tracking-wider">Nota Fiscal Emitida com Sucesso!</h4>
+                <h4 className="text-xs font-black uppercase tracking-wider">{result.environment === 2 ? 'Documento recebido em homologação · sem valor fiscal' : 'Nota fiscal autorizada em produção'}</h4>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                <div>
+                    <span className="text-[10px] text-slate-400 uppercase font-bold">Documento:</span>
+                    <p className="font-bold text-slate-700 dark:text-slate-200">{result.model === '65' ? 'NFC-e · modelo 65' : 'NF-e · modelo 55'} · ambiente {result.environment === 2 ? 'Homologação' : 'Produção'}</p>
+                </div>
                 <div>
                     <span className="text-[10px] text-slate-400 uppercase font-bold">Número / Série:</span>
                     <p className="font-bold text-slate-700 dark:text-slate-200">#{result.nfeNumber} (Série {result.series})</p>

@@ -58,7 +58,7 @@ export function InboundCompositionManager({ composition, onChangeComposition, to
                         const weightPercent = totalWeightBase > 0 ? (weightValue / totalWeightBase) : 0;
 
                         // Último item absorve a diferença para evitar dízimas que somadas não fecham o total
-                        let rateio = 0;
+                        let rateio: number;
                         if (idx === composition.length - 1) {
                             const previousRateioSum = composition.slice(0, -1).reduce((sum, prevC) => {
                                 const w = totalWeightBase > 0 ? ((prevC.referenceSalePrice * prevC.quantity) / totalWeightBase) : 0;

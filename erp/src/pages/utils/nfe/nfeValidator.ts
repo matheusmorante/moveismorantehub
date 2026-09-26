@@ -24,16 +24,23 @@ export function validateOrderForNfe(order: Order, settings: AppSettings): NfeVal
         errors.push("Razão Social da empresa emitente não configurada.");
     }
 
-    const companyIE = ((settings as any).companyIE || '').replace(/\D/g, '');
-    if (!companyIE) {
-        warnings.push("Inscrição Estadual (IE) do emitente não configurada (obrigatória para emissão em produção).");
-    }
+    const missingEmitterFields = [
+        ['Logradouro', (settings as any).companyLogradouro || settings.companyAddress],
+        ['número', (settings as any).companyNumero],
+        ['bairro', (settings as any).companyBairro],
+        ['código IBGE do município', (settings as any).companyCMun],
+        ['município', (settings as any).companyXMun],
+        ['UF', (settings as any).companyUF],
+        ['CEP', (settings as any).companyCEP],
+    ].filter(([, value]) => !String(value || '').trim()).map(([label]) => label);
+    if (missingEmitterFields.length) errors.push(`Endereço do emitente incompleto: informe ${missingEmitterFields.join(', ')} nas Configurações Fiscais.`);
 
     // 2. Validação dos Itens do Pedido
-    if (!order.items || order.items.length === 0) {
+    const fiscalProducts = (order.items || []).filter(item => item.itemType !== 'service');
+    if (fiscalProducts.length === 0) {
         errors.push("O pedido não possui nenhum item para emissão de nota fiscal.");
     } else {
-        order.items.forEach((item, index) => {
+        fiscalProducts.forEach((item, index) => {
             const itemNum = index + 1;
             const desc = item.description || `Item #${itemNum}`;
 
@@ -56,18 +63,21 @@ export function validateOrderForNfe(order: Order, settings: AppSettings): NfeVal
 
     // 3. Validação do Destinatário (especialmente para NF-e modelo 55 - Entrega)
     const isPickup = order.shipping?.deliveryMethod === 'pickup';
-    const isHomologacao = ((settings as any).nfeEnvironment || 2) === 2;
-
     if (!isPickup) {
         // NF-e modelo 55 exige endereço do destinatário
         const customer = order.customerData;
-        if (!customer && !isHomologacao) {
+        if (!customer) {
             errors.push("Para entregas (NF-e Modelo 55), os dados do cliente destinatário são obrigatórios.");
         }
-        
-        const address = order.shipping?.deliveryAddress;
-        if (!address?.street && !customer?.fullAddress?.street && !isHomologacao) {
-            warnings.push("Endereço de entrega do cliente não preenchido completamente.");
+        const address = order.shipping?.deliveryAddress || customer?.fullAddress || (customer as any)?.address;
+        const missingAddressFields = [
+            ['logradouro', (address as any)?.street], ['bairro', (address as any)?.neighborhood || (address as any)?.bairro],
+            ['código IBGE do município', (address as any)?.cityCode || (address as any)?.cMun],
+            ['município', (address as any)?.city], ['UF', (address as any)?.state || (address as any)?.uf],
+            ['CEP', (address as any)?.postalCode || (address as any)?.cep],
+        ].filter(([, value]) => !String(value || '').trim()).map(([label]) => label);
+        if (missingAddressFields.length) {
+            errors.push(`Identificação do destinatário para NF-e incompleta: informe ${missingAddressFields.join(', ')} no endereço do pedido/cliente.`);
         }
     }
 

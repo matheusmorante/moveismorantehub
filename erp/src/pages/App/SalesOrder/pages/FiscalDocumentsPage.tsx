@@ -7,6 +7,8 @@ import { canCancelFiscalDocument, canIssueCce } from '@/pages/utils/nfe/nfeServi
 import { getSettings } from '@/pages/utils/settingsService';
 import { toast } from 'react-toastify';
 import { mapOrderFromDatabase } from '@/pages/utils/orderMapper';
+import { formatCancellationTimeRemaining, getAuthorizedAt, getCancellationWindow } from '@/pages/utils/nfe/nfeEventRules';
+import NfeOperationDraftModal from './NfeOperationDraftModal';
 
 export interface NfeDocumentRecord {
     id: string;
@@ -16,7 +18,7 @@ export interface NfeDocumentRecord {
     chave_acesso: string;
     modelo: '55' | '65';
     ambiente: 1 | 2;
-    status: 'autorizada' | 'cancelada' | 'rejeitada' | 'pendente' | 'erro';
+    status: 'autorizada' | 'homologada' | 'cancelada' | 'rejeitada' | 'pendente' | 'erro';
     motivo_status?: string;
     xml_nfe?: string;
     xml_protocolo?: string;
@@ -26,6 +28,7 @@ export interface NfeDocumentRecord {
     destinatario_documento?: string;
     created_at: string;
     updated_at: string;
+    document_type?: 'outbound' | 'return' | 'estorno' | string;
 }
 
 export default function FiscalDocumentsPage() {
@@ -36,8 +39,11 @@ export default function FiscalDocumentsPage() {
     const [modelFilter, setModelFilter] = useState<string>('all');
     const [selectedDoc, setSelectedDoc] = useState<NfeDocumentRecord | null>(null);
     const [isCanceling, setIsCanceling] = useState(false);
+    const [isConsulting, setIsConsulting] = useState(false);
     const [cancelReason, setCancelReason] = useState('');
     const [showCancelModal, setShowCancelModal] = useState(false);
+    const [productionCancelConfirmed, setProductionCancelConfirmed] = useState(false);
+    const [operationSourceDoc, setOperationSourceDoc] = useState<NfeDocumentRecord | null>(null);
     
     // Estados para CC-e (Carta de Correção Eletrônica - Exclusiva Mod. 55)
     const [showCceModal, setShowCceModal] = useState(false);
@@ -155,27 +161,36 @@ export default function FiscalDocumentsPage() {
 
     const handleConfirmCancel = async () => {
         if (!selectedDoc) return;
-        if (!cancelReason || cancelReason.trim().length < 15) {
-            toast.error('A justificativa de cancelamento deve ter no mínimo 15 caracteres.');
+        if (!cancelReason || Array.from(cancelReason.trim()).length < 15 || Array.from(cancelReason.trim()).length > 255) {
+            toast.error('A justificativa deve ter entre 15 e 255 caracteres.');
+            return;
+        }
+        if (selectedDoc.ambiente === 1 && !productionCancelConfirmed) {
+            toast.error('Confirme que deseja cancelar a nota no ambiente de Produção.');
             return;
         }
 
         setIsCanceling(true);
         try {
-            const { error } = await supabase
-                .from('nfe_documents')
-                .update({
-                    status: 'cancelada',
-                    motivo_status: `Cancelamento homologado: ${cancelReason}`,
-                    updated_at: new Date().toISOString()
-                })
-                .eq('id', selectedDoc.id);
-
-            if (error) throw error;
-
-            toast.success(`NF-e #${selectedDoc.numero_nfe} cancelada com sucesso na SEFAZ!`);
+            const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+            if (sessionError || !sessionData.session?.access_token) throw new Error('Faça login novamente para solicitar o cancelamento.');
+            const response = await fetch('/api/nfe/cancel', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${sessionData.session.access_token}` },
+                body: JSON.stringify({ documentId: selectedDoc.id, reason: cancelReason, productionConfirmed: productionCancelConfirmed }),
+            });
+            const result = await response.json();
+            if (!response.ok || !result.success) {
+                if (result.pending) toast.warning(result.error || 'Resultado incerto. Consulte os eventos antes de qualquer nova tentativa.');
+                else throw new Error(result.error || result.xMotivo || 'A SEFAZ não confirmou o cancelamento.');
+            } else {
+                toast.success(result.reconciliationRequired
+                    ? `SEFAZ confirmou o cancelamento da NF-e #${selectedDoc.numero_nfe}; reconciliação local necessária.`
+                    : `NF-e #${selectedDoc.numero_nfe} cancelada pela SEFAZ (protocolo ${result.protocolNumber || 'registrado'}).`);
+            }
             setShowCancelModal(false);
             setCancelReason('');
+            setProductionCancelConfirmed(false);
             setSelectedDoc(null);
             await loadDocuments();
         } catch (err: any) {
@@ -196,6 +211,42 @@ export default function FiscalDocumentsPage() {
             default:
                 return <span className="bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-700 px-3 py-1 rounded-xl text-[10px] font-black uppercase tracking-wider">{status}</span>;
         }
+    };
+
+    const handleConsultSituation = async (document: NfeDocumentRecord) => {
+        if (isConsulting) return;
+        setIsConsulting(true);
+        try {
+            const { data, error } = await supabase.auth.getSession();
+            if (error || !data.session?.access_token) throw new Error('Faça login novamente para consultar a SEFAZ.');
+            const response = await fetch('/api/nfe/consult', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${data.session.access_token}` },
+                body: JSON.stringify({ documentId: document.id }),
+            });
+            const result = await response.json();
+            if (!response.ok || !result.success) throw new Error(result.error || result.xMotivo || 'Consulta SEFAZ inconclusiva.');
+            toast.success(result.state === 'cancelled'
+                ? 'SEFAZ confirmou o cancelamento; documento reconciliado.'
+                : `Documento autorizado na SEFAZ${result.protocolNumber ? ` (protocolo ${result.protocolNumber})` : ''}.`);
+            await loadDocuments();
+            if (result.state === 'cancelled') {
+                setShowCancelModal(false);
+                setSelectedDoc(null);
+            }
+        } catch (error: any) {
+            toast.error(error.message || 'Não foi possível consultar a situação fiscal.');
+        } finally {
+            setIsConsulting(false);
+        }
+    };
+
+    const getCancellationDeadlineLabel = (doc: NfeDocumentRecord) => {
+        if (!['autorizada', 'homologada'].includes(doc.status)) return null;
+        const window = getCancellationWindow(String(doc.modelo), getAuthorizedAt(doc.xml_protocolo, doc.created_at));
+        if (!window.valid || !window.deadline) return 'Prazo de cancelamento indisponível';
+        if (window.expired) return `Prazo normal expirado • limite ${window.deadline.toLocaleString('pt-BR')}`;
+        return `Cancelamento até ${window.deadline.toLocaleString('pt-BR')} • restam ${formatCancellationTimeRemaining(window.remainingMs)}`;
     };
 
     return (
@@ -321,6 +372,11 @@ export default function FiscalDocumentsPage() {
                                         </td>
                                         <td className="p-4">
                                             {getStatusBadge(doc.status)}
+                                            {getCancellationDeadlineLabel(doc) && (
+                                                <div className={`mt-1 max-w-64 text-[9px] font-semibold ${getCancellationDeadlineLabel(doc)?.startsWith('Prazo normal expirado') ? 'text-amber-600 dark:text-amber-400' : 'text-slate-400'}`}>
+                                                    {getCancellationDeadlineLabel(doc)}
+                                                </div>
+                                            )}
                                         </td>
                                         <td className="p-4 pr-6 text-right">
                                             <div className="flex items-center justify-end gap-1.5">
@@ -340,6 +396,29 @@ export default function FiscalDocumentsPage() {
                                                     <i className="bi bi-filetype-xml" />
                                                 </button>
 
+                                                {doc.modelo === '55' && doc.document_type === 'outbound' &&
+                                                    ['autorizada', 'homologada'].includes(doc.status) && (
+                                                    <button
+                                                        onClick={() => setOperationSourceDoc(doc)}
+                                                        title="Preparar estorno ou devolução fiscal vinculada a esta NF-e"
+                                                        aria-label={`Preparar estorno ou devolução da NF-e ${doc.numero_nfe}`}
+                                                        className="p-2 rounded-xl bg-violet-50 text-violet-600 hover:bg-violet-600 hover:text-white dark:bg-violet-950/50 dark:text-violet-400 dark:hover:bg-violet-600 dark:hover:text-white transition-all cursor-pointer"
+                                                    >
+                                                        <i className="bi bi-arrow-return-left" />
+                                                    </button>
+                                                )}
+
+                                                {doc.status !== 'cancelada' && (
+                                                    <button
+                                                        onClick={() => handleConsultSituation(doc)}
+                                                        disabled={isConsulting}
+                                                        title="Consultar e reconciliar situação na SEFAZ"
+                                                        className="p-2 rounded-xl bg-sky-50 text-sky-600 hover:bg-sky-600 hover:text-white dark:bg-sky-950/50 dark:text-sky-400 dark:hover:bg-sky-600 dark:hover:text-white transition-all cursor-pointer disabled:opacity-50"
+                                                    >
+                                                        <i className={`bi ${isConsulting ? 'bi-arrow-repeat animate-spin' : 'bi-cloud-check-fill'}`} />
+                                                    </button>
+                                                )}
+
                                                 {/* CC-e (Carta de Correção) - EXCLUSIVO PARA NF-e (Modelo 55) */}
                                                 {canIssueCce(doc).canIssue && (
                                                     <button
@@ -358,6 +437,8 @@ export default function FiscalDocumentsPage() {
                                                     <button
                                                         onClick={() => {
                                                             setSelectedDoc(doc);
+                                                            setCancelReason('');
+                                                            setProductionCancelConfirmed(false);
                                                             setShowCancelModal(true);
                                                         }}
                                                         title="Cancelar Documento Fiscal SEFAZ"
@@ -456,27 +537,34 @@ export default function FiscalDocumentsPage() {
                             <i className="bi bi-exclamation-octagon-fill text-2xl" />
                             <div>
                                 <h3 className="text-base font-black uppercase tracking-tight">Cancelar Documento Fiscal</h3>
-                                <p className="text-[11px] text-slate-400 font-medium">Nota Fiscal #{selectedDoc.numero_nfe} ({selectedDoc.modelo === '65' ? 'NFC-e' : 'NF-e'})</p>
+                                <p className="text-[11px] text-slate-400 font-medium">Nota Fiscal #{selectedDoc.numero_nfe} ({selectedDoc.modelo === '65' ? 'NFC-e' : 'NF-e'}) • {selectedDoc.ambiente === 1 ? 'PRODUÇÃO' : 'HOMOLOGAÇÃO'}</p>
                             </div>
                         </div>
 
                         <div className="space-y-4">
                             <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed font-medium">
-                                O cancelamento da NF-e é uma operação definitiva transmitida à SEFAZ-PR. O documento não poderá ser reativado.
+                                Esta operação solicitará o cancelamento fiscal à SEFAZ-PR. A nota só será considerada cancelada após a confirmação do evento pela SEFAZ. Se a mercadoria já circulou, não cancele a nota original: registre uma devolução.
                             </p>
 
                             <div>
                                 <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 block mb-2">
-                                    Justificativa do Cancelamento (Mínimo 15 caracteres)
+                                    Justificativa do Cancelamento (15 a 255 caracteres)
                                 </label>
                                 <textarea
                                     value={cancelReason}
                                     onChange={(e) => setCancelReason(e.target.value)}
                                     placeholder="Exemplo: Cancelamento por desacordo comercial e desistência da compra antes da saída."
                                     rows={4}
+                                    maxLength={255}
                                     className="w-full p-4 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl text-xs font-bold outline-none focus:border-red-500 transition-all resize-none"
                                 />
                             </div>
+                            {selectedDoc.ambiente === 1 && (
+                                <label className="flex items-start gap-3 rounded-xl border border-red-200 bg-red-50 p-3 text-xs font-semibold text-red-800 dark:border-red-900 dark:bg-red-950/30 dark:text-red-200">
+                                    <input type="checkbox" checked={productionCancelConfirmed} onChange={(event) => setProductionCancelConfirmed(event.target.checked)} className="mt-0.5 accent-red-600" />
+                                    Confirmo que esta solicitação será transmitida em Produção e poderá cancelar definitivamente o documento fiscal.
+                                </label>
+                            )}
                         </div>
 
                         <div className="flex items-center justify-end gap-3 pt-2">
@@ -485,11 +573,19 @@ export default function FiscalDocumentsPage() {
                                     setShowCancelModal(false);
                                     setSelectedDoc(null);
                                     setCancelReason('');
+                                    setProductionCancelConfirmed(false);
                                 }}
-                                disabled={isCanceling}
+                                disabled={isCanceling || isConsulting}
                                 className="px-5 py-2.5 rounded-2xl border border-slate-200 dark:border-slate-800 text-xs font-black uppercase tracking-wider text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all cursor-pointer"
                             >
                                 Voltar
+                            </button>
+                            <button
+                                onClick={() => handleConsultSituation(selectedDoc)}
+                                disabled={isCanceling || isConsulting}
+                                className="px-5 py-2.5 rounded-2xl border border-blue-200 text-blue-700 hover:bg-blue-50 dark:border-blue-900 dark:text-blue-300 dark:hover:bg-blue-950/40 text-xs font-black uppercase tracking-wider transition-all flex items-center gap-2 cursor-pointer"
+                            >
+                                {isConsulting ? 'Consultando…' : 'Consultar SEFAZ'}
                             </button>
                             <button
                                 onClick={handleConfirmCancel}
@@ -503,6 +599,15 @@ export default function FiscalDocumentsPage() {
                     </div>
                 </div>
             )}
+
+            <NfeOperationDraftModal
+                sourceDocument={operationSourceDoc}
+                onClose={() => setOperationSourceDoc(null)}
+                onAuthorized={() => {
+                    setOperationSourceDoc(null);
+                    void loadDocuments();
+                }}
+            />
         </div>
     );
 }

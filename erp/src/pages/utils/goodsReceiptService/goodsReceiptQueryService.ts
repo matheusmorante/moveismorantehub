@@ -82,7 +82,7 @@ export const subscribeToGoodsReceipts = (callback: (items: GoodsReceipt[]) => vo
                 callback(finalizedList);
                 return;
             }
-        } catch {}
+        } catch  { /* no-op: intencionalmente silencioso */ }
         callback(localItems);
     };
 

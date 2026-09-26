@@ -3,13 +3,16 @@ import Order from "../../../types/order.type";
 import { buttons } from "./orderActionsConfig";
 import { updateOrder } from "../../../utils/orderHistoryService";
 import { POST_SALE_ACTION_KEYS } from "../../../utils/postSaleActions";
+import { NfeEmissionModal } from "./NfeEmissionModal";
 
 interface PostOrderActionsModalProps {
     readonly order: Order;
     readonly onClose: () => void;
+    readonly onIssueNfe?: (order: Order) => void;
 }
 
-const PostOrderActionsModal: React.FC<PostOrderActionsModalProps> = ({ order, onClose }) => {
+const PostOrderActionsModal: React.FC<PostOrderActionsModalProps> = ({ order, onClose, onIssueNfe }) => {
+    const [nfeOrder, setNfeOrder] = React.useState<Order | null>(null);
     const availableActions = buttons.filter(btn => 
         POST_SALE_ACTION_KEYS.has(btn.key) &&
         (btn.key !== 'sendCustomerReviews' || !order.reviewRequested)
@@ -91,6 +94,15 @@ const PostOrderActionsModal: React.FC<PostOrderActionsModalProps> = ({ order, on
                                     key={btn.key}
                                     type="button"
                                     onClick={async () => {
+                                        if (btn.key === 'issueNfe') {
+                                            if (onIssueNfe) {
+                                                onClose();
+                                                onIssueNfe(order);
+                                            } else {
+                                                setNfeOrder(order);
+                                            }
+                                            return;
+                                        }
                                         setClickedButtons(prev => ({ ...prev, [btn.key]: true }));
                                         try {
                                             const module = await import('./orderActionsConfig');
@@ -122,8 +134,9 @@ const PostOrderActionsModal: React.FC<PostOrderActionsModalProps> = ({ order, on
                                 </button>
                             );
                         })}
-                    </div>
-                </div>
+            </div>
+            <NfeEmissionModal isOpen={Boolean(nfeOrder)} order={nfeOrder} onClose={() => setNfeOrder(null)} />
+        </div>
 
                 <div className="px-6 py-4 bg-slate-50 dark:bg-slate-800/50 border-t border-slate-100 dark:border-slate-800 flex justify-end">
                     <button

@@ -119,7 +119,7 @@ export const SmartAIFillModal: React.FC<SmartAIFillModalProps> = ({
             try {
                 recognitionRef.current.stop();
                 setIsListening(false);
-            } catch {}
+            } catch  { /* no-op: intencionalmente silencioso */ }
         }
 
         setIsProcessingAI(true);

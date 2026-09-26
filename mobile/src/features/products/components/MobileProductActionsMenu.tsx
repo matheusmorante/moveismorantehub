@@ -61,22 +61,6 @@ export const MobileProductActionsMenu: React.FC<MobileProductActionsMenuProps> =
     );
   };
 
-  const handleDeleteClick = () => {
-    onClose();
-    Alert.alert(
-      'Excluir Produto',
-      'Deseja mover este produto para a lixeira?',
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        {
-          text: 'Excluir',
-          style: 'destructive',
-          onPress: () => onDelete(product.id, false),
-        },
-      ]
-    );
-  };
-
   return (
     <Modal
       visible={visible}
@@ -166,19 +150,6 @@ export const MobileProductActionsMenu: React.FC<MobileProductActionsMenuProps> =
                         </Text>
                       </>
                     )}
-                  </TouchableOpacity>
-
-                  <View style={[styles.menuDivider, dark && styles.darkDivider]} />
-
-                  {/* Excluir Produto Definitivo */}
-                  <TouchableOpacity
-                    style={styles.menuItem}
-                    onPress={handleDeleteClick}
-                  >
-                    <Trash2 size={16} color="#ef4444" />
-                    <Text style={[styles.menuItemText, styles.dangerText]}>
-                      Excluir Produto
-                    </Text>
                   </TouchableOpacity>
                 </>
               )}

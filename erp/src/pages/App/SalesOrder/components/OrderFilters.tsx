@@ -65,12 +65,13 @@ const OrderFilters = ({ filters, setFilters }: OrderFiltersProps) => {
                 start = formatDate(now);
                 end = formatDate(now);
                 break;
-            case "esse_mes":
+            case "esse_mes": {
                 const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
                 const lastDayOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
                 start = formatDate(firstDayOfMonth);
                 end = formatDate(lastDayOfMonth);
                 break;
+            }
             case "mes_passado":
                 start = formatDate(new Date(now.getFullYear(), now.getMonth() - 1, 1));
                 end = formatDate(new Date(now.getFullYear(), now.getMonth(), 0));

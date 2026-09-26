@@ -12,7 +12,8 @@ describe('[MÓDULO 1 - Etapa 1.3] Ações Pós-Venda (PostOrderActionsModal & Re
       expect(POST_SALE_ACTION_KEYS.has('sendCustomerOrder')).toBe(true);
       expect(POST_SALE_ACTION_KEYS.has('sendGroupInvite')).toBe(true);
       expect(POST_SALE_ACTION_KEYS.has('sendCustomerReviews')).toBe(true);
-      expect(POST_SALE_ACTION_KEYS.size).toBe(6);
+      expect(POST_SALE_ACTION_KEYS.has('issueNfe')).toBe(true);
+      expect(POST_SALE_ACTION_KEYS.size).toBe(7);
     });
   });
 

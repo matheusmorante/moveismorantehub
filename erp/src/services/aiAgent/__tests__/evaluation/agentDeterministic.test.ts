@@ -19,7 +19,7 @@ describe('Suíte Profissional de Regressão do Agente IA - Nível A (Determinís
   // Função adaptadora que simula a resolução determinística de cada caso
   function runDeterministicCase(tc: TestCase): { result: AgentExecutionResult; executedTools: ExecutedToolRecord[] } {
     const executedTools: ExecutedToolRecord[] = [];
-    let lastUserMessage = '';
+    let lastUserMessage: string;
 
     if (typeof tc.input === 'string') {
       lastUserMessage = tc.input;

@@ -34,6 +34,15 @@ export type Order = {
     scheduledDate?: string,
     scheduledTime?: string,
     linkedOrderId?: string | null,
+    /** Chave estável para repetir com segurança a criação da devolução enquanto o modal estiver aberto. */
+    returnRequestId?: string,
+    fiscalReturnAllocations?: Array<{
+        returnItemIndex: number;
+        originalOrderItemIndex: number;
+        originalDocumentId: string;
+        originalItemNumber: number;
+        quantity: number;
+    }>,
     linkedOrderCode?: string,
     collectionObservation?: string,
     assistanceItems?: AssistanceItem[],

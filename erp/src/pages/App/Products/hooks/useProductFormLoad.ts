@@ -64,7 +64,7 @@ export const useProductFormLoad = ({
     let isMounted = true;
     
     const loadFullData = async () => {
-        let resolvedFormData: Product | null = null;
+        let resolvedFormData: Product | null;
         let targetVariationIdToOpen: string | null = null;
 
         if (product?.id) {

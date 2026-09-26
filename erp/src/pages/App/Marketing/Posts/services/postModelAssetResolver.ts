@@ -22,7 +22,7 @@ export interface GenerationPreFlightValidation {
 export function extractProductImagesFromProduct(product: any): SemanticProductImages {
   const variations = (product?.variations || []).filter((v: any) => v.active !== false);
 
-  let primary = '';
+  let primary: string;
   let secondary: string | undefined = undefined;
   const variationImages: string[] = [];
 

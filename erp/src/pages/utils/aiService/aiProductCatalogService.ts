@@ -56,7 +56,7 @@ Nenhum texto fora do JSON.`;
                 moduleSource: 'products',
                 operation: 'catalog_marketplace_title',
             });
-            let clean = textResponse.trim().replace(/^```json/, '').replace(/^```/, '').replace(/```$/, '').trim();
+            const clean = textResponse.trim().replace(/^```json/, '').replace(/^```/, '').replace(/```$/, '').trim();
             const parsed = JSON.parse(clean);
             return { title: String(parsed.title || data.description).toUpperCase() };
         } catch {
@@ -164,7 +164,7 @@ Se nenhuma for adequada, escolha a mais próxima da lista. Sem blocos markdown a
                 moduleSource: 'products',
                 operation: 'catalog_suggest_category',
             });
-            let clean = textResponse.trim().replace(/^```json/, '').replace(/^```/, '').replace(/```$/, '').trim();
+            const clean = textResponse.trim().replace(/^```json/, '').replace(/^```/, '').replace(/```$/, '').trim();
             const parsed = JSON.parse(clean);
             return { category: parsed.category || "" };
         } catch {
@@ -182,7 +182,7 @@ Retorne APENAS o JSON: {"name": "NOME DO COMBO"}`;
                 moduleSource: 'products',
                 operation: 'catalog_combo_name',
             });
-            let clean = textResponse.trim().replace(/^```json/, '').replace(/^```/, '').replace(/```$/, '').trim();
+            const clean = textResponse.trim().replace(/^```json/, '').replace(/^```/, '').replace(/```$/, '').trim();
             const parsed = JSON.parse(clean);
             return { name: parsed.name };
         } catch {
@@ -303,7 +303,7 @@ REGRAS FINAIS:
             };
         } catch (error: any) {
             console.error("Erro ao aperfeiçoar descrição com IA:", error);
-            throw new Error(error.message || "Falha ao gerar nova descrição.");
+            throw new Error(error.message || "Falha ao gerar nova descrição.", { cause: error });
         }
     }
 };

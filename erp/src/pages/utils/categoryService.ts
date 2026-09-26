@@ -123,7 +123,7 @@ export const createCategory = async (name: string, environmentIds: string[], req
     let uniqueSlug = normalizeSlug(seoFields?.slug || formattedName);
     try {
         uniqueSlug = await resolveUniqueSlug(supabase, 'categories', uniqueSlug);
-    } catch { }
+    } catch  { /* no-op: intencionalmente silencioso */ }
 
     const insertData: any = {
         name: formattedName,
@@ -314,7 +314,7 @@ export const createEnvironment = async (name: string, categoryIds: string[]) => 
     let uniqueSlug = normalizeSlug(formattedName);
     try {
         uniqueSlug = await resolveUniqueSlug(supabase, 'categories', uniqueSlug);
-    } catch { }
+    } catch  { /* no-op: intencionalmente silencioso */ }
 
     const { data, error } = await supabase
         .from('categories')

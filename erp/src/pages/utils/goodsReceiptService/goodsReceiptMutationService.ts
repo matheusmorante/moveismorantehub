@@ -4,7 +4,6 @@ import { getStoredReceipts, saveStoredReceipts, notifyListeners } from './goodsR
 import { buildGoodsReceiptDbPayload, isValidUuid } from './goodsReceiptMapper';
 import { syncGoodsReceiptItems } from './goodsReceiptItemsSync';
 import { getNextGoodsReceiptIndex } from '../goodsReceiptCode';
-import { reprocessMovingAverageCosts } from '../movingAverageCostService';
 
 export const saveGoodsReceiptDraft = async (draftData: Partial<GoodsReceipt>): Promise<GoodsReceipt> => {
     const localList = getStoredReceipts();
@@ -57,7 +56,7 @@ export const saveGoodsReceiptDraft = async (draftData: Partial<GoodsReceipt>): P
     try {
         await supabase.from('goods_receipts').upsert(buildGoodsReceiptDbPayload(draftReceipt, now));
         await syncGoodsReceiptItems(draftReceipt.id, draftReceipt.items);
-    } catch {}
+    } catch  { /* no-op: intencionalmente silencioso */ }
 
     return draftReceipt;
 };
@@ -79,7 +78,7 @@ export const finalizeGoodsReceipt = async (receipt: GoodsReceipt): Promise<void>
 
     // O banco grava cabeçalho, itens e entradas em uma única transação idempotente.
     // Nenhum estado local é publicado antes de o commit ser confirmado.
-    const { data: transaction, error: transactionError } = await supabase.rpc('confirm_goods_receipt_transaction', {
+    const { data: transaction, error: transactionError } = await supabase.rpc('confirm_goods_receipt_checked_transaction', {
         p_receipt: buildGoodsReceiptDbPayload(finalizedReceipt, now),
         p_items: finalizedReceipt.items,
     });
@@ -91,14 +90,6 @@ export const finalizeGoodsReceipt = async (receipt: GoodsReceipt): Promise<void>
         ...item,
         inventoryMoveId: moveByItemIndex.get(index + 1) || item.inventoryMoveId,
     }));
-    // O saldo e o custo exibidos são projeções. Reconstituímos cada SKU depois
-    // do commit, inclusive quando o recebimento tem data retroativa.
-    const affectedSkus = new Map<string, { productId: string; variationId?: string }>();
-    finalizedReceipt.items.forEach((item) => {
-        if (item.productId) affectedSkus.set(`${item.productId}:${item.variationId || ''}`, item);
-    });
-    await Promise.all([...affectedSkus.values()].map((item) => reprocessMovingAverageCosts(item.productId, item.variationId)));
-
     // 2. Atualizar localmente
     if (existingIndex !== -1) {
         localList[existingIndex] = finalizedReceipt;
@@ -131,13 +122,16 @@ export const saveGoodsReceipt = async (data: Partial<GoodsReceipt>): Promise<Goo
 };
 
 export const deleteGoodsReceipt = async (id: string): Promise<void> => {
-    const localList = getStoredReceipts().filter((item) => item.id !== id);
+    const stored = getStoredReceipts();
+    const localReceipt = stored.find((item) => item.id === id);
+    if (localReceipt && localReceipt.status !== 'draft') {
+        throw new Error('Recebimento confirmado não pode ser excluído; use o estorno.');
+    }
+    if (isValidUuid(id)) {
+        const { error } = await supabase.rpc('delete_goods_receipt_draft_transaction', { p_receipt_id: id });
+        if (error) throw error;
+    }
+    const localList = stored.filter((item) => item.id !== id);
     saveStoredReceipts(localList);
     notifyListeners(localList);
-    try {
-        if (isValidUuid(id)) {
-            await supabase.from('goods_receipt_items').delete().eq('receipt_id', id);
-            await supabase.from('goods_receipts').delete().eq('id', id);
-        }
-    } catch {}
 };
