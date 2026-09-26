@@ -15,7 +15,7 @@ const normalizeLabelId = (labelId: string) => {
 /** Uses the label's canonical ID, or the QR payload itself if it has no separate ID. */
 export const getPhysicalInventoryScanId = (rawCode: string): string | undefined => {
   const raw = rawCode.trim();
-  if (!raw || raw.toUpperCase().includes('000XXX')) return undefined;
+  if (!raw) return undefined;
   return extractLabelIdentity(raw).labelId || `qr:${raw}`;
 };
 

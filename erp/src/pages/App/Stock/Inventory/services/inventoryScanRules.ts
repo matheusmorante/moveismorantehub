@@ -14,6 +14,6 @@ export const normalizeLabelId = (labelId: string): string => {
  */
 export const getPhysicalInventoryScanId = (rawCode: string): string | undefined => {
     const raw = rawCode?.trim();
-    if (!raw || raw.toUpperCase().includes('000XXX')) return undefined;
+    if (!raw) return undefined;
     return extractLabelIdentity(raw).labelId || `qr:${raw}`;
 };

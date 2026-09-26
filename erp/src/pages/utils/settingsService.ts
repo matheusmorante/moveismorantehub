@@ -236,6 +236,7 @@ export interface AppSettings {
         end: string;
         timezone: string;
     };
+    defaultLabelLayoutIds?: Record<string, string>;
     importMappings: ImportConfig[];
     scannerConfig: {
         delay: number;
@@ -657,6 +658,7 @@ RESPOSTA NO FORMATO JSON:
         end: '18:00',
         timezone: 'America/Sao_Paulo',
     },
+    defaultLabelLayoutIds: {},
     importMappings: [
         BLING_PRODUCT_DEFAULTS,
         BLING_VARIATION_DEFAULTS,

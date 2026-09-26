@@ -42,12 +42,9 @@ export const useLabelQueue = ({ selectedCategory, config, printingMode }: UseLab
 
                 for (let i = 0; i < updatedItems.length; i++) {
                     const item = updatedItems[i];
-                    const hasValidInstances = Array.isArray(item.instances) &&
-                        item.instances.length === item.quantity &&
-                        item.instances.every(inst => inst && inst !== '000XXX');
-
-                    // Se já tiver UUIDs válidos associados (caso de reimpressão), preserva
-                    if (!hasValidInstances && !item.isBlank && (item.productId || item.variationId)) {
+                    // SEMPRE gera novos UUIDs a cada clique em Imprimir para garantir unicidade,
+                    // mesmo que o usuário clique em imprimir repetidas vezes a mesma fila.
+                    if (!item.isBlank && (item.productId || item.variationId)) {
                         itemsNeedingLabels.push({
                             itemIndex: i,
                             request: {

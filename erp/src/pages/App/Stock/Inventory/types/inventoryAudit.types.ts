@@ -4,6 +4,7 @@ export interface InventorySnapshotItem {
     readonly name: string;
     readonly systemStock: number;
     readonly physicalCount: number | null;
+    scannedLabelIds?: string[];
     readonly assignedSupplier?: string;
     readonly sku?: string;
     readonly code?: string;

@@ -11,6 +11,7 @@ import {
 import { mapModelToDb, mapDbToModel } from '../utils/LabelUtils';
 import { subscribeToPriceLabelTemplateUpdates } from '../services/priceLabelTemplateSync';
 import { CategoryType } from './useLabelCategory';
+import { getSettings, saveSettings, subscribeToSettings } from '../../../../utils/settingsService';
 
 interface UseLabelLayoutsProps {
     selectedCategory: CategoryType | null;
@@ -40,9 +41,16 @@ export const useLabelLayouts = ({
         () => localStorage.getItem('lastSelectedRectModelId') || 'labels-image-compact'
     );
 
-    const [defaultLayoutIds, setDefaultLayoutIds] = useState<Record<string, string>>(() => {
-        try { return JSON.parse(localStorage.getItem('default_label_layout_ids') || '{}'); } catch { return {}; }
-    });
+    const [defaultLayoutIds, setDefaultLayoutIds] = useState<Record<string, string>>(getSettings().defaultLabelLayoutIds || {});
+
+    useEffect(() => {
+        const unsubscribe = subscribeToSettings((settings) => {
+            if (settings.defaultLabelLayoutIds) {
+                setDefaultLayoutIds(settings.defaultLabelLayoutIds);
+            }
+        });
+        return unsubscribe;
+    }, []);
 
     const [config, setConfig] = useState<LabelConfig>({
         type: 'rect',
