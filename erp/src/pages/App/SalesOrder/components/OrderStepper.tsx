@@ -59,7 +59,7 @@ const OrderStepper = ({ currentStep, jumpToStep, errors = {}, isBudget = false }
     );
 
     return (
-        <div className="relative flex w-auto max-w-full min-w-0 items-center py-0.5 md:w-full">
+        <div className="relative flex w-auto max-w-full min-w-0 items-center justify-center py-0.5 md:w-full">
             <button
                 type="button"
                 onClick={() => setIsStepPickerOpen(true)}

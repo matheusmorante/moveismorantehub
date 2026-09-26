@@ -234,7 +234,7 @@ const NewSaleOrder = ({
             )}
             <div className={`sticky top-0 z-50 transition-all duration-300 border-b flex flex-row justify-between items-center gap-1.5 px-2 py-2 sm:gap-3 sm:px-4 sm:py-2.5 lg:px-6 shrink-0 ${isScrolled ? 'bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl shadow-md border-slate-200 dark:border-slate-800' : isBudget ? 'bg-indigo-50/40 border-indigo-100/60 dark:bg-indigo-950/20 dark:border-indigo-900/30' : isReturn ? 'bg-amber-50/40 border-amber-100/60 dark:bg-amber-950/20 dark:border-amber-900/30' : isPickup ? 'bg-purple-50/40 border-purple-100/60 dark:bg-purple-950/20 dark:border-purple-900/30' : 'bg-emerald-50/40 border-emerald-100/60 dark:bg-emerald-950/20 dark:border-emerald-900/30'}`}>
                 {/* Esquerda: Identificação */}
-                <div className="flex min-w-0 flex-1 items-center">
+                <div className="flex min-w-0 items-center shrink-0">
                     <div className="flex min-w-0 items-center gap-1.5 sm:gap-3">
                         <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg shadow-md transition-all sm:h-10 sm:w-10 sm:rounded-xl ${isBudget ? 'bg-indigo-600 shadow-indigo-500/20' : isReturn ? 'bg-amber-600 shadow-amber-500/20' : isPickup ? 'bg-purple-600 shadow-purple-500/20' : 'bg-emerald-600 shadow-emerald-500/20'}`}>
                             <i className={`bi ${isBudget ? 'bi-calculator-fill' : isReturn ? 'bi-arrow-return-left' : isPickup ? 'bi-shop' : 'bi-truck'} text-white text-xs sm:text-base`} />
@@ -258,15 +258,12 @@ const NewSaleOrder = ({
                                     </span>
                                 )}
                             </div>
-                            <p className="hidden text-[9px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 sm:block">
-                                {isBudget ? 'Simulação de Venda' : isReturn ? 'Informe cliente e itens devolvidos; este pedido não terá vínculo com uma venda.' : isPickup ? 'Retirada na Loja' : 'Entrega em Domicílio'}
-                            </p>
                         </div>
                     </div>
                 </div>
 
                 {/* Centro: Stepper */}
-                <div className="flex w-auto min-w-0 flex-none justify-center md:flex-1 md:px-1 2xl:max-w-5xl">
+                <div className="flex flex-1 min-w-0 justify-center px-1 sm:px-3 2xl:max-w-4xl mx-auto">
                     <OrderStepper 
                         currentStep={form.state.currentStep} 
                         jumpToStep={form.actions.jumpToStep} 

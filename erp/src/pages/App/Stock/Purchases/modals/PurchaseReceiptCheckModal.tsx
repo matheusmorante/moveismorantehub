@@ -7,7 +7,7 @@ import { toast } from 'react-toastify';
 import { formatToBRDate } from '../../../../utils/formatters';
 import { getProductsByIds } from '../../../../utils/productService';
 import Product, { Variation } from '../../../../types/product.type';
-import { extractScannedCodes } from '@/pages/utils/barcodeScannerUtils';
+import { extractScannedCodes, extractLabelIdentity } from '@/pages/utils/barcodeScannerUtils';
 
 export interface PurchaseReceiptCheckModalProps {
     readonly purchase: Purchase | null;
@@ -67,9 +67,25 @@ export const PurchaseReceiptCheckModal: React.FC<PurchaseReceiptCheckModalProps>
         }
     }, [purchase, isOpen]);
 
+    const scannedLabelsRef = React.useRef<Set<string>>(new Set());
+
+    useEffect(() => {
+        if (!isOpen) {
+            scannedLabelsRef.current.clear();
+        }
+    }, [isOpen]);
+
     const handleScan = useCallback(
         (code: string) => {
             if (!purchase) return;
+
+            // Extrai a identidade física (UUID) se existir para evitar dupla contagem
+            const { labelId } = extractLabelIdentity(code);
+            if (labelId && scannedLabelsRef.current.has(labelId)) {
+                toast.warning('Unidade física já recebida e contabilizada.');
+                return;
+            }
+
             const candidates = extractScannedCodes(code).map(c => c.trim().toLowerCase());
             if (candidates.length === 0) return;
 
@@ -84,6 +100,7 @@ export const PurchaseReceiptCheckModal: React.FC<PurchaseReceiptCheckModalProps>
             if (product) {
                 const purchaseItem = purchase.items.find((i) => i.productId === product.id && !i.variationId);
                 if (purchaseItem) {
+                    if (labelId) scannedLabelsRef.current.add(labelId);
                     const key = purchaseItem.productId;
                     setScannedItems((prev) => ({ ...prev, [key]: (prev[key] || 0) + 1 }));
                     toast.success(`+1 ${purchaseItem.description}`);
@@ -105,6 +122,7 @@ export const PurchaseReceiptCheckModal: React.FC<PurchaseReceiptCheckModalProps>
                             (i) => i.productId === p.id && i.variationId === variation.id
                         );
                         if (purchaseItem) {
+                            if (labelId) scannedLabelsRef.current.add(labelId);
                             const key = purchaseItem.productId + (purchaseItem.variationId || '');
                             setScannedItems((prev) => ({ ...prev, [key]: (prev[key] || 0) + 1 }));
                             toast.success(`+1 ${purchaseItem.description}`);
