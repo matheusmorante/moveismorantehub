@@ -12,6 +12,7 @@ import {
 } from '../services/inventorySessionInitializer';
 import { useInventoryPersistenceQueue } from './useInventoryPersistenceQueue';
 import { executeInventoryFinalization } from '../services/inventoryFinalizer';
+import { applyInventoryPhysicalScan } from '../services/inventoryScanRules';
 import { getInventorySubmission } from '../../../../services/sqlite/inventoryOutbox';
 
 export type { AuditItem } from '../types/inventoryWorkflow.types';
@@ -151,17 +152,13 @@ export const useInventoryAuditWorkflow = (
             Alert.alert('Envio pendente', 'Esta conclusão já foi salva. Retome o envio sem alterar a contagem.');
             return null;
         }
-        const item = latestItemsRef.current.find(candidate => candidate.id === itemId);
-        if (!item) throw new Error('Produto não encontrado no rascunho local.');
-        if (labelId && latestItemsRef.current.some(candidate => candidate.countedLabelIds?.includes(labelId))) return null;
-        const count = (item.physicalCount ?? 0) + 1;
-        const next = latestItemsRef.current.map(candidate => candidate.id === itemId
-            ? { ...candidate, physicalCount: count, countedAt: new Date().toISOString(), countedLabelIds: labelId ? [...(candidate.countedLabelIds || []), labelId] : candidate.countedLabelIds }
-            : candidate);
-        latestItemsRef.current = next;
-        setItemsState(next);
-        await persistToSQLite(next);
-        return count;
+        const result = applyInventoryPhysicalScan(latestItemsRef.current, itemId, labelId);
+        if (result.kind === 'not_found') throw new Error('Produto não encontrado no rascunho local.');
+        if (result.kind === 'duplicate') return null;
+        latestItemsRef.current = result.items;
+        setItemsState(result.items);
+        await persistToSQLite(result.items);
+        return result.count;
     };
 
     const handleFinalize = async (itemsWithAdjustment: FinalizeAdjustmentItem[]) => {

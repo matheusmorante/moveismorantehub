@@ -46,8 +46,16 @@ const AppContent = () => {
       )}
 
       <MandatoryUpdateModal
-        visible={mandatoryUpdate.required}
-        url={mandatoryUpdate.url}
+        visible={mandatoryUpdate.visible}
+        required={mandatoryUpdate.required}
+        version={mandatoryUpdate.release?.version || ''}
+        buildNumber={mandatoryUpdate.release?.build_number || 0}
+        releaseNotes={mandatoryUpdate.release?.release_notes || null}
+        downloading={mandatoryUpdate.downloading}
+        downloadProgress={mandatoryUpdate.downloadProgress}
+        error={mandatoryUpdate.downloadError}
+        onDownload={() => void mandatoryUpdate.downloadUpdate()}
+        onDismiss={mandatoryUpdate.dismissUpdate}
       />
     </View>
   );

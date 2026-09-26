@@ -29,6 +29,23 @@ export function extractLabelIdentity(rawCode: string): LabelIdentity {
     const trimmed = rawCode.trim();
     if (!trimmed) return {};
 
+    // QR labels may carry a unit identity in JSON even when the product match
+    // is performed through its SKU/barcode.
+    if (trimmed.startsWith('{') && trimmed.endsWith('}')) {
+        try {
+            const parsed = JSON.parse(trimmed);
+            if (typeof parsed === 'object' && parsed !== null) {
+                const identityKeys = ['labelId', 'label_id', 'inventoryLabelId', 'inventory_label_id', 'scanId', 'scan_id', 'serial', 'serialNumber', 'serial_number'];
+                const codeKeys = ['sku', 'code', 'barcode', 'productId', 'product_id', 'variationId', 'variation_id'];
+                const identity = identityKeys.map(key => parsed[key]).find(value => value != null && String(value).trim() && String(value).trim() !== '000XXX');
+                const code = codeKeys.map(key => parsed[key]).find(value => value != null && String(value).trim() && String(value).trim() !== '000XXX');
+                if (identity !== undefined) return { labelId: String(identity).trim(), code: code ? String(code).trim() : undefined };
+            }
+        } catch {
+            // Continue with the legacy string formats below.
+        }
+    }
+
     // 1. Formato explícito MH:L:<uuid> ou MH:L:<uuid>|<sku>
     if (trimmed.startsWith('MH:L:')) {
         const withoutPrefix = trimmed.substring(5).trim();
@@ -36,7 +53,7 @@ export function extractLabelIdentity(rawCode: string): LabelIdentity {
             const parts = withoutPrefix.split('|').map(p => p.trim()).filter(Boolean);
             const uuidPart = parts.find(p => UUID_REGEX.test(p));
             const codePart = parts.find(p => !UUID_REGEX.test(p) && p !== '000XXX');
-            return { labelId: uuidPart, code: codePart };
+            return { labelId: uuidPart || (parts[0] !== '000XXX' ? parts[0] : undefined), code: uuidPart ? codePart : parts.slice(1).find(p => p !== '000XXX') };
         }
         if (UUID_REGEX.test(withoutPrefix)) {
             return { labelId: withoutPrefix };
@@ -56,6 +73,10 @@ export function extractLabelIdentity(rawCode: string): LabelIdentity {
         if (cleanUuid) {
             return { labelId: cleanUuid, code: codePart };
         }
+        // Older physical labels use SKU|SERIAL (for example SKU|000042).
+        // The serial is the unit identity; the SKU remains the match code.
+        const serial = parts.slice(1).find(part => part !== '000XXX');
+        if (serial) return { labelId: serial, code: parts[0] !== '000XXX' ? parts[0] : undefined };
         return { code: codePart || (parts[0] !== '000XXX' ? parts[0] : parts[1]) };
     }
 

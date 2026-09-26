@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, FlatList, KeyboardAvoidingView, Platform, Modal, Alert } from 'react-native';
 import { useInventoryOperation } from '../hooks/useInventoryOperation';
-import { matchScannedProductItem, extractLabelIdentity } from '../../../../utils/barcodeScannerUtils';
+import { matchScannedProductItem } from '../../../../utils/barcodeScannerUtils';
+import { getPhysicalInventoryScanId } from '../services/inventoryScanRules';
 import { ensureOfflineInventoryCatalogSynced, findOfflineInventoryMatch, type OfflineInventoryMatch } from '../services/offlineInventoryCatalog';
 import { InventoryScannerScreen, type InventoryScanFeedback } from './InventoryScannerScreen';
 import { InventoryStagesView } from '../components/InventoryStagesView';
@@ -63,16 +64,21 @@ export const InventoryOperationScreen: React.FC<Props> = ({
   const isShowingStages = scopeType === 'full' && !activeStage;
 
   const handleScan = async (data: string): Promise<InventoryScanFeedback> => {
-    try { await ensureOfflineInventoryCatalogSynced(); }
-    catch (error) { console.warn('[Inventory] Índice offline indisponível; usando os itens da sessão:', error); }
     const findDirect = (source: AuditItem[]) => source.find(i => matchScannedProductItem(i, data));
     let item = findDirect(scannerItems);
     let otherSupplierItem = !item && activeStage ? findDirect(items) : undefined;
 
     let catalogItem: OfflineInventoryMatch | null = null;
     if (!item && !otherSupplierItem) {
-      try { catalogItem = await findOfflineInventoryMatch(data); }
-      catch (error) { console.warn('[Inventory] Falha ao consultar índice offline:', error); }
+      try {
+        catalogItem = await findOfflineInventoryMatch(data);
+        if (!catalogItem) {
+          await ensureOfflineInventoryCatalogSynced();
+          catalogItem = await findOfflineInventoryMatch(data);
+        }
+      } catch (error) {
+        console.warn('[Inventory] Índice offline indisponível; usando os itens da sessão:', error);
+      }
     }
     if (catalogItem) {
       const matchesCatalog = (candidate: AuditItem) => String(candidate.variationId || '') === catalogItem.variationId
@@ -86,9 +92,8 @@ export const InventoryOperationScreen: React.FC<Props> = ({
       return { kind: 'error', title: 'Produto não pertence a este inventário' };
     }
 
-    const { labelId } = extractLabelIdentity(data);
     try {
-      const physicalLabelId = labelId && ![item.productId, item.variationId].includes(labelId) ? labelId : undefined;
+      const physicalLabelId = getPhysicalInventoryScanId(data);
       const nextCount = await onIncrementScannedItem(item.id, physicalLabelId);
       if (nextCount === null) return { kind: 'error', title: 'Unidade física já contabilizada', message: item.name };
       return { kind: 'success', title: item.name, sku: item.sku || item.code || item.barcode || '—',

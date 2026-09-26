@@ -412,6 +412,9 @@ verify_jwt = false
 [functions.refresh-delivery-summaries]
 verify_jwt = false
 
+[functions.get-android-apk-download]
+verify_jwt = false
+
 [functions.sync-ncms]
 # The handler validates administrator sessions and the dedicated cron secret.
 verify_jwt = false

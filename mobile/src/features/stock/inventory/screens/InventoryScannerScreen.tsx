@@ -141,7 +141,7 @@ export const InventoryScannerScreen: React.FC<Props> = ({
     <View style={styles.container}>
       <CameraView
         ref={cameraRef}
-        onBarcodeScanned={scanned ? undefined : handleBarCodeScanned}
+        onBarcodeScanned={continuous ? handleBarCodeScanned : scanned ? undefined : handleBarCodeScanned}
         barcodeScannerSettings={{
           barcodeTypes: ['qr'],
         }}
@@ -288,7 +288,7 @@ const styles = StyleSheet.create({
   feedbackTitle: { color: '#fff', fontSize: 11, fontWeight: '800' },
   feedbackText: { color: '#fff', fontSize: 13, marginTop: 3 },
   sessionText: { color: '#fff', fontSize: 12, marginTop: 12, fontWeight: '700' },
-  finishButton: { backgroundColor: '#2563eb', borderRadius: 12, paddingVertical: 13, paddingHorizontal: 24, marginTop: 12, width: '100%', alignItems: 'center' },
+  finishButton: { backgroundColor: '#2563eb', borderRadius: 12, paddingVertical: 13, paddingHorizontal: 24, marginTop: 12, width: '100%', alignItems: 'center', transform: [{ translateY: -10 }] },
   finishButtonText: { color: '#fff', fontSize: 13, fontWeight: '800' },
   captureButton: {
     marginTop: 16,

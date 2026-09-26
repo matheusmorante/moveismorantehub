@@ -1,8 +1,45 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { supabase } from '../utils/supabaseConfig';
+
+type CurrentAndroidRelease = { version: string; build_number: number };
+const FALLBACK_RELEASE: CurrentAndroidRelease = { version: '1.6.1', build_number: 24 };
 
 export default function MobileAppLanding() {
   const navigate = useNavigate();
+  const [release, setRelease] = useState(FALLBACK_RELEASE);
+  const [downloading, setDownloading] = useState(false);
+  const [downloadError, setDownloadError] = useState('');
+
+  useEffect(() => {
+    let active = true;
+    void supabase
+      .from('app_release_current')
+      .select('version,build_number')
+      .eq('platform', 'android')
+      .maybeSingle()
+      .then(({ data }) => {
+        if (active && data) setRelease({ version: data.version, build_number: data.build_number });
+      });
+    return () => { active = false; };
+  }, []);
+
+  const downloadAndroidApp = async () => {
+    if (downloading) return;
+    setDownloading(true);
+    setDownloadError('');
+    try {
+      const { data, error } = await supabase.functions.invoke('get-android-apk-download', { body: {} });
+      if (error || typeof data?.signedUrl !== 'string') {
+        throw new Error('Não foi possível iniciar o download agora. Tente novamente.');
+      }
+      window.location.assign(data.signedUrl);
+    } catch (error) {
+      setDownloadError(error instanceof Error ? error.message : 'Não foi possível iniciar o download agora.');
+    } finally {
+      setDownloading(false);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-slate-950 text-white flex flex-col items-center justify-center p-6 relative overflow-hidden">
@@ -49,15 +86,16 @@ export default function MobileAppLanding() {
 
           <div className="flex flex-col sm:flex-row items-center gap-6 justify-center lg:justify-start animate-slide-up">
              <div className="flex flex-col gap-3">
-                 <a 
-                     href="https://drive.google.com/file/d/1UfEAzpIbgAYA6hG-fx7w7Ja73uXEVE74/view?usp=sharing"
-                    target="_blank"
-                   rel="noopener noreferrer"
-                   className="px-8 py-4 bg-white text-slate-950 rounded-[1.5rem] font-black uppercase tracking-widest text-xs flex items-center justify-center gap-3 hover:scale-105 transition-all shadow-xl active:scale-95 cursor-pointer"
+                <button
+                   type="button"
+                   onClick={() => void downloadAndroidApp()}
+                   disabled={downloading}
+                   className="px-8 py-4 bg-white text-slate-950 rounded-[1.5rem] font-black uppercase tracking-widest text-xs flex items-center justify-center gap-3 hover:scale-105 transition-all shadow-xl active:scale-95 cursor-pointer disabled:opacity-60"
                 >
                    <i className="bi bi-download text-xl"></i>
-                   Baixar APK Oficial (Android)
-                </a>
+                   {downloading ? 'Preparando download…' : 'Baixar APK Oficial (Android)'}
+                </button>
+                {downloadError ? <span role="alert" className="max-w-xs text-sm text-red-300">{downloadError}</span> : null}
 
                <button 
                  onClick={() => alert("O App iOS está pronto em código-fonte no diretório /mobile.\nPara rodar no iPhone, abra o projeto no Xcode ou use o Expo Go.")}
@@ -76,7 +114,7 @@ export default function MobileAppLanding() {
                <div className="flex flex-col text-left pr-2">
                  <span className="text-xs font-black uppercase tracking-wider text-blue-400">Instalação Rápida</span>
                  <span className="text-sm font-bold text-white leading-tight">Escaneie o QR Code</span>
-                  <span className="text-[10px] text-slate-400 mt-1">Aponte a câmera do seu celular para baixar a v1.6.1 (Build 19)</span>
+                  <span className="text-[10px] text-slate-400 mt-1">Aponte a câmera do seu celular para baixar a v{release.version} (Build {release.build_number})</span>
                </div>
              </div>
           </div>
