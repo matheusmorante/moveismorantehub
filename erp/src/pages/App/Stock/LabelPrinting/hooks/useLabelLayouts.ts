@@ -445,8 +445,18 @@ export const useLabelLayouts = ({
         const key = `${category}_${model.type || 'rect'}`;
         const newDefaults = { ...defaultLayoutIds, [key]: modelId };
         setDefaultLayoutIds(newDefaults);
-        localStorage.setItem('default_label_layout_ids', JSON.stringify(newDefaults));
-        toast.info(`Modelo definido como padrão para ${model.type === 'round' ? 'etiquetas redondas' : 'etiquetas retangulares'}.`);
+        
+        // Persist to Supabase app settings
+        const currentSettings = getSettings();
+        saveSettings({
+            ...currentSettings,
+            defaultLabelLayoutIds: newDefaults
+        }).then(() => {
+            toast.info(`Modelo definido como padrão para ${model.type === 'round' ? 'etiquetas redondas' : 'etiquetas retangulares'} (Salvo na nuvem).`);
+        }).catch((err) => {
+            console.error('Erro ao salvar modelo padrão', err);
+            toast.error('Erro ao salvar modelo padrão na nuvem.');
+        });
     };
 
     const handleDeleteLayout = async (modelId: string) => {
